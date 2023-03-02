@@ -13,8 +13,8 @@ use crate::{
         signatures::keys::UserAuthKey,
         EncryptedDsGroupState,
     },
-    messages::{client_backend::ClientToClientMsg, intra_backend::DsFanOutMessage},
-    qs::{storage_provider_trait::QsStorageProvider, ClientQueueConfig, Qs, WebsocketNotifier},
+    messages::{client_ds::ClientToClientMsg, intra_backend::DsFanOutMessage},
+    qs::{ClientQueueConfig, QsEnqueueProvider},
 };
 
 use super::errors::{MessageDistributionError, UpdateQueueConfigError};
@@ -151,24 +151,25 @@ impl DsGroupState {
     }
 
     /// Distribute the given MLS message (currently only works with ciphertexts).
-    pub(super) async fn distribute_message<W: WebsocketNotifier, Qsp: QsStorageProvider>(
+    pub(super) async fn distribute_message<Q: QsEnqueueProvider>(
         &self,
-        qs_handle: &Qsp,
-        websocket_notifier: &W,
+        qs_enqueue_provider: &Q,
         message: &ClientToClientMsg,
+        sender_index: LeafNodeIndex,
     ) -> Result<(), MessageDistributionError> {
         for (leaf_index, client_profile) in self.client_profiles.iter() {
-            if leaf_index == &message.sender() {
+            if leaf_index == &sender_index {
                 continue;
             }
             let client_queue_config = client_profile.client_queue_config.clone();
 
             let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.clone(),
+                payload: message.assisted_message.clone(),
                 queue_config: client_queue_config,
             };
 
-            Qs::enqueue_message(qs_handle, websocket_notifier, ds_fan_out_msg)
+            qs_enqueue_provider
+                .enqueue(ds_fan_out_msg)
                 .await
                 .map_err(|_| MessageDistributionError::DeliveryError)?;
         }

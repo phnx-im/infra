@@ -3,7 +3,7 @@ use crate::{
         ear::{DecryptionError, EarEncryptable},
         mac::{keys::QueueDeletionAuthKey, MacVerificationError, TagVerifiable},
     },
-    messages::client_backend::{
+    messages::client_qs::{
         EnqueuedMessage, QsDeleteQueueRequest, QsFetchMessageParamsTBS, QsFetchMessagesParams,
         QsUpdateQueueInfoParams, QsUpdateQueueInfoParamsTBS,
     },
@@ -11,6 +11,24 @@ use crate::{
 };
 
 use super::{storage_provider_trait::QsStorageProvider, Qs};
+
+/*
+Endpoints:
+ - ENDPOINT_QS_QC_ENCRYPTION_KEY
+ - ENDPOINT_QS_CREATE_USER_RECORD
+ - ENDPOINT_QS_UPDATE_USER_RECORD
+ - ENDPOINT_QS_USER_RECORD
+ - ENDPOINT_QS_DELETE_USER_RECORD
+ - ENDPOINT_QS_CREATE_CLIENT_RECORD
+ - ENDPOINT_QS_UPDATE_CLIENT_RECORD
+ - ENDPOINT_QS_CLIENT_RECORD
+ - ENDPOINT_QS_DELETE_CLIENT_RECORD
+ - ENDPOINT_QS_PUBLISH_KEY_PACKAGES
+ - ENDPOINT_QS_CLIENT_KEY_PACKAGE
+ - ENDPOINT_QS_KEY_PACKAGE_BATCH
+ - ENDPOINT_QS_DEQUEUE_MESSAGES
+ - ENDPOINT_QS_WS
+*/
 
 impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the
@@ -33,7 +51,9 @@ impl Qs {
             .ok_or(QsUpdateQueueError::QueueNotFound)?;
 
         // Authenticate the owner of the queue.
-        queue_info.verify_against_owner_key(&signature);
+        queue_info
+            .verify_against_owner_key(&signature)
+            .map_err(|_| QsUpdateQueueError::WrongQueueType)?;
 
         // Apply the update depending on the queue type, or throw an error if
         // the update and the queue type don't match.
@@ -72,7 +92,9 @@ impl Qs {
             .ok_or(QsFetchError::QueueNotFound)?;
 
         // Authenticate the owner of the queue.
-        queue_info.verify_against_owner_key(&signature);
+        queue_info
+            .verify_against_owner_key(&signature)
+            .map_err(|_| QsFetchError::InvalidSignature)?;
 
         // TODO: The backend should have its own value for max_messages and use
         // that one if the client-given one exceeds it.
@@ -107,7 +129,7 @@ impl Qs {
         // Authenticate the message.
         let delete_auth_key = QueueDeletionAuthKey::decrypt(
             &request.payload.auth_token_key,
-            queue_info.basic_queue_info().encrypted_delete_auth_key(),
+            queue_info.encrypted_delete_auth_key(),
         )
         .map_err(|e| match e {
             DecryptionError::DecryptionError => QsDeleteQueueError::AuthKeyDecryptionFailure,
