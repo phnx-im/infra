@@ -147,17 +147,21 @@ use std::convert::TryInto;
 
 use chrono::Duration;
 use mls_assist::{
-    group::{Group, ProcessedAssistedMessage},
+    group::{self, Group, ProcessedAssistedMessage},
     messages::AssistedMessage,
     ProcessedMessageContent, Sender,
 };
 use tls_codec::Deserialize;
 
 use crate::{
-    crypto::ear::EarEncryptable,
-    messages::{
-        client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg, CreateGroupParams},
-        client_qs::VerifiableClientToDsMessage,
+    crypto::{
+        ear::EarEncryptable,
+        signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
+    },
+    messages::client_ds::{
+        AddUsersParams, AddUsersParamsAad, ClientToClientMsg, ClientToDsMessage,
+        ClientToDsMessageTbs, CreateGroupParams, DsSender, RequestParams,
+        VerifiableClientToDsMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -218,125 +222,90 @@ impl DsApi {
             .map_err(|_| GroupCreationError::StorageError)
     }
 
-    pub async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
+    pub(crate) async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
         ds_storage_provider: &Dsp,
         qs_enqueue_provider: &Q,
         message: VerifiableClientToDsMessage,
     ) -> Result<(), DsProcessingError> {
-        //
-        todo!()
-    }
-
-    pub async fn add_user<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
-        ds_storage_provider: &Dsp,
-        qs_enqueue_provider: &Q,
-        params: AddUsersParams,
-    ) -> Result<(), UserAdditionError> {
-        // Deserialize assisted message.
-        let assisted_message: AssistedMessage = (&params.commit)
-            .try_into()
-            .map_err(|_| UserAdditionError::InvalidMessage)?;
+        let group_id = message.group_id().clone();
+        let ear_key = message.ear_key().clone();
         // Load encrypted group state.
-        let encrypted_group_state = if let LoadState::Success(group_state) = ds_storage_provider
-            .load_group_state(assisted_message.group_id())
-            .await
+        let encrypted_group_state = if let LoadState::Success(group_state) =
+            ds_storage_provider.load_group_state(&group_id).await
         {
             group_state
         } else {
-            return Err(UserAdditionError::GroupNotFound);
+            return Err(DsProcessingError::GroupNotFound);
         };
 
         // Decrypt encrypted group state.
-        let mut group_state = DsGroupState::decrypt(&params.ear_key, &encrypted_group_state)
-            .map_err(|_| UserAdditionError::CouldNotDecrypt)?;
+        let mut group_state = DsGroupState::decrypt(&ear_key, &encrypted_group_state)
+            .map_err(|_| DsProcessingError::CouldNotDecrypt)?;
 
-        // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message = if matches!(assisted_message, AssistedMessage::Commit(_)) {
-            group_state
-                .group()
-                .process_assisted_message(assisted_message)
-                .map_err(|_| UserAdditionError::ProcessingError)?
-        } else {
-            return Err(UserAdditionError::InvalidMessage);
+        // Verify the message.
+        let verified_message: RequestParams = match message.sender().clone() {
+            DsSender::LeafIndex(leaf_index) => {
+                let verifying_key: LeafSignatureKeyRef = group_state
+                    .group()
+                    .leaf(leaf_index)
+                    .ok_or(DsProcessingError::UnknownSender)?
+                    .signature_key()
+                    .into();
+                message
+                    .verify(&verifying_key)
+                    .map_err(|_| DsProcessingError::InvalidSignature)?
+            }
+            DsSender::LeafSignatureKey(verifying_key) => message
+                .verify(&verifying_key)
+                .map_err(|_| DsProcessingError::InvalidSignature)?,
+            DsSender::UserKeyHash(user_key_hash) => {
+                let verifying_key = group_state
+                    .get_user_key(&user_key_hash)
+                    .ok_or(DsProcessingError::UnknownSender)?;
+                message
+                    .verify(verifying_key)
+                    .map_err(|_| DsProcessingError::InvalidSignature)?
+            }
         };
 
-        // Perform DS-level validation
-        // TODO: Verify that the added clients belong to one user. This requires
-        // us to define the credentials we're using. To do that, we'd need to
-        // modify OpenMLS.
-
-        // Validate that the AAD includes enough encrypted credential chains
-        if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
-            processed_assisted_message
-        {
-            let aad =
-                AddUsersParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
-                    .map_err(|_| UserAdditionError::InvalidMessage)?;
-            if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
-                processed_message.content()
-            {
-                if staged_commit.add_proposals().count()
-                    != aad.encrypted_credential_information.len()
-                {
-                    return Err(UserAdditionError::InvalidMessage);
-                }
-            } else {
-                return Err(UserAdditionError::InvalidMessage);
-            };
-        } else {
-            // This should be a commit.
-            return Err(UserAdditionError::InvalidMessage);
-        }
-
-        // TODO: Validate that the adder has sufficient privileges (if this
-        //       isn't done by an MLS extension).
-
-        // TODO: Validate the Welcome messages
-
-        // TODO: Validate timestamp on key package batch.
-
-        // TODO: Update user profiles and client profiles.
-
-        // Everything seems to be okay.
-        // Now we have to update the group state and distribute. That should
-        // probably be somewhat atomic. Maybe we should even persist the message
-        // alongside the encrypted group state in case something goes wrong.
-        // Build a message that we can distribute.
-        let sender_index =
-            if let Sender::Member(leaf_index) = processed_assisted_message.sender().clone() {
-                leaf_index
-            } else {
-                return Err(UserAdditionError::InvalidSenderType);
-            };
-
-        // For now we distribute the message first.
-        let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit,
+        // For now, we just process directly.
+        // TODO: We might want to realize this via a trait.
+        // c2c_message should probably be an option since not every endpoint causes a message distribution.
+        let c2c_message_option = match verified_message {
+            RequestParams::AddUser(add_user_params) => {
+                let result = group_state.add_user(add_user_params)?;
+                Some(result)
+            }
         };
 
-        group_state
-            .distribute_message(qs_enqueue_provider, &c2c_message, sender_index)
-            .await
-            .map_err(|_| UserAdditionError::DistributionError)?;
-
-        // Now we accept the message into the group state ...
-        group_state.group_mut().accept_processed_message(
-            processed_assisted_message,
-            Duration::days(USER_EXPIRATION_DAYS),
-        );
-
-        // ... before we encrypt ...
+        // ... before we distribute the message, we encrypt ...
         let encrypted_group_state = group_state
-            .encrypt(&params.ear_key)
-            .map_err(|_| UserAdditionError::CouldNotEncrypt)?;
+            .encrypt(&ear_key)
+            .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
 
-        // ... and store it.
+        // ... and store the modified group state.
         ds_storage_provider
             .save_group_state(
                 group_state.group().group_info().group_context().group_id(),
                 encrypted_group_state,
             )
             .await
-            .map_err(|_| UserAdditionError::StorageError)
+            .map_err(|_| DsProcessingError::StorageError)?;
+
+        if let Some(c2c_message) = c2c_message_option {
+            // TODO: Waiting for OpenMLS' tls codec issue to get fixed.
+            let sender_index = if let Sender::Member(leaf_index) = todo!() {
+                leaf_index
+            } else {
+                return Err(DsProcessingError::InvalidSenderType);
+            };
+
+            group_state
+                .distribute_message(qs_enqueue_provider, &c2c_message, sender_index)
+                .await
+                .map_err(|_| DsProcessingError::DistributionError)?;
+        }
+
+        Ok(())
     }
 }

@@ -22,7 +22,7 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 /// Key to encrypt/decrypt the roster of the DS group state. Roster keys can be
 /// derived either from an initial client KDF key or from a derived roster KDF
 /// key.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
 }
