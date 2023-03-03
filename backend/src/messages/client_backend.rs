@@ -7,7 +7,7 @@ use mls_assist::{
     messages::SerializedAssistedMessage, GroupId, LeafNode, LeafNodeIndex, SignaturePublicKey,
     VerifiableGroupInfo,
 };
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -20,13 +20,14 @@ use crate::{
         },
         signatures::keys::{LeafSignatureKeyRef, QueueOwnerVerificationKey, UserAuthKey},
         signatures::{
-            signable::{Signature, Verifiable},
+            keys::LeafSignatureKey,
+            signable::{Signable, Signature, Verifiable, VerifiedStruct},
             traits::SignatureVerificationError,
         },
         RatchetPublicKey,
     },
     ds::{
-        group_state::{DsGroupState, EncryptedCredentialChain, RosterDelta},
+        group_state::{DsGroupState, EncryptedCredentialChain, RosterDelta, UserKeyHash},
         WelcomeAttributionInfo,
     },
     qs::{
@@ -38,10 +39,7 @@ use crate::{
 
 use thiserror::Error;
 
-use super::{
-    auth_tokens::DsSenderId, intra_backend::DsFanOutMessage, AddPackage, FriendshipToken, QsCid,
-    QsUid,
-};
+use super::{intra_backend::DsFanOutMessage, AddPackage, FriendshipToken, QsCid, QsUid};
 
 mod private_mod {
     #[derive(Default)]
@@ -180,10 +178,69 @@ pub enum RequestParams {
     AddUser(AddUsersParams),
 }
 
+#[derive(Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
+pub enum DsSender {
+    LeafIndex(LeafNodeIndex),
+    LeafSignatureKey(LeafSignatureKey),
+    UserKeyHash(UserKeyHash),
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+pub(crate) struct ClientToDsMessageTbs {
+    version: MlsInfraVersion,
+    group_state_ear_key: GroupStateEarKey,
+    sender: DsSender,
+    // This essentially includes the wire format.
+    body: RequestParams,
+}
+
 #[derive(TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct ClientToDsMessage {
-    version: MlsInfraVersion,
-    body: RequestParams,
+    payload: ClientToDsMessageTbs,
+    // Signature over all of the above.
+    signature: Signature,
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+// TODO: This needs custom TLS Codec functions.
+pub struct VerifiableClientToDsMessage {
+    message: ClientToDsMessage,
+    serialized_payload: Vec<u8>,
+}
+
+impl Verifiable for VerifiableClientToDsMessage {
+    fn unsigned_payload(&self) -> Result<&[u8], tls_codec::Error> {
+        Ok(&self.serialized_payload)
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.message.signature
+    }
+
+    fn label(&self) -> &str {
+        "ClientToDsMessage"
+    }
+}
+
+impl VerifiedStruct<VerifiableClientToDsMessage> for ClientToDsMessage {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {
+        verifiable.message
+    }
+}
+
+impl Signable for ClientToDsMessageTbs {
+    type SignedOutput = ClientToDsMessage;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "ClientToDsMessage"
+    }
 }
 
 /// Error struct for deserialization of an [`UnverifiedGroupOperationParams`]

@@ -68,7 +68,9 @@ struct Roster {
     entries: HashMap<LeafNodeIndex, RosterEntry>,
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(
+    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserialize, TlsSize,
+)]
 pub struct UserKeyHash {
     hash: Vec<u8>,
 }

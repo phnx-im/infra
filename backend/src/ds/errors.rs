@@ -218,3 +218,35 @@ pub enum UserAdditionError {
     #[error("Error storing encrypted group state.")]
     StorageError,
 }
+
+/// Potential errors when processing a message.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum DsProcessingError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Failed to distribute message to other members
+    #[error("Failed to distribute message to other members")]
+    DistributionError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Group not found.
+    #[error("Group not found.")]
+    GroupNotFound,
+    /// Could not decrypt group state.
+    #[error("Could not decrypt group state.")]
+    CouldNotDecrypt,
+    /// Could not encrypt group state.
+    #[error("Could not decrypt group state.")]
+    CouldNotEncrypt,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Invalid sender type.
+    #[error("Invalid sender type")]
+    InvalidSenderType,
+    /// Error storing encrypted group state.
+    #[error("Error storing encrypted group state.")]
+    StorageError,
+}

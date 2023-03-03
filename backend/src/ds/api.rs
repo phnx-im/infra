@@ -157,12 +157,13 @@ use crate::{
     crypto::ear::EarEncryptable,
     messages::client_backend::{
         AddUsersParams, AddUsersParamsAad, ClientToClientMsg, CreateGroupParams,
+        VerifiableClientToDsMessage,
     },
     qs::{storage_provider_trait::QsStorageProvider, WebsocketNotifier},
 };
 
 use super::{
-    errors::{GroupCreationError, UserAdditionError},
+    errors::{DsProcessingError, GroupCreationError, UserAdditionError},
     group_state::DsGroupState,
     DsStorageProvider, LoadState,
 };
@@ -215,6 +216,16 @@ impl DsApi {
             )
             .await
             .map_err(|_| GroupCreationError::StorageError)
+    }
+
+    pub async fn process<W: WebsocketNotifier, Dsp: DsStorageProvider, Qsp: QsStorageProvider>(
+        ds_storage_provider: &Dsp,
+        qs_storage_provider: &Qsp,
+        ws_notifier: &W,
+        message: VerifiableClientToDsMessage,
+    ) -> Result<(), DsProcessingError> {
+        //
+        todo!()
     }
 
     pub async fn add_user<W: WebsocketNotifier, Dsp: DsStorageProvider, Qsp: QsStorageProvider>(

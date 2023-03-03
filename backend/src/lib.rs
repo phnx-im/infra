@@ -19,7 +19,7 @@ use thiserror::Error;
 pub struct LibraryError;
 
 impl LibraryError {
-    pub fn missing_bound_check(_error: serde_json::Error) -> Self {
+    pub fn missing_bound_check(_error: tls_codec::Error) -> Self {
         LibraryError {}
     }
 

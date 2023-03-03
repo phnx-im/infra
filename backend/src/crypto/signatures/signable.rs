@@ -30,8 +30,7 @@
 //! Similarly, only the [`Verifiable`] struct should implement the
 //! [`tls_codec::Deserialize`] trait.
 
-use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::LibraryError;
@@ -62,7 +61,7 @@ pub trait SignedStruct<T> {
 }
 
 /// Labeled signature content.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct SignContent {
     label: Vec<u8>,
     content: Vec<u8>,
@@ -118,7 +117,7 @@ pub trait Signable: Sized {
     type SignedOutput;
 
     /// Return the unsigned, serialized payload that should be signed.
-    fn unsigned_payload(&self) -> Result<Vec<u8>, serde_json::Error>;
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
 
     /// Return the string label used for labeled signing.
     fn label(&self) -> &str;
@@ -137,8 +136,11 @@ pub trait Signable: Sized {
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
         let sign_content: SignContent = (self.label(), payload.as_slice()).into();
-        let signature = signature_private_key
-            .sign(&serde_json::to_vec(&sign_content).map_err(LibraryError::missing_bound_check)?)?;
+        let signature = signature_private_key.sign(
+            &sign_content
+                .tls_serialize_detached()
+                .map_err(LibraryError::missing_bound_check)?,
+        )?;
         Ok(Self::SignedOutput::from_payload(self, signature))
     }
 }
@@ -154,7 +156,7 @@ pub trait Signable: Sized {
 /// `unsigned_payload` function.
 pub trait Verifiable: Sized {
     /// Return the unsigned, serialized payload that should be verified.
-    fn unsigned_payload(&self) -> Result<&[u8], serde_json::Error>;
+    fn unsigned_payload(&self) -> Result<&[u8], tls_codec::Error>;
 
     /// A reference to the signature to be verified.
     fn signature(&self) -> &Signature;
@@ -179,8 +181,9 @@ pub trait Verifiable: Sized {
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
         let sign_content: SignContent = (self.label(), payload).into();
-        let serialized_sign_content =
-            serde_json::to_vec(&sign_content).map_err(LibraryError::missing_bound_check)?;
+        let serialized_sign_content = sign_content
+            .tls_serialize_detached()
+            .map_err(LibraryError::missing_bound_check)?;
         signature_public_key.verify(&serialized_sign_content, self.signature())?;
         Ok(T::from_verifiable(self, T::SealingType::default()))
     }
