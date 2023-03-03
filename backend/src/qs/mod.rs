@@ -7,10 +7,6 @@
 //! discovery of a major flaw in the current design, the general design of the
 //! QS should remain the same.
 //!
-//! TODO: Do we want a flag that allows one layer of indirection, i.e. queue
-//! aliases? This would allow users to hide metadata from the DS to a certain
-//! degree and would help in the federated setting.
-//!
 //! # Overview
 //!
 //! The QS maintains the queues of clients of the homeserver and provides the
@@ -28,7 +24,7 @@
 //!
 //! # Encryption-at-rest
 //!
-//! To protect the metadata visible in MLSPlaintext messages, the QS encrypts
+//! To protect the metadata visible in MLS PublicMessages, the QS encrypts
 //! messages in queues to the owning client. This is done using a simple
 //! construction, where the owning client provides an HPKE public key to which
 //! the QS can encrypt the symmetric key it uses to encrypt messages. This key
@@ -37,14 +33,10 @@
 //! and enqueued. Additionally, with each encryption, the key is ratcheted
 //! forward using the same HKDF (but without fresh key material).
 //!
-//! TODO: Verify that this is what we meant to do here.
-//!
 //! # Queue creation
 //!
-//! TODO: I can't remember how we said we wanted to do queue creation. I think
-//! we meant clients to be able to create only one queue, the deletion of which
-//! would indicate the deletion of the client. Deletion was meant to be possible
-//! via a specific key.
+//! Clients can create queues that are not associated with them and are
+//! therefore pseudonymous.
 //!
 //! # Message enqueuing
 //!
@@ -64,26 +56,29 @@
 //! receiving such a request, the QS deletes any messages with sequence numbers
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
-//!
-//!
-//!
 use std::fmt::Display;
 
-use crate::crypto::{
-    ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
-    DecryptionPrivateKey, EncryptionPublicKey,
+use crate::{
+    crypto::{
+        ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
+        DecryptionPrivateKey, EncryptionPublicKey,
+    },
+    messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
+use mls_assist::{KeyPackage, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
+
+use self::errors::QsEnqueueProviderError;
 
 pub mod as_api;
 pub mod client_api;
 pub mod ds_api;
 pub mod errors;
-pub mod queue_types;
+pub mod fanout_queue;
 pub mod storage_provider_trait;
 
 #[derive(Serialize, Deserialize)]
@@ -126,6 +121,12 @@ pub trait WebsocketNotifier {
     async fn notify(&self, queue_id: &QueueId) -> Result<(), WebsocketNotifierError>;
 }
 
+#[async_trait]
+pub trait QsEnqueueProvider {
+    async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), QsEnqueueProviderError>;
+}
+
+#[derive(Debug)]
 pub struct QueueIdDecryptionPrivateKey {
     private_key: DecryptionPrivateKey,
 }
@@ -164,6 +165,7 @@ impl QueueIdEncryptionPublicKey {
     Eq,
     Hash,
 )]
+
 pub struct QueueId {
     pub id: Vec<u8>,
 }
@@ -178,6 +180,14 @@ impl Display for QueueId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.id)
     }
+}
+
+struct ClientId {
+    client_id: Vec<u8>,
+}
+
+struct QsUid {
+    user_id: Vec<u8>,
 }
 
 /// Info describing the queue configuration for a member of a given group.
@@ -199,7 +209,9 @@ impl QueueConfig {
 }
 
 #[derive(Debug)]
-pub struct Qs {}
+pub struct Qs {
+    queue_id_private_key: QueueIdDecryptionPrivateKey,
+}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct Fqdn {}
@@ -215,3 +227,17 @@ pub struct SealedQueueConfig {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatch {}
+
+pub struct QsUserRecord {
+    auth_key: SignaturePublicKey,
+    friendship_token: Vec<u8>,
+    client_records: Vec<QsClientRecord>,
+}
+
+pub struct QsClientRecord {
+    activity_time: u64,
+    key_packages: Vec<KeyPackage>,
+    signature_key: SignaturePublicKey,
+    encrypted_push_token: Option<Vec<u8>>,
+    fan_out_queue_id: Vec<u8>,
+}

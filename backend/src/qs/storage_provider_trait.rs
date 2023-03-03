@@ -2,9 +2,9 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 
-use crate::messages::client_backend::EnqueuedMessage;
+use crate::messages::client_qs::EnqueuedMessage;
 
-use super::{queue_types::FanOutQueueInfo, QueueId};
+use super::{fanout_queue::FanOutQueueInfo, QueueId};
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -41,8 +41,11 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Append the given message to the queue. Returns an error if the payload
     /// is greater than the maximum payload allowed by the storage provider.
-    async fn enqueue(&self, queue_id: &QueueId, message: Vec<u8>)
-        -> Result<(), Self::EnqueueError>;
+    async fn enqueue(
+        &self,
+        queue_id: &QueueId,
+        message: EnqueuedMessage,
+    ) -> Result<(), Self::EnqueueError>;
 
     /// Delete all messages older than the given sequence number in the queue
     /// with the given id and return up to the requested number of messages from

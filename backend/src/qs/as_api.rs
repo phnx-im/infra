@@ -1,4 +1,4 @@
-use crate::messages::client_backend::{QsCreateQueueParams, QsCreateQueueParamsTBM};
+use crate::messages::client_qs::{QsCreateQueueParams, QsCreateQueueParamsTBM};
 
 use super::{errors::QsCreateQueueError, storage_provider_trait::QsStorageProvider, Qs};
 

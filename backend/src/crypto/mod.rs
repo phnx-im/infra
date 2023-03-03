@@ -16,7 +16,7 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 use utoipa::ToSchema;
 
-use crate::{qs::SealedQueueConfig, LibraryError};
+use crate::{messages::client_qs::EnqueuedMessage, qs::SealedQueueConfig, LibraryError};
 
 use self::ear::Ciphertext;
 
@@ -70,33 +70,46 @@ pub(crate) type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct RatchetKey {
+    sequence_number: u64,
     key: Vec<u8>,
 }
 
 impl RatchetKey {
     /// Initialize a new ratchet key.
     pub fn new(initial_key: Vec<u8>) -> Self {
-        Self { key: initial_key }
+        Self {
+            sequence_number: 0,
+            key: initial_key,
+        }
     }
 
     /// Encrypt the given payload.
-    pub fn encrypt(&self, payload: &[u8]) -> Vec<u8> {
-        todo!()
+    pub fn encrypt(&self, payload: &[u8]) -> EnqueuedMessage {
+        EnqueuedMessage {
+            sequence_number: self.sequence_number,
+            ciphertext: Vec::new(),
+        }
     }
 
     /// Decrypt the given payload.
-    pub fn decrypt(&self, payload: &[u8]) -> Vec<u8> {
+    pub fn decrypt(&self, enqueued_message: EnqueuedMessage) -> Vec<u8> {
         todo!()
     }
 
     /// Ratchet the current key forward and returns the old ratcheting key.
     #[instrument(level = "trace", skip_all)]
     pub fn ratchet_forward(&mut self) -> RatchetKey {
+        self.sequence_number += 1;
         todo!()
     }
 
     /// Sample some fresh entropy and inject it into the current key. Returns the entropy.
     pub fn update(&mut self) -> RatchetKeyUpdate {
+        todo!()
+    }
+
+    /// Get the current sequence number
+    pub fn sequence_number(&self) -> u64 {
         todo!()
     }
 }
@@ -138,6 +151,7 @@ pub enum DecryptionError {
     DecryptionError,
 }
 
+#[derive(Debug)]
 pub struct DecryptionPrivateKey {
     private_key: HpkePrivateKey,
 }

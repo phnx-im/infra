@@ -12,157 +12,21 @@ use utoipa::ToSchema;
 
 use crate::{
     crypto::{
-        ear::keys::{DeleteAuthKeyEarKey, GroupStateEarKey},
-        kdf::keys::{RosterKdfInjection, RosterKdfKey},
-        mac::{
-            keys::{EnqueueAuthKeyCtxt, QueueDeletionAuthKey},
-            MacTag, TagVerifiable, TagVerified, TaggedStruct,
-        },
-        signatures::keys::{LeafSignatureKeyRef, QueueOwnerVerificationKey, UserAuthKey},
-        signatures::{
-            signable::{Signature, Verifiable},
-            traits::SignatureVerificationError,
-        },
+        ear::keys::GroupStateEarKey,
+        kdf::keys::RosterKdfKey,
+        mac::{MacTag, TaggedStruct},
+        signatures::keys::UserAuthKey,
         RatchetPublicKey,
     },
-    ds::{
-        group_state::{DsGroupState, EncryptedCredentialChain, RosterDelta},
-        WelcomeAttributionInfo,
-    },
-    qs::{
-        queue_types::FanOutQueueInfo, ClientQueueConfig, EncryptedPushToken, KeyPackageBatch,
-        QueueId,
-    },
-    LibraryError,
+    ds::{group_state::EncryptedCredentialChain, WelcomeAttributionInfo},
+    qs::{ClientQueueConfig, KeyPackageBatch},
 };
 
-use thiserror::Error;
-
-use super::{
-    auth_tokens::DsSenderId, intra_backend::DsFanOutMessage, AddPackage, FriendshipToken, QsCid,
-    QsUid,
-};
-
-mod private_mod {
-    #[derive(Default)]
-    pub struct Seal;
-}
+use super::{AddPackage, FriendshipToken, QsCid, QsUid};
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct ClientToClientMsg {
-    // Putting the sender here for now, even though it's technically also
-    // contained in the serialized message.
-    pub sender_index: LeafNodeIndex,
     pub assisted_message: SerializedAssistedMessage,
-    pub roster_key_injection_option: Option<RosterKdfInjection>,
-}
-
-impl ClientToClientMsg {
-    pub(crate) fn sender(&self) -> LeafNodeIndex {
-        self.sender_index
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsFetchMessagesParams {
-    pub payload: QsFetchMessageParamsTBS,
-    pub signature: Signature, // A signature over the whole request using the queue owner's private key.
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsFetchMessageParamsTBS {
-    pub queue_id: QueueId,          // The target queue id.
-    pub sequence_number_start: u64, // The sequence number of the first message we want to fetch.
-    pub max_messages: u64, // The maximum number of messages we'd like to retrieve from the QS.
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct QsFetchMessagesResponse {
-    pub messages: Vec<EnqueuedMessage>,
-    pub remaining_messages: u64,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsDeleteQueueRequest {
-    pub payload: QsDeleteQueueParams,
-    pub request_hash: Vec<u8>,
-    pub mac: MacTag, // A tag over the request hash using the queue's delete auth key.
-}
-
-impl TagVerifiable for QsDeleteQueueRequest {
-    type VerifiedOutput = QsDeleteQueueParams;
-
-    type Key = QueueDeletionAuthKey;
-
-    fn payload(&self) -> &[u8] {
-        &self.request_hash
-    }
-
-    fn tag(&self) -> &crate::crypto::mac::MacTag {
-        &self.mac
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsDeleteQueueParams {
-    pub queue_id: QueueId,
-    pub auth_token_key: DeleteAuthKeyEarKey, // EAR key to decrypt the deletion auth key
-}
-
-impl TagVerified<QsDeleteQueueRequest> for QsDeleteQueueParams {
-    type SealingType = private_mod::Seal;
-
-    fn from_payload(_seal: Self::SealingType, payload: QsDeleteQueueRequest) -> Self {
-        Self {
-            queue_id: payload.payload.queue_id,
-            auth_token_key: payload.payload.auth_token_key,
-        }
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsUpdateQueueInfoParams {
-    pub payload: QsUpdateQueueInfoParamsTBS,
-    pub signature: Signature,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsUpdateQueueInfoParamsTBS {
-    pub queue_id: QueueId,
-    pub info_update: QsFanOutQueueUpdate,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsCreateQueueParams {
-    pub payload: QsCreateQueueParamsTBM,
-    pub signature: Signature,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsCreateQueueParamsTBM {
-    pub queue_id: QueueId,
-    pub queue_info: FanOutQueueInfo,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsQueueUpdate {
-    pub owner_public_key_option: Option<RatchetPublicKey>,
-    pub owner_signature_key_option: Option<QueueOwnerVerificationKey>,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsFanOutQueueUpdate {
-    pub qs_basic_queue_update: QsQueueUpdate,
-    pub encrypted_push_token_option: Option<Option<EncryptedPushToken>>,
-    pub encrypted_auth_key_option: Option<EnqueueAuthKeyCtxt>,
-}
-
-pub type QsInputMessage = DsFanOutMessage;
-
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct EnqueuedMessage {
-    pub sequence_number: u64,
-    pub ciphertext: Vec<u8>,
 }
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create

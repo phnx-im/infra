@@ -155,10 +155,10 @@ use tls_codec::Deserialize;
 
 use crate::{
     crypto::ear::EarEncryptable,
-    messages::client_backend::{
+    messages::client_ds::{
         AddUsersParams, AddUsersParamsAad, ClientToClientMsg, CreateGroupParams,
     },
-    qs::{storage_provider_trait::QsStorageProvider, WebsocketNotifier},
+    qs::QsEnqueueProvider,
 };
 
 use super::{
@@ -217,10 +217,9 @@ impl DsApi {
             .map_err(|_| GroupCreationError::StorageError)
     }
 
-    pub async fn add_user<W: WebsocketNotifier, Dsp: DsStorageProvider, Qsp: QsStorageProvider>(
+    pub async fn add_user<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
         ds_storage_provider: &Dsp,
-        qs_storage_provider: &Qsp,
-        ws_notifier: &W,
+        qs_enqueue_provider: &Q,
         params: AddUsersParams,
     ) -> Result<(), UserAdditionError> {
         // Deserialize assisted message.
@@ -302,15 +301,11 @@ impl DsApi {
 
         // For now we distribute the message first.
         let c2c_message = ClientToClientMsg {
-            sender_index,
             assisted_message: params.commit,
-            // TODO: Re-check spec to see if we need to add the roster key
-            // injection to the params.
-            roster_key_injection_option: None,
         };
 
         group_state
-            .distribute_message(qs_storage_provider, ws_notifier, &c2c_message)
+            .distribute_message(qs_enqueue_provider, &c2c_message, sender_index)
             .await
             .map_err(|_| UserAdditionError::DistributionError)?;
 
