@@ -190,12 +190,29 @@ pub enum UserAdditionError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when processing a message.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum DsProcessingError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
     /// Failed to distribute message to other members
     #[error("Failed to distribute message to other members")]
     DistributionError,
     /// Invalid assisted message.
     #[error("Invalid assisted message.")]
     InvalidMessage,
+    /// Invalid signature.
+    #[error("Invalid signature.")]
+    InvalidSignature,
     /// Group not found.
     #[error("Group not found.")]
     GroupNotFound,
@@ -208,10 +225,16 @@ pub enum UserAdditionError {
     /// Error processing message.
     #[error("Error processing message.")]
     ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
     /// Invalid sender type.
     #[error("Invalid sender type")]
     InvalidSenderType,
     /// Error storing encrypted group state.
     #[error("Error storing encrypted group state.")]
     StorageError,
+    /// Error adding user.
+    #[error(transparent)]
+    AddUserError(#[from] UserAdditionError),
 }

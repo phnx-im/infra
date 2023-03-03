@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-pub mod auth_tokens;
 pub mod client_ds;
 pub mod client_qs;
 pub(crate) mod intra_backend;

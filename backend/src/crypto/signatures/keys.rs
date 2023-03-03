@@ -7,7 +7,7 @@ use crate::ds::group_state::UserKeyHash;
 
 use super::traits::{SigningKey, VerifyingKey};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct LeafSignatureKey {
     signature_key: SignaturePublicKey,
 }

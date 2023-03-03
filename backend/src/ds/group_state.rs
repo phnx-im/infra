@@ -1,9 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryInto};
 
-use chrono::{DateTime, Utc};
-use mls_assist::{group::Group, GroupEpoch, GroupId, LeafNodeIndex};
+use chrono::{DateTime, Duration, Utc};
+use mls_assist::{
+    group::{Group, ProcessedAssistedMessage},
+    messages::AssistedMessage,
+    GroupEpoch, GroupId, LeafNodeIndex, ProcessedMessageContent,
+};
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Deserialize as TlsDeserializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 
 use crate::{
@@ -13,11 +17,17 @@ use crate::{
         signatures::keys::UserAuthKey,
         EncryptedDsGroupState,
     },
-    messages::{client_ds::ClientToClientMsg, intra_backend::DsFanOutMessage},
+    messages::{
+        client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+        intra_backend::DsFanOutMessage,
+    },
     qs::{ClientQueueConfig, QsEnqueueProvider},
 };
 
-use super::errors::{MessageDistributionError, UpdateQueueConfigError};
+use super::{
+    api::USER_EXPIRATION_DAYS,
+    errors::{MessageDistributionError, UpdateQueueConfigError, UserAdditionError},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeStamp {
@@ -68,7 +78,9 @@ struct Roster {
     entries: HashMap<LeafNodeIndex, RosterEntry>,
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(
+    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserialize, TlsSize,
+)]
 pub struct UserKeyHash {
     hash: Vec<u8>,
 }
@@ -199,6 +211,82 @@ impl DsGroupState {
     #[instrument(level = "trace", skip_all)]
     pub(crate) fn apply_roster_deltas(&mut self, _roster_deltas: &[RosterDelta]) {
         todo!()
+    }
+
+    pub(crate) fn add_user(
+        &mut self,
+        params: AddUsersParams,
+    ) -> Result<ClientToClientMsg, UserAdditionError> {
+        // Deserialize assisted message.
+        // TODO: In the future, we shouldn't have to deserialize here.
+        let assisted_message: AssistedMessage = (&params.commit)
+            .try_into()
+            .map_err(|_| UserAdditionError::InvalidMessage)?;
+
+        // Process message (but don't apply it yet). This performs mls-assist-level validations.
+        let processed_assisted_message = if matches!(assisted_message, AssistedMessage::Commit(_)) {
+            self.group()
+                .process_assisted_message(assisted_message)
+                .map_err(|_| UserAdditionError::ProcessingError)?
+        } else {
+            return Err(UserAdditionError::InvalidMessage);
+        };
+
+        // Perform DS-level validation
+        // TODO: Verify that the added clients belong to one user. This requires
+        // us to define the credentials we're using. To do that, we'd need to
+        // modify OpenMLS.
+
+        // Validate that the AAD includes enough encrypted credential chains
+        if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
+            processed_assisted_message
+        {
+            let aad =
+                AddUsersParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
+                    .map_err(|_| UserAdditionError::InvalidMessage)?;
+            if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
+                processed_message.content()
+            {
+                if staged_commit.add_proposals().count()
+                    != aad.encrypted_credential_information.len()
+                {
+                    return Err(UserAdditionError::InvalidMessage);
+                }
+            } else {
+                return Err(UserAdditionError::InvalidMessage);
+            };
+        } else {
+            // This should be a commit.
+            return Err(UserAdditionError::InvalidMessage);
+        }
+
+        // TODO: Validate that the adder has sufficient privileges (if this
+        //       isn't done by an MLS extension).
+
+        // TODO: Validate the Welcome messages
+
+        // TODO: Validate timestamp on key package batch.
+
+        // TODO: Update user profiles and client profiles.
+
+        // Everything seems to be okay.
+        // Now we have to update the group state and distribute. That should
+        // probably be somewhat atomic. Maybe we should even persist the message
+        // alongside the encrypted group state in case something goes wrong.
+        // Build a message that we can distribute.
+
+        // For now we distribute the message first.
+        let c2c_message = ClientToClientMsg {
+            assisted_message: params.commit,
+        };
+
+        // Now we accept the message into the group state ...
+        self.group_mut().accept_processed_message(
+            processed_assisted_message,
+            Duration::days(USER_EXPIRATION_DAYS),
+        );
+
+        Ok(c2c_message)
     }
 }
 
