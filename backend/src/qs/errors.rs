@@ -10,34 +10,12 @@ pub enum EnqueueFanOutError<S: QsStorageProvider> {
     /// Error authenticating the enqueue query
     #[error("Error authenticating the enqueue query")]
     AuthenticationFailure, // E.g. wrong mac
-    /// Error enqueuing the message in the underlying queue
-    #[error("Error enqueuing the message in the underlying queue")]
-    EnqueuingError(EnqueueBasicError<S>),
-    /// Error sending push notification.
-    #[error("Error sending push notification.")]
-    PushNotificationError,
-}
-
-/// Error enqueuing direct message
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum EnqueueDirectError<S: QsStorageProvider> {
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError, // E.g. an error while encoding a message before enqueing it.
-    /// Error enqueuing the message in the underlying queue
-    #[error("Error enqueuing the message in the underlying queue")]
-    EnqueuingError(EnqueueBasicError<S>),
-}
-
-/// Error enqueuing a message in the underlying queue
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum EnqueueBasicError<S: QsStorageProvider> {
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError, // E.g. an error while encoding a message before enqueing it.
     /// Error in the underlying storage provider
     #[error("Error in the underlying storage provider")]
     StorageProviderError(S::EnqueueError),
+    /// Error sending push notification.
+    #[error("Error sending push notification.")]
+    PushNotificationError,
 }
 
 /// Error authenticating a request
@@ -49,6 +27,14 @@ pub enum RequestAuthenticationError {
     /// Error authenticating the request
     #[error("Error authenticating the request")]
     AuthenticationError,
+}
+
+/// Error fetching a message from the QS.
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsEnqueueProviderError {
+    /// An unrecoverable internal error ocurred
+    #[error("An unrecoverable internal error ocurred")]
+    LibraryError,
 }
 
 /// Error fetching a message from the QS.
@@ -66,9 +52,6 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     /// An error ocurred enqueueing in a fan out queue
     #[error("An error ocurred enqueueing in a fan out queue")]
     EnqueueFanOutError(EnqueueFanOutError<S>),
-    /// An error ocurred enqueueing in a direct queue
-    #[error("An error ocurred enqueueing in a direct queue")]
-    EnqueueDirectError(EnqueueDirectError<S>),
 }
 
 /// Error fetching a message from the QS.
@@ -80,6 +63,9 @@ pub enum QsFetchError {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
     QueueNotFound,
+    /// Invalid signature
+    #[error("Invalid signature")]
+    InvalidSignature,
 }
 
 /// Error updating queue info.

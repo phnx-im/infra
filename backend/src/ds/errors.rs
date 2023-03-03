@@ -165,9 +165,6 @@ pub enum ProcessCommitError {
 /// Error distributing messages.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub(super) enum MessageDistributionError {
-    /// LibraryError
-    #[error("LibraryError")]
-    LibraryError,
     /// Error delivering the message to the QS
     #[error("DeliveryError")]
     DeliveryError,
