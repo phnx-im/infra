@@ -188,7 +188,6 @@ impl DsGroupState {
                             )
                             .map_err(|_| UserAdditionError::MissingQueueConfig)?;
                             Ok(ClientProfile {
-                                // TODO: Insert credential chain here.
                                 leaf_index,
                                 credential_chain: EncryptedCredentialChain {},
                                 client_queue_config,
@@ -209,9 +208,6 @@ impl DsGroupState {
                     .insert(client_profile.leaf_index, client_profile);
             }
         }
-        // * Figure out the identities of the added users and add profiles.
-        // * Add client profiles for all added clients.
-        // *
 
         // Finally, we distribute the message.
         let c2c_message = ClientToClientMsg {
