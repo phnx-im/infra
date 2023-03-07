@@ -143,7 +143,7 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, Sender};
+use mls_assist::{group::Group, Node, Sender};
 
 use crate::{
     crypto::{
@@ -216,7 +216,7 @@ impl DsApi {
         ds_storage_provider: &Dsp,
         qs_enqueue_provider: &Q,
         message: VerifiableClientToDsMessage,
-    ) -> Result<(), DsProcessingError> {
+    ) -> Result<Option<DsProcessResponse>, DsProcessingError> {
         let group_id = message.group_id().clone();
         let ear_key = message.ear_key().clone();
         // Load encrypted group state.
@@ -258,16 +258,28 @@ impl DsApi {
             }
         };
 
-        let sender = verified_message.sender().cloned();
+        let sender = verified_message.mls_sender().cloned();
 
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let c2c_message_option = match verified_message {
+        let (c2c_message_option, response_option) = match verified_message {
             RequestParams::AddUsers(add_user_params) => {
                 let result = group_state.add_users(add_user_params)?;
-                Some(result)
+                (Some(result), None)
+            }
+            RequestParams::WelcomeInfo(welcome_info_params) => {
+                let ratchet_tree = group_state
+                    .welcome_info(welcome_info_params)
+                    .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
+                (
+                    None,
+                    Some(DsProcessResponse::RatchetTree(ratchet_tree.to_vec())),
+                )
             }
         };
+
+        // TODO: We could optimize here by only re-encrypting and persisting the
+        // group state if it has actually changed.
 
         // ... before we distribute the message, we encrypt ...
         let encrypted_group_state = group_state
@@ -296,6 +308,10 @@ impl DsApi {
                 .map_err(|_| DsProcessingError::DistributionError)?;
         }
 
-        Ok(())
+        Ok(response_option)
     }
+}
+
+pub enum DsProcessResponse {
+    RatchetTree(Vec<Option<Node>>),
 }

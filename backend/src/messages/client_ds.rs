@@ -5,7 +5,7 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome, SerializedAssistedMessage},
-    GroupId, LeafNode, LeafNodeIndex, Sender, SignaturePublicKey, VerifiableGroupInfo,
+    GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, SignaturePublicKey, VerifiableGroupInfo,
 };
 use tls_codec::{Deserialize, Size, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -68,9 +68,9 @@ pub struct UpdateQueueInfoParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct WelcomeInfoParams {
-    group_id: GroupId,
-    ear_key: GroupStateEarKey,
-    epoch: u64,
+    pub group_id: GroupId,
+    pub sender: LeafSignatureKey,
+    pub epoch: GroupEpoch,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -89,6 +89,7 @@ pub struct ExternalCommitInfoParams {
 pub struct AddUsersParams {
     pub commit: AssistedMessage,
     pub commit_bytes: Vec<u8>,
+    pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
     pub key_package_batches: Vec<VerifiableKeyPackageBatch>,
@@ -99,6 +100,7 @@ impl AddUsersParams {
         let bytes_copy = bytes;
         let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
         let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
         let encrypted_welcome_attribution_infos =
             Vec::<Vec<u8>>::tls_deserialize(&mut remaining_bytes)?;
@@ -106,10 +108,11 @@ impl AddUsersParams {
             Vec::<VerifiableKeyPackageBatch>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit,
+            commit_bytes,
+            sender,
             welcome,
             encrypted_welcome_attribution_infos,
             key_package_batches,
-            commit_bytes,
         })
     }
 }
@@ -348,27 +351,45 @@ pub(crate) enum MlsInfraVersion {
 #[repr(u8)]
 pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
+    WelcomeInfo(WelcomeInfoParams),
 }
 
 impl RequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
+            RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
-    pub(crate) fn sender(&self) -> Option<&Sender> {
+    pub(crate) fn mls_sender(&self) -> Option<&Sender> {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
+            RequestParams::WelcomeInfo(_) => None,
         }
     }
 
-    pub(crate) fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+    /// Returns a sender if the request contains a public message. Otherwise returns `None`.
+    pub(crate) fn ds_sender(&self) -> DsSender {
+        match self {
+            RequestParams::AddUsers(add_user_params) => {
+                DsSender::UserKeyHash(add_user_params.sender.clone())
+            }
+            RequestParams::WelcomeInfo(welcome_info_params) => {
+                DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
+            }
+        }
+    }
+
+    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let mut reader = bytes;
         let params_type = u8::tls_deserialize(&mut reader)?;
         match params_type {
             0 => Ok(Self::AddUsers(AddUsersParams::try_from_bytes(bytes)?)),
+            1 => Ok(Self::WelcomeInfo(WelcomeInfoParams::tls_deserialize(
+                &mut bytes,
+            )?)),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
@@ -388,7 +409,6 @@ pub enum DsSender {
 pub(crate) struct ClientToDsMessageTbs {
     version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
-    sender: DsSender,
     // This essentially includes the wire format.
     body: RequestParams,
 }
@@ -397,14 +417,16 @@ impl ClientToDsMessageTbs {
     pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let version = MlsInfraVersion::tls_deserialize(&mut bytes)?;
         let group_state_ear_key = GroupStateEarKey::tls_deserialize(&mut bytes)?;
-        let sender = DsSender::tls_deserialize(&mut bytes)?;
         let body = RequestParams::try_from_bytes(bytes)?;
         Ok(Self {
             version,
             group_state_ear_key,
-            sender,
             body,
         })
+    }
+
+    fn sender(&self) -> DsSender {
+        self.body.ds_sender()
     }
 }
 
@@ -449,8 +471,8 @@ impl VerifiableClientToDsMessage {
         &self.message.payload.group_state_ear_key
     }
 
-    pub(crate) fn sender(&self) -> &DsSender {
-        &self.message.payload.sender
+    pub(crate) fn sender(&self) -> DsSender {
+        self.message.payload.sender()
     }
 }
 
