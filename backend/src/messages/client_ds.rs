@@ -53,10 +53,9 @@ pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: LeafNode,
     pub encrypted_credential_chain: EncryptedCredentialChain,
-    pub creator_queue_config: QsClientReference,
+    pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthKey,
     pub group_info: VerifiableGroupInfo,
-    pub initial_ear_key: GroupStateEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -352,6 +351,7 @@ pub(crate) enum MlsInfraVersion {
 pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
     WelcomeInfo(WelcomeInfoParams),
+    CreateGroupParams(CreateGroupParams),
 }
 
 impl RequestParams {
@@ -359,6 +359,7 @@ impl RequestParams {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
             RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
+            RequestParams::CreateGroupParams(create_group_params) => &create_group_params.group_id,
         }
     }
 
@@ -367,6 +368,7 @@ impl RequestParams {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
             RequestParams::WelcomeInfo(_) => None,
+            RequestParams::CreateGroupParams(_) => None,
         }
     }
 
@@ -378,6 +380,9 @@ impl RequestParams {
             }
             RequestParams::WelcomeInfo(welcome_info_params) => {
                 DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
+            }
+            RequestParams::CreateGroupParams(create_group_params) => {
+                DsSender::UserKeyHash(create_group_params.creator_user_auth_key.hash())
             }
         }
     }
@@ -473,6 +478,18 @@ impl VerifiableClientToDsMessage {
 
     pub(crate) fn sender(&self) -> DsSender {
         self.message.payload.sender()
+    }
+
+    /// If the message contains a group creation request, return a reference to
+    /// the group creation parameters. Otherwise return None.
+    ///
+    /// Group creation messages are essentially self-authenticated, so it's okay
+    /// to extract the content before verification.
+    pub(crate) fn create_group_params(&self) -> Option<&CreateGroupParams> {
+        match &self.message.payload.body {
+            RequestParams::AddUsers(_) | RequestParams::WelcomeInfo(_) => None,
+            RequestParams::CreateGroupParams(group_creation_params) => Some(group_creation_params),
+        }
     }
 }
 

@@ -1,13 +1,14 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use mls_assist::GroupId;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signature, *};
+
+use self::group_state::TimeStamp;
 
 mod add_user;
 pub mod api;
@@ -20,7 +21,7 @@ pub enum LoadState {
     Success(EncryptedDsGroupState),
     // Reserved indicates that the group id was reserved at the given time
     // stamp.
-    Reserved(DateTime<Utc>),
+    Reserved(TimeStamp),
     NotFound,
     Expired,
 }

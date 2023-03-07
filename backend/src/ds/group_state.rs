@@ -84,7 +84,7 @@ pub(super) struct UserProfile {
     pub(super) user_auth_key: Option<UserAuthKey>,
 }
 
-#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct EncryptedCredentialChain {}
 
 #[derive(Serialize, Deserialize)]
