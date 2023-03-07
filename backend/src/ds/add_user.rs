@@ -161,10 +161,7 @@ impl DsGroupState {
         //       isn't done by an MLS extension).
 
         // Everything seems to be okay.
-        // Now we have to update the group state and distribute. That should
-        // probably be somewhat atomic. Maybe we should even persist the message
-        // alongside the encrypted group state in case something goes wrong.
-        // Build a message that we can distribute.
+        // Now we have to update the group state and distribute.
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
