@@ -12,6 +12,12 @@ pub struct LeafSignatureKey {
     signature_key: SignaturePublicKey,
 }
 
+impl LeafSignatureKey {
+    pub fn signature_key(&self) -> &SignaturePublicKey {
+        &self.signature_key
+    }
+}
+
 impl VerifyingKey for LeafSignatureKey {}
 
 impl AsRef<[u8]> for LeafSignatureKey {

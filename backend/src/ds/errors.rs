@@ -252,4 +252,7 @@ pub enum DsProcessingError {
     /// Error adding user.
     #[error(transparent)]
     AddUserError(#[from] UserAdditionError),
+    /// Could not find welcome info for this sender and/or this epoch.
+    #[error("Could not find welcome info for this sender and/or this epoch.")]
+    NoWelcomeInfoFound,
 }

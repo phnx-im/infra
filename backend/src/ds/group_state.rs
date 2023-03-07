@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use mls_assist::{group::Group, GroupEpoch, LeafNodeIndex};
+use mls_assist::{group::Group, GroupEpoch, LeafNodeIndex, Node};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
@@ -14,7 +14,10 @@ use crate::{
         signatures::keys::{QsVerifyingKey, UserAuthKey},
         EncryptedDsGroupState,
     },
-    messages::{client_ds::ClientToClientMsg, intra_backend::DsFanOutMessage},
+    messages::{
+        client_ds::{ClientToClientMsg, WelcomeInfoParams},
+        intra_backend::DsFanOutMessage,
+    },
     qs::{Fqdn, QsClientReference, QsEnqueueProvider},
 };
 
@@ -196,6 +199,16 @@ impl DsGroupState {
     /// TODO: Get the verifying key from the QS. Either look it up directly or from a local cache.
     pub(super) fn get_qs_verifying_key(&self, _fqdn: &Fqdn) -> Result<QsVerifyingKey, &str> {
         todo!()
+    }
+
+    pub(super) fn welcome_info(
+        &mut self,
+        welcome_info_params: WelcomeInfoParams,
+    ) -> Option<&[Option<Node>]> {
+        self.group_mut().past_group_state(
+            &welcome_info_params.epoch,
+            welcome_info_params.sender.signature_key(),
+        )
     }
 }
 
