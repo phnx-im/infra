@@ -15,12 +15,12 @@ use crate::{
         EncryptedDsGroupState,
     },
     messages::{client_ds::ClientToClientMsg, intra_backend::DsFanOutMessage},
-    qs::{ClientQueueConfig, Fqdn, QsEnqueueProvider},
+    qs::{Fqdn, QsClientReference, QsEnqueueProvider},
 };
 
 use super::errors::{MessageDistributionError, UpdateQueueConfigError};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimeStamp {
     time: DateTime<Utc>,
 }
@@ -88,7 +88,7 @@ pub struct EncryptedCredentialChain {}
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
     pub(super) credential_chain: EncryptedCredentialChain,
-    pub(super) client_queue_config: ClientQueueConfig,
+    pub(super) client_queue_config: QsClientReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
 }
@@ -114,7 +114,7 @@ impl DsGroupState {
         group: Group,
         creator_user_auth_key: UserAuthKey,
         creator_encrypted_credential_chain: EncryptedCredentialChain,
-        creator_queue_config: ClientQueueConfig,
+        creator_queue_config: QsClientReference,
     ) -> Self {
         let creator_key_hash = creator_user_auth_key.hash();
         let creator_profile = UserProfile {
@@ -163,7 +163,7 @@ impl DsGroupState {
 
             let ds_fan_out_msg = DsFanOutMessage {
                 payload: message.clone(),
-                queue_config: client_queue_config,
+                client_reference: client_queue_config,
             };
 
             qs_enqueue_provider
@@ -177,7 +177,7 @@ impl DsGroupState {
     pub(crate) fn update_queue_config(
         &mut self,
         leaf_index: LeafNodeIndex,
-        client_queue_config: &ClientQueueConfig,
+        client_queue_config: &QsClientReference,
     ) -> Result<(), UpdateQueueConfigError> {
         let client_profile = self
             .client_profiles

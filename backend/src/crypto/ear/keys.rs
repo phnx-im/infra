@@ -51,26 +51,6 @@ impl KdfDerivable<RosterKdfKey, GroupId, AEAD_KEY_SIZE> for GroupStateEarKey {
 
 pub type DeleteAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
-/// EAR key for the [`QueueDeletionAuthKey`].
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct DeleteAuthKeyEarKey {
-    key: DeleteAuthKeyEarKeySecret,
-}
-
-impl EarKey for DeleteAuthKeyEarKey {}
-
-impl AsRef<Secret<AEAD_KEY_SIZE>> for DeleteAuthKeyEarKey {
-    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
-        &self.key
-    }
-}
-
-impl From<Secret<AEAD_KEY_SIZE>> for DeleteAuthKeyEarKey {
-    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
-        Self { key: secret }
-    }
-}
-
 pub type PushTokenEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 /// EAR key for the [`PushToken`] structs.
@@ -94,32 +74,3 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
 }
 
 pub type EnqueueAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
-
-/// EAR key for [`EnqueueAuthenticationKey`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct EnqueueAuthKeyEarKey {
-    key: EnqueueAuthKeyEarKeySecret,
-}
-
-impl AsRef<Secret<AEAD_KEY_SIZE>> for EnqueueAuthKeyEarKey {
-    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
-        &self.key
-    }
-}
-
-impl EarKey for EnqueueAuthKeyEarKey {}
-
-impl From<Secret<AEAD_KEY_SIZE>> for EnqueueAuthKeyEarKey {
-    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
-        Self { key: secret }
-    }
-}
-
-impl EnqueueAuthKeyEarKey {
-    /// Create a placeholder value for the QueueEarKey. Should not be used in
-    /// non-test environments.
-    /// TODO: Restrict this to cfg(test)
-    pub fn dummy_value() -> Self {
-        Secret::<AEAD_KEY_SIZE>::random().unwrap().into()
-    }
-}

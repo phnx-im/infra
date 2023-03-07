@@ -10,7 +10,7 @@ use tls_codec::Deserialize as TlsDeserializeTrait;
 use crate::{
     crypto::signatures::{keys::QsVerifyingKey, signable::Verifiable},
     messages::client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
-    qs::{ClientQueueConfig, Fqdn, KeyPackageBatchTbs, KEYPACKAGEBATCH_EXPIRATION_DAYS},
+    qs::{Fqdn, KeyPackageBatchTbs, QsClientReference, KEYPACKAGEBATCH_EXPIRATION_DAYS},
 };
 
 use super::{
@@ -182,7 +182,7 @@ impl DsGroupState {
                         .find(|m| m.credential.identity() == kp.leaf_node().credential().identity())
                         .map(|m| {
                             let leaf_index = m.index;
-                            let client_queue_config = ClientQueueConfig::tls_deserialize(
+                            let client_queue_config = QsClientReference::tls_deserialize(
                                 &mut kp
                                     .extensions()
                                     .queue_config()

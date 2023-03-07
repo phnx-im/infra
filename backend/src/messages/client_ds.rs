@@ -25,10 +25,10 @@ use crate::{
         group_state::{EncryptedCredentialChain, UserKeyHash},
         WelcomeAttributionInfo,
     },
-    qs::{ClientQueueConfig, VerifiableKeyPackageBatch},
+    qs::{QsClientReference, UserId, VerifiableKeyPackageBatch},
 };
 
-use super::{AddPackage, FriendshipToken, QsCid, QsUid};
+use super::{AddPackage, FriendshipToken};
 
 mod private_mod {
     #[derive(Default)]
@@ -40,6 +40,11 @@ pub struct ClientToClientMsg {
     pub assisted_message: Vec<u8>,
 }
 
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub(crate) struct DsClientId {
+    id: Vec<u8>,
+}
+
 // === DS ===
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -47,7 +52,7 @@ pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: LeafNode,
     pub encrypted_credential_chain: EncryptedCredentialChain,
-    pub creator_queue_config: ClientQueueConfig,
+    pub creator_queue_config: QsClientReference,
     pub creator_user_auth_key: UserAuthKey,
     pub group_info: VerifiableGroupInfo,
     pub initial_ear_key: GroupStateEarKey,
@@ -57,7 +62,7 @@ pub struct CreateGroupParams {
 pub struct UpdateQueueInfoParams {
     group_id: GroupId,
     ear_key: GroupStateEarKey,
-    new_queue_config: ClientQueueConfig,
+    new_queue_config: QsClientReference,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -215,19 +220,19 @@ pub struct CreateUserRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateUserRecordParams {
-    qs_uid: QsUid,
+    user_id: UserId,
     user_record_auth_key: SignaturePublicKey,
     friendship_token: FriendshipToken,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UserRecordParams {
-    qs_uid: QsUid,
+    user_id: UserId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteUserRecordParams {
-    qs_uid: QsUid,
+    user_id: UserId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -238,7 +243,7 @@ pub struct CreateClientRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientRecordParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
     client_record_auth_key: SignaturePublicKey,
     queue_encryption_key: RatchetPublicKey,
     blocklist_entries: Vec<GroupId>,
@@ -246,40 +251,40 @@ pub struct UpdateClientRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ClientRecordParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteClientRecordParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct PublishKeyPackagesParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
     add_packages: Vec<AddPackage>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ClientKeyPackageParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct KeyPackageBatchParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DequeueMessagesParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
     sequence_number_start: u64,
     max_message_number: u64,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct WsParams {
-    qs_cid: QsCid,
+    client_id: DsClientId,
 }
 
 // === Legacy ===
@@ -308,7 +313,7 @@ pub struct UpdateQueueConfigParams {
     roster_kdf_key: RosterKdfKey,
     group_id: GroupId,
     sender: LeafNodeIndex,
-    new_queue_config: ClientQueueConfig,
+    new_queue_config: QsClientReference,
 }
 
 impl UpdateQueueConfigParams {
@@ -320,7 +325,7 @@ impl UpdateQueueConfigParams {
         &self.group_id
     }
 
-    pub fn new_queue_config(&self) -> &ClientQueueConfig {
+    pub fn new_queue_config(&self) -> &QsClientReference {
         &self.new_queue_config
     }
 

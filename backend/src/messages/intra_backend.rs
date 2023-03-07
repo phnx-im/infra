@@ -3,12 +3,12 @@
 
 use tls_codec::{TlsDeserialize, TlsSize};
 
-use crate::qs::ClientQueueConfig;
+use crate::qs::QsClientReference;
 
 use super::client_ds::ClientToClientMsg;
 
 #[derive(TlsDeserialize, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: ClientToClientMsg,
-    pub queue_config: ClientQueueConfig,
+    pub client_reference: QsClientReference,
 }
