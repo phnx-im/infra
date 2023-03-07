@@ -10,12 +10,6 @@ pub(crate) mod intra_backend;
 #[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct FriendshipToken {}
 
-#[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct QsUid {}
-
-#[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct QsCid {}
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct AddPackage {
     key_package: KeyPackage,

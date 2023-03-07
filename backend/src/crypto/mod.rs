@@ -16,7 +16,7 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 use utoipa::ToSchema;
 
-use crate::{messages::client_qs::EnqueuedMessage, qs::SealedQueueConfig, LibraryError};
+use crate::{messages::client_qs::EnqueuedMessage, qs::SealedClientReference, LibraryError};
 
 use self::ear::Ciphertext;
 
@@ -39,7 +39,7 @@ pub enum RandomnessError {
 pub struct EncryptedDsGroupState {
     pub ciphertext: Ciphertext,
     pub last_used: DateTime<Utc>,
-    pub deleted_queues: Vec<SealedQueueConfig>,
+    pub deleted_queues: Vec<SealedClientReference>,
 }
 
 impl From<Ciphertext> for EncryptedDsGroupState {

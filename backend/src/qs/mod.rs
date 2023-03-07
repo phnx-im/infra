@@ -56,18 +56,17 @@
 //! receiving such a request, the QS deletes any messages with sequence numbers
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
-use std::fmt::Display;
 
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
+        signatures::signable::Signature,
         DecryptionPrivateKey, EncryptionPublicKey,
     },
     messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
-use mls_assist::{KeyPackage, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -76,10 +75,11 @@ use self::errors::QsEnqueueProviderError;
 
 pub mod as_api;
 pub mod client_api;
+pub mod client_record;
 pub mod ds_api;
 pub mod errors;
-pub mod fanout_queue;
 pub mod storage_provider_trait;
+pub mod user_record;
 
 #[derive(Serialize, Deserialize)]
 struct PushToken {
@@ -118,7 +118,7 @@ pub enum WebsocketNotifierError {
 /// TODO: This should be unified with push notifications later
 #[async_trait]
 pub trait WebsocketNotifier {
-    async fn notify(&self, queue_id: &QueueId) -> Result<(), WebsocketNotifierError>;
+    async fn notify(&self, client_id: &ClientId) -> Result<(), WebsocketNotifierError>;
 }
 
 #[async_trait]
@@ -134,8 +134,8 @@ pub struct QueueIdDecryptionPrivateKey {
 impl QueueIdDecryptionPrivateKey {
     pub(super) fn unseal_queue_config(
         &self,
-        sealed_queue_config: &SealedQueueConfig,
-    ) -> QueueConfig {
+        sealed_client_reference: &SealedClientReference,
+    ) -> ClientConfig {
         todo!()
     }
 }
@@ -146,63 +146,35 @@ pub struct QueueIdEncryptionPublicKey {
 
 impl QueueIdEncryptionPublicKey {
     // TODO: We might want this to be symmetric crypto instead.
-    pub(super) fn seal_queue_config(&self, queue_config: QueueConfig) {
+    pub(super) fn seal_queue_config(&self, queue_config: ClientConfig) {
         todo!()
     }
 }
 
-/// An ID for a queue on an QS. This ID should be globally unique.
-#[derive(
-    TlsSerialize,
-    TlsDeserialize,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    ToSchema,
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-)]
-
-pub struct QueueId {
-    pub id: Vec<u8>,
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+pub struct ClientId {
+    pub(crate) client_id: Vec<u8>,
 }
 
-impl AsRef<[u8]> for QueueId {
-    fn as_ref(&self) -> &[u8] {
-        &self.id
-    }
-}
-
-impl Display for QueueId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-struct ClientId {
-    client_id: Vec<u8>,
-}
-
-struct QsUid {
-    user_id: Vec<u8>,
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+pub struct UserId {
+    pub(crate) user_id: Vec<u8>,
 }
 
 /// Info describing the queue configuration for a member of a given group.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
-pub struct QueueConfig {
-    // TODO: These values should not be public in the future
-    pub queue_id: QueueId,
+pub struct ClientConfig {
+    pub(crate) client_id: ClientId,
     // Some clients might not use push tokens.
-    pub push_token_key_option: Option<PushTokenEarKey>,
+    pub(crate) push_token_key_option: Option<PushTokenEarKey>,
 }
 
-impl QueueConfig {
+impl ClientConfig {
     pub fn dummy_config() -> Self {
         Self {
-            queue_id: QueueId { id: Vec::new() },
+            client_id: ClientId {
+                client_id: Vec::new(),
+            },
             push_token_key_option: None,
         }
     }
@@ -217,27 +189,20 @@ pub struct Qs {
 pub struct Fqdn {}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct ClientQueueConfig {
+pub struct QsClientReference {
     client_homeserver_domain: Fqdn,
-    sealed_config: SealedQueueConfig,
+    sealed_reference: SealedClientReference,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct SealedQueueConfig {}
+pub struct SealedClientReference {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct KeyPackageBatch {}
+struct KeyPackageRef {}
 
-pub struct QsUserRecord {
-    auth_key: SignaturePublicKey,
-    friendship_token: Vec<u8>,
-    client_records: Vec<QsClientRecord>,
-}
-
-pub struct QsClientRecord {
-    activity_time: u64,
-    key_packages: Vec<KeyPackage>,
-    signature_key: SignaturePublicKey,
-    encrypted_push_token: Option<Vec<u8>>,
-    fan_out_queue_id: Vec<u8>,
+#[derive(Debug, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct KeyPackageBatch {
+    key_package_refs: Vec<KeyPackageRef>,
+    timestamp: u64,
+    signature: Signature,
 }

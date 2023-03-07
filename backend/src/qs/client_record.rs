@@ -1,4 +1,4 @@
-use mls_assist::messages::SerializedAssistedMessage;
+use mls_assist::{messages::SerializedAssistedMessage, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
@@ -6,17 +6,17 @@ use tracing::instrument;
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
-        mac::keys::{EnqueueAuthKeyCtxt, QueueDeletionAuthKeyCtxt},
         signatures::signable::Signature,
-        signatures::{keys::QueueOwnerVerificationKey, traits::SignatureVerificationError},
+        signatures::traits::SignatureVerificationError,
         RatchetKey, RatchetKeyUpdate, RatchetPublicKey,
     },
-    messages::client_qs::{EnqueuedMessage, QsFanOutQueueUpdate},
+    messages::client_qs::EnqueuedMessage,
 };
 
 use super::{
-    errors::EnqueueFanOutError, storage_provider_trait::QsStorageProvider, EncryptedPushToken,
-    PushToken, QueueId, WebsocketNotifier,
+    errors::{EnqueueError, QsCreateClientError},
+    storage_provider_trait::QsStorageProvider,
+    ClientId, EncryptedPushToken, PushToken, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -30,26 +30,52 @@ pub(super) enum QsQueueMessage {
     EnqueuedMessage(EnqueuedMessage),
 }
 
-/// Info attached to a queue meant as a target for messages fanned out by an
-/// DS.
-/// TODO: Replace individual EAR keys with a joint EAR key for both auth key and
-/// push token.
-/// TODO: If we want to be able to roll EAR keys, we need to maintain an old
-/// ciphertext, so that we have time to propagate the new key material.
+/// Info attached to a queue meant as a target for messages fanned out by a DS.
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct FanOutQueueInfo {
+pub struct QsClientRecord {
     encrypted_push_token_option: Option<EncryptedPushToken>,
-    // Encrypted key that authenticates entities that want to deposit messages
-    // in the queue.
-    encrypted_enqueue_auth_key: EnqueueAuthKeyCtxt,
     owner_public_key: RatchetPublicKey,
-    owner_signature_key: QueueOwnerVerificationKey,
+    owner_signature_key: SignaturePublicKey,
     current_ratchet_key: RatchetKey,
-    // Encrypted key that authenticates entities that want to delete the queue.
-    encrypted_delete_auth_key: QueueDeletionAuthKeyCtxt,
+    activity_time: u64,
 }
 
-impl FanOutQueueInfo {
+impl QsClientRecord {
+    /// Creates a new queue and restursn the queue ID.
+    pub(crate) async fn try_new<S: QsStorageProvider>(
+        storage_provider: &S,
+        encrypted_push_token_option: Option<EncryptedPushToken>,
+        owner_public_key: RatchetPublicKey,
+        owner_signature_key: SignaturePublicKey,
+        current_ratchet_key: RatchetKey,
+    ) -> Result<(Self, ClientId), QsCreateClientError<S>> {
+        let fan_out_queue_info = Self {
+            encrypted_push_token_option,
+            owner_public_key,
+            owner_signature_key,
+            current_ratchet_key,
+            // TODO: This should be set to the current time
+            activity_time: 0,
+        };
+        let client_id = storage_provider
+            .create_client(&fan_out_queue_info)
+            .await
+            .map_err(QsCreateClientError::StorageProviderError::<S>)?;
+        Ok((fan_out_queue_info, client_id))
+    }
+
+    /// Update the client record.
+    pub(crate) fn update(
+        &mut self,
+        client_record_auth_key: SignaturePublicKey,
+        queue_encryption_key: RatchetPublicKey,
+    ) {
+        self.owner_signature_key = client_record_auth_key;
+        self.owner_public_key = queue_encryption_key;
+        // TODO: This should be set to the current time
+        self.activity_time = 0;
+    }
+
     /// Verify the request against the signature key of the queue owner. Returns
     /// an error if the authentication fails.
     #[instrument(level = "trace", skip_all, err)]
@@ -66,25 +92,19 @@ impl FanOutQueueInfo {
         todo!()
     }
 
-    pub(crate) fn encrypted_delete_auth_key(&self) -> &QueueDeletionAuthKeyCtxt {
-        &self.encrypted_delete_auth_key
-    }
-}
-
-impl FanOutQueueInfo {
     /// Put a message into the queue.
     pub(crate) async fn enqueue<S: QsStorageProvider, W: WebsocketNotifier>(
         &mut self,
-        queue_id: &QueueId,
+        client_id: &ClientId,
         storage_provider: &S,
         websocket_notifier: &W,
         msg: SerializedAssistedMessage,
         push_token_key_option: Option<PushTokenEarKey>,
-    ) -> Result<(), EnqueueFanOutError<S>> {
+    ) -> Result<(), EnqueueError<S>> {
         // Serialize the message so that we can put it in the queue.
         let message_bytes =
         // serialization shouldn't fail
-        msg.tls_serialize_detached().map_err(|_| EnqueueFanOutError::LibraryError)?;
+        msg.tls_serialize_detached().map_err(|_| EnqueueError::LibraryError)?;
 
         // TODO: The message should be serialized differently, using a struct
         // with the sequence number
@@ -97,12 +117,12 @@ impl FanOutQueueInfo {
 
         tracing::trace!("Enqueueing message in storage provider");
         storage_provider
-            .enqueue(queue_id, encrypted_message)
+            .enqueue(client_id, encrypted_message)
             .await
-            .map_err(EnqueueFanOutError::StorageProviderError::<S>)?;
+            .map_err(EnqueueError::StorageProviderError::<S>)?;
 
         // Try to send a notification over the websocket, otherwise use push tokens if available
-        if websocket_notifier.notify(queue_id).await.is_err() {
+        if websocket_notifier.notify(client_id).await.is_err() {
             // Send a push notification under the following conditions:
             // - there is a push token associated with the queue
             // - there is a push token decryption key
@@ -111,9 +131,7 @@ impl FanOutQueueInfo {
                 if let Some(ref ear_key) = push_token_key_option {
                     let push_token =
                         PushToken::decrypt(ear_key, encrypted_push_token).map_err(|e| match e {
-                            DecryptionError::DecryptionError => {
-                                EnqueueFanOutError::PushNotificationError
-                            }
+                            DecryptionError::DecryptionError => EnqueueError::PushNotificationError,
                         })?;
                     // TODO: It's currently not clear where we store the alert level.
                     let alert_level = 0;
@@ -124,21 +142,5 @@ impl FanOutQueueInfo {
 
         // Success!
         Ok(())
-    }
-
-    /// Update the fan out queue info with the given update message.
-    pub(crate) fn apply_update(&mut self, update: QsFanOutQueueUpdate) {
-        if let Some(pk) = update.qs_basic_queue_update.owner_public_key_option {
-            self.owner_public_key = pk
-        }
-        if let Some(pk) = update.qs_basic_queue_update.owner_signature_key_option {
-            self.owner_signature_key = pk
-        }
-        if let Some(push_token_option) = update.encrypted_push_token_option {
-            self.encrypted_push_token_option = push_token_option
-        }
-        if let Some(auth_key) = update.encrypted_auth_key_option {
-            self.encrypted_enqueue_auth_key = auth_key
-        }
     }
 }
