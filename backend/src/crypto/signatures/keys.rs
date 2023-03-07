@@ -50,7 +50,7 @@ impl<'a> From<&'a SignaturePublicKey> for LeafSignatureKeyRef<'a> {
 /// Public signature key known to all clients of a given user. This signature
 /// key is used by pseudomnymous clients to prove they belong to a certain
 /// pseudonymous user account.
-#[derive(Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct UserAuthKey {
     signature_key: Vec<u8>,
 }

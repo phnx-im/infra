@@ -156,62 +156,13 @@ use crate::{
     qs::QsEnqueueProvider,
 };
 
-use super::{
-    errors::{DsProcessingError, GroupCreationError},
-    group_state::DsGroupState,
-    DsStorageProvider, LoadState,
-};
+use super::{errors::DsProcessingError, group_state::DsGroupState, DsStorageProvider, LoadState};
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
 
 pub struct DsApi {}
 
 impl DsApi {
-    pub async fn create_group<S: DsStorageProvider>(
-        storage_provider: &S,
-        params: CreateGroupParams,
-    ) -> Result<(), GroupCreationError> {
-        let CreateGroupParams {
-            group_id,
-            leaf_node,
-            encrypted_credential_chain,
-            creator_queue_config,
-            creator_user_auth_key,
-            group_info,
-            initial_ear_key,
-        } = params;
-        match storage_provider.load_group_state(&group_id).await {
-            // We might want a lookup function that doesn't load the entire
-            // group state.
-            LoadState::Success(_) | LoadState::NotFound | LoadState::Expired => {
-                return Err(GroupCreationError::InvalidGroupId)
-            }
-            // TODO: Maybe check if the id has expired? Or should we purge the DB regularly?
-            LoadState::Reserved(_) => (),
-        };
-        let group_state =
-            Group::new(group_info, leaf_node).map_err(|_| GroupCreationError::InvalidParameters)?;
-        let group_state = DsGroupState::new(
-            group_state,
-            creator_user_auth_key,
-            encrypted_credential_chain,
-            creator_queue_config,
-        );
-
-        let encrypted_group_state = group_state
-            .encrypt(&initial_ear_key)
-            .map_err(|_| GroupCreationError::CouldNotEncrypt)?;
-
-        // ... and store it.
-        storage_provider
-            .save_group_state(
-                group_state.group().group_info().group_context().group_id(),
-                encrypted_group_state,
-            )
-            .await
-            .map_err(|_| GroupCreationError::StorageError)
-    }
-
     pub async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
         ds_storage_provider: &Dsp,
         qs_enqueue_provider: &Q,
@@ -228,12 +179,32 @@ impl DsApi {
             return Err(DsProcessingError::GroupNotFound);
         };
 
-        // Decrypt encrypted group state.
-        let mut group_state = DsGroupState::decrypt(&ear_key, &encrypted_group_state)
-            .map_err(|_| DsProcessingError::CouldNotDecrypt)?;
+        // Depending on the message, either decrypt an encrypted group state or
+        // create a new one.
+        let mut group_state = if let Some(create_group_params) = message.create_group_params() {
+            let CreateGroupParams {
+                group_id: _,
+                leaf_node,
+                encrypted_credential_chain,
+                creator_client_reference: creator_queue_config,
+                creator_user_auth_key,
+                group_info,
+            } = create_group_params;
+            let group_state = Group::new(group_info.clone(), leaf_node.clone())
+                .map_err(|_| DsProcessingError::InvalidMessage)?;
+            DsGroupState::new(
+                group_state,
+                creator_user_auth_key.clone(),
+                encrypted_credential_chain.clone(),
+                creator_queue_config.clone(),
+            )
+        } else {
+            DsGroupState::decrypt(&ear_key, &encrypted_group_state)
+                .map_err(|_| DsProcessingError::CouldNotDecrypt)?
+        };
 
         // Verify the message.
-        let verified_message: RequestParams = match message.sender().clone() {
+        let verified_message: RequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
                 let verifying_key: LeafSignatureKeyRef = group_state
                     .group()
@@ -276,6 +247,7 @@ impl DsApi {
                     Some(DsProcessResponse::RatchetTree(ratchet_tree.to_vec())),
                 )
             }
+            RequestParams::CreateGroupParams(_) => (None, None),
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
