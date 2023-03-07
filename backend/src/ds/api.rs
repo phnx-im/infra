@@ -143,15 +143,7 @@
 //! message format looks like.
 //!
 
-use std::convert::TryInto;
-
-use chrono::Duration;
-use mls_assist::{
-    group::{self, Group, ProcessedAssistedMessage},
-    messages::AssistedMessage,
-    ProcessedMessageContent, Sender,
-};
-use tls_codec::Deserialize;
+use mls_assist::{group::Group, Sender};
 
 use crate::{
     crypto::{
@@ -159,15 +151,13 @@ use crate::{
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
     messages::client_ds::{
-        AddUsersParams, AddUsersParamsAad, ClientToClientMsg, ClientToDsMessage,
-        ClientToDsMessageTbs, CreateGroupParams, DsSender, RequestParams,
-        VerifiableClientToDsMessage,
+        CreateGroupParams, DsSender, RequestParams, VerifiableClientToDsMessage,
     },
     qs::QsEnqueueProvider,
 };
 
 use super::{
-    errors::{DsProcessingError, GroupCreationError, UserAdditionError},
+    errors::{DsProcessingError, GroupCreationError},
     group_state::DsGroupState,
     DsStorageProvider, LoadState,
 };
@@ -222,7 +212,7 @@ impl DsApi {
             .map_err(|_| GroupCreationError::StorageError)
     }
 
-    pub(crate) async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
+    pub async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
         ds_storage_provider: &Dsp,
         qs_enqueue_provider: &Q,
         message: VerifiableClientToDsMessage,
@@ -268,12 +258,13 @@ impl DsApi {
             }
         };
 
+        let sender = verified_message.sender().cloned();
+
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        // c2c_message should probably be an option since not every endpoint causes a message distribution.
         let c2c_message_option = match verified_message {
-            RequestParams::AddUser(add_user_params) => {
-                let result = group_state.add_user(add_user_params)?;
+            RequestParams::AddUsers(add_user_params) => {
+                let result = group_state.add_users(add_user_params)?;
                 Some(result)
             }
         };
@@ -293,15 +284,14 @@ impl DsApi {
             .map_err(|_| DsProcessingError::StorageError)?;
 
         if let Some(c2c_message) = c2c_message_option {
-            // TODO: Waiting for OpenMLS' tls codec issue to get fixed.
-            let sender_index = if let Sender::Member(leaf_index) = todo!() {
+            let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
                 leaf_index
             } else {
                 return Err(DsProcessingError::InvalidSenderType);
             };
 
             group_state
-                .distribute_message(qs_enqueue_provider, &c2c_message, sender_index)
+                .distribute_message(qs_enqueue_provider, c2c_message, sender_index)
                 .await
                 .map_err(|_| DsProcessingError::DistributionError)?;
         }

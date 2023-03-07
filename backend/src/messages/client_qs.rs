@@ -16,7 +16,7 @@ use crate::{
             keys::{EnqueueAuthKeyCtxt, QueueDeletionAuthKey},
             MacTag, TagVerifiable, TagVerified, TaggedStruct,
         },
-        signatures::keys::QueueOwnerVerificationKey,
+        signatures::keys::QueueOwnerVerifyingKey,
         signatures::signable::Signature,
         RatchetPublicKey,
     },
@@ -114,7 +114,7 @@ pub struct QsCreateQueueParamsTBM {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct QsQueueUpdate {
     pub owner_public_key_option: Option<RatchetPublicKey>,
-    pub owner_signature_key_option: Option<QueueOwnerVerificationKey>,
+    pub owner_signature_key_option: Option<QueueOwnerVerifyingKey>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]

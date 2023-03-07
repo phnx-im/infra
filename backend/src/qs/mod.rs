@@ -61,15 +61,17 @@ use std::fmt::Display;
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
+        signatures::signable::{Signature, Verifiable, VerifiedStruct},
         DecryptionPrivateKey, EncryptionPublicKey,
     },
+    ds::group_state::TimeStamp,
     messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
-use mls_assist::{KeyPackage, SignaturePublicKey};
+use mls_assist::{KeyPackage, KeyPackageRef, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use self::errors::QsEnqueueProviderError;
@@ -213,7 +215,19 @@ pub struct Qs {
     queue_id_private_key: QueueIdDecryptionPrivateKey,
 }
 
-#[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+)]
 pub struct Fqdn {}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
@@ -222,11 +236,74 @@ pub struct ClientQueueConfig {
     sealed_config: SealedQueueConfig,
 }
 
+impl ClientQueueConfig {
+    pub(crate) fn homeserver_domain(&self) -> &Fqdn {
+        &self.client_homeserver_domain
+    }
+}
+
 #[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct SealedQueueConfig {}
 
+// This is used to check keypackage batch freshness by the DS, so it's
+// reasonable to assume the batch is relatively fresh.
+pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
+
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct KeyPackageBatch {}
+pub struct KeyPackageBatchTbs {
+    homeserver_domain: Fqdn,
+    key_package_refs: Vec<KeyPackageRef>,
+    time_of_signature: TimeStamp,
+}
+
+impl KeyPackageBatchTbs {
+    pub(crate) fn key_package_refs(&self) -> &[KeyPackageRef] {
+        &self.key_package_refs
+    }
+
+    pub fn has_expired(&self, expiration_days: i64) -> bool {
+        self.time_of_signature.has_expired(expiration_days)
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
+pub struct VerifiableKeyPackageBatch {
+    payload: KeyPackageBatchTbs,
+    signature: Signature,
+}
+
+impl VerifiableKeyPackageBatch {
+    pub(crate) fn homeserver_domain(&self) -> &Fqdn {
+        &&self.payload.homeserver_domain
+    }
+}
+
+impl Verifiable for VerifiableKeyPackageBatch {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.payload.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        "KeyPackageBatchTBS"
+    }
+}
+
+mod private_mod {
+    #[derive(Default)]
+    pub struct Seal;
+}
+
+impl VerifiedStruct<VerifiableKeyPackageBatch> for KeyPackageBatchTbs {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: VerifiableKeyPackageBatch, _seal: Self::SealingType) -> Self {
+        verifiable.payload
+    }
+}
 
 pub struct QsUserRecord {
     auth_key: SignaturePublicKey,

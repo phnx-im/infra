@@ -4,10 +4,10 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::SerializedAssistedMessage, GroupId, LeafNode, LeafNodeIndex, Sender,
-    SignaturePublicKey, VerifiableGroupInfo,
+    messages::{AssistedMessage, AssistedWelcome, SerializedAssistedMessage},
+    GroupId, LeafNode, LeafNodeIndex, Sender, SignaturePublicKey, VerifiableGroupInfo,
 };
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Deserialize, Size, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         mac::{MacTag, TaggedStruct},
         signatures::{
             keys::{LeafSignatureKey, UserAuthKey},
-            signable::{Signable, Signature, Verifiable, VerifiedStruct},
+            signable::{Signature, Verifiable, VerifiedStruct},
         },
         RatchetPublicKey,
     },
@@ -25,7 +25,7 @@ use crate::{
         group_state::{EncryptedCredentialChain, UserKeyHash},
         WelcomeAttributionInfo,
     },
-    qs::{ClientQueueConfig, KeyPackageBatch},
+    qs::{ClientQueueConfig, VerifiableKeyPackageBatch},
 };
 
 use super::{AddPackage, FriendshipToken, QsCid, QsUid};
@@ -37,7 +37,7 @@ mod private_mod {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct ClientToClientMsg {
-    pub assisted_message: SerializedAssistedMessage,
+    pub assisted_message: Vec<u8>,
 }
 
 // === DS ===
@@ -79,12 +79,33 @@ pub struct ExternalCommitInfoParams {
     ear_key: GroupStateEarKey,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddUsersParams {
-    pub commit: SerializedAssistedMessage,
-    pub serialized_assisted_welcome: Vec<u8>,
-    pub welcome_attribution_info: Vec<WelcomeAttributionInfo>,
-    pub key_package_batches: Vec<KeyPackageBatch>,
+    pub commit: AssistedMessage,
+    pub commit_bytes: Vec<u8>,
+    pub welcome: AssistedWelcome,
+    pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
+    pub key_package_batches: Vec<VerifiableKeyPackageBatch>,
+}
+
+impl AddUsersParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
+        let encrypted_welcome_attribution_infos =
+            Vec::<Vec<u8>>::tls_deserialize(&mut remaining_bytes)?;
+        let key_package_batches =
+            Vec::<VerifiableKeyPackageBatch>::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            commit,
+            welcome,
+            encrypted_welcome_attribution_infos,
+            key_package_batches,
+            commit_bytes,
+        })
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -317,17 +338,32 @@ pub(crate) enum MlsInfraVersion {
 }
 
 /// This enum contains variatns for each DS endpoint.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(TlsDeserialize, TlsSize)]
 #[repr(u8)]
 pub(crate) enum RequestParams {
-    AddUser(AddUsersParams),
+    AddUsers(AddUsersParams),
 }
 
 impl RequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            // TODO: Waiting for OpenMLS' tls codec issue to get fixed.
-            RequestParams::AddUser(add_user_params) => todo!(),
+            RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
+        }
+    }
+
+    /// Returns a sender if the request contains a public message. Otherwise returns `None`.
+    pub(crate) fn sender(&self) -> Option<&Sender> {
+        match self {
+            RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
+        }
+    }
+
+    pub(crate) fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let mut reader = bytes;
+        let params_type = u8::tls_deserialize(&mut reader)?;
+        match params_type {
+            0 => Ok(Self::AddUsers(AddUsersParams::try_from_bytes(bytes)?)),
+            _ => Err(tls_codec::Error::InvalidInput),
         }
     }
 }
@@ -340,7 +376,7 @@ pub enum DsSender {
     UserKeyHash(UserKeyHash),
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(TlsDeserialize, TlsSize)]
 // TODO: this needs custom deserialization that ensures that the sender matches
 // the request params.
 pub(crate) struct ClientToDsMessageTbs {
@@ -351,21 +387,54 @@ pub(crate) struct ClientToDsMessageTbs {
     body: RequestParams,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+impl ClientToDsMessageTbs {
+    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let version = MlsInfraVersion::tls_deserialize(&mut bytes)?;
+        let group_state_ear_key = GroupStateEarKey::tls_deserialize(&mut bytes)?;
+        let sender = DsSender::tls_deserialize(&mut bytes)?;
+        let body = RequestParams::try_from_bytes(bytes)?;
+        Ok(Self {
+            version,
+            group_state_ear_key,
+            sender,
+            body,
+        })
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize)]
 pub(crate) struct ClientToDsMessage {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+impl ClientToDsMessage {
+    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let payload = ClientToDsMessageTbs::try_from_bytes(bytes)?;
+        let signature = Signature::tls_deserialize(&mut bytes)?;
+        Ok(Self { payload, signature })
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize)]
 // TODO: This needs custom TLS Codec functions.
-pub(crate) struct VerifiableClientToDsMessage {
+pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessage,
     serialized_payload: Vec<u8>,
 }
 
 impl VerifiableClientToDsMessage {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let reader = bytes;
+        let message = ClientToDsMessage::try_from_bytes(reader)?;
+        let serialized_payload = bytes[..message.payload.tls_serialized_len()].to_vec();
+        Ok(Self {
+            message,
+            serialized_payload,
+        })
+    }
+
     pub(crate) fn group_id(&self) -> &GroupId {
         self.message.payload.body.group_id()
     }
@@ -380,8 +449,8 @@ impl VerifiableClientToDsMessage {
 }
 
 impl Verifiable for VerifiableClientToDsMessage {
-    fn unsigned_payload(&self) -> Result<&[u8], tls_codec::Error> {
-        Ok(&self.serialized_payload)
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.serialized_payload.clone())
     }
 
     fn signature(&self) -> &Signature {
@@ -398,17 +467,5 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for RequestParams {
 
     fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {
         verifiable.message.payload.body
-    }
-}
-
-impl Signable for ClientToDsMessageTbs {
-    type SignedOutput = ClientToDsMessage;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        "ClientToDsMessage"
     }
 }

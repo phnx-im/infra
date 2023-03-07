@@ -34,7 +34,7 @@ secrecy = { version = "0.8", features = ["serde"] }
 
 
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
-tls_codec = { version = "0.2.0", features = ["derive", "serde", "mls"] }
+tls_codec = { version = "0.3.0-pre.1", features = ["derive", "serde", "mls"] }
 
 [patch.crates-io.tls_codec]
 git = "https://github.com/RustCrypto/formats.git"

@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 
 use crate::crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signature, *};
 
+mod add_user;
 pub mod api;
 pub mod errors;
 pub mod group_state;
@@ -78,7 +79,6 @@ impl Ds {
     }
 
     /// Delete encrypted group states of which the time stamps have expired.
-    /// TODO: How to configure group expiration? Should this be configurable by group or globally?
     fn clean_up_stale_groups(&mut self) {
         todo!()
     }

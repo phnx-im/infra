@@ -196,6 +196,21 @@ pub enum UserAdditionError {
     /// Error processing message.
     #[error("Error processing message.")]
     ProcessingError,
+    /// Missing queue config in client key package.
+    #[error("Missing queue config in client key package.")]
+    MissingQueueConfig,
+    /// Failed to retrieve QS verifying key.
+    #[error("Failed to retrieve QS verifying key.")]
+    FailedToObtainVerifyingKey,
+    /// Invalid KeyPackageBatch.
+    #[error("Invalid KeyPackageBatch.")]
+    InvalidKeyPackageBatch,
+    /// User added twice.
+    #[error("User added twice.")]
+    DuplicatedUserAddition,
+    /// Incomplete Welcome message.
+    #[error("Incomplete Welcome message.")]
+    IncompleteWelcome,
 }
 
 /// Potential errors when processing a message.

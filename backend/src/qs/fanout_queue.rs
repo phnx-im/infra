@@ -1,6 +1,5 @@
-use mls_assist::messages::SerializedAssistedMessage;
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 
 use crate::{
@@ -8,10 +7,13 @@ use crate::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
         mac::keys::{EnqueueAuthKeyCtxt, QueueDeletionAuthKeyCtxt},
         signatures::signable::Signature,
-        signatures::{keys::QueueOwnerVerificationKey, traits::SignatureVerificationError},
+        signatures::{keys::QueueOwnerVerifyingKey, traits::SignatureVerificationError},
         RatchetKey, RatchetKeyUpdate, RatchetPublicKey,
     },
-    messages::client_qs::{EnqueuedMessage, QsFanOutQueueUpdate},
+    messages::{
+        client_ds::ClientToClientMsg,
+        client_qs::{EnqueuedMessage, QsFanOutQueueUpdate},
+    },
 };
 
 use super::{
@@ -43,7 +45,7 @@ pub struct FanOutQueueInfo {
     // in the queue.
     encrypted_enqueue_auth_key: EnqueueAuthKeyCtxt,
     owner_public_key: RatchetPublicKey,
-    owner_signature_key: QueueOwnerVerificationKey,
+    owner_signature_key: QueueOwnerVerifyingKey,
     current_ratchet_key: RatchetKey,
     // Encrypted key that authenticates entities that want to delete the queue.
     encrypted_delete_auth_key: QueueDeletionAuthKeyCtxt,
@@ -78,13 +80,10 @@ impl FanOutQueueInfo {
         queue_id: &QueueId,
         storage_provider: &S,
         websocket_notifier: &W,
-        msg: SerializedAssistedMessage,
+        msg: ClientToClientMsg,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueFanOutError<S>> {
-        // Serialize the message so that we can put it in the queue.
-        let message_bytes =
-        // serialization shouldn't fail
-        msg.tls_serialize_detached().map_err(|_| EnqueueFanOutError::LibraryError)?;
+        let message_bytes = msg.assisted_message;
 
         // TODO: The message should be serialized differently, using a struct
         // with the sequence number
