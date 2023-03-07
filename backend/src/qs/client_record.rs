@@ -1,22 +1,22 @@
-use mls_assist::{messages::SerializedAssistedMessage, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
         signatures::signable::Signature,
-        signatures::traits::SignatureVerificationError,
+        signatures::{keys::QueueOwnerVerifyingKey, traits::SignatureVerificationError},
         RatchetKey, RatchetKeyUpdate, RatchetPublicKey,
     },
-    messages::client_qs::EnqueuedMessage,
+    ds::group_state::TimeStamp,
+    messages::{client_ds::ClientToClientMsg, client_qs::EnqueuedMessage},
 };
 
 use super::{
     errors::{EnqueueError, QsCreateClientError},
     storage_provider_trait::QsStorageProvider,
-    ClientId, EncryptedPushToken, PushToken, WebsocketNotifier,
+    EncryptedPushToken, PushToken, QsClientId, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -35,9 +35,9 @@ pub(super) enum QsQueueMessage {
 pub struct QsClientRecord {
     encrypted_push_token_option: Option<EncryptedPushToken>,
     owner_public_key: RatchetPublicKey,
-    owner_signature_key: SignaturePublicKey,
+    owner_signature_key: QueueOwnerVerifyingKey,
     current_ratchet_key: RatchetKey,
-    activity_time: u64,
+    activity_time: TimeStamp,
 }
 
 impl QsClientRecord {
@@ -46,16 +46,15 @@ impl QsClientRecord {
         storage_provider: &S,
         encrypted_push_token_option: Option<EncryptedPushToken>,
         owner_public_key: RatchetPublicKey,
-        owner_signature_key: SignaturePublicKey,
+        owner_signature_key: QueueOwnerVerifyingKey,
         current_ratchet_key: RatchetKey,
-    ) -> Result<(Self, ClientId), QsCreateClientError<S>> {
+    ) -> Result<(Self, QsClientId), QsCreateClientError<S>> {
         let fan_out_queue_info = Self {
             encrypted_push_token_option,
             owner_public_key,
             owner_signature_key,
             current_ratchet_key,
-            // TODO: This should be set to the current time
-            activity_time: 0,
+            activity_time: TimeStamp::now(),
         };
         let client_id = storage_provider
             .create_client(&fan_out_queue_info)
@@ -67,13 +66,12 @@ impl QsClientRecord {
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
-        client_record_auth_key: SignaturePublicKey,
+        client_record_auth_key: QueueOwnerVerifyingKey,
         queue_encryption_key: RatchetPublicKey,
     ) {
         self.owner_signature_key = client_record_auth_key;
         self.owner_public_key = queue_encryption_key;
-        // TODO: This should be set to the current time
-        self.activity_time = 0;
+        self.activity_time = TimeStamp::now();
     }
 
     /// Verify the request against the signature key of the queue owner. Returns
@@ -95,19 +93,16 @@ impl QsClientRecord {
     /// Put a message into the queue.
     pub(crate) async fn enqueue<S: QsStorageProvider, W: WebsocketNotifier>(
         &mut self,
-        client_id: &ClientId,
+        client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
-        msg: SerializedAssistedMessage,
+        msg: ClientToClientMsg,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
         // Serialize the message so that we can put it in the queue.
-        let message_bytes =
-        // serialization shouldn't fail
-        msg.tls_serialize_detached().map_err(|_| EnqueueError::LibraryError)?;
-
         // TODO: The message should be serialized differently, using a struct
         // with the sequence number
+        let message_bytes = msg.assisted_message;
 
         // Encrypt the message under the current ratchet key.
         let encrypted_message = self.current_ratchet_key.encrypt(&message_bytes);

@@ -1,13 +1,14 @@
 //! This module contains structs and enums that represent messages that are
 //! passed internally within the backend.
 
-use mls_assist::messages::SerializedAssistedMessage;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserialize, TlsSize};
 
 use crate::qs::QsClientReference;
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+use super::client_ds::ClientToClientMsg;
+
+#[derive(TlsDeserialize, TlsSize)]
 pub struct DsFanOutMessage {
-    pub payload: SerializedAssistedMessage,
+    pub payload: ClientToClientMsg,
     pub client_reference: QsClientReference,
 }

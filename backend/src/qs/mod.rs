@@ -60,15 +60,17 @@
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
-        signatures::signable::Signature,
+        signatures::signable::{Signature, Verifiable, VerifiedStruct},
         DecryptionPrivateKey, EncryptionPublicKey,
     },
+    ds::group_state::TimeStamp,
     messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
+use mls_assist::KeyPackageRef;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use self::errors::QsEnqueueProviderError;
@@ -118,7 +120,7 @@ pub enum WebsocketNotifierError {
 /// TODO: This should be unified with push notifications later
 #[async_trait]
 pub trait WebsocketNotifier {
-    async fn notify(&self, client_id: &ClientId) -> Result<(), WebsocketNotifierError>;
+    async fn notify(&self, client_id: &QsClientId) -> Result<(), WebsocketNotifierError>;
 }
 
 #[async_trait]
@@ -151,8 +153,9 @@ impl QueueIdEncryptionPublicKey {
     }
 }
 
+/// This is the pseudonymous client id used on the QS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
-pub struct ClientId {
+pub struct QsClientId {
     pub(crate) client_id: Vec<u8>,
 }
 
@@ -164,7 +167,7 @@ pub struct UserId {
 /// Info describing the queue configuration for a member of a given group.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ClientConfig {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     // Some clients might not use push tokens.
     pub(crate) push_token_key_option: Option<PushTokenEarKey>,
 }
@@ -172,7 +175,7 @@ pub struct ClientConfig {
 impl ClientConfig {
     pub fn dummy_config() -> Self {
         Self {
-            client_id: ClientId {
+            client_id: QsClientId {
                 client_id: Vec::new(),
             },
             push_token_key_option: None,
@@ -185,7 +188,19 @@ pub struct Qs {
     queue_id_private_key: QueueIdDecryptionPrivateKey,
 }
 
-#[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+)]
 pub struct Fqdn {}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
@@ -194,11 +209,74 @@ pub struct QsClientReference {
     sealed_reference: SealedClientReference,
 }
 
+impl QsClientReference {
+    pub(crate) fn homeserver_domain(&self) -> &Fqdn {
+        &self.client_homeserver_domain
+    }
+}
+
 #[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct SealedClientReference {}
 
+// This is used to check keypackage batch freshness by the DS, so it's
+// reasonable to assume the batch is relatively fresh.
+pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
+
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-struct KeyPackageRef {}
+pub struct KeyPackageBatchTbs {
+    homeserver_domain: Fqdn,
+    key_package_refs: Vec<KeyPackageRef>,
+    time_of_signature: TimeStamp,
+}
+
+impl KeyPackageBatchTbs {
+    pub(crate) fn key_package_refs(&self) -> &[KeyPackageRef] {
+        &self.key_package_refs
+    }
+
+    pub fn has_expired(&self, expiration_days: i64) -> bool {
+        self.time_of_signature.has_expired(expiration_days)
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
+pub struct VerifiableKeyPackageBatch {
+    payload: KeyPackageBatchTbs,
+    signature: Signature,
+}
+
+impl VerifiableKeyPackageBatch {
+    pub(crate) fn homeserver_domain(&self) -> &Fqdn {
+        &self.payload.homeserver_domain
+    }
+}
+
+impl Verifiable for VerifiableKeyPackageBatch {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.payload.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        "KeyPackageBatchTBS"
+    }
+}
+
+mod private_mod {
+    #[derive(Default)]
+    pub struct Seal;
+}
+
+impl VerifiedStruct<VerifiableKeyPackageBatch> for KeyPackageBatchTbs {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: VerifiableKeyPackageBatch, _seal: Self::SealingType) -> Self {
+        verifiable.payload
+    }
+}
 
 #[derive(Debug, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatch {

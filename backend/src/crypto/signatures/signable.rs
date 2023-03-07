@@ -30,7 +30,8 @@
 //! Similarly, only the [`Verifiable`] struct should implement the
 //! [`tls_codec::Deserialize`] trait.
 
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use serde::{Deserialize, Serialize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::LibraryError;
@@ -39,7 +40,7 @@ use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
 
 pub type SignatureType = ed25519::Signature;
 
-#[derive(Debug, Clone, ToSchema, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, ToSchema, TlsDeserialize, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct Signature {
     signature: Vec<u8>,
 }
@@ -156,7 +157,7 @@ pub trait Signable: Sized {
 /// `unsigned_payload` function.
 pub trait Verifiable: Sized {
     /// Return the unsigned, serialized payload that should be verified.
-    fn unsigned_payload(&self) -> Result<&[u8], tls_codec::Error>;
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
 
     /// A reference to the signature to be verified.
     fn signature(&self) -> &Signature;
@@ -180,7 +181,7 @@ pub trait Verifiable: Sized {
         let payload = self
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
-        let sign_content: SignContent = (self.label(), payload).into();
+        let sign_content: SignContent = (self.label(), payload.as_slice()).into();
         let serialized_sign_content = sign_content
             .tls_serialize_detached()
             .map_err(LibraryError::missing_bound_check)?;

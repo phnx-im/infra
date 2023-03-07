@@ -2,19 +2,19 @@ use mls_assist::SignaturePublicKey;
 
 use crate::messages::FriendshipToken;
 
-use super::ClientId;
+use super::QsClientId;
 
 pub struct QsUserRecord {
     auth_key: SignaturePublicKey,
     friendship_token: FriendshipToken,
-    client_ids: Vec<ClientId>,
+    client_ids: Vec<QsClientId>,
 }
 
 impl QsUserRecord {
     pub fn new(
         auth_key: SignaturePublicKey,
         friendship_token: FriendshipToken,
-        client_id: ClientId,
+        client_id: QsClientId,
     ) -> Self {
         Self {
             auth_key,
