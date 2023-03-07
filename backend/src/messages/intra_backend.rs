@@ -4,10 +4,10 @@
 use mls_assist::messages::SerializedAssistedMessage;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
-use crate::qs::ClientQueueConfig;
+use crate::qs::QsClientReference;
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: SerializedAssistedMessage,
-    pub queue_config: ClientQueueConfig,
+    pub client_reference: QsClientReference,
 }

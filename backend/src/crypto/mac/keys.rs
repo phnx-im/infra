@@ -9,10 +9,6 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{
-    ear::{
-        keys::{DeleteAuthKeyEarKey, EnqueueAuthKeyEarKey},
-        Ciphertext, EarEncryptable,
-    },
     kdf::{keys::InitialClientKdfKey, KdfDerivable},
     secrets::Secret,
 };
@@ -49,26 +45,6 @@ impl EnqueueAuthenticationKey {
 }
 
 impl MacKey for EnqueueAuthenticationKey {}
-
-/// A ciphertext holding an encrypted [`EnqueueAuthenticationKey`].
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Clone, Debug, Serialize, Deserialize)]
-pub struct EnqueueAuthKeyCtxt {
-    ctxt: Ciphertext,
-}
-
-impl AsRef<Ciphertext> for EnqueueAuthKeyCtxt {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ctxt
-    }
-}
-
-impl From<Ciphertext> for EnqueueAuthKeyCtxt {
-    fn from(ctxt: Ciphertext) -> Self {
-        Self { ctxt }
-    }
-}
-
-impl EarEncryptable<EnqueueAuthKeyEarKey, EnqueueAuthKeyCtxt> for EnqueueAuthenticationKey {}
 
 /// A secret allowing the authentication of arbitrary requests to the DS as a
 /// member of a given group.
@@ -114,26 +90,6 @@ impl AsRef<Secret<MAC_KEY_SIZE>> for QueueDeletionAuthKey {
 }
 
 impl MacKey for QueueDeletionAuthKey {}
-
-/// A ciphertext holding an encrypted [`QueueDeletionAuthKey`].
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone, Debug, Serialize, Deserialize)]
-pub struct QueueDeletionAuthKeyCtxt {
-    ctxt: Ciphertext,
-}
-
-impl AsRef<Ciphertext> for QueueDeletionAuthKeyCtxt {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ctxt
-    }
-}
-
-impl From<Ciphertext> for QueueDeletionAuthKeyCtxt {
-    fn from(ctxt: Ciphertext) -> Self {
-        Self { ctxt }
-    }
-}
-
-impl EarEncryptable<DeleteAuthKeyEarKey, QueueDeletionAuthKeyCtxt> for QueueDeletionAuthKey {}
 
 /// A secret allowing the authentication of requests to update an QS queue.
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]

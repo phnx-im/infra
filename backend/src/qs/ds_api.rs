@@ -23,24 +23,24 @@ impl Qs {
         // TODO: Load from storage provider (althouth this might turn into a symmetric key).
         let decryption_key = &self.queue_id_private_key;
         // TODO: Decrypt queue config to yield the queue id.
-        let queue_config = decryption_key.unseal_queue_config(&message.queue_config.sealed_config);
-        let queue_id = &queue_config.queue_id;
+        let client_config =
+            decryption_key.unseal_queue_config(&message.client_reference.sealed_reference);
 
         // Fetch the queue's info.
-        let mut queue_info = storage_provider
-            .load_queue_info(queue_id)
+        let mut client_record = storage_provider
+            .load_client(&client_config.client_id)
             .await
             .ok_or(QsEnqueueError::QueueNotFound)?;
 
-        queue_info
+        client_record
             .enqueue(
-                queue_id,
+                &client_config.client_id,
                 storage_provider,
                 websocket_notifier,
                 message.payload,
-                queue_config.push_token_key_option,
+                client_config.push_token_key_option,
             )
             .await
-            .map_err(QsEnqueueError::EnqueueFanOutError)
+            .map_err(QsEnqueueError::EnqueueError)
     }
 }

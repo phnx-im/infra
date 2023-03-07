@@ -3,13 +3,10 @@ use thiserror::Error;
 
 /// Error enqueuing a fanned-out message.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum EnqueueFanOutError<S: QsStorageProvider> {
+pub enum EnqueueError<S: QsStorageProvider> {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError, // E.g. an error while encoding a message before enqueing it.
-    /// Error authenticating the enqueue query
-    #[error("Error authenticating the enqueue query")]
-    AuthenticationFailure, // E.g. wrong mac
     /// Error in the underlying storage provider
     #[error("Error in the underlying storage provider")]
     StorageProviderError(S::EnqueueError),
@@ -40,18 +37,12 @@ pub enum QsEnqueueProviderError {
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsEnqueueError<S: QsStorageProvider> {
-    /// The given queue id points to a queue with the wrong type
-    #[error("The given queue id points to a queue with the wrong type")]
-    WrongQueueType, //
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
     QueueNotFound,
-    /// An unrecoverable internal error ocurred
-    #[error("An unrecoverable internal error ocurred")]
-    LibraryError,
     /// An error ocurred enqueueing in a fan out queue
     #[error("An error ocurred enqueueing in a fan out queue")]
-    EnqueueFanOutError(EnqueueFanOutError<S>),
+    EnqueueError(EnqueueError<S>),
 }
 
 /// Error fetching a message from the QS.
@@ -82,33 +73,41 @@ pub enum QsUpdateQueueError {
     WrongQueueType,
 }
 
-/// Error creating new queue.
+/// Error creating new client.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum QsCreateQueueError {
-    /// Failed to store queue
-    #[error("Failed to store queue")]
-    StorageError,
-    /// Failed to verify the signature.
-    #[error("Failed to verify the signature.")]
-    InvalidSignature,
+pub enum QsCreateClientError<S: QsStorageProvider> {
+    /// Failed to store client record
+    #[error("Failed to store client record")]
+    StorageProviderError(S::CreateClientError),
 }
 
-/// Error deleting queue.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum QsDeleteQueueError {
-    /// Couldn't find the requested queue.
-    #[error("Couldn't find the requested queue")]
-    QueueNotFound,
-    /// Error deleting queue from storage provider
-    #[error("Error deleting queue from storage provider")]
+pub enum QsCreateClientRecordError {
+    /// Error creating client record
+    #[error("Error creating user record")]
     StorageError,
-    /// Failed to decrypt authentication key
-    #[error("Failed to decrypt authentication key")]
-    AuthKeyDecryptionFailure,
-    /// Error verifying request authenticity
-    #[error("Error verifying request authenticity")]
-    AuthenticationFailure,
-    /// An unrecoverable internal error ocurred
-    #[error("An unrecoverable internal error ocurred")]
-    LibraryError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsUpdateClientRecordError {
+    /// Error creating client record
+    #[error("Error creating user record")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsCreateUserError<S: QsStorageProvider> {
+    /// Error updating client record
+    #[error("Error updating client record")]
+    ClientCreationError(#[from] QsCreateClientError<S>),
+    /// Failed to store user record
+    #[error("Failed to store client record")]
+    StorageProviderError(S::CreateUserError),
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsUpdateUserError {
+    /// Error creating client record
+    #[error("Error creating user record")]
+    StorageError,
 }
