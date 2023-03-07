@@ -13,7 +13,7 @@ use crate::{
     crypto::{
         signatures::keys::QueueOwnerVerifyingKey, signatures::signable::Signature, RatchetPublicKey,
     },
-    qs::{client_record::QsClientRecord, ClientId, EncryptedPushToken, KeyPackageBatch, UserId},
+    qs::{client_record::QsClientRecord, EncryptedPushToken, KeyPackageBatch, QsClientId, UserId},
 };
 
 use super::{intra_backend::DsFanOutMessage, AddPackage, FriendshipToken};
@@ -31,7 +31,7 @@ pub struct QsFetchMessagesParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct QsFetchMessageParamsTBS {
-    pub client_id: ClientId,        // The target queue id.
+    pub client_id: QsClientId,      // The target queue id.
     pub sequence_number_start: u64, // The sequence number of the first message we want to fetch.
     pub max_messages: u64, // The maximum number of messages we'd like to retrieve from the QS.
 }
@@ -76,7 +76,7 @@ pub struct CreateUserRecordParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateUserRecordResponse {
     pub(crate) user_id: UserId,
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     pub(crate) client_record: QsClientRecord,
 }
 
@@ -114,19 +114,19 @@ pub struct CreateClientRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateClientRecordResponse {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientRecordParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ClientRecordParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -137,22 +137,22 @@ pub(crate) struct ClientRecordResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteClientRecordParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct PublishKeyPackagesParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     pub(crate) add_packages: Vec<AddPackage>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct ClientKeyPackageParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }
 
 pub(crate) struct KeyPackageBatchParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -163,12 +163,12 @@ pub(crate) struct KeyPackageBatchResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct DequeueMessagesParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     pub(crate) sequence_number_start: u64,
     pub(crate) max_message_number: u64,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct WsParams {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
 }

@@ -40,6 +40,7 @@ pub struct ClientToClientMsg {
     pub assisted_message: Vec<u8>,
 }
 
+/// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct DsClientId {
     id: Vec<u8>,

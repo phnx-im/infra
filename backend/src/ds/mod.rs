@@ -25,6 +25,7 @@ pub enum LoadState {
     Expired,
 }
 
+/// This is the client's actual client id, not a pseudonym.
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema)]
 pub struct ClientId {}
 

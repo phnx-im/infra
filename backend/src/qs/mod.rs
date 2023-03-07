@@ -120,7 +120,7 @@ pub enum WebsocketNotifierError {
 /// TODO: This should be unified with push notifications later
 #[async_trait]
 pub trait WebsocketNotifier {
-    async fn notify(&self, client_id: &ClientId) -> Result<(), WebsocketNotifierError>;
+    async fn notify(&self, client_id: &QsClientId) -> Result<(), WebsocketNotifierError>;
 }
 
 #[async_trait]
@@ -153,8 +153,9 @@ impl QueueIdEncryptionPublicKey {
     }
 }
 
+/// This is the pseudonymous client id used on the QS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
-pub struct ClientId {
+pub struct QsClientId {
     pub(crate) client_id: Vec<u8>,
 }
 
@@ -166,7 +167,7 @@ pub struct UserId {
 /// Info describing the queue configuration for a member of a given group.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ClientConfig {
-    pub(crate) client_id: ClientId,
+    pub(crate) client_id: QsClientId,
     // Some clients might not use push tokens.
     pub(crate) push_token_key_option: Option<PushTokenEarKey>,
 }
@@ -174,7 +175,7 @@ pub struct ClientConfig {
 impl ClientConfig {
     pub fn dummy_config() -> Self {
         Self {
-            client_id: ClientId {
+            client_id: QsClientId {
                 client_id: Vec::new(),
             },
             push_token_key_option: None,

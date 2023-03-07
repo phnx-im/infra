@@ -1,9 +1,9 @@
 use thiserror::*;
 
-use crate::qs::ClientId;
+use crate::qs::QsClientId;
 
 pub struct RegistrationResponse {
-    pub welcome_queue_id: ClientId,
+    pub welcome_queue_id: QsClientId,
 }
 
 #[derive(Debug, Error)]

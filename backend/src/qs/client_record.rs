@@ -16,7 +16,7 @@ use crate::{
 use super::{
     errors::{EnqueueError, QsCreateClientError},
     storage_provider_trait::QsStorageProvider,
-    ClientId, EncryptedPushToken, PushToken, WebsocketNotifier,
+    EncryptedPushToken, PushToken, QsClientId, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -48,7 +48,7 @@ impl QsClientRecord {
         owner_public_key: RatchetPublicKey,
         owner_signature_key: QueueOwnerVerifyingKey,
         current_ratchet_key: RatchetKey,
-    ) -> Result<(Self, ClientId), QsCreateClientError<S>> {
+    ) -> Result<(Self, QsClientId), QsCreateClientError<S>> {
         let fan_out_queue_info = Self {
             encrypted_push_token_option,
             owner_public_key,
@@ -93,7 +93,7 @@ impl QsClientRecord {
     /// Put a message into the queue.
     pub(crate) async fn enqueue<S: QsStorageProvider, W: WebsocketNotifier>(
         &mut self,
-        client_id: &ClientId,
+        client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
         msg: ClientToClientMsg,

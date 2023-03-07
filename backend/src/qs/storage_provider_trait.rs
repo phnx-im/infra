@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::messages::client_qs::EnqueuedMessage;
 
-use super::{client_record::QsClientRecord, user_record::QsUserRecord, ClientId, UserId};
+use super::{client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, UserId};
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -21,26 +21,26 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     async fn create_client(
         &self,
         client_record: &QsClientRecord,
-    ) -> Result<ClientId, Self::CreateClientError>;
+    ) -> Result<QsClientId, Self::CreateClientError>;
 
     /// Load the info for the client with the given client ID.
-    async fn load_client(&self, client_id: &ClientId) -> Option<QsClientRecord>;
+    async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord>;
 
     /// Saves a client in the storage provider with the given client ID.
     async fn store_client(
         &self,
-        client_id: &ClientId,
+        client_id: &QsClientId,
         client_record: QsClientRecord,
     ) -> Result<(), Self::StoreClientError>;
 
     /// Deletes the client with the given clien ID.
-    async fn delete_client(&self, client_id: &ClientId) -> Result<(), Self::DeleteClientError>;
+    async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError>;
 
     /// Append the given message to the queue. Returns an error if the payload
     /// is greater than the maximum payload allowed by the storage provider.
     async fn enqueue(
         &self,
-        client_id: &ClientId,
+        client_id: &QsClientId,
         message: EnqueuedMessage,
     ) -> Result<(), Self::EnqueueError>;
 
@@ -50,7 +50,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     /// well as the number of unread messages remaining in the queue.
     async fn read_and_delete(
         &self,
-        client_id: &ClientId,
+        client_id: &QsClientId,
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<EnqueuedMessage>, u64), Self::ReadAndDeleteError>;
