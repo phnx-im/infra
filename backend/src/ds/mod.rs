@@ -69,6 +69,11 @@ pub trait DsStorageProvider: Sync + Send + 'static {
         group_id: &GroupId,
         encrypted_group_state: EncryptedDsGroupState,
     ) -> Result<(), Self::StorageError>;
+
+    /// Reserves the ds group state slot with the given group ID.
+    ///
+    /// Returns an error if the group ID is already taken.
+    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<(), Self::StorageError>;
 }
 
 #[derive(Default)]

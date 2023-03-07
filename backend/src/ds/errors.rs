@@ -4,17 +4,8 @@ use thiserror::Error;
 /// Error updating queue config.
 #[derive(Error, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum UpdateQueueConfigError {
-    /// LibraryError
-    #[error("LibraryError")]
-    LibraryError,
-    /// Insufficient randomness
-    #[error("Insufficient randomness.")]
-    InsufficientRandomness,
-    /// Error storing updated group state
-    #[error("Error storing updated group state.")]
-    StorageError,
-    /// Couldn't find sender in the roster
-    #[error("Couldn't find sender in the roster")]
+    /// Couldn't find sender.
+    #[error("Couldn't find sender.")]
     UnknownSender,
 }
 

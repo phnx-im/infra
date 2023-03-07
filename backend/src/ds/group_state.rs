@@ -15,7 +15,7 @@ use crate::{
         EncryptedDsGroupState,
     },
     messages::{
-        client_ds::{ClientToClientMsg, WelcomeInfoParams},
+        client_ds::{ClientToClientMsg, UpdateQsClientReferenceParams, WelcomeInfoParams},
         intra_backend::DsFanOutMessage,
     },
     qs::{Fqdn, QsClientReference, QsEnqueueProvider},
@@ -179,14 +179,13 @@ impl DsGroupState {
 
     pub(crate) fn update_queue_config(
         &mut self,
-        leaf_index: LeafNodeIndex,
-        client_queue_config: &QsClientReference,
+        params: UpdateQsClientReferenceParams,
     ) -> Result<(), UpdateQueueConfigError> {
         let client_profile = self
             .client_profiles
-            .get_mut(&leaf_index)
+            .get_mut(&params.sender())
             .ok_or(UpdateQueueConfigError::UnknownSender)?;
-        client_profile.client_queue_config = client_queue_config.clone();
+        client_profile.client_queue_config = params.new_queue_config().clone();
         Ok(())
     }
 

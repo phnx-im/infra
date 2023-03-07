@@ -59,10 +59,20 @@ pub struct CreateGroupParams {
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct UpdateQueueInfoParams {
+pub struct UpdateQsClientReferenceParams {
     group_id: GroupId,
-    ear_key: GroupStateEarKey,
+    sender: LeafNodeIndex,
     new_queue_config: QsClientReference,
+}
+
+impl UpdateQsClientReferenceParams {
+    pub fn sender(&self) -> LeafNodeIndex {
+        self.sender
+    }
+
+    pub fn new_queue_config(&self) -> &QsClientReference {
+        &self.new_queue_config
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -352,6 +362,7 @@ pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     CreateGroupParams(CreateGroupParams),
+    UpdateQueueInfo(UpdateQsClientReferenceParams),
 }
 
 impl RequestParams {
@@ -360,6 +371,9 @@ impl RequestParams {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
             RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
             RequestParams::CreateGroupParams(create_group_params) => &create_group_params.group_id,
+            RequestParams::UpdateQueueInfo(update_queue_info_params) => {
+                &update_queue_info_params.group_id
+            }
         }
     }
 
@@ -367,8 +381,9 @@ impl RequestParams {
     pub(crate) fn mls_sender(&self) -> Option<&Sender> {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
-            RequestParams::WelcomeInfo(_) => None,
-            RequestParams::CreateGroupParams(_) => None,
+            RequestParams::WelcomeInfo(_)
+            | RequestParams::CreateGroupParams(_)
+            | RequestParams::UpdateQueueInfo(_) => None,
         }
     }
 
@@ -384,6 +399,9 @@ impl RequestParams {
             RequestParams::CreateGroupParams(create_group_params) => {
                 DsSender::UserKeyHash(create_group_params.creator_user_auth_key.hash())
             }
+            RequestParams::UpdateQueueInfo(update_queue_info_params) => {
+                DsSender::LeafIndex(update_queue_info_params.sender)
+            }
         }
     }
 
@@ -395,6 +413,12 @@ impl RequestParams {
             1 => Ok(Self::WelcomeInfo(WelcomeInfoParams::tls_deserialize(
                 &mut bytes,
             )?)),
+            2 => Ok(Self::CreateGroupParams(CreateGroupParams::tls_deserialize(
+                &mut bytes,
+            )?)),
+            3 => Ok(Self::UpdateQueueInfo(
+                UpdateQsClientReferenceParams::tls_deserialize(&mut bytes)?,
+            )),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
@@ -487,8 +511,8 @@ impl VerifiableClientToDsMessage {
     /// to extract the content before verification.
     pub(crate) fn create_group_params(&self) -> Option<&CreateGroupParams> {
         match &self.message.payload.body {
-            RequestParams::AddUsers(_) | RequestParams::WelcomeInfo(_) => None,
             RequestParams::CreateGroupParams(group_creation_params) => Some(group_creation_params),
+            _ => None,
         }
     }
 }

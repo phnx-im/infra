@@ -143,7 +143,7 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, Node, Sender};
+use mls_assist::{group::Group, GroupId, Node, OpenMlsRustCrypto, Sender};
 
 use crate::{
     crypto::{
@@ -248,6 +248,12 @@ impl DsApi {
                 )
             }
             RequestParams::CreateGroupParams(_) => (None, None),
+            RequestParams::UpdateQueueInfo(update_queue_info_params) => {
+                group_state
+                    .update_queue_config(update_queue_info_params)
+                    .map_err(|_| DsProcessingError::UnknownSender)?;
+                (None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
@@ -281,6 +287,18 @@ impl DsApi {
         }
 
         Ok(response_option)
+    }
+
+    pub async fn request_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
+        let mut group_id = GroupId::random(&OpenMlsRustCrypto::default());
+        while ds_storage_provider
+            .reserve_group_id(&group_id)
+            .await
+            .is_err()
+        {
+            group_id = GroupId::random(&OpenMlsRustCrypto::default());
+        }
+        group_id
     }
 }
 
