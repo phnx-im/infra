@@ -81,7 +81,7 @@ pub struct UserKeyHash {
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
     pub(super) clients: Vec<LeafNodeIndex>,
-    pub(super) user_auth_key: Option<UserAuthKey>,
+    pub(super) user_auth_key: UserAuthKey,
 }
 
 #[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
@@ -108,6 +108,8 @@ pub(super) struct ProposalStore {}
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
+    // Here we keep users that haven't set their user key yet.
+    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
     pub(super) client_profiles: HashMap<LeafNodeIndex, ClientProfile>,
 }
 
@@ -122,7 +124,7 @@ impl DsGroupState {
         let creator_key_hash = creator_user_auth_key.hash();
         let creator_profile = UserProfile {
             clients: vec![LeafNodeIndex::new(0u32)],
-            user_auth_key: Some(creator_user_auth_key),
+            user_auth_key: creator_user_auth_key,
         };
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
@@ -138,6 +140,7 @@ impl DsGroupState {
             group,
             user_profiles,
             client_profiles,
+            unmerged_users: vec![],
         }
     }
 
@@ -192,7 +195,7 @@ impl DsGroupState {
     pub(crate) fn get_user_key(&self, user_key_hash: &UserKeyHash) -> Option<&UserAuthKey> {
         self.user_profiles
             .get(user_key_hash)
-            .and_then(|user_profile| user_profile.user_auth_key.as_ref())
+            .map(|user_profile| &user_profile.user_auth_key)
     }
 
     /// TODO: Get the verifying key from the QS. Either look it up directly or from a local cache.

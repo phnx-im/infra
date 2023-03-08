@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage, KeyPackage, KeyPackageRef,
-    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
+    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent, SignaturePublicKey,
 };
 use tls_codec::Deserialize as TlsDeserializeTrait;
 
@@ -22,6 +22,7 @@ use super::{
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
+    // TODO: Revisit how we process the Identities in the KeyPackages here.
     pub(crate) fn add_users(
         &mut self,
         params: AddUsersParams,
@@ -98,7 +99,7 @@ impl DsGroupState {
 
         // Verify all KeyPackageBatches.
         let mut verifying_keys: HashMap<Fqdn, QsVerifyingKey> = HashMap::new();
-        let mut added_users: HashMap<Vec<u8>, Vec<KeyPackage>> = HashMap::new();
+        let mut added_users = vec![];
         for key_package_batch in params.key_package_batches {
             let fqdn = key_package_batch.homeserver_domain().clone();
             let key_package_batch: KeyPackageBatchTbs =
@@ -122,39 +123,18 @@ impl DsGroupState {
                 return Err(UserAdditionError::InvalidKeyPackageBatch);
             }
 
-            // Perform a few validation checks on each included key package ref.
-            let mut user_identity = None;
-            let mut user_key_packages = Vec::new();
+            let mut key_packages: Vec<KeyPackage> = vec![];
+            // Check if the KeyPackages in each batch are all present in the commit.
             for key_package_ref in key_package_batch.key_package_refs() {
-                if !added_clients.contains_key(key_package_ref) {
-                    return Err(UserAdditionError::InvalidKeyPackageBatch);
-                }
-
-                // Check if all KeyPackages in one KeyPackageBatch belong to one user.
                 if let Some(added_client) = added_clients.remove(key_package_ref) {
-                    if let Some(uid) = &user_identity {
-                        if added_client.leaf_node().credential().identity() != uid {
-                            return Err(UserAdditionError::InvalidKeyPackageBatch);
-                        }
-                    } else {
-                        user_identity =
-                            Some(added_client.leaf_node().credential().identity().to_vec())
-                    }
-                    user_key_packages.push(added_client);
+                    // Also, let's store the signature keys s.t. we can later find the
+                    // KeyPackages belonging to one user in the tree.
+                    key_packages.push(added_client);
                 } else {
-                    // Check if the KeyPackages in each batch are all present in the commit.
                     return Err(UserAdditionError::InvalidKeyPackageBatch);
                 }
             }
-            // User identity should be Some now.
-            if let Some(uid) = user_identity {
-                let doubly_added_user = added_users.insert(uid, user_key_packages);
-                // If there was already a user with that identity, the committer
-                // tried to add the same user twice.
-                if doubly_added_user.is_some() {
-                    return Err(UserAdditionError::DuplicatedUserAddition);
-                }
-            }
+            added_users.push(key_packages);
         }
 
         // TODO: Validate that the adder has sufficient privileges (if this
@@ -170,13 +150,13 @@ impl DsGroupState {
         );
 
         // ... s.t. it's easier to update the user and client profiles.
-        for (uid, clients) in added_users.iter() {
-            let client_profiles = clients
-                .iter()
+        for key_packages in added_users.into_iter() {
+            let client_profiles = key_packages
+                .into_iter()
                 .filter_map(|kp| {
                     self.group()
                         .members()
-                        .find(|m| m.credential.identity() == kp.leaf_node().credential().identity())
+                        .find(|m| m.signature_key == kp.leaf_node().signature_key().as_slice())
                         .map(|m| {
                             let leaf_index = m.index;
                             let client_queue_config = QsClientReference::tls_deserialize(
@@ -197,12 +177,8 @@ impl DsGroupState {
                         })
                 })
                 .collect::<Result<Vec<ClientProfile>, UserAdditionError>>()?;
-            let user_profile = UserProfile {
-                clients: client_profiles.iter().map(|cp| cp.leaf_index).collect(),
-                user_auth_key: None,
-            };
-            let user_key_hash = UserKeyHash { hash: uid.clone() };
-            self.user_profiles.insert(user_key_hash, user_profile);
+            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
+            self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
                 self.client_profiles
                     .insert(client_profile.leaf_index, client_profile);
