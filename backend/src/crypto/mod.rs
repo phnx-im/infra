@@ -114,6 +114,7 @@ impl RatchetKey {
     }
 }
 
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct HpkeCiphertext {
     pub kem_output: Vec<u8>,
     pub ciphertext: Vec<u8>,
@@ -122,6 +123,14 @@ pub struct HpkeCiphertext {
 #[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct EncryptionPublicKey {
     public_key: HpkePublicKey,
+}
+
+impl From<Vec<u8>> for EncryptionPublicKey {
+    fn from(value: Vec<u8>) -> Self {
+        Self {
+            public_key: value.into(),
+        }
+    }
 }
 
 impl EncryptionPublicKey {

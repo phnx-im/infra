@@ -2,14 +2,24 @@ use std::collections::HashMap;
 
 use chrono::Duration;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, KeyPackage, KeyPackageRef,
-    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
+    group::ProcessedAssistedMessage,
+    messages::{AssistedMessage, AssistedWelcome},
+    KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
 };
-use tls_codec::Deserialize as TlsDeserializeTrait;
+use tls_codec::{
+    Deserialize as TlsDeserializeTrait, Serialize, TlsDeserialize, TlsSerialize, TlsSize,
+};
 
 use crate::{
-    crypto::signatures::{keys::QsVerifyingKey, signable::Verifiable},
-    messages::client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        signatures::{keys::QsVerifyingKey, signable::Verifiable},
+        EncryptionPublicKey,
+    },
+    messages::{
+        client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+        intra_backend::DsFanOutMessage,
+    },
     qs::{Fqdn, KeyPackageBatchTbs, QsClientReference, KEYPACKAGEBATCH_EXPIRATION_DAYS},
 };
 
@@ -21,12 +31,20 @@ use super::{
 
 use super::group_state::DsGroupState;
 
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+pub struct WelcomeBundle {
+    welcome: AssistedWelcome,
+    encrypted_attribution_info: Vec<u8>,
+    encrypted_group_state_ear_key: Vec<u8>,
+}
+
 impl DsGroupState {
     // TODO: Revisit how we process the Identities in the KeyPackages here.
     pub(crate) fn add_users(
         &mut self,
         params: AddUsersParams,
-    ) -> Result<ClientToClientMsg, UserAdditionError> {
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<(ClientToClientMsg, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message = if matches!(params.commit, AssistedMessage::Commit(_)) {
             self.group()
@@ -37,10 +55,6 @@ impl DsGroupState {
         };
 
         // Perform DS-level validation
-        // TODO: Verify that the added clients belong to one user. This requires
-        // us to define the credentials we're using. To do that, we'd need to
-        // modify OpenMLS.
-
         // Make sure that we have the right message type.
         let processed_message =
             if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
@@ -100,7 +114,11 @@ impl DsGroupState {
         // Verify all KeyPackageBatches.
         let mut verifying_keys: HashMap<Fqdn, QsVerifyingKey> = HashMap::new();
         let mut added_users = vec![];
-        for key_package_batch in params.key_package_batches {
+        for (key_package_batch, attribution_info) in params
+            .key_package_batches
+            .into_iter()
+            .zip(params.encrypted_welcome_attribution_infos.into_iter())
+        {
             let fqdn = key_package_batch.homeserver_domain().clone();
             let key_package_batch: KeyPackageBatchTbs =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
@@ -123,7 +141,7 @@ impl DsGroupState {
                 return Err(UserAdditionError::InvalidKeyPackageBatch);
             }
 
-            let mut key_packages: Vec<KeyPackage> = vec![];
+            let mut key_packages = vec![];
             // Check if the KeyPackages in each batch are all present in the commit.
             for key_package_ref in key_package_batch.key_package_refs() {
                 if let Some(added_client) = added_clients.remove(key_package_ref) {
@@ -134,7 +152,7 @@ impl DsGroupState {
                     return Err(UserAdditionError::InvalidKeyPackageBatch);
                 }
             }
-            added_users.push(key_packages);
+            added_users.push((key_packages, attribution_info));
         }
 
         // TODO: Validate that the adder has sufficient privileges (if this
@@ -150,33 +168,61 @@ impl DsGroupState {
         );
 
         // ... s.t. it's easier to update the user and client profiles.
-        for key_packages in added_users.into_iter() {
-            let client_profiles = key_packages
-                .into_iter()
-                .filter_map(|kp| {
+        let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
+        for (key_packages, attribution_info) in added_users.into_iter() {
+            let mut client_profiles = vec![];
+            for key_package in key_packages {
+                let member = self
+                    .group()
+                    .members()
+                    .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
+                    .ok_or(UserAdditionError::InvalidMessage)?;
+                let leaf_index = member.index;
+                let client_queue_config = QsClientReference::tls_deserialize(
+                    &mut key_package
+                        .extensions()
+                        .queue_config()
+                        .ok_or(UserAdditionError::MissingQueueConfig)?
+                        .payload(),
+                )
+                .map_err(|_| UserAdditionError::MissingQueueConfig)?;
+                let client_profile = ClientProfile {
+                    leaf_index,
+                    credential_chain: EncryptedCredentialChain {},
+                    client_queue_config: client_queue_config.clone(),
+                    activity_time: TimeStamp::now(),
+                    activity_epoch: self.group().epoch(),
+                };
+                // TODO: We should do this nicely via a trait at some point.
+                let info = [
+                    "GroupStateEarKey ".as_bytes(),
                     self.group()
-                        .members()
-                        .find(|m| m.signature_key == kp.leaf_node().signature_key().as_slice())
-                        .map(|m| {
-                            let leaf_index = m.index;
-                            let client_queue_config = QsClientReference::tls_deserialize(
-                                &mut kp
-                                    .extensions()
-                                    .queue_config()
-                                    .ok_or(UserAdditionError::MissingQueueConfig)?
-                                    .payload(),
-                            )
-                            .map_err(|_| UserAdditionError::MissingQueueConfig)?;
-                            Ok(ClientProfile {
-                                leaf_index,
-                                credential_chain: EncryptedCredentialChain {},
-                                client_queue_config,
-                                activity_time: TimeStamp::now(),
-                                activity_epoch: self.group().epoch(),
-                            })
-                        })
-                })
-                .collect::<Result<Vec<ClientProfile>, UserAdditionError>>()?;
+                        .group_info()
+                        .group_context()
+                        .group_id()
+                        .as_slice(),
+                ]
+                .concat();
+                let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
+                let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes)
+                    .encrypt(&info, &[], group_state_ear_key.as_slice())
+                    .map_err(|_| UserAdditionError::LibraryError)?;
+                let welcome_bundle = WelcomeBundle {
+                    welcome: params.welcome.clone(),
+                    encrypted_attribution_info: attribution_info.clone(),
+                    encrypted_group_state_ear_key: encrypted_ear_key
+                        .tls_serialize_detached()
+                        .map_err(|_| UserAdditionError::LibraryError)?,
+                };
+                let fan_out_message = DsFanOutMessage {
+                    payload: welcome_bundle
+                        .tls_serialize_detached()
+                        .map_err(|_| UserAdditionError::LibraryError)?,
+                    client_reference: client_queue_config,
+                };
+                fan_out_messages.push(fan_out_message);
+                client_profiles.push(client_profile);
+            }
             let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
             self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
@@ -185,11 +231,11 @@ impl DsGroupState {
             }
         }
 
-        // Finally, we distribute the message.
+        // Finally, we create the message for distribution.
         let c2c_message = ClientToClientMsg {
             assisted_message: params.commit_bytes,
         };
 
-        Ok(c2c_message)
+        Ok((c2c_message, fan_out_messages))
     }
 }

@@ -233,10 +233,11 @@ impl DsApi {
 
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (c2c_message_option, response_option) = match verified_message {
+        let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
             RequestParams::AddUsers(add_user_params) => {
-                let result = group_state.add_users(add_user_params)?;
-                (Some(result), None)
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_users(add_user_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
             }
             RequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
@@ -245,20 +246,22 @@ impl DsApi {
                 (
                     None,
                     Some(DsProcessResponse::WelcomeInfo(ratchet_tree.to_vec())),
+                    None,
                 )
             }
-            RequestParams::CreateGroupParams(_) => (None, None),
+            RequestParams::CreateGroupParams(_) => (None, None, None),
             RequestParams::UpdateQueueInfo(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;
-                (None, None)
+                (None, None, None)
             }
             RequestParams::ExternalCommitInfo(_) => (
                 None,
                 Some(DsProcessResponse::ExternalCommitInfo(
                     group_state.external_commit_info(),
                 )),
+                None,
             ),
         };
 
@@ -279,6 +282,7 @@ impl DsApi {
             .await
             .map_err(|_| DsProcessingError::StorageError)?;
 
+        // Distribute FanOutMessages
         if let Some(c2c_message) = c2c_message_option {
             let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
                 leaf_index
@@ -287,9 +291,19 @@ impl DsApi {
             };
 
             group_state
-                .distribute_message(qs_enqueue_provider, c2c_message, sender_index)
+                .distribute_c2c_message(qs_enqueue_provider, c2c_message, sender_index)
                 .await
                 .map_err(|_| DsProcessingError::DistributionError)?;
+        }
+
+        // Distribute WelcomeBundles
+        if let Some(fan_out_messages) = fan_out_messages {
+            for message in fan_out_messages {
+                qs_enqueue_provider
+                    .enqueue(message)
+                    .await
+                    .map_err(|_| DsProcessingError::DistributionError)?;
+            }
         }
 
         Ok(response_option)

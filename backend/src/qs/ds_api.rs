@@ -37,7 +37,7 @@ impl Qs {
                 &client_config.client_id,
                 storage_provider,
                 websocket_notifier,
-                message.payload,
+                todo!(),
                 client_config.push_token_key_option,
             )
             .await

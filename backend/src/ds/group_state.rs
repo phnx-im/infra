@@ -155,7 +155,7 @@ impl DsGroupState {
     }
 
     /// Distribute the given MLS message (currently only works with ciphertexts).
-    pub(super) async fn distribute_message<Q: QsEnqueueProvider>(
+    pub(super) async fn distribute_c2c_message<Q: QsEnqueueProvider>(
         &self,
         qs_enqueue_provider: &Q,
         message: ClientToClientMsg,
@@ -168,7 +168,7 @@ impl DsGroupState {
             let client_queue_config = client_profile.client_queue_config.clone();
 
             let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.clone(),
+                payload: message.assisted_message.clone(),
                 client_reference: client_queue_config,
             };
 
