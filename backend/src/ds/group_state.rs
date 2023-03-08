@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use mls_assist::{group::Group, GroupEpoch, LeafNodeIndex, Node};
+use mls_assist::{group::Group, GroupEpoch, GroupInfo, LeafNodeIndex, Node};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
@@ -211,6 +211,12 @@ impl DsGroupState {
             &welcome_info_params.epoch,
             welcome_info_params.sender.signature_key(),
         )
+    }
+
+    pub(super) fn external_commit_info(&mut self) -> (GroupInfo, Vec<Option<Node>>) {
+        let group_info = self.group().group_info().clone();
+        let nodes = self.group().export_ratchet_tree();
+        (group_info, nodes)
     }
 }
 

@@ -90,8 +90,8 @@ pub struct GetWelcomeInfoResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ExternalCommitInfoParams {
-    group_id: GroupId,
-    ear_key: GroupStateEarKey,
+    pub group_id: GroupId,
+    pub sender: UserKeyHash,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -361,6 +361,7 @@ pub(crate) enum MlsInfraVersion {
 pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
     WelcomeInfo(WelcomeInfoParams),
+    ExternalCommitInfo(ExternalCommitInfoParams),
     CreateGroupParams(CreateGroupParams),
     UpdateQueueInfo(UpdateQsClientReferenceParams),
 }
@@ -374,6 +375,9 @@ impl RequestParams {
             RequestParams::UpdateQueueInfo(update_queue_info_params) => {
                 &update_queue_info_params.group_id
             }
+            RequestParams::ExternalCommitInfo(external_commit_info_params) => {
+                &external_commit_info_params.group_id
+            }
         }
     }
 
@@ -382,6 +386,7 @@ impl RequestParams {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
             RequestParams::WelcomeInfo(_)
+            | RequestParams::ExternalCommitInfo(_)
             | RequestParams::CreateGroupParams(_)
             | RequestParams::UpdateQueueInfo(_) => None,
         }
@@ -402,6 +407,9 @@ impl RequestParams {
             RequestParams::UpdateQueueInfo(update_queue_info_params) => {
                 DsSender::LeafIndex(update_queue_info_params.sender)
             }
+            RequestParams::ExternalCommitInfo(external_commit_info_params) => {
+                DsSender::UserKeyHash(external_commit_info_params.sender.clone())
+            }
         }
     }
 
@@ -413,10 +421,13 @@ impl RequestParams {
             1 => Ok(Self::WelcomeInfo(WelcomeInfoParams::tls_deserialize(
                 &mut bytes,
             )?)),
-            2 => Ok(Self::CreateGroupParams(CreateGroupParams::tls_deserialize(
+            2 => Ok(Self::ExternalCommitInfo(
+                ExternalCommitInfoParams::tls_deserialize(&mut bytes)?,
+            )),
+            3 => Ok(Self::CreateGroupParams(CreateGroupParams::tls_deserialize(
                 &mut bytes,
             )?)),
-            3 => Ok(Self::UpdateQueueInfo(
+            4 => Ok(Self::UpdateQueueInfo(
                 UpdateQsClientReferenceParams::tls_deserialize(&mut bytes)?,
             )),
             _ => Err(tls_codec::Error::InvalidInput),

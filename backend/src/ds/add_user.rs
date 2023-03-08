@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage, KeyPackage, KeyPackageRef,
-    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent, SignaturePublicKey,
+    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
 };
 use tls_codec::Deserialize as TlsDeserializeTrait;
 
@@ -16,7 +16,7 @@ use crate::{
 use super::{
     api::USER_EXPIRATION_DAYS,
     errors::UserAdditionError,
-    group_state::{ClientProfile, EncryptedCredentialChain, TimeStamp, UserKeyHash, UserProfile},
+    group_state::{ClientProfile, EncryptedCredentialChain, TimeStamp},
 };
 
 use super::group_state::DsGroupState;

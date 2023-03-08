@@ -143,7 +143,7 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, GroupId, Node, OpenMlsRustCrypto, Sender};
+use mls_assist::{group::Group, GroupId, GroupInfo, Node, OpenMlsRustCrypto, Sender};
 
 use crate::{
     crypto::{
@@ -244,7 +244,7 @@ impl DsApi {
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
                 (
                     None,
-                    Some(DsProcessResponse::RatchetTree(ratchet_tree.to_vec())),
+                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.to_vec())),
                 )
             }
             RequestParams::CreateGroupParams(_) => (None, None),
@@ -254,6 +254,12 @@ impl DsApi {
                     .map_err(|_| DsProcessingError::UnknownSender)?;
                 (None, None)
             }
+            RequestParams::ExternalCommitInfo(_) => (
+                None,
+                Some(DsProcessResponse::ExternalCommitInfo(
+                    group_state.external_commit_info(),
+                )),
+            ),
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
@@ -303,5 +309,6 @@ impl DsApi {
 }
 
 pub enum DsProcessResponse {
-    RatchetTree(Vec<Option<Node>>),
+    WelcomeInfo(Vec<Option<Node>>),
+    ExternalCommitInfo((GroupInfo, Vec<Option<Node>>)),
 }
