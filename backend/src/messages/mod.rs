@@ -1,4 +1,3 @@
-use mls_assist::KeyPackage;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -10,8 +9,5 @@ pub(crate) mod intra_backend;
 #[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct FriendshipToken {}
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct AddPackage {
-    key_package: KeyPackage,
-    icc_ciphertext: Vec<u8>,
-}
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub struct FriendshipEarKey {}

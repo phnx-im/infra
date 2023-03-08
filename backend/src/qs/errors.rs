@@ -34,6 +34,8 @@ pub enum QsEnqueueProviderError {
     LibraryError,
 }
 
+// === Messages ===
+
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsEnqueueError<S: QsStorageProvider> {
@@ -73,6 +75,8 @@ pub enum QsUpdateQueueError {
     WrongQueueType,
 }
 
+// === Client ===
+
 /// Error creating new client.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsCreateClientError<S: QsStorageProvider> {
@@ -96,18 +100,70 @@ pub enum QsUpdateClientRecordError {
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum QsCreateUserError<S: QsStorageProvider> {
-    /// Error updating client record
-    #[error("Error updating client record")]
-    ClientCreationError(#[from] QsCreateClientError<S>),
-    /// Failed to store user record
-    #[error("Failed to store client record")]
-    StorageProviderError(S::CreateUserError),
+pub enum QsGetClientError {
+    /// Error getting client record
+    #[error("Error getting client record")]
+    StorageError,
+}
+
+// === User ===
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsCreateUserError {
+    /// Error creating client record
+    #[error("Error creating user record")]
+    StorageError,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsUpdateUserError {
+    /// Error updating user record
+    #[error("Error updating user record")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsGetUserError {
+    /// Error getting user record
+    #[error("Error getting user record")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsDeleteUserError {
+    /// Error deleteing user record
+    #[error("Error deleteing user record")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsStoreUserError<S: QsStorageProvider> {
     /// Error creating client record
     #[error("Error creating user record")]
+    StorageProviderError(S::StoreUserError),
+}
+
+// === Key Packages ===
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsPublishKeyPackagesError {
+    /// Error publishing key packages
+    #[error("Error publishing key packages")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsClientKeyPackageError {
+    /// Error retrieving client key package
+    #[error("Error retrieving client key package")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsKeyPackageBatchError {
+    #[error("Library Error")]
+    LibraryError,
+    /// Error retrieving user key packages
+    #[error("Error retrieving user key packages")]
     StorageError,
 }

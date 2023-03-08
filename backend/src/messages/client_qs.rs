@@ -4,7 +4,7 @@
 //! module, to allow re-use by the client implementation.
 
 use hpke::HpkePublicKey;
-use mls_assist::{KeyPackage, SignaturePublicKey};
+use mls_assist::SignaturePublicKey;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -13,10 +13,10 @@ use crate::{
     crypto::{
         signatures::keys::QueueOwnerVerifyingKey, signatures::signable::Signature, RatchetPublicKey,
     },
-    qs::{client_record::QsClientRecord, EncryptedPushToken, KeyPackageBatch, QsClientId, UserId},
+    qs::{EncryptedPushToken, KeyPackageBatch, QsClientId, QsEncryptedKeyPackage, UserId},
 };
 
-use super::{intra_backend::DsFanOutMessage, AddPackage, FriendshipToken};
+use super::{intra_backend::DsFanOutMessage, FriendshipEarKey, FriendshipToken};
 
 mod private_mod {
     #[derive(Default)]
@@ -63,7 +63,7 @@ pub enum GroupOpsDeserializationError {
     WrongRequestType,
 }
 
-// === QS ===
+// === User ===
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateUserRecordParams {
@@ -71,13 +71,15 @@ pub struct CreateUserRecordParams {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
+    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) friendship_ear_key: FriendshipEarKey,
+    pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateUserRecordResponse {
     pub(crate) user_id: UserId,
     pub(crate) client_id: QsClientId,
-    pub(crate) client_record: QsClientRecord,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -88,27 +90,31 @@ pub struct UpdateUserRecordParams {
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct UserRecordParams {
+pub struct UserRecordParams {
     pub(crate) user_id: UserId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct UserRecordResponse {
+pub struct UserRecordResponse {
     pub(crate) user_record_auth_key: SignaturePublicKey,
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_records: Vec<ClientRecordResponse>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct DeleteUserRecordParams {
+pub struct DeleteUserRecordParams {
     pub(crate) user_id: UserId,
 }
 
+// === Client ===
+
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateClientRecordParams {
+    pub(crate) user_id: UserId,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) key_packages: Vec<KeyPackage>,
+    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
 }
 
@@ -143,29 +149,43 @@ pub struct DeleteClientRecordParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct PublishKeyPackagesParams {
     pub(crate) client_id: QsClientId,
-    pub(crate) add_packages: Vec<AddPackage>,
+    pub(crate) add_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) friendship_ear_key: FriendshipEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct ClientKeyPackageParams {
-    pub(crate) client_id: QsClientId,
-}
-
-pub(crate) struct KeyPackageBatchParams {
+pub struct ClientKeyPackageParams {
     pub(crate) client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct KeyPackageBatchResponse {
-    pub(crate) add_packages: Vec<AddPackage>,
+pub struct ClientKeyPackageResponse {
+    pub(crate) encrypted_key_package: QsEncryptedKeyPackage,
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub struct KeyPackageBatchParams {
+    pub(crate) friendship_token: FriendshipToken,
+    pub(crate) friendship_ear_key: FriendshipEarKey,
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub struct KeyPackageBatchResponse {
+    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
     pub(crate) key_package_batch: KeyPackageBatch,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub(crate) struct DequeueMessagesParams {
+pub struct DequeueMessagesParams {
     pub(crate) client_id: QsClientId,
     pub(crate) sequence_number_start: u64,
     pub(crate) max_message_number: u64,
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub struct DequeueMessagesResponse {
+    pub(crate) messages: Vec<EnqueuedMessage>,
+    pub(crate) remaining_messages_number: u64,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]

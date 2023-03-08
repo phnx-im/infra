@@ -60,7 +60,10 @@
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
-        signatures::signable::{Signature, Verifiable, VerifiedStruct},
+        signatures::{
+            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+            traits::SigningKey,
+        },
         DecryptionPrivateKey, EncryptionPublicKey,
     },
     ds::group_state::TimeStamp,
@@ -158,8 +161,7 @@ impl QueueIdEncryptionPublicKey {
 pub struct QsClientId {
     pub(crate) client_id: Vec<u8>,
 }
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct UserId {
     pub(crate) user_id: Vec<u8>,
 }
@@ -184,7 +186,21 @@ impl ClientConfig {
 }
 
 #[derive(Debug)]
+struct QsSigningKey {
+    signing_key: Vec<u8>,
+}
+
+impl AsRef<[u8]> for QsSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key
+    }
+}
+
+impl SigningKey for QsSigningKey {}
+#[derive(Debug)]
 pub struct Qs {
+    signer: QsSigningKey,
+    fqdn: Fqdn,
     queue_id_private_key: QueueIdDecryptionPrivateKey,
 }
 
@@ -222,6 +238,13 @@ pub struct SealedClientReference {}
 // reasonable to assume the batch is relatively fresh.
 pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 
+/// Ciphertext that contains a KeyPackage and an intermediary client certficate.
+/// TODO: do we want a key committing scheme here?
+#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+pub struct QsEncryptedKeyPackage {
+    ctxt: Ciphertext,
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatchTbs {
     homeserver_domain: Fqdn,
@@ -236,6 +259,28 @@ impl KeyPackageBatchTbs {
 
     pub fn has_expired(&self, expiration_days: i64) -> bool {
         self.time_of_signature.has_expired(expiration_days)
+    }
+}
+
+impl Signable for KeyPackageBatchTbs {
+    type SignedOutput = KeyPackageBatch;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "KeyPackageBatch"
+    }
+}
+
+impl SignedStruct<KeyPackageBatchTbs> for KeyPackageBatch {
+    fn from_payload(payload: KeyPackageBatchTbs, signature: Signature) -> Self {
+        KeyPackageBatch {
+            key_package_refs: payload.key_package_refs,
+            time_of_signature: payload.time_of_signature,
+            signature,
+        }
     }
 }
 
@@ -281,6 +326,6 @@ impl VerifiedStruct<VerifiableKeyPackageBatch> for KeyPackageBatchTbs {
 #[derive(Debug, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatch {
     key_package_refs: Vec<KeyPackageRef>,
-    timestamp: u64,
+    time_of_signature: TimeStamp,
     signature: Signature,
 }

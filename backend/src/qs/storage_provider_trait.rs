@@ -2,39 +2,99 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 
-use crate::messages::client_qs::EnqueuedMessage;
+use crate::messages::{client_qs::EnqueuedMessage, FriendshipToken};
 
-use super::{client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, UserId};
+use super::{
+    client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedKeyPackage,
+    UserId,
+};
 
 /// Storage provider trait for the QS.
 #[async_trait]
 pub trait QsStorageProvider: Sync + Send + Debug + 'static {
+    type CreateUserError: Error + Debug + PartialEq + Eq + Clone;
+    type StoreUserError: Error + Debug + PartialEq + Eq + Clone;
+    type DeleteUserError: Error + Debug + PartialEq + Eq + Clone;
+
     type StoreClientError: Error + Debug + PartialEq + Eq + Clone;
     type CreateClientError: Error + Debug + PartialEq + Eq + Clone;
     type DeleteClientError: Error + Debug + PartialEq + Eq + Clone;
+
     type EnqueueError: Error + Debug + PartialEq + Eq + Clone;
     type ReadAndDeleteError: Error + Debug + PartialEq + Eq + Clone;
-    type CreateUserError: Error + Debug + PartialEq + Eq + Clone;
-    type StoreUserError: Error + Debug + PartialEq + Eq + Clone;
 
-    /// Stores the client record for a new client and returns the client ID.
-    async fn create_client(
+    type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
+
+    // === USERS ===
+
+    /// Returns a new unique user ID.
+    async fn create_user(&self) -> Result<UserId, Self::CreateUserError>;
+
+    /// Loads the QsUserRecord for a given UserId. Returns None if no QsUserRecord
+    /// exists for the given UserId.
+    async fn load_user(&self, user_id: &UserId) -> Option<QsUserRecord>;
+
+    /// Stores a QsUserRecord for a given UserId. If a QsUserRecord already exists
+    /// for the given UserId, it will be overwritten.
+    async fn store_user(
         &self,
-        client_record: &QsClientRecord,
-    ) -> Result<QsClientId, Self::CreateClientError>;
+        user_id: &UserId,
+        user_record: QsUserRecord,
+    ) -> Result<(), Self::StoreUserError>;
+
+    /// Deletes the QsUserRecord for a given UserId. Returns true if a QsUserRecord
+    /// was deleted, false if no QsUserRecord existed for the given UserId.
+    ///
+    /// The storage provider must also delete the following:
+    ///  - All clients of the user
+    ///  - All enqueued messages for the respective clients
+    ///  - All key packages for the respective clients
+    async fn delete_user(&self, user_id: &UserId) -> Result<(), Self::DeleteUserError>;
+
+    // === CLIENTS ===
+
+    /// Returns a new unique client ID.
+    async fn create_client(&self) -> Result<QsClientId, Self::CreateClientError>;
 
     /// Load the info for the client with the given client ID.
     async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord>;
 
-    /// Saves a client in the storage provider with the given client ID.
+    /// Saves a client in the storage provider with the given client ID. The
+    /// storage provider must associate this client with the user of the client.
     async fn store_client(
         &self,
         client_id: &QsClientId,
         client_record: QsClientRecord,
     ) -> Result<(), Self::StoreClientError>;
 
-    /// Deletes the client with the given clien ID.
+    /// Deletes the client with the given client ID.
+    ///
+    /// The storage provider must also delete the following:
+    ///  - The associated user, if the user has no other clients
+    ///  - All enqueued messages for the respective clients
+    ///  - All key packages for the respective clients
     async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError>;
+
+    // === KEY PACKAGES ===
+
+    /// Store key packages for a specific client.
+    async fn store_key_packages(
+        &self,
+        client_id: &QsClientId,
+        encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    ) -> Result<(), Self::StoreKeyPackagesError>;
+
+    /// Return a key package for a specific client.
+    async fn load_key_package(&self, client_id: &QsClientId) -> Option<QsEncryptedKeyPackage>;
+
+    /// Return a key package for each client of a user ereferenced by a
+    /// friendship token.
+    async fn load_user_key_packages(
+        &self,
+        friendship_token: &FriendshipToken,
+    ) -> Vec<QsEncryptedKeyPackage>;
+
+    // === MESSAGES ===
 
     /// Append the given message to the queue. Returns an error if the payload
     /// is greater than the maximum payload allowed by the storage provider.
@@ -45,35 +105,14 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     ) -> Result<(), Self::EnqueueError>;
 
     /// Delete all messages older than the given sequence number in the queue
-    /// with the given id and return up to the requested number of messages from
-    /// the queue starting with the message with the given sequence number, as
-    /// well as the number of unread messages remaining in the queue.
+    /// with the given client ID and return up to the requested number of
+    /// messages from the queue starting with the message with the given
+    /// sequence number, as well as the number of unread messages remaining in
+    /// the queue.
     async fn read_and_delete(
         &self,
         client_id: &QsClientId,
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<EnqueuedMessage>, u64), Self::ReadAndDeleteError>;
-
-    /// Stores the user record for a new user and returns the user ID.
-    async fn create_user(
-        &self,
-        user_record: &QsUserRecord,
-    ) -> Result<UserId, Self::CreateUserError>;
-
-    /// Loads the QsUserRecord for a given QsUid. Returns None if no QsUserRecord
-    /// exists for the given QsUid.
-    async fn load_user(&self, user_id: &UserId) -> Option<QsUserRecord>;
-
-    /// Stores a QsUserRecord for a given QsUid. If a QsUserRecord already exists
-    /// for the given QsUid, it will be overwritten.
-    async fn store_user(
-        &self,
-        user_id: &UserId,
-        user_record: QsUserRecord,
-    ) -> Result<(), Self::StoreUserError>;
-
-    /// Deletes the QsUserRecord for a given QsUid. Returns true if a QsUserRecord
-    /// was deleted, false if no QsUserRecord existed for the given QsUid.
-    async fn delete_user_record(&self, user_id: &UserId) -> bool;
 }

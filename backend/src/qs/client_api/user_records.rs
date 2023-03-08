@@ -7,13 +7,13 @@ Endpoints:
 */
 
 use crate::{
-    crypto::RatchetKey,
     messages::client_qs::{
-        CreateUserRecordParams, CreateUserRecordResponse, UpdateUserRecordParams,
+        CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
+        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams, UserRecordParams,
+        UserRecordResponse,
     },
     qs::{
-        client_record::QsClientRecord,
-        errors::{QsCreateUserError, QsUpdateUserError},
+        errors::{QsCreateUserError, QsDeleteUserError, QsGetUserError, QsUpdateUserError},
         storage_provider_trait::QsStorageProvider,
         user_record::QsUserRecord,
         Qs,
@@ -25,51 +25,51 @@ impl Qs {
     /// owner of the queue.
     #[tracing::instrument(skip_all, err)]
     pub async fn qs_create_user_record<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: CreateUserRecordParams,
-    ) -> Result<CreateUserRecordResponse, QsCreateUserError<S>> {
+    ) -> Result<CreateUserRecordResponse, QsCreateUserError> {
         let CreateUserRecordParams {
             user_record_auth_key,
             friendship_token,
             client_record_auth_key,
             queue_encryption_key,
+            encrypted_key_packages,
+            friendship_ear_key,
+            encrypted_push_token,
         } = params;
 
-        // TODO: Signature must be verified.
+        let user_id = storage_provider.create_user().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            QsCreateUserError::StorageError
+        })?;
 
-        let seed = rand::random::<[u8; 32]>();
-
-        // TODO: The ratchet key must be KEMed to the client using
-        // `queue_encryption_key`.
-        let ratchet_key = RatchetKey::new(seed.to_vec());
-
-        let (client_record, client_id) = QsClientRecord::try_new(
-            storage_provider,
-            None,
-            queue_encryption_key,
+        let create_client_params = CreateClientRecordParams {
+            user_id: user_id.clone(),
             client_record_auth_key,
-            ratchet_key,
-        )
-        .await
-        .map_err(|e| QsCreateUserError::ClientCreationError(e))?;
+            queue_encryption_key,
+            encrypted_key_packages,
+            friendship_ear_key,
+            encrypted_push_token,
+        };
 
-        let user_record =
-            QsUserRecord::new(user_record_auth_key, friendship_token, client_id.clone());
+        let CreateClientRecordResponse { client_id } = self
+            .qs_create_client_record(storage_provider, create_client_params)
+            .await
+            .map_err(|_| QsCreateUserError::StorageError)?;
+
+        let user_record = QsUserRecord::new(user_record_auth_key, friendship_token);
 
         tracing::trace!("Storing QsUserProfile in storage provider");
-        let user_id = storage_provider
-            .create_user(&user_record)
+        storage_provider
+            .store_user(&user_id, user_record)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
-                QsCreateUserError::StorageProviderError(e)
+                QsCreateUserError::StorageError
             })?;
 
-        let response = CreateUserRecordResponse {
-            user_id,
-            client_id,
-            client_record,
-        };
+        let response = CreateUserRecordResponse { user_id, client_id };
 
         Ok(response)
     }
@@ -98,5 +98,45 @@ impl Qs {
             .await
             .map_err(|_| QsUpdateUserError::StorageError)?;
         todo!()
+    }
+
+    // TODO: Discuss why we need this.
+
+    /// Get a user record.
+    #[tracing::instrument(skip_all, err)]
+    pub async fn qs_user_record<S: QsStorageProvider>(
+        storage_provider: &S,
+        params: UserRecordParams,
+    ) -> Result<UserRecordResponse, QsGetUserError> {
+        let UserRecordParams { user_id } = params;
+
+        let _user_record = storage_provider
+            .load_user(&user_id)
+            .await
+            .ok_or(QsGetUserError::StorageError)?;
+
+        /*  let response = UserRecordResponse {
+            user_record_auth_key: user_record.user_record_auth_key,
+            friendship_token: user_record.friendship_token,
+            client_id: user_record.client_id,
+        }; */
+
+        todo!()
+    }
+
+    /// Delete a user record.
+    #[tracing::instrument(skip_all, err)]
+    pub async fn qs_delete_user_record<S: QsStorageProvider>(
+        storage_provider: &S,
+        params: DeleteUserRecordParams,
+    ) -> Result<(), QsDeleteUserError> {
+        let DeleteUserRecordParams { user_id } = params;
+
+        storage_provider
+            .delete_user(&user_id)
+            .await
+            .map_err(|_| QsDeleteUserError::StorageError)?;
+
+        Ok(())
     }
 }
