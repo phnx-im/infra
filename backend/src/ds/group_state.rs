@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use mls_assist::{group::Group, GroupEpoch, LeafNodeIndex, Node};
+use mls_assist::{group::Group, GroupEpoch, GroupInfo, LeafNodeIndex, Node};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
@@ -15,7 +15,7 @@ use crate::{
         EncryptedDsGroupState,
     },
     messages::{
-        client_ds::{ClientToClientMsg, WelcomeInfoParams},
+        client_ds::{ClientToClientMsg, UpdateQsClientReferenceParams, WelcomeInfoParams},
         intra_backend::DsFanOutMessage,
     },
     qs::{Fqdn, QsClientReference, QsEnqueueProvider},
@@ -81,7 +81,7 @@ pub struct UserKeyHash {
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
     pub(super) clients: Vec<LeafNodeIndex>,
-    pub(super) user_auth_key: Option<UserAuthKey>,
+    pub(super) user_auth_key: UserAuthKey,
 }
 
 #[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
@@ -108,6 +108,8 @@ pub(super) struct ProposalStore {}
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
+    // Here we keep users that haven't set their user key yet.
+    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
     pub(super) client_profiles: HashMap<LeafNodeIndex, ClientProfile>,
 }
 
@@ -122,7 +124,7 @@ impl DsGroupState {
         let creator_key_hash = creator_user_auth_key.hash();
         let creator_profile = UserProfile {
             clients: vec![LeafNodeIndex::new(0u32)],
-            user_auth_key: Some(creator_user_auth_key),
+            user_auth_key: creator_user_auth_key,
         };
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
@@ -138,6 +140,7 @@ impl DsGroupState {
             group,
             user_profiles,
             client_profiles,
+            unmerged_users: vec![],
         }
     }
 
@@ -152,7 +155,7 @@ impl DsGroupState {
     }
 
     /// Distribute the given MLS message (currently only works with ciphertexts).
-    pub(super) async fn distribute_message<Q: QsEnqueueProvider>(
+    pub(super) async fn distribute_c2c_message<Q: QsEnqueueProvider>(
         &self,
         qs_enqueue_provider: &Q,
         message: ClientToClientMsg,
@@ -165,7 +168,7 @@ impl DsGroupState {
             let client_queue_config = client_profile.client_queue_config.clone();
 
             let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.clone(),
+                payload: message.assisted_message.clone(),
                 client_reference: client_queue_config,
             };
 
@@ -179,21 +182,20 @@ impl DsGroupState {
 
     pub(crate) fn update_queue_config(
         &mut self,
-        leaf_index: LeafNodeIndex,
-        client_queue_config: &QsClientReference,
+        params: UpdateQsClientReferenceParams,
     ) -> Result<(), UpdateQueueConfigError> {
         let client_profile = self
             .client_profiles
-            .get_mut(&leaf_index)
+            .get_mut(&params.sender())
             .ok_or(UpdateQueueConfigError::UnknownSender)?;
-        client_profile.client_queue_config = client_queue_config.clone();
+        client_profile.client_queue_config = params.new_queue_config().clone();
         Ok(())
     }
 
     pub(crate) fn get_user_key(&self, user_key_hash: &UserKeyHash) -> Option<&UserAuthKey> {
         self.user_profiles
             .get(user_key_hash)
-            .and_then(|user_profile| user_profile.user_auth_key.as_ref())
+            .map(|user_profile| &user_profile.user_auth_key)
     }
 
     /// TODO: Get the verifying key from the QS. Either look it up directly or from a local cache.
@@ -209,6 +211,12 @@ impl DsGroupState {
             &welcome_info_params.epoch,
             welcome_info_params.sender.signature_key(),
         )
+    }
+
+    pub(super) fn external_commit_info(&mut self) -> (GroupInfo, Vec<Option<Node>>) {
+        let group_info = self.group().group_info().clone();
+        let nodes = self.group().export_ratchet_tree();
+        (group_info, nodes)
     }
 }
 

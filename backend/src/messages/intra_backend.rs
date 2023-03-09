@@ -5,10 +5,8 @@ use tls_codec::{TlsDeserialize, TlsSize};
 
 use crate::qs::QsClientReference;
 
-use super::client_ds::ClientToClientMsg;
-
 #[derive(TlsDeserialize, TlsSize)]
 pub struct DsFanOutMessage {
-    pub payload: ClientToClientMsg,
+    pub payload: Vec<u8>,
     pub client_reference: QsClientReference,
 }
