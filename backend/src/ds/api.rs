@@ -289,6 +289,11 @@ impl DsApi {
                     group_state.join_connection_group(join_connection_group_params)?;
                 (Some(c2c_message), None, None)
             }
+            DsRequestParams::AddClients(add_clients_params) => {
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_clients(add_clients_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the

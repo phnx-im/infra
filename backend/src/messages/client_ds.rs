@@ -22,10 +22,7 @@ use crate::{
             signable::{Signature, Verifiable, VerifiedStruct},
         },
     },
-    ds::{
-        group_state::{EncryptedCredentialChain, UserKeyHash},
-        WelcomeAttributionInfo,
-    },
+    ds::group_state::{EncryptedCredentialChain, UserKeyHash},
     qs::{QsClientReference, VerifiableKeyPackageBatch},
 };
 
@@ -276,17 +273,39 @@ pub struct JoinConnectionGroupParamsAad {
     pub encrypted_credential_information: EncryptedCredentialChain,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddClientsParams {
-    commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
-    serialized_assisted_welcome: Vec<u8>,
-    welcome_attribution_info: WelcomeAttributionInfo,
+    pub commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
+    pub welcome: AssistedWelcome,
+    // TODO: Do we need those? They come from our own clients. We can probably
+    // just send these through the all-clients group.
+    pub encrypted_welcome_attribution_infos: Vec<u8>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+impl AddClientsParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
+        let encrypted_welcome_attribution_infos = Vec::<u8>::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            commit: AssistedMessagePlus {
+                commit,
+                commit_bytes,
+            },
+            sender,
+            welcome,
+            encrypted_welcome_attribution_infos,
+        })
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddClientsParamsAad {
-    encrypted_credential_information: Vec<u8>,
+    pub encrypted_credential_information: Vec<EncryptedCredentialChain>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -338,6 +357,7 @@ pub(crate) enum DsRequestParams {
     UpdateClient(UpdateClientParams),
     JoinGroup(JoinGroupParams),
     JoinConnectionGroup(JoinConnectionGroupParams),
+    AddClients(AddClientsParams),
 }
 
 impl DsRequestParams {
@@ -369,6 +389,9 @@ impl DsRequestParams {
                     .commit
                     .group_id()
             }
+            DsRequestParams::AddClients(add_clients_params) => {
+                add_clients_params.commit.commit.group_id()
+            }
         }
     }
 
@@ -387,6 +410,9 @@ impl DsRequestParams {
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params.external_commit.commit.sender()
+            }
+            DsRequestParams::AddClients(add_clients_params) => {
+                add_clients_params.commit.commit.sender()
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -425,6 +451,9 @@ impl DsRequestParams {
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 DsSender::UserKeyHash(join_connection_group_params.sender.hash())
             }
+            DsRequestParams::AddClients(add_clients_params) => {
+                DsSender::UserKeyHash(add_clients_params.sender.clone())
+            }
         }
     }
 
@@ -453,6 +482,7 @@ impl DsRequestParams {
             8 => Ok(Self::JoinConnectionGroup(
                 JoinConnectionGroupParams::try_from_bytes(bytes)?,
             )),
+            9 => Ok(Self::AddClients(AddClientsParams::try_from_bytes(bytes)?)),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }

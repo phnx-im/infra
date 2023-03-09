@@ -33,9 +33,9 @@ use super::group_state::DsGroupState;
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 pub struct WelcomeBundle {
-    welcome: AssistedWelcome,
-    encrypted_attribution_info: Vec<u8>,
-    encrypted_group_state_ear_key: Vec<u8>,
+    pub welcome: AssistedWelcome,
+    pub encrypted_attribution_info: Vec<u8>,
+    pub encrypted_group_state_ear_key: Vec<u8>,
 }
 
 impl DsGroupState {

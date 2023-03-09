@@ -134,6 +134,9 @@ pub enum DsProcessingError {
     /// Error joining connection group.
     #[error(transparent)]
     JoinConnectionGroupError(#[from] JoinConnectionGroupError),
+    /// Error adding clients.
+    #[error(transparent)]
+    ClientAddtionError(#[from] ClientAdditionError),
 }
 
 /// Potential errors when joining a group.
@@ -174,4 +177,24 @@ pub enum JoinConnectionGroupError {
     /// User auth key collision.
     #[error("User auth key collision.")]
     UserAuthKeyCollision,
+}
+
+/// Potential errors when adding a user.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientAdditionError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Missing queue config in client key package.
+    #[error("Missing queue config in client key package.")]
+    MissingQueueConfig,
+    /// Incomplete Welcome message.
+    #[error("Incomplete Welcome message.")]
+    IncompleteWelcome,
 }

@@ -10,6 +10,7 @@ use crate::crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signature
 
 use self::group_state::TimeStamp;
 
+mod add_clients;
 mod add_users;
 pub mod api;
 pub mod errors;
