@@ -2,44 +2,59 @@ use std::collections::HashMap;
 
 use chrono::Duration;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, KeyPackage, KeyPackageRef,
-    OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
+    group::ProcessedAssistedMessage,
+    messages::{AssistedMessage, AssistedWelcome},
+    KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
 };
-use tls_codec::Deserialize as TlsDeserializeTrait;
+use tls_codec::{
+    Deserialize as TlsDeserializeTrait, Serialize, TlsDeserialize, TlsSerialize, TlsSize,
+};
 
 use crate::{
-    crypto::signatures::{keys::QsVerifyingKey, signable::Verifiable},
-    messages::client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        signatures::{keys::QsVerifyingKey, signable::Verifiable},
+        EncryptionPublicKey,
+    },
+    messages::{
+        client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+        intra_backend::DsFanOutMessage,
+    },
     qs::{Fqdn, KeyPackageBatchTbs, QsClientReference, KEYPACKAGEBATCH_EXPIRATION_DAYS},
 };
 
 use super::{
     api::USER_EXPIRATION_DAYS,
     errors::UserAdditionError,
-    group_state::{ClientProfile, EncryptedCredentialChain, TimeStamp, UserKeyHash, UserProfile},
+    group_state::{ClientProfile, EncryptedCredentialChain, TimeStamp},
 };
 
 use super::group_state::DsGroupState;
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+pub struct WelcomeBundle {
+    welcome: AssistedWelcome,
+    encrypted_attribution_info: Vec<u8>,
+    encrypted_group_state_ear_key: Vec<u8>,
+}
 
 impl DsGroupState {
     pub(crate) fn add_users(
         &mut self,
         params: AddUsersParams,
-    ) -> Result<ClientToClientMsg, UserAdditionError> {
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<(ClientToClientMsg, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message = if matches!(params.commit, AssistedMessage::Commit(_)) {
-            self.group()
-                .process_assisted_message(params.commit.clone())
-                .map_err(|_| UserAdditionError::ProcessingError)?
-        } else {
-            return Err(UserAdditionError::InvalidMessage);
-        };
+        let processed_assisted_message =
+            if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
+                self.group()
+                    .process_assisted_message(params.commit.commit.clone())
+                    .map_err(|_| UserAdditionError::ProcessingError)?
+            } else {
+                return Err(UserAdditionError::InvalidMessage);
+            };
 
         // Perform DS-level validation
-        // TODO: Verify that the added clients belong to one user. This requires
-        // us to define the credentials we're using. To do that, we'd need to
-        // modify OpenMLS.
-
         // Make sure that we have the right message type.
         let processed_message =
             if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
@@ -98,8 +113,12 @@ impl DsGroupState {
 
         // Verify all KeyPackageBatches.
         let mut verifying_keys: HashMap<Fqdn, QsVerifyingKey> = HashMap::new();
-        let mut added_users: HashMap<Vec<u8>, Vec<KeyPackage>> = HashMap::new();
-        for key_package_batch in params.key_package_batches {
+        let mut added_users = vec![];
+        for (key_package_batch, attribution_info) in params
+            .key_package_batches
+            .into_iter()
+            .zip(params.encrypted_welcome_attribution_infos.into_iter())
+        {
             let fqdn = key_package_batch.homeserver_domain().clone();
             let key_package_batch: KeyPackageBatchTbs =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
@@ -122,39 +141,18 @@ impl DsGroupState {
                 return Err(UserAdditionError::InvalidKeyPackageBatch);
             }
 
-            // Perform a few validation checks on each included key package ref.
-            let mut user_identity = None;
-            let mut user_key_packages = Vec::new();
+            let mut key_packages = vec![];
+            // Check if the KeyPackages in each batch are all present in the commit.
             for key_package_ref in key_package_batch.key_package_refs() {
-                if !added_clients.contains_key(key_package_ref) {
-                    return Err(UserAdditionError::InvalidKeyPackageBatch);
-                }
-
-                // Check if all KeyPackages in one KeyPackageBatch belong to one user.
                 if let Some(added_client) = added_clients.remove(key_package_ref) {
-                    if let Some(uid) = &user_identity {
-                        if added_client.leaf_node().credential().identity() != uid {
-                            return Err(UserAdditionError::InvalidKeyPackageBatch);
-                        }
-                    } else {
-                        user_identity =
-                            Some(added_client.leaf_node().credential().identity().to_vec())
-                    }
-                    user_key_packages.push(added_client);
+                    // Also, let's store the signature keys s.t. we can later find the
+                    // KeyPackages belonging to one user in the tree.
+                    key_packages.push(added_client);
                 } else {
-                    // Check if the KeyPackages in each batch are all present in the commit.
                     return Err(UserAdditionError::InvalidKeyPackageBatch);
                 }
             }
-            // User identity should be Some now.
-            if let Some(uid) = user_identity {
-                let doubly_added_user = added_users.insert(uid, user_key_packages);
-                // If there was already a user with that identity, the committer
-                // tried to add the same user twice.
-                if doubly_added_user.is_some() {
-                    return Err(UserAdditionError::DuplicatedUserAddition);
-                }
-            }
+            added_users.push((key_packages, attribution_info));
         }
 
         // TODO: Validate that the adder has sufficient privileges (if this
@@ -170,50 +168,76 @@ impl DsGroupState {
         );
 
         // ... s.t. it's easier to update the user and client profiles.
-        for (uid, clients) in added_users.iter() {
-            let client_profiles = clients
-                .iter()
-                .filter_map(|kp| {
+        let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
+        for (key_packages, attribution_info) in added_users.into_iter() {
+            let mut client_profiles = vec![];
+            for key_package in key_packages {
+                let member = self
+                    .group()
+                    .members()
+                    .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
+                    .ok_or(UserAdditionError::InvalidMessage)?;
+                let leaf_index = member.index;
+                let client_queue_config = QsClientReference::tls_deserialize(
+                    &mut key_package
+                        .extensions()
+                        .queue_config()
+                        .ok_or(UserAdditionError::MissingQueueConfig)?
+                        .payload(),
+                )
+                .map_err(|_| UserAdditionError::MissingQueueConfig)?;
+                let client_profile = ClientProfile {
+                    leaf_index,
+                    credential_chain: EncryptedCredentialChain {},
+                    client_queue_config: client_queue_config.clone(),
+                    activity_time: TimeStamp::now(),
+                    activity_epoch: self.group().epoch(),
+                };
+                // TODO: We should do this nicely via a trait at some point.
+                let info = [
+                    "GroupStateEarKey ".as_bytes(),
                     self.group()
-                        .members()
-                        .find(|m| m.credential.identity() == kp.leaf_node().credential().identity())
-                        .map(|m| {
-                            let leaf_index = m.index;
-                            let client_queue_config = QsClientReference::tls_deserialize(
-                                &mut kp
-                                    .extensions()
-                                    .queue_config()
-                                    .ok_or(UserAdditionError::MissingQueueConfig)?
-                                    .payload(),
-                            )
-                            .map_err(|_| UserAdditionError::MissingQueueConfig)?;
-                            Ok(ClientProfile {
-                                leaf_index,
-                                credential_chain: EncryptedCredentialChain {},
-                                client_queue_config,
-                                activity_time: TimeStamp::now(),
-                                activity_epoch: self.group().epoch(),
-                            })
-                        })
-                })
-                .collect::<Result<Vec<ClientProfile>, UserAdditionError>>()?;
-            let user_profile = UserProfile {
-                clients: client_profiles.iter().map(|cp| cp.leaf_index).collect(),
-                user_auth_key: None,
-            };
-            let user_key_hash = UserKeyHash { hash: uid.clone() };
-            self.user_profiles.insert(user_key_hash, user_profile);
+                        .group_info()
+                        .group_context()
+                        .group_id()
+                        .as_slice(),
+                ]
+                .concat();
+                let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
+                let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes)
+                    .encrypt(&info, &[], group_state_ear_key.as_slice())
+                    .map_err(|_| UserAdditionError::LibraryError)?;
+                let welcome_bundle = WelcomeBundle {
+                    welcome: params.welcome.clone(),
+                    encrypted_attribution_info: attribution_info.clone(),
+                    encrypted_group_state_ear_key: encrypted_ear_key
+                        .tls_serialize_detached()
+                        .map_err(|_| UserAdditionError::LibraryError)?,
+                };
+                let fan_out_message = DsFanOutMessage {
+                    payload: ClientToClientMsg {
+                        assisted_message: welcome_bundle
+                            .tls_serialize_detached()
+                            .map_err(|_| UserAdditionError::LibraryError)?,
+                    },
+                    client_reference: client_queue_config,
+                };
+                fan_out_messages.push(fan_out_message);
+                client_profiles.push(client_profile);
+            }
+            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
+            self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
                 self.client_profiles
                     .insert(client_profile.leaf_index, client_profile);
             }
         }
 
-        // Finally, we distribute the message.
+        // Finally, we create the message for distribution.
         let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit_bytes,
+            assisted_message: params.commit.commit_bytes,
         };
 
-        Ok(c2c_message)
+        Ok((c2c_message, fan_out_messages))
     }
 }

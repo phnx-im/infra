@@ -143,7 +143,7 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, Node, Sender};
+use mls_assist::{group::Group, GroupId, GroupInfo, Node, OpenMlsRustCrypto, Sender};
 
 use crate::{
     crypto::{
@@ -233,10 +233,11 @@ impl DsApi {
 
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (c2c_message_option, response_option) = match verified_message {
-            DsRequestParams::AddUsers(add_user_params) => {
-                let result = group_state.add_users(add_user_params)?;
-                (Some(result), None)
+        let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
+            DsRequestParams::AddUsers(add_users_params) => {
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_users(add_users_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
             }
             DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
@@ -244,10 +245,32 @@ impl DsApi {
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
                 (
                     None,
-                    Some(DsProcessResponse::RatchetTree(ratchet_tree.to_vec())),
+                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.to_vec())),
+                    None,
                 )
             }
-            DsRequestParams::CreateGroupParams(_) => (None, None),
+            DsRequestParams::CreateGroupParams(_) => (None, None, None),
+            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
+                group_state
+                    .update_queue_config(update_queue_info_params)
+                    .map_err(|_| DsProcessingError::UnknownSender)?;
+                (None, None, None)
+            }
+            DsRequestParams::ExternalCommitInfo(_) => (
+                None,
+                Some(DsProcessResponse::ExternalCommitInfo(
+                    group_state.external_commit_info(),
+                )),
+                None,
+            ),
+            DsRequestParams::RemoveUsers(remove_users_params) => {
+                let c2c_message = group_state.remove_users(remove_users_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::UpdateClient(update_client_params) => {
+                let c2c_message = group_state.update_client(update_client_params)?;
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
@@ -267,6 +290,7 @@ impl DsApi {
             .await
             .map_err(|_| DsProcessingError::StorageError)?;
 
+        // Distribute FanOutMessages
         if let Some(c2c_message) = c2c_message_option {
             let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
                 leaf_index
@@ -275,15 +299,38 @@ impl DsApi {
             };
 
             group_state
-                .distribute_message(qs_enqueue_provider, c2c_message, sender_index)
+                .distribute_c2c_message(qs_enqueue_provider, c2c_message, sender_index)
                 .await
                 .map_err(|_| DsProcessingError::DistributionError)?;
         }
 
+        // Distribute WelcomeBundles
+        if let Some(fan_out_messages) = fan_out_messages {
+            for message in fan_out_messages {
+                qs_enqueue_provider
+                    .enqueue(message)
+                    .await
+                    .map_err(|_| DsProcessingError::DistributionError)?;
+            }
+        }
+
         Ok(response_option)
+    }
+
+    pub async fn request_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
+        let mut group_id = GroupId::random(&OpenMlsRustCrypto::default());
+        while ds_storage_provider
+            .reserve_group_id(&group_id)
+            .await
+            .is_err()
+        {
+            group_id = GroupId::random(&OpenMlsRustCrypto::default());
+        }
+        group_id
     }
 }
 
 pub enum DsProcessResponse {
-    RatchetTree(Vec<Option<Node>>),
+    WelcomeInfo(Vec<Option<Node>>),
+    ExternalCommitInfo((GroupInfo, Vec<Option<Node>>)),
 }

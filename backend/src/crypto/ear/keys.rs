@@ -27,6 +27,12 @@ pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
 }
 
+impl GroupStateEarKey {
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.key.secret.as_slice()
+    }
+}
+
 impl From<Secret<AEAD_KEY_SIZE>> for GroupStateEarKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }

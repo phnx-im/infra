@@ -13,22 +13,18 @@ use hpke_rs_rust_crypto::HpkeRustCrypto;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
-use tracing::instrument;
 use utoipa::ToSchema;
 
 use crate::{
     crypto::ear::EarEncryptable,
-    messages::{
-        client_ds::{ClientToClientMsg, EncryptedDsMessage},
-        client_qs::QueueMessage,
-    },
+    messages::{client_ds::ClientToClientMsg, client_qs::QueueMessage},
     qs::SealedClientReference,
     LibraryError,
 };
 
 use self::{
     ear::{keys::RatchetKey, Ciphertext, EncryptionError},
-    kdf::{keys::RatchetSecret, KdfDerivable, KDF_KEY_SIZE},
+    kdf::{keys::RatchetSecret, KdfDerivable},
 };
 
 /// This type determines the hash function used by the backend.
@@ -145,6 +141,14 @@ pub struct HpkeCiphertext {
 #[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct EncryptionPublicKey {
     public_key: HpkePublicKey,
+}
+
+impl From<Vec<u8>> for EncryptionPublicKey {
+    fn from(value: Vec<u8>) -> Self {
+        Self {
+            public_key: value.into(),
+        }
+    }
 }
 
 impl EncryptionPublicKey {
