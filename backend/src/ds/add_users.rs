@@ -39,20 +39,20 @@ pub struct WelcomeBundle {
 }
 
 impl DsGroupState {
-    // TODO: Revisit how we process the Identities in the KeyPackages here.
     pub(crate) fn add_users(
         &mut self,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(ClientToClientMsg, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message = if matches!(params.commit, AssistedMessage::Commit(_)) {
-            self.group()
-                .process_assisted_message(params.commit.clone())
-                .map_err(|_| UserAdditionError::ProcessingError)?
-        } else {
-            return Err(UserAdditionError::InvalidMessage);
-        };
+        let processed_assisted_message =
+            if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
+                self.group()
+                    .process_assisted_message(params.commit.commit.clone())
+                    .map_err(|_| UserAdditionError::ProcessingError)?
+            } else {
+                return Err(UserAdditionError::InvalidMessage);
+            };
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
@@ -233,7 +233,7 @@ impl DsGroupState {
 
         // Finally, we create the message for distribution.
         let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit_bytes,
+            assisted_message: params.commit.commit_bytes,
         };
 
         Ok((c2c_message, fan_out_messages))

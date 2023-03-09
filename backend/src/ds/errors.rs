@@ -17,6 +17,23 @@ pub(super) enum MessageDistributionError {
     DeliveryError,
 }
 
+/// Potential errors when removing users.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum UserRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Commit didn't cover all clients of a user.
+    #[error("Commit didn't cover all clients of a user.")]
+    IncompleteRemoval,
+}
+
 /// Potential errors when adding a user.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum UserAdditionError {
@@ -82,9 +99,12 @@ pub enum DsProcessingError {
     /// Error storing encrypted group state.
     #[error("Error storing encrypted group state.")]
     StorageError,
-    /// Error adding user.
+    /// Error adding users.
     #[error(transparent)]
-    AddUserError(#[from] UserAdditionError),
+    AddUsersError(#[from] UserAdditionError),
+    /// Error removing users.
+    #[error(transparent)]
+    RemoveUsersError(#[from] UserRemovalError),
     /// Could not find welcome info for this sender and/or this epoch.
     #[error("Could not find welcome info for this sender and/or this epoch.")]
     NoWelcomeInfoFound,

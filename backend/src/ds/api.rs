@@ -234,9 +234,9 @@ impl DsApi {
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
         let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
-            RequestParams::AddUsers(add_user_params) => {
+            RequestParams::AddUsers(add_users_params) => {
                 let (c2c_message, welcome_bundles) =
-                    group_state.add_users(add_user_params, &ear_key)?;
+                    group_state.add_users(add_users_params, &ear_key)?;
                 (Some(c2c_message), None, Some(welcome_bundles))
             }
             RequestParams::WelcomeInfo(welcome_info_params) => {
@@ -263,6 +263,10 @@ impl DsApi {
                 )),
                 None,
             ),
+            RequestParams::RemoveUsers(remove_users_params) => {
+                let c2c_message = group_state.remove_users(remove_users_params)?;
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the

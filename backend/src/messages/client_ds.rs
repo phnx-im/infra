@@ -95,9 +95,14 @@ pub struct ExternalCommitInfoParams {
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
-pub struct AddUsersParams {
+pub struct AssistedMessagePlus {
     pub commit: AssistedMessage,
     pub commit_bytes: Vec<u8>,
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
+pub struct AddUsersParams {
+    pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
@@ -116,8 +121,10 @@ impl AddUsersParams {
         let key_package_batches =
             Vec::<VerifiableKeyPackageBatch>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
-            commit,
-            commit_bytes,
+            commit: AssistedMessagePlus {
+                commit,
+                commit_bytes,
+            },
             sender,
             welcome,
             encrypted_welcome_attribution_infos,
@@ -131,10 +138,26 @@ pub struct AddUsersParamsAad {
     pub encrypted_credential_information: Vec<Vec<u8>>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct RemoveUsersParams {
-    commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
+}
+
+impl RemoveUsersParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            commit: AssistedMessagePlus {
+                commit,
+                commit_bytes,
+            },
+            sender,
+        })
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -360,6 +383,7 @@ pub(crate) enum MlsInfraVersion {
 #[repr(u8)]
 pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
+    RemoveUsers(RemoveUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     CreateGroupParams(CreateGroupParams),
@@ -369,7 +393,7 @@ pub(crate) enum RequestParams {
 impl RequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
+            RequestParams::AddUsers(add_user_params) => add_user_params.commit.commit.group_id(),
             RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
             RequestParams::CreateGroupParams(create_group_params) => &create_group_params.group_id,
             RequestParams::UpdateQueueInfo(update_queue_info_params) => {
@@ -378,13 +402,19 @@ impl RequestParams {
             RequestParams::ExternalCommitInfo(external_commit_info_params) => {
                 &external_commit_info_params.group_id
             }
+            RequestParams::RemoveUsers(remove_users_params) => {
+                remove_users_params.commit.commit.group_id()
+            }
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub(crate) fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
+            RequestParams::AddUsers(add_users_params) => add_users_params.commit.commit.sender(),
+            RequestParams::RemoveUsers(remove_users_params) => {
+                remove_users_params.commit.commit.sender()
+            }
             RequestParams::WelcomeInfo(_)
             | RequestParams::ExternalCommitInfo(_)
             | RequestParams::CreateGroupParams(_)
@@ -395,8 +425,8 @@ impl RequestParams {
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub(crate) fn ds_sender(&self) -> DsSender {
         match self {
-            RequestParams::AddUsers(add_user_params) => {
-                DsSender::UserKeyHash(add_user_params.sender.clone())
+            RequestParams::AddUsers(add_users_params) => {
+                DsSender::UserKeyHash(add_users_params.sender.clone())
             }
             RequestParams::WelcomeInfo(welcome_info_params) => {
                 DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
@@ -409,6 +439,9 @@ impl RequestParams {
             }
             RequestParams::ExternalCommitInfo(external_commit_info_params) => {
                 DsSender::UserKeyHash(external_commit_info_params.sender.clone())
+            }
+            RequestParams::RemoveUsers(remove_users_params) => {
+                DsSender::UserKeyHash(remove_users_params.sender.clone())
             }
         }
     }
