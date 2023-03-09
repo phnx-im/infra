@@ -17,7 +17,7 @@ use crate::{
         EncryptionPublicKey,
     },
     messages::{
-        client_ds::{AddUsersParams, AddUsersParamsAad, ClientToClientMsg},
+        client_ds::{AddUsersParams, AddUsersParamsAad, DsFanoutPayload},
         intra_backend::DsFanOutMessage,
     },
     qs::{Fqdn, KeyPackageBatchTbs, QsClientReference, KEYPACKAGEBATCH_EXPIRATION_DAYS},
@@ -43,7 +43,7 @@ impl DsGroupState {
         &mut self,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(ClientToClientMsg, Vec<DsFanOutMessage>), UserAdditionError> {
+    ) -> Result<(DsFanoutPayload, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
@@ -215,8 +215,8 @@ impl DsGroupState {
                         .map_err(|_| UserAdditionError::LibraryError)?,
                 };
                 let fan_out_message = DsFanOutMessage {
-                    payload: ClientToClientMsg {
-                        assisted_message: welcome_bundle
+                    payload: DsFanoutPayload {
+                        payload: welcome_bundle
                             .tls_serialize_detached()
                             .map_err(|_| UserAdditionError::LibraryError)?,
                     },
@@ -234,8 +234,8 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit.commit_bytes,
+        let c2c_message = DsFanoutPayload {
+            payload: params.commit.commit_bytes,
         };
 
         Ok((c2c_message, fan_out_messages))

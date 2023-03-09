@@ -6,7 +6,7 @@ use mls_assist::{
     ProcessedMessageContent,
 };
 
-use crate::messages::client_ds::{ClientToClientMsg, RemoveUsersParams};
+use crate::messages::client_ds::{DsFanoutPayload, RemoveUsersParams};
 
 use super::{api::USER_EXPIRATION_DAYS, errors::UserRemovalError, group_state::UserKeyHash};
 
@@ -16,7 +16,7 @@ impl DsGroupState {
     pub(crate) fn remove_users(
         &mut self,
         params: RemoveUsersParams,
-    ) -> Result<ClientToClientMsg, UserRemovalError> {
+    ) -> Result<DsFanoutPayload, UserRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
@@ -100,8 +100,8 @@ impl DsGroupState {
         );
 
         // Finally, we create the message for distribution.
-        let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit.commit_bytes,
+        let c2c_message = DsFanoutPayload {
+            payload: params.commit.commit_bytes,
         };
 
         Ok(c2c_message)

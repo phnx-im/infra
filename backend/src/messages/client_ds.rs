@@ -37,8 +37,8 @@ mod private_mod {
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
-pub struct ClientToClientMsg {
-    pub assisted_message: Vec<u8>,
+pub struct DsFanoutPayload {
+    pub payload: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
@@ -52,9 +52,11 @@ impl From<Ciphertext> for EncryptedDsMessage {
     }
 }
 
-impl From<Vec<u8>> for ClientToClientMsg {
+impl From<Vec<u8>> for DsFanoutPayload {
     fn from(assisted_message: Vec<u8>) -> Self {
-        Self { assisted_message }
+        Self {
+            payload: assisted_message,
+        }
     }
 }
 
@@ -64,7 +66,7 @@ impl AsRef<Ciphertext> for EncryptedDsMessage {
     }
 }
 
-impl EarEncryptable<RatchetKey, EncryptedDsMessage> for ClientToClientMsg {}
+impl EarEncryptable<RatchetKey, EncryptedDsMessage> for DsFanoutPayload {}
 
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]

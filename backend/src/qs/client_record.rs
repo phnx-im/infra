@@ -8,7 +8,7 @@ use crate::{
         QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
-    messages::{client_ds::ClientToClientMsg, client_qs::QueueMessage},
+    messages::{client_ds::DsFanoutPayload, client_qs::QueueMessage},
 };
 
 use super::{
@@ -58,7 +58,7 @@ impl QsClientRecord {
         client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
-        msg: ClientToClientMsg,
+        msg: DsFanoutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
         // Serialize the message so that we can put it in the queue.
