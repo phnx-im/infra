@@ -88,7 +88,7 @@ impl Ds {
     }
 
     /// Delete encrypted group states of which the time stamps have expired.
-    fn clean_up_stale_groups(&mut self) {
+    pub fn clean_up_stale_groups(&mut self) {
         todo!()
     }
 }
