@@ -15,6 +15,7 @@ pub mod api;
 pub mod errors;
 pub mod group_state;
 mod remove_users;
+mod update_client;
 
 /// Return value of a group state load query.
 /// #[derive(Serialize, Deserialize)]

@@ -63,6 +63,23 @@ pub enum UserAdditionError {
     IncompleteWelcome,
 }
 
+/// Potential errors when updating a client.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientUpdateError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
+}
+
 /// Potential errors when processing a message.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum DsProcessingError {
@@ -105,6 +122,9 @@ pub enum DsProcessingError {
     /// Error removing users.
     #[error(transparent)]
     RemoveUsersError(#[from] UserRemovalError),
+    /// Error updating client.
+    #[error(transparent)]
+    ClientUpdateError(#[from] ClientUpdateError),
     /// Could not find welcome info for this sender and/or this epoch.
     #[error("Could not find welcome info for this sender and/or this epoch.")]
     NoWelcomeInfoFound,

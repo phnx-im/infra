@@ -13,8 +13,6 @@ use utoipa::ToSchema;
 use crate::{
     crypto::{
         ear::keys::GroupStateEarKey,
-        kdf::keys::RosterKdfKey,
-        mac::{MacTag, TaggedStruct},
         signatures::{
             keys::{LeafSignatureKey, UserAuthKey},
             signable::{Signature, Verifiable, VerifiedStruct},
@@ -157,15 +155,15 @@ impl RemoveUsersParams {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientParams {
-    commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientParamsAad {
-    option_encrypted_credential_information: Option<Vec<u8>>,
+    pub option_encrypted_credential_information: Option<EncryptedCredentialChain>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -241,53 +239,6 @@ pub struct DeleteGroupParams {
     ear_key: GroupStateEarKey,
 }
 
-// === Legacy ===
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct SendNonCommitParams {
-    pub roster_key: RosterKdfKey,
-    pub message: SerializedAssistedMessage, // Application message/Proposal
-}
-
-/// This is for the sender to create from SendNonCommitParams for serialization.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct TaggedSendNonCommitParams {
-    payload: SendNonCommitParams,
-    mac: MacTag,
-}
-
-impl TaggedStruct<SendNonCommitParams> for TaggedSendNonCommitParams {
-    fn from_untagged_payload(payload: SendNonCommitParams, mac: MacTag) -> Self {
-        Self { payload, mac }
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct UpdateQueueConfigParams {
-    roster_kdf_key: RosterKdfKey,
-    group_id: GroupId,
-    sender: LeafNodeIndex,
-    new_queue_config: QsClientReference,
-}
-
-impl UpdateQueueConfigParams {
-    pub fn sender(&self) -> LeafNodeIndex {
-        self.sender
-    }
-
-    pub fn group_id(&self) -> &GroupId {
-        &self.group_id
-    }
-
-    pub fn new_queue_config(&self) -> &QsClientReference {
-        &self.new_queue_config
-    }
-
-    pub fn roster_kdf_key(&self) -> &RosterKdfKey {
-        &self.roster_kdf_key
-    }
-}
-
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize)]
@@ -306,13 +257,14 @@ pub(crate) enum RequestParams {
     ExternalCommitInfo(ExternalCommitInfoParams),
     CreateGroupParams(CreateGroupParams),
     UpdateQueueInfo(UpdateQsClientReferenceParams),
+    UpdateClient(UpdateClientParams),
 }
 
 impl RequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
             RequestParams::AddUsers(add_user_params) => add_user_params.commit.commit.group_id(),
-            RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
+            RequestParams::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
             RequestParams::CreateGroupParams(create_group_params) => &create_group_params.group_id,
             RequestParams::UpdateQueueInfo(update_queue_info_params) => {
                 &update_queue_info_params.group_id
@@ -323,6 +275,9 @@ impl RequestParams {
             RequestParams::RemoveUsers(remove_users_params) => {
                 remove_users_params.commit.commit.group_id()
             }
+            RequestParams::UpdateClient(update_client_params) => {
+                update_client_params.commit.commit.group_id()
+            }
         }
     }
 
@@ -332,6 +287,9 @@ impl RequestParams {
             RequestParams::AddUsers(add_users_params) => add_users_params.commit.commit.sender(),
             RequestParams::RemoveUsers(remove_users_params) => {
                 remove_users_params.commit.commit.sender()
+            }
+            RequestParams::UpdateClient(update_client_params) => {
+                update_client_params.commit.commit.sender()
             }
             RequestParams::WelcomeInfo(_)
             | RequestParams::ExternalCommitInfo(_)
@@ -361,6 +319,9 @@ impl RequestParams {
             RequestParams::RemoveUsers(remove_users_params) => {
                 DsSender::UserKeyHash(remove_users_params.sender.clone())
             }
+            RequestParams::UpdateClient(update_client_params) => {
+                DsSender::UserKeyHash(update_client_params.sender.clone())
+            }
         }
     }
 
@@ -381,6 +342,12 @@ impl RequestParams {
             4 => Ok(Self::UpdateQueueInfo(
                 UpdateQsClientReferenceParams::tls_deserialize(&mut bytes)?,
             )),
+            5 => Ok(Self::RemoveUsers(RemoveUsersParams::tls_deserialize(
+                &mut bytes,
+            )?)),
+            6 => Ok(Self::UpdateClient(UpdateClientParams::tls_deserialize(
+                &mut bytes,
+            )?)),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
