@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
-use tracing::instrument;
 
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
-        signatures::signable::Signature,
-        signatures::{keys::QueueOwnerVerifyingKey, traits::SignatureVerificationError},
+        signatures::keys::QueueOwnerVerifyingKey,
         RatchetKey, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
@@ -14,9 +12,8 @@ use crate::{
 };
 
 use super::{
-    errors::{EnqueueError, QsCreateClientError},
-    storage_provider_trait::QsStorageProvider,
-    EncryptedPushToken, PushToken, QsClientId, WebsocketNotifier,
+    errors::EnqueueError, storage_provider_trait::QsStorageProvider, EncryptedPushToken, PushToken,
+    QsClientId, UserId, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -33,36 +30,15 @@ pub(super) enum QsQueueMessage {
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct QsClientRecord {
-    encrypted_push_token_option: Option<EncryptedPushToken>,
-    owner_public_key: RatchetPublicKey,
-    owner_signature_key: QueueOwnerVerifyingKey,
-    current_ratchet_key: RatchetKey,
-    activity_time: TimeStamp,
+    pub(crate) user_id: UserId,
+    pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
+    pub(crate) owner_public_key: RatchetPublicKey,
+    pub(crate) owner_signature_key: QueueOwnerVerifyingKey,
+    pub(crate) current_ratchet_key: RatchetKey,
+    pub(crate) activity_time: TimeStamp,
 }
 
 impl QsClientRecord {
-    /// Creates a new queue and restursn the queue ID.
-    pub(crate) async fn try_new<S: QsStorageProvider>(
-        storage_provider: &S,
-        encrypted_push_token_option: Option<EncryptedPushToken>,
-        owner_public_key: RatchetPublicKey,
-        owner_signature_key: QueueOwnerVerifyingKey,
-        current_ratchet_key: RatchetKey,
-    ) -> Result<(Self, QsClientId), QsCreateClientError<S>> {
-        let fan_out_queue_info = Self {
-            encrypted_push_token_option,
-            owner_public_key,
-            owner_signature_key,
-            current_ratchet_key,
-            activity_time: TimeStamp::now(),
-        };
-        let client_id = storage_provider
-            .create_client(&fan_out_queue_info)
-            .await
-            .map_err(QsCreateClientError::StorageProviderError::<S>)?;
-        Ok((fan_out_queue_info, client_id))
-    }
-
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
@@ -72,22 +48,6 @@ impl QsClientRecord {
         self.owner_signature_key = client_record_auth_key;
         self.owner_public_key = queue_encryption_key;
         self.activity_time = TimeStamp::now();
-    }
-
-    /// Verify the request against the signature key of the queue owner. Returns
-    /// an error if the authentication fails.
-    #[instrument(level = "trace", skip_all, err)]
-    pub(crate) fn verify_against_owner_key(
-        &self,
-        _signature: &Signature,
-    ) -> Result<(), SignatureVerificationError> {
-        // TODO: This should verify a QsAuthToken instead of a signature over a
-        // request hash.
-        //self.basic_queue_info
-        //    .owner_signature_key
-        //    .verify(request_hash, signature)
-        //    .map_err(|_| VerificationError::VerificationFailure)
-        todo!()
     }
 
     /// Put a message into the queue.
@@ -122,7 +82,7 @@ impl QsClientRecord {
             // - there is a push token associated with the queue
             // - there is a push token decryption key
             // - the decryption is successful
-            if let Some(ref encrypted_push_token) = self.encrypted_push_token_option {
+            if let Some(ref encrypted_push_token) = self.encrypted_push_token {
                 if let Some(ref ear_key) = push_token_key_option {
                     let push_token =
                         PushToken::decrypt(ear_key, encrypted_push_token).map_err(|e| match e {

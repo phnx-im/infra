@@ -74,6 +74,7 @@ pub struct RatchetKey {
     key: Vec<u8>,
 }
 
+// TODO: Implement the ratchet key.
 impl RatchetKey {
     /// Initialize a new ratchet key.
     pub fn new(initial_key: Vec<u8>) -> Self {

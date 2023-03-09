@@ -5,7 +5,7 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome, SerializedAssistedMessage},
-    GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, SignaturePublicKey, VerifiableGroupInfo,
+    GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
 };
 use tls_codec::{Deserialize, Size, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -19,16 +19,13 @@ use crate::{
             keys::{LeafSignatureKey, UserAuthKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
-        RatchetPublicKey,
     },
     ds::{
         group_state::{EncryptedCredentialChain, UserKeyHash},
         WelcomeAttributionInfo,
     },
-    qs::{QsClientReference, UserId, VerifiableKeyPackageBatch},
+    qs::{QsClientReference, VerifiableKeyPackageBatch},
 };
-
-use super::{AddPackage, FriendshipToken};
 
 mod private_mod {
     #[derive(Default)]
@@ -242,85 +239,6 @@ pub struct SendMessageParams {
 pub struct DeleteGroupParams {
     commit: SerializedAssistedMessage,
     ear_key: GroupStateEarKey,
-}
-
-// === QS ===
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct CreateUserRecordParams {
-    user_record_auth_key: SignaturePublicKey,
-    friendship_token: FriendshipToken,
-    client_record_auth_key: SignaturePublicKey,
-    queue_encryption_key: RatchetPublicKey,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct UpdateUserRecordParams {
-    user_id: UserId,
-    user_record_auth_key: SignaturePublicKey,
-    friendship_token: FriendshipToken,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct UserRecordParams {
-    user_id: UserId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct DeleteUserRecordParams {
-    user_id: UserId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct CreateClientRecordParams {
-    client_record_auth_key: SignaturePublicKey,
-    queue_encryption_key: RatchetPublicKey,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct UpdateClientRecordParams {
-    client_id: DsClientId,
-    client_record_auth_key: SignaturePublicKey,
-    queue_encryption_key: RatchetPublicKey,
-    blocklist_entries: Vec<GroupId>,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct ClientRecordParams {
-    client_id: DsClientId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct DeleteClientRecordParams {
-    client_id: DsClientId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct PublishKeyPackagesParams {
-    client_id: DsClientId,
-    add_packages: Vec<AddPackage>,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct ClientKeyPackageParams {
-    client_id: DsClientId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct KeyPackageBatchParams {
-    client_id: DsClientId,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct DequeueMessagesParams {
-    client_id: DsClientId,
-    sequence_number_start: u64,
-    max_message_number: u64,
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct WsParams {
-    client_id: DsClientId,
 }
 
 // === Legacy ===
