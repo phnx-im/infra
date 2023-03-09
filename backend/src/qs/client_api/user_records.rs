@@ -34,9 +34,10 @@ impl Qs {
             friendship_token,
             client_record_auth_key,
             queue_encryption_key,
-            encrypted_key_packages,
+            key_packages,
             friendship_ear_key,
             encrypted_push_token,
+            initial_ratchet_key,
         } = params;
 
         let user_id = storage_provider.create_user().await.map_err(|e| {
@@ -45,12 +46,13 @@ impl Qs {
         })?;
 
         let create_client_params = CreateClientRecordParams {
-            user_id: user_id.clone(),
+            sender: user_id.clone(),
             client_record_auth_key,
             queue_encryption_key,
-            encrypted_key_packages,
+            key_packages,
             friendship_ear_key,
             encrypted_push_token,
+            initial_ratchet_key,
         };
 
         let CreateClientRecordResponse { client_id } = self

@@ -151,7 +151,7 @@ use crate::{
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
     messages::client_ds::{
-        CreateGroupParams, DsSender, RequestParams, VerifiableClientToDsMessage,
+        CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -204,7 +204,7 @@ impl DsApi {
         };
 
         // Verify the message.
-        let verified_message: RequestParams = match message.sender() {
+        let verified_message: DsRequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
                 let verifying_key: LeafSignatureKeyRef = group_state
                     .group()
@@ -234,12 +234,12 @@ impl DsApi {
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
         let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
-            RequestParams::AddUsers(add_users_params) => {
+            DsRequestParams::AddUsers(add_users_params) => {
                 let (c2c_message, welcome_bundles) =
                     group_state.add_users(add_users_params, &ear_key)?;
                 (Some(c2c_message), None, Some(welcome_bundles))
             }
-            RequestParams::WelcomeInfo(welcome_info_params) => {
+            DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
@@ -249,29 +249,29 @@ impl DsApi {
                     None,
                 )
             }
-            RequestParams::CreateGroupParams(_) => (None, None, None),
-            RequestParams::UpdateQueueInfo(update_queue_info_params) => {
+            DsRequestParams::CreateGroupParams(_) => (None, None, None),
+            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;
                 (None, None, None)
             }
-            RequestParams::ExternalCommitInfo(_) => (
+            DsRequestParams::ExternalCommitInfo(_) => (
                 None,
                 Some(DsProcessResponse::ExternalCommitInfo(
                     group_state.external_commit_info(),
                 )),
                 None,
             ),
-            RequestParams::RemoveUsers(remove_users_params) => {
+            DsRequestParams::RemoveUsers(remove_users_params) => {
                 let c2c_message = group_state.remove_users(remove_users_params)?;
                 (Some(c2c_message), None, None)
             }
-            RequestParams::UpdateClient(update_client_params) => {
+            DsRequestParams::UpdateClient(update_client_params) => {
                 let c2c_message = group_state.update_client(update_client_params)?;
                 (Some(c2c_message), None, None)
             }
-            RequestParams::JoinGroup(join_group_params) => {
+            DsRequestParams::JoinGroup(join_group_params) => {
                 let c2c_message = group_state.join_group(join_group_params)?;
                 (Some(c2c_message), None, None)
             }

@@ -4,7 +4,7 @@ use mls_assist::{
 };
 use tls_codec::Deserialize;
 
-use crate::messages::client_ds::{ClientToClientMsg, UpdateClientParams, UpdateClientParamsAad};
+use crate::messages::client_ds::{DsFanoutPayload, UpdateClientParams, UpdateClientParamsAad};
 
 use super::{api::USER_EXPIRATION_DAYS, errors::ClientUpdateError, group_state::DsGroupState};
 
@@ -12,7 +12,7 @@ impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
         params: UpdateClientParams,
-    ) -> Result<ClientToClientMsg, ClientUpdateError> {
+    ) -> Result<DsFanoutPayload, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
@@ -92,8 +92,8 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = ClientToClientMsg {
-            assisted_message: params.commit.commit_bytes,
+        let c2c_message = DsFanoutPayload {
+            payload: params.commit.commit_bytes,
         };
 
         Ok(c2c_message)

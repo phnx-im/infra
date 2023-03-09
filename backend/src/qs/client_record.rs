@@ -5,10 +5,10 @@ use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
         signatures::keys::QueueOwnerVerifyingKey,
-        RatchetKey, RatchetKeyUpdate, RatchetPublicKey,
+        QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
-    messages::{client_ds::ClientToClientMsg, client_qs::EnqueuedMessage},
+    messages::{client_ds::DsFanoutPayload, client_qs::QueueMessage},
 };
 
 use super::{
@@ -24,7 +24,7 @@ use super::{
 pub(super) enum QsQueueMessage {
     #[tls_codec(discriminant = 1)]
     RatchetKeyUpdate(RatchetKeyUpdate),
-    EnqueuedMessage(EnqueuedMessage),
+    EnqueuedMessage(QueueMessage),
 }
 
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
@@ -34,7 +34,7 @@ pub struct QsClientRecord {
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) owner_public_key: RatchetPublicKey,
     pub(crate) owner_signature_key: QueueOwnerVerifyingKey,
-    pub(crate) current_ratchet_key: RatchetKey,
+    pub(crate) current_ratchet_key: QueueRatchet,
     pub(crate) activity_time: TimeStamp,
 }
 
@@ -44,9 +44,11 @@ impl QsClientRecord {
         &mut self,
         client_record_auth_key: QueueOwnerVerifyingKey,
         queue_encryption_key: RatchetPublicKey,
+        encrypted_push_token: Option<EncryptedPushToken>,
     ) {
         self.owner_signature_key = client_record_auth_key;
         self.owner_public_key = queue_encryption_key;
+        self.encrypted_push_token = encrypted_push_token;
         self.activity_time = TimeStamp::now();
     }
 
@@ -56,26 +58,30 @@ impl QsClientRecord {
         client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
-        msg: ClientToClientMsg,
+        msg: DsFanoutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
         // Serialize the message so that we can put it in the queue.
         // TODO: The message should be serialized differently, using a struct
         // with the sequence number
-        let message_bytes = msg.assisted_message;
 
         // Encrypt the message under the current ratchet key.
-        let encrypted_message = self.current_ratchet_key.encrypt(&message_bytes);
+        let queue_message = self
+            .current_ratchet_key
+            .encrypt(msg)
+            .map_err(|_| EnqueueError::LibraryError)?;
 
-        // Ratchet the current ratchet key forward.
-        let _ratchet_key_update = self.current_ratchet_key.ratchet_forward();
+        // TODO: Store the new key.
+
+        // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
         storage_provider
-            .enqueue(client_id, encrypted_message)
+            .enqueue(client_id, queue_message)
             .await
             .map_err(EnqueueError::StorageProviderError::<S>)?;
 
+        // TODO: This should be refactored once we have a HTTP server
         // Try to send a notification over the websocket, otherwise use push tokens if available
         if websocket_notifier.notify(client_id).await.is_err() {
             // Send a push notification under the following conditions:

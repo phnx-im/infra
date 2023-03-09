@@ -37,7 +37,7 @@ impl Qs {
     /// `sequence_number_start` from the queue with the given id and delete any
     /// messages older than the given sequence number start.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_fetch_messages<S: QsStorageProvider>(
+    pub async fn qs_dequeue_messages<S: QsStorageProvider>(
         storage_provider: &S,
         params: DequeueMessagesParams,
     ) -> Result<DequeueMessagesResponse, QsFetchError> {

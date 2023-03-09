@@ -15,7 +15,7 @@ use crate::{
         EncryptedDsGroupState,
     },
     messages::{
-        client_ds::{ClientToClientMsg, UpdateQsClientReferenceParams, WelcomeInfoParams},
+        client_ds::{DsFanoutPayload, UpdateQsClientReferenceParams, WelcomeInfoParams},
         intra_backend::DsFanOutMessage,
     },
     qs::{Fqdn, QsClientReference, QsEnqueueProvider},
@@ -158,7 +158,7 @@ impl DsGroupState {
     pub(super) async fn distribute_c2c_message<Q: QsEnqueueProvider>(
         &self,
         qs_enqueue_provider: &Q,
-        message: ClientToClientMsg,
+        message: DsFanoutPayload,
         sender_index: LeafNodeIndex,
     ) -> Result<(), MessageDistributionError> {
         for (leaf_index, client_profile) in self.client_profiles.iter() {
@@ -168,7 +168,7 @@ impl DsGroupState {
             let client_queue_config = client_profile.client_queue_config.clone();
 
             let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.assisted_message.clone(),
+                payload: message.clone(),
                 client_reference: client_queue_config,
             };
 
