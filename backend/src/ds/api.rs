@@ -151,7 +151,7 @@ use crate::{
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
     messages::client_ds::{
-        CreateGroupParams, DsSender, RequestParams, VerifiableClientToDsMessage,
+        CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -204,7 +204,7 @@ impl DsApi {
         };
 
         // Verify the message.
-        let verified_message: RequestParams = match message.sender() {
+        let verified_message: DsRequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
                 let verifying_key: LeafSignatureKeyRef = group_state
                     .group()
@@ -234,11 +234,11 @@ impl DsApi {
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
         let (c2c_message_option, response_option) = match verified_message {
-            RequestParams::AddUsers(add_user_params) => {
+            DsRequestParams::AddUsers(add_user_params) => {
                 let result = group_state.add_users(add_user_params)?;
                 (Some(result), None)
             }
-            RequestParams::WelcomeInfo(welcome_info_params) => {
+            DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
@@ -247,7 +247,7 @@ impl DsApi {
                     Some(DsProcessResponse::RatchetTree(ratchet_tree.to_vec())),
                 )
             }
-            RequestParams::CreateGroupParams(_) => (None, None),
+            DsRequestParams::CreateGroupParams(_) => (None, None),
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the

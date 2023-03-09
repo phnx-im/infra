@@ -9,5 +9,10 @@ pub(crate) mod intra_backend;
 #[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct FriendshipToken {}
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct FriendshipEarKey {}
+/// Enum encoding the version of the MlsInfra protocol that was used to create
+/// the given message.
+#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
+pub(crate) enum MlsInfraVersion {
+    Alpha,
+}

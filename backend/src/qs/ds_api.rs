@@ -20,27 +20,27 @@ impl Qs {
         websocket_notifier: &W,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<S>> {
-        // TODO: Load from storage provider (althouth this might turn into a symmetric key).
         let decryption_key = &self.queue_id_private_key;
-        // TODO: Decrypt queue config to yield the queue id.
         let client_config =
-            decryption_key.unseal_queue_config(&message.client_reference.sealed_reference);
+            decryption_key.unseal_client_config(&message.client_reference.sealed_reference)?;
 
-        // Fetch the queue's info.
+        // Fetch the client record.
         let mut client_record = storage_provider
             .load_client(&client_config.client_id)
             .await
             .ok_or(QsEnqueueError::QueueNotFound)?;
 
-        client_record
+        Ok(client_record
             .enqueue(
                 &client_config.client_id,
                 storage_provider,
                 websocket_notifier,
                 message.payload,
-                client_config.push_token_key_option,
+                client_config.push_token_ear_key,
             )
-            .await
-            .map_err(QsEnqueueError::EnqueueError)
+            .await?)
+
+        // TODO: client now has new ratchet key, store it in the storage
+        // provider.
     }
 }

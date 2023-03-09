@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 
 use crate::crypto::{
     kdf::{
-        keys::{InitialClientKdfKey, RosterKdfKey},
+        keys::{InitialClientKdfKey, RatchetSecret, RosterKdfKey},
         KdfDerivable,
     },
     secrets::Secret,
@@ -53,6 +53,10 @@ pub type DeleteAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 pub type PushTokenEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
+pub type FriendshipEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+pub type RatchetKeySecret = Secret<AEAD_KEY_SIZE>;
+
 /// EAR key for the [`PushToken`] structs.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
 pub struct PushTokenEarKey {
@@ -73,4 +77,47 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
     }
 }
 
+// EAR key for the [`KeyPackage`] structs.
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+pub struct FriendshipEarKey {
+    key: FriendshipEarKeySecret,
+}
+
+impl EarKey for FriendshipEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for FriendshipEarKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for FriendshipEarKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
 pub type EnqueueAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct RatchetKey {
+    key: RatchetKeySecret,
+}
+
+impl EarKey for RatchetKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for RatchetKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for RatchetKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
+impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
+    const LABEL: &'static str = "RatchetKey";
+}

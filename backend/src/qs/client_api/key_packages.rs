@@ -4,8 +4,10 @@
 - ENDPOINT_QS_KEY_PACKAGE_BATCH
 */
 
+use mls_assist::{KeyPackage, OpenMlsCryptoProvider, OpenMlsRustCrypto};
+
 use crate::{
-    crypto::signatures::signable::Signable,
+    crypto::{ear::EarEncryptable, signatures::signable::Signable},
     ds::group_state::TimeStamp,
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, KeyPackageBatchParams,
@@ -27,18 +29,25 @@ impl Qs {
     ) -> Result<(), QsPublishKeyPackagesError> {
         let PublishKeyPackagesParams {
             client_id,
-            add_packages,
+            key_packages,
             friendship_ear_key,
         } = params;
 
-        // TODO: Validate the key packages after decrypting them wit the
-        // friendship EAR key
-        let _ = friendship_ear_key;
+        // TODO: Validate the key packages
+
+        let encrypted_key_packages = key_packages
+            .into_iter()
+            .map(|key_package| {
+                key_package
+                    .encrypt(&friendship_ear_key)
+                    .map_err(|_| QsPublishKeyPackagesError::LibraryError)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         // TODO: Last resort key package
 
         storage_provider
-            .store_key_packages(&client_id, add_packages)
+            .store_key_packages(&client_id, encrypted_key_packages)
             .await
             .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
         Ok(())
@@ -78,10 +87,23 @@ impl Qs {
         let encrypted_key_packages = storage_provider
             .load_user_key_packages(&friendship_token)
             .await;
-        // TODO: We dercypt the key packages on the fly, compute their
-        // KeyPackageRef and sign the batch
-        let _ = friendship_ear_key;
-        let key_package_refs = Vec::new();
+
+        let key_packages = encrypted_key_packages
+            .into_iter()
+            .map(|encrypted_key_package| {
+                KeyPackage::decrypt(&friendship_ear_key, &encrypted_key_package)
+                    .map_err(|_| QsKeyPackageBatchError::DecryptionError)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let key_package_refs = key_packages
+            .iter()
+            .map(|key_package| {
+                key_package
+                    .hash_ref(OpenMlsRustCrypto::default().crypto())
+                    .map_err(|_| QsKeyPackageBatchError::LibraryError)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let key_package_batch_tbs = KeyPackageBatchTbs {
             homeserver_domain: self.fqdn.clone(),
@@ -94,7 +116,7 @@ impl Qs {
             .map_err(|_| QsKeyPackageBatchError::LibraryError)?;
 
         let response = KeyPackageBatchResponse {
-            encrypted_key_packages,
+            key_packages,
             key_package_batch,
         };
         Ok(response)

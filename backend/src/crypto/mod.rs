@@ -16,9 +16,20 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use tracing::instrument;
 use utoipa::ToSchema;
 
-use crate::{messages::client_qs::EnqueuedMessage, qs::SealedClientReference, LibraryError};
+use crate::{
+    crypto::ear::EarEncryptable,
+    messages::{
+        client_ds::{ClientToClientMsg, EncryptedDsMessage},
+        client_qs::QueueMessage,
+    },
+    qs::SealedClientReference,
+    LibraryError,
+};
 
-use self::ear::Ciphertext;
+use self::{
+    ear::{keys::RatchetKey, Ciphertext, EncryptionError},
+    kdf::{keys::RatchetSecret, KdfDerivable, KDF_KEY_SIZE},
+};
 
 /// This type determines the hash function used by the backend.
 pub type Hash = Sha256;
@@ -69,38 +80,48 @@ impl EncryptedDsGroupState {
 pub(crate) type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct RatchetKey {
+pub struct QueueRatchet {
     sequence_number: u64,
-    key: Vec<u8>,
+    secret: RatchetSecret,
+    key: RatchetKey,
 }
 
 // TODO: Implement the ratchet key.
-impl RatchetKey {
+impl QueueRatchet {
     /// Initialize a new ratchet key.
-    pub fn new(initial_key: Vec<u8>) -> Self {
-        Self {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let secret = RatchetSecret::random()?;
+        let key = RatchetKey::derive(&secret, Vec::new())
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        Ok(Self {
             sequence_number: 0,
-            key: initial_key,
-        }
+            secret,
+            key,
+        })
     }
 
     /// Encrypt the given payload.
-    pub fn encrypt(&self, payload: &[u8]) -> EnqueuedMessage {
-        EnqueuedMessage {
+    pub fn encrypt(&mut self, payload: ClientToClientMsg) -> Result<QueueMessage, EncryptionError> {
+        // TODO: We want domain separation: FQDN, UserID & ClientID.
+        let ciphertext = payload.encrypt(&self.key)?;
+
+        let secret = RatchetSecret::derive(&self.secret, Vec::new())
+            .map_err(|_| EncryptionError::LibraryError)?;
+        let key =
+            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
+
+        self.secret = secret;
+        self.key = key;
+        self.sequence_number += 1;
+
+        Ok(QueueMessage {
             sequence_number: self.sequence_number,
-            ciphertext: Vec::new(),
-        }
+            ciphertext,
+        })
     }
 
     /// Decrypt the given payload.
-    pub fn decrypt(&self, enqueued_message: EnqueuedMessage) -> Vec<u8> {
-        todo!()
-    }
-
-    /// Ratchet the current key forward and returns the old ratcheting key.
-    #[instrument(level = "trace", skip_all)]
-    pub fn ratchet_forward(&mut self) -> RatchetKey {
-        self.sequence_number += 1;
+    pub fn decrypt(&self, queue_message: QueueMessage) -> Vec<u8> {
         todo!()
     }
 
@@ -111,10 +132,11 @@ impl RatchetKey {
 
     /// Get the current sequence number
     pub fn sequence_number(&self) -> u64 {
-        todo!()
+        self.sequence_number
     }
 }
 
+#[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct HpkeCiphertext {
     pub kem_output: Vec<u8>,
     pub ciphertext: Vec<u8>,
@@ -160,7 +182,6 @@ pub struct DecryptionPrivateKey {
 impl DecryptionPrivateKey {
     pub(crate) fn decrypt(
         &self,
-        enc: &[u8],
         info: &[u8],
         aad: &[u8],
         ct: &HpkeCiphertext,

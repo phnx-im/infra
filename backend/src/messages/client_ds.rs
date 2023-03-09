@@ -7,12 +7,16 @@ use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome, SerializedAssistedMessage},
     GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
 };
-use tls_codec::{Deserialize, Size, TlsDeserialize, TlsSerialize, TlsSize};
+use serde::{Deserialize, Serialize};
+use tls_codec::{Deserialize as TlsDeserializeTrait, Size, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
     crypto::{
-        ear::keys::GroupStateEarKey,
+        ear::{
+            keys::{GroupStateEarKey, RatchetKey},
+            Ciphertext, EarEncryptable,
+        },
         kdf::keys::RosterKdfKey,
         mac::{MacTag, TaggedStruct},
         signatures::{
@@ -27,15 +31,42 @@ use crate::{
     qs::{QsClientReference, VerifiableKeyPackageBatch},
 };
 
+use super::MlsInfraVersion;
+
 mod private_mod {
     #[derive(Default)]
     pub(crate) struct Seal;
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct ClientToClientMsg {
     pub assisted_message: Vec<u8>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct EncryptedDsMessage {
+    payload: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedDsMessage {
+    fn from(payload: Ciphertext) -> Self {
+        Self { payload }
+    }
+}
+
+impl From<Vec<u8>> for ClientToClientMsg {
+    fn from(assisted_message: Vec<u8>) -> Self {
+        Self { assisted_message }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedDsMessage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.payload
+    }
+}
+
+impl EarEncryptable<RatchetKey, EncryptedDsMessage> for ClientToClientMsg {}
 
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -255,51 +286,45 @@ impl UpdateQueueConfigParams {
     }
 }
 
-/// Enum encoding the version of the MlsInfra protocol that was used to create
-/// the given message.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
-#[repr(u8)]
-pub(crate) enum MlsInfraVersion {
-    Alpha,
-}
-
 /// This enum contains variatns for each DS endpoint.
 #[derive(TlsDeserialize, TlsSize)]
 #[repr(u8)]
-pub(crate) enum RequestParams {
+pub(crate) enum DsRequestParams {
     AddUsers(AddUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     CreateGroupParams(CreateGroupParams),
 }
 
-impl RequestParams {
+impl DsRequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            RequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
-            RequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
-            RequestParams::CreateGroupParams(create_group_params) => &create_group_params.group_id,
+            DsRequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
+            DsRequestParams::WelcomeInfo(welcom_info_params) => &welcom_info_params.group_id,
+            DsRequestParams::CreateGroupParams(create_group_params) => {
+                &create_group_params.group_id
+            }
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub(crate) fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            RequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
-            RequestParams::WelcomeInfo(_) => None,
-            RequestParams::CreateGroupParams(_) => None,
+            DsRequestParams::AddUsers(add_user_params) => add_user_params.commit.sender(),
+            DsRequestParams::WelcomeInfo(_) => None,
+            DsRequestParams::CreateGroupParams(_) => None,
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub(crate) fn ds_sender(&self) -> DsSender {
         match self {
-            RequestParams::AddUsers(add_user_params) => {
+            DsRequestParams::AddUsers(add_user_params) => {
                 DsSender::UserKeyHash(add_user_params.sender.clone())
             }
-            RequestParams::WelcomeInfo(welcome_info_params) => {
+            DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
             }
-            RequestParams::CreateGroupParams(create_group_params) => {
+            DsRequestParams::CreateGroupParams(create_group_params) => {
                 DsSender::UserKeyHash(create_group_params.creator_user_auth_key.hash())
             }
         }
@@ -333,14 +358,14 @@ pub(crate) struct ClientToDsMessageTbs {
     version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
     // This essentially includes the wire format.
-    body: RequestParams,
+    body: DsRequestParams,
 }
 
 impl ClientToDsMessageTbs {
     pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let version = MlsInfraVersion::tls_deserialize(&mut bytes)?;
         let group_state_ear_key = GroupStateEarKey::tls_deserialize(&mut bytes)?;
-        let body = RequestParams::try_from_bytes(bytes)?;
+        let body = DsRequestParams::try_from_bytes(bytes)?;
         Ok(Self {
             version,
             group_state_ear_key,
@@ -405,8 +430,10 @@ impl VerifiableClientToDsMessage {
     /// to extract the content before verification.
     pub(crate) fn create_group_params(&self) -> Option<&CreateGroupParams> {
         match &self.message.payload.body {
-            RequestParams::AddUsers(_) | RequestParams::WelcomeInfo(_) => None,
-            RequestParams::CreateGroupParams(group_creation_params) => Some(group_creation_params),
+            DsRequestParams::AddUsers(_) | DsRequestParams::WelcomeInfo(_) => None,
+            DsRequestParams::CreateGroupParams(group_creation_params) => {
+                Some(group_creation_params)
+            }
         }
     }
 }
@@ -425,7 +452,7 @@ impl Verifiable for VerifiableClientToDsMessage {
     }
 }
 
-impl VerifiedStruct<VerifiableClientToDsMessage> for RequestParams {
+impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
     type SealingType = private_mod::Seal;
 
     fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {

@@ -2,7 +2,7 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 
-use crate::messages::{client_qs::EnqueuedMessage, FriendshipToken};
+use crate::messages::{client_qs::QueueMessage, FriendshipToken};
 
 use super::{
     client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedKeyPackage,
@@ -85,6 +85,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     ) -> Result<(), Self::StoreKeyPackagesError>;
 
     /// Return a key package for a specific client.
+    /// TODO: Last resort key package
     async fn load_key_package(&self, client_id: &QsClientId) -> Option<QsEncryptedKeyPackage>;
 
     /// Return a key package for each client of a user ereferenced by a
@@ -101,7 +102,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     async fn enqueue(
         &self,
         client_id: &QsClientId,
-        message: EnqueuedMessage,
+        message: QueueMessage,
     ) -> Result<(), Self::EnqueueError>;
 
     /// Delete all messages older than the given sequence number in the queue
@@ -114,5 +115,5 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
         client_id: &QsClientId,
         sequence_number: u64,
         number_of_messages: u64,
-    ) -> Result<(Vec<EnqueuedMessage>, u64), Self::ReadAndDeleteError>;
+    ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
 }
