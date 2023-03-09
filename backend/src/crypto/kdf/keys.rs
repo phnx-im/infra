@@ -4,10 +4,11 @@
 //! trait.
 
 use mls_assist::GroupEpoch;
+use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::crypto::secrets::Secret;
+use crate::crypto::{secrets::Secret, RandomnessError};
 
 use super::{traits::KdfKey, KdfDerivable, KdfExtractable, KDF_KEY_SIZE};
 
@@ -110,4 +111,38 @@ impl AsRef<Secret<KDF_KEY_SIZE>> for InitialClientKdfKey {
     fn as_ref(&self) -> &Secret<KDF_KEY_SIZE> {
         &self.key
     }
+}
+
+pub type RatchetSecretKey = Secret<KDF_KEY_SIZE>;
+
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct RatchetSecret {
+    key: RatchetSecretKey,
+}
+
+impl RatchetSecret {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let key = Secret::random()?;
+        Ok(Self { key })
+    }
+}
+
+impl AsRef<Secret<KDF_KEY_SIZE>> for RatchetSecret {
+    fn as_ref(&self) -> &Secret<KDF_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl KdfKey for RatchetSecret {
+    const ADDITIONAL_LABEL: &'static str = "RatchetSecret";
+}
+
+impl From<Secret<KDF_KEY_SIZE>> for RatchetSecret {
+    fn from(key: Secret<KDF_KEY_SIZE>) -> Self {
+        Self { key }
+    }
+}
+
+impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
+    const LABEL: &'static str = "RatchetSecret derive";
 }

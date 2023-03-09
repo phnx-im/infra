@@ -3,20 +3,22 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
-use hpke::HpkePublicKey;
-use mls_assist::SignaturePublicKey;
+use mls_assist::{KeyPackage, SignaturePublicKey};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
     crypto::{
-        signatures::keys::QueueOwnerVerifyingKey, signatures::signable::Signature, RatchetPublicKey,
+        ear::keys::FriendshipEarKey, signatures::keys::QueueOwnerVerifyingKey,
+        signatures::signable::Signature, QueueRatchet, RatchetPublicKey,
     },
     qs::{EncryptedPushToken, KeyPackageBatch, QsClientId, QsEncryptedKeyPackage, UserId},
 };
 
-use super::{intra_backend::DsFanOutMessage, FriendshipEarKey, FriendshipToken};
+use super::{
+    client_ds::EncryptedDsMessage, intra_backend::DsFanOutMessage, FriendshipToken, MlsInfraVersion,
+};
 
 mod private_mod {
     #[derive(Default)]
@@ -38,7 +40,7 @@ pub struct QsFetchMessageParamsTBS {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct QsFetchMessagesResponse {
-    pub messages: Vec<EnqueuedMessage>,
+    pub messages: Vec<QueueMessage>,
     pub remaining_messages: u64,
 }
 
@@ -51,9 +53,9 @@ pub struct QsQueueUpdate {
 pub type QsInputMessage = DsFanOutMessage;
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct EnqueuedMessage {
-    pub sequence_number: u64,
-    pub ciphertext: Vec<u8>,
+pub struct QueueMessage {
+    pub(crate) sequence_number: u64,
+    pub(crate) ciphertext: EncryptedDsMessage,
 }
 
 /// Error struct for deserialization of an [`UnverifiedGroupOperationParams`]
@@ -71,9 +73,10 @@ pub struct CreateUserRecordParams {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) key_packages: Vec<KeyPackage>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
+    pub(crate) initial_ratchet_key: QueueRatchet,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -96,7 +99,6 @@ pub struct UserRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UserRecordResponse {
-    pub(crate) user_record_auth_key: SignaturePublicKey,
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_records: Vec<ClientRecordResponse>,
 }
@@ -110,12 +112,13 @@ pub struct DeleteUserRecordParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateClientRecordParams {
-    pub(crate) user_id: UserId,
+    pub(crate) sender: UserId,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) key_packages: Vec<KeyPackage>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
+    pub(crate) initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -128,6 +131,7 @@ pub struct UpdateClientRecordParams {
     pub(crate) client_id: QsClientId,
     pub(crate) client_record_auth_key: QueueOwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
+    pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -135,10 +139,12 @@ pub struct ClientRecordParams {
     pub(crate) client_id: QsClientId,
 }
 
+//pub type ClientRecordResponse = QsClientRecord;
+
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct ClientRecordResponse {
     pub(crate) client_record_auth_key: SignaturePublicKey,
-    pub(crate) queue_encryption_key: HpkePublicKey,
+    pub(crate) queue_encryption_key: RatchetPublicKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -149,7 +155,7 @@ pub struct DeleteClientRecordParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct PublishKeyPackagesParams {
     pub(crate) client_id: QsClientId,
-    pub(crate) add_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) key_packages: Vec<KeyPackage>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
 }
 
@@ -171,7 +177,7 @@ pub struct KeyPackageBatchParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct KeyPackageBatchResponse {
-    pub(crate) encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+    pub(crate) key_packages: Vec<KeyPackage>,
     pub(crate) key_package_batch: KeyPackageBatch,
 }
 
@@ -184,7 +190,7 @@ pub struct DequeueMessagesParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DequeueMessagesResponse {
-    pub(crate) messages: Vec<EnqueuedMessage>,
+    pub(crate) messages: Vec<QueueMessage>,
     pub(crate) remaining_messages_number: u64,
 }
 
@@ -192,3 +198,41 @@ pub struct DequeueMessagesResponse {
 pub(crate) struct WsParams {
     pub(crate) client_id: QsClientId,
 }
+
+// === Client messages ===
+
+#[derive(TlsDeserialize, TlsSize)]
+// TODO: This needs custom TLS Codec functions.
+pub struct VerifiableClientToQsMessage {
+    message: ClientToQsMessage,
+    serialized_payload: Vec<u8>,
+}
+
+#[derive(TlsDeserialize, TlsSize)]
+pub(crate) struct ClientToQsMessage {
+    payload: ClientToQsMessageTbs,
+    // Signature over all of the above.
+    signature: Signature,
+}
+
+impl ClientToQsMessage {}
+
+#[derive(TlsDeserialize, TlsSize)]
+pub(crate) struct ClientToQsMessageTbs {
+    version: MlsInfraVersion,
+    // This essentially includes the wire format.
+    body: QsRequestParams,
+}
+
+impl ClientToQsMessageTbs {}
+
+/// This enum contains variatns for each DS endpoint.
+#[derive(TlsDeserialize, TlsSize)]
+#[repr(u8)]
+pub(crate) enum QsRequestParams {
+    // User
+    CreateUser(CreateUserRecordParams),
+    UpdateUser(UpdateUserRecordParams),
+}
+
+impl QsRequestParams {}

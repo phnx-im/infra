@@ -59,24 +59,30 @@
 
 use crate::{
     crypto::{
-        ear::{keys::PushTokenEarKey, Ciphertext, EarEncryptable},
+        ear::{
+            keys::{FriendshipEarKey, PushTokenEarKey},
+            Ciphertext, EarEncryptable,
+        },
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::SigningKey,
         },
-        DecryptionPrivateKey, EncryptionPublicKey,
+        DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext,
     },
     ds::group_state::TimeStamp,
     messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
-use mls_assist::KeyPackageRef;
+use mls_assist::{KeyPackage, KeyPackageRef};
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{
+    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
+    TlsSerialize, TlsSize,
+};
 use utoipa::ToSchema;
 
-use self::errors::QsEnqueueProviderError;
+use self::errors::{QsEnqueueProviderError, UnsealError};
 
 pub mod as_api;
 pub mod client_api;
@@ -132,26 +138,30 @@ pub trait QsEnqueueProvider {
 }
 
 #[derive(Debug)]
-pub struct QueueIdDecryptionPrivateKey {
+pub struct ClientIdDecryptionPrivateKey {
     private_key: DecryptionPrivateKey,
 }
 
-impl QueueIdDecryptionPrivateKey {
-    pub(super) fn unseal_queue_config(
+impl ClientIdDecryptionPrivateKey {
+    pub(super) fn unseal_client_config(
         &self,
         sealed_client_reference: &SealedClientReference,
-    ) -> ClientConfig {
-        todo!()
+    ) -> Result<ClientConfig, UnsealError> {
+        let bytes = self
+            .private_key
+            .decrypt(&[], &[], &sealed_client_reference.ciphertext)
+            .map_err(|_| UnsealError::DecryptionError)?;
+        ClientConfig::tls_deserialize(&mut bytes.as_slice()).map_err(|_| UnsealError::CodecError)
     }
 }
 
-pub struct QueueIdEncryptionPublicKey {
+pub struct ClientIdEncryptionPublicKey {
     public_key: EncryptionPublicKey,
 }
 
-impl QueueIdEncryptionPublicKey {
+impl ClientIdEncryptionPublicKey {
     // TODO: We might want this to be symmetric crypto instead.
-    pub(super) fn seal_queue_config(&self, queue_config: ClientConfig) {
+    pub(super) fn seal_client_config(&self, client_config: ClientConfig) {
         todo!()
     }
 }
@@ -171,7 +181,7 @@ pub struct UserId {
 pub struct ClientConfig {
     pub(crate) client_id: QsClientId,
     // Some clients might not use push tokens.
-    pub(crate) push_token_key_option: Option<PushTokenEarKey>,
+    pub(crate) push_token_ear_key: Option<PushTokenEarKey>,
 }
 
 impl ClientConfig {
@@ -180,7 +190,7 @@ impl ClientConfig {
             client_id: QsClientId {
                 client_id: Vec::new(),
             },
-            push_token_key_option: None,
+            push_token_ear_key: None,
         }
     }
 }
@@ -197,11 +207,13 @@ impl AsRef<[u8]> for QsSigningKey {
 }
 
 impl SigningKey for QsSigningKey {}
+
+// TODO: This could come from the storage provider
 #[derive(Debug)]
 pub struct Qs {
     signer: QsSigningKey,
     fqdn: Fqdn,
-    queue_id_private_key: QueueIdDecryptionPrivateKey,
+    queue_id_private_key: ClientIdDecryptionPrivateKey,
 }
 
 #[derive(
@@ -225,14 +237,10 @@ pub struct QsClientReference {
     sealed_reference: SealedClientReference,
 }
 
-impl QsClientReference {
-    pub(crate) fn homeserver_domain(&self) -> &Fqdn {
-        &self.client_homeserver_domain
-    }
-}
-
 #[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct SealedClientReference {}
+pub struct SealedClientReference {
+    ciphertext: HpkeCiphertext,
+}
 
 // This is used to check keypackage batch freshness by the DS, so it's
 // reasonable to assume the batch is relatively fresh.
@@ -244,6 +252,20 @@ pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 pub struct QsEncryptedKeyPackage {
     ctxt: Ciphertext,
 }
+
+impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ctxt
+    }
+}
+
+impl From<Ciphertext> for QsEncryptedKeyPackage {
+    fn from(ctxt: Ciphertext) -> Self {
+        Self { ctxt }
+    }
+}
+
+impl EarEncryptable<FriendshipEarKey, QsEncryptedKeyPackage> for KeyPackage {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatchTbs {

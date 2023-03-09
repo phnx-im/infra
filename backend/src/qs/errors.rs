@@ -42,9 +42,12 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
     QueueNotFound,
+    /// Unseal error
+    #[error(transparent)]
+    UnsealError(#[from] UnsealError),
     /// An error ocurred enqueueing in a fan out queue
-    #[error("An error ocurred enqueueing in a fan out queue")]
-    EnqueueError(EnqueueError<S>),
+    #[error(transparent)]
+    EnqueueError(#[from] EnqueueError<S>),
 }
 
 /// Error fetching a message from the QS.
@@ -87,6 +90,9 @@ pub enum QsCreateClientError<S: QsStorageProvider> {
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsCreateClientRecordError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
@@ -147,6 +153,8 @@ pub enum QsStoreUserError<S: QsStorageProvider> {
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum QsPublishKeyPackagesError {
+    #[error("Library Error")]
+    LibraryError,
     /// Error publishing key packages
     #[error("Error publishing key packages")]
     StorageError,
@@ -163,7 +171,22 @@ pub enum QsClientKeyPackageError {
 pub enum QsKeyPackageBatchError {
     #[error("Library Error")]
     LibraryError,
+    /// Decryption error
+    #[error("Decryption error")]
+    DecryptionError,
     /// Error retrieving user key packages
     #[error("Error retrieving user key packages")]
     StorageError,
+}
+
+// === Local errors ===
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum UnsealError {
+    /// Decryption error
+    #[error("Decryption error")]
+    DecryptionError,
+    /// Codec error
+    #[error("Codec error")]
+    CodecError,
 }
