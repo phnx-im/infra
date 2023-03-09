@@ -249,7 +249,6 @@ pub(crate) enum MlsInfraVersion {
 }
 
 /// This enum contains variatns for each DS endpoint.
-#[derive(TlsDeserialize, TlsSize)]
 #[repr(u8)]
 pub(crate) enum RequestParams {
     AddUsers(AddUsersParams),
@@ -372,7 +371,6 @@ pub enum DsSender {
     UserKeyHash(UserKeyHash),
 }
 
-#[derive(TlsDeserialize, TlsSize)]
 // TODO: this needs custom deserialization that ensures that the sender matches
 // the request params.
 pub(crate) struct ClientToDsMessageTbs {
@@ -399,7 +397,6 @@ impl ClientToDsMessageTbs {
     }
 }
 
-#[derive(TlsDeserialize, TlsSize)]
 pub(crate) struct ClientToDsMessage {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
@@ -414,8 +411,6 @@ impl ClientToDsMessage {
     }
 }
 
-#[derive(TlsDeserialize, TlsSize)]
-// TODO: This needs custom TLS Codec functions.
 pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessage,
     serialized_payload: Vec<u8>,
@@ -423,9 +418,10 @@ pub struct VerifiableClientToDsMessage {
 
 impl VerifiableClientToDsMessage {
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let reader = bytes;
-        let message = ClientToDsMessage::try_from_bytes(reader)?;
-        let serialized_payload = bytes[..message.payload.tls_serialized_len()].to_vec();
+        let all_bytes = bytes;
+        let bytes_len_before = bytes.len();
+        let message = ClientToDsMessage::try_from_bytes(bytes)?;
+        let serialized_payload = all_bytes[..bytes_len_before - bytes.len()].to_vec();
         Ok(Self {
             message,
             serialized_payload,
