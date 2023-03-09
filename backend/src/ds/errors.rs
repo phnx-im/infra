@@ -128,4 +128,24 @@ pub enum DsProcessingError {
     /// Could not find welcome info for this sender and/or this epoch.
     #[error("Could not find welcome info for this sender and/or this epoch.")]
     NoWelcomeInfoFound,
+    /// Error joining group.
+    #[error(transparent)]
+    JoinGroupError(#[from] JoinGroupError),
+}
+
+/// Potential errors when joining a group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum JoinGroupError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
 }

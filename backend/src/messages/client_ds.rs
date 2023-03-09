@@ -166,16 +166,17 @@ pub struct UpdateClientParamsAad {
     pub option_encrypted_credential_information: Option<EncryptedCredentialChain>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinGroupParams {
-    external_commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub sender: UserKeyHash,
+    pub external_commit: AssistedMessagePlus,
+    pub qs_client_reference: QsClientReference,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinGroupParamsAad {
-    existing_user_clients: Vec<LeafNodeIndex>,
-    encrypted_credential_information: Vec<u8>,
+    pub existing_user_clients: Vec<LeafNodeIndex>,
+    pub encrypted_credential_information: EncryptedCredentialChain,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -258,6 +259,7 @@ pub(crate) enum RequestParams {
     CreateGroupParams(CreateGroupParams),
     UpdateQueueInfo(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
+    JoinGroup(JoinGroupParams),
 }
 
 impl RequestParams {
@@ -278,6 +280,9 @@ impl RequestParams {
             RequestParams::UpdateClient(update_client_params) => {
                 update_client_params.commit.commit.group_id()
             }
+            RequestParams::JoinGroup(join_group_params) => {
+                join_group_params.external_commit.commit.group_id()
+            }
         }
     }
 
@@ -290,6 +295,9 @@ impl RequestParams {
             }
             RequestParams::UpdateClient(update_client_params) => {
                 update_client_params.commit.commit.sender()
+            }
+            RequestParams::JoinGroup(join_group_params) => {
+                join_group_params.external_commit.commit.sender()
             }
             RequestParams::WelcomeInfo(_)
             | RequestParams::ExternalCommitInfo(_)
@@ -321,6 +329,9 @@ impl RequestParams {
             }
             RequestParams::UpdateClient(update_client_params) => {
                 DsSender::UserKeyHash(update_client_params.sender.clone())
+            }
+            RequestParams::JoinGroup(join_group_params) => {
+                DsSender::UserKeyHash(join_group_params.sender.clone())
             }
         }
     }

@@ -14,6 +14,7 @@ mod add_users;
 pub mod api;
 pub mod errors;
 pub mod group_state;
+mod join_group;
 mod remove_users;
 mod update_client;
 

@@ -271,6 +271,10 @@ impl DsApi {
                 let c2c_message = group_state.update_client(update_client_params)?;
                 (Some(c2c_message), None, None)
             }
+            RequestParams::JoinGroup(join_group_params) => {
+                let c2c_message = group_state.join_group(join_group_params)?;
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
