@@ -131,6 +131,9 @@ pub enum DsProcessingError {
     /// Error joining group.
     #[error(transparent)]
     JoinGroupError(#[from] JoinGroupError),
+    /// Error joining connection group.
+    #[error(transparent)]
+    JoinConnectionGroupError(#[from] JoinConnectionGroupError),
 }
 
 /// Potential errors when joining a group.
@@ -148,4 +151,27 @@ pub enum JoinGroupError {
     /// Unknown sender.
     #[error("Unknown sender.")]
     UnknownSender,
+}
+
+/// Potential errors when joining a connection group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum JoinConnectionGroupError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
+    /// Not a connection group.
+    #[error("Not a connection group.")]
+    NotAConnectionGroup,
+    /// User auth key collision.
+    #[error("User auth key collision.")]
+    UserAuthKeyCollision,
 }

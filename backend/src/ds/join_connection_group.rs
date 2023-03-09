@@ -4,27 +4,29 @@ use mls_assist::{
 };
 use tls_codec::Deserialize;
 
-use crate::messages::client_ds::{DsFanoutPayload, JoinGroupParams, JoinGroupParamsAad};
+use crate::messages::client_ds::{
+    DsFanoutPayload, JoinConnectionGroupParams, JoinConnectionGroupParamsAad,
+};
 
 use super::{
     api::USER_EXPIRATION_DAYS,
-    errors::JoinGroupError,
-    group_state::{ClientProfile, DsGroupState, TimeStamp},
+    errors::JoinConnectionGroupError,
+    group_state::{ClientProfile, DsGroupState, TimeStamp, UserProfile},
 };
 
 impl DsGroupState {
-    pub(super) fn join_group(
+    pub(super) fn join_connection_group(
         &mut self,
-        params: JoinGroupParams,
-    ) -> Result<DsFanoutPayload, JoinGroupError> {
+        params: JoinConnectionGroupParams,
+    ) -> Result<DsFanoutPayload, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.external_commit.commit, AssistedMessage::Commit(_)) {
                 self.group()
                     .process_assisted_message(params.external_commit.commit.clone())
-                    .map_err(|_| JoinGroupError::ProcessingError)?
+                    .map_err(|_| JoinConnectionGroupError::ProcessingError)?
             } else {
-                return Err(JoinGroupError::InvalidMessage);
+                return Err(JoinConnectionGroupError::InvalidMessage);
             };
 
         // Perform DS-level validation
@@ -36,7 +38,7 @@ impl DsGroupState {
                 processed_message
             } else {
                 // This should be a commit.
-                return Err(JoinGroupError::InvalidMessage);
+                return Err(JoinConnectionGroupError::InvalidMessage);
             };
 
         // The external commit joining the client into the group should contain only the path.
@@ -47,24 +49,21 @@ impl DsGroupState {
                 || staged_commit.update_proposals().count() > 0
                 || staged_commit.remove_proposals().count() > 0
             {
-                return Err(JoinGroupError::InvalidMessage);
+                return Err(JoinConnectionGroupError::InvalidMessage);
             }
         } else {
-            return Err(JoinGroupError::InvalidMessage);
+            return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad = JoinGroupParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
-            .map_err(|_| JoinGroupError::InvalidMessage)?;
+        let aad = JoinConnectionGroupParamsAad::tls_deserialize(
+            &mut processed_message.authenticated_data(),
+        )
+        .map_err(|_| JoinConnectionGroupError::InvalidMessage)?;
 
-        // Check if the claimed client indices match those in the user's profile.
-        if let Some(user_profile) = self.user_profiles.get(&params.sender) {
-            if user_profile.clients != aad.existing_user_clients {
-                return Err(JoinGroupError::InvalidMessage);
-            }
-        } else {
-            // This should have been checked during validation
-            return Err(JoinGroupError::LibraryError);
+        // Check if the group indeed only has one user (prior to the new one joining).
+        if self.user_profiles.len() > 1 {
+            return Err(JoinConnectionGroupError::NotAConnectionGroup);
         }
 
         // Get the sender's credential s.t. we can identify them later.
@@ -87,16 +86,13 @@ impl DsGroupState {
                     None
                 }
             })
-            .ok_or(JoinGroupError::ProcessingError)?;
+            .ok_or(JoinConnectionGroupError::ProcessingError)?;
 
-        // Create a client profile and update the user's user profile.
-        if let Some(user_profile) = self.user_profiles.get_mut(&params.sender) {
-            user_profile.clients.push(sender);
-        } else {
-            // This should have been checked during validation
-            return Err(JoinGroupError::LibraryError);
-        }
-
+        // Create a client profile and a user profile.
+        let user_profile = UserProfile {
+            clients: vec![sender],
+            user_auth_key: params.sender,
+        };
         let client_profile = ClientProfile {
             leaf_index: sender,
             credential_chain: aad.encrypted_credential_information,
@@ -104,7 +100,15 @@ impl DsGroupState {
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),
         };
+
         self.client_profiles.insert(sender, client_profile);
+
+        let hash_collision = self
+            .user_profiles
+            .insert(user_profile.user_auth_key.hash(), user_profile);
+        if hash_collision.is_some() {
+            return Err(JoinConnectionGroupError::UserAuthKeyCollision);
+        }
 
         // Finally, we create the message for distribution.
         let payload = DsFanoutPayload {

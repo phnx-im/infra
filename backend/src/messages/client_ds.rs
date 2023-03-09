@@ -217,8 +217,8 @@ pub struct UpdateClientParamsAad {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinGroupParams {
-    pub sender: UserKeyHash,
     pub external_commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
     pub qs_client_reference: QsClientReference,
 }
 
@@ -246,15 +246,34 @@ pub struct JoinGroupParamsAad {
     pub encrypted_credential_information: EncryptedCredentialChain,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParams {
-    external_commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub external_commit: AssistedMessagePlus,
+    pub sender: UserAuthKey,
+    pub qs_client_reference: QsClientReference,
+}
+
+impl JoinConnectionGroupParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserAuthKey::tls_deserialize(&mut remaining_bytes)?;
+        let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            external_commit: AssistedMessagePlus {
+                commit,
+                commit_bytes,
+            },
+            sender,
+            qs_client_reference,
+        })
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParamsAad {
-    encrypted_credential_information: Vec<u8>,
+    pub encrypted_credential_information: EncryptedCredentialChain,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -318,6 +337,7 @@ pub(crate) enum DsRequestParams {
     UpdateQueueInfo(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
     JoinGroup(JoinGroupParams),
+    JoinConnectionGroup(JoinConnectionGroupParams),
 }
 
 impl DsRequestParams {
@@ -343,6 +363,12 @@ impl DsRequestParams {
             DsRequestParams::JoinGroup(join_group_params) => {
                 join_group_params.external_commit.commit.group_id()
             }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                join_connection_group_params
+                    .external_commit
+                    .commit
+                    .group_id()
+            }
         }
     }
 
@@ -358,6 +384,9 @@ impl DsRequestParams {
             }
             DsRequestParams::JoinGroup(join_group_params) => {
                 join_group_params.external_commit.commit.sender()
+            }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                join_connection_group_params.external_commit.commit.sender()
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -393,6 +422,9 @@ impl DsRequestParams {
             DsRequestParams::JoinGroup(join_group_params) => {
                 DsSender::UserKeyHash(join_group_params.sender.clone())
             }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                DsSender::UserKeyHash(join_connection_group_params.sender.hash())
+            }
         }
     }
 
@@ -418,6 +450,9 @@ impl DsRequestParams {
                 bytes,
             )?)),
             7 => Ok(Self::JoinGroup(JoinGroupParams::try_from_bytes(bytes)?)),
+            8 => Ok(Self::JoinConnectionGroup(
+                JoinConnectionGroupParams::try_from_bytes(bytes)?,
+            )),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
@@ -510,6 +545,16 @@ impl VerifiableClientToDsMessage {
             DsRequestParams::CreateGroupParams(group_creation_params) => {
                 Some(group_creation_params)
             }
+            _ => None,
+        }
+    }
+
+    /// If the message contains a request to join a connection group, return the
+    /// UserAuthKey. Requests to join connection groups are essentially
+    /// self-authenticated, which is okay.
+    pub(crate) fn join_connection_group_sender(&self) -> Option<&UserAuthKey> {
+        match &self.message.payload.body {
+            DsRequestParams::JoinConnectionGroup(params) => Some(&params.sender),
             _ => None,
         }
     }

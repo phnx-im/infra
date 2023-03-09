@@ -220,11 +220,20 @@ impl DsApi {
                 .verify(&verifying_key)
                 .map_err(|_| DsProcessingError::InvalidSignature)?,
             DsSender::UserKeyHash(user_key_hash) => {
-                let verifying_key = group_state
-                    .get_user_key(&user_key_hash)
-                    .ok_or(DsProcessingError::UnknownSender)?;
+                let verifying_key =
+                // If the message is a join connection group message, it's okay
+                // to pull the key directly from the request parameters, since
+                // join connection group messages are self-authenticated.
+                    if let Some(user_auth_key) = message.join_connection_group_sender() {
+                        user_auth_key
+                    } else {
+                        group_state
+                            .get_user_key(&user_key_hash)
+                            .ok_or(DsProcessingError::UnknownSender)?
+                    }
+                    .clone();
                 message
-                    .verify(verifying_key)
+                    .verify(&verifying_key)
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
         };
@@ -273,6 +282,11 @@ impl DsApi {
             }
             DsRequestParams::JoinGroup(join_group_params) => {
                 let c2c_message = group_state.join_group(join_group_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                let c2c_message =
+                    group_state.join_connection_group(join_connection_group_params)?;
                 (Some(c2c_message), None, None)
             }
         };
