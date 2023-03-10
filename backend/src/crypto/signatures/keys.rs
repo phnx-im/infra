@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignaturePublicKey};
+use mls_assist::{
+    HashType, OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignaturePublicKey,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
@@ -69,7 +71,11 @@ impl VerifyingKey for UserAuthKey {}
 
 impl UserAuthKey {
     pub fn hash(&self) -> UserKeyHash {
-        todo!()
+        let hash = OpenMlsRustCrypto::default()
+            .crypto()
+            .hash(HashType::Sha2_256, &self.signature_key)
+            .unwrap_or_default();
+        UserKeyHash::new(hash)
     }
 }
 

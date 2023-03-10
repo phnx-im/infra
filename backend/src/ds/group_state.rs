@@ -17,11 +17,11 @@ use tls_codec::{
 use crate::{
     crypto::{
         ear::{keys::GroupStateEarKey, EarEncryptable},
-        signatures::keys::{QsVerifyingKey, UserAuthKey},
+        signatures::keys::UserAuthKey,
         EncryptedDsGroupState,
     },
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
-    qs::{Fqdn, QsClientReference},
+    qs::QsClientReference,
 };
 
 use super::errors::{UpdateQueueConfigError, ValidationError};
@@ -78,6 +78,12 @@ impl TimeStamp {
 )]
 pub struct UserKeyHash {
     pub(super) hash: Vec<u8>,
+}
+
+impl UserKeyHash {
+    pub(crate) fn new(hash: Vec<u8>) -> Self {
+        Self { hash }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,11 +179,6 @@ impl DsGroupState {
         self.user_profiles
             .get(user_key_hash)
             .map(|user_profile| &user_profile.user_auth_key)
-    }
-
-    /// TODO: Get the verifying key from the QS. Either look it up directly or from a local cache.
-    pub(super) fn get_qs_verifying_key(&self, _fqdn: &Fqdn) -> Result<QsVerifyingKey, &str> {
-        todo!()
     }
 
     pub(super) fn welcome_info(

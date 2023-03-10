@@ -303,8 +303,12 @@ impl DsApi {
             ),
             // ======= Committing Endpoints =======
             DsRequestParams::AddUsers(add_users_params) => {
-                let (c2c_message, welcome_bundles) =
-                    group_state.add_users(add_users_params, &ear_key)?;
+                // This function is async and needs the qs provider, because it
+                // needs to fetch the verifying keys from the QS of all added
+                // users.
+                let (c2c_message, welcome_bundles) = group_state
+                    .add_users(add_users_params, &ear_key, qs_enqueue_provider)
+                    .await?;
                 (Some(c2c_message), None, Some(welcome_bundles))
             }
             DsRequestParams::RemoveUsers(remove_users_params) => {

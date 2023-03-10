@@ -68,6 +68,7 @@ use crate::{
             Ciphertext, EarEncryptable,
         },
         signatures::{
+            keys::QsVerifyingKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::SigningKey,
         },
@@ -138,6 +139,8 @@ pub trait WebsocketNotifier {
 #[async_trait]
 pub trait QsEnqueueProvider {
     async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), QsEnqueueProviderError>;
+
+    async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, QsEnqueueProviderError>;
 }
 
 #[derive(Debug)]
