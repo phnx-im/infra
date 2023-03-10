@@ -15,9 +15,9 @@ impl DsGroupState {
     ) -> Result<DsFanoutPayload, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
-            if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
+            if matches!(params.commit.message, AssistedMessage::Commit(_)) {
                 self.group()
-                    .process_assisted_message(params.commit.commit.clone())
+                    .process_assisted_message(params.commit.message.clone())
                     .map_err(|_| ClientUpdateError::ProcessingError)?
             } else {
                 return Err(ClientUpdateError::InvalidMessage);
@@ -40,10 +40,12 @@ impl DsGroupState {
         {
             if staged_commit.add_proposals().count() > 0
                 || staged_commit.update_proposals().count() > 0
-                || staged_commit.remove_proposals().count() > 0
             {
                 return Err(ClientUpdateError::InvalidMessage);
             }
+            let remove_proposals: Vec<_> = staged_commit.remove_proposals().collect();
+            self.process_referenced_remove_proposals(&remove_proposals)
+                .map_err(|_| ClientUpdateError::InvalidMessage)?;
         } else {
             return Err(ClientUpdateError::InvalidMessage);
         };
@@ -93,7 +95,7 @@ impl DsGroupState {
 
         // Finally, we create the message for distribution.
         let c2c_message = DsFanoutPayload {
-            payload: params.commit.commit_bytes,
+            payload: params.commit.message_bytes,
         };
 
         Ok(c2c_message)

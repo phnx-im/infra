@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use mls_assist::{group::Group, GroupEpoch, GroupInfo, LeafNodeIndex, Node};
+use mls_assist::{
+    group::Group, GroupEpoch, GroupInfo, LeafNodeIndex, Node, QueuedRemoveProposal, Sender,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
@@ -14,14 +16,11 @@ use crate::{
         signatures::keys::{QsVerifyingKey, UserAuthKey},
         EncryptedDsGroupState,
     },
-    messages::{
-        client_ds::{DsFanoutPayload, UpdateQsClientReferenceParams, WelcomeInfoParams},
-        intra_backend::DsFanOutMessage,
-    },
-    qs::{Fqdn, QsClientReference, QsEnqueueProvider},
+    messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
+    qs::{Fqdn, QsClientReference},
 };
 
-use super::errors::{MessageDistributionError, UpdateQueueConfigError};
+use super::errors::{UpdateQueueConfigError, ValidationError};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimeStamp {
@@ -154,32 +153,6 @@ impl DsGroupState {
         &mut self.group
     }
 
-    /// Distribute the given MLS message (currently only works with ciphertexts).
-    pub(super) async fn distribute_c2c_message<Q: QsEnqueueProvider>(
-        &self,
-        qs_enqueue_provider: &Q,
-        message: DsFanoutPayload,
-        sender_index: LeafNodeIndex,
-    ) -> Result<(), MessageDistributionError> {
-        for (leaf_index, client_profile) in self.client_profiles.iter() {
-            if leaf_index == &sender_index {
-                continue;
-            }
-            let client_queue_config = client_profile.client_queue_config.clone();
-
-            let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.clone(),
-                client_reference: client_queue_config,
-            };
-
-            qs_enqueue_provider
-                .enqueue(ds_fan_out_msg)
-                .await
-                .map_err(|_| MessageDistributionError::DeliveryError)?;
-        }
-        Ok(())
-    }
-
     pub(crate) fn update_queue_config(
         &mut self,
         params: UpdateQsClientReferenceParams,
@@ -217,6 +190,69 @@ impl DsGroupState {
         let group_info = self.group().group_info().clone();
         let nodes = self.group().export_ratchet_tree();
         (group_info, nodes)
+    }
+
+    pub(super) fn process_referenced_remove_proposals(
+        &mut self,
+        remove_proposals: &[QueuedRemoveProposal],
+    ) -> Result<(), ValidationError> {
+        // Verify that we're only committing correct proposals.
+        // Remove proposals (typically not allowed in the context of this endpoint)
+        // Rules:
+        // * If a client only removes itself, that's valid
+        let mut marked_users: HashSet<UserKeyHash> = HashSet::new();
+        for remove_proposal in remove_proposals {
+            // For now, we only allow member proposals.
+            let sender = if let Sender::Member(sender_index) = remove_proposal.sender() {
+                *sender_index
+            } else {
+                return Err(ValidationError::InvalidMessage);
+            };
+            let removed = remove_proposal.remove_proposal().removed();
+            if sender == removed {
+                // This is valid, but we should record the affected user if it's the
+                // user's only client s.t. we know to remove the user profile later.
+                if let Some(user_key_hash) =
+                    self.user_profiles
+                        .iter()
+                        .find_map(|(user_key_hash, user_profile)| {
+                            if let Some(_client_index) = user_profile.clients.first() {
+                                if user_profile.clients.len() == 1 {
+                                    Some(user_key_hash)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                {
+                    marked_users.insert(user_key_hash.clone());
+                } else {
+                    return Err(ValidationError::InvalidMessage);
+                }
+            } else {
+                // Non-self-referencing remove proposals are invalid for now.
+                return Err(ValidationError::InvalidMessage);
+            }
+        }
+        // We now know that all removes are clients removing
+        // themselves.
+        let removed_clients: HashSet<LeafNodeIndex> = remove_proposals
+            .iter()
+            .map(|proposal| proposal.remove_proposal().removed())
+            .collect();
+        for removed_client in removed_clients {
+            let removed_client = self.client_profiles.remove(&removed_client);
+            debug_assert!(removed_client.is_some())
+        }
+
+        // Finally, we remove the client and user profiles.
+        for marked_user in marked_users {
+            let removed_user = self.user_profiles.remove(&marked_user);
+            debug_assert!(removed_user.is_some())
+        }
+        Ok(())
     }
 }
 

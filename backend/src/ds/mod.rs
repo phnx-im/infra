@@ -10,11 +10,18 @@ use crate::crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signature
 
 use self::group_state::TimeStamp;
 
+mod add_clients;
 mod add_users;
 pub mod api;
+mod delete_group;
 pub mod errors;
 pub mod group_state;
+mod join_connection_group;
+mod join_group;
+mod remove_clients;
 mod remove_users;
+mod resync_client;
+mod self_remove_client;
 mod update_client;
 
 /// Return value of a group state load query.

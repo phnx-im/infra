@@ -1,31 +1,28 @@
-use std::collections::HashSet;
-
 use chrono::Duration;
-use mls_assist::Sender;
+use mls_assist::LeafNodeIndex;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, LeafNodeIndex,
-    ProcessedMessageContent,
+    group::ProcessedAssistedMessage, messages::AssistedMessage, ProcessedMessageContent, Sender,
 };
 
-use crate::messages::client_ds::{DsFanoutPayload, RemoveUsersParams};
+use crate::messages::client_ds::{DsFanoutPayload, RemoveClientsParams};
 
-use super::{api::USER_EXPIRATION_DAYS, errors::UserRemovalError, group_state::UserKeyHash};
+use super::{api::USER_EXPIRATION_DAYS, errors::ClientRemovalError};
 
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
-    pub(crate) fn remove_users(
+    pub(crate) fn remove_clients(
         &mut self,
-        params: RemoveUsersParams,
-    ) -> Result<DsFanoutPayload, UserRemovalError> {
+        params: RemoveClientsParams,
+    ) -> Result<DsFanoutPayload, ClientRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
                 self.group()
                     .process_assisted_message(params.commit.message.clone())
-                    .map_err(|_| UserRemovalError::ProcessingError)?
+                    .map_err(|_| ClientRemovalError::ProcessingError)?
             } else {
-                return Err(UserRemovalError::InvalidMessage);
+                return Err(ClientRemovalError::InvalidMessage);
             };
 
         // Perform DS-level validation
@@ -37,7 +34,7 @@ impl DsGroupState {
                 processed_message
             } else {
                 // This should be a commit.
-                return Err(UserRemovalError::InvalidMessage);
+                return Err(ClientRemovalError::InvalidMessage);
             };
 
         // Check if sender index and user profile match.
@@ -46,16 +43,16 @@ impl DsGroupState {
             if !self
                 .user_profiles
                 .get(&params.sender)
-                .ok_or(UserRemovalError::LibraryError)?
+                .ok_or(ClientRemovalError::LibraryError)?
                 .clients
                 .contains(leaf_index)
             {
-                return Err(UserRemovalError::InvalidMessage);
+                return Err(ClientRemovalError::InvalidMessage);
             };
             leaf_index
         } else {
             // Remove users should be a regular commit
-            return Err(UserRemovalError::InvalidMessage);
+            return Err(ClientRemovalError::InvalidMessage);
         };
 
         let removed_clients: Vec<LeafNodeIndex> =
@@ -66,7 +63,7 @@ impl DsGroupState {
                 if staged_commit.add_proposals().count() > 0
                     || staged_commit.update_proposals().count() > 0
                 {
-                    return Err(UserRemovalError::InvalidMessage);
+                    return Err(ClientRemovalError::InvalidMessage);
                 }
                 // Process remove proposals, but only non-inline ones.
                 let by_reference_removes: Vec<_> = staged_commit
@@ -84,7 +81,7 @@ impl DsGroupState {
                     })
                     .collect();
                 self.process_referenced_remove_proposals(&by_reference_removes)
-                    .map_err(|_| UserRemovalError::InvalidMessage)?;
+                    .map_err(|_| ClientRemovalError::InvalidMessage)?;
                 // Let's gather the inline remove proposals. We've already processed the non-inline ones.
                 staged_commit
                     .remove_proposals()
@@ -101,57 +98,42 @@ impl DsGroupState {
                     })
                     .collect()
             } else {
-                return Err(UserRemovalError::InvalidMessage);
+                return Err(ClientRemovalError::InvalidMessage);
             };
-
-        // A few general checks.
-
-        // TODO: This should be de-duplicated with how by-reference remove proposals are processed.
-        let mut client_profiles_to_be_removed = HashSet::new();
-        let mut user_profiles_to_be_removed = Vec::<UserKeyHash>::new();
-        for leaf_index in removed_clients.iter() {
-            // Check if we've already marked the index as to be removed.
-            if client_profiles_to_be_removed.contains(leaf_index) {
-                // If we have not, search for a user that belongs to this index.
-                for (user_key_hash, user_profile) in self.user_profiles.iter() {
-                    if user_profile.clients.contains(leaf_index) {
-                        // Then mark these indices as to be removed indices, ...
-                        user_profile.clients.iter().for_each(|index| {
-                            client_profiles_to_be_removed.insert(*index);
-                        });
-                        // and mark the user profile as to be removed.
-                        user_profiles_to_be_removed.push(user_key_hash.clone())
-                    }
-                }
-            }
-        }
-
-        // Check if all clients of all removed users were indeed removed.
-        for marked_index in client_profiles_to_be_removed.iter() {
-            if !removed_clients.contains(marked_index) {
-                return Err(UserRemovalError::IncompleteRemoval);
-            };
-        }
-
-        // TODO: Validate that the adder has sufficient privileges (if this
-        //       isn't done by an MLS extension).
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
-
-        // Update the group's user and client profiles.
-        for user_key_hash in user_profiles_to_be_removed {
-            self.user_profiles.remove(&user_key_hash);
-        }
-        for client_index in client_profiles_to_be_removed {
-            self.client_profiles.remove(&client_index);
-        }
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
             processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
+
+        // ... then we update the client profiles and the user profile.
+        let user_profile = self
+            .user_profiles
+            .get_mut(&params.sender)
+            // This should have been caught by message validation.
+            .ok_or(ClientRemovalError::LibraryError)?;
+
+        // Update the auth key.
+        user_profile.user_auth_key = params.new_auth_key;
+        for removed_client in removed_clients {
+            if let Some(position) = user_profile
+                .clients
+                .iter()
+                .position(|&leaf_index| leaf_index == removed_client)
+            {
+                user_profile.clients.remove(position);
+            } else {
+                // The removed client does not seem to belong to this user...
+                return Err(ClientRemovalError::InvalidMessage);
+            }
+            let removed_client = self.client_profiles.remove(&removed_client);
+            // Check that we're tracking clients correctly.
+            debug_assert!(removed_client.is_some())
+        }
 
         // Finally, we create the message for distribution.
         let c2c_message = DsFanoutPayload {

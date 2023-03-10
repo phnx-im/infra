@@ -150,8 +150,12 @@ use crate::{
         ear::EarEncryptable,
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
-    messages::client_ds::{
-        CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage,
+    messages::{
+        client_ds::{
+            CreateGroupParams, DsFanoutPayload, DsRequestParams, DsSender,
+            VerifiableClientToDsMessage,
+        },
+        intra_backend::DsFanOutMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -220,25 +224,55 @@ impl DsApi {
                 .verify(&verifying_key)
                 .map_err(|_| DsProcessingError::InvalidSignature)?,
             DsSender::UserKeyHash(user_key_hash) => {
-                let verifying_key = group_state
-                    .get_user_key(&user_key_hash)
-                    .ok_or(DsProcessingError::UnknownSender)?;
+                let verifying_key =
+                // If the message is a join connection group message, it's okay
+                // to pull the key directly from the request parameters, since
+                // join connection group messages are self-authenticated.
+                    if let Some(user_auth_key) = message.join_connection_group_sender() {
+                        user_auth_key
+                    } else {
+                        group_state
+                            .get_user_key(&user_key_hash)
+                            .ok_or(DsProcessingError::UnknownSender)?
+                    }
+                    .clone();
                 message
-                    .verify(verifying_key)
+                    .verify(&verifying_key)
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
         };
 
         let sender = verified_message.mls_sender().cloned();
 
+        let sender_index_option = if let Some(Sender::Member(leaf_index)) = sender {
+            Some(leaf_index)
+        } else {
+            None
+        };
+
+        // We always want to distribute to all members that are group members
+        // before the message is processed (except the sender).
+        let destination_clients: Vec<_> = group_state
+            .client_profiles
+            .iter()
+            .filter_map(|(client_index, client_profile)| {
+                if let Some(sender_index) = sender_index_option {
+                    if &sender_index == client_index {
+                        None
+                    } else {
+                        Some(client_profile.client_queue_config.clone())
+                    }
+                } else {
+                    Some(client_profile.client_queue_config.clone())
+                }
+            })
+            .collect();
+
+        let mut group_state_has_changed = true;
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
-            DsRequestParams::AddUsers(add_users_params) => {
-                let (c2c_message, welcome_bundles) =
-                    group_state.add_users(add_users_params, &ear_key)?;
-                (Some(c2c_message), None, Some(welcome_bundles))
-            }
+        let (ds_fanout_payload, response_option, fan_out_messages) = match verified_message {
+            // ======= Non-Commiting Endpoints =======
             DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
@@ -263,6 +297,12 @@ impl DsApi {
                 )),
                 None,
             ),
+            // ======= Committing Endpoints =======
+            DsRequestParams::AddUsers(add_users_params) => {
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_users(add_users_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
+            }
             DsRequestParams::RemoveUsers(remove_users_params) => {
                 let c2c_message = group_state.remove_users(remove_users_params)?;
                 (Some(c2c_message), None, None)
@@ -271,37 +311,82 @@ impl DsApi {
                 let c2c_message = group_state.update_client(update_client_params)?;
                 (Some(c2c_message), None, None)
             }
+            DsRequestParams::AddClients(add_clients_params) => {
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_clients(add_clients_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
+            }
+            DsRequestParams::RemoveClients(remove_clients_params) => {
+                let c2c_message = group_state.remove_clients(remove_clients_params)?;
+                (Some(c2c_message), None, None)
+            }
+            // ======= Externally Committing Endpoints =======
+            DsRequestParams::JoinGroup(join_group_params) => {
+                let c2c_message = group_state.join_group(join_group_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                let c2c_message =
+                    group_state.join_connection_group(join_connection_group_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::ResyncClient(resync_client_params) => {
+                let c2c_message = group_state.resync_client(resync_client_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::DeleteGroup(delete_group) => {
+                let c2c_message = group_state.delete_group(delete_group)?;
+                (Some(c2c_message), None, None)
+            }
+            // ======= Proposal Endpoints =======
+            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+                let c2c_message = group_state.self_remove_client(self_remove_client_params)?;
+                (Some(c2c_message), None, None)
+            }
+            //
+            DsRequestParams::SendMessage(send_message_params) => {
+                // There is nothing to process here, so we just stick the
+                // message into a DsFanoutPayload for distribution.
+                group_state_has_changed = false;
+                let c2c_message = DsFanoutPayload {
+                    payload: send_message_params.message.message_bytes,
+                };
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
         // group state if it has actually changed.
 
-        // ... before we distribute the message, we encrypt ...
-        let encrypted_group_state = group_state
-            .encrypt(&ear_key)
-            .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
+        if group_state_has_changed {
+            // ... before we distribute the message, we encrypt ...
+            let encrypted_group_state = group_state
+                .encrypt(&ear_key)
+                .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
 
-        // ... and store the modified group state.
-        ds_storage_provider
-            .save_group_state(
-                group_state.group().group_info().group_context().group_id(),
-                encrypted_group_state,
-            )
-            .await
-            .map_err(|_| DsProcessingError::StorageError)?;
+            // ... and store the modified group state.
+            ds_storage_provider
+                .save_group_state(
+                    group_state.group().group_info().group_context().group_id(),
+                    encrypted_group_state,
+                )
+                .await
+                .map_err(|_| DsProcessingError::StorageError)?;
+        }
 
         // Distribute FanOutMessages
-        if let Some(c2c_message) = c2c_message_option {
-            let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
-                leaf_index
-            } else {
-                return Err(DsProcessingError::InvalidSenderType);
-            };
+        if let Some(c2c_message) = ds_fanout_payload {
+            for client_reference in destination_clients {
+                let ds_fan_out_msg = DsFanOutMessage {
+                    payload: c2c_message.clone(),
+                    client_reference,
+                };
 
-            group_state
-                .distribute_c2c_message(qs_enqueue_provider, c2c_message, sender_index)
-                .await
-                .map_err(|_| DsProcessingError::DistributionError)?;
+                qs_enqueue_provider
+                    .enqueue(ds_fan_out_msg)
+                    .await
+                    .map_err(|_| DsProcessingError::DistributionError)?;
+            }
         }
 
         // Distribute WelcomeBundles

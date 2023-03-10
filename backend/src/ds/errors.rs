@@ -9,14 +9,6 @@ pub enum UpdateQueueConfigError {
     UnknownSender,
 }
 
-/// Error distributing messages.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub(super) enum MessageDistributionError {
-    /// Error delivering the message to the QS
-    #[error("DeliveryError")]
-    DeliveryError,
-}
-
 /// Potential errors when removing users.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum UserRemovalError {
@@ -128,4 +120,163 @@ pub enum DsProcessingError {
     /// Could not find welcome info for this sender and/or this epoch.
     #[error("Could not find welcome info for this sender and/or this epoch.")]
     NoWelcomeInfoFound,
+    /// Error joining group.
+    #[error(transparent)]
+    JoinGroupError(#[from] JoinGroupError),
+    /// Error joining connection group.
+    #[error(transparent)]
+    JoinConnectionGroupError(#[from] JoinConnectionGroupError),
+    /// Error adding clients.
+    #[error(transparent)]
+    ClientAddtionError(#[from] ClientAdditionError),
+    /// Error removing clients.
+    #[error(transparent)]
+    ClientRemovalError(#[from] ClientRemovalError),
+    /// Error resyncing client.
+    #[error(transparent)]
+    ClientResyncError(#[from] ResyncClientError),
+    /// Error self removing client.
+    #[error(transparent)]
+    ClientSelfRemovalError(#[from] ClientSelfRemovalError),
+    /// Error deleting group.
+    #[error(transparent)]
+    GroupDeletionError(#[from] GroupDeletionError),
+}
+
+/// Potential errors when joining a group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum JoinGroupError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
+}
+
+/// Potential errors when joining a connection group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum JoinConnectionGroupError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Unknown sender.
+    #[error("Unknown sender.")]
+    UnknownSender,
+    /// Not a connection group.
+    #[error("Not a connection group.")]
+    NotAConnectionGroup,
+    /// User auth key collision.
+    #[error("User auth key collision.")]
+    UserAuthKeyCollision,
+}
+
+/// Potential errors when adding a user.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientAdditionError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Missing queue config in client key package.
+    #[error("Missing queue config in client key package.")]
+    MissingQueueConfig,
+    /// Incomplete Welcome message.
+    #[error("Incomplete Welcome message.")]
+    IncompleteWelcome,
+}
+
+/// Potential errors when removing clients.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when deleting a group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum GroupDeletionError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when processing a self remove proposal.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientSelfRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when sending a message.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum MessageSendingError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when resyncing a client.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ResyncClientError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when validating a commit or proposal.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ValidationError {
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
 }
