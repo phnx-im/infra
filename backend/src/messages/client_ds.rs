@@ -158,9 +158,9 @@ impl AddUsersParams {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddUsersParamsAad {
-    pub encrypted_credential_information: Vec<Vec<u8>>,
+    pub encrypted_credential_information: Vec<EncryptedCredentialChain>,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]

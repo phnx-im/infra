@@ -1,7 +1,7 @@
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage, KeyPackage, OpenMlsCryptoProvider,
-    OpenMlsRustCrypto, ProcessedMessageContent,
+    OpenMlsRustCrypto, ProcessedMessageContent, Sender,
 };
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
 
@@ -61,6 +61,20 @@ impl DsGroupState {
         } else {
             return Err(ClientAdditionError::InvalidMessage);
         };
+
+        // Check if sender index and user profile match.
+        if let Sender::Member(leaf_index) = processed_message.sender() {
+            // There should be a user profile. If there wasn't, verification should have failed.
+            if !self
+                .user_profiles
+                .get(&params.sender)
+                .ok_or(ClientAdditionError::LibraryError)?
+                .clients
+                .contains(leaf_index)
+            {
+                return Err(ClientAdditionError::InvalidMessage);
+            };
+        }
 
         // TODO: Validate that the sender index is in the sending user's user profile.
         // TODO (Spec): We might be able to prove to the DS that we're actually

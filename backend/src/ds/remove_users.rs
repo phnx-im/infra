@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use chrono::Duration;
+use mls_assist::Sender;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage, LeafNodeIndex,
     ProcessedMessageContent,
@@ -46,6 +47,20 @@ impl DsGroupState {
         } else {
             return Err(UserRemovalError::InvalidMessage);
         };
+
+        // Check if sender index and user profile match.
+        if let Sender::Member(leaf_index) = processed_message.sender() {
+            // There should be a user profile. If there wasn't, verification should have failed.
+            if !self
+                .user_profiles
+                .get(&params.sender)
+                .ok_or(UserRemovalError::LibraryError)?
+                .clients
+                .contains(leaf_index)
+            {
+                return Err(UserRemovalError::InvalidMessage);
+            };
+        }
 
         // A few general checks.
         let removed_clients: Vec<LeafNodeIndex> = staged_commit

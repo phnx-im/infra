@@ -5,6 +5,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessage, AssistedWelcome},
     KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
+    Sender,
 };
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize, TlsDeserialize, TlsSerialize, TlsSize,
@@ -77,25 +78,41 @@ impl DsGroupState {
             return Err(UserAdditionError::InvalidMessage);
         };
 
-        // A few general checks.
-        let number_of_add_proposals = staged_commit.add_proposals().count();
-        // TODO: Verify that we have enough welcome attribution infos.
+        // Check if sender index and user profile match.
+        if let Sender::Member(leaf_index) = processed_message.sender() {
+            // There should be a user profile. If there wasn't, verification should have failed.
+            if !self
+                .user_profiles
+                .get(&params.sender)
+                .ok_or(UserAdditionError::LibraryError)?
+                .clients
+                .contains(leaf_index)
+            {
+                return Err(UserAdditionError::InvalidMessage);
+            };
+        }
+
         // Check if we have enough encrypted credential chains.
-        if number_of_add_proposals != aad.encrypted_credential_information.len() {
+        if staged_commit.add_proposals().count() != aad.encrypted_credential_information.len() {
             return Err(UserAdditionError::InvalidMessage);
         }
-        let mut added_clients: HashMap<KeyPackageRef, KeyPackage> = staged_commit
-            .add_proposals()
-            .map(|add_proposal| {
-                let key_package_ref = add_proposal
-                    .add_proposal()
-                    .key_package()
-                    .hash_ref(OpenMlsRustCrypto::default().crypto())
-                    .map_err(|_| UserAdditionError::LibraryError)?;
-                let key_package = add_proposal.add_proposal().key_package().clone();
-                Ok((key_package_ref, key_package))
-            })
-            .collect::<Result<HashMap<KeyPackageRef, KeyPackage>, UserAdditionError>>()?;
+        let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedCredentialChain)> =
+            staged_commit
+                .add_proposals()
+                .zip(aad.encrypted_credential_information.into_iter())
+                .map(|(add_proposal, ecc)| {
+                    let key_package_ref = add_proposal
+                        .add_proposal()
+                        .key_package()
+                        .hash_ref(OpenMlsRustCrypto::default().crypto())
+                        .map_err(|_| UserAdditionError::LibraryError)?;
+                    let key_package = add_proposal.add_proposal().key_package().clone();
+                    Ok((key_package_ref, (key_package, ecc)))
+                })
+                .collect::<Result<
+                    HashMap<KeyPackageRef, (KeyPackage, EncryptedCredentialChain)>,
+                    UserAdditionError,
+                >>()?;
 
         // Check if for each added member, there is a corresponding entry
         // in the Welcome.
@@ -111,7 +128,10 @@ impl DsGroupState {
         // Verify all KeyPackageBatches.
         let mut verifying_keys: HashMap<Fqdn, QsVerifyingKey> = HashMap::new();
         let mut added_users = vec![];
-        // TODO: Verify lengths of iterators.
+        // Check that we have enough welcome attribution infos.
+        if params.key_package_batches.len() != params.encrypted_welcome_attribution_infos.len() {
+            return Err(UserAdditionError::InvalidMessage);
+        }
         for (key_package_batch, attribution_info) in params
             .key_package_batches
             .into_iter()
@@ -168,12 +188,9 @@ impl DsGroupState {
 
         // ... s.t. it's easier to update the user and client profiles.
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
-        // TODO: ZIP the ECCs into here as well s.t. we can add them to the
-        // client profiles. Also put a note into notion that they have to be in
-        // the same order as the KeyPackageRefs in the KeyPackageBatches.
-        for (key_packages, attribution_info) in added_users.into_iter() {
+        for (add_packages, attribution_info) in added_users.into_iter() {
             let mut client_profiles = vec![];
-            for key_package in key_packages {
+            for (key_package, ecc) in add_packages {
                 let member = self
                     .group()
                     .members()
@@ -190,7 +207,7 @@ impl DsGroupState {
                 .map_err(|_| UserAdditionError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    credential_chain: EncryptedCredentialChain {},
+                    credential_chain: ecc,
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
