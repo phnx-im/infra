@@ -16,14 +16,11 @@ use crate::{
         signatures::keys::{QsVerifyingKey, UserAuthKey},
         EncryptedDsGroupState,
     },
-    messages::{
-        client_ds::{DsFanoutPayload, UpdateQsClientReferenceParams, WelcomeInfoParams},
-        intra_backend::DsFanOutMessage,
-    },
-    qs::{Fqdn, QsClientReference, QsEnqueueProvider},
+    messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
+    qs::{Fqdn, QsClientReference},
 };
 
-use super::errors::{MessageDistributionError, UpdateQueueConfigError, ValidationError};
+use super::errors::{UpdateQueueConfigError, ValidationError};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimeStamp {
@@ -154,32 +151,6 @@ impl DsGroupState {
     /// Get a mutable reference to the public group state.
     pub(crate) fn group_mut(&mut self) -> &mut Group {
         &mut self.group
-    }
-
-    /// Distribute the given MLS message (currently only works with ciphertexts).
-    pub(super) async fn distribute_c2c_message<Q: QsEnqueueProvider>(
-        &self,
-        qs_enqueue_provider: &Q,
-        message: DsFanoutPayload,
-        sender_index: LeafNodeIndex,
-    ) -> Result<(), MessageDistributionError> {
-        for (leaf_index, client_profile) in self.client_profiles.iter() {
-            if leaf_index == &sender_index {
-                continue;
-            }
-            let client_queue_config = client_profile.client_queue_config.clone();
-
-            let ds_fan_out_msg = DsFanOutMessage {
-                payload: message.clone(),
-                client_reference: client_queue_config,
-            };
-
-            qs_enqueue_provider
-                .enqueue(ds_fan_out_msg)
-                .await
-                .map_err(|_| MessageDistributionError::DeliveryError)?;
-        }
-        Ok(())
     }
 
     pub(crate) fn update_queue_config(

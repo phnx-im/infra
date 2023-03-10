@@ -150,8 +150,12 @@ use crate::{
         ear::EarEncryptable,
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
-    messages::client_ds::{
-        CreateGroupParams, DsFanoutPayload, DsRequestParams, DsSender, VerifiableClientToDsMessage,
+    messages::{
+        client_ds::{
+            CreateGroupParams, DsFanoutPayload, DsRequestParams, DsSender,
+            VerifiableClientToDsMessage,
+        },
+        intra_backend::DsFanOutMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -240,6 +244,30 @@ impl DsApi {
 
         let sender = verified_message.mls_sender().cloned();
 
+        let sender_index_option = if let Some(Sender::Member(leaf_index)) = sender {
+            Some(leaf_index)
+        } else {
+            None
+        };
+
+        // We always want to distribute to all members that are group members
+        // before the message is processed (except the sender).
+        let destination_clients: Vec<_> = group_state
+            .client_profiles
+            .iter()
+            .filter_map(|(client_index, client_profile)| {
+                if let Some(sender_index) = sender_index_option {
+                    if &sender_index == client_index {
+                        None
+                    } else {
+                        Some(client_profile.client_queue_config.clone())
+                    }
+                } else {
+                    Some(client_profile.client_queue_config.clone())
+                }
+            })
+            .collect();
+
         let mut group_state_has_changed = true;
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
@@ -306,6 +334,10 @@ impl DsApi {
                 let c2c_message = group_state.resync_client(resync_client_params)?;
                 (Some(c2c_message), None, None)
             }
+            DsRequestParams::DeleteGroup(delete_group) => {
+                let c2c_message = group_state.delete_group(delete_group)?;
+                (Some(c2c_message), None, None)
+            }
             // ======= Proposal Endpoints =======
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
                 let c2c_message = group_state.self_remove_client(self_remove_client_params)?;
@@ -344,16 +376,17 @@ impl DsApi {
 
         // Distribute FanOutMessages
         if let Some(c2c_message) = ds_fanout_payload {
-            let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
-                leaf_index
-            } else {
-                return Err(DsProcessingError::InvalidSenderType);
-            };
+            for client_reference in destination_clients {
+                let ds_fan_out_msg = DsFanOutMessage {
+                    payload: c2c_message.clone(),
+                    client_reference,
+                };
 
-            group_state
-                .distribute_c2c_message(qs_enqueue_provider, c2c_message, sender_index)
-                .await
-                .map_err(|_| DsProcessingError::DistributionError)?;
+                qs_enqueue_provider
+                    .enqueue(ds_fan_out_msg)
+                    .await
+                    .map_err(|_| DsProcessingError::DistributionError)?;
+            }
         }
 
         // Distribute WelcomeBundles

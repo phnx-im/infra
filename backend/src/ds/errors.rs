@@ -9,14 +9,6 @@ pub enum UpdateQueueConfigError {
     UnknownSender,
 }
 
-/// Error distributing messages.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub(super) enum MessageDistributionError {
-    /// Error delivering the message to the QS
-    #[error("DeliveryError")]
-    DeliveryError,
-}
-
 /// Potential errors when removing users.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum UserRemovalError {
@@ -146,6 +138,9 @@ pub enum DsProcessingError {
     /// Error self removing client.
     #[error(transparent)]
     ClientSelfRemovalError(#[from] ClientSelfRemovalError),
+    /// Error deleting group.
+    #[error(transparent)]
+    GroupDeletionError(#[from] GroupDeletionError),
 }
 
 /// Potential errors when joining a group.
@@ -211,6 +206,20 @@ pub enum ClientAdditionError {
 /// Potential errors when removing clients.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ClientRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when deleting a group.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum GroupDeletionError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,

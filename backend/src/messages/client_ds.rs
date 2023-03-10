@@ -402,6 +402,23 @@ impl SendMessageParams {
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
+}
+
+impl DeleteGroupParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, message) = AssistedMessage::try_from_bytes(bytes)?;
+        let message_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            commit: AssistedMessagePlus {
+                message,
+                message_bytes,
+            },
+            sender,
+        })
+    }
 }
 
 /// This enum contains variatns for each DS endpoint.
@@ -421,6 +438,7 @@ pub(crate) enum DsRequestParams {
     ResyncClient(ResyncClientParams),
     SelfRemoveClient(SelfRemoveClientParams),
     SendMessage(SendMessageParams),
+    DeleteGroup(DeleteGroupParams),
 }
 
 impl DsRequestParams {
@@ -467,6 +485,9 @@ impl DsRequestParams {
             DsRequestParams::SendMessage(send_message_params) => {
                 send_message_params.message.message.group_id()
             }
+            DsRequestParams::DeleteGroup(delete_group_params) => {
+                delete_group_params.commit.message.group_id()
+            }
         }
     }
 
@@ -500,6 +521,9 @@ impl DsRequestParams {
             }
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.message.sender()
+            }
+            DsRequestParams::DeleteGroup(delete_group_params) => {
+                delete_group_params.commit.message.sender()
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -554,7 +578,10 @@ impl DsRequestParams {
                 DsSender::UserKeyHash(self_remove_client_params.sender.clone())
             }
             DsRequestParams::SendMessage(send_message_params) => {
-                DsSender::LeafIndex(send_message_params.sender.clone())
+                DsSender::LeafIndex(send_message_params.sender)
+            }
+            DsRequestParams::DeleteGroup(delete_group_params) => {
+                DsSender::UserKeyHash(delete_group_params.sender.clone())
             }
         }
     }
@@ -594,6 +621,8 @@ impl DsRequestParams {
             12 => Ok(Self::SelfRemoveClient(
                 SelfRemoveClientParams::try_from_bytes(bytes)?,
             )),
+            13 => Ok(Self::SendMessage(SendMessageParams::try_from_bytes(bytes)?)),
+            14 => Ok(Self::DeleteGroup(DeleteGroupParams::try_from_bytes(bytes)?)),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
