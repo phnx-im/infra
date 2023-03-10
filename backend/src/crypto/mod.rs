@@ -65,14 +65,6 @@ impl AsRef<Ciphertext> for EncryptedDsGroupState {
     }
 }
 
-impl EncryptedDsGroupState {
-    /// Get a reference to the encrypted ds group state's last used.
-    #[must_use]
-    pub(crate) fn last_used(&self) -> &DateTime<Utc> {
-        &self.last_used
-    }
-}
-
 pub(crate) type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
@@ -213,14 +205,4 @@ impl DecryptionPrivateKey {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct RatchetPublicKey {
     encryption_key: EncryptionPublicKey,
-}
-
-impl RatchetPublicKey {
-    /// Encrypt the given ratchet key update under this hpke public key.
-    pub(crate) fn encrypt_ratchet_key_update(
-        &self,
-        ratchet_key_update: &RatchetKeyUpdate,
-    ) -> Vec<u8> {
-        todo!()
-    }
 }
