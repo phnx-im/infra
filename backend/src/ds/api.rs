@@ -243,11 +243,7 @@ impl DsApi {
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
         let (ds_fanout_payload, response_option, fan_out_messages) = match verified_message {
-            DsRequestParams::AddUsers(add_users_params) => {
-                let (c2c_message, welcome_bundles) =
-                    group_state.add_users(add_users_params, &ear_key)?;
-                (Some(c2c_message), None, Some(welcome_bundles))
-            }
+            // ======= Non-Commiting Endpoints =======
             DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
@@ -272,21 +268,18 @@ impl DsApi {
                 )),
                 None,
             ),
+            // ======= Committing Endpoints =======
+            DsRequestParams::AddUsers(add_users_params) => {
+                let (c2c_message, welcome_bundles) =
+                    group_state.add_users(add_users_params, &ear_key)?;
+                (Some(c2c_message), None, Some(welcome_bundles))
+            }
             DsRequestParams::RemoveUsers(remove_users_params) => {
                 let c2c_message = group_state.remove_users(remove_users_params)?;
                 (Some(c2c_message), None, None)
             }
             DsRequestParams::UpdateClient(update_client_params) => {
                 let c2c_message = group_state.update_client(update_client_params)?;
-                (Some(c2c_message), None, None)
-            }
-            DsRequestParams::JoinGroup(join_group_params) => {
-                let c2c_message = group_state.join_group(join_group_params)?;
-                (Some(c2c_message), None, None)
-            }
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
-                let c2c_message =
-                    group_state.join_connection_group(join_connection_group_params)?;
                 (Some(c2c_message), None, None)
             }
             DsRequestParams::AddClients(add_clients_params) => {
@@ -296,6 +289,16 @@ impl DsApi {
             }
             DsRequestParams::RemoveClients(remove_clients_params) => {
                 let c2c_message = group_state.remove_clients(remove_clients_params)?;
+                (Some(c2c_message), None, None)
+            }
+            // ======= Externally Committing Endpoints =======
+            DsRequestParams::JoinGroup(join_group_params) => {
+                let c2c_message = group_state.join_group(join_group_params)?;
+                (Some(c2c_message), None, None)
+            }
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                let c2c_message =
+                    group_state.join_connection_group(join_connection_group_params)?;
                 (Some(c2c_message), None, None)
             }
             DsRequestParams::ResyncClient(resync_client_params) => {

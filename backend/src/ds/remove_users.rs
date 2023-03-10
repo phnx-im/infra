@@ -40,16 +40,8 @@ impl DsGroupState {
                 return Err(UserRemovalError::InvalidMessage);
             };
 
-        let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
-            processed_message.content()
-        {
-            staged_commit
-        } else {
-            return Err(UserRemovalError::InvalidMessage);
-        };
-
         // Check if sender index and user profile match.
-        if let Sender::Member(leaf_index) = processed_message.sender() {
+        let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
             // There should be a user profile. If there wasn't, verification should have failed.
             if !self
                 .user_profiles
@@ -60,14 +52,61 @@ impl DsGroupState {
             {
                 return Err(UserRemovalError::InvalidMessage);
             };
-        }
+            leaf_index
+        } else {
+            // Remove users should be a regular commit
+            return Err(UserRemovalError::InvalidMessage);
+        };
+
+        let removed_clients: Vec<LeafNodeIndex> =
+            if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
+                processed_message.content()
+            {
+                // Check that the commit only contains removes.
+                if staged_commit.add_proposals().count() > 0
+                    || staged_commit.update_proposals().count() > 0
+                {
+                    return Err(UserRemovalError::InvalidMessage);
+                }
+                // Process remove proposals, but only non-inline ones.
+                let by_reference_removes: Vec<_> = staged_commit
+                    .remove_proposals()
+                    .filter_map(|remove_proposal| {
+                        if let Sender::Member(leaf_index) = remove_proposal.sender() {
+                            if leaf_index != sender_index {
+                                Some(remove_proposal)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                self.process_referenced_remove_proposals(&by_reference_removes)
+                    .map_err(|_| UserRemovalError::InvalidMessage)?;
+                // Let's gather the inline remove proposals. We've already processed the non-inline ones.
+                staged_commit
+                    .remove_proposals()
+                    .filter_map(|remove_proposal| {
+                        if let Sender::Member(leaf_index) = remove_proposal.sender() {
+                            if leaf_index != sender_index {
+                                Some(remove_proposal.remove_proposal().removed())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            } else {
+                return Err(UserRemovalError::InvalidMessage);
+            };
 
         // A few general checks.
-        let removed_clients: Vec<LeafNodeIndex> = staged_commit
-            .remove_proposals()
-            .map(|remove_proposal| remove_proposal.remove_proposal().removed())
-            .collect();
 
+        // TODO: This should be de-duplicated with how by-reference remove proposals are processed.
         let mut client_profiles_to_be_removed = HashSet::new();
         let mut user_profiles_to_be_removed = Vec::<UserKeyHash>::new();
         for leaf_index in removed_clients.iter() {

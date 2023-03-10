@@ -57,6 +57,9 @@ impl DsGroupState {
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         {
+            let remove_proposals: Vec<_> = staged_commit.remove_proposals().collect();
+            self.process_referenced_remove_proposals(&remove_proposals)
+                .map_err(|_| ClientAdditionError::InvalidMessage)?;
             staged_commit
         } else {
             return Err(ClientAdditionError::InvalidMessage);

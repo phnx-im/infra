@@ -37,6 +37,24 @@ impl DsGroupState {
                 return Err(ClientRemovalError::InvalidMessage);
             };
 
+        // Check if sender index and user profile match.
+        let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
+            // There should be a user profile. If there wasn't, verification should have failed.
+            if !self
+                .user_profiles
+                .get(&params.sender)
+                .ok_or(ClientRemovalError::LibraryError)?
+                .clients
+                .contains(leaf_index)
+            {
+                return Err(ClientRemovalError::InvalidMessage);
+            };
+            leaf_index
+        } else {
+            // Remove users should be a regular commit
+            return Err(ClientRemovalError::InvalidMessage);
+        };
+
         let removed_clients: Vec<LeafNodeIndex> =
             if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
                 processed_message.content()
@@ -47,10 +65,37 @@ impl DsGroupState {
                 {
                     return Err(ClientRemovalError::InvalidMessage);
                 }
-
+                // Process remove proposals, but only non-inline ones.
+                let by_reference_removes: Vec<_> = staged_commit
+                    .remove_proposals()
+                    .filter_map(|remove_proposal| {
+                        if let Sender::Member(leaf_index) = remove_proposal.sender() {
+                            if leaf_index != sender_index {
+                                Some(remove_proposal)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                self.process_referenced_remove_proposals(&by_reference_removes)
+                    .map_err(|_| ClientRemovalError::InvalidMessage)?;
+                // Let's gather the inline remove proposals. We've already processed the non-inline ones.
                 staged_commit
                     .remove_proposals()
-                    .map(|remove_proposal| remove_proposal.remove_proposal().removed())
+                    .filter_map(|remove_proposal| {
+                        if let Sender::Member(leaf_index) = remove_proposal.sender() {
+                            if leaf_index != sender_index {
+                                Some(remove_proposal.remove_proposal().removed())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
                     .collect()
             } else {
                 return Err(ClientRemovalError::InvalidMessage);

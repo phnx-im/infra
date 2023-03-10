@@ -40,10 +40,12 @@ impl DsGroupState {
         {
             if staged_commit.add_proposals().count() > 0
                 || staged_commit.update_proposals().count() > 0
-                || staged_commit.remove_proposals().count() > 0
             {
                 return Err(ClientUpdateError::InvalidMessage);
             }
+            let remove_proposals: Vec<_> = staged_commit.remove_proposals().collect();
+            self.process_referenced_remove_proposals(&remove_proposals)
+                .map_err(|_| ClientUpdateError::InvalidMessage)?;
         } else {
             return Err(ClientUpdateError::InvalidMessage);
         };

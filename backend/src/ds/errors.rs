@@ -232,3 +232,11 @@ pub enum ResyncClientError {
     #[error("Error processing message.")]
     ProcessingError,
 }
+
+/// Potential errors when validating a commit or proposal.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ValidationError {
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+}
