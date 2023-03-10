@@ -95,7 +95,7 @@ impl Qs {
             .store_user(&sender, user_record)
             .await
             .map_err(|_| QsUpdateUserError::StorageError)?;
-        todo!()
+        Ok(())
     }
 
     /// Delete a user record.
