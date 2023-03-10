@@ -76,7 +76,6 @@ impl DsGroupState {
             };
         }
 
-        // TODO: Validate that the sender index is in the sending user's user profile.
         // TODO (Spec): We might be able to prove to the DS that we're actually
         // the owning user of the added client(s).
 

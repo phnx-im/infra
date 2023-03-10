@@ -17,6 +17,7 @@ pub mod errors;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;
+mod remove_clients;
 mod remove_users;
 mod update_client;
 

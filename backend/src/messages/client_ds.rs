@@ -308,29 +308,47 @@ pub struct AddClientsParamsAad {
     pub encrypted_credential_information: Vec<EncryptedCredentialChain>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct RemoveClientsParams {
-    commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
-    user_auth_key: UserAuthKey,
+    pub commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
+    pub new_auth_key: UserAuthKey,
+}
+
+impl RemoveClientsParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        let new_auth_key = UserAuthKey::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            commit: AssistedMessagePlus {
+                commit,
+                commit_bytes,
+            },
+            sender,
+            new_auth_key,
+        })
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ResyncClientParams {
-    external_commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub external_commit: SerializedAssistedMessage,
+    pub ear_key: GroupStateEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct SelfRemoveClientParams {
-    remove_proposals: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub remove_proposals: SerializedAssistedMessage,
+    pub ear_key: GroupStateEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct SelfRemoveUserParams {
-    remove_proposals: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub remove_proposals: SerializedAssistedMessage,
+    pub ear_key: GroupStateEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -358,6 +376,7 @@ pub(crate) enum DsRequestParams {
     JoinGroup(JoinGroupParams),
     JoinConnectionGroup(JoinConnectionGroupParams),
     AddClients(AddClientsParams),
+    RemoveClients(RemoveClientsParams),
 }
 
 impl DsRequestParams {
@@ -392,6 +411,9 @@ impl DsRequestParams {
             DsRequestParams::AddClients(add_clients_params) => {
                 add_clients_params.commit.commit.group_id()
             }
+            DsRequestParams::RemoveClients(remove_clients_params) => {
+                remove_clients_params.commit.commit.group_id()
+            }
         }
     }
 
@@ -413,6 +435,9 @@ impl DsRequestParams {
             }
             DsRequestParams::AddClients(add_clients_params) => {
                 add_clients_params.commit.commit.sender()
+            }
+            DsRequestParams::RemoveClients(remove_clients_params) => {
+                remove_clients_params.commit.commit.sender()
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -453,6 +478,9 @@ impl DsRequestParams {
             }
             DsRequestParams::AddClients(add_clients_params) => {
                 DsSender::UserKeyHash(add_clients_params.sender.clone())
+            }
+            DsRequestParams::RemoveClients(remove_clients_params) => {
+                DsSender::UserKeyHash(remove_clients_params.sender.clone())
             }
         }
     }

@@ -294,6 +294,10 @@ impl DsApi {
                     group_state.add_clients(add_clients_params, &ear_key)?;
                 (Some(c2c_message), None, Some(welcome_bundles))
             }
+            DsRequestParams::RemoveClients(remove_clients_params) => {
+                let c2c_message = group_state.remove_clients(remove_clients_params)?;
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
