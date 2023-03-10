@@ -4,7 +4,7 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
-        signatures::keys::QueueOwnerVerifyingKey,
+        signatures::keys::OwnerVerifyingKey,
         QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     errors::EnqueueError, storage_provider_trait::QsStorageProvider, EncryptedPushToken, PushToken,
-    QsClientId, UserId, WebsocketNotifier,
+    QsClientId, QsUserId, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -30,10 +30,10 @@ pub(super) enum QsQueueMessage {
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct QsClientRecord {
-    pub(crate) user_id: UserId,
+    pub(crate) user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) owner_public_key: RatchetPublicKey,
-    pub(crate) owner_signature_key: QueueOwnerVerifyingKey,
+    pub(crate) owner_signature_key: OwnerVerifyingKey,
     pub(crate) current_ratchet_key: QueueRatchet,
     pub(crate) activity_time: TimeStamp,
 }
@@ -42,7 +42,7 @@ impl QsClientRecord {
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
-        client_record_auth_key: QueueOwnerVerifyingKey,
+        client_record_auth_key: OwnerVerifyingKey,
         queue_encryption_key: RatchetPublicKey,
         encrypted_push_token: Option<EncryptedPushToken>,
     ) {

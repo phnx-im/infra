@@ -1,7 +1,8 @@
 use crate::messages::intra_backend::DsFanOutMessage;
 
 use super::{
-    errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, Qs, WebsocketNotifier,
+    errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, ClientIdEncryptionPublicKey,
+    Qs, WebsocketNotifier,
 };
 
 impl Qs {
@@ -20,7 +21,7 @@ impl Qs {
         websocket_notifier: &W,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<S>> {
-        let decryption_key = &self.queue_id_private_key;
+        let decryption_key = &self.client_id_private_key;
         let client_config =
             decryption_key.unseal_client_config(&message.client_reference.sealed_reference)?;
 
@@ -42,5 +43,11 @@ impl Qs {
 
         // TODO: client now has new ratchet key, store it in the storage
         // provider.
+    }
+
+    /// Get the client config encryption key.
+    #[tracing::instrument(skip_all)]
+    pub async fn qs_client_config_encryption_key(&self) -> ClientIdEncryptionPublicKey {
+        self.client_id_public_key.clone()
     }
 }

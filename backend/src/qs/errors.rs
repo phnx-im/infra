@@ -1,40 +1,7 @@
 use super::storage_provider_trait::QsStorageProvider;
 use thiserror::Error;
 
-/// Error enqueuing a fanned-out message.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum EnqueueError<S: QsStorageProvider> {
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError, // E.g. an error while encoding a message before enqueing it.
-    /// Error in the underlying storage provider
-    #[error("Error in the underlying storage provider")]
-    StorageProviderError(S::EnqueueError),
-    /// Error sending push notification.
-    #[error("Error sending push notification.")]
-    PushNotificationError,
-}
-
-/// Error authenticating a request
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum RequestAuthenticationError {
-    /// Error decrypting the authentication key
-    #[error("Error decrypting the authentication key")]
-    AuthKeyDecryptionFailure, // E.g. an error while encoding a message before enqueing it.
-    /// Error authenticating the request
-    #[error("Error authenticating the request")]
-    AuthenticationError,
-}
-
-/// Error fetching a message from the QS.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum QsEnqueueProviderError {
-    /// An unrecoverable internal error ocurred
-    #[error("An unrecoverable internal error ocurred")]
-    LibraryError,
-}
-
-// === Messages ===
+// === DS API errors ===
 
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -50,18 +17,39 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     EnqueueError(#[from] EnqueueError<S>),
 }
 
+/// Error enqueuing a fanned-out message.
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum EnqueueError<S: QsStorageProvider> {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError, // E.g. an error while encoding a message before enqueing it.
+    /// Error in the underlying storage provider
+    #[error("Error in the underlying storage provider")]
+    StorageProviderError(S::EnqueueError),
+    /// Error sending push notification.
+    #[error("Error sending push notification.")]
+    PushNotificationError,
+}
+
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum QsFetchError {
+pub enum QsEnqueueProviderError {
+    /// An unrecoverable internal error ocurred
+    #[error("An unrecoverable internal error ocurred")]
+    LibraryError,
+}
+
+// === Messages ===
+
+/// Error fetching a message from the QS.
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
     QueueNotFound,
-    /// Invalid signature
-    #[error("Invalid signature")]
-    InvalidSignature,
 }
 
 /// Error updating queue info.
@@ -179,7 +167,7 @@ pub enum QsKeyPackageBatchError {
     StorageError,
 }
 
-// === Local errors ===
+// === Other errors ===
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum UnsealError {
@@ -189,4 +177,61 @@ pub enum UnsealError {
     /// Codec error
     #[error("Codec error")]
     CodecError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum SealError {
+    /// Encryption error
+    #[error("Encryption error")]
+    EncryptionError,
+    /// Codec error
+    #[error("Codec error")]
+    CodecError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum QsProcessError {
+    /// Authentication error
+    #[error("Authentication error")]
+    AuthenticationError,
+    /// Codec error
+    #[error("Codec error")]
+    CodecError,
+
+    /// Create user error
+    #[error("Create user error")]
+    QsCreateUserError(#[from] QsCreateUserError),
+    /// Update user error
+    #[error("Update user error")]
+    QsUpdateUserError(#[from] QsUpdateUserError),
+    /// Get user error
+    #[error("Get user error")]
+    QsGetUserError(#[from] QsGetUserError),
+    /// Delete user error
+    #[error("Delete user error")]
+    QsDeleteUserError(#[from] QsDeleteUserError),
+
+    /// Create client error
+    #[error("Create client error")]
+    QsCreateClientRecordError(#[from] QsCreateClientRecordError),
+    /// Update client error
+    #[error("Update client error")]
+    QsUpdateClientRecordError(#[from] QsUpdateClientRecordError),
+    /// Get client error
+    #[error("Get client error")]
+    QsGetClientError(#[from] QsGetClientError),
+
+    /// Publish key packages error
+    #[error("Publish key packages error")]
+    QsPublishKeyPackagesError(#[from] QsPublishKeyPackagesError),
+    /// Client key package error
+    #[error("Client key package error")]
+    QsClientKeyPackageError(#[from] QsClientKeyPackageError),
+    /// Key package batch error
+    #[error("Key package batch error")]
+    QsKeyPackageBatchError(#[from] QsKeyPackageBatchError),
+
+    /// Dequeue error
+    #[error("Dequeue error")]
+    QsDequeueError(#[from] QsDequeueError),
 }

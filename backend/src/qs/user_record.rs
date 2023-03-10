@@ -1,14 +1,12 @@
-use mls_assist::SignaturePublicKey;
-
-use crate::messages::FriendshipToken;
+use crate::{crypto::signatures::keys::OwnerVerifyingKey, messages::FriendshipToken};
 
 pub struct QsUserRecord {
-    auth_key: SignaturePublicKey,
-    friendship_token: FriendshipToken,
+    pub(crate) auth_key: OwnerVerifyingKey,
+    pub(crate) friendship_token: FriendshipToken,
 }
 
 impl QsUserRecord {
-    pub fn new(auth_key: SignaturePublicKey, friendship_token: FriendshipToken) -> Self {
+    pub fn new(auth_key: OwnerVerifyingKey, friendship_token: FriendshipToken) -> Self {
         Self {
             auth_key,
             friendship_token,
@@ -17,7 +15,7 @@ impl QsUserRecord {
 
     pub(crate) fn update(
         &mut self,
-        auth_key: SignaturePublicKey,
+        auth_key: OwnerVerifyingKey,
         friendship_token: FriendshipToken,
     ) {
         self.auth_key = auth_key;

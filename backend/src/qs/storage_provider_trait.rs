@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use crate::messages::{client_qs::QueueMessage, FriendshipToken};
 
 use super::{
-    client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedKeyPackage,
-    UserId,
+    client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedAddPackage,
+    QsUserId,
 };
 
 /// Storage provider trait for the QS.
@@ -28,17 +28,17 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     // === USERS ===
 
     /// Returns a new unique user ID.
-    async fn create_user(&self) -> Result<UserId, Self::CreateUserError>;
+    async fn create_user(&self) -> Result<QsUserId, Self::CreateUserError>;
 
     /// Loads the QsUserRecord for a given UserId. Returns None if no QsUserRecord
     /// exists for the given UserId.
-    async fn load_user(&self, user_id: &UserId) -> Option<QsUserRecord>;
+    async fn load_user(&self, user_id: &QsUserId) -> Option<QsUserRecord>;
 
     /// Stores a QsUserRecord for a given UserId. If a QsUserRecord already exists
     /// for the given UserId, it will be overwritten.
     async fn store_user(
         &self,
-        user_id: &UserId,
+        user_id: &QsUserId,
         user_record: QsUserRecord,
     ) -> Result<(), Self::StoreUserError>;
 
@@ -49,7 +49,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     ///  - All clients of the user
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserId) -> Result<(), Self::DeleteUserError>;
+    async fn delete_user(&self, user_id: &QsUserId) -> Result<(), Self::DeleteUserError>;
 
     // === CLIENTS ===
 
@@ -81,19 +81,24 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     async fn store_key_packages(
         &self,
         client_id: &QsClientId,
-        encrypted_key_packages: Vec<QsEncryptedKeyPackage>,
+        encrypted_key_packages: Vec<QsEncryptedAddPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError>;
 
-    /// Return a key package for a specific client.
+    /// Return a key package for a specific client. The user ID is used to check if
+    /// the client belongs to the user.
     /// TODO: Last resort key package
-    async fn load_key_package(&self, client_id: &QsClientId) -> Option<QsEncryptedKeyPackage>;
+    async fn load_key_package(
+        &self,
+        user_id: &QsUserId,
+        client_id: &QsClientId,
+    ) -> Option<QsEncryptedAddPackage>;
 
     /// Return a key package for each client of a user ereferenced by a
     /// friendship token.
     async fn load_user_key_packages(
         &self,
         friendship_token: &FriendshipToken,
-    ) -> Vec<QsEncryptedKeyPackage>;
+    ) -> Vec<QsEncryptedAddPackage>;
 
     // === MESSAGES ===
 

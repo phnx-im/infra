@@ -6,7 +6,9 @@ pub mod client_ds;
 pub mod client_qs;
 pub(crate) mod intra_backend;
 
-#[derive(Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize, PartialEq, Eq, Clone,
+)]
 pub struct FriendshipToken {}
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create

@@ -82,9 +82,8 @@ use tls_codec::{
 };
 use utoipa::ToSchema;
 
-use self::errors::{QsEnqueueProviderError, UnsealError};
+use self::errors::{QsEnqueueProviderError, SealError, UnsealError};
 
-pub mod as_api;
 pub mod client_api;
 pub mod client_record;
 pub mod ds_api;
@@ -155,14 +154,24 @@ impl ClientIdDecryptionPrivateKey {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ClientIdEncryptionPublicKey {
     public_key: EncryptionPublicKey,
 }
 
 impl ClientIdEncryptionPublicKey {
-    // TODO: We might want this to be symmetric crypto instead.
-    pub(super) fn seal_client_config(&self, client_config: ClientConfig) {
-        todo!()
+    pub fn seal_client_config(
+        &self,
+        client_config: ClientConfig,
+    ) -> Result<SealedClientReference, SealError> {
+        let bytes = client_config
+            .tls_serialize_detached()
+            .map_err(|_| SealError::CodecError)?;
+        let ciphertext = self
+            .public_key
+            .encrypt(&[], &[], &bytes)
+            .map_err(|_| SealError::EncryptionError)?;
+        Ok(SealedClientReference { ciphertext })
     }
 }
 
@@ -172,7 +181,7 @@ pub struct QsClientId {
     pub(crate) client_id: Vec<u8>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct UserId {
+pub struct QsUserId {
     pub(crate) user_id: Vec<u8>,
 }
 
@@ -211,9 +220,10 @@ impl SigningKey for QsSigningKey {}
 // TODO: This could come from the storage provider
 #[derive(Debug)]
 pub struct Qs {
-    signer: QsSigningKey,
+    signing_key: QsSigningKey,
     fqdn: Fqdn,
-    queue_id_private_key: ClientIdDecryptionPrivateKey,
+    client_id_private_key: ClientIdDecryptionPrivateKey,
+    client_id_public_key: ClientIdEncryptionPublicKey,
 }
 
 #[derive(
@@ -249,23 +259,23 @@ pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
-pub struct QsEncryptedKeyPackage {
+pub struct QsEncryptedAddPackage {
     ctxt: Ciphertext,
 }
 
-impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
+impl AsRef<Ciphertext> for QsEncryptedAddPackage {
     fn as_ref(&self) -> &Ciphertext {
         &self.ctxt
     }
 }
 
-impl From<Ciphertext> for QsEncryptedKeyPackage {
+impl From<Ciphertext> for QsEncryptedAddPackage {
     fn from(ctxt: Ciphertext) -> Self {
         Self { ctxt }
     }
 }
 
-impl EarEncryptable<FriendshipEarKey, QsEncryptedKeyPackage> for KeyPackage {}
+impl EarEncryptable<FriendshipEarKey, QsEncryptedAddPackage> for AddPackage {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatchTbs {
@@ -350,4 +360,10 @@ pub struct KeyPackageBatch {
     key_package_refs: Vec<KeyPackageRef>,
     time_of_signature: TimeStamp,
     signature: Signature,
+}
+
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct AddPackage {
+    key_package: KeyPackage,
+    icc_ciphertext: Vec<u8>,
 }
