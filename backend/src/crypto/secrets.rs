@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains the [`Secret`] struct, which is meant to be
 //! accessible only within the [`crate::crypto`] module. This
 //! module should stay private, such that the [`Secret`] struct can stay public

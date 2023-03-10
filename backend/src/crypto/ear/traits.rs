@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains traits to facilitate EAR of other structs on the
 //! backend. Any struct that needs to be encrypted at rest needs to implement
 //! the [`EarEncryptable`] trait.

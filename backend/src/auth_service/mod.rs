@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains the APIs of the authentication service (AS). It only
 //! performs a limited amount of rate-limiting, so it should only be deployed
 //! behind a rate-limiting module.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains structs implementing keys that other keys can be
 //! derived from. For keys (or other values) to be derived from one of these
 //! keys, the target key (or value) needs to implement the [`KdfDerivable`]

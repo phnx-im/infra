@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains structs and enums that represent messages that are
 //! passed between clients and the backend.
 //! TODO: We should eventually factor this module out, together with the crypto

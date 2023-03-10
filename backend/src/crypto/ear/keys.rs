@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains structs implementing the various keys for EAR
 //! throughout the backend. Keys can either provide their own constructors or
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A module that provides various traits and structs that allow the use of
 //! cryptographic primitives such as AEAD, MACs and KDFs.
 //!

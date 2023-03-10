@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains code that allows the derivation of serde
 //! Serialize/Deserialize for arrays. The code is untested and taken from
 //! workaround taken from https://github.com/serde-rs/serde/issues/1937

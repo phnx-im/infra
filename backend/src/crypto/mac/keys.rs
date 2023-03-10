@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains structs implementing MAC keys that can be used to tag
 //! or verify messages.
 //! TODO: We could further tighten down type safety by parameterizing the key
