@@ -242,7 +242,7 @@ impl DsApi {
 
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (c2c_message_option, response_option, fan_out_messages) = match verified_message {
+        let (ds_fanout_payload, response_option, fan_out_messages) = match verified_message {
             DsRequestParams::AddUsers(add_users_params) => {
                 let (c2c_message, welcome_bundles) =
                     group_state.add_users(add_users_params, &ear_key)?;
@@ -314,7 +314,7 @@ impl DsApi {
             .map_err(|_| DsProcessingError::StorageError)?;
 
         // Distribute FanOutMessages
-        if let Some(c2c_message) = c2c_message_option {
+        if let Some(c2c_message) = ds_fanout_payload {
             let sender_index = if let Some(Sender::Member(leaf_index)) = sender {
                 leaf_index
             } else {

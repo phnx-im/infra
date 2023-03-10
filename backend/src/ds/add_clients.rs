@@ -62,12 +62,12 @@ impl DsGroupState {
             return Err(ClientAdditionError::InvalidMessage);
         };
 
+        // TODO: Validate that the sender index is in the sending user's user profile.
+        // TODO (Spec): We might be able to prove to the DS that we're actually
+        // the owning user of the added client(s).
+
         // A few general checks.
         let number_of_add_proposals = staged_commit.add_proposals().count();
-        // Check if we have enough encrypted WelcomeAttributionInfos.
-        if number_of_add_proposals != params.encrypted_welcome_attribution_infos.len() {
-            return Err(ClientAdditionError::InvalidMessage);
-        }
         // Check if we have enough encrypted credential chains.
         if number_of_add_proposals != aad.encrypted_credential_information.len() {
             return Err(ClientAdditionError::InvalidMessage);

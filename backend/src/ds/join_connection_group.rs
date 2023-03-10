@@ -55,7 +55,6 @@ impl DsGroupState {
             return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
-        // If there is an AAD, we might have to update the client profile later.
         let aad = JoinConnectionGroupParamsAad::tls_deserialize(
             &mut processed_message.authenticated_data(),
         )

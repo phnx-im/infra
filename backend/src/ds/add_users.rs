@@ -79,10 +79,7 @@ impl DsGroupState {
 
         // A few general checks.
         let number_of_add_proposals = staged_commit.add_proposals().count();
-        // Check if we have enough encrypted WelcomeAttributionInfos.
-        if number_of_add_proposals != params.encrypted_welcome_attribution_infos.len() {
-            return Err(UserAdditionError::InvalidMessage);
-        }
+        // TODO: Verify that we have enough welcome attribution infos.
         // Check if we have enough encrypted credential chains.
         if number_of_add_proposals != aad.encrypted_credential_information.len() {
             return Err(UserAdditionError::InvalidMessage);
@@ -114,6 +111,7 @@ impl DsGroupState {
         // Verify all KeyPackageBatches.
         let mut verifying_keys: HashMap<Fqdn, QsVerifyingKey> = HashMap::new();
         let mut added_users = vec![];
+        // TODO: Verify lengths of iterators.
         for (key_package_batch, attribution_info) in params
             .key_package_batches
             .into_iter()
@@ -126,6 +124,7 @@ impl DsGroupState {
                         .verify(verifying_key)
                         .map_err(|_| UserAdditionError::InvalidKeyPackageBatch)?
                 } else {
+                    // TODO: Connect this with the QS via the QS provider.
                     let verifying_key = self
                         .get_qs_verifying_key(&fqdn)
                         .map_err(|_| UserAdditionError::FailedToObtainVerifyingKey)?;
@@ -169,6 +168,9 @@ impl DsGroupState {
 
         // ... s.t. it's easier to update the user and client profiles.
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
+        // TODO: ZIP the ECCs into here as well s.t. we can add them to the
+        // client profiles. Also put a note into notion that they have to be in
+        // the same order as the KeyPackageRefs in the KeyPackageBatches.
         for (key_packages, attribution_info) in added_users.into_iter() {
             let mut client_profiles = vec![];
             for key_package in key_packages {
@@ -226,6 +228,8 @@ impl DsGroupState {
                 client_profiles.push(client_profile);
             }
             let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
+            // TODO: Make sure that we check that users are put into the user
+            // profile map when they first add a user auth key.
             self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
                 self.client_profiles
