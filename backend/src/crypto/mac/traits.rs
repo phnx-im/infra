@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains traits that facilitate the computation and verification
 //! of MACs over other serializable types.
 //! TODO: Provide more documentation on the nature and the relationship of the

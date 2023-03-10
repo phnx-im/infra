@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains traits that facilitate the derivation of key material
 //! from other key material, as well as traits that allow the expansion of key
 //! material and other values into new key material.

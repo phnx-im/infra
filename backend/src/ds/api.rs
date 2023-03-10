@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains the public API of the delivery service (DS) module.
 //! While the DS also contains some rate-limiting functionality, it should only
 //! be used behind a rate-limiting module.
