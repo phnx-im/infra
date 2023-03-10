@@ -1,19 +1,10 @@
-/*
-Endpoints:
- - ENDPOINT_QS_CREATE_USER_RECORD
- - ENDPOINT_QS_UPDATE_USER_RECORD
- - ENDPOINT_QS_USER_RECORD
- - ENDPOINT_QS_DELETE_USER_RECORD
-*/
-
 use crate::{
     messages::client_qs::{
         CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
-        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams, UserRecordParams,
-        UserRecordResponse,
+        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
     },
     qs::{
-        errors::{QsCreateUserError, QsDeleteUserError, QsGetUserError, QsUpdateUserError},
+        errors::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
         storage_provider_trait::QsStorageProvider,
         user_record::QsUserRecord,
         Qs,
@@ -24,7 +15,7 @@ impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the
     /// owner of the queue.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_create_user_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_create_user_record<S: QsStorageProvider>(
         &self,
         storage_provider: &S,
         params: CreateUserRecordParams,
@@ -34,7 +25,7 @@ impl Qs {
             friendship_token,
             client_record_auth_key,
             queue_encryption_key,
-            key_packages,
+            add_packages,
             friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_key,
@@ -49,7 +40,7 @@ impl Qs {
             sender: user_id.clone(),
             client_record_auth_key,
             queue_encryption_key,
-            key_packages,
+            add_packages,
             friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_key,
@@ -78,64 +69,42 @@ impl Qs {
 
     /// Update a user record.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_update_user_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_update_user_record<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: UpdateUserRecordParams,
     ) -> Result<(), QsUpdateUserError> {
         let UpdateUserRecordParams {
-            user_id,
+            sender,
             user_record_auth_key,
             friendship_token,
         } = params;
 
         let mut user_record = storage_provider
-            .load_user(&user_id)
+            .load_user(&sender)
             .await
             .ok_or(QsUpdateUserError::StorageError)?;
 
         user_record.update(user_record_auth_key, friendship_token);
 
         storage_provider
-            .store_user(&user_id, user_record)
+            .store_user(&sender, user_record)
             .await
             .map_err(|_| QsUpdateUserError::StorageError)?;
         todo!()
     }
 
-    // TODO: Discuss why we need this.
-
-    /// Get a user record.
-    #[tracing::instrument(skip_all, err)]
-    pub async fn qs_user_record<S: QsStorageProvider>(
-        storage_provider: &S,
-        params: UserRecordParams,
-    ) -> Result<UserRecordResponse, QsGetUserError> {
-        let UserRecordParams { user_id } = params;
-
-        let _user_record = storage_provider
-            .load_user(&user_id)
-            .await
-            .ok_or(QsGetUserError::StorageError)?;
-
-        /*  let response = UserRecordResponse {
-            user_record_auth_key: user_record.user_record_auth_key,
-            friendship_token: user_record.friendship_token,
-            client_id: user_record.client_id,
-        }; */
-
-        todo!()
-    }
-
     /// Delete a user record.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_delete_user_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_delete_user_record<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: DeleteUserRecordParams,
     ) -> Result<(), QsDeleteUserError> {
-        let DeleteUserRecordParams { user_id } = params;
+        let DeleteUserRecordParams { sender } = params;
 
         storage_provider
-            .delete_user(&user_id)
+            .delete_user(&sender)
             .await
             .map_err(|_| QsDeleteUserError::StorageError)?;
 

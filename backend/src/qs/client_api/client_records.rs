@@ -13,17 +13,10 @@ use crate::{
     },
 };
 
-/*
-- ENDPOINT_QS_CREATE_CLIENT_RECORD
-- ENDPOINT_QS_UPDATE_CLIENT_RECORD
-- ENDPOINT_QS_CLIENT_RECORD
-- ENDPOINT_QS_DELETE_CLIENT_RECORD
-*/
-
 impl Qs {
     /// Create a new client record.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_create_client_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_create_client_record<S: QsStorageProvider>(
         &self,
         storage_provider: &S,
         params: CreateClientRecordParams,
@@ -32,7 +25,7 @@ impl Qs {
             sender,
             client_record_auth_key,
             queue_encryption_key,
-            key_packages,
+            add_packages,
             friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_key,
@@ -61,10 +54,10 @@ impl Qs {
 
         // TODO: Validate the key packages
 
-        let encrypted_key_packages = key_packages
+        let encrypted_key_packages = add_packages
             .into_iter()
-            .map(|key_package| {
-                key_package
+            .map(|add_package| {
+                add_package
                     .encrypt(&friendship_ear_key)
                     .map_err(|_| QsCreateClientRecordError::LibraryError)
             })
@@ -83,12 +76,13 @@ impl Qs {
 
     /// Update a client record.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_update_client_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_update_client_record<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: UpdateClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {
         let UpdateClientRecordParams {
-            client_id,
+            sender,
             client_record_auth_key,
             queue_encryption_key,
             encrypted_push_token,
@@ -98,7 +92,7 @@ impl Qs {
         // the storage provider
 
         let mut client_record = storage_provider
-            .load_client(&client_id)
+            .load_client(&sender)
             .await
             .ok_or(QsUpdateClientRecordError::StorageError)?;
 
@@ -109,7 +103,7 @@ impl Qs {
         );
 
         storage_provider
-            .store_client(&client_id, client_record)
+            .store_client(&sender, client_record)
             .await
             .map_err(|_| QsUpdateClientRecordError::StorageError)?;
 
@@ -118,12 +112,13 @@ impl Qs {
 
     /// Delete a client record.
     #[tracing::instrument(skip_all, err)]
-    pub async fn qs_delete_client_record<S: QsStorageProvider>(
+    pub(crate) async fn qs_delete_client_record<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: DeleteClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {
         storage_provider
-            .delete_client(&params.client_id)
+            .delete_client(&params.sender)
             .await
             .map_err(|_| QsUpdateClientRecordError::StorageError)?;
 
