@@ -10,7 +10,11 @@ use tls_codec::Deserialize;
 
 use crate::messages::client_ds::{DsFanoutPayload, UpdateClientParams, UpdateClientParamsAad};
 
-use super::{api::USER_EXPIRATION_DAYS, errors::ClientUpdateError, group_state::DsGroupState};
+use super::{
+    api::USER_EXPIRATION_DAYS,
+    errors::ClientUpdateError,
+    group_state::{DsGroupState, UserProfile},
+};
 
 impl DsGroupState {
     pub(super) fn update_client(
@@ -77,6 +81,37 @@ impl DsGroupState {
             processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
+
+        if let Some(user_auth_key) = params.new_user_auth_key_option {
+            let user_key_hash = user_auth_key.hash();
+            // Let's figure out if the sending user has not yet set its user auth key.
+            if let Some(position) = self
+                .unmerged_users
+                .iter()
+                .position(|clients| clients.contains(&sender))
+            {
+                let unmerged_user_clients = self.unmerged_users.remove(position);
+                let user_profile = UserProfile {
+                    clients: unmerged_user_clients,
+                    user_auth_key,
+                };
+                if self
+                    .user_profiles
+                    .insert(user_key_hash, user_profile)
+                    .is_some()
+                {
+                    // We have a user auth key collision
+                    return Err(ClientUpdateError::InvalidMessage);
+                };
+            } else {
+                self.user_profiles
+                    .get_mut(&user_key_hash)
+                    // There has to be a valid user profile since the user is
+                    // not unmerged.
+                    .ok_or(ClientUpdateError::InvalidMessage)?
+                    .user_auth_key = user_auth_key;
+            }
+        }
 
         // We update the client profile only if the update has changed the sender's credential.
         let new_sender_credential = self

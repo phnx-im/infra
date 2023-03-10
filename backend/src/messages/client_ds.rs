@@ -192,7 +192,8 @@ impl RemoveUsersParams {
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientParams {
     pub commit: AssistedMessagePlus,
-    pub sender: UserKeyHash,
+    pub sender: LeafNodeIndex,
+    pub new_user_auth_key_option: Option<UserAuthKey>,
 }
 
 impl UpdateClientParams {
@@ -200,13 +201,16 @@ impl UpdateClientParams {
         let bytes_copy = bytes;
         let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        let sender = LeafNodeIndex::tls_deserialize(&mut remaining_bytes)?;
+        let new_user_auth_key_option =
+            Option::<UserAuthKey>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
                 message: commit,
                 message_bytes: commit_bytes,
             },
             sender,
+            new_user_auth_key_option,
         })
     }
 }
@@ -561,7 +565,7 @@ impl DsRequestParams {
                 DsSender::UserKeyHash(remove_users_params.sender.clone())
             }
             DsRequestParams::UpdateClient(update_client_params) => {
-                DsSender::UserKeyHash(update_client_params.sender.clone())
+                DsSender::LeafIndex(update_client_params.sender)
             }
             DsRequestParams::JoinGroup(join_group_params) => {
                 DsSender::UserKeyHash(join_group_params.sender.clone())
