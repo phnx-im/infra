@@ -25,7 +25,10 @@ use crate::{
         client_ds::{AddUsersParams, AddUsersParamsAad, DsFanoutPayload},
         intra_backend::DsFanOutMessage,
     },
-    qs::{Fqdn, KeyPackageBatchTbs, QsClientReference, KEYPACKAGEBATCH_EXPIRATION_DAYS},
+    qs::{
+        Fqdn, KeyPackageBatchTbs, QsClientReference, QsEnqueueProvider,
+        KEYPACKAGEBATCH_EXPIRATION_DAYS,
+    },
 };
 
 use super::{
@@ -44,10 +47,11 @@ pub struct WelcomeBundle {
 }
 
 impl DsGroupState {
-    pub(crate) fn add_users(
+    pub(crate) async fn add_users<Q: QsEnqueueProvider>(
         &mut self,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
+        qs_provider: &Q,
     ) -> Result<(DsFanoutPayload, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
@@ -151,9 +155,9 @@ impl DsGroupState {
                         .verify(verifying_key)
                         .map_err(|_| UserAdditionError::InvalidKeyPackageBatch)?
                 } else {
-                    // TODO: Connect this with the QS via the QS provider.
-                    let verifying_key = self
-                        .get_qs_verifying_key(&fqdn)
+                    let verifying_key = qs_provider
+                        .verifying_key(&fqdn)
+                        .await
                         .map_err(|_| UserAdditionError::FailedToObtainVerifyingKey)?;
                     let kpb = key_package_batch
                         .verify(&verifying_key)
