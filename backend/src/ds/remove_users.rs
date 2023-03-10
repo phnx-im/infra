@@ -20,9 +20,9 @@ impl DsGroupState {
     ) -> Result<DsFanoutPayload, UserRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
-            if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
+            if matches!(params.commit.message, AssistedMessage::Commit(_)) {
                 self.group()
-                    .process_assisted_message(params.commit.commit.clone())
+                    .process_assisted_message(params.commit.message.clone())
                     .map_err(|_| UserRemovalError::ProcessingError)?
             } else {
                 return Err(UserRemovalError::InvalidMessage);
@@ -116,7 +116,7 @@ impl DsGroupState {
 
         // Finally, we create the message for distribution.
         let c2c_message = DsFanoutPayload {
-            payload: params.commit.commit_bytes,
+            payload: params.commit.message_bytes,
         };
 
         Ok(c2c_message)

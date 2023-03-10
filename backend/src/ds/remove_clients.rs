@@ -17,9 +17,9 @@ impl DsGroupState {
     ) -> Result<DsFanoutPayload, ClientRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
-            if matches!(params.commit.commit, AssistedMessage::Commit(_)) {
+            if matches!(params.commit.message, AssistedMessage::Commit(_)) {
                 self.group()
-                    .process_assisted_message(params.commit.commit.clone())
+                    .process_assisted_message(params.commit.message.clone())
                     .map_err(|_| ClientRemovalError::ProcessingError)?
             } else {
                 return Err(ClientRemovalError::InvalidMessage);
@@ -58,10 +58,10 @@ impl DsGroupState {
 
         // Check if sender index and user profile match.
         if let Sender::Member(leaf_index) = processed_message.sender() {
-            // There should be a user profile. If there wasn't, verification should have failed.
             if !self
                 .user_profiles
                 .get(&params.sender)
+                // There should be a user profile. If there wasn't, verification should have failed.
                 .ok_or(ClientRemovalError::LibraryError)?
                 .clients
                 .contains(leaf_index)
@@ -106,7 +106,7 @@ impl DsGroupState {
 
         // Finally, we create the message for distribution.
         let c2c_message = DsFanoutPayload {
-            payload: params.commit.commit_bytes,
+            payload: params.commit.message_bytes,
         };
 
         Ok(c2c_message)

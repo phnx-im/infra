@@ -19,6 +19,7 @@ mod join_connection_group;
 mod join_group;
 mod remove_clients;
 mod remove_users;
+mod resync_client;
 mod update_client;
 
 /// Return value of a group state load query.

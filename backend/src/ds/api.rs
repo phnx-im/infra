@@ -298,6 +298,10 @@ impl DsApi {
                 let c2c_message = group_state.remove_clients(remove_clients_params)?;
                 (Some(c2c_message), None, None)
             }
+            DsRequestParams::ResyncClient(resync_client_params) => {
+                let c2c_message = group_state.resync_client(resync_client_params)?;
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the

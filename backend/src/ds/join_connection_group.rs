@@ -21,9 +21,9 @@ impl DsGroupState {
     ) -> Result<DsFanoutPayload, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
-            if matches!(params.external_commit.commit, AssistedMessage::Commit(_)) {
+            if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
                 self.group()
-                    .process_assisted_message(params.external_commit.commit.clone())
+                    .process_assisted_message(params.external_commit.message.clone())
                     .map_err(|_| JoinConnectionGroupError::ProcessingError)?
             } else {
                 return Err(JoinConnectionGroupError::InvalidMessage);
@@ -111,7 +111,7 @@ impl DsGroupState {
 
         // Finally, we create the message for distribution.
         let payload = DsFanoutPayload {
-            payload: params.external_commit.commit_bytes,
+            payload: params.external_commit.message_bytes,
         };
 
         Ok(payload)

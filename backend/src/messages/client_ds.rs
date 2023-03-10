@@ -4,7 +4,7 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::{AssistedMessage, AssistedWelcome, SerializedAssistedMessage},
+    messages::{AssistedMessage, AssistedWelcome},
     GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
 };
 use serde::{Deserialize, Serialize};
@@ -121,8 +121,8 @@ pub struct ExternalCommitInfoParams {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AssistedMessagePlus {
-    pub commit: AssistedMessage,
-    pub commit_bytes: Vec<u8>,
+    pub message: AssistedMessage,
+    pub message_bytes: Vec<u8>,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -147,8 +147,8 @@ impl AddUsersParams {
             Vec::<VerifiableKeyPackageBatch>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
             welcome,
@@ -177,8 +177,8 @@ impl RemoveUsersParams {
         let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
         })
@@ -199,8 +199,8 @@ impl UpdateClientParams {
         let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
         })
@@ -228,8 +228,8 @@ impl JoinGroupParams {
         let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             external_commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
             qs_client_reference,
@@ -259,8 +259,8 @@ impl JoinConnectionGroupParams {
         let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             external_commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
             qs_client_reference,
@@ -293,8 +293,8 @@ impl AddClientsParams {
         let encrypted_welcome_attribution_infos = Vec::<u8>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
             welcome,
@@ -324,8 +324,8 @@ impl RemoveClientsParams {
         let new_auth_key = UserAuthKey::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
-                commit,
-                commit_bytes,
+                message: commit,
+                message_bytes: commit_bytes,
             },
             sender,
             new_auth_key,
@@ -333,34 +333,63 @@ impl RemoveClientsParams {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct ResyncClientParams {
-    pub external_commit: SerializedAssistedMessage,
-    pub ear_key: GroupStateEarKey,
+    pub external_commit: AssistedMessagePlus,
+    pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+impl ResyncClientParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
+        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            external_commit: AssistedMessagePlus {
+                message: commit,
+                message_bytes: commit_bytes,
+            },
+            sender,
+        })
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct SelfRemoveClientParams {
-    pub remove_proposals: SerializedAssistedMessage,
-    pub ear_key: GroupStateEarKey,
+    pub remove_proposal: AssistedMessagePlus,
+    pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+impl SelfRemoveClientParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, proposal) = AssistedMessage::try_from_bytes(bytes)?;
+        let proposal_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            remove_proposal: AssistedMessagePlus {
+                message: proposal,
+                message_bytes: proposal_bytes,
+            },
+            sender,
+        })
+    }
+}
+
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct SelfRemoveUserParams {
-    pub remove_proposals: SerializedAssistedMessage,
-    pub ear_key: GroupStateEarKey,
+    pub remove_proposals: AssistedMessagePlus,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct SendMessageParams {
-    application_message: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub application_message: AssistedMessagePlus,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteGroupParams {
-    commit: SerializedAssistedMessage,
-    ear_key: GroupStateEarKey,
+    pub commit: AssistedMessagePlus,
 }
 
 /// This enum contains variatns for each DS endpoint.
@@ -377,12 +406,13 @@ pub(crate) enum DsRequestParams {
     JoinConnectionGroup(JoinConnectionGroupParams),
     AddClients(AddClientsParams),
     RemoveClients(RemoveClientsParams),
+    ResyncClient(ResyncClientParams),
 }
 
 impl DsRequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            DsRequestParams::AddUsers(add_user_params) => add_user_params.commit.commit.group_id(),
+            DsRequestParams::AddUsers(add_user_params) => add_user_params.commit.message.group_id(),
             DsRequestParams::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
             DsRequestParams::CreateGroupParams(create_group_params) => {
                 &create_group_params.group_id
@@ -394,25 +424,28 @@ impl DsRequestParams {
                 &external_commit_info_params.group_id
             }
             DsRequestParams::RemoveUsers(remove_users_params) => {
-                remove_users_params.commit.commit.group_id()
+                remove_users_params.commit.message.group_id()
             }
             DsRequestParams::UpdateClient(update_client_params) => {
-                update_client_params.commit.commit.group_id()
+                update_client_params.commit.message.group_id()
             }
             DsRequestParams::JoinGroup(join_group_params) => {
-                join_group_params.external_commit.commit.group_id()
+                join_group_params.external_commit.message.group_id()
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params
                     .external_commit
-                    .commit
+                    .message
                     .group_id()
             }
             DsRequestParams::AddClients(add_clients_params) => {
-                add_clients_params.commit.commit.group_id()
+                add_clients_params.commit.message.group_id()
             }
             DsRequestParams::RemoveClients(remove_clients_params) => {
-                remove_clients_params.commit.commit.group_id()
+                remove_clients_params.commit.message.group_id()
+            }
+            DsRequestParams::ResyncClient(resync_client_params) => {
+                resync_client_params.external_commit.message.group_id()
             }
         }
     }
@@ -420,24 +453,30 @@ impl DsRequestParams {
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub(crate) fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            DsRequestParams::AddUsers(add_users_params) => add_users_params.commit.commit.sender(),
+            DsRequestParams::AddUsers(add_users_params) => add_users_params.commit.message.sender(),
             DsRequestParams::RemoveUsers(remove_users_params) => {
-                remove_users_params.commit.commit.sender()
+                remove_users_params.commit.message.sender()
             }
             DsRequestParams::UpdateClient(update_client_params) => {
-                update_client_params.commit.commit.sender()
+                update_client_params.commit.message.sender()
             }
             DsRequestParams::JoinGroup(join_group_params) => {
-                join_group_params.external_commit.commit.sender()
+                join_group_params.external_commit.message.sender()
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
-                join_connection_group_params.external_commit.commit.sender()
+                join_connection_group_params
+                    .external_commit
+                    .message
+                    .sender()
             }
             DsRequestParams::AddClients(add_clients_params) => {
-                add_clients_params.commit.commit.sender()
+                add_clients_params.commit.message.sender()
             }
             DsRequestParams::RemoveClients(remove_clients_params) => {
-                remove_clients_params.commit.commit.sender()
+                remove_clients_params.commit.message.sender()
+            }
+            DsRequestParams::ResyncClient(resync_client_params) => {
+                resync_client_params.external_commit.message.sender()
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -482,6 +521,9 @@ impl DsRequestParams {
             DsRequestParams::RemoveClients(remove_clients_params) => {
                 DsSender::UserKeyHash(remove_clients_params.sender.clone())
             }
+            DsRequestParams::ResyncClient(resync_client_params) => {
+                DsSender::UserKeyHash(resync_client_params.sender.clone())
+            }
         }
     }
 
@@ -511,6 +553,12 @@ impl DsRequestParams {
                 JoinConnectionGroupParams::try_from_bytes(bytes)?,
             )),
             9 => Ok(Self::AddClients(AddClientsParams::try_from_bytes(bytes)?)),
+            10 => Ok(Self::RemoveClients(RemoveClientsParams::try_from_bytes(
+                bytes,
+            )?)),
+            11 => Ok(Self::ResyncClient(ResyncClientParams::try_from_bytes(
+                bytes,
+            )?)),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
