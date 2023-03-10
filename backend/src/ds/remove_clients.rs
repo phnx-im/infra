@@ -101,20 +101,6 @@ impl DsGroupState {
                 return Err(ClientRemovalError::InvalidMessage);
             };
 
-        // Check if sender index and user profile match.
-        if let Sender::Member(leaf_index) = processed_message.sender() {
-            if !self
-                .user_profiles
-                .get(&params.sender)
-                // There should be a user profile. If there wasn't, verification should have failed.
-                .ok_or(ClientRemovalError::LibraryError)?
-                .clients
-                .contains(leaf_index)
-            {
-                return Err(ClientRemovalError::InvalidMessage);
-            };
-        }
-
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
 

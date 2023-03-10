@@ -151,7 +151,7 @@ use crate::{
         signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
     },
     messages::client_ds::{
-        CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage,
+        CreateGroupParams, DsFanoutPayload, DsRequestParams, DsSender, VerifiableClientToDsMessage,
     },
     qs::QsEnqueueProvider,
 };
@@ -240,6 +240,7 @@ impl DsApi {
 
         let sender = verified_message.mls_sender().cloned();
 
+        let mut group_state_has_changed = true;
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
         let (ds_fanout_payload, response_option, fan_out_messages) = match verified_message {
@@ -306,25 +307,40 @@ impl DsApi {
                 (Some(c2c_message), None, None)
             }
             // ======= Proposal Endpoints =======
-            DsRequestParams::SelfRemoveClient(_) => todo!(),
+            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+                let c2c_message = group_state.self_remove_client(self_remove_client_params)?;
+                (Some(c2c_message), None, None)
+            }
+            //
+            DsRequestParams::SendMessage(send_message_params) => {
+                // There is nothing to process here, so we just stick the
+                // message into a DsFanoutPayload for distribution.
+                group_state_has_changed = false;
+                let c2c_message = DsFanoutPayload {
+                    payload: send_message_params.message.message_bytes,
+                };
+                (Some(c2c_message), None, None)
+            }
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the
         // group state if it has actually changed.
 
-        // ... before we distribute the message, we encrypt ...
-        let encrypted_group_state = group_state
-            .encrypt(&ear_key)
-            .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
+        if group_state_has_changed {
+            // ... before we distribute the message, we encrypt ...
+            let encrypted_group_state = group_state
+                .encrypt(&ear_key)
+                .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
 
-        // ... and store the modified group state.
-        ds_storage_provider
-            .save_group_state(
-                group_state.group().group_info().group_context().group_id(),
-                encrypted_group_state,
-            )
-            .await
-            .map_err(|_| DsProcessingError::StorageError)?;
+            // ... and store the modified group state.
+            ds_storage_provider
+                .save_group_state(
+                    group_state.group().group_info().group_context().group_id(),
+                    encrypted_group_state,
+                )
+                .await
+                .map_err(|_| DsProcessingError::StorageError)?;
+        }
 
         // Distribute FanOutMessages
         if let Some(c2c_message) = ds_fanout_payload {

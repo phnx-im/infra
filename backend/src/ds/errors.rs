@@ -143,6 +143,9 @@ pub enum DsProcessingError {
     /// Error resyncing client.
     #[error(transparent)]
     ClientResyncError(#[from] ResyncClientError),
+    /// Error self removing client.
+    #[error(transparent)]
+    ClientSelfRemovalError(#[from] ClientSelfRemovalError),
 }
 
 /// Potential errors when joining a group.
@@ -208,6 +211,34 @@ pub enum ClientAdditionError {
 /// Potential errors when removing clients.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ClientRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when processing a self remove proposal.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum ClientSelfRemovalError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+}
+
+/// Potential errors when sending a message.
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub enum MessageSendingError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,

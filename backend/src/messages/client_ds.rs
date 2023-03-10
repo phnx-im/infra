@@ -379,7 +379,24 @@ impl SelfRemoveClientParams {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct SendMessageParams {
-    pub application_message: AssistedMessagePlus,
+    pub message: AssistedMessagePlus,
+    pub sender: LeafNodeIndex,
+}
+
+impl SendMessageParams {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        let bytes_copy = bytes;
+        let (mut remaining_bytes, message) = AssistedMessage::try_from_bytes(bytes)?;
+        let message_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
+        let sender = LeafNodeIndex::tls_deserialize(&mut remaining_bytes)?;
+        Ok(Self {
+            message: AssistedMessagePlus {
+                message,
+                message_bytes,
+            },
+            sender,
+        })
+    }
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -403,6 +420,7 @@ pub(crate) enum DsRequestParams {
     RemoveClients(RemoveClientsParams),
     ResyncClient(ResyncClientParams),
     SelfRemoveClient(SelfRemoveClientParams),
+    SendMessage(SendMessageParams),
 }
 
 impl DsRequestParams {
@@ -446,6 +464,9 @@ impl DsRequestParams {
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.message.group_id()
             }
+            DsRequestParams::SendMessage(send_message_params) => {
+                send_message_params.message.message.group_id()
+            }
         }
     }
 
@@ -483,6 +504,9 @@ impl DsRequestParams {
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
             | DsRequestParams::CreateGroupParams(_)
+            // Since we're leaking the leaf index in the header, we could
+            // technically return the MLS sender here.
+            | DsRequestParams::SendMessage(_)
             | DsRequestParams::UpdateQueueInfo(_) => None,
         }
     }
@@ -528,6 +552,9 @@ impl DsRequestParams {
             }
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
                 DsSender::UserKeyHash(self_remove_client_params.sender.clone())
+            }
+            DsRequestParams::SendMessage(send_message_params) => {
+                DsSender::LeafIndex(send_message_params.sender.clone())
             }
         }
     }
