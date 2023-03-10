@@ -306,7 +306,6 @@ impl DsApi {
                 (Some(c2c_message), None, None)
             }
             // ======= Proposal Endpoints =======
-            DsRequestParams::SelfRemoveUser(_) => todo!(),
             DsRequestParams::SelfRemoveClient(_) => todo!(),
         };
 
