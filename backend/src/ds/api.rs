@@ -305,6 +305,9 @@ impl DsApi {
                 let c2c_message = group_state.resync_client(resync_client_params)?;
                 (Some(c2c_message), None, None)
             }
+            // ======= Proposal Endpoints =======
+            DsRequestParams::SelfRemoveUser(_) => todo!(),
+            DsRequestParams::SelfRemoveClient(_) => todo!(),
         };
 
         // TODO: We could optimize here by only re-encrypting and persisting the

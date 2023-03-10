@@ -379,7 +379,28 @@ impl SelfRemoveClientParams {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct SelfRemoveUserParams {
-    pub remove_proposals: AssistedMessagePlus,
+    // The one-the-wire representation should contain the vector only. The first
+    // element here is just for convenience so we don't have to check vector
+    // length everywhere and always have a message at hand for things like group
+    // id and mls sender.
+    pub first_remove_proposal: AssistedMessagePlus,
+    pub remove_proposals: Vec<AssistedMessagePlus>,
+    pub sender: UserKeyHash,
+}
+
+impl SelfRemoveUserParams {
+    pub fn try_from_bytes(_bytes: &[u8]) -> Result<Self, tls_codec::Error> {
+        // TODO: We have to manually deserialize a variable-length vector here.
+        // TODO: Also, this needs to error out if the vector is empty. In fact,
+        // it would be good if we could decode this as a struct with one
+        // proposal followed by a (potentially empty vector containing the other
+        // proposals. This would mean that there is always a group id/mls sender
+        // to fetch from this message.
+        // TODO: This should perform a few rudimentary checks on the the
+        // proposals in the vector. They should all be the same except for the
+        // leaf they are targeting.
+        todo!()
+    }
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -407,6 +428,8 @@ pub(crate) enum DsRequestParams {
     AddClients(AddClientsParams),
     RemoveClients(RemoveClientsParams),
     ResyncClient(ResyncClientParams),
+    SelfRemoveUser(SelfRemoveUserParams),
+    SelfRemoveClient(SelfRemoveClientParams),
 }
 
 impl DsRequestParams {
@@ -447,6 +470,13 @@ impl DsRequestParams {
             DsRequestParams::ResyncClient(resync_client_params) => {
                 resync_client_params.external_commit.message.group_id()
             }
+            DsRequestParams::SelfRemoveUser(self_remove_user_params) => self_remove_user_params
+                .first_remove_proposal
+                .message
+                .group_id(),
+            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+                self_remove_client_params.remove_proposal.message.group_id()
+            }
         }
     }
 
@@ -482,6 +512,13 @@ impl DsRequestParams {
             | DsRequestParams::ExternalCommitInfo(_)
             | DsRequestParams::CreateGroupParams(_)
             | DsRequestParams::UpdateQueueInfo(_) => None,
+            DsRequestParams::SelfRemoveUser(self_remove_user_params) => self_remove_user_params
+                .first_remove_proposal
+                .message
+                .sender(),
+            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+                self_remove_client_params.remove_proposal.message.sender()
+            }
         }
     }
 
@@ -524,6 +561,12 @@ impl DsRequestParams {
             DsRequestParams::ResyncClient(resync_client_params) => {
                 DsSender::UserKeyHash(resync_client_params.sender.clone())
             }
+            DsRequestParams::SelfRemoveUser(self_remove_user_params) => {
+                DsSender::UserKeyHash(self_remove_user_params.sender.clone())
+            }
+            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+                DsSender::UserKeyHash(self_remove_client_params.sender.clone())
+            }
         }
     }
 
@@ -559,6 +602,12 @@ impl DsRequestParams {
             11 => Ok(Self::ResyncClient(ResyncClientParams::try_from_bytes(
                 bytes,
             )?)),
+            12 => Ok(Self::SelfRemoveUser(SelfRemoveUserParams::try_from_bytes(
+                bytes,
+            )?)),
+            13 => Ok(Self::SelfRemoveClient(
+                SelfRemoveClientParams::try_from_bytes(bytes)?,
+            )),
             _ => Err(tls_codec::Error::InvalidInput),
         }
     }
