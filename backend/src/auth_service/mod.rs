@@ -71,6 +71,62 @@ pub mod key_packages;
 pub mod registration;
 pub mod username;
 
+/*
+Actions:
+ACTION_AS_INITIATE_2FA_AUTHENTICATION
+
+ACTION_AS_INIT_USER_REGISTRATION
+ACTION_AS_FINISH_USER_REGISTRATION
+ACTION_AS_USER_CLIENTS
+ACTION_AS_DELETE_USER
+
+ACTION_AS_INITIATE_CLIENT_ADDITION
+ACTION_AS_FINISH_CLIENT_ADDITION
+ACTION_AS_DELETE_CLIENT
+
+ACTION_AS_ENQUEUE_MESSAGE
+ACTION_AS_DEQUEUE_MESSAGES
+
+ACTION_AS_CREDENTIALS
+*/
+
+pub struct AsClientId {
+    pub(crate) client_id: Vec<u8>,
+}
+
+// === Authentication ===
+
+pub(crate) struct OpaqueKe1 {}
+pub(crate) struct OpaqueKe2 {}
+
+pub(crate) struct OpaqueKe3 {}
+
+pub(crate) struct OpaqueRegistrationRequest {}
+
+pub(crate) struct OpaqueRegistrationResponse {}
+
+pub(crate) struct OpaqueRegistrationRecord {}
+
+// === Ueer ===
+
+pub(crate) struct UserName {}
+
+// === Certificates ===
+
+pub(crate) struct ClientCsr {}
+
+pub(crate) struct ClientCredential {}
+
+// === Credentials ===
+
+pub(crate) struct AsCredentials {}
+
+pub(crate) struct AsIntermediateCredential {}
+
+pub(crate) struct Fingerprint {}
+
+// === Legacy ===
+
 pub struct AuthService {}
 
 // === Authenticated endpoints ===
