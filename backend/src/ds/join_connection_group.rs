@@ -9,7 +9,7 @@ use mls_assist::{
 use tls_codec::Deserialize;
 
 use crate::messages::client_ds::{
-    DsFanoutPayload, JoinConnectionGroupParams, JoinConnectionGroupParamsAad,
+    JoinConnectionGroupParams, JoinConnectionGroupParamsAad, QueueMessagePayload,
 };
 
 use super::{
@@ -22,7 +22,7 @@ impl DsGroupState {
     pub(super) fn join_connection_group(
         &mut self,
         params: JoinConnectionGroupParams,
-    ) -> Result<DsFanoutPayload, JoinConnectionGroupError> {
+    ) -> Result<QueueMessagePayload, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
@@ -114,7 +114,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let payload = DsFanoutPayload {
+        let payload = QueueMessagePayload {
             payload: params.external_commit.message_bytes,
         };
 

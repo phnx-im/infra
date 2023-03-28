@@ -12,7 +12,7 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
     messages::{
-        client_ds::{AddClientsParams, AddClientsParamsAad, DsFanoutPayload},
+        client_ds::{AddClientsParams, AddClientsParamsAad, QueueMessagePayload},
         intra_backend::DsFanOutMessage,
     },
     qs::QsClientReference,
@@ -32,7 +32,7 @@ impl DsGroupState {
         &mut self,
         params: AddClientsParams,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(DsFanoutPayload, Vec<DsFanOutMessage>), ClientAdditionError> {
+    ) -> Result<(QueueMessagePayload, Vec<DsFanOutMessage>), ClientAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -183,7 +183,7 @@ impl DsGroupState {
                     .map_err(|_| ClientAdditionError::LibraryError)?,
             };
             let fan_out_message = DsFanOutMessage {
-                payload: DsFanoutPayload {
+                payload: QueueMessagePayload {
                     payload: welcome_bundle
                         .tls_serialize_detached()
                         .map_err(|_| ClientAdditionError::LibraryError)?,
@@ -197,7 +197,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = DsFanoutPayload {
+        let c2c_message = QueueMessagePayload {
             payload: params.commit.message_bytes,
         };
 

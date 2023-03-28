@@ -7,21 +7,14 @@
 
 use tls_codec::{TlsDeserialize, TlsSize};
 
-use crate::{auth_service::AsClientId, qs::QsClientReference};
+use crate::qs::QsClientReference;
 
-use super::client_ds::DsFanoutPayload;
+use super::client_ds::QueueMessagePayload;
 
 // === DS to QS ===
 
 #[derive(TlsDeserialize, TlsSize)]
 pub struct DsFanOutMessage {
-    pub payload: DsFanoutPayload,
+    pub payload: QueueMessagePayload,
     pub client_reference: QsClientReference,
-}
-
-// === DS to AS ===
-
-pub(crate) struct AsEnqueueMessageParams {
-    pub(crate) client_id: AsClientId,
-    pub(crate) connection_establishment_ctxt: Vec<u8>,
 }

@@ -156,7 +156,7 @@ use crate::{
     },
     messages::{
         client_ds::{
-            CreateGroupParams, DsFanoutPayload, DsRequestParams, DsSender,
+            CreateGroupParams, DsRequestParams, DsSender, QueueMessagePayload,
             VerifiableClientToDsMessage,
         },
         intra_backend::DsFanOutMessage,
@@ -354,9 +354,9 @@ impl DsApi {
             //
             DsRequestParams::SendMessage(send_message_params) => {
                 // There is nothing to process here, so we just stick the
-                // message into a DsFanoutPayload for distribution.
+                // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = DsFanoutPayload {
+                let c2c_message = QueueMessagePayload {
                     payload: send_message_params.message.message_bytes,
                 };
                 (Some(c2c_message), None, None)

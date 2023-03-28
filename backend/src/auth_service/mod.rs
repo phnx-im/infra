@@ -2,59 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! This module contains the APIs of the authentication service (AS). It only
-//! performs a limited amount of rate-limiting, so it should only be deployed
-//! behind a rate-limiting module.
-//!
-//! NOTE: This document and the API stubs in this module represent a work in
-//! progress and will likely change in their details. However, barring the
-//! discovery of a major flaw in the current design, the general design of the
-//! AS should remain the same.
-//!
-//! # Overview
-//!
-//! The AS main purpose is to act as certificate authority for clients of the
-//! homeserver. More specifically, clients can request that the AS sign their
-//! certificates and store some of their (public) authentication key material.
-//!
-//! For clients to verify that other clients belong to their claimed homeserver,
-//! the AS also publishes its public key material.
-//!
-//! In addition, the AS allows clients to publish and continuously update their
-//! public Evolving Identity state.
-//!
-//! # Certificate signing
-//!
-//! The AS acts as a certificate authority and allows clients to request signing
-//! their certificates via the ACME protocol.
-//!
-//! This certificate is the client's main credential. In additions client may
-//! use group-specific credentials that are in turn signed by the main
-//! credential.
-//!
-//! TODO: Note, that this is not vanilla ACME, but a modified version with a
-//! different verification procedure and one that signs certificate signing
-//! requests for intermediate certificates. The last point is required for
-//! clients to sign group-specific certificates such as the "missing link
-//! certificates" (see definition of the DS).
-//!
-//! # Evolving Identity
-//!
-//! Users of a homeserver maintain an Evolving Identity (EID) state and
-//! publish this state through the AS. This state consists of the public tree of
-//! an MLS group that contains one member per client that the user has.
-//!
-//! The leaf of each client contains the client's main credential (not a
-//! group-specific one).
-//!
-//! If the user adds or removes clients, the corresponding commit is sent to the
-//! AS as an MLSPlaintext message, allowing the AS to keep track of changes to
-//! the group. The commit is also broadcast to all groups the client is in
-//! encapsuled in an (encrypted) MLS application message.
-
 #![allow(unused_variables)]
 
 use mls_assist::{messages::AssistedWelcome, KeyPackage};
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+
+use crate::{
+    crypto::{QueueRatchet, RatchetPublicKey},
+    ds::group_state::TimeStamp,
+};
 
 use self::{
     devices::{AddDeviceError, GetDevicesError, RemoveDeviceError},
@@ -64,66 +20,91 @@ use self::{
     username::Username,
 };
 
+pub mod client_api;
 pub mod credentials;
 pub mod devices;
+pub mod errors;
 pub mod invitations;
 pub mod key_packages;
 pub mod registration;
+pub mod storage_provider_trait;
 pub mod username;
 
 /*
 Actions:
 ACTION_AS_INITIATE_2FA_AUTHENTICATION
 
+User:
 ACTION_AS_INIT_USER_REGISTRATION
 ACTION_AS_FINISH_USER_REGISTRATION
-ACTION_AS_USER_CLIENTS
 ACTION_AS_DELETE_USER
 
+Client:
 ACTION_AS_INITIATE_CLIENT_ADDITION
 ACTION_AS_FINISH_CLIENT_ADDITION
 ACTION_AS_DELETE_CLIENT
-
-ACTION_AS_ENQUEUE_MESSAGE
 ACTION_AS_DEQUEUE_MESSAGES
+ACTION_AS_PUBLISH_KEY_PACKAGES
+ACTION_AS_CLIENT_KEY_PACKAGE
 
+Anonymous:
+ACTION_AS_USER_CLIENTS
+ACTION_AS_USER_KEY_PACKAGES
+ACTION_AS_ENQUEUE_MESSAGE
 ACTION_AS_CREDENTIALS
 */
 
+// === Authentication ===
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct OpaqueKe1 {}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct OpaqueKe2 {}
+
+#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct OpaqueKe3 {}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub(crate) struct OpaqueRegistrationRequest {}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub(crate) struct OpaqueRegistrationResponse {}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub(crate) struct OpaqueRegistrationRecord {}
+
+// === User ===
+
+pub struct AsUserId {
+    pub client_id: Vec<u8>,
+}
+
+pub struct AsUserRecord {}
+
+#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct UserName {}
+
+// === Client ===
+
+#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct AsClientId {
     pub(crate) client_id: Vec<u8>,
 }
 
-// === Authentication ===
+impl AsClientId {
+    pub fn username(&self) -> UserName {
+        todo!()
+    }
+}
 
-pub(crate) struct OpaqueKe1 {}
-pub(crate) struct OpaqueKe2 {}
+pub struct AsClientRecord {
+    pub queue_encryption_key: RatchetPublicKey,
+    pub ratchet_key: QueueRatchet,
+    pub activity_time: TimeStamp,
+}
 
-pub(crate) struct OpaqueKe3 {}
-
-pub(crate) struct OpaqueRegistrationRequest {}
-
-pub(crate) struct OpaqueRegistrationResponse {}
-
-pub(crate) struct OpaqueRegistrationRecord {}
-
-// === Ueer ===
-
-pub(crate) struct UserName {}
-
-// === Certificates ===
-
-pub(crate) struct ClientCsr {}
-
-pub(crate) struct ClientCredential {}
-
-// === Credentials ===
-
-pub(crate) struct AsCredentials {}
-
-pub(crate) struct AsIntermediateCredential {}
-
-pub(crate) struct Fingerprint {}
+impl AsClientRecord {}
 
 // === Legacy ===
 

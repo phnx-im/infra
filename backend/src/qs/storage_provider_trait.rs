@@ -6,7 +6,7 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 
-use crate::messages::{client_qs::QueueMessage, FriendshipToken};
+use crate::messages::{FriendshipToken, QueueMessage};
 
 use super::{
     client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedAddPackage,
@@ -97,7 +97,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
         client_id: &QsClientId,
     ) -> Option<QsEncryptedAddPackage>;
 
-    /// Return a key package for each client of a user ereferenced by a
+    /// Return a key package for each client of a user referenced by a
     /// friendship token.
     async fn load_user_key_packages(
         &self,
