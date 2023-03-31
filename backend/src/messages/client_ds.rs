@@ -19,7 +19,7 @@ use crate::{
     crypto::{
         ear::{
             keys::{GroupStateEarKey, RatchetKey},
-            Ciphertext, EarEncryptable,
+            EarEncryptable,
         },
         signatures::{
             keys::{LeafSignatureKey, UserAuthKey},
@@ -30,44 +30,12 @@ use crate::{
     qs::{QsClientReference, VerifiableKeyPackageBatch},
 };
 
-use super::MlsInfraVersion;
+use super::{EncryptedQueueMessage, MlsInfraVersion};
 
 mod private_mod {
     #[derive(Default)]
     pub(crate) struct Seal;
 }
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
-pub struct DsFanoutPayload {
-    pub payload: Vec<u8>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct EncryptedDsMessage {
-    payload: Ciphertext,
-}
-
-impl From<Ciphertext> for EncryptedDsMessage {
-    fn from(payload: Ciphertext) -> Self {
-        Self { payload }
-    }
-}
-
-impl From<Vec<u8>> for DsFanoutPayload {
-    fn from(assisted_message: Vec<u8>) -> Self {
-        Self {
-            payload: assisted_message,
-        }
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedDsMessage {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.payload
-    }
-}
-
-impl EarEncryptable<RatchetKey, EncryptedDsMessage> for DsFanoutPayload {}
 
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -76,6 +44,21 @@ pub(crate) struct DsClientId {
 }
 
 // === DS ===
+
+#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
+pub struct QueueMessagePayload {
+    pub payload: Vec<u8>,
+}
+
+impl From<Vec<u8>> for QueueMessagePayload {
+    fn from(assisted_message: Vec<u8>) -> Self {
+        Self {
+            payload: assisted_message,
+        }
+    }
+}
+
+impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateGroupParams {

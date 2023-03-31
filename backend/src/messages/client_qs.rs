@@ -8,7 +8,6 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::SignaturePublicKey;
-use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
@@ -25,9 +24,7 @@ use crate::{
     },
 };
 
-use super::{
-    client_ds::EncryptedDsMessage, intra_backend::DsFanOutMessage, FriendshipToken, MlsInfraVersion,
-};
+use super::{intra_backend::DsFanOutMessage, FriendshipToken, MlsInfraVersion, QueueMessage};
 
 mod private_mod {
     #[derive(Default)]
@@ -60,12 +57,6 @@ pub struct QsQueueUpdate {
 }
 
 pub type QsInputMessage = DsFanOutMessage;
-
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct QueueMessage {
-    pub(crate) sequence_number: u64,
-    pub(crate) ciphertext: EncryptedDsMessage,
-}
 
 /// Error struct for deserialization of an [`UnverifiedGroupOperationParams`]
 /// struct.
@@ -210,7 +201,7 @@ pub(crate) struct WsParams {
     pub(crate) client_id: QsClientId,
 }
 
-// === Client messages ===
+// === Auth & Framing ===
 
 #[derive(TlsDeserialize, TlsSize)]
 pub struct VerifiableClientToQsMessage {

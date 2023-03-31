@@ -21,7 +21,7 @@ use utoipa::ToSchema;
 
 use crate::{
     crypto::ear::EarEncryptable,
-    messages::{client_ds::DsFanoutPayload, client_qs::QueueMessage},
+    messages::{client_ds::QueueMessagePayload, QueueMessage},
     qs::SealedClientReference,
     LibraryError,
 };
@@ -93,7 +93,10 @@ impl QueueRatchet {
     }
 
     /// Encrypt the given payload.
-    pub fn encrypt(&mut self, payload: DsFanoutPayload) -> Result<QueueMessage, EncryptionError> {
+    pub fn encrypt(
+        &mut self,
+        payload: QueueMessagePayload,
+    ) -> Result<QueueMessage, EncryptionError> {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?;
 
