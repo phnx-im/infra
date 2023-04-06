@@ -10,7 +10,8 @@ use crate::{
     auth_service::{
         client_api::privacypass::AsTokenType,
         credentials::{
-            AsCredentials, AsIntermediateCredential, ClientCredential, ClientCsr, Fingerprint,
+            AsCredential, ClientCredential, ClientCredentialPayload, CredentialFingerprint,
+            VerifiableAsIntermediateCredential,
         },
         *,
     },
@@ -46,11 +47,11 @@ pub struct Initiate2FaAuthenticationResponse {
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationParams {
     pub(crate) auth_method: NoAuth,
-    pub(crate) client_csr: ClientCsr,
+    pub(crate) client_csr: ClientCredentialPayload,
     pub(crate) opaque_registration_request: OpaqueRegistrationRequest,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationResponse {
     pub(crate) client_credential: ClientCredential,
     pub(crate) opaque_registration_response: OpaqueRegistrationResponse,
@@ -83,11 +84,11 @@ pub struct DeleteUserResponse {}
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct InitiateClientAdditionParams {
     pub(crate) auth_method: UserAuth,
-    pub(crate) client_csr: ClientCsr,
+    pub(crate) client_credential_payload: ClientCredentialPayload,
     pub(crate) opaque_ke1: OpaqueKe1,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct InitClientAdditionResponse {
     pub(crate) client_credential: ClientCredential,
     pub(crate) opaque_ke2: OpaqueKe2,
@@ -156,7 +157,7 @@ pub struct UserClientsParams {
     pub(crate) user_name: UserName,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct UserClientsResponse {
     pub(crate) client_credentials: Vec<ClientCredential>,
 }
@@ -190,9 +191,9 @@ pub struct AsCredentialsParams {
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct AsCredentialsResponse {
     pub(crate) auth_method: NoAuth,
-    pub(crate) as_credentials: Vec<AsCredentials>,
-    pub(crate) as_intermediate_credentials: Vec<AsIntermediateCredential>,
-    pub(crate) revoked_certs: Vec<Fingerprint>,
+    pub(crate) as_credentials: Vec<AsCredential>,
+    pub(crate) as_intermediate_credentials: Vec<VerifiableAsIntermediateCredential>,
+    pub(crate) revoked_certs: Vec<CredentialFingerprint>,
 }
 
 // === Privacy Pass ===

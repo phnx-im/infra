@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::{
-    auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
+    auth_service::{
+        credentials::{ClientCredential, ClientCredentialPayload},
+        errors::*,
+        storage_provider_trait::*,
+        *,
+    },
     messages::client_as::*,
 };
 
@@ -38,8 +43,8 @@ impl AuthService {
             return Err(InitUserRegistrationError::InvalidCsr);
         }
 
-        // Sign the CSR
-        let client_credential = ClientCredential::new_from_csr(client_csr);
+        // TODO: Sign the credential
+        let client_credential: ClientCredential = todo!();
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider

@@ -16,13 +16,13 @@ impl AuthService {
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
             auth_method,
-            client_csr,
+            client_credential_payload,
             opaque_ke1,
         } = params;
 
         // Check if a client entry with the name given in the client_csr already exists for the user
         if storage_provider
-            .load_client(&client_csr.identity())
+            .load_client(&client_credential_payload.identity())
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -33,13 +33,13 @@ impl AuthService {
             return Err(InitClientAdditionError::ClientAlreadyExists);
         }
 
-        // Validate the client_csr
-        if !client_csr.validate() {
+        // Validate the client credential payload
+        if !client_credential_payload.validate() {
             return Err(InitClientAdditionError::InvalidCsr);
         }
 
-        // Sign the CSR
-        let client_credential = ClientCredential::new_from_csr(client_csr);
+        // TODO: Sign the CSR
+        let client_credential: ClientCredential = todo!();
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider

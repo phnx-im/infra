@@ -131,3 +131,25 @@ impl From<Secret<AEAD_KEY_SIZE>> for RatchetKey {
 impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
+
+pub type SignatureEncryptionSecret = Secret<AEAD_KEY_SIZE>;
+
+/// EAR key for the [`PushToken`] structs.
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+pub struct SignatureEncryptionKey {
+    key: SignatureEncryptionSecret,
+}
+
+impl EarKey for SignatureEncryptionKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEncryptionKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for SignatureEncryptionKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
