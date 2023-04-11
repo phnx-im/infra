@@ -5,8 +5,12 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
+use opaque_ke::ServerSetup;
 
-use crate::{crypto::signatures::keys::AsIntermediateSigningKey, messages::QueueMessage};
+use crate::{
+    crypto::{signatures::keys::AsIntermediateSigningKey, OpaqueCipherSuite},
+    messages::QueueMessage,
+};
 
 use super::{
     credentials::{AsIntermediateCredential, ClientCredential},
@@ -31,7 +35,9 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
     type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
 
-    type LoadKeyError: Error + Debug + PartialEq + Eq + Clone;
+    type LoadSigningKeyError: Error + Debug + PartialEq + Eq + Clone;
+
+    type LoadOpaqueKeyError: Error + Debug + PartialEq + Eq + Clone;
 
     // === Users ===
 
@@ -141,7 +147,12 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     /// [`AsIntermediateCredential`].
     async fn load_signing_key(
         &self,
-    ) -> Result<(AsIntermediateCredential, AsIntermediateSigningKey), Self::LoadKeyError>;
+    ) -> Result<(AsIntermediateCredential, AsIntermediateSigningKey), Self::LoadSigningKeyError>;
+
+    /// Load the OPAQUE [`ServerSetup`].
+    async fn load_opaque_setup(
+        &self,
+    ) -> Result<ServerSetup<OpaqueCipherSuite>, Self::LoadSigningKeyError>;
 
     // === Anonymous requests ===
 

@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use opaque_ke::ServerRegistration;
+use privacypass::Serialize;
+
 use crate::{
     auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
     crypto::signatures::signable::Signable,
@@ -66,6 +69,21 @@ impl AuthService {
              - perform the first (server side) step in the OPAQUE registration handshake
              - return the ClientCredential to the client along with the OPAQUE response.
          */
+
+        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            InitUserRegistrationError::StorageError
+        })?;
+
+        let registration_result = ServerRegistration::<OpaqueCipherSuite>::start(
+            &server_setup,
+            opaque_registration_request.client_message,
+            &client_credential
+                .identity()
+                .username()
+                .tls_serialize_detached()
+                .map_err(|_| InitUserRegistrationError::LibraryError)?,
+        );
 
         let opaque_registration_response = OpaqueRegistrationResponse {};
 

@@ -5,10 +5,11 @@
 #![allow(unused_variables)]
 
 use mls_assist::{messages::AssistedWelcome, KeyPackage};
+use opaque_ke::RegistrationRequest;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{QueueRatchet, RatchetPublicKey},
+    crypto::{OpaqueCipherSuite, QueueRatchet, RatchetPublicKey},
     ds::group_state::TimeStamp,
 };
 
@@ -21,6 +22,7 @@ use self::{
 };
 
 pub mod client_api;
+pub mod codec;
 pub mod credentials;
 pub mod devices;
 pub mod errors;
@@ -65,8 +67,13 @@ pub struct OpaqueKe2 {}
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct OpaqueKe3 {}
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct OpaqueRegistrationRequest {}
+/// Registration request containing the OPAQUE payload.
+///
+/// The TLS serialization implementation of this
+#[derive(Debug)]
+pub(crate) struct OpaqueRegistrationRequest {
+    client_message: RegistrationRequest<OpaqueCipherSuite>,
+}
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub(crate) struct OpaqueRegistrationResponse {}

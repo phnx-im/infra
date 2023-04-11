@@ -10,10 +10,12 @@
 //! TODO: A proper RNG provider for use with all crypto functions that require
 //! randomness, i.e. mainly secret and nonce sampling.
 #![allow(unused_variables)]
+use argon2::Argon2;
 use chrono::{DateTime, Utc};
 use hpke::{Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_crypto::types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
 use hpke_rs_rust_crypto::HpkeRustCrypto;
+use opaque_ke::CipherSuite;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
@@ -30,6 +32,21 @@ use self::{
     ear::{keys::RatchetKey, Ciphertext, EncryptionError},
     kdf::{keys::RatchetSecret, KdfDerivable},
 };
+
+/// Default ciphersuite we use for OPAQUE
+pub struct OpaqueCipherSuite;
+
+impl CipherSuite for OpaqueCipherSuite {
+    type OprfCs = opaque_ke::Ristretto255;
+    type KeGroup = opaque_ke::Ristretto255;
+    type KeyExchange = opaque_ke::key_exchange::tripledh::TripleDh;
+
+    type Ksf = Argon2<'static>;
+}
+
+// The size of a blinded message, i.e. a serialized OPRF group element using the
+// ciphersuite defined above.
+pub(crate) const OPAQUE_REGISTRATION_REQUEST_SIZE: usize = 32;
 
 /// This type determines the hash function used by the backend.
 pub type Hash = Sha256;
