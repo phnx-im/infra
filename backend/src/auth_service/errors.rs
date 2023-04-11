@@ -17,6 +17,9 @@ pub enum AsDequeueError {
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum InitUserRegistrationError {
+    /// Library error
+    #[error("Library error")]
+    LibraryError,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -54,6 +57,9 @@ pub enum UserClientsError {
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum InitClientAdditionError {
+    /// Library error
+    #[error("Library error")]
+    LibraryError,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,

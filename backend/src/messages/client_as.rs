@@ -47,7 +47,7 @@ pub struct Initiate2FaAuthenticationResponse {
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationParams {
     pub(crate) auth_method: NoAuth,
-    pub(crate) client_csr: ClientCredentialPayload,
+    pub(crate) client_payload: ClientCredentialPayload,
     pub(crate) opaque_registration_request: OpaqueRegistrationRequest,
 }
 

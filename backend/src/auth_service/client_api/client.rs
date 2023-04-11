@@ -4,6 +4,7 @@
 
 use crate::{
     auth_service::{credentials::*, errors::*, storage_provider_trait::*, *},
+    crypto::signatures::signable::Signable,
     messages::client_as::*,
 };
 
@@ -16,30 +17,40 @@ impl AuthService {
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
             auth_method,
-            client_credential_payload,
+            client_credential_payload: client_payload,
             opaque_ke1,
         } = params;
 
         // Check if a client entry with the name given in the client_csr already exists for the user
-        if storage_provider
-            .load_client(&client_credential_payload.identity())
+        let client_id_exists = storage_provider
+            .load_client(&client_payload.identity())
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
                 InitClientAdditionError::StorageError
             })?
-            .is_some()
-        {
+            .is_some();
+
+        if client_id_exists {
             return Err(InitClientAdditionError::ClientAlreadyExists);
         }
 
         // Validate the client credential payload
-        if !client_credential_payload.validate() {
+        if !client_payload.validate() {
             return Err(InitClientAdditionError::InvalidCsr);
         }
 
-        // TODO: Sign the CSR
-        let client_credential: ClientCredential = todo!();
+        // Load the signature key from storage.
+        let (as_credential, signing_key) =
+            storage_provider.load_signing_key().await.map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?;
+
+        // Sign the credential
+        let client_credential: ClientCredential = client_payload
+            .sign(&signing_key)
+            .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider

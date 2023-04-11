@@ -6,9 +6,12 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 
-use crate::messages::QueueMessage;
+use crate::{crypto::signatures::keys::AsIntermediateSigningKey, messages::QueueMessage};
 
-use super::{credentials::ClientCredential, *};
+use super::{
+    credentials::{AsIntermediateCredential, ClientCredential},
+    *,
+};
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -27,6 +30,8 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     type ReadAndDeleteError: Error + Debug + PartialEq + Eq + Clone;
 
     type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
+
+    type LoadKeyError: Error + Debug + PartialEq + Eq + Clone;
 
     // === Users ===
 
@@ -131,6 +136,12 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
+
+    /// Load the currently active signing key and the
+    /// [`AsIntermediateCredential`].
+    async fn load_signing_key(
+        &self,
+    ) -> Result<(AsIntermediateCredential, AsIntermediateSigningKey), Self::LoadKeyError>;
 
     // === Anonymous requests ===
 

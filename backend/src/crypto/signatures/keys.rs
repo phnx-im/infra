@@ -130,3 +130,16 @@ impl AsRef<[u8]> for QsVerifyingKey {
 }
 
 impl VerifyingKey for QsVerifyingKey {}
+
+#[derive(Debug)]
+pub struct AsIntermediateSigningKey {
+    signing_key: Vec<u8>,
+}
+
+impl AsRef<[u8]> for AsIntermediateSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key
+    }
+}
+
+impl SigningKey for AsIntermediateSigningKey {}

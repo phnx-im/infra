@@ -3,12 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::{
-    auth_service::{
-        credentials::{ClientCredential, ClientCredentialPayload},
-        errors::*,
-        storage_provider_trait::*,
-        *,
-    },
+    auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
+    crypto::signatures::signable::Signable,
     messages::client_as::*,
 };
 
@@ -21,30 +17,40 @@ impl AuthService {
     ) -> Result<InitUserRegistrationResponse, InitUserRegistrationError> {
         let InitUserRegistrationParams {
             auth_method,
-            client_csr,
+            client_payload,
             opaque_registration_request,
         } = params;
 
         // Check if a user entry with the name given in the client_csr already exists
-        if storage_provider
-            .load_user(&client_csr.identity().username())
+        let client_id_exists = storage_provider
+            .load_user(&client_payload.identity().username())
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
                 InitUserRegistrationError::StorageError
             })?
-            .is_some()
-        {
+            .is_some();
+
+        if client_id_exists {
             return Err(InitUserRegistrationError::UserAlreadyExists);
         }
 
         // Validate the client_csr
-        if !client_csr.validate() {
+        if !client_payload.validate() {
             return Err(InitUserRegistrationError::InvalidCsr);
         }
 
-        // TODO: Sign the credential
-        let client_credential: ClientCredential = todo!();
+        // Load the signature key from storage.
+        let (as_credential, signing_key) =
+            storage_provider.load_signing_key().await.map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                InitUserRegistrationError::StorageError
+            })?;
+
+        // Sign the credential
+        let client_credential: ClientCredential = client_payload
+            .sign(&signing_key)
+            .map_err(|_| InitUserRegistrationError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider

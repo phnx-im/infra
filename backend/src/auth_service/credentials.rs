@@ -13,7 +13,7 @@ use crate::{
     crypto::{
         ear::{keys::SignatureEncryptionKey, Ciphertext, EarEncryptable},
         signatures::{
-            signable::{Signable, Signature, Verifiable, VerifiedStruct},
+            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SignatureVerificationError, VerifyingKey},
         },
     },
@@ -64,6 +64,7 @@ pub(crate) struct AsCredential {
 }
 
 impl AsCredential {
+    // TODO: This function should be generalized to work for all credentials.
     fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
         let backend = OpenMlsRustCrypto::default();
         let payload = self
@@ -100,7 +101,7 @@ pub(crate) struct AsIntermediateCredentialPayload {
     signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
 }
 
-pub const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential"; // format!("{credential_label} AS Intermediate Credential");
+pub const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
 
 impl Signable for AsIntermediateCredentialPayload {
     type SignedOutput = AsIntermediateCredential;
@@ -115,7 +116,7 @@ impl Signable for AsIntermediateCredentialPayload {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub(crate) struct AsIntermediateCredential {
+pub struct AsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
 }
@@ -198,6 +199,12 @@ pub struct ClientCredential {
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {
         self.payload.identity()
+    }
+}
+
+impl SignedStruct<ClientCredentialPayload> for ClientCredential {
+    fn from_payload(payload: ClientCredentialPayload, signature: Signature) -> Self {
+        Self { payload, signature }
     }
 }
 
@@ -304,6 +311,7 @@ pub struct ObfuscatedLeafCredential {
 }
 
 impl ObfuscatedLeafCredential {
+    // TODO: We probably want `verify` to verify the whole chain.
     pub fn verify(
         &self,
         verifying_key: &ClientVerifyingKey,
