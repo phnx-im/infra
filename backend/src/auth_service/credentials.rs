@@ -60,7 +60,7 @@ pub(crate) struct AsCredential {
     as_domain: Fqdn,
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
-    public_key: AsVerifyingKey,
+    verifying_key: AsVerifyingKey,
 }
 
 impl AsCredential {
@@ -97,7 +97,7 @@ pub(crate) struct AsIntermediateCredentialPayload {
     version: MlsInfraVersion,
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
-    public_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
+    verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
     signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
 }
 
@@ -161,7 +161,7 @@ pub struct ClientCredentialPayload {
     client_id: AsClientId,
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
-    public_key: ClientVerifyingKey,
+    verifying_key: ClientVerifyingKey,
     signer_fingerprint: CredentialFingerprint,
 }
 
@@ -311,10 +311,16 @@ pub struct ObfuscatedLeafCredential {
 }
 
 impl ObfuscatedLeafCredential {
-    // TODO: We probably want `verify` to verify the whole chain.
+    /// Verify this credential using the given [`ClientCredential`]. The
+    /// [`SignatureEncryptionKey`] is required to decrypt the signature on this
+    /// [`ObfuscatedLeafCredential`].
+    ///
+    /// Note that type-based verification enforces that the [`ClientCredential`]
+    /// was already validated, thus guaranteeing verification of the whole
+    /// chain.
     pub fn verify(
         &self,
-        verifying_key: &ClientVerifyingKey,
+        client_credential: &ClientCredential,
         signature_encryption_key: &SignatureEncryptionKey,
     ) -> Result<LeafCredential, SignatureVerificationError> {
         // TODO: We might want to throw a more specific error here.
@@ -324,6 +330,6 @@ impl ObfuscatedLeafCredential {
             payload: self.payload.clone(),
             signature,
         }
-        .verify(verifying_key)
+        .verify(&client_credential.payload.verifying_key)
     }
 }
