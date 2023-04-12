@@ -34,12 +34,12 @@ mod private_mod {
 pub struct Initiate2FaAuthenticationParams {
     auth_method: ClientCredentialAuth,
     client_id: AsClientId,
-    opaque_ke1: OpaqueKe1,
+    opaque_ke1: OpaqueLoginRequest,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct Initiate2FaAuthenticationResponse {
-    opaque_ke2: OpaqueKe2,
+    opaque_ke2: OpaqueLoginResponse,
 }
 
 // === User ===
@@ -85,13 +85,13 @@ pub struct DeleteUserResponse {}
 pub struct InitiateClientAdditionParams {
     pub(crate) auth_method: UserAuth,
     pub(crate) client_credential_payload: ClientCredentialPayload,
-    pub(crate) opaque_ke1: OpaqueKe1,
+    pub(crate) opaque_login_request: OpaqueLoginRequest,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct InitClientAdditionResponse {
     pub(crate) client_credential: ClientCredential,
-    pub(crate) opaque_ke2: OpaqueKe2,
+    pub(crate) opaque_login_response: OpaqueLoginResponse,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -101,7 +101,7 @@ pub struct FinishClientAdditionParams {
     pub(crate) queue_encryption_key: RatchetPublicKey,
     pub(crate) initial_ratchet_key: QueueRatchet,
     pub(crate) connection_key_package: KeyPackage,
-    pub(crate) opaque_ke3: OpaqueKe3,
+    pub(crate) opaque_login_finish: OpaqueLoginFinish,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -352,13 +352,13 @@ pub struct ClientCredentialAuth {
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct Client2FaAuth {
     pub(crate) client_id: AsClientId,
-    pub(crate) password: OpaqueKe3,
+    pub(crate) opaque_finish: OpaqueLoginFinish,
 }
 
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct UserAuth {
     user_name: UserName,
-    password: OpaqueKe3,
+    password: OpaqueLoginFinish,
 }
 
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]

@@ -29,6 +29,9 @@ pub enum InitUserRegistrationError {
     /// Invalid CSR
     #[error("Invalid CSR")]
     InvalidCsr,
+    /// Error during OPAQUE registration
+    #[error("Error during OPAQUE registration")]
+    OpaqueRegistrationFailed,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -39,6 +42,9 @@ pub enum FinishUserRegistrationError {
     /// Client credential not found
     #[error("Client credential not found")]
     ClientCredentialNotFound,
+    /// Error finishing OPAQUE login handshake
+    #[error("Error finishing OPAQUE login handshake")]
+    OpaqueLoginFinishFailed,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -69,6 +75,9 @@ pub enum InitClientAdditionError {
     /// Invalid CSR
     #[error("Invalid CSR")]
     InvalidCsr,
+    /// Error during OPAQUE login handshake
+    #[error("Error during OPAQUE login handshake")]
+    OpaqueLoginFailed,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
