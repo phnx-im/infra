@@ -68,8 +68,19 @@ impl TimeStamp {
         Self { time }
     }
 
+    pub(crate) fn in_days(days_in_the_future: i64) -> Self {
+        let time = Utc::now() + Duration::days(days_in_the_future);
+        Self { time }
+    }
+
+    /// Checks if this time stamp is more than `expiration_days` in the past.
     pub(crate) fn has_expired(&self, expiration_days: i64) -> bool {
         Utc::now() - Duration::days(expiration_days) >= self.time
+    }
+
+    /// Checks if this time stamp is in the past.
+    pub(crate) fn has_passed(&self) -> bool {
+        self.has_expired(0)
     }
 }
 

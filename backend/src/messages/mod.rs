@@ -26,6 +26,12 @@ pub(crate) enum MlsInfraVersion {
     Alpha,
 }
 
+impl Default for MlsInfraVersion {
+    fn default() -> Self {
+        Self::Alpha
+    }
+}
+
 // === Queue ===
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]

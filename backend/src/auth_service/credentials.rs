@@ -13,6 +13,10 @@ use crate::{
     crypto::{
         ear::{keys::SignatureEncryptionKey, Ciphertext, EarEncryptable},
         signatures::{
+            keys::{
+                AsIntermediateKeypair, AsIntermediateSigningKey, AsIntermediateVerifyingKey,
+                AsKeypair, AsSigningKey, AsVerifyingKey, KeyGenerationError,
+            },
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SignatureVerificationError, VerifyingKey},
         },
@@ -41,16 +45,20 @@ pub struct ExpirationData {
     not_after: TimeStamp,
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct AsVerifyingKey {
-    signature_key: SignaturePublicKey,
-}
+impl ExpirationData {
+    /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
+    /// days and the validity of which starts now.
+    pub(crate) fn new(lifetime: i64) -> Self {
+        Self {
+            not_before: TimeStamp::now(),
+            not_after: TimeStamp::in_days(lifetime),
+        }
+    }
 
-impl VerifyingKey for AsVerifyingKey {}
-
-impl AsRef<[u8]> for AsVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
+    /// Return false either if the `not_after` date has passed, or if the
+    /// `not_before` date has not passed yet.
+    pub(crate) fn validate(&self) -> bool {
+        self.not_after.has_passed() && !self.not_before.has_passed()
     }
 }
 
@@ -64,6 +72,29 @@ pub(crate) struct AsCredential {
 }
 
 impl AsCredential {
+    /// Generate a new [`AsCredential`] with the given data and a freshly
+    /// generated signature keypair.
+    ///
+    /// The default [`ExpirationData`] for an [`AsCredential`] is five years.
+    pub(crate) fn new(
+        signature_scheme: SignatureScheme,
+        as_domain: Fqdn,
+        expiration_data_option: Option<ExpirationData>,
+    ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
+        let version = MlsInfraVersion::default();
+        // Create lifetime valid until 5 years in the future.
+        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(5 * 365));
+        let as_keypair = AsKeypair::new()?;
+        let credential = Self {
+            version,
+            as_domain,
+            expiration_data,
+            signature_scheme,
+            verifying_key: as_keypair.verifying_key,
+        };
+        Ok((credential, as_keypair.signing_key))
+    }
+
     // TODO: This function should be generalized to work for all credentials.
     fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
         let backend = OpenMlsRustCrypto::default();
@@ -79,19 +110,6 @@ impl AsCredential {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct AsIntermediateVerifyingKey {
-    signature_key: SignaturePublicKey,
-}
-
-impl VerifyingKey for AsIntermediateVerifyingKey {}
-
-impl AsRef<[u8]> for AsIntermediateVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
-    }
-}
-
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub(crate) struct AsIntermediateCredentialPayload {
     version: MlsInfraVersion,
@@ -99,6 +117,33 @@ pub(crate) struct AsIntermediateCredentialPayload {
     signature_scheme: SignatureScheme,
     verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
     signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
+}
+
+impl AsIntermediateCredentialPayload {
+    /// Generate a new [`AsIntermediateCredential`] with the given data and a freshly
+    /// generated signature keypair.
+    ///
+    /// The default [`ExpirationData`] for an [`AsIntermediateCredential`] is
+    /// one year.
+    pub(crate) fn new(
+        signature_scheme: SignatureScheme,
+        as_domain: Fqdn,
+        expiration_data_option: Option<ExpirationData>,
+        signer_fingerprint: CredentialFingerprint,
+    ) -> Result<(Self, AsIntermediateSigningKey), KeyGenerationError> {
+        let version = MlsInfraVersion::default();
+        // Create lifetime valid until 1 year in the future.
+        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(365));
+        let as_keypair = AsIntermediateKeypair::new()?;
+        let credential = Self {
+            version,
+            expiration_data,
+            signature_scheme,
+            verifying_key: as_keypair.verifying_key,
+            signer_fingerprint,
+        };
+        Ok((credential, as_keypair.signing_key))
+    }
 }
 
 pub const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
@@ -167,8 +212,8 @@ pub struct ClientCredentialPayload {
 
 impl ClientCredentialPayload {
     pub(crate) fn validate(&self) -> bool {
-        // TODO: Check expiration date and uniqueness of client id
-        todo!()
+        // TODO: Check uniqueness of client id
+        self.expiration_data.validate()
     }
 }
 
