@@ -5,22 +5,28 @@
 #![allow(unused_variables)]
 
 use mls_assist::{messages::AssistedWelcome, KeyPackage};
+use opaque_ke::{
+    CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
+    RegistrationResponse, RegistrationUpload, ServerRegistration,
+};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{QueueRatchet, RatchetPublicKey},
+    crypto::{OpaqueCiphersuite, QueueRatchet, RatchetPublicKey},
     ds::group_state::TimeStamp,
+    messages::client_as::InitUserRegistrationResponse,
 };
 
 use self::{
     devices::{AddDeviceError, GetDevicesError, RemoveDeviceError},
     invitations::InviteUserError,
     key_packages::{FetchKeyPackagesError, PublisKeyPackagesError},
-    registration::{RegistrationError, RegistrationResponse},
+    registration::RegistrationError,
     username::Username,
 };
 
 pub mod client_api;
+pub mod codec;
 pub mod credentials;
 pub mod devices;
 pub mod errors;
@@ -56,23 +62,46 @@ ACTION_AS_CREDENTIALS
 
 // === Authentication ===
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct OpaqueKe1 {}
+#[derive(Debug)]
+pub struct OpaqueLoginRequest {
+    client_message: CredentialRequest<OpaqueCiphersuite>,
+}
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct OpaqueKe2 {}
+#[derive(Debug)]
+pub struct OpaqueLoginResponse {
+    server_message: CredentialResponse<OpaqueCiphersuite>,
+}
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct OpaqueKe3 {}
+#[derive(Clone, Debug)]
+pub struct OpaqueLoginFinish {
+    client_message: CredentialFinalization<OpaqueCiphersuite>,
+}
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct OpaqueRegistrationRequest {}
+/// Registration request containing the OPAQUE payload.
+///
+/// The TLS serialization implementation of this
+#[derive(Debug)]
+pub(crate) struct OpaqueRegistrationRequest {
+    client_message: RegistrationRequest<OpaqueCiphersuite>,
+}
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct OpaqueRegistrationResponse {}
+#[derive(Debug)]
+pub(crate) struct OpaqueRegistrationResponse {
+    server_message: RegistrationResponse<OpaqueCiphersuite>,
+}
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct OpaqueRegistrationRecord {}
+impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationResponse {
+    fn from(value: RegistrationResponse<OpaqueCiphersuite>) -> Self {
+        Self {
+            server_message: value,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct OpaqueRegistrationRecord {
+    client_message: RegistrationUpload<OpaqueCiphersuite>,
+}
 
 // === User ===
 
@@ -80,7 +109,10 @@ pub struct AsUserId {
     pub client_id: Vec<u8>,
 }
 
-pub struct AsUserRecord {}
+pub struct AsUserRecord {
+    user_name: UserName,
+    password_file: ServerRegistration<OpaqueCiphersuite>,
+}
 
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct UserName {}
@@ -115,7 +147,9 @@ pub struct AuthService {}
 
 impl AuthService {
     /// Register a new user account.
-    pub fn register_user(username: Username) -> Result<RegistrationResponse, RegistrationError> {
+    pub fn register_user(
+        username: Username,
+    ) -> Result<InitUserRegistrationResponse, RegistrationError> {
         todo!()
     }
 

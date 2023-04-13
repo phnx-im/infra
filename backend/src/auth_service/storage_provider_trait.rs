@@ -5,10 +5,14 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
+use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
 
-use crate::messages::QueueMessage;
+use crate::{crypto::OpaqueCiphersuite, messages::QueueMessage};
 
-use super::{credentials::ClientCredential, *};
+use super::{
+    credentials::{AsIntermediateSigningKey, ClientCredential},
+    *,
+};
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -28,6 +32,10 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
     type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
 
+    type LoadSigningKeyError: Error + Debug + PartialEq + Eq + Clone;
+
+    type LoadOpaqueKeyError: Error + Debug + PartialEq + Eq + Clone;
+
     // === Users ===
 
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
@@ -39,7 +47,11 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Create a new user with the given user name. If a user with the given user
     /// name already exists, an error is returned.
-    async fn create_user(&self, user_name: &UserName) -> Result<AsUserRecord, Self::StorageError>;
+    async fn create_user(
+        &self,
+        user_name: &UserName,
+        opaque_record: &ServerRegistration<OpaqueCiphersuite>,
+    ) -> Result<AsUserRecord, Self::StorageError>;
 
     /// Deletes the AsUserRecord for a given UserId. Returns true if a AsUserRecord
     /// was deleted, false if no AsUserRecord existed for the given UserId.
@@ -132,6 +144,16 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
 
+    /// Load the currently active signing key and the
+    /// [`AsIntermediateCredential`].
+    async fn load_signing_key(&self)
+        -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError>;
+
+    /// Load the OPAQUE [`ServerSetup`].
+    async fn load_opaque_setup(
+        &self,
+    ) -> Result<ServerSetup<OpaqueCiphersuite>, Self::LoadSigningKeyError>;
+
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
@@ -145,7 +167,7 @@ pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
     /// Store a client credential for a given client ID.
     async fn store_credential(
         &self,
-        client_id: AsClientId,
+        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
         credential: &ClientCredential,
     ) -> Result<(), Self::StorageError>;
 
@@ -157,4 +179,21 @@ pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
 
     /// Delete a client credential for a given client ID.
     async fn delete_credential(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
+
+    /// Store a client credential for a given client ID.
+    async fn store_login_state(
+        &self,
+        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
+        credential: &ClientCredential,
+        opaque_state: &ServerLogin<OpaqueCiphersuite>,
+    ) -> Result<(), Self::StorageError>;
+
+    /// Load a client credential for a given client ID.
+    async fn load_login_state(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<Option<(ClientCredential, ServerLogin<OpaqueCiphersuite>)>, Self::StorageError>;
+
+    /// Delete a client credential for a given client ID.
+    async fn delete_login_state(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
 }

@@ -5,8 +5,8 @@
 [package]
 name = "phnxbackend"
 version = "0.1.0"
-authors = ["raphaelrobert <git@raphaelrobert.com>"]
-edition = "2018"
+authors = ["Phoenix R&D <hello@phoenix.im>"]
+edition = "2021"
 
 [lib]
 
@@ -35,6 +35,8 @@ hpke-rs-crypto = { version = "0.1.1" }
 hpke-rs-rust-crypto = { version = "0.1.1" }
 tracing = { version = "0.1.35", features = ["log"] }
 secrecy = { version = "0.8", features = ["serde"] }
+opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"]}
+argon2 = { version = "0.5.0" }
 
 
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }

@@ -130,10 +130,7 @@ pub trait Signable: Sized {
     /// Sign the payload.
     ///
     /// Returns a `Signature`.
-    fn sign(
-        self,
-        signature_private_key: &impl SigningKey,
-    ) -> Result<Self::SignedOutput, LibraryError>
+    fn sign(self, signing_key: &impl SigningKey) -> Result<Self::SignedOutput, LibraryError>
     where
         Self::SignedOutput: SignedStruct<Self>,
     {
@@ -141,7 +138,7 @@ pub trait Signable: Sized {
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
         let sign_content: SignContent = (self.label(), payload.as_slice()).into();
-        let signature = signature_private_key.sign(
+        let signature = signing_key.sign(
             &sign_content
                 .tls_serialize_detached()
                 .map_err(LibraryError::missing_bound_check)?,

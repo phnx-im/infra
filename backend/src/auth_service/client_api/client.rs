@@ -2,8 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use opaque_ke::{ServerLogin, ServerLoginStartParameters};
+use privacypass::Serialize;
+use rand_chacha::rand_core::OsRng;
+
 use crate::{
     auth_service::{credentials::*, errors::*, storage_provider_trait::*, *},
+    crypto::signatures::signable::Signable,
     messages::client_as::*,
 };
 
@@ -16,51 +21,94 @@ impl AuthService {
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
             auth_method,
-            client_csr,
-            opaque_ke1,
+            client_credential_payload,
+            opaque_login_request,
         } = params;
 
-        // Check if a client entry with the name given in the client_csr already exists for the user
-        if storage_provider
-            .load_client(&client_csr.identity())
+        // Load the server setup from storage
+        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            InitClientAdditionError::StorageError
+        })?;
+
+        // Load the user record from storage
+        let user_name = client_credential_payload.identity().username();
+        let password_file_option = storage_provider
+            .load_user(&user_name)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
                 InitClientAdditionError::StorageError
             })?
-            .is_some()
-        {
+            .map(|record| record.password_file);
+
+        let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
+            &mut OsRng,
+            &server_setup,
+            password_file_option,
+            opaque_login_request.client_message,
+            &user_name
+                .tls_serialize_detached()
+                .map_err(|_| InitClientAdditionError::LibraryError)?,
+            // TODO: We probably want to specify a context, as well as a server
+            // and client name here. For now, the default should be okay.
+            ServerLoginStartParameters::default(),
+        )
+        .map_err(|e| {
+            tracing::error!("Opaque startup failed with error {e:?}");
+            InitClientAdditionError::OpaqueLoginFailed
+        })?;
+
+        let opaque_login_response = OpaqueLoginResponse {
+            server_message: server_login_result.message,
+        };
+
+        // Check if a client entry with the name given in the client_csr already exists for the user
+        let client_id_exists = storage_provider
+            .load_client(&client_credential_payload.identity())
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?
+            .is_some();
+
+        if client_id_exists {
             return Err(InitClientAdditionError::ClientAlreadyExists);
         }
 
-        // Validate the client_csr
-        if !client_csr.validate() {
+        // Validate the client credential payload
+        if !client_credential_payload.validate() {
             return Err(InitClientAdditionError::InvalidCsr);
         }
 
-        // Sign the CSR
-        let client_credential = ClientCredential::new_from_csr(client_csr);
+        // Load the signature key from storage.
+        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            InitClientAdditionError::StorageError
+        })?;
+
+        // Sign the credential
+        let client_credential: ClientCredential = client_credential_payload
+            .sign(&signing_key)
+            .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider
-            .store_credential(client_credential.identity(), &client_credential)
+            .store_login_state(
+                client_credential.identity(),
+                &client_credential,
+                &server_login_result.state,
+            )
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
                 InitClientAdditionError::StorageError
             })?;
 
-        /*
-        TODO OPAQUE:
-             - perform the first (server side) step in the OPAQUE registration handshake
-             - return the ClientCredential to the client along with the OPAQUE response.
-         */
-
-        let opaque_ke2 = OpaqueKe2 {};
-
         let response = InitClientAdditionResponse {
             client_credential,
-            opaque_ke2,
+            opaque_login_response,
         };
 
         Ok(response)
@@ -78,23 +126,32 @@ impl AuthService {
             queue_encryption_key,
             initial_ratchet_key,
             connection_key_package,
-            opaque_ke3,
+            opaque_login_finish,
         } = params;
 
         let Client2FaAuth {
             client_id,
-            password,
+            opaque_finish,
         } = auth_method;
 
-        // Look up the initial client's ClientCredential in the ephemeral DB based on the client_id
-        let client_credential = ephemeral_storage_provider
-            .load_credential(&client_id)
+        // Look up the initial client's ClientCredential, as well as the OPAQUE
+        // state in the ephemeral DB based on the client_id
+        let (client_credential, opaque_state) = ephemeral_storage_provider
+            .load_login_state(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
                 FinishUserRegistrationError::StorageError
             })?
             .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
+
+        // Finish the OPAQUE handshake
+        opaque_state
+            .finish(opaque_login_finish.client_message)
+            .map_err(|e| {
+                tracing::error!("Error during OPAQUE login handshake: {e}");
+                FinishUserRegistrationError::OpaqueLoginFinishFailed
+            })?;
 
         // Authenticate the request using the signature key in the
         // ClientCredential
@@ -119,7 +176,7 @@ impl AuthService {
 
         // Delete the entry in the ephemeral OPAQUE DB
         ephemeral_storage_provider
-            .delete_credential(&client_id)
+            .delete_login_state(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
