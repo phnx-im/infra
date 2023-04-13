@@ -20,7 +20,7 @@ pub struct FriendshipToken {}
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 #[repr(u8)]
 pub(crate) enum MlsInfraVersion {
     Alpha,

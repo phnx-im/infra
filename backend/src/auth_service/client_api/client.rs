@@ -83,11 +83,10 @@ impl AuthService {
         }
 
         // Load the signature key from storage.
-        let (as_credential, signing_key) =
-            storage_provider.load_signing_key().await.map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?;
+        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            InitClientAdditionError::StorageError
+        })?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_credential_payload

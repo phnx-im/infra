@@ -44,11 +44,10 @@ impl AuthService {
         }
 
         // Load the signature key from storage.
-        let (as_credential, signing_key) =
-            storage_provider.load_signing_key().await.map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitUserRegistrationError::StorageError
-            })?;
+        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            InitUserRegistrationError::StorageError
+        })?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_payload
@@ -118,6 +117,7 @@ impl AuthService {
         } = auth_method;
 
         // Look up the initial client's ClientCredential in the ephemeral DB based on the user_name
+        // TODO: FIXME
         let client_credential = ephemeral_storage_provider
             .load_login_state(&client_id)
             .await

@@ -7,13 +7,10 @@ use std::{error::Error, fmt::Debug};
 use async_trait::async_trait;
 use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
 
-use crate::{
-    crypto::{signatures::keys::AsIntermediateSigningKey, OpaqueCiphersuite},
-    messages::QueueMessage,
-};
+use crate::{crypto::OpaqueCiphersuite, messages::QueueMessage};
 
 use super::{
-    credentials::{AsIntermediateCredential, ClientCredential},
+    credentials::{AsIntermediateSigningKey, ClientCredential},
     *,
 };
 
@@ -149,9 +146,8 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Load the currently active signing key and the
     /// [`AsIntermediateCredential`].
-    async fn load_signing_key(
-        &self,
-    ) -> Result<(AsIntermediateCredential, AsIntermediateSigningKey), Self::LoadSigningKeyError>;
+    async fn load_signing_key(&self)
+        -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError>;
 
     /// Load the OPAQUE [`ServerSetup`].
     async fn load_opaque_setup(

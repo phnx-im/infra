@@ -9,14 +9,15 @@ use mls_assist::{
 use privacypass::Serialize;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
+use keys::{
+    generate_signature_keypair, AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey,
+    KeyGenerationError,
+};
+
 use crate::{
     crypto::{
         ear::{keys::SignatureEncryptionKey, Ciphertext, EarEncryptable},
         signatures::{
-            keys::{
-                AsIntermediateKeypair, AsIntermediateSigningKey, AsIntermediateVerifyingKey,
-                AsKeypair, AsSigningKey, AsVerifyingKey, KeyGenerationError,
-            },
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SignatureVerificationError, VerifyingKey},
         },
@@ -31,6 +32,13 @@ mod private_mod {
     #[derive(Default)]
     pub struct Seal;
 }
+
+mod keys;
+
+// Re-export signing keys for storage provider.
+pub(crate) use keys::AsIntermediateSigningKey;
+
+use self::keys::ClientVerifyingKey;
 
 use super::AsClientId;
 
@@ -62,7 +70,26 @@ impl ExpirationData {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+fn fingerprint_with_label(
+    credential: &impl Serialize,
+    label: &str,
+) -> Result<CredentialFingerprint, LibraryError> {
+    let backend = OpenMlsRustCrypto::default();
+    let payload = credential
+        .tls_serialize_detached()
+        .map_err(LibraryError::missing_bound_check)?;
+    let input = [label.as_bytes().to_vec(), payload].concat();
+    let value = backend
+        .crypto()
+        .hash(HashType::Sha2_256, &input)
+        .map_err(|e| LibraryError::unexpected_crypto_error(&e.to_string()))?;
+    Ok(CredentialFingerprint { value })
+}
+
+const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
+const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize, Clone)]
 pub(crate) struct AsCredential {
     version: MlsInfraVersion,
     as_domain: Fqdn,
@@ -83,70 +110,107 @@ impl AsCredential {
     ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
         // Create lifetime valid until 5 years in the future.
-        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(5 * 365));
-        let as_keypair = AsKeypair::new()?;
+        let expiration_data =
+            expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
+        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
+        let verifying_key = verifying_key_bytes.into();
         let credential = Self {
             version,
             as_domain,
             expiration_data,
             signature_scheme,
-            verifying_key: as_keypair.verifying_key,
+            verifying_key,
         };
-        Ok((credential, as_keypair.signing_key))
+        let signing_key =
+            AsSigningKey::from_bytes_and_credential(signing_key_bytes, credential.clone());
+        Ok((credential, signing_key))
     }
 
-    // TODO: This function should be generalized to work for all credentials.
     fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
-        let backend = OpenMlsRustCrypto::default();
-        let payload = self
-            .tls_serialize_detached()
-            .map_err(LibraryError::missing_bound_check)?;
-        let input = [AS_CREDENTIAL_LABEL.as_bytes().to_vec(), payload].concat();
-        let value = backend
-            .crypto()
-            .hash(HashType::Sha2_256, &input)
-            .map_err(|e| LibraryError::unexpected_crypto_error(&e.to_string()))?;
-        Ok(CredentialFingerprint { value })
+        fingerprint_with_label(self, AS_CREDENTIAL_LABEL)
+    }
+}
+
+const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: i64 = 365;
+
+pub(crate) struct PreliminaryAsSigningKey {
+    signing_key_bytes: Vec<u8>,
+    verifying_key: AsIntermediateVerifyingKey,
+}
+
+impl PreliminaryAsSigningKey {
+    pub(crate) fn into_signing_key_bytes(self) -> Vec<u8> {
+        self.signing_key_bytes
     }
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct AsIntermediateCredentialPayload {
+pub(crate) struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
-    expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
     verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
-    signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
 }
 
-impl AsIntermediateCredentialPayload {
-    /// Generate a new [`AsIntermediateCredential`] with the given data and a freshly
+impl AsIntermediateCredentialCsr {
+    /// Generate a new [`AsIntermediateCredentialCsr`] with the given data and a freshly
     /// generated signature keypair.
     ///
-    /// The default [`ExpirationData`] for an [`AsIntermediateCredential`] is
-    /// one year.
+    /// Returns the CSR and a preliminary signing key. The preliminary signing
+    /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
+    /// signed.
     pub(crate) fn new(
         signature_scheme: SignatureScheme,
         as_domain: Fqdn,
-        expiration_data_option: Option<ExpirationData>,
-        signer_fingerprint: CredentialFingerprint,
-    ) -> Result<(Self, AsIntermediateSigningKey), KeyGenerationError> {
+    ) -> Result<(Self, PreliminaryAsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        // Create lifetime valid until 1 year in the future.
-        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(365));
-        let as_keypair = AsIntermediateKeypair::new()?;
+        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
+        let verifying_key = AsIntermediateVerifyingKey {
+            verifying_key_bytes: verifying_key_bytes.into(),
+        };
+        let prelim_signing_key = PreliminaryAsSigningKey {
+            signing_key_bytes,
+            verifying_key: verifying_key.clone(),
+        };
         let credential = Self {
             version,
-            expiration_data,
             signature_scheme,
-            verifying_key: as_keypair.verifying_key,
+            verifying_key,
+        };
+        Ok((credential, prelim_signing_key))
+    }
+
+    /// Sign the CSR with the given signing key to obtain an
+    /// [`AsIntermediateCredential`] with the given expiration data.
+    ///
+    /// If no expiration data is given, the default [`ExpirationData`] of one
+    /// year is set.
+    pub(crate) fn sign(
+        self,
+        as_signing_key: &AsSigningKey,
+        expiration_data_option: Option<ExpirationData>,
+    ) -> Result<AsIntermediateCredential, LibraryError> {
+        // Create lifetime valid until 5 years in the future.
+        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(
+            DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME,
+        ));
+        let signer_fingerprint = as_signing_key.credential().fingerprint()?;
+        let credential = AsIntermediateCredentialPayload {
+            csr: self,
+            expiration_data,
             signer_fingerprint,
         };
-        Ok((credential, as_keypair.signing_key))
+        credential.sign(as_signing_key)
     }
 }
 
-pub const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+struct AsIntermediateCredentialPayload {
+    csr: AsIntermediateCredentialCsr,
+    expiration_data: ExpirationData,
+    signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
+}
+
+pub const AS_INTERMEDIATE_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
 
 impl Signable for AsIntermediateCredentialPayload {
     type SignedOutput = AsIntermediateCredential;
@@ -156,7 +220,7 @@ impl Signable for AsIntermediateCredentialPayload {
     }
 
     fn label(&self) -> &str {
-        AS_CREDENTIAL_LABEL
+        AS_INTERMEDIATE_CREDENTIAL_LABEL
     }
 }
 
@@ -164,6 +228,25 @@ impl Signable for AsIntermediateCredentialPayload {
 pub struct AsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
+}
+
+impl AsIntermediateCredential {
+    fn verifying_key(&self) -> &AsIntermediateVerifyingKey {
+        &self.credential.csr.verifying_key
+    }
+
+    fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
+        fingerprint_with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
+    }
+}
+
+impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential {
+    fn from_payload(payload: AsIntermediateCredentialPayload, signature: Signature) -> Self {
+        Self {
+            credential: payload,
+            signature,
+        }
+    }
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -182,31 +265,78 @@ impl Verifiable for VerifiableAsIntermediateCredential {
     }
 
     fn label(&self) -> &str {
-        AS_CREDENTIAL_LABEL
+        AS_INTERMEDIATE_CREDENTIAL_LABEL
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct ClientVerifyingKey {
-    signature_key: SignaturePublicKey,
+const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
+const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: i64 = 90;
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct ClientCredentialCsr {
+    version: MlsInfraVersion,
+    client_id: AsClientId,
+    signature_scheme: SignatureScheme,
+    verifying_key: ClientVerifyingKey,
 }
 
-impl VerifyingKey for ClientVerifyingKey {}
+impl ClientCredentialCsr {
+    /// Generate a new [`ClientCredentialCsr`] with the given data and a freshly
+    /// generated signature keypair.
+    ///
+    /// Returns the CSR and a preliminary signing key. The preliminary signing
+    /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
+    /// signed.
+    pub(crate) fn new(
+        client_id: AsClientId,
+        signature_scheme: SignatureScheme,
+    ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
+        let version = MlsInfraVersion::default();
+        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
+        let verifying_key = ClientVerifyingKey {
+            verifying_key_bytes: verifying_key_bytes.into(),
+        };
+        let prelim_signing_key = PreliminaryClientSigningKey {
+            signing_key_bytes,
+            verifying_key: verifying_key.clone(),
+        };
+        let credential = Self {
+            version,
+            signature_scheme,
+            verifying_key,
+            client_id,
+        };
+        Ok((credential, prelim_signing_key))
+    }
 
-impl AsRef<[u8]> for ClientVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
+    /// Sign the CSR with the given signing key to obtain a [`ClientCredential`]
+    /// with the given expiration data.
+    ///
+    /// If no expiration data is given, the default [`ExpirationData`] of 90
+    /// days is set.
+    pub(crate) fn sign(
+        self,
+        as_intermediate_signing_key: &AsIntermediateSigningKey,
+        expiration_data_option: Option<ExpirationData>,
+    ) -> Result<ClientCredential, LibraryError> {
+        // Create lifetime valid until 5 years in the future.
+        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(
+            DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME,
+        ));
+        let signer_fingerprint = as_intermediate_signing_key.credential().fingerprint()?;
+        let credential = ClientCredentialPayload {
+            csr: self,
+            expiration_data,
+            signer_fingerprint,
+        };
+        credential.sign(as_intermediate_signing_key)
     }
 }
-
-pub const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct ClientCredentialPayload {
-    client_id: AsClientId,
+    csr: ClientCredentialCsr,
     expiration_data: ExpirationData,
-    signature_scheme: SignatureScheme,
-    verifying_key: ClientVerifyingKey,
     signer_fingerprint: CredentialFingerprint,
 }
 
@@ -231,7 +361,18 @@ impl Signable for ClientCredentialPayload {
 
 impl ClientCredentialPayload {
     pub fn identity(&self) -> AsClientId {
-        self.client_id.clone()
+        self.csr.client_id.clone()
+    }
+}
+
+pub(crate) struct PreliminaryClientSigningKey {
+    signing_key_bytes: Vec<u8>,
+    verifying_key: ClientVerifyingKey,
+}
+
+impl PreliminaryClientSigningKey {
+    pub(crate) fn into_signing_key_bytes(self) -> Vec<u8> {
+        self.signing_key_bytes
     }
 }
 
@@ -244,6 +385,10 @@ pub struct ClientCredential {
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {
         self.payload.identity()
+    }
+
+    pub(super) fn verifying_key(&self) -> &ClientVerifyingKey {
+        &self.payload.csr.verifying_key
     }
 }
 
@@ -326,7 +471,10 @@ impl VerifiedStruct<VerifiableLeafCredential> for LeafCredential {
     type SealingType = private_mod::Seal;
 
     fn from_verifiable(verifiable: VerifiableLeafCredential, _seal: Self::SealingType) -> Self {
-        todo!()
+        Self {
+            payload: verifiable.payload,
+            signature: verifiable.signature,
+        }
     }
 }
 
@@ -350,15 +498,15 @@ impl AsRef<Ciphertext> for EncryptedSignature {
 impl EarEncryptable<SignatureEncryptionKey, EncryptedSignature> for Signature {}
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct ObfuscatedLeafCredential {
+pub struct UnlinkableLeafCredential {
     payload: LeafCredentialPayload,
     encrypted_signature: EncryptedSignature,
 }
 
-impl ObfuscatedLeafCredential {
+impl UnlinkableLeafCredential {
     /// Verify this credential using the given [`ClientCredential`]. The
     /// [`SignatureEncryptionKey`] is required to decrypt the signature on this
-    /// [`ObfuscatedLeafCredential`].
+    /// [`UnlinkableLeafCredential`].
     ///
     /// Note that type-based verification enforces that the [`ClientCredential`]
     /// was already validated, thus guaranteeing verification of the whole
@@ -375,6 +523,6 @@ impl ObfuscatedLeafCredential {
             payload: self.payload.clone(),
             signature,
         }
-        .verify(&client_credential.payload.verifying_key)
+        .verify(&client_credential.payload.csr.verifying_key)
     }
 }
