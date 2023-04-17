@@ -8,20 +8,14 @@ use crate::{
 };
 
 impl AuthService {
-    pub async fn as_publish_key_packages<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_publish_key_packages<S: AsStorageProvider>(
         storage_provider: &S,
-        params: PublishKeyPackagesParams,
-    ) -> Result<(), PublishKeyPackageError> {
-        let PublishKeyPackagesParams {
-            auth_method,
+        params: PublishKeyPackagesParamsTbs,
+    ) -> Result<PublishKeyPackagesResponse, PublishKeyPackageError> {
+        let PublishKeyPackagesParamsTbs {
+            client_id,
             key_packages,
         } = params;
-
-        let ClientCredentialAuth {
-            client_id,
-            signature,
-        } = auth_method;
 
         // TODO: Validate the key packages
 
@@ -31,18 +25,14 @@ impl AuthService {
             .store_key_packages(&client_id, key_packages)
             .await
             .map_err(|_| PublishKeyPackageError::StorageError)?;
-        Ok(())
+        Ok(PublishKeyPackagesResponse {})
     }
 
-    pub async fn as_client_key_package<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_client_key_package<S: AsStorageProvider>(
         storage_provider: &S,
-        params: ClientKeyPackageParams,
+        params: ClientKeyPackageParamsTbs,
     ) -> Result<ClientKeyPackageResponse, ClientKeyPackageError> {
-        let ClientKeyPackageParams {
-            auth_method,
-            client_id,
-        } = params;
+        let client_id = params;
 
         let key_package = storage_provider
             .client_key_package(&client_id)

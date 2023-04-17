@@ -2,23 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::convert::Infallible;
-
 use crate::{
     auth_service::{errors::*, storage_provider_trait::AsStorageProvider, AuthService},
     messages::client_as::*,
 };
 
 impl AuthService {
-    pub async fn as_user_clients<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_user_clients<S: AsStorageProvider>(
         storage_provider: &S,
         params: UserClientsParams,
     ) -> Result<UserClientsResponse, UserClientsError> {
-        let UserClientsParams {
-            auth_method,
-            user_name,
-        } = params;
+        let UserClientsParams { user_name } = params;
 
         // Look up the user entry in the DB
         let client_credentials = storage_provider.client_credentials(&user_name).await;
@@ -29,14 +23,10 @@ impl AuthService {
     }
 
     pub async fn as_user_key_package<S: AsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: UserKeyPackagesParams,
     ) -> Result<UserKeyPackagesResponse, UserKeyPackagesError> {
-        let UserKeyPackagesParams {
-            auth_method,
-            user_name,
-        } = params;
+        let UserKeyPackagesParams { user_name } = params;
 
         let key_packages = storage_provider
             .load_user_key_packages(&user_name)
@@ -47,13 +37,11 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_enqueue_message<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_enqueue_message<S: AsStorageProvider>(
         storage_provider: &S,
         params: EnqueueMessageParams,
-    ) -> Result<(), EnqueueMessageError> {
+    ) -> Result<AsEnqueueMessageResponse, EnqueueMessageError> {
         let EnqueueMessageParams {
-            auth_method,
             client_id,
             connection_establishment_ctxt,
         } = params;
@@ -70,8 +58,6 @@ impl AuthService {
             .encrypt(connection_establishment_ctxt)
             .map_err(|_| EnqueueMessageError::LibraryError)?;
 
-        // TODO: Store the new key.
-
         // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
@@ -80,16 +66,27 @@ impl AuthService {
             .await
             .map_err(|_| EnqueueMessageError::StorageError)?;
 
-        // TODO: client now has new ratchet key, store it in the storage
-        // provider.
-        Ok(())
+        // Store the changed client record.
+        storage_provider
+            .store_client(&client_id, &client_record)
+            .await
+            .map_err(|_| EnqueueMessageError::StorageError)?;
+
+        Ok(AsEnqueueMessageResponse {})
     }
 
-    // TODO: Credentials
-    pub async fn as_credentials(
-        &self,
+    pub(crate) async fn as_credentials<S: AsStorageProvider>(
+        storage_provider: &S,
         params: AsCredentialsParams,
-    ) -> Result<AsCredentialsResponse, Infallible> {
-        todo!()
+    ) -> Result<AsCredentialsResponse, AsCredentialsError> {
+        let (as_credentials, as_intermediate_credentials, revoked_credentials) = storage_provider
+            .load_as_credentials()
+            .await
+            .map_err(|_| AsCredentialsError::StorageError)?;
+        Ok(AsCredentialsResponse {
+            as_credentials,
+            as_intermediate_credentials,
+            revoked_credentials,
+        })
     }
 }

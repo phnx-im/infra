@@ -90,7 +90,7 @@ const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize, Clone)]
-pub(crate) struct AsCredential {
+pub struct AsCredential {
     version: MlsInfraVersion,
     as_domain: Fqdn,
     expiration_data: ExpirationData,
@@ -387,7 +387,7 @@ impl ClientCredential {
         self.payload.identity()
     }
 
-    pub(super) fn verifying_key(&self) -> &ClientVerifyingKey {
+    pub(crate) fn verifying_key(&self) -> &ClientVerifyingKey {
         &self.payload.csr.verifying_key
     }
 }

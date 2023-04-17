@@ -139,4 +139,80 @@ pub enum IssueTokensError {
     /// Too many tokens
     #[error("Too many tokens")]
     TooManyTokens,
+    /// PrivacyPass protocol error
+    #[error("PrivacyPass protocol error")]
+    PrivacyPassError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum Init2FactorAuthError {
+    /// Library error
+    #[error("Library error")]
+    LibraryError,
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+    /// Error during OPAQUE login handshake
+    #[error("Error during OPAQUE login handshake")]
+    OpaqueLoginFailed,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum AsCredentialsError {
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum AsVerificationError {
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+    /// Could not find client
+    #[error("Could not find client")]
+    UnknownClient,
+    /// Could not find user
+    #[error("Could not find user")]
+    UnknownUser,
+    /// Could not authenticate message
+    #[error("Could not authenticate message")]
+    AuthenticationFailed,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum AsProcessingError {
+    /// Authentication error
+    #[error(transparent)]
+    AuthenticationError(#[from] AsVerificationError),
+    #[error(transparent)]
+    AsDequeueError(#[from] AsDequeueError),
+    #[error(transparent)]
+    InitUserRegistrationError(#[from] InitUserRegistrationError),
+    #[error(transparent)]
+    FinishUserRegistrationError(#[from] FinishUserRegistrationError),
+    #[error(transparent)]
+    DeleteUserError(#[from] DeleteUserError),
+    #[error(transparent)]
+    UserClientsError(#[from] UserClientsError),
+    #[error(transparent)]
+    InitClientAdditionError(#[from] InitClientAdditionError),
+    #[error(transparent)]
+    FinishClientAdditionError(#[from] FinishClientAdditionError),
+    #[error(transparent)]
+    DeleteClientError(#[from] DeleteClientError),
+    #[error(transparent)]
+    PublishKeyPackageError(#[from] PublishKeyPackageError),
+    #[error(transparent)]
+    ClientKeyPackageError(#[from] ClientKeyPackageError),
+    #[error(transparent)]
+    UserKeyPackagesError(#[from] UserKeyPackagesError),
+    #[error(transparent)]
+    EnqueueMessageError(#[from] EnqueueMessageError),
+    #[error(transparent)]
+    IssueTokensError(#[from] IssueTokensError),
+    #[error(transparent)]
+    Init2FactorAuthError(#[from] Init2FactorAuthError),
+    #[error(transparent)]
+    AsCredentialsError(#[from] AsCredentialsError),
 }

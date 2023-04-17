@@ -92,15 +92,6 @@ pub struct InitialClientKdfKey {
     key: InitialClientKdfKeySecret,
 }
 
-impl InitialClientKdfKey {
-    // TODO: This should be removed at some point
-    pub fn dummy_value() -> Self {
-        Self {
-            key: Secret::random().unwrap(),
-        }
-    }
-}
-
 impl From<Secret<KDF_KEY_SIZE>> for InitialClientKdfKey {
     fn from(secret: Secret<KDF_KEY_SIZE>) -> Self {
         Self { key: secret }
