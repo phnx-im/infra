@@ -13,14 +13,15 @@ use crate::{
 };
 
 impl AuthService {
-    pub async fn as_init_client_addition<S: AsStorageProvider, E: AsEphemeralStorageProvider>(
-        &self,
+    pub(crate) async fn as_init_client_addition<
+        S: AsStorageProvider,
+        E: AsEphemeralStorageProvider,
+    >(
         storage_provider: &S,
         ephemeral_storage_provider: &E,
         params: InitiateClientAdditionParams,
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
-            auth_method,
             client_credential_payload,
             opaque_login_request,
         } = params;
@@ -95,7 +96,7 @@ impl AuthService {
 
         // Store the client_credential in the ephemeral DB
         ephemeral_storage_provider
-            .store_login_state(
+            .store_client_login_state(
                 client_credential.identity(),
                 &client_credential,
                 &server_login_result.state,
@@ -114,30 +115,25 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_finish_client_addition<S: AsStorageProvider, E: AsEphemeralStorageProvider>(
-        &self,
+    pub(crate) async fn as_finish_client_addition<
+        S: AsStorageProvider,
+        E: AsEphemeralStorageProvider,
+    >(
         storage_provider: &S,
         ephemeral_storage_provider: &E,
-        params: FinishClientAdditionParams,
+        params: FinishClientAdditionParamsTbs,
     ) -> Result<FinishClientAdditionResponse, FinishUserRegistrationError> {
-        let FinishClientAdditionParams {
-            auth_method,
+        let FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
             initial_ratchet_key,
             connection_key_package,
-            opaque_login_finish,
         } = params;
 
-        let Client2FaAuth {
-            client_id,
-            opaque_finish,
-        } = auth_method;
-
-        // Look up the initial client's ClientCredential, as well as the OPAQUE
-        // state in the ephemeral DB based on the client_id
-        let (client_credential, opaque_state) = ephemeral_storage_provider
-            .load_login_state(&client_id)
+        // Look up the initial client's ClientCredentialn the ephemeral DB based
+        // on the client_id
+        let (client_credential, _opaque_state) = ephemeral_storage_provider
+            .load_client_login_state(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -145,25 +141,12 @@ impl AuthService {
             })?
             .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
 
-        // Finish the OPAQUE handshake
-        opaque_state
-            .finish(opaque_login_finish.client_message)
-            .map_err(|e| {
-                tracing::error!("Error during OPAQUE login handshake: {e}");
-                FinishUserRegistrationError::OpaqueLoginFinishFailed
-            })?;
-
-        // Authenticate the request using the signature key in the
-        // ClientCredential
-
-        // TODO: This is tricky, since we cannot do this ahead
-        // of time, since the client certificate is only in the ephemeral DB.
-
         // Create the new client entry
         let client_record = AsClientRecord {
             queue_encryption_key,
             ratchet_key: initial_ratchet_key,
             activity_time: TimeStamp::now(),
+            credential: client_credential,
         };
 
         storage_provider
@@ -176,7 +159,7 @@ impl AuthService {
 
         // Delete the entry in the ephemeral OPAQUE DB
         ephemeral_storage_provider
-            .delete_login_state(&client_id)
+            .delete_client_login_state(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -188,15 +171,11 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_delete_client<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_delete_client<S: AsStorageProvider>(
         storage_provider: &S,
-        params: DeleteClientParams,
+        params: DeleteClientParamsTbs,
     ) -> Result<DeleteClientResponse, DeleteClientError> {
-        let DeleteClientParams {
-            auth_method,
-            client_id,
-        } = params;
+        let client_id = params;
 
         // Delete the client
         storage_provider
@@ -211,13 +190,11 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_dequeue_messages<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(
         storage_provider: &S,
-        params: DequeueMessagesParams,
+        params: DequeueMessagesParamsTbs,
     ) -> Result<DequeueMessagesResponse, AsDequeueError> {
-        let DequeueMessagesParams {
-            auth_method,
+        let DequeueMessagesParamsTbs {
             sender,
             sequence_number_start,
             max_message_number,

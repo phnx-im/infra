@@ -4,7 +4,7 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::{messages::AssistedWelcome, KeyPackage};
+use mls_assist::KeyPackage;
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
@@ -14,15 +14,20 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use crate::{
     crypto::{OpaqueCiphersuite, QueueRatchet, RatchetPublicKey},
     ds::group_state::TimeStamp,
-    messages::client_as::InitUserRegistrationResponse,
+    messages::client_as::{
+        AsCredentialsResponse, AsEnqueueMessageResponse, ClientKeyPackageResponse,
+        DeleteClientResponse, DeleteUserResponse, DequeueMessagesResponse,
+        FinishClientAdditionResponse, FinishUserRegistrationResponse, Init2FactorAuthResponse,
+        InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
+        PublishKeyPackagesResponse, UserClientsResponse, UserKeyPackagesResponse,
+        VerifiableClientToAsMessage, VerifiedAsRequestParams,
+    },
 };
 
 use self::{
-    devices::{AddDeviceError, GetDevicesError, RemoveDeviceError},
-    invitations::InviteUserError,
-    key_packages::{FetchKeyPackagesError, PublisKeyPackagesError},
-    registration::RegistrationError,
-    username::Username,
+    credentials::ClientCredential,
+    errors::AsProcessingError,
+    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
 };
 
 pub mod client_api;
@@ -74,7 +79,7 @@ pub struct OpaqueLoginResponse {
 
 #[derive(Clone, Debug)]
 pub struct OpaqueLoginFinish {
-    client_message: CredentialFinalization<OpaqueCiphersuite>,
+    pub(crate) client_message: CredentialFinalization<OpaqueCiphersuite>,
 }
 
 /// Registration request containing the OPAQUE payload.
@@ -134,73 +139,140 @@ pub struct AsClientRecord {
     pub queue_encryption_key: RatchetPublicKey,
     pub ratchet_key: QueueRatchet,
     pub activity_time: TimeStamp,
+    pub credential: ClientCredential,
 }
 
 impl AsClientRecord {}
 
-// === Legacy ===
-
 pub struct AuthService {}
 
-// === Authenticated endpoints ===
-// TODO: Implement authentication
-
 impl AuthService {
-    /// Register a new user account.
-    pub fn register_user(
-        username: Username,
-    ) -> Result<InitUserRegistrationResponse, RegistrationError> {
-        todo!()
-    }
+    pub async fn process<Asp: AsStorageProvider, Eph: AsEphemeralStorageProvider>(
+        storage_provider: &Asp,
+        ephemeral_storage_provider: &Eph,
+        message: VerifiableClientToAsMessage,
+    ) -> Result<AsProcessResponse, AsProcessingError> {
+        let verified_params = message
+            .verify(storage_provider, ephemeral_storage_provider)
+            .await?;
 
-    /// Add a device to a user account.
-    pub fn add_device(username: Username, device: DeviceCertificate) -> Result<(), AddDeviceError> {
-        todo!()
-    }
-
-    /// Remove a device from a user account.
-    pub fn remove_device(
-        username: Username,
-        device: DeviceCertificate,
-    ) -> Result<(), RemoveDeviceError> {
-        todo!()
-    }
-
-    /// Get the list of devices for a user account.
-    pub fn get_devices(username: Username) -> Result<Vec<DeviceCertificate>, GetDevicesError> {
-        todo!()
-    }
-
-    /// Publish own KeyPackages.
-    pub fn publish_key_packages(
-        username: Username,
-        key_packages: Vec<KeyPackage>,
-    ) -> Result<(), PublisKeyPackagesError> {
-        todo!()
+        let response: AsProcessResponse = match verified_params {
+            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
+                AuthService::as_init_two_factor_auth(
+                    storage_provider,
+                    ephemeral_storage_provider,
+                    params,
+                )
+                .await
+                .map(AsProcessResponse::Init2FactorAuth)?
+            }
+            VerifiedAsRequestParams::FinishUserRegistration(params) => {
+                AuthService::as_finish_user_registration(
+                    storage_provider,
+                    ephemeral_storage_provider,
+                    params,
+                )
+                .await
+                .map(AsProcessResponse::FinishUserRegistration)?
+            }
+            VerifiedAsRequestParams::DeleteUser(params) => {
+                AuthService::as_delete_user(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::DeleteUser)?
+            }
+            VerifiedAsRequestParams::FinishClientAddition(params) => {
+                AuthService::as_finish_client_addition(
+                    storage_provider,
+                    ephemeral_storage_provider,
+                    params,
+                )
+                .await
+                .map(AsProcessResponse::FinishClientAddition)?
+            }
+            VerifiedAsRequestParams::DeleteClient(params) => {
+                AuthService::as_delete_client(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::DeleteClient)?
+            }
+            VerifiedAsRequestParams::DequeueMessages(params) => {
+                AuthService::as_dequeue_messages(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::DequeueMessages)?
+            }
+            VerifiedAsRequestParams::PublishKeyPackages(params) => {
+                AuthService::as_publish_key_packages(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::PublishKeyPackages)?
+            }
+            VerifiedAsRequestParams::ClientKeyPackage(params) => {
+                AuthService::as_client_key_package(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::ClientKeyPackage)?
+            }
+            VerifiedAsRequestParams::IssueTokens(params) => {
+                AuthService::as_issue_tokens(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::IssueTokens)?
+            }
+            VerifiedAsRequestParams::UserKeyPackages(params) => {
+                AuthService::as_user_key_package(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::UserKeyPackages)?
+            }
+            VerifiedAsRequestParams::InitiateClientAddition(params) => {
+                AuthService::as_init_client_addition(
+                    storage_provider,
+                    ephemeral_storage_provider,
+                    params,
+                )
+                .await
+                .map(AsProcessResponse::InitiateClientAddition)?
+            }
+            VerifiedAsRequestParams::UserClients(params) => {
+                AuthService::as_user_clients(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::UserClients)?
+            }
+            VerifiedAsRequestParams::AsCredentials(params) => {
+                AuthService::as_credentials(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::AsCredentials)?
+            }
+            VerifiedAsRequestParams::EnqueueMessage(params) => {
+                AuthService::as_enqueue_message(storage_provider, params)
+                    .await
+                    .map(AsProcessResponse::EnqueueMessage)?
+            }
+            VerifiedAsRequestParams::InitUserRegistration(params) => {
+                AuthService::as_init_user_registration(
+                    storage_provider,
+                    ephemeral_storage_provider,
+                    params,
+                )
+                .await
+                .map(AsProcessResponse::InitUserRegistration)?
+            }
+        };
+        Ok(response)
     }
 }
 
-// === Pseudonymous endpoints ===
-
-impl AuthService {
-    /// Fetch KeyPackages from other users.
-    pub fn fetch_key_packages(
-        username: Username,
-    ) -> Result<Vec<KeyPackage>, FetchKeyPackagesError> {
-        todo!()
-    }
-
-    /// Invite another user to a group.
-    pub fn invite_user(
-        username: Username,
-        welcome: AssistedWelcome,
-    ) -> Result<(), InviteUserError> {
-        todo!()
-    }
+#[derive(Debug, TlsSerialize, TlsSize)]
+#[repr(u8)]
+pub enum AsProcessResponse {
+    Init2FactorAuth(Init2FactorAuthResponse),
+    FinishUserRegistration(FinishUserRegistrationResponse),
+    DeleteUser(DeleteUserResponse),
+    FinishClientAddition(FinishClientAdditionResponse),
+    DeleteClient(DeleteClientResponse),
+    DequeueMessages(DequeueMessagesResponse),
+    PublishKeyPackages(PublishKeyPackagesResponse),
+    ClientKeyPackage(ClientKeyPackageResponse),
+    IssueTokens(IssueTokensResponse),
+    UserKeyPackages(UserKeyPackagesResponse),
+    InitiateClientAddition(InitClientAdditionResponse),
+    UserClients(UserClientsResponse),
+    AsCredentials(AsCredentialsResponse),
+    EnqueueMessage(AsEnqueueMessageResponse),
+    InitUserRegistration(InitUserRegistrationResponse),
 }
-
-// === Temporary data types ===
-// TODO: This should be replaced with proper types once they become avaiable.
-
-/// A certificate representing a user's device
-pub struct DeviceCertificate {}

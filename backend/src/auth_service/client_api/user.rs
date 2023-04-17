@@ -12,14 +12,15 @@ use crate::{
 };
 
 impl AuthService {
-    pub async fn as_init_user_registration<S: AsStorageProvider, E: AsEphemeralStorageProvider>(
-        &self,
+    pub(crate) async fn as_init_user_registration<
+        S: AsStorageProvider,
+        E: AsEphemeralStorageProvider,
+    >(
         storage_provider: &S,
         ephemeral_storage_provider: &E,
         params: InitUserRegistrationParams,
     ) -> Result<InitUserRegistrationResponse, InitUserRegistrationError> {
         let InitUserRegistrationParams {
-            auth_method,
             client_payload,
             opaque_registration_request,
         } = params;
@@ -93,17 +94,16 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_finish_user_registration<
+    pub(crate) async fn as_finish_user_registration<
         S: AsStorageProvider,
         E: AsEphemeralStorageProvider,
     >(
-        &self,
         storage_provider: &S,
         ephemeral_storage_provider: &E,
-        params: FinishUserRegistrationParams,
+        params: FinishUserRegistrationParamsTbs,
     ) -> Result<FinishUserRegistrationResponse, FinishUserRegistrationError> {
-        let FinishUserRegistrationParams {
-            auth_method,
+        let FinishUserRegistrationParamsTbs {
+            client_id,
             user_name,
             queue_encryption_key,
             initial_ratchet_key,
@@ -111,15 +111,9 @@ impl AuthService {
             opaque_registration_record,
         } = params;
 
-        let Client2FaAuth {
-            client_id,
-            opaque_finish: password,
-        } = auth_method;
-
         // Look up the initial client's ClientCredential in the ephemeral DB based on the user_name
-        // TODO: FIXME
         let client_credential = ephemeral_storage_provider
-            .load_login_state(&client_id)
+            .load_credential(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -151,6 +145,7 @@ impl AuthService {
             queue_encryption_key,
             ratchet_key: initial_ratchet_key,
             activity_time: TimeStamp::now(),
+            credential: client_credential,
         };
 
         storage_provider
@@ -163,7 +158,7 @@ impl AuthService {
 
         // Delete the entry in the ephemeral OPAQUE DB
         ephemeral_storage_provider
-            .delete_login_state(&client_id)
+            .delete_client_login_state(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -175,20 +170,15 @@ impl AuthService {
         Ok(response)
     }
 
-    pub async fn as_delete_user<S: AsStorageProvider>(
-        &self,
+    pub(crate) async fn as_delete_user<S: AsStorageProvider>(
         storage_provider: &S,
-        params: DeleteUserParams,
+        params: DeleteUserParamsTbs,
     ) -> Result<DeleteUserResponse, DeleteUserError> {
-        let DeleteUserParams {
-            auth_method,
+        let DeleteUserParamsTbs {
             user_name,
-        } = params;
-
-        let Client2FaAuth {
             client_id,
-            opaque_finish: password,
-        } = auth_method;
+            opaque_finish: _,
+        } = params;
 
         // Delete the user
         storage_provider

@@ -627,8 +627,6 @@ pub enum DsSender {
     UserKeyHash(UserKeyHash),
 }
 
-// TODO: this needs custom deserialization that ensures that the sender matches
-// the request params.
 pub(crate) struct ClientToDsMessageTbs {
     _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,

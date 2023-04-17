@@ -6,17 +6,22 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
+use privacypass::batched_tokens::server::BatchedKeyStore;
 
 use crate::{crypto::OpaqueCiphersuite, messages::QueueMessage};
 
 use super::{
-    credentials::{AsIntermediateSigningKey, ClientCredential},
+    credentials::{
+        AsCredential, AsIntermediateCredential, AsIntermediateSigningKey, ClientCredential,
+        CredentialFingerprint,
+    },
     *,
 };
 
 /// Storage provider trait for the QS.
 #[async_trait]
 pub trait AsStorageProvider: Sync + Send + Debug + 'static {
+    type PrivacyPassKeyStore: BatchedKeyStore;
     type StorageError: Error + Debug + PartialEq + Eq + Clone;
 
     type CreateUserError: Error + Debug + PartialEq + Eq + Clone;
@@ -33,6 +38,7 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
 
     type LoadSigningKeyError: Error + Debug + PartialEq + Eq + Clone;
+    type LoadAsCredentialsError: Error + Debug + PartialEq + Eq + Clone;
 
     type LoadOpaqueKeyError: Error + Debug + PartialEq + Eq + Clone;
 
@@ -149,6 +155,19 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     async fn load_signing_key(&self)
         -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError>;
 
+    /// Load all currently active [`AsCredential`]s and
+    /// [`AsIntermediateCredential`]s.
+    async fn load_as_credentials(
+        &self,
+    ) -> Result<
+        (
+            Vec<AsCredential>,
+            Vec<AsIntermediateCredential>,
+            Vec<CredentialFingerprint>,
+        ),
+        Self::LoadAsCredentialsError,
+    >;
+
     /// Load the OPAQUE [`ServerSetup`].
     async fn load_opaque_setup(
         &self,
@@ -158,6 +177,32 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Return the client credentials of a user for a given username.
     async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential>;
+
+    // === PrivacyPass ===
+
+    /// Loads the handle of the PrivacyPass keystore.
+    async fn load_privacy_pass_key_store(
+        &self,
+    ) -> Result<Self::PrivacyPassKeyStore, Self::StorageError>;
+
+    /// Loads the number of tokens is still allowed to request.
+    async fn load_client_token_allowance(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<usize, Self::StorageError>;
+
+    async fn set_client_token_allowance(
+        &self,
+        client_id: &AsClientId,
+        number_of_tokens: usize,
+    ) -> Result<(), Self::StorageError>;
+
+    /// Resets the token allowance of all clients. This should be called after a
+    /// rotation of the privacy pass token issuance key material.
+    async fn reset_token_allowances(
+        &self,
+        number_of_tokens: usize,
+    ) -> Result<(), Self::StorageError>;
 }
 
 #[async_trait]
@@ -180,20 +225,40 @@ pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
     /// Delete a client credential for a given client ID.
     async fn delete_credential(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
 
-    /// Store a client credential for a given client ID.
-    async fn store_login_state(
+    /// Store the login state for a given client ID.
+    async fn store_client_login_state(
         &self,
         client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
         credential: &ClientCredential,
         opaque_state: &ServerLogin<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError>;
 
-    /// Load a client credential for a given client ID.
-    async fn load_login_state(
+    /// Load the login state for a given client ID.
+    async fn load_client_login_state(
         &self,
         client_id: &AsClientId,
     ) -> Result<Option<(ClientCredential, ServerLogin<OpaqueCiphersuite>)>, Self::StorageError>;
 
-    /// Delete a client credential for a given client ID.
-    async fn delete_login_state(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
+    /// Delete the login state for a given client ID.
+    async fn delete_client_login_state(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<(), Self::StorageError>;
+
+    /// Store the login state for a given user name.
+    async fn store_user_login_state(
+        &self,
+        user_name: &UserName,
+        opaque_state: &ServerLogin<OpaqueCiphersuite>,
+    ) -> Result<(), Self::StorageError>;
+
+    /// Load the login state for a given user name.
+    async fn load_user_login_state(
+        &self,
+        user_name: &UserName,
+    ) -> Result<Option<ServerLogin<OpaqueCiphersuite>>, Self::StorageError>;
+
+    /// Delete the login state for a given user name.
+    async fn delete_user_login_state(&self, user_name: &UserName)
+        -> Result<(), Self::StorageError>;
 }

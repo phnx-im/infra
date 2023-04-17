@@ -39,15 +39,6 @@ impl AsRef<Secret<MAC_KEY_SIZE>> for EnqueueAuthenticationKey {
     }
 }
 
-impl EnqueueAuthenticationKey {
-    // TODO: This should be removed at some point
-    pub fn dummy_value() -> Self {
-        Self {
-            key: Secret::random().unwrap(),
-        }
-    }
-}
-
 impl MacKey for EnqueueAuthenticationKey {}
 
 /// A secret allowing the authentication of arbitrary requests to the DS as a
