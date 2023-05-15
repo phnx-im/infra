@@ -1,13 +1,13 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! PHNX server.
 
 pub mod configurations;
 pub mod endpoints;
 pub mod storage_provider;
 pub mod telemetry;
-
-// OpenAPI documentation.
-#[cfg(feature = "api_docs")]
-mod api_docs;
 
 use actix::{Actor, Addr};
 use endpoints::{ds::*, *};
@@ -61,15 +61,7 @@ pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvide
             .route(ENDPOINT_DS, web::post().to(ds_process_message::<Dsp, Qep>))
             // QS endpoint
             .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>));
-        // Expose API docs with the api_docs feature
-        #[cfg(feature = "api_docs")]
-        {
-            app.route("/api-docs", web::get().to(api_docs::serve_api_docs))
-        }
-        #[cfg(not(feature = "api_docs"))]
-        {
-            app
-        }
+        app
     })
     .listen(listener)?
     .run();
