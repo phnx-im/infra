@@ -6,6 +6,8 @@
 
 members = [
     "backend",
+    "server",
+    "api-client",
 ]
 
 [workspace.dependencies]

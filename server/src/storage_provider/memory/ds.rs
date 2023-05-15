@@ -1,0 +1,115 @@
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    sync::Mutex,
+};
+
+use async_trait::async_trait;
+use chrono::{Duration, Utc};
+use mls_assist::GroupId;
+use phnxbackend::{
+    crypto::EncryptedDsGroupState,
+    ds::{group_state::TimeStamp, DsStorageProvider, LoadState},
+};
+use uuid::Uuid;
+
+#[derive(Debug)]
+pub enum MemoryDsStorageError {
+    GroupAlreadyExists,
+    MemoryStoreError,
+}
+
+impl Display for MemoryDsStorageError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MemoryDsStorageError")
+    }
+}
+
+enum StorageState {
+    Reserved(TimeStamp),
+    Taken(EncryptedDsGroupState),
+}
+
+/// A storage provider for the DS using PostgreSQL.
+#[derive(Default)]
+pub struct MemoryDsStorage {
+    groups: Mutex<HashMap<GroupId, StorageState>>,
+}
+
+impl MemoryDsStorage {
+    pub fn new() -> Self {
+        Self {
+            groups: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl DsStorageProvider for MemoryDsStorage {
+    type StorageError = MemoryDsStorageError;
+
+    async fn create_group_state(
+        &self,
+        encrypted_group_state: EncryptedDsGroupState,
+    ) -> Result<GroupId, MemoryDsStorageError> {
+        // Generate a new group ID.
+        let group_id = GroupId::from_slice(Uuid::new_v4().as_bytes());
+
+        let mut encrypted_group_state = encrypted_group_state;
+        encrypted_group_state.last_used = Utc::now();
+
+        if let Ok(mut groups) = self.groups.try_lock() {
+            match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
+                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
+                None => Ok(group_id),
+            }
+        } else {
+            Err(MemoryDsStorageError::MemoryStoreError)
+        }
+    }
+
+    async fn load_group_state(&self, group_id: &GroupId) -> LoadState {
+        match self.groups.try_lock() {
+            Ok(groups) => match groups.get(group_id) {
+                Some(StorageState::Taken(encrypted_group_state)) => {
+                    if Utc::now().signed_duration_since(encrypted_group_state.last_used)
+                        < Duration::days(90)
+                    {
+                        LoadState::Success(encrypted_group_state.clone())
+                    } else {
+                        LoadState::Expired
+                    }
+                }
+                Some(StorageState::Reserved(timestamp)) => LoadState::Reserved(timestamp.clone()),
+                None => LoadState::NotFound,
+            },
+            Err(_) => LoadState::NotFound,
+        }
+    }
+
+    async fn save_group_state(
+        &self,
+        group_id: &GroupId,
+        encrypted_group_state: EncryptedDsGroupState,
+    ) -> Result<(), MemoryDsStorageError> {
+        if let Ok(mut groups) = self.groups.try_lock() {
+            match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
+                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
+                None => Ok(()),
+            }
+        } else {
+            Err(MemoryDsStorageError::MemoryStoreError)
+        }
+    }
+
+    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<(), Self::StorageError> {
+        if let Ok(mut groups) = self.groups.try_lock() {
+            match groups.insert(group_id.clone(), StorageState::Reserved(TimeStamp::now())) {
+                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
+                None => Ok(()),
+            }
+        } else {
+            Err(MemoryDsStorageError::MemoryStoreError)
+        }
+    }
+}
