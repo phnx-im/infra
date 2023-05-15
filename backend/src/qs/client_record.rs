@@ -23,7 +23,7 @@ use super::{
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
 /// TODO: This needs a codec that allows decoding to the proper type.
-#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Debug)]
 #[repr(u8)]
 pub(super) enum QsQueueMessage {
     #[tls_codec(discriminant = 1)]
@@ -34,7 +34,7 @@ pub(super) enum QsQueueMessage {
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct QsClientRecord {
-    pub(crate) user_id: QsUserId,
+    pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) owner_public_key: RatchetPublicKey,
     pub(crate) owner_signature_key: OwnerVerifyingKey,

@@ -12,7 +12,10 @@ use mls_assist::{
     GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{Deserialize as TlsDeserializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{
+    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
+    TlsSerialize, TlsSize,
+};
 use utoipa::ToSchema;
 
 use crate::{
@@ -27,7 +30,7 @@ use crate::{
         },
     },
     ds::group_state::{EncryptedCredentialChain, UserKeyHash},
-    qs::{QsClientReference, VerifiableKeyPackageBatch},
+    qs::{KeyPackageBatch, QsClientReference, UNVERIFIED},
 };
 
 use super::{EncryptedQueueMessage, MlsInfraVersion};
@@ -112,13 +115,19 @@ pub struct AssistedMessagePlus {
     pub message_bytes: Vec<u8>,
 }
 
+impl TlsSerializeTrait for AssistedMessagePlus {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        writer.write(&self.message_bytes).map_err(|e| e.into())
+    }
+}
+
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
-    pub key_package_batches: Vec<VerifiableKeyPackageBatch>,
+    pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
 impl AddUsersParams {
@@ -131,7 +140,7 @@ impl AddUsersParams {
         let encrypted_welcome_attribution_infos =
             Vec::<Vec<u8>>::tls_deserialize(&mut remaining_bytes)?;
         let key_package_batches =
-            Vec::<VerifiableKeyPackageBatch>::tls_deserialize(&mut remaining_bytes)?;
+            Vec::<KeyPackageBatch<UNVERIFIED>>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
                 message: commit,
@@ -412,7 +421,7 @@ impl DeleteGroupParams {
     }
 }
 
-/// This enum contains variatns for each DS endpoint.
+/// This enum contains variants for each DS endpoint.
 #[repr(u8)]
 pub(crate) enum DsRequestParams {
     AddUsers(AddUsersParams),
@@ -653,7 +662,7 @@ impl ClientToDsMessageTbs {
     }
 }
 
-pub(crate) struct ClientToDsMessage {
+pub struct ClientToDsMessage {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,

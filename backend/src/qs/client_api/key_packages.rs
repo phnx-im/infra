@@ -22,7 +22,6 @@ impl Qs {
     /// Clients publish key packages to the server.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_publish_key_packages<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: PublishKeyPackagesParams,
     ) -> Result<(), QsPublishKeyPackagesError> {
@@ -55,7 +54,6 @@ impl Qs {
     /// Retrieve a key package for the given client.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_client_key_package<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: ClientKeyPackageParams,
     ) -> Result<ClientKeyPackageResponse, QsClientKeyPackageError> {
@@ -75,7 +73,6 @@ impl Qs {
     /// Retrieve a key package batch for a given client.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_key_package_batch<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: KeyPackageBatchParams,
     ) -> Result<KeyPackageBatchResponse, QsKeyPackageBatchError> {
@@ -104,14 +101,24 @@ impl Qs {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let config = storage_provider
+            .load_config()
+            .await
+            .map_err(|_| QsKeyPackageBatchError::StorageError)?;
+
         let key_package_batch_tbs = KeyPackageBatchTbs {
-            homeserver_domain: self.fqdn.clone(),
+            homeserver_domain: config.fqdn.clone(),
             key_package_refs,
             time_of_signature: TimeStamp::now(),
         };
 
+        let signing_key = storage_provider
+            .load_signing_key()
+            .await
+            .map_err(|_| QsKeyPackageBatchError::StorageError)?;
+
         let key_package_batch = key_package_batch_tbs
-            .sign(&self.signing_key)
+            .sign(&signing_key)
             .map_err(|_| QsKeyPackageBatchError::LibraryError)?;
 
         let response = KeyPackageBatchResponse {
