@@ -6,10 +6,12 @@
 
 members = [
     "backend",
+    "server",
+    "api-client",
 ]
 
-[patch.crates-io.tls_codec]
-git = "https://github.com/RustCrypto/formats.git"
+[workspace.dependencies]
+tls_codec = { version = "0.3.0-pre.3", features = ["derive", "serde", "mls"] }
 
 [patch.crates-io.hpke-rs]
 git = "https://github.com/franziskuskiefer/hpke-rs.git"

@@ -16,17 +16,13 @@ use tls_codec::{
 };
 
 use crate::{
-    crypto::{
-        ear::keys::GroupStateEarKey,
-        signatures::{keys::QsVerifyingKey, signable::Verifiable},
-        EncryptionPublicKey,
-    },
+    crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
     messages::{
         client_ds::{AddUsersParams, AddUsersParamsAad, QueueMessagePayload},
         intra_backend::DsFanOutMessage,
     },
     qs::{
-        Fqdn, KeyPackageBatchTbs, QsClientReference, QsEnqueueProvider,
+        Fqdn, KeyPackageBatchTbs, QsClientReference, QsEnqueueProvider, QsVerifyingKey,
         KEYPACKAGEBATCH_EXPIRATION_DAYS,
     },
 };

@@ -63,7 +63,7 @@ impl TlsDeserializeTrait for TimeStamp {
 }
 
 impl TimeStamp {
-    pub(crate) fn now() -> Self {
+    pub fn now() -> Self {
         let time = Utc::now();
         Self { time }
     }

@@ -11,10 +11,19 @@ use crate::crypto::ear::Ciphertext;
 pub mod client_as;
 pub mod client_ds;
 pub mod client_qs;
-pub(crate) mod intra_backend;
+pub mod intra_backend;
 
 #[derive(
-    Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize, PartialEq, Eq, Clone,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
 )]
 pub struct FriendshipToken {}
 
@@ -36,8 +45,8 @@ impl Default for MlsInfraVersion {
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct QueueMessage {
-    pub(crate) sequence_number: u64,
-    pub(crate) ciphertext: EncryptedQueueMessage,
+    pub sequence_number: u64,
+    pub ciphertext: EncryptedQueueMessage,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]

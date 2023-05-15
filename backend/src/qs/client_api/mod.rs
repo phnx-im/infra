@@ -19,7 +19,6 @@ pub(crate) mod user_records;
 
 impl Qs {
     pub async fn process<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         message: VerifiableClientToQsMessage,
     ) -> Result<QsProcessResponse, QsProcessError> {
@@ -52,43 +51,39 @@ impl Qs {
 
         Ok(match request_params {
             QsRequestParams::CreateUser(params) => QsProcessResponse::CreateUser(
-                self.qs_create_user_record(storage_provider, params).await?,
+                Self::qs_create_user_record(storage_provider, params).await?,
             ),
             QsRequestParams::UpdateUser(params) => {
-                self.qs_update_user_record(storage_provider, params).await?;
+                Self::qs_update_user_record(storage_provider, params).await?;
                 QsProcessResponse::UpdateUser
             }
             QsRequestParams::DeleteUser(params) => {
-                self.qs_delete_user_record(storage_provider, params).await?;
+                Self::qs_delete_user_record(storage_provider, params).await?;
                 QsProcessResponse::DeleteUser
             }
             QsRequestParams::CreateClient(params) => QsProcessResponse::CreateClient(
-                self.qs_create_client_record(storage_provider, params)
-                    .await?,
+                Self::qs_create_client_record(storage_provider, params).await?,
             ),
             QsRequestParams::UpdateClient(params) => {
-                self.qs_update_client_record(storage_provider, params)
-                    .await?;
+                Self::qs_update_client_record(storage_provider, params).await?;
                 QsProcessResponse::UpdateClient
             }
             QsRequestParams::DeleteClient(params) => {
-                self.qs_delete_client_record(storage_provider, params)
-                    .await?;
+                Self::qs_delete_client_record(storage_provider, params).await?;
                 QsProcessResponse::DeleteClient
             }
             QsRequestParams::PublishKeyPackages(params) => {
-                self.qs_publish_key_packages(storage_provider, params)
-                    .await?;
+                Self::qs_publish_key_packages(storage_provider, params).await?;
                 QsProcessResponse::PublishKeyPackages
             }
             QsRequestParams::ClientKeyPackage(params) => QsProcessResponse::ClientKeyPackage(
-                self.qs_client_key_package(storage_provider, params).await?,
+                Self::qs_client_key_package(storage_provider, params).await?,
             ),
             QsRequestParams::KeyPackageBatch(params) => QsProcessResponse::KeyPackageBatch(
-                self.qs_key_package_batch(storage_provider, params).await?,
+                Self::qs_key_package_batch(storage_provider, params).await?,
             ),
             QsRequestParams::DequeueMessages(params) => QsProcessResponse::DequeueMessages(
-                self.qs_dequeue_messages(storage_provider, params).await?,
+                Self::qs_dequeue_messages(storage_provider, params).await?,
             ),
         })
     }
@@ -98,7 +93,6 @@ impl Qs {
     /// messages older than the given sequence number start.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_dequeue_messages<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: DequeueMessagesParams,
     ) -> Result<DequeueMessagesResponse, QsDequeueError> {

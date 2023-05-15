@@ -21,7 +21,6 @@ impl Qs {
     /// Create a new client record.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_create_client_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: CreateClientRecordParams,
     ) -> Result<CreateClientRecordResponse, QsCreateClientRecordError> {
@@ -81,7 +80,6 @@ impl Qs {
     /// Update a client record.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_update_client_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: UpdateClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {
@@ -117,7 +115,6 @@ impl Qs {
     /// Delete a client record.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_delete_client_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: DeleteClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {

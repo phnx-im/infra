@@ -117,16 +117,3 @@ impl AsRef<[u8]> for OwnerSigningKey {
 }
 
 impl SigningKey for OwnerSigningKey {}
-
-#[derive(Debug)]
-pub struct QsVerifyingKey {
-    verifying_key: Vec<u8>,
-}
-
-impl AsRef<[u8]> for QsVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
-    }
-}
-
-impl VerifyingKey for QsVerifyingKey {}

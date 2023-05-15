@@ -10,11 +10,13 @@
 //! TODO: A proper RNG provider for use with all crypto functions that require
 //! randomness, i.e. mainly secret and nonce sampling.
 #![allow(unused_variables)]
+use aes_gcm::aead::Aead;
 use argon2::Argon2;
 use chrono::{DateTime, Utc};
 use hpke::{Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_crypto::types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
 use hpke_rs_rust_crypto::HpkeRustCrypto;
+use mls_assist::{OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto};
 use opaque_ke::CipherSuite;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -184,7 +186,18 @@ impl QueueRatchet {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Clone,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    Eq,
+    PartialEq,
+    Hash,
+)]
 pub struct HpkeCiphertext {
     pub kem_output: Vec<u8>,
     pub ciphertext: Vec<u8>,
@@ -203,6 +216,10 @@ impl From<Vec<u8>> for EncryptionPublicKey {
     }
 }
 
+pub const HPKE_KEM: KemAlgorithm = KemAlgorithm::DhKem25519;
+pub const HPKE_KDF: KdfAlgorithm = KdfAlgorithm::HkdfSha256;
+pub const HPKE_AEAD: AeadAlgorithm = AeadAlgorithm::Aes256Gcm;
+
 impl EncryptionPublicKey {
     /// Encrypt the given plaintext using this key.
     pub(crate) fn encrypt(
@@ -211,18 +228,13 @@ impl EncryptionPublicKey {
         aad: &[u8],
         plain_txt: &[u8],
     ) -> Result<HpkeCiphertext, LibraryError> {
-        Hpke::<HpkeRustCrypto>::new(
-            hpke::Mode::Base,
-            KemAlgorithm::DhKem25519,
-            KdfAlgorithm::HkdfSha256,
-            AeadAlgorithm::Aes256Gcm,
-        )
-        .seal(&self.public_key, info, aad, plain_txt, None, None, None)
-        .map_err(|_| LibraryError::unexpected_crypto_error("Error encrypting with HPKE."))
-        .map(|(kem_output, ciphertext)| HpkeCiphertext {
-            kem_output,
-            ciphertext,
-        })
+        Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
+            .seal(&self.public_key, info, aad, plain_txt, None, None, None)
+            .map_err(|_| LibraryError::unexpected_crypto_error("Error encrypting with HPKE."))
+            .map(|(kem_output, ciphertext)| HpkeCiphertext {
+                kem_output,
+                ciphertext,
+            })
     }
 }
 
@@ -230,9 +242,10 @@ pub enum DecryptionError {
     DecryptionError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DecryptionPrivateKey {
     private_key: HpkePrivateKey,
+    public_key: HpkePublicKey,
 }
 
 impl DecryptionPrivateKey {
@@ -242,23 +255,35 @@ impl DecryptionPrivateKey {
         aad: &[u8],
         ct: &HpkeCiphertext,
     ) -> Result<Vec<u8>, DecryptionError> {
-        Hpke::<HpkeRustCrypto>::new(
-            hpke::Mode::Base,
-            KemAlgorithm::DhKem25519,
-            KdfAlgorithm::HkdfSha256,
-            AeadAlgorithm::Aes256Gcm,
-        )
-        .open(
-            &ct.kem_output,
-            &self.private_key,
-            info,
-            aad,
-            &ct.ciphertext,
-            None,
-            None,
-            None,
-        )
-        .map_err(|_| DecryptionError::DecryptionError)
+        Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
+            .open(
+                &ct.kem_output,
+                &self.private_key,
+                info,
+                aad,
+                &ct.ciphertext,
+                None,
+                None,
+                None,
+            )
+            .map_err(|_| DecryptionError::DecryptionError)
+    }
+
+    pub(crate) fn generate() -> Result<Self, RandomnessError> {
+        let provider = OpenMlsRustCrypto::default();
+        let key_seed = provider
+            .rand()
+            .random_array::<32>()
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let (private_key, public_key) =
+            Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
+                .derive_key_pair(&key_seed)
+                .map_err(|_| RandomnessError::InsufficientRandomness)?
+                .into_keys();
+        Ok(Self {
+            private_key,
+            public_key,
+        })
     }
 }
 

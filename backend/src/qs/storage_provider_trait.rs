@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use crate::messages::{FriendshipToken, QueueMessage};
 
 use super::{
-    client_record::QsClientRecord, user_record::QsUserRecord, QsClientId, QsEncryptedAddPackage,
-    QsUserId,
+    client_record::QsClientRecord, user_record::QsUserRecord, ClientIdDecryptionKey, QsClientId,
+    QsConfig, QsEncryptedAddPackage, QsSigningKey, QsUserId,
 };
 
 /// Storage provider trait for the QS.
@@ -28,6 +28,11 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     type ReadAndDeleteError: Error + Debug + PartialEq + Eq + Clone;
 
     type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
+
+    type LoadSigningKeyError: Error + Debug + Clone;
+    type LoadDecryptionKeyError: Error + Debug + Clone;
+
+    type LoadConfigError: Error + Debug + Clone;
 
     // === USERS ===
 
@@ -81,6 +86,10 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     // === KEY PACKAGES ===
 
+    // All key package endpoints (at least for now) need to preserve the
+    // invariant that there should always be at least one key package. Fetching
+    // a key package for an existing client should thus never fail.
+
     /// Store key packages for a specific client.
     async fn store_key_packages(
         &self,
@@ -91,6 +100,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     /// Return a key package for a specific client. The user ID is used to check if
     /// the client belongs to the user.
     /// TODO: Last resort key package
+    /// TODO: This should probably check for expired KeyPackages
     async fn load_key_package(
         &self,
         user_id: &QsUserId,
@@ -99,6 +109,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Return a key package for each client of a user referenced by a
     /// friendship token.
+    /// TODO: This should probably check for expired KeyPackages
     async fn load_user_key_packages(
         &self,
         friendship_token: &FriendshipToken,
@@ -108,6 +119,9 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Append the given message to the queue. Returns an error if the payload
     /// is greater than the maximum payload allowed by the storage provider.
+    /// TODO: Currently, the encryption layer is in control of the sequence
+    /// numbers. This function assumes that messages are always enqueued in
+    /// ascending order.
     async fn enqueue(
         &self,
         client_id: &QsClientId,
@@ -125,4 +139,19 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
+
+    // === Key Material ===
+
+    /// Load the QS signing key.
+    async fn load_signing_key(&self) -> Result<QsSigningKey, Self::LoadSigningKeyError>;
+
+    /// Load the key used to decrypt client ids.
+    async fn load_decryption_key(
+        &self,
+    ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError>;
+
+    // === Config ===
+
+    /// Load the QS config
+    async fn load_config(&self) -> Result<QsConfig, Self::LoadConfigError>;
 }

@@ -20,7 +20,7 @@ use crate::{
     },
     qs::{
         AddPackage, EncryptedPushToken, KeyPackageBatch, QsClientId, QsEncryptedAddPackage,
-        QsUserId,
+        QsUserId, VERIFIED,
     },
 };
 
@@ -177,10 +177,10 @@ pub struct KeyPackageBatchParams {
     pub(crate) friendship_ear_key: FriendshipEarKey,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsSize, ToSchema)]
 pub struct KeyPackageBatchResponse {
     pub(crate) add_packages: Vec<AddPackage>,
-    pub(crate) key_package_batch: KeyPackageBatch,
+    pub(crate) key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -314,6 +314,8 @@ impl QsRequestParams {
     }
 }
 
+#[derive(TlsSize, TlsSerialize)]
+#[repr(u8)]
 pub enum QsProcessResponse {
     CreateUser(CreateUserRecordResponse),
     UpdateUser,

@@ -20,7 +20,6 @@ impl Qs {
     /// owner of the queue.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_create_user_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: CreateUserRecordParams,
     ) -> Result<CreateUserRecordResponse, QsCreateUserError> {
@@ -50,12 +49,13 @@ impl Qs {
             initial_ratchet_key,
         };
 
-        let CreateClientRecordResponse { client_id } = self
-            .qs_create_client_record(storage_provider, create_client_params)
-            .await
-            .map_err(|_| QsCreateUserError::StorageError)?;
+        let CreateClientRecordResponse { client_id } =
+            Self::qs_create_client_record(storage_provider, create_client_params)
+                .await
+                .map_err(|_| QsCreateUserError::StorageError)?;
 
-        let user_record = QsUserRecord::new(user_record_auth_key, friendship_token);
+        let user_record =
+            QsUserRecord::new(user_record_auth_key, friendship_token, client_id.clone());
 
         tracing::trace!("Storing QsUserProfile in storage provider");
         storage_provider
@@ -74,7 +74,6 @@ impl Qs {
     /// Update a user record.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_update_user_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: UpdateUserRecordParams,
     ) -> Result<(), QsUpdateUserError> {
@@ -101,7 +100,6 @@ impl Qs {
     /// Delete a user record.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_delete_user_record<S: QsStorageProvider>(
-        &self,
         storage_provider: &S,
         params: DeleteUserRecordParams,
     ) -> Result<(), QsDeleteUserError> {

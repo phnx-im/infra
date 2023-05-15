@@ -148,6 +148,7 @@
 //!
 
 use mls_assist::{group::Group, GroupId, GroupInfo, Node, OpenMlsRustCrypto, Sender};
+use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -423,6 +424,8 @@ impl DsApi {
     }
 }
 
+#[derive(TlsSerialize, TlsSize)]
+#[repr(u8)]
 pub enum DsProcessResponse {
     WelcomeInfo(Vec<Option<Node>>),
     ExternalCommitInfo((GroupInfo, Vec<Option<Node>>)),

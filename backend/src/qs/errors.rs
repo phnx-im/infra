@@ -19,6 +19,9 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     /// An error ocurred enqueueing in a fan out queue
     #[error(transparent)]
     EnqueueError(#[from] EnqueueError<S>),
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
 }
 
 /// Error enqueuing a fanned-out message.

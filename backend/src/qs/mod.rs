@@ -68,18 +68,19 @@ use crate::{
             Ciphertext, EarEncryptable,
         },
         signatures::{
-            keys::QsVerifyingKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-            traits::SigningKey,
+            traits::{SigningKey, VerifyingKey},
         },
-        DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext,
+        DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext, RandomnessError,
     },
     ds::group_state::TimeStamp,
     messages::intra_backend::DsFanOutMessage,
 };
 
 use async_trait::*;
-use mls_assist::{KeyPackage, KeyPackageRef};
+use mls_assist::{
+    KeyPackage, KeyPackageRef, OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
@@ -87,7 +88,7 @@ use tls_codec::{
 };
 use utoipa::ToSchema;
 
-use self::errors::{QsEnqueueProviderError, SealError, UnsealError};
+use self::errors::{SealError, UnsealError};
 
 pub mod client_api;
 pub mod client_record;
@@ -137,18 +138,20 @@ pub trait WebsocketNotifier {
 }
 
 #[async_trait]
-pub trait QsEnqueueProvider {
-    async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), QsEnqueueProviderError>;
+pub trait QsEnqueueProvider: Sync + Send + std::fmt::Debug {
+    type EnqueueError;
+    type VerifyingKeyError;
+    async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
 
-    async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, QsEnqueueProviderError>;
+    async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
 
-#[derive(Debug)]
-pub struct ClientIdDecryptionPrivateKey {
+#[derive(Debug, Clone)]
+pub struct ClientIdDecryptionKey {
     private_key: DecryptionPrivateKey,
 }
 
-impl ClientIdDecryptionPrivateKey {
+impl ClientIdDecryptionKey {
     pub(super) fn unseal_client_config(
         &self,
         sealed_client_reference: &SealedClientReference,
@@ -159,14 +162,19 @@ impl ClientIdDecryptionPrivateKey {
             .map_err(|_| UnsealError::DecryptionError)?;
         ClientConfig::tls_deserialize(&mut bytes.as_slice()).map_err(|_| UnsealError::CodecError)
     }
+
+    pub fn generate() -> Result<Self, RandomnessError> {
+        let private_key = DecryptionPrivateKey::generate()?;
+        Ok(Self { private_key })
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct ClientIdEncryptionPublicKey {
+pub struct ClientIdEncryptionKey {
     public_key: EncryptionPublicKey,
 }
 
-impl ClientIdEncryptionPublicKey {
+impl ClientIdEncryptionKey {
     pub fn seal_client_config(
         &self,
         client_config: ClientConfig,
@@ -183,13 +191,42 @@ impl ClientIdEncryptionPublicKey {
 }
 
 /// This is the pseudonymous client id used on the QS.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 pub struct QsClientId {
     pub(crate) client_id: Vec<u8>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+
+impl QsClientId {
+    pub fn random() -> Self {
+        let client_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+        Self { client_id }
+    }
+}
+
+#[derive(
+    Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, PartialEq, Eq, Hash,
+)]
 pub struct QsUserId {
     pub(crate) user_id: Vec<u8>,
+}
+
+impl QsUserId {
+    pub fn random() -> Self {
+        let user_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+        Self { user_id }
+    }
 }
 
 /// Info describing the queue configuration for a member of a given group.
@@ -211,9 +248,29 @@ impl ClientConfig {
     }
 }
 
-#[derive(Debug)]
-struct QsSigningKey {
+#[derive(Debug, Clone)]
+pub struct QsSigningKey {
     signing_key: Vec<u8>,
+    verifiying_key: QsVerifyingKey,
+}
+
+impl QsSigningKey {
+    pub fn generate() -> Result<Self, RandomnessError> {
+        let backend = OpenMlsRustCrypto::default();
+        let (signing_key, verifying_key) = backend
+            .crypto()
+            .signature_key_gen(mls_assist::SignatureScheme::ED25519)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let key = Self {
+            signing_key,
+            verifiying_key: QsVerifyingKey { verifying_key },
+        };
+        Ok(key)
+    }
+
+    pub fn verifying_key(&self) -> &QsVerifyingKey {
+        &self.verifiying_key
+    }
 }
 
 impl AsRef<[u8]> for QsSigningKey {
@@ -224,14 +281,26 @@ impl AsRef<[u8]> for QsSigningKey {
 
 impl SigningKey for QsSigningKey {}
 
-// TODO: This could come from the storage provider
-#[derive(Debug)]
-pub struct Qs {
-    signing_key: QsSigningKey,
-    fqdn: Fqdn,
-    client_id_private_key: ClientIdDecryptionPrivateKey,
-    client_id_public_key: ClientIdEncryptionPublicKey,
+#[derive(Debug, Clone)]
+pub struct QsVerifyingKey {
+    verifying_key: Vec<u8>,
 }
+
+impl AsRef<[u8]> for QsVerifyingKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.verifying_key
+    }
+}
+
+impl VerifyingKey for QsVerifyingKey {}
+
+#[derive(Debug, Clone)]
+pub struct QsConfig {
+    pub fqdn: Fqdn,
+}
+
+#[derive(Debug)]
+pub struct Qs {}
 
 #[derive(
     Clone,
@@ -248,13 +317,35 @@ pub struct Qs {
 )]
 pub struct Fqdn {}
 
-#[derive(Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 pub struct QsClientReference {
     client_homeserver_domain: Fqdn,
     sealed_reference: SealedClientReference,
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Clone,
+    TlsSerialize,
+    TlsDeserialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 pub struct SealedClientReference {
     ciphertext: HpkeCiphertext,
 }
@@ -265,7 +356,7 @@ pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Clone)]
 pub struct QsEncryptedAddPackage {
     ctxt: Ciphertext,
 }
@@ -302,7 +393,7 @@ impl KeyPackageBatchTbs {
 }
 
 impl Signable for KeyPackageBatchTbs {
-    type SignedOutput = KeyPackageBatch;
+    type SignedOutput = KeyPackageBatch<VERIFIED>;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
@@ -313,29 +404,22 @@ impl Signable for KeyPackageBatchTbs {
     }
 }
 
-impl SignedStruct<KeyPackageBatchTbs> for KeyPackageBatch {
+impl SignedStruct<KeyPackageBatchTbs> for KeyPackageBatch<VERIFIED> {
     fn from_payload(payload: KeyPackageBatchTbs, signature: Signature) -> Self {
-        KeyPackageBatch {
-            key_package_refs: payload.key_package_refs,
-            time_of_signature: payload.time_of_signature,
-            signature,
-        }
+        KeyPackageBatch { payload, signature }
     }
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
-pub struct VerifiableKeyPackageBatch {
-    payload: KeyPackageBatchTbs,
-    signature: Signature,
-}
+pub const VERIFIED: bool = true;
+pub const UNVERIFIED: bool = false;
 
-impl VerifiableKeyPackageBatch {
+impl KeyPackageBatch<UNVERIFIED> {
     pub(crate) fn homeserver_domain(&self) -> &Fqdn {
         &self.payload.homeserver_domain
     }
 }
 
-impl Verifiable for VerifiableKeyPackageBatch {
+impl Verifiable for KeyPackageBatch<UNVERIFIED> {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.payload.tls_serialize_detached()
     }
@@ -354,19 +438,29 @@ mod private_mod {
     pub struct Seal;
 }
 
-impl VerifiedStruct<VerifiableKeyPackageBatch> for KeyPackageBatchTbs {
+impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatchTbs {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(verifiable: VerifiableKeyPackageBatch, _seal: Self::SealingType) -> Self {
+    fn from_verifiable(verifiable: KeyPackageBatch<UNVERIFIED>, _seal: Self::SealingType) -> Self {
         verifiable.payload
     }
 }
 
-#[derive(Debug, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct KeyPackageBatch {
-    key_package_refs: Vec<KeyPackageRef>,
-    time_of_signature: TimeStamp,
+#[derive(Debug, ToSchema, TlsSerialize, TlsSize)]
+pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
+    payload: KeyPackageBatchTbs,
     signature: Signature,
+}
+
+impl TlsDeserializeTrait for KeyPackageBatch<UNVERIFIED> {
+    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let payload = KeyPackageBatchTbs::tls_deserialize(bytes)?;
+        let signature = Signature::tls_deserialize(bytes)?;
+        Ok(Self { payload, signature })
+    }
 }
 
 #[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
