@@ -162,7 +162,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -190,7 +189,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -220,7 +218,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if let DsProcessResponseIn::WelcomeInfo(ratchet_tree) = response {
@@ -248,7 +245,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
@@ -280,7 +276,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -310,7 +305,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -340,7 +334,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -372,7 +365,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -402,7 +394,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -430,7 +421,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -458,7 +448,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -487,7 +476,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -515,7 +503,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
@@ -546,7 +533,6 @@ impl ApiClient {
             group_state_ear_key,
         )
         .await
-        // Convert the error to an operation-specific error.
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
