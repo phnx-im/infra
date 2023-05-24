@@ -199,7 +199,7 @@ impl DsGroupState {
     ) -> Option<&RatchetTree> {
         self.group_mut().past_group_state(
             &welcome_info_params.epoch,
-            welcome_info_params.sender.signature_key(),
+            welcome_info_params.sender.verifying_key(),
         )
     }
 

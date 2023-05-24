@@ -155,7 +155,7 @@ use tls_codec::{TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::EarEncryptable,
-        signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
+        signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
         client_ds::{
@@ -217,7 +217,7 @@ impl DsApi {
         // Verify the message.
         let verified_message: DsRequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
-                let verifying_key: LeafSignatureKeyRef = group_state
+                let verifying_key: LeafVerifyingKeyRef = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
@@ -291,7 +291,7 @@ impl DsApi {
                 )
             }
             DsRequestParams::CreateGroupParams(_) => (None, None, None),
-            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
+            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;

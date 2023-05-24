@@ -9,28 +9,27 @@
 
 use mls_assist::{
     messages::AssistedWelcome, treesync::RatchetTree, Extensions, GroupId, GroupInfo,
-    MlsMessageOut, RatchetTreeIn, Signature as MlsAssistSignature, VerifiableGroupInfo,
+    LeafNodeIndex, MlsMessageOut, RatchetTreeIn, Signature as MlsAssistSignature,
+    VerifiableGroupInfo,
 };
-use thiserror::Error;
 use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        self,
         ear::keys::GroupStateEarKey,
         signatures::{
             keys::UserAuthKey,
             signable::{Signable, Signature, SignedStruct},
         },
     },
-    ds::{
-        errors::DsProcessingError,
-        group_state::{EncryptedCredentialChain, UserKeyHash},
-    },
+    ds::group_state::{EncryptedCredentialChain, UserKeyHash},
     qs::{KeyPackageBatch, QsClientReference, VERIFIED},
 };
 
-use super::MlsInfraVersion;
+use super::{
+    client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
+    MlsInfraVersion,
+};
 
 #[derive(TlsDeserialize, TlsSize)]
 #[repr(u8)]
@@ -50,10 +49,12 @@ pub struct CreateGroupParamsOut {
     pub group_info: GroupInfo,
 }
 
+pub type AssistedMessagePlusOut = (MlsMessageOut, (MlsAssistSignature, Extensions));
+
 #[derive(TlsSerialize, TlsSize)]
 pub struct AddUsersParamsOut {
     // The commit and a partial assisted group info.
-    pub commit: (MlsMessageOut, (MlsAssistSignature, Extensions)),
+    pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
@@ -61,10 +62,91 @@ pub struct AddUsersParamsOut {
 }
 
 #[derive(TlsSerialize, TlsSize)]
+pub struct RemoveUsersParamsOut {
+    pub commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct UpdateClientParamsOut {
+    pub commit: AssistedMessagePlusOut,
+    pub sender: LeafNodeIndex,
+    pub new_user_auth_key_option: Option<UserAuthKey>,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct JoinGroupParamsOut {
+    pub external_commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+    pub qs_client_reference: QsClientReference,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct JoinConnectionGroupParamsOut {
+    pub external_commit: AssistedMessagePlusOut,
+    pub sender: UserAuthKey,
+    pub qs_client_reference: QsClientReference,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct AddClientsParamsOut {
+    pub commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+    pub welcome: AssistedWelcome,
+    // TODO: Do we need those? They come from our own clients. We can probably
+    // just send these through the all-clients group.
+    pub encrypted_welcome_attribution_infos: Vec<u8>,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct RemoveClientsParamsOut {
+    pub commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+    pub new_auth_key: UserAuthKey,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct ResyncClientParamsOut {
+    pub external_commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct SelfRemoveClientParamsOut {
+    pub remove_proposal: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct SendMessageParamsOut {
+    pub message: AssistedMessagePlusOut,
+    pub sender: LeafNodeIndex,
+}
+
+#[derive(TlsSerialize, TlsSize)]
+pub struct DeleteGroupParamsOut {
+    pub commit: AssistedMessagePlusOut,
+    pub sender: UserKeyHash,
+}
+
+#[derive(TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
     AddUsers(AddUsersParamsOut),
     CreateGroupParams(CreateGroupParamsOut),
+    RemoveUsers(RemoveUsersParamsOut),
+    WelcomeInfo(WelcomeInfoParams),
+    ExternalCommitInfo(ExternalCommitInfoParams),
+    UpdateQsClientReference(UpdateQsClientReferenceParams),
+    UpdateClient(UpdateClientParamsOut),
+    JoinGroup(JoinGroupParamsOut),
+    JoinConnectionGroup(JoinConnectionGroupParamsOut),
+    AddClients(AddClientsParamsOut),
+    RemoveClients(RemoveClientsParamsOut),
+    ResyncClient(ResyncClientParamsOut),
+    SelfRemoveClient(SelfRemoveClientParamsOut),
+    SendMessage(SendMessageParamsOut),
+    DeleteGroup(DeleteGroupParamsOut),
 }
 
 impl Signable for ClientToDsMessageTbsOut {

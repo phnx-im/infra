@@ -85,9 +85,6 @@ pub enum ClientUpdateError {
 #[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessingError {
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError,
     /// Failed to distribute message to other members
     #[error("Failed to distribute message to other members")]
     DistributionError,
