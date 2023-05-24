@@ -10,7 +10,6 @@
 //! TODO: A proper RNG provider for use with all crypto functions that require
 //! randomness, i.e. mainly secret and nonce sampling.
 #![allow(unused_variables)]
-use aes_gcm::aead::Aead;
 use argon2::Argon2;
 use chrono::{DateTime, Utc};
 use hpke::{Hpke, HpkePrivateKey, HpkePublicKey};

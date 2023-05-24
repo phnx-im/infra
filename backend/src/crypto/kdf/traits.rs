@@ -36,7 +36,7 @@ pub(crate) trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>
 /// is used as label in the derivation.
 pub(crate) trait KdfDerivable<
     DerivingKey: KdfKey + std::fmt::Debug,
-    AdditionalInfo: Into<Vec<u8>> + std::fmt::Debug,
+    AdditionalInfo: tls_codec::Serialize + std::fmt::Debug,
     const OUTPUT_LENGTH: usize,
 >: From<Secret<OUTPUT_LENGTH>> + std::fmt::Debug
 {
@@ -52,7 +52,13 @@ pub(crate) trait KdfDerivable<
         kdf_key: &DerivingKey,
         additional_info: AdditionalInfo,
     ) -> Result<Self, LibraryError> {
-        let info = [&additional_info.into(), Self::LABEL.as_bytes()].concat();
+        let info = [
+            &additional_info
+                .tls_serialize_detached()
+                .map_err(|_| LibraryError)?,
+            Self::LABEL.as_bytes(),
+        ]
+        .concat();
         let secret = kdf_key.derive::<OUTPUT_LENGTH>(&info);
         secret.map(|res| res.into())
     }

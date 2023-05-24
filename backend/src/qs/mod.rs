@@ -79,7 +79,8 @@ use crate::{
 
 use async_trait::*;
 use mls_assist::{
-    KeyPackage, KeyPackageRef, OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto,
+    KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError, OpenMlsCrypto,
+    OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto, ProtocolVersion,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -463,8 +464,28 @@ impl TlsDeserializeTrait for KeyPackageBatch<UNVERIFIED> {
     }
 }
 
-#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsSize)]
 pub struct AddPackage {
     key_package: KeyPackage,
+    icc_ciphertext: Vec<u8>,
+}
+
+impl AddPackageIn {
+    pub fn validate(
+        self,
+        crypto: &impl OpenMlsCrypto,
+        protocol_version: ProtocolVersion,
+    ) -> Result<AddPackage, KeyPackageVerifyError> {
+        let key_package = self.key_package.validate(crypto, protocol_version)?;
+        Ok(AddPackage {
+            key_package,
+            icc_ciphertext: self.icc_ciphertext,
+        })
+    }
+}
+
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct AddPackageIn {
+    key_package: KeyPackageIn,
     icc_ciphertext: Vec<u8>,
 }

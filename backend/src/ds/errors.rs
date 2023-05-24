@@ -4,9 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 /// Error updating queue config.
-#[derive(Error, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum UpdateQueueConfigError {
     /// Couldn't find sender.
     #[error("Couldn't find sender.")]
@@ -14,7 +16,8 @@ pub enum UpdateQueueConfigError {
 }
 
 /// Potential errors when removing users.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum UserRemovalError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -31,7 +34,8 @@ pub enum UserRemovalError {
 }
 
 /// Potential errors when adding a user.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum UserAdditionError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -60,7 +64,8 @@ pub enum UserAdditionError {
 }
 
 /// Potential errors when updating a client.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ClientUpdateError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -77,7 +82,8 @@ pub enum ClientUpdateError {
 }
 
 /// Potential errors when processing a message.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum DsProcessingError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -148,7 +154,8 @@ pub enum DsProcessingError {
 }
 
 /// Potential errors when joining a group.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum JoinGroupError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -165,7 +172,8 @@ pub enum JoinGroupError {
 }
 
 /// Potential errors when joining a connection group.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum JoinConnectionGroupError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -188,7 +196,8 @@ pub enum JoinConnectionGroupError {
 }
 
 /// Potential errors when adding a user.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ClientAdditionError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -208,7 +217,8 @@ pub enum ClientAdditionError {
 }
 
 /// Potential errors when removing clients.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ClientRemovalError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -222,7 +232,8 @@ pub enum ClientRemovalError {
 }
 
 /// Potential errors when deleting a group.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum GroupDeletionError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -236,7 +247,8 @@ pub enum GroupDeletionError {
 }
 
 /// Potential errors when processing a self remove proposal.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ClientSelfRemovalError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -250,7 +262,8 @@ pub enum ClientSelfRemovalError {
 }
 
 /// Potential errors when sending a message.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum MessageSendingError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -264,7 +277,8 @@ pub enum MessageSendingError {
 }
 
 /// Potential errors when resyncing a client.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ResyncClientError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -278,7 +292,8 @@ pub enum ResyncClientError {
 }
 
 /// Potential errors when validating a commit or proposal.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum ValidationError {
     /// Invalid assisted message.
     #[error("Invalid assisted message.")]

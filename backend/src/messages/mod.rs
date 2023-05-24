@@ -10,6 +10,7 @@ use crate::crypto::ear::Ciphertext;
 
 pub mod client_as;
 pub mod client_ds;
+pub mod client_ds_out;
 pub mod client_qs;
 pub mod intra_backend;
 

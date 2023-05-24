@@ -56,7 +56,7 @@ impl KdfDerivable<InitialClientKdfKey, GroupId, AEAD_KEY_SIZE> for GroupStateEar
 }
 
 impl KdfDerivable<RosterKdfKey, GroupId, AEAD_KEY_SIZE> for GroupStateEarKey {
-    const LABEL: &'static str = "roster ear key";
+    const LABEL: &'static str = "roster kdf key";
 }
 
 pub type DeleteAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;

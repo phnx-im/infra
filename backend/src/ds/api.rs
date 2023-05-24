@@ -147,7 +147,9 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, GroupId, GroupInfo, Node, OpenMlsRustCrypto, Sender};
+use mls_assist::{
+    group::Group, treesync::RatchetTree, GroupId, GroupInfo, OpenMlsRustCrypto, Sender,
+};
 use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
@@ -284,7 +286,7 @@ impl DsApi {
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
                 (
                     None,
-                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.to_vec())),
+                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.clone())),
                     None,
                 )
             }
@@ -427,6 +429,7 @@ impl DsApi {
 #[derive(TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponse {
-    WelcomeInfo(Vec<Option<Node>>),
-    ExternalCommitInfo((GroupInfo, Vec<Option<Node>>)),
+    Ok,
+    WelcomeInfo(RatchetTree),
+    ExternalCommitInfo((GroupInfo, RatchetTree)),
 }

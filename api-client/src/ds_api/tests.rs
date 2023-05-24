@@ -11,7 +11,7 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
 };
 
-use crate::{ds_api::DsCreateGroupError, ApiClient};
+use crate::{ds_api::DsRequestError, ApiClient};
 
 // Test the DS endpoint for group creation.
 //#[tokio::test]

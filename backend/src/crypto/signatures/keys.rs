@@ -79,6 +79,25 @@ impl UserAuthKey {
     }
 }
 
+pub struct UserAuthSigningKey {
+    signing_key: Vec<u8>,
+    verifying_key: UserAuthKey,
+}
+
+impl UserAuthSigningKey {
+    pub fn verifying_key(&self) -> &UserAuthKey {
+        &self.verifying_key
+    }
+}
+
+impl AsRef<[u8]> for UserAuthSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key
+    }
+}
+
+impl SigningKey for UserAuthSigningKey {}
+
 #[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct OwnerVerifyingKey {
     verifying_key: Vec<u8>,

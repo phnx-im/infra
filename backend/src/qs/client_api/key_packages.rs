@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{OpenMlsCryptoProvider, OpenMlsRustCrypto};
+use mls_assist::{OpenMlsCryptoProvider, OpenMlsRustCrypto, ProtocolVersion};
 
 use crate::{
     crypto::{ear::EarEncryptable, signatures::signable::Signable},
@@ -31,14 +31,19 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        // TODO: Validate the key packages
-
         let encrypted_key_packages = add_packages
             .into_iter()
-            .map(|add_key_package| {
-                add_key_package
-                    .encrypt(&friendship_ear_key)
-                    .map_err(|_| QsPublishKeyPackagesError::LibraryError)
+            .map(|add_package_in| {
+                add_package_in
+                    .validate(
+                        OpenMlsRustCrypto::default().crypto(),
+                        ProtocolVersion::default(),
+                    )
+                    .map_err(QsPublishKeyPackagesError::InvalidKeyPackage)
+                    .and_then(|ap| {
+                        ap.encrypt(&friendship_ear_key)
+                            .map_err(|_| QsPublishKeyPackagesError::LibraryError)
+                    })
             })
             .collect::<Result<Vec<_>, _>>()?;
 

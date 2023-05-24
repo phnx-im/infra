@@ -9,7 +9,7 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome},
-    GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
+    GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, Sender, VerifiableGroupInfo,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -66,7 +66,7 @@ impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
-    pub leaf_node: LeafNode,
+    pub leaf_node: RatchetTreeIn,
     pub encrypted_credential_chain: EncryptedCredentialChain,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthKey,
@@ -99,7 +99,7 @@ pub struct WelcomeInfoParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct GetWelcomeInfoResponse {
-    public_tree: Option<Vec<LeafNode>>,
+    public_tree: Option<RatchetTreeIn>,
     credential_chains: Vec<u8>,
 }
 
@@ -660,13 +660,13 @@ impl ClientToDsMessageTbs {
     }
 }
 
-pub struct ClientToDsMessage {
+pub(crate) struct ClientToDsMessageIn {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
 }
 
-impl ClientToDsMessage {
+impl ClientToDsMessageIn {
     pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let payload = ClientToDsMessageTbs::try_from_bytes(bytes)?;
         let signature = Signature::tls_deserialize(&mut bytes)?;
@@ -675,7 +675,7 @@ impl ClientToDsMessage {
 }
 
 pub struct VerifiableClientToDsMessage {
-    message: ClientToDsMessage,
+    message: ClientToDsMessageIn,
     serialized_payload: Vec<u8>,
 }
 
@@ -683,7 +683,7 @@ impl VerifiableClientToDsMessage {
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let all_bytes = bytes;
         let bytes_len_before = bytes.len();
-        let message = ClientToDsMessage::try_from_bytes(bytes)?;
+        let message = ClientToDsMessageIn::try_from_bytes(bytes)?;
         let serialized_payload = all_bytes[..bytes_len_before - bytes.len()].to_vec();
         Ok(Self {
             message,

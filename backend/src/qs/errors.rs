@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::storage_provider_trait::QsStorageProvider;
+use mls_assist::KeyPackageVerifyError;
 use thiserror::Error;
 
 // === DS API errors ===
@@ -83,7 +84,7 @@ pub enum QsCreateClientError<S: QsStorageProvider> {
     StorageProviderError(S::CreateClientError),
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum QsCreateClientRecordError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -91,6 +92,9 @@ pub enum QsCreateClientRecordError {
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
+    /// Invalid KeyPackage
+    #[error(transparent)]
+    InvalidKeyPackage(#[from] KeyPackageVerifyError),
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -146,13 +150,16 @@ pub enum QsStoreUserError<S: QsStorageProvider> {
 
 // === Key Packages ===
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum QsPublishKeyPackagesError {
     #[error("Library Error")]
     LibraryError,
     /// Error publishing key packages
     #[error("Error publishing key packages")]
     StorageError,
+    /// Invalid KeyPackage
+    #[error(transparent)]
+    InvalidKeyPackage(#[from] KeyPackageVerifyError),
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -196,7 +203,7 @@ pub enum SealError {
     CodecError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum QsProcessError {
     /// Authentication error
     #[error("Authentication error")]
