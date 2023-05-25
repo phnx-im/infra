@@ -7,7 +7,7 @@
 //! TODO: We could further tighten down type safety by parameterizing the key
 //! with the type it's allowed to tag similar to the pattern we use for EAR.
 
-use mls_assist::GroupId;
+use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;

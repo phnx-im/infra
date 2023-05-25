@@ -8,9 +8,15 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::AssistedWelcome, treesync::RatchetTree, Extensions, GroupId, GroupInfo,
-    LeafNodeIndex, MlsMessageOut, RatchetTreeIn, Signature as MlsAssistSignature,
-    VerifiableGroupInfo,
+    messages::AssistedWelcome,
+    openmls::{
+        prelude::{
+            group_info::{GroupInfo, VerifiableGroupInfo},
+            Extensions, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
+            Signature as MlsAssistSignature,
+        },
+        treesync::RatchetTree,
+    },
 };
 use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
 

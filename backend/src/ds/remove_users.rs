@@ -5,10 +5,10 @@
 use std::collections::HashSet;
 
 use chrono::Duration;
-use mls_assist::Sender;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, LeafNodeIndex,
-    ProcessedMessageContent,
+    group::ProcessedAssistedMessage,
+    messages::AssistedMessage,
+    openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 
 use crate::messages::client_ds::{QueueMessagePayload, RemoveUsersParams};

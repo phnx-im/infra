@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{KeyPackage, KeyPackageIn};
+use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn};
 use privacypass::{
     batched_tokens::{TokenRequest, TokenResponse},
     Serialize,

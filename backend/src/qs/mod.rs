@@ -79,8 +79,11 @@ use crate::{
 
 use async_trait::*;
 use mls_assist::{
-    KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError, OpenMlsCrypto,
-    OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto, ProtocolVersion,
+    openmls::prelude::{
+        KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError, OpenMlsCrypto,
+        OpenMlsCryptoProvider, OpenMlsRand, ProtocolVersion,
+    },
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -260,7 +263,7 @@ impl QsSigningKey {
         let backend = OpenMlsRustCrypto::default();
         let (signing_key, verifying_key) = backend
             .crypto()
-            .signature_key_gen(mls_assist::SignatureScheme::ED25519)
+            .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         let key = Self {
             signing_key,

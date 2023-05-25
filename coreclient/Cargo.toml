@@ -14,13 +14,14 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 thiserror = "1.0"
+mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 openmls = { git = "https://github.com/openmls/openmls", branch="main" }
 openmls_traits = { git = "https://github.com/openmls/openmls", branch="main" }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls",branch="main" }
 openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch="main" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch="main" }
 ds-lib = { git = "https://github.com/openmls/openmls", branch="main" }
-tls_codec = { version = "0.3.0-pre.2", features = ["derive", "serde", "mls"] }
+tls_codec = { workspace = true }
 log = "^0.4.14"
 url = "2.2"
 reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls-webpki-roots"] }
