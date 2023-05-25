@@ -7,7 +7,7 @@
 //! keys, the target key (or value) needs to implement the [`KdfDerivable`]
 //! trait.
 
-use mls_assist::GroupEpoch;
+use mls_assist::openmls::prelude::GroupEpoch;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;

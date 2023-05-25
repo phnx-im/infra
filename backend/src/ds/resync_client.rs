@@ -4,7 +4,9 @@
 
 use chrono::Duration;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, ProcessedMessageContent, Sender,
+    group::ProcessedAssistedMessage,
+    messages::AssistedMessage,
+    openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
 use crate::messages::client_ds::{QueueMessagePayload, ResyncClientParams};

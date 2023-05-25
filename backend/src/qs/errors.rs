@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::storage_provider_trait::QsStorageProvider;
-use mls_assist::KeyPackageVerifyError;
+use mls_assist::openmls::prelude::KeyPackageVerifyError;
 use thiserror::Error;
 
 // === DS API errors ===

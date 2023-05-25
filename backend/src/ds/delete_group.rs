@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, ProcessedMessageContent, Sender,
+    group::ProcessedAssistedMessage,
+    messages::AssistedMessage,
+    openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
 use crate::messages::client_ds::{DeleteGroupParams, QueueMessagePayload};

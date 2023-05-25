@@ -6,7 +6,7 @@
 //! throughout the backend. Keys can either provide their own constructors or
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
-use mls_assist::GroupId;
+use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;

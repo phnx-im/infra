@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{
-    OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignaturePublicKey, SignatureScheme,
+use mls_assist::openmls::prelude::{
+    OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey, SignatureScheme,
 };
+use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::auth_service::credentials::{

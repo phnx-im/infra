@@ -15,7 +15,10 @@ use chrono::{DateTime, Utc};
 use hpke::{Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_crypto::types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
 use hpke_rs_rust_crypto::HpkeRustCrypto;
-use mls_assist::{OpenMlsCryptoProvider, OpenMlsRand, OpenMlsRustCrypto};
+use mls_assist::{
+    openmls::prelude::{OpenMlsCryptoProvider, OpenMlsRand},
+    openmls_rust_crypto::OpenMlsRustCrypto,
+};
 use opaque_ke::CipherSuite;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;

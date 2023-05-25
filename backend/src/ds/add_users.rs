@@ -8,8 +8,11 @@ use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessage, AssistedWelcome},
-    KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, OpenMlsRustCrypto, ProcessedMessageContent,
-    Sender,
+    openmls::prelude::Extension,
+    openmls::prelude::{
+        KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
+    },
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use tls_codec::{
     Deserialize as TlsDeserializeTrait, Serialize, TlsDeserialize, TlsSerialize, TlsSize,
@@ -209,7 +212,7 @@ impl DsGroupState {
                         .extensions()
                         .iter()
                         .find_map(|e| match e {
-                            mls_assist::Extension::Unknown(0xff00, ref bytes) => Some(&bytes.0),
+                            Extension::Unknown(0xff00, ref bytes) => Some(&bytes.0),
                             _ => None,
                         })
                         .ok_or(UserAdditionError::MissingQueueConfig)?

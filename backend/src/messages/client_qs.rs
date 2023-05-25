@@ -7,7 +7,7 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
-use mls_assist::SignaturePublicKey;
+use mls_assist::openmls::prelude::SignaturePublicKey;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 

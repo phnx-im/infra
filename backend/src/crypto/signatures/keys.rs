@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    HashType, OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignaturePublicKey,
+    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey},
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
@@ -143,7 +144,7 @@ impl OwnerSigningKey {
         let backend = OpenMlsRustCrypto::default();
         let (signing_key, verifying_key) = backend
             .crypto()
-            .signature_key_gen(mls_assist::SignatureScheme::ED25519)
+            .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError {})?;
         Ok((Self { signing_key }, OwnerVerifyingKey { verifying_key }))
     }
