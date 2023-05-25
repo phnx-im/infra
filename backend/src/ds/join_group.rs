@@ -4,7 +4,8 @@
 
 use chrono::Duration;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, ProcessedMessageContent,
+    group::ProcessedAssistedMessage, messages::AssistedMessage,
+    openmls::prelude::ProcessedMessageContent,
 };
 use tls_codec::Deserialize;
 

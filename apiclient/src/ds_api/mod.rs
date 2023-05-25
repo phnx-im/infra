@@ -6,8 +6,15 @@
 
 use super::*;
 use mls_assist::{
-    messages::AssistedWelcome, treesync::RatchetTree, GroupEpoch, GroupId, GroupInfo,
-    LeafNodeIndex, RatchetTreeIn, TlsDeserializeTrait, TlsSerializeTrait, VerifiableGroupInfo,
+    messages::AssistedWelcome,
+    openmls::{
+        prelude::{
+            group_info::{GroupInfo, VerifiableGroupInfo},
+            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsDeserializeTrait,
+            TlsSerializeTrait,
+        },
+        treesync::RatchetTree,
+    },
 };
 use phnxbackend::{
     crypto::{

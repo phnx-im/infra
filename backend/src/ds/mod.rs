@@ -5,7 +5,7 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use mls_assist::GroupId;
+use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;

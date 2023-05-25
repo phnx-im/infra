@@ -9,7 +9,9 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome},
-    GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, Sender, VerifiableGroupInfo,
+    openmls::prelude::{
+        group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, Sender,
+    },
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{

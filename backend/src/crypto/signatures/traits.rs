@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignatureScheme};
+use mls_assist::{
+    openmls::prelude::{OpenMlsCrypto, OpenMlsCryptoProvider, SignatureScheme},
+    openmls_rust_crypto::OpenMlsRustCrypto,
+};
 use thiserror::Error;
 
 use crate::LibraryError;

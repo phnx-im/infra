@@ -148,7 +148,12 @@
 //!
 
 use mls_assist::{
-    group::Group, treesync::RatchetTree, GroupId, GroupInfo, OpenMlsRustCrypto, Sender,
+    group::Group,
+    openmls::{
+        prelude::{group_info::GroupInfo, GroupId, Sender},
+        treesync::RatchetTree,
+    },
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use tls_codec::{TlsSerialize, TlsSize};
 

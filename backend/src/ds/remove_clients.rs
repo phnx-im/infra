@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::Duration;
-use mls_assist::LeafNodeIndex;
 use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage, ProcessedMessageContent, Sender,
+    group::ProcessedAssistedMessage,
+    messages::AssistedMessage,
+    openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 
 use crate::messages::client_ds::{QueueMessagePayload, RemoveClientsParams};

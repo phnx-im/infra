@@ -4,7 +4,7 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::KeyPackage;
+use mls_assist::openmls::prelude::KeyPackage;
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,

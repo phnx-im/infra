@@ -6,8 +6,11 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use mls_assist::{
-    group::Group, treesync::RatchetTree, GroupEpoch, GroupInfo, LeafNodeIndex,
-    QueuedRemoveProposal, Sender,
+    group::Group,
+    openmls::{
+        prelude::{group_info::GroupInfo, GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
+        treesync::RatchetTree,
+    },
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{

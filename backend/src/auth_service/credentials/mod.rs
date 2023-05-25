@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    HashType, OpenMlsCrypto, OpenMlsCryptoProvider, OpenMlsRustCrypto, SignaturePublicKey,
-    SignatureScheme,
+    openmls::prelude::{
+        HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey, SignatureScheme,
+    },
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use privacypass::Serialize;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
