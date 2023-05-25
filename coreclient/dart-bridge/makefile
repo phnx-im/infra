@@ -8,7 +8,8 @@ PROJECTNAME=$(shell basename "$(PWD)")
 
 OS_NAME=$(shell uname | tr '[:upper:]' '[:lower:]')
 
-RUST_BASE_DIR := ../
+RUST_BASE_DIR := ..
+RUST_TARGET_DIR := $(RUST_BASE_DIR)/../target
 DART_BASE_DIR := lib/src
 
 .PHONY: help
@@ -55,8 +56,8 @@ macos-debug:
 		cargo build --features="dart-bridge" --target aarch64-apple-darwin
 	mkdir -p macos
 	lipo -create \
-		$(RUST_BASE_DIR)/target/x86_64-apple-darwin/debug/libcoreclient.a \
-		$(RUST_BASE_DIR)/target/aarch64-apple-darwin/debug/libcoreclient.a \
+		$(RUST_TARGET_DIR)/x86_64-apple-darwin/debug/libcoreclient.a \
+		$(RUST_TARGET_DIR)/aarch64-apple-darwin/debug/libcoreclient.a \
 		-output macos/libcoreclient.a
 
 macos-release:
@@ -65,8 +66,8 @@ macos-release:
 		cargo build --features="dart-bridge" --target aarch64-apple-darwin --release
 	mkdir -p macos
 	lipo -create \
-		$(RUST_BASE_DIR)/target/x86_64-apple-darwin/release/libcoreclient.a \
-		$(RUST_BASE_DIR)/target/aarch64-apple-darwin/release/libcoreclient.a \
+		$(RUST_TARGET_DIR)/x86_64-apple-darwin/release/libcoreclient.a \
+		$(RUST_TARGET_DIR)/aarch64-apple-darwin/release/libcoreclient.a \
 		-output macos/libcoreclient.a
 
 ios-debug:
@@ -76,12 +77,12 @@ ios-debug:
 		cargo build --features="dart-bridge" --target x86_64-apple-ios
 	mkdir -p ios
 	lipo -create \
-		$(RUST_BASE_DIR)/target/aarch64-apple-ios-sim/debug/libcoreclient.a \
-		$(RUST_BASE_DIR)/target/x86_64-apple-ios/debug/libcoreclient.a \
+		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/debug/libcoreclient.a \
+		$(RUST_TARGET_DIR)/x86_64-apple-ios/debug/libcoreclient.a \
 		-output ios/libcoreclient.a
 	rm -rf ios/libcoreclient.xcframework
 	xcodebuild -create-xcframework \
-		-library $(RUST_BASE_DIR)/target/aarch64-apple-ios/debug/libcoreclient.a \
+		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/debug/libcoreclient.a \
 		-library ios/libcoreclient.a \
 		-output ios/libcoreclient.xcframework
 	rm -rf ios/libcoreclient.a
@@ -93,12 +94,12 @@ ios-release:
 		cargo build --features="dart-bridge" --target x86_64-apple-ios --release
 	mkdir -p ios
 	lipo -create \
-		$(RUST_BASE_DIR)/target/aarch64-apple-ios-sim/release/libcoreclient.a \
-		$(RUST_BASE_DIR)/target/x86_64-apple-ios/release/libcoreclient.a \
+		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/release/libcoreclient.a \
+		$(RUST_TARGET_DIR)/x86_64-apple-ios/release/libcoreclient.a \
 		-output ios/libcoreclient.a
 	rm -rf ios/libcoreclient.xcframework
 	xcodebuild -create-xcframework \
-		-library $(RUST_BASE_DIR)/target/aarch64-apple-ios/release/libcoreclient.a \
+		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/release/libcoreclient.a \
 		-library ios/libcoreclient.a \
 		-output ios/libcoreclient.xcframework
 	rm -rf ios/libcoreclient.a
@@ -106,18 +107,18 @@ ios-release:
 android-debug:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --features="dart-bridge" --target aarch64-linux-android
-	cp $(RUST_BASE_DIR)/target/aarch64-linux-android/debug/libcoreclient.so android/src/main/jniLibs/arm64-v8a/libcoreclient.so
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libcoreclient.so android/src/main/jniLibs/arm64-v8a/libcoreclient.so
 
 android-release:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --features="dart-bridge" --target aarch64-linux-android --release
-	cp $(RUST_BASE_DIR)/target/aarch64-linux-android/release/libcoreclient.so android/src/main/jniLibs/arm64-v8a/libcoreclient.so
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libcoreclient.so android/src/main/jniLibs/arm64-v8a/libcoreclient.so
 
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --features="dart-bridge" --target x86_64-unknown-linux-gnu
 	mkdir -p linux
-	cp $(RUST_BASE_DIR)/target/debug/libcoreclient.so linux/libcoreclient.so
+	cp $(RUST_TARGET_DIR)/debug/libcoreclient.so linux/libcoreclient.so
 
 dart-bridge:
 	 flutter_rust_bridge_codegen \
