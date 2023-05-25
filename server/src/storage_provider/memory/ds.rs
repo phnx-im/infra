@@ -10,7 +10,7 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
-use mls_assist::GroupId;
+use mls_assist::openmls::prelude::GroupId;
 use phnxbackend::{
     crypto::EncryptedDsGroupState,
     ds::{group_state::TimeStamp, DsStorageProvider, LoadState},
