@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::KeyPackageVerifyError;
 use thiserror::Error;
 
 /// Error fetching a message from the QS.
@@ -97,11 +98,14 @@ pub enum DeleteClientError {
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum PublishKeyPackageError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+    /// Invalid KeyPackage
+    #[error(transparent)]
+    KeyPackageValidationError(#[from] KeyPackageVerifyError),
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -180,7 +184,7 @@ pub enum AsVerificationError {
     AuthenticationFailed,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum AsProcessingError {
     /// Authentication error
     #[error(transparent)]

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::KeyPackage;
+use mls_assist::{KeyPackage, KeyPackageIn};
 use privacypass::{
     batched_tokens::{TokenRequest, TokenResponse},
     Serialize,
@@ -14,7 +14,7 @@ use crate::{
         client_api::privacypass::AsTokenType,
         credentials::{
             AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialPayload,
-            CredentialFingerprint, VerifiableAsIntermediateCredential,
+            CredentialFingerprint,
         },
         errors::AsVerificationError,
         storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
@@ -155,7 +155,7 @@ pub struct FinishUserRegistrationParamsTbs {
     pub(crate) user_name: UserName,
     pub(crate) queue_encryption_key: RatchetPublicKey,
     pub(crate) initial_ratchet_key: QueueRatchet,
-    pub(crate) connection_key_packages: Vec<KeyPackage>,
+    pub(crate) connection_key_packages: Vec<KeyPackageIn>,
     pub(crate) opaque_registration_record: OpaqueRegistrationRecord,
 }
 
@@ -249,7 +249,7 @@ pub struct FinishClientAdditionParamsTbs {
     pub(crate) client_id: AsClientId,
     pub(crate) queue_encryption_key: RatchetPublicKey,
     pub(crate) initial_ratchet_key: QueueRatchet,
-    pub(crate) connection_key_package: KeyPackage,
+    pub(crate) connection_key_package: KeyPackageIn,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -343,7 +343,7 @@ pub struct DequeueMessagesResponse {
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub(crate) struct PublishKeyPackagesParamsTbs {
     pub(crate) client_id: AsClientId,
-    pub(crate) key_packages: Vec<KeyPackage>,
+    pub(crate) key_packages: Vec<KeyPackageIn>,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -399,9 +399,14 @@ impl ClientCredentialAuthenticator for ClientKeyPackageParams {
     const LABEL: &'static str = "Client KeyPackage Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientKeyPackageResponse {
     pub(crate) key_package: Option<KeyPackage>,
+}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct ClientKeyPackageResponseIn {
+    pub(crate) key_package: Option<KeyPackageIn>,
 }
 
 // === Anonymous requests ===
@@ -433,9 +438,14 @@ impl NoAuth for UserKeyPackagesParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct UserKeyPackagesResponse {
     pub(crate) key_packages: Vec<KeyPackage>,
+}
+
+#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct UserKeyPackagesResponseIn {
+    pub(crate) key_packages: Vec<KeyPackageIn>,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]

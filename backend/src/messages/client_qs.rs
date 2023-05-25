@@ -19,8 +19,8 @@ use crate::{
         QueueRatchet, RatchetPublicKey,
     },
     qs::{
-        AddPackage, EncryptedPushToken, KeyPackageBatch, QsClientId, QsEncryptedAddPackage,
-        QsUserId, VERIFIED,
+        AddPackage, AddPackageIn, EncryptedPushToken, KeyPackageBatch, QsClientId,
+        QsEncryptedAddPackage, QsUserId, VERIFIED,
     },
 };
 
@@ -73,7 +73,7 @@ pub struct CreateUserRecordParams {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_record_auth_key: OwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) add_packages: Vec<AddPackage>,
+    pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_key: QueueRatchet,
@@ -115,7 +115,7 @@ pub struct CreateClientRecordParams {
     pub(crate) sender: QsUserId,
     pub(crate) client_record_auth_key: OwnerVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) add_packages: Vec<AddPackage>,
+    pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
@@ -156,7 +156,7 @@ pub struct DeleteClientRecordParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct PublishKeyPackagesParams {
     pub(crate) sender: QsClientId,
-    pub(crate) add_packages: Vec<AddPackage>,
+    pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
 }
 

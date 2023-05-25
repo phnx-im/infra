@@ -14,41 +14,61 @@ use crate::ds::group_state::UserKeyHash;
 use super::traits::{SigningKey, VerifyingKey};
 
 #[derive(Clone, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct LeafSignatureKey {
-    signature_key: SignaturePublicKey,
+pub struct LeafVerifyingKey {
+    verifying_key: SignaturePublicKey,
 }
 
-impl LeafSignatureKey {
-    pub fn signature_key(&self) -> &SignaturePublicKey {
-        &self.signature_key
+impl LeafVerifyingKey {
+    pub fn verifying_key(&self) -> &SignaturePublicKey {
+        &self.verifying_key
     }
 }
 
-impl VerifyingKey for LeafSignatureKey {}
+impl VerifyingKey for LeafVerifyingKey {}
 
-impl AsRef<[u8]> for LeafSignatureKey {
+impl AsRef<[u8]> for LeafVerifyingKey {
     fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
+        self.verifying_key.as_slice()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct LeafSigningKey {
+    signing_key: Vec<u8>,
+    verifying_key: LeafVerifyingKey,
+}
+
+impl LeafSigningKey {
+    pub fn verifying_key(&self) -> &LeafVerifyingKey {
+        &self.verifying_key
+    }
+}
+
+impl SigningKey for LeafSigningKey {}
+
+impl AsRef<[u8]> for LeafSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        self.verifying_key.as_ref()
     }
 }
 
 #[derive(Debug)]
-pub struct LeafSignatureKeyRef<'a> {
-    signature_key: &'a SignaturePublicKey,
+pub struct LeafVerifyingKeyRef<'a> {
+    verifying_key: &'a SignaturePublicKey,
 }
 
-impl<'a> VerifyingKey for LeafSignatureKeyRef<'a> {}
+impl<'a> VerifyingKey for LeafVerifyingKeyRef<'a> {}
 
-impl<'a> AsRef<[u8]> for LeafSignatureKeyRef<'a> {
+impl<'a> AsRef<[u8]> for LeafVerifyingKeyRef<'a> {
     fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
+        self.verifying_key.as_slice()
     }
 }
 
-impl<'a> From<&'a SignaturePublicKey> for LeafSignatureKeyRef<'a> {
+impl<'a> From<&'a SignaturePublicKey> for LeafVerifyingKeyRef<'a> {
     fn from(pk_ref: &'a SignaturePublicKey) -> Self {
         Self {
-            signature_key: pk_ref,
+            verifying_key: pk_ref,
         }
     }
 }
@@ -78,6 +98,25 @@ impl UserAuthKey {
         UserKeyHash::new(hash)
     }
 }
+
+pub struct UserAuthSigningKey {
+    signing_key: Vec<u8>,
+    verifying_key: UserAuthKey,
+}
+
+impl UserAuthSigningKey {
+    pub fn verifying_key(&self) -> &UserAuthKey {
+        &self.verifying_key
+    }
+}
+
+impl AsRef<[u8]> for UserAuthSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key
+    }
+}
+
+impl SigningKey for UserAuthSigningKey {}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct OwnerVerifyingKey {

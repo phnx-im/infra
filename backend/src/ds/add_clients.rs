@@ -149,9 +149,13 @@ impl DsGroupState {
             let client_queue_config = QsClientReference::tls_deserialize(
                 &mut key_package
                     .extensions()
-                    .queue_config()
+                    .iter()
+                    .find_map(|e| match e {
+                        mls_assist::Extension::Unknown(0xff00, bytes) => Some(&bytes.0),
+                        _ => None,
+                    })
                     .ok_or(ClientAdditionError::MissingQueueConfig)?
-                    .payload(),
+                    .as_slice(),
             )
             .map_err(|_| ClientAdditionError::MissingQueueConfig)?;
             let client_profile = ClientProfile {

@@ -9,7 +9,7 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome},
-    GroupEpoch, GroupId, LeafNode, LeafNodeIndex, Sender, VerifiableGroupInfo,
+    GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, Sender, VerifiableGroupInfo,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -25,7 +25,7 @@ use crate::{
             EarEncryptable,
         },
         signatures::{
-            keys::{LeafSignatureKey, UserAuthKey},
+            keys::{LeafVerifyingKey, UserAuthKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
     },
@@ -66,7 +66,7 @@ impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
-    pub leaf_node: LeafNode,
+    pub leaf_node: RatchetTreeIn,
     pub encrypted_credential_chain: EncryptedCredentialChain,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthKey,
@@ -75,9 +75,9 @@ pub struct CreateGroupParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateQsClientReferenceParams {
-    group_id: GroupId,
-    sender: LeafNodeIndex,
-    new_queue_config: QsClientReference,
+    pub group_id: GroupId,
+    pub sender: LeafNodeIndex,
+    pub new_queue_config: QsClientReference,
 }
 
 impl UpdateQsClientReferenceParams {
@@ -93,13 +93,13 @@ impl UpdateQsClientReferenceParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    pub sender: LeafSignatureKey,
+    pub sender: LeafVerifyingKey,
     pub epoch: GroupEpoch,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct GetWelcomeInfoResponse {
-    public_tree: Option<Vec<LeafNode>>,
+    public_tree: Option<RatchetTreeIn>,
     credential_chains: Vec<u8>,
 }
 
@@ -429,7 +429,7 @@ pub(crate) enum DsRequestParams {
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     CreateGroupParams(CreateGroupParams),
-    UpdateQueueInfo(UpdateQsClientReferenceParams),
+    UpdateQsClientReference(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
     JoinGroup(JoinGroupParams),
     JoinConnectionGroup(JoinConnectionGroupParams),
@@ -449,7 +449,7 @@ impl DsRequestParams {
             DsRequestParams::CreateGroupParams(create_group_params) => {
                 &create_group_params.group_id
             }
-            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
+            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 &update_queue_info_params.group_id
             }
             DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
@@ -531,7 +531,7 @@ impl DsRequestParams {
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
             | DsRequestParams::SendMessage(_)
-            | DsRequestParams::UpdateQueueInfo(_) => None,
+            | DsRequestParams::UpdateQsClientReference(_) => None,
         }
     }
 
@@ -547,7 +547,7 @@ impl DsRequestParams {
             DsRequestParams::CreateGroupParams(create_group_params) => {
                 DsSender::UserKeyHash(create_group_params.creator_user_auth_key.hash())
             }
-            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
+            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 DsSender::LeafIndex(update_queue_info_params.sender)
             }
             DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
@@ -600,7 +600,7 @@ impl DsRequestParams {
             3 => Ok(Self::CreateGroupParams(CreateGroupParams::tls_deserialize(
                 &mut bytes,
             )?)),
-            4 => Ok(Self::UpdateQueueInfo(
+            4 => Ok(Self::UpdateQsClientReference(
                 UpdateQsClientReferenceParams::tls_deserialize(&mut bytes)?,
             )),
             5 => Ok(Self::RemoveUsers(RemoveUsersParams::try_from_bytes(bytes)?)),
@@ -632,7 +632,7 @@ impl DsRequestParams {
 #[repr(u8)]
 pub enum DsSender {
     LeafIndex(LeafNodeIndex),
-    LeafSignatureKey(LeafSignatureKey),
+    LeafSignatureKey(LeafVerifyingKey),
     UserKeyHash(UserKeyHash),
 }
 
@@ -660,13 +660,13 @@ impl ClientToDsMessageTbs {
     }
 }
 
-pub struct ClientToDsMessage {
+pub(crate) struct ClientToDsMessageIn {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
 }
 
-impl ClientToDsMessage {
+impl ClientToDsMessageIn {
     pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let payload = ClientToDsMessageTbs::try_from_bytes(bytes)?;
         let signature = Signature::tls_deserialize(&mut bytes)?;
@@ -675,7 +675,7 @@ impl ClientToDsMessage {
 }
 
 pub struct VerifiableClientToDsMessage {
-    message: ClientToDsMessage,
+    message: ClientToDsMessageIn,
     serialized_payload: Vec<u8>,
 }
 
@@ -683,7 +683,7 @@ impl VerifiableClientToDsMessage {
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
         let all_bytes = bytes;
         let bytes_len_before = bytes.len();
-        let message = ClientToDsMessage::try_from_bytes(bytes)?;
+        let message = ClientToDsMessageIn::try_from_bytes(bytes)?;
         let serialized_payload = all_bytes[..bytes_len_before - bytes.len()].to_vec();
         Ok(Self {
             message,

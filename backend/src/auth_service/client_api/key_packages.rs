@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::{KeyPackage, KeyPackageVerifyError, OpenMlsCryptoProvider, OpenMlsRustCrypto};
+
 use crate::{
     auth_service::{errors::*, storage_provider_trait::AsStorageProvider, AuthService},
     messages::client_as::*,
@@ -20,6 +22,15 @@ impl AuthService {
         // TODO: Validate the key packages
 
         // TODO: Last resort key package
+        let key_packages = key_packages
+            .into_iter()
+            .map(|kp| {
+                kp.validate(
+                    OpenMlsRustCrypto::default().crypto(),
+                    mls_assist::ProtocolVersion::default(),
+                )
+            })
+            .collect::<Result<Vec<KeyPackage>, KeyPackageVerifyError>>()?;
 
         storage_provider
             .store_key_packages(&client_id, key_packages)

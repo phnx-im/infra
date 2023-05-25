@@ -147,13 +147,15 @@
 //! message format looks like.
 //!
 
-use mls_assist::{group::Group, GroupId, GroupInfo, Node, OpenMlsRustCrypto, Sender};
+use mls_assist::{
+    group::Group, treesync::RatchetTree, GroupId, GroupInfo, OpenMlsRustCrypto, Sender,
+};
 use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
         ear::EarEncryptable,
-        signatures::{keys::LeafSignatureKeyRef, signable::Verifiable},
+        signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
         client_ds::{
@@ -215,7 +217,7 @@ impl DsApi {
         // Verify the message.
         let verified_message: DsRequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
-                let verifying_key: LeafSignatureKeyRef = group_state
+                let verifying_key: LeafVerifyingKeyRef = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
@@ -284,12 +286,12 @@ impl DsApi {
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
                 (
                     None,
-                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.to_vec())),
+                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.clone())),
                     None,
                 )
             }
             DsRequestParams::CreateGroupParams(_) => (None, None, None),
-            DsRequestParams::UpdateQueueInfo(update_queue_info_params) => {
+            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;
@@ -427,6 +429,7 @@ impl DsApi {
 #[derive(TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponse {
-    WelcomeInfo(Vec<Option<Node>>),
-    ExternalCommitInfo((GroupInfo, Vec<Option<Node>>)),
+    Ok,
+    WelcomeInfo(RatchetTree),
+    ExternalCommitInfo((GroupInfo, RatchetTree)),
 }

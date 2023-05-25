@@ -6,7 +6,8 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use mls_assist::{
-    group::Group, GroupEpoch, GroupInfo, LeafNodeIndex, Node, QueuedRemoveProposal, Sender,
+    group::Group, treesync::RatchetTree, GroupEpoch, GroupInfo, LeafNodeIndex,
+    QueuedRemoveProposal, Sender,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -195,14 +196,14 @@ impl DsGroupState {
     pub(super) fn welcome_info(
         &mut self,
         welcome_info_params: WelcomeInfoParams,
-    ) -> Option<&[Option<Node>]> {
+    ) -> Option<&RatchetTree> {
         self.group_mut().past_group_state(
             &welcome_info_params.epoch,
-            welcome_info_params.sender.signature_key(),
+            welcome_info_params.sender.verifying_key(),
         )
     }
 
-    pub(super) fn external_commit_info(&mut self) -> (GroupInfo, Vec<Option<Node>>) {
+    pub(super) fn external_commit_info(&mut self) -> (GroupInfo, RatchetTree) {
         let group_info = self.group().group_info().clone();
         let nodes = self.group().export_ratchet_tree();
         (group_info, nodes)
