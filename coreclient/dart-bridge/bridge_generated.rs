@@ -1,5 +1,10 @@
 #![allow(
-    non_camel_case_types,
+
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+non_camel_case_types,
     unused,
     clippy::redundant_closure,
     clippy::useless_conversion,
