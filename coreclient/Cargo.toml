@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "coreclient"
+version = "0.1.0"
+authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
+edition = "2021"
+
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+thiserror = "1.0"
+openmls = { git = "https://github.com/openmls/openmls", branch="main" }
+openmls_traits = { git = "https://github.com/openmls/openmls", branch="main" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls",branch="main" }
+openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch="main" }
+openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch="main" }
+ds-lib = { git = "https://github.com/openmls/openmls", branch="main" }
+tls_codec = { version = "0.3.0-pre.2", features = ["derive", "serde", "mls"] }
+log = "^0.4.14"
+url = "2.2"
+reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls-webpki-roots"] }
+base64 = "0.13"
+pretty_env_logger = "0.5"
+uuid = { version = "1", features = ["v4"] }
+
+# Optional dependencies
+flutter_rust_bridge = { version="1", optional = true }
+anyhow = { version = "1.0", features = ["backtrace"], optional = true }
+
+[features]
+dart-bridge = ["anyhow", "flutter_rust_bridge"]
+
+[dev-dependencies]
+rand = "0.8.4"
+
+[build-dependencies]
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+lto = true
+codegen-units = 1
+
+[patch.crates-io.hpke-rs]
+git = "https://github.com/franziskuskiefer/hpke-rs.git"
+
+[patch.crates-io.hpke-rs-crypto]
+git = "https://github.com/franziskuskiefer/hpke-rs.git"
+
+[patch.crates-io.hpke-rs-evercrypt]
+git = "https://github.com/franziskuskiefer/hpke-rs.git"
+
+[patch.crates-io.hpke-rs-rust-crypto]
+git = "https://github.com/franziskuskiefer/hpke-rs.git"
