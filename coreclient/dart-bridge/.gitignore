@@ -8,3 +8,5 @@
 /.dart_tool
 **/*.xcframework
 pubspec.lock
+bridge_generated.h
+bridge_generated.rs
