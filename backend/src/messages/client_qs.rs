@@ -8,19 +8,22 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::openmls::prelude::SignaturePublicKey;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
     crypto::{
         ear::keys::FriendshipEarKey,
-        signatures::keys::OwnerVerifyingKey,
-        signatures::signable::{Signature, Verifiable, VerifiedStruct},
+        signatures::keys::QsClientVerifyingKey,
+        signatures::{
+            keys::QsUserVerifyingKey,
+            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+        },
         QueueRatchet, RatchetPublicKey,
     },
     qs::{
         AddPackage, AddPackageIn, EncryptedPushToken, KeyPackageBatch, QsClientId,
-        QsEncryptedAddPackage, QsUserId, VERIFIED,
+        QsEncryptedAddPackage, QsUserId, UNVERIFIED, VERIFIED,
     },
 };
 
@@ -28,7 +31,7 @@ use super::{intra_backend::DsFanOutMessage, FriendshipToken, MlsInfraVersion, Qu
 
 mod private_mod {
     #[derive(Default)]
-    pub(crate) struct Seal;
+    pub struct Seal;
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -53,7 +56,7 @@ pub struct QsFetchMessagesResponse {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct QsQueueUpdate {
     pub owner_public_key_option: Option<RatchetPublicKey>,
-    pub owner_signature_key_option: Option<OwnerVerifyingKey>,
+    pub owner_signature_key_option: Option<QsClientVerifyingKey>,
 }
 
 pub type QsInputMessage = DsFanOutMessage;
@@ -67,11 +70,11 @@ pub enum GroupOpsDeserializationError {
 
 // === User ===
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateUserRecordParams {
-    pub(crate) user_record_auth_key: OwnerVerifyingKey,
+    pub(crate) user_record_auth_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) client_record_auth_key: OwnerVerifyingKey,
+    pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
@@ -87,9 +90,9 @@ pub struct CreateUserRecordResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateUserRecordParams {
-    pub(crate) sender: QsUserId,
-    pub(crate) user_record_auth_key: OwnerVerifyingKey,
-    pub(crate) friendship_token: FriendshipToken,
+    pub sender: QsUserId,
+    pub user_record_auth_key: QsUserVerifyingKey,
+    pub friendship_token: FriendshipToken,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -105,15 +108,15 @@ pub struct UserRecordResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteUserRecordParams {
-    pub(crate) sender: QsUserId,
+    pub sender: QsUserId,
 }
 
 // === Client ===
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateClientRecordParams {
     pub(crate) sender: QsUserId,
-    pub(crate) client_record_auth_key: OwnerVerifyingKey,
+    pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetPublicKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
@@ -128,10 +131,10 @@ pub struct CreateClientRecordResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientRecordParams {
-    pub(crate) sender: QsClientId,
-    pub(crate) client_record_auth_key: OwnerVerifyingKey,
-    pub(crate) queue_encryption_key: RatchetPublicKey,
-    pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
+    pub sender: QsClientId,
+    pub client_record_auth_key: QsClientVerifyingKey,
+    pub queue_encryption_key: RatchetPublicKey,
+    pub encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -150,10 +153,10 @@ pub(crate) struct ClientRecordResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DeleteClientRecordParams {
-    pub(crate) sender: QsClientId,
+    pub sender: QsClientId,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserialize, TlsSize)]
 pub struct PublishKeyPackagesParams {
     pub(crate) sender: QsClientId,
     pub(crate) add_packages: Vec<AddPackageIn>,
@@ -162,8 +165,8 @@ pub struct PublishKeyPackagesParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct ClientKeyPackageParams {
-    pub(crate) sender: QsUserId,
-    pub(crate) client_id: QsClientId,
+    pub sender: QsUserId,
+    pub client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -173,8 +176,8 @@ pub struct ClientKeyPackageResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct KeyPackageBatchParams {
-    pub(crate) sender: FriendshipToken,
-    pub(crate) friendship_ear_key: FriendshipEarKey,
+    pub sender: FriendshipToken,
+    pub friendship_ear_key: FriendshipEarKey,
 }
 
 #[derive(TlsSerialize, TlsSize, ToSchema)]
@@ -183,11 +186,17 @@ pub struct KeyPackageBatchResponse {
     pub(crate) key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
+#[derive(TlsSize, TlsDeserialize, ToSchema)]
+pub struct KeyPackageBatchResponseIn {
+    pub(crate) add_packages: Vec<AddPackageIn>,
+    pub(crate) key_package_batch: KeyPackageBatch<UNVERIFIED>,
+}
+
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct DequeueMessagesParams {
-    pub(crate) sender: QsClientId,
-    pub(crate) sequence_number_start: u64,
-    pub(crate) max_message_number: u64,
+    pub sender: QsClientId,
+    pub sequence_number_start: u64,
+    pub max_message_number: u64,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -216,8 +225,7 @@ impl VerifiableClientToQsMessage {
 
     // Verifies that the token matches the one in the message and returns the message.
     pub(crate) fn verify_with_token(self, token: FriendshipToken) -> Result<QsRequestParams, ()> {
-        if matches!(self.sender(), QsSender::FriendshipToken(actual_token) if actual_token == token)
-        {
+        if self.message.token_or_signature.as_slice() == token.token() {
             Ok(self.message.payload.body)
         } else {
             Err(())
@@ -231,7 +239,7 @@ impl Verifiable for VerifiableClientToQsMessage {
     }
 
     fn signature(&self) -> &Signature {
-        &self.message.signature
+        &self.message.token_or_signature
     }
 
     fn label(&self) -> &str {
@@ -248,10 +256,10 @@ impl VerifiedStruct<VerifiableClientToQsMessage> for QsRequestParams {
 }
 
 #[derive(TlsDeserialize, TlsSize)]
-pub(crate) struct ClientToQsMessage {
+pub struct ClientToQsMessage {
     payload: ClientToQsMessageTbs,
-    // Signature over all of the above.
-    signature: Signature,
+    // Signature over all of the above or friendship token
+    token_or_signature: Signature,
 }
 
 impl ClientToQsMessage {
@@ -261,7 +269,7 @@ impl ClientToQsMessage {
 }
 
 #[derive(TlsDeserialize, TlsSize)]
-pub(crate) struct ClientToQsMessageTbs {
+pub struct ClientToQsMessageTbs {
     version: MlsInfraVersion,
     // This essentially includes the wire format.
     body: QsRequestParams,
@@ -276,7 +284,7 @@ impl ClientToQsMessageTbs {
 /// This enum contains variatns for each DS endpoint.
 #[derive(TlsDeserialize, TlsSize)]
 #[repr(u8)]
-pub(crate) enum QsRequestParams {
+pub enum QsRequestParams {
     // User
     CreateUser(CreateUserRecordParams),
     UpdateUser(UpdateUserRecordParams),
@@ -297,7 +305,7 @@ impl QsRequestParams {
     pub(crate) fn sender(&self) -> QsSender {
         match self {
             QsRequestParams::CreateUser(params) => {
-                QsSender::OwnerVerifyingKey(params.user_record_auth_key.clone())
+                QsSender::QsUserVerifyingKey(params.user_record_auth_key.clone())
             }
             QsRequestParams::UpdateUser(params) => QsSender::User(params.sender.clone()),
             QsRequestParams::DeleteUser(params) => QsSender::User(params.sender.clone()),
@@ -317,15 +325,22 @@ impl QsRequestParams {
 #[derive(TlsSize, TlsSerialize)]
 #[repr(u8)]
 pub enum QsProcessResponse {
+    Ok,
     CreateUser(CreateUserRecordResponse),
-    UpdateUser,
-    DeleteUser,
     CreateClient(CreateClientRecordResponse),
-    UpdateClient,
-    DeleteClient,
-    PublishKeyPackages,
     ClientKeyPackage(ClientKeyPackageResponse),
     KeyPackageBatch(KeyPackageBatchResponse),
+    DequeueMessages(DequeueMessagesResponse),
+}
+
+#[derive(TlsDeserialize, TlsSize)]
+#[repr(u8)]
+pub enum QsProcessResponseIn {
+    Ok,
+    CreateUser(CreateUserRecordResponse),
+    CreateClient(CreateClientRecordResponse),
+    ClientKeyPackage(ClientKeyPackageResponse),
+    KeyPackageBatch(KeyPackageBatchResponseIn),
     DequeueMessages(DequeueMessagesResponse),
 }
 
@@ -333,5 +348,5 @@ pub enum QsSender {
     User(QsUserId),
     Client(QsClientId),
     FriendshipToken(FriendshipToken),
-    OwnerVerifyingKey(OwnerVerifyingKey),
+    QsUserVerifyingKey(QsUserVerifyingKey),
 }

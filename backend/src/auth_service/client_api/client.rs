@@ -193,7 +193,7 @@ impl AuthService {
     pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(
         storage_provider: &S,
         params: DequeueMessagesParamsTbs,
-    ) -> Result<DequeueMessagesResponse, AsDequeueError> {
+    ) -> Result<AsDequeueMessagesResponse, AsDequeueError> {
         let DequeueMessagesParamsTbs {
             sender,
             sequence_number_start,
@@ -211,7 +211,7 @@ impl AuthService {
                 AsDequeueError::StorageError
             })?;
 
-        let response = DequeueMessagesResponse {
+        let response = AsDequeueMessagesResponse {
             messages,
             remaining_messages_number,
         };

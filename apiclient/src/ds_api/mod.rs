@@ -59,7 +59,7 @@ pub enum DsRequestError {
 }
 
 impl ApiClient {
-    async fn prepare_and_send_message(
+    async fn prepare_and_send_ds_message(
         &self,
         request_params: DsRequestParamsOut,
         signing_key: &impl SigningKey,
@@ -130,7 +130,7 @@ impl ApiClient {
             group_info,
             creator_user_auth_key: signing_key.verifying_key().clone(),
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::CreateGroupParams(payload),
             signing_key,
             group_state_ear_key,
@@ -163,7 +163,7 @@ impl ApiClient {
             encrypted_welcome_attribution_infos,
             key_package_batches,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::AddUsers(payload),
             signing_key,
             group_state_ear_key,
@@ -190,7 +190,7 @@ impl ApiClient {
             commit,
             sender: signing_key.verifying_key().hash(),
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::RemoveUsers(payload),
             signing_key,
             group_state_ear_key,
@@ -219,7 +219,7 @@ impl ApiClient {
             group_id,
             epoch,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::WelcomeInfo(payload),
             signing_key,
             group_state_ear_key,
@@ -246,7 +246,7 @@ impl ApiClient {
             sender: signing_key.verifying_key().hash(),
             group_id,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::ExternalCommitInfo(payload),
             signing_key,
             group_state_ear_key,
@@ -277,7 +277,7 @@ impl ApiClient {
             sender: own_index,
             new_user_auth_key_option,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::UpdateClient(payload),
             signing_key,
             group_state_ear_key,
@@ -306,7 +306,7 @@ impl ApiClient {
             external_commit,
             qs_client_reference,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::JoinGroup(payload),
             signing_key,
             group_state_ear_key,
@@ -335,7 +335,7 @@ impl ApiClient {
             external_commit,
             qs_client_reference,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::JoinConnectionGroup(payload),
             signing_key,
             group_state_ear_key,
@@ -366,7 +366,7 @@ impl ApiClient {
             welcome,
             encrypted_welcome_attribution_infos,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::AddClients(payload),
             signing_key,
             group_state_ear_key,
@@ -395,7 +395,7 @@ impl ApiClient {
             sender: signing_key.verifying_key().hash(),
             new_auth_key,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::RemoveClients(payload),
             signing_key,
             group_state_ear_key,
@@ -422,7 +422,7 @@ impl ApiClient {
             external_commit,
             sender: signing_key.verifying_key().hash(),
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::ResyncClient(payload),
             signing_key,
             group_state_ear_key,
@@ -449,7 +449,7 @@ impl ApiClient {
             remove_proposal,
             sender: signing_key.verifying_key().hash(),
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::SelfRemoveClient(payload),
             signing_key,
             group_state_ear_key,
@@ -477,7 +477,7 @@ impl ApiClient {
             message,
             sender: own_index,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::SendMessage(payload),
             signing_key,
             group_state_ear_key,
@@ -504,7 +504,7 @@ impl ApiClient {
             commit,
             sender: signing_key.verifying_key().hash(),
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::DeleteGroup(payload),
             signing_key,
             group_state_ear_key,
@@ -534,7 +534,7 @@ impl ApiClient {
             sender: own_index,
             new_queue_config,
         };
-        self.prepare_and_send_message(
+        self.prepare_and_send_ds_message(
             DsRequestParamsOut::UpdateQsClientReference(payload),
             signing_key,
             group_state_ear_key,

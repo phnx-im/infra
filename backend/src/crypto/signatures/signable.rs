@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::LibraryError;
+use crate::{messages::FriendshipToken, LibraryError};
 
 use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
 
@@ -50,12 +50,18 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub(super) fn as_slice(&self) -> &[u8] {
+    pub(crate) fn as_slice(&self) -> &[u8] {
         &self.signature
     }
 
     pub(super) fn from_bytes(bytes: Vec<u8>) -> Self {
         Self { signature: bytes }
+    }
+
+    pub(crate) fn from_token(token: FriendshipToken) -> Self {
+        Self {
+            signature: token.token().to_vec(),
+        }
     }
 }
 

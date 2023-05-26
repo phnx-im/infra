@@ -5,11 +5,12 @@
 use super::storage_provider_trait::QsStorageProvider;
 use mls_assist::openmls::prelude::KeyPackageVerifyError;
 use thiserror::Error;
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 // === DS API errors ===
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum QsEnqueueError<S: QsStorageProvider> {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
@@ -40,7 +41,8 @@ pub enum EnqueueError<S: QsStorageProvider> {
 }
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsEnqueueProviderError {
     /// An unrecoverable internal error ocurred
     #[error("An unrecoverable internal error ocurred")]
@@ -50,7 +52,8 @@ pub enum QsEnqueueProviderError {
 // === Messages ===
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -61,7 +64,8 @@ pub enum QsDequeueError {
 }
 
 /// Error updating queue info.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsUpdateQueueError {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
@@ -77,14 +81,16 @@ pub enum QsUpdateQueueError {
 // === Client ===
 
 /// Error creating new client.
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsCreateClientError<S: QsStorageProvider> {
     /// Failed to store client record
     #[error("Failed to store client record")]
     StorageProviderError(S::CreateClientError),
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsCreateClientRecordError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -93,18 +99,20 @@ pub enum QsCreateClientRecordError {
     #[error("Error creating user record")]
     StorageError,
     /// Invalid KeyPackage
-    #[error(transparent)]
-    InvalidKeyPackage(#[from] KeyPackageVerifyError),
+    #[error("Invalid KeyPackage")]
+    InvalidKeyPackage,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsUpdateClientRecordError {
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsGetClientError {
     /// Error getting client record
     #[error("Error getting client record")]
@@ -113,35 +121,40 @@ pub enum QsGetClientError {
 
 // === User ===
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsCreateUserError {
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsUpdateUserError {
     /// Error updating user record
     #[error("Error updating user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsGetUserError {
     /// Error getting user record
     #[error("Error getting user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsDeleteUserError {
     /// Error deleteing user record
     #[error("Error deleteing user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsStoreUserError<S: QsStorageProvider> {
     /// Error creating client record
     #[error("Error creating user record")]
@@ -150,7 +163,8 @@ pub enum QsStoreUserError<S: QsStorageProvider> {
 
 // === Key Packages ===
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsPublishKeyPackagesError {
     #[error("Library Error")]
     LibraryError,
@@ -158,18 +172,20 @@ pub enum QsPublishKeyPackagesError {
     #[error("Error publishing key packages")]
     StorageError,
     /// Invalid KeyPackage
-    #[error(transparent)]
-    InvalidKeyPackage(#[from] KeyPackageVerifyError),
+    #[error("Invalid KeyPackage")]
+    InvalidKeyPackage,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsClientKeyPackageError {
     /// Error retrieving client key package
     #[error("Error retrieving client key package")]
     StorageError,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsKeyPackageBatchError {
     #[error("Library Error")]
     LibraryError,
@@ -203,7 +219,8 @@ pub enum SealError {
     CodecError,
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum QsProcessError {
     /// Authentication error
     #[error("Authentication error")]

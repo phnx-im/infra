@@ -18,6 +18,7 @@ use phnxbackend::{
         QsEncryptedAddPackage, QsSigningKey, QsUserId,
     },
 };
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 #[derive(Debug)]
 struct QueueData {
@@ -379,7 +380,8 @@ impl QsStorageProvider for MemStorageProvider {
     }
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
 pub enum StoreUserError {
     /// Cannot access user records.
     #[error("Cannot access user records.")]
@@ -400,8 +402,15 @@ pub enum StoreClientError {
     #[error("Cannot access user records.")]
     StorageError,
 }
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum CreateClientError {}
+
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u8)]
+pub enum CreateClientError {
+    /// Cannot access user records.
+    #[error("Cannot access user records.")]
+    StorageError,
+}
+
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum DeleteClientError {
     /// Unknown user.

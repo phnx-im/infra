@@ -42,7 +42,7 @@ impl Qs {
                         OpenMlsRustCrypto::default().crypto(),
                         ProtocolVersion::default(),
                     )
-                    .map_err(QsPublishKeyPackagesError::InvalidKeyPackage)
+                    .map_err(|_| QsPublishKeyPackagesError::InvalidKeyPackage)
                     .and_then(|ap| {
                         ap.encrypt(&friendship_ear_key)
                             .map_err(|_| QsPublishKeyPackagesError::LibraryError)

@@ -18,9 +18,9 @@ use crate::{
 impl AuthService {
     pub(crate) async fn as_publish_key_packages<S: AsStorageProvider>(
         storage_provider: &S,
-        params: PublishKeyPackagesParamsTbs,
+        params: PublishConnectionKpParamsTbs,
     ) -> Result<PublishKeyPackagesResponse, PublishKeyPackageError> {
-        let PublishKeyPackagesParamsTbs {
+        let PublishConnectionKpParamsTbs {
             client_id,
             key_packages,
         } = params;
@@ -48,7 +48,7 @@ impl AuthService {
     pub(crate) async fn as_client_key_package<S: AsStorageProvider>(
         storage_provider: &S,
         params: ClientKeyPackageParamsTbs,
-    ) -> Result<ClientKeyPackageResponse, ClientKeyPackageError> {
+    ) -> Result<AsClientKeyPackageResponse, ClientKeyPackageError> {
         let client_id = params;
 
         let key_package = storage_provider
@@ -56,7 +56,7 @@ impl AuthService {
             .await
             .map_err(|_| ClientKeyPackageError::StorageError)?;
 
-        let response = ClientKeyPackageResponse { key_package };
+        let response = AsClientKeyPackageResponse { key_package };
         Ok(response)
     }
 }

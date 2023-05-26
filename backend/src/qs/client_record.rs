@@ -8,7 +8,7 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
-        signatures::keys::OwnerVerifyingKey,
+        signatures::keys::QsClientVerifyingKey,
         QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
@@ -37,7 +37,7 @@ pub struct QsClientRecord {
     pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) owner_public_key: RatchetPublicKey,
-    pub(crate) owner_signature_key: OwnerVerifyingKey,
+    pub(crate) owner_signature_key: QsClientVerifyingKey,
     pub(crate) current_ratchet_key: QueueRatchet,
     pub(crate) activity_time: TimeStamp,
 }
@@ -46,7 +46,7 @@ impl QsClientRecord {
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
-        client_record_auth_key: OwnerVerifyingKey,
+        client_record_auth_key: QsClientVerifyingKey,
         queue_encryption_key: RatchetPublicKey,
         encrypted_push_token: Option<EncryptedPushToken>,
     ) {

@@ -44,7 +44,7 @@ impl Qs {
             QsSender::FriendshipToken(token) => message
                 .verify_with_token(token)
                 .map_err(|_| QsProcessError::AuthenticationError)?,
-            QsSender::OwnerVerifyingKey(key) => message
+            QsSender::QsUserVerifyingKey(key) => message
                 .verify(&key)
                 .map_err(|_| QsProcessError::AuthenticationError)?,
         };
@@ -55,26 +55,26 @@ impl Qs {
             ),
             QsRequestParams::UpdateUser(params) => {
                 Self::qs_update_user_record(storage_provider, params).await?;
-                QsProcessResponse::UpdateUser
+                QsProcessResponse::Ok
             }
             QsRequestParams::DeleteUser(params) => {
                 Self::qs_delete_user_record(storage_provider, params).await?;
-                QsProcessResponse::DeleteUser
+                QsProcessResponse::Ok
             }
             QsRequestParams::CreateClient(params) => QsProcessResponse::CreateClient(
                 Self::qs_create_client_record(storage_provider, params).await?,
             ),
             QsRequestParams::UpdateClient(params) => {
                 Self::qs_update_client_record(storage_provider, params).await?;
-                QsProcessResponse::UpdateClient
+                QsProcessResponse::Ok
             }
             QsRequestParams::DeleteClient(params) => {
                 Self::qs_delete_client_record(storage_provider, params).await?;
-                QsProcessResponse::DeleteClient
+                QsProcessResponse::Ok
             }
             QsRequestParams::PublishKeyPackages(params) => {
                 Self::qs_publish_key_packages(storage_provider, params).await?;
-                QsProcessResponse::PublishKeyPackages
+                QsProcessResponse::Ok
             }
             QsRequestParams::ClientKeyPackage(params) => QsProcessResponse::ClientKeyPackage(
                 Self::qs_client_key_package(storage_provider, params).await?,

@@ -2,20 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{crypto::signatures::keys::OwnerVerifyingKey, messages::FriendshipToken};
+use crate::{crypto::signatures::keys::QsUserVerifyingKey, messages::FriendshipToken};
 
 use super::QsClientId;
 
 #[derive(Debug, Clone)]
 pub struct QsUserRecord {
-    pub(crate) auth_key: OwnerVerifyingKey,
+    pub(crate) auth_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) clients: Vec<QsClientId>,
 }
 
 impl QsUserRecord {
     pub fn new(
-        auth_key: OwnerVerifyingKey,
+        auth_key: QsUserVerifyingKey,
         friendship_token: FriendshipToken,
         initial_client: QsClientId,
     ) -> Self {
@@ -28,7 +28,7 @@ impl QsUserRecord {
 
     pub(crate) fn update(
         &mut self,
-        auth_key: OwnerVerifyingKey,
+        auth_key: QsUserVerifyingKey,
         friendship_token: FriendshipToken,
     ) {
         self.auth_key = auth_key;

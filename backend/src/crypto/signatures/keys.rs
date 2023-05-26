@@ -120,40 +120,92 @@ impl AsRef<[u8]> for UserAuthSigningKey {
 impl SigningKey for UserAuthSigningKey {}
 
 #[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct OwnerVerifyingKey {
+pub struct QsClientVerifyingKey {
     verifying_key: Vec<u8>,
 }
 
-impl AsRef<[u8]> for OwnerVerifyingKey {
+impl AsRef<[u8]> for QsClientVerifyingKey {
     fn as_ref(&self) -> &[u8] {
         &self.verifying_key
     }
 }
 
-impl VerifyingKey for OwnerVerifyingKey {}
+impl VerifyingKey for QsClientVerifyingKey {}
 
-pub struct OwnerSigningKey {
+pub struct QsClientSigningKey {
     signing_key: Vec<u8>,
+    verifying_key: QsClientVerifyingKey,
 }
 
 #[derive(Debug)]
 pub struct RandomnessError {}
 
-impl OwnerSigningKey {
-    pub fn random() -> Result<(Self, OwnerVerifyingKey), RandomnessError> {
+impl QsClientSigningKey {
+    pub fn random() -> Result<Self, RandomnessError> {
         let backend = OpenMlsRustCrypto::default();
         let (signing_key, verifying_key) = backend
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError {})?;
-        Ok((Self { signing_key }, OwnerVerifyingKey { verifying_key }))
+        Ok(Self {
+            signing_key,
+            verifying_key: QsClientVerifyingKey { verifying_key },
+        })
+    }
+
+    pub fn verifying_key(&self) -> &QsClientVerifyingKey {
+        &self.verifying_key
     }
 }
 
-impl AsRef<[u8]> for OwnerSigningKey {
+impl AsRef<[u8]> for QsClientSigningKey {
     fn as_ref(&self) -> &[u8] {
         &self.signing_key
     }
 }
 
-impl SigningKey for OwnerSigningKey {}
+impl SigningKey for QsClientSigningKey {}
+
+#[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct QsUserVerifyingKey {
+    verifying_key: Vec<u8>,
+}
+
+impl AsRef<[u8]> for QsUserVerifyingKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.verifying_key
+    }
+}
+
+impl VerifyingKey for QsUserVerifyingKey {}
+
+pub struct QsUserSigningKey {
+    signing_key: Vec<u8>,
+    verifying_key: QsUserVerifyingKey,
+}
+
+impl QsUserSigningKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let backend = OpenMlsRustCrypto::default();
+        let (signing_key, verifying_key) = backend
+            .crypto()
+            .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
+            .map_err(|_| RandomnessError {})?;
+        Ok(Self {
+            signing_key,
+            verifying_key: QsUserVerifyingKey { verifying_key },
+        })
+    }
+
+    pub fn verifying_key(&self) -> &QsUserVerifyingKey {
+        &self.verifying_key
+    }
+}
+
+impl AsRef<[u8]> for QsUserSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key
+    }
+}
+
+impl SigningKey for QsUserSigningKey {}

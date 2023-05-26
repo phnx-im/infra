@@ -5,6 +5,7 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
+use tls_codec::{Deserialize, Serialize, Size};
 
 use crate::messages::{FriendshipToken, QueueMessage};
 
@@ -16,18 +17,18 @@ use super::{
 /// Storage provider trait for the QS.
 #[async_trait]
 pub trait QsStorageProvider: Sync + Send + Debug + 'static {
-    type CreateUserError: Error + Debug + PartialEq + Eq + Clone;
-    type StoreUserError: Error + Debug + PartialEq + Eq + Clone;
-    type DeleteUserError: Error + Debug + PartialEq + Eq + Clone;
+    type CreateUserError: Error + Debug + Clone;
+    type StoreUserError: Error + Debug + Clone + Serialize + Size + Deserialize;
+    type DeleteUserError: Error + Debug + Clone;
 
-    type StoreClientError: Error + Debug + PartialEq + Eq + Clone;
-    type CreateClientError: Error + Debug + PartialEq + Eq + Clone;
-    type DeleteClientError: Error + Debug + PartialEq + Eq + Clone;
+    type StoreClientError: Error + Debug + Clone;
+    type CreateClientError: Error + Debug + Clone + Serialize + Size + Deserialize;
+    type DeleteClientError: Error + Debug + Clone;
 
-    type EnqueueError: Error + Debug + PartialEq + Eq + Clone;
-    type ReadAndDeleteError: Error + Debug + PartialEq + Eq + Clone;
+    type EnqueueError: Error + Debug + Clone;
+    type ReadAndDeleteError: Error + Debug + Clone;
 
-    type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
+    type StoreKeyPackagesError: Error + Debug + Clone;
 
     type LoadSigningKeyError: Error + Debug + Clone;
     type LoadDecryptionKeyError: Error + Debug + Clone;

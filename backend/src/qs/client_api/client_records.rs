@@ -68,7 +68,7 @@ impl Qs {
                         OpenMlsRustCrypto::default().crypto(),
                         ProtocolVersion::default(),
                     )
-                    .map_err(QsCreateClientRecordError::InvalidKeyPackage)
+                    .map_err(|_| QsCreateClientRecordError::InvalidKeyPackage)
                     .and_then(|ap| {
                         ap.encrypt(&friendship_ear_key)
                             .map_err(|_| QsCreateClientRecordError::LibraryError)

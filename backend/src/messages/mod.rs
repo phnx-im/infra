@@ -12,6 +12,7 @@ pub mod client_as;
 pub mod client_ds;
 pub mod client_ds_out;
 pub mod client_qs;
+pub mod client_qs_out;
 pub mod intra_backend;
 
 #[derive(
@@ -26,7 +27,15 @@ pub mod intra_backend;
     Clone,
     Debug,
 )]
-pub struct FriendshipToken {}
+pub struct FriendshipToken {
+    token: Vec<u8>,
+}
+
+impl FriendshipToken {
+    pub fn token(&self) -> &[u8] {
+        self.token.as_ref()
+    }
+}
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.

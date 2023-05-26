@@ -311,12 +311,12 @@ pub(crate) struct DequeueMessagesParamsTbs {
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct DequeueMessagesParams {
+pub struct AsDequeueMessagesParams {
     pub(crate) payload: DequeueMessagesParamsTbs,
     pub(crate) signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for DequeueMessagesParams {
+impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     type Tbs = DequeueMessagesParamsTbs;
 
     fn client_id(&self) -> AsClientId {
@@ -335,25 +335,25 @@ impl ClientCredentialAuthenticator for DequeueMessagesParams {
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct DequeueMessagesResponse {
+pub struct AsDequeueMessagesResponse {
     pub(crate) messages: Vec<QueueMessage>,
     pub(crate) remaining_messages_number: u64,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct PublishKeyPackagesParamsTbs {
+pub(crate) struct PublishConnectionKpParamsTbs {
     pub(crate) client_id: AsClientId,
     pub(crate) key_packages: Vec<KeyPackageIn>,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct PublishKeyPackagesParams {
-    pub(crate) payload: PublishKeyPackagesParamsTbs,
+pub struct PublishConnectionKpParams {
+    pub(crate) payload: PublishConnectionKpParamsTbs,
     pub(crate) signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for PublishKeyPackagesParams {
-    type Tbs = PublishKeyPackagesParamsTbs;
+impl ClientCredentialAuthenticator for PublishConnectionKpParams {
+    type Tbs = PublishConnectionKpParamsTbs;
 
     fn client_id(&self) -> AsClientId {
         self.payload.client_id.clone()
@@ -376,12 +376,12 @@ pub struct PublishKeyPackagesResponse {}
 pub(crate) type ClientKeyPackageParamsTbs = AsClientId;
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct ClientKeyPackageParams {
+pub struct AsClientKeyPackageParams {
     pub(crate) payload: ClientKeyPackageParamsTbs,
     pub(crate) signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for ClientKeyPackageParams {
+impl ClientCredentialAuthenticator for AsClientKeyPackageParams {
     type Tbs = AsClientId;
 
     fn client_id(&self) -> AsClientId {
@@ -400,12 +400,12 @@ impl ClientCredentialAuthenticator for ClientKeyPackageParams {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct ClientKeyPackageResponse {
+pub struct AsClientKeyPackageResponse {
     pub(crate) key_package: Option<KeyPackage>,
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct ClientKeyPackageResponseIn {
+pub struct AsClientKeyPackageResponseIn {
     pub(crate) key_package: Option<KeyPackageIn>,
 }
 
@@ -645,9 +645,9 @@ pub(crate) enum AsRequestParams {
     InitiateClientAddition(InitiateClientAdditionParams),
     FinishClientAddition(FinishClientAdditionParams),
     DeleteClient(DeleteClientParams),
-    DequeueMessages(DequeueMessagesParams),
-    PublishKeyPackages(PublishKeyPackagesParams),
-    ClientKeyPackage(ClientKeyPackageParams),
+    DequeueMessages(AsDequeueMessagesParams),
+    PublishKeyPackages(PublishConnectionKpParams),
+    ClientKeyPackage(AsClientKeyPackageParams),
     UserClients(UserClientsParams),
     UserKeyPackages(UserKeyPackagesParams),
     EnqueueMessage(EnqueueMessageParams),
@@ -721,7 +721,7 @@ pub(crate) enum VerifiedAsRequestParams {
     FinishClientAddition(FinishClientAdditionParamsTbs),
     DeleteClient(DeleteClientParamsTbs),
     DequeueMessages(DequeueMessagesParamsTbs),
-    PublishKeyPackages(PublishKeyPackagesParamsTbs),
+    PublishKeyPackages(PublishConnectionKpParamsTbs),
     ClientKeyPackage(ClientKeyPackageParamsTbs),
     IssueTokens(IssueTokensParamsTbs),
     // Endpoints that don't require authentication
