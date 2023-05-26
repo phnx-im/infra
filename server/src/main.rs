@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::net::TcpListener;
+use std::{net::TcpListener, sync::Arc};
 
 use phnxserver::{
     configurations::*,
+    endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
         ds::MemoryDsStorage, enqueue_provider::MemoryEnqueueProvider, qs::MemStorageProvider,
@@ -33,14 +34,12 @@ async fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
 
     let ds_storage_provider = MemoryDsStorage::new();
-    let qs_storage_provider = MemStorageProvider::default();
-    // TODO: Here we need to link the enqueue provider and the storage
-    // provider.
-    // At least for the enqueue provider, we need interior mutability
-    // and we also need to ensure that storage and enqueue provider can
-    // safely access the same state.
-    // The enqueue provider also needs a WS dispatch.
-    let qs_enqueue_provider: MemoryEnqueueProvider = todo!();
+    let qs_storage_provider = Arc::new(MemStorageProvider::default());
+    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let qs_enqueue_provider = MemoryEnqueueProvider {
+        storage: qs_storage_provider.clone(),
+        notifier: ws_dispatch_notifier,
+    };
 
     // Start the server
     run(
