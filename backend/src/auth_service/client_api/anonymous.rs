@@ -40,7 +40,7 @@ impl AuthService {
     pub(crate) async fn as_enqueue_message<S: AsStorageProvider>(
         storage_provider: &S,
         params: EnqueueMessageParams,
-    ) -> Result<AsEnqueueMessageResponse, EnqueueMessageError> {
+    ) -> Result<(), EnqueueMessageError> {
         let EnqueueMessageParams {
             client_id,
             connection_establishment_ctxt,
@@ -72,7 +72,7 @@ impl AuthService {
             .await
             .map_err(|_| EnqueueMessageError::StorageError)?;
 
-        Ok(AsEnqueueMessageResponse {})
+        Ok(())
     }
 
     pub(crate) async fn as_credentials<S: AsStorageProvider>(

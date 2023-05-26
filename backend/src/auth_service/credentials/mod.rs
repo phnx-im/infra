@@ -35,7 +35,7 @@ mod private_mod {
     pub struct Seal;
 }
 
-mod keys;
+pub mod keys;
 
 // Re-export signing keys for storage provider.
 pub(crate) use keys::AsIntermediateSigningKey;
@@ -252,7 +252,7 @@ impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential 
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub(crate) struct VerifiableAsIntermediateCredential {
+pub struct VerifiableAsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
 }
