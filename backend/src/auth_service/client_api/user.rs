@@ -101,7 +101,7 @@ impl AuthService {
         storage_provider: &S,
         ephemeral_storage_provider: &E,
         params: FinishUserRegistrationParamsTbs,
-    ) -> Result<FinishUserRegistrationResponse, FinishUserRegistrationError> {
+    ) -> Result<(), FinishUserRegistrationError> {
         let FinishUserRegistrationParamsTbs {
             client_id,
             user_name,
@@ -165,15 +165,13 @@ impl AuthService {
                 FinishUserRegistrationError::StorageError
             })?;
 
-        let response = FinishUserRegistrationResponse {};
-
-        Ok(response)
+        Ok(())
     }
 
     pub(crate) async fn as_delete_user<S: AsStorageProvider>(
         storage_provider: &S,
         params: DeleteUserParamsTbs,
-    ) -> Result<DeleteUserResponse, DeleteUserError> {
+    ) -> Result<(), DeleteUserError> {
         let DeleteUserParamsTbs {
             user_name,
             client_id,
@@ -188,8 +186,7 @@ impl AuthService {
                 tracing::error!("Storage provider error: {:?}", e);
                 DeleteUserError::StorageError
             })?;
-        let response = DeleteUserResponse {};
 
-        Ok(response)
+        Ok(())
     }
 }

@@ -7,36 +7,31 @@ use phnxbackend::{
     crypto::{
         ear::keys::FriendshipEarKey,
         signatures::{
-            keys::{
-                QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey, QsUserVerifyingKey,
-            },
+            keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
             signable::Signable,
             traits::SigningKey,
         },
         QueueRatchet, RatchetPublicKey,
     },
     messages::{
-        client_as::AsClientKeyPackageParams,
         client_qs::{
-            ClientKeyPackageParams, ClientKeyPackageResponse, ClientToQsMessageTbs,
-            CreateClientRecordResponse, CreateUserRecordParams, CreateUserRecordResponse,
+            ClientKeyPackageParams, CreateClientRecordResponse, CreateUserRecordResponse,
             DeleteClientRecordParams, DeleteUserRecordParams, DequeueMessagesParams,
-            DequeueMessagesResponse, KeyPackageBatchParams, KeyPackageBatchResponse,
-            KeyPackageBatchResponseIn, QsProcessResponse, QsProcessResponseIn, QsRequestParams,
+            DequeueMessagesResponse, KeyPackageBatchResponseIn, QsProcessResponseIn,
             UpdateClientRecordParams, UpdateUserRecordParams,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
             CreateUserRecordParamsOut, PublishKeyPackagesParamsOut, QsRequestParamsOut,
         },
-        FriendshipToken, QueueMessage,
+        FriendshipToken,
     },
     qs::{errors::QsProcessError, AddPackage, EncryptedPushToken, QsClientId, QsUserId},
 };
 use phnxserver::endpoints::ENDPOINT_QS;
 use thiserror::Error;
 
-use crate::{ds_api::DsRequestError, ApiClient, Protocol};
+use crate::{ApiClient, Protocol};
 
 pub mod ws;
 

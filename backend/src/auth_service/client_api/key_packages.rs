@@ -4,7 +4,7 @@
 
 use mls_assist::{
     openmls::{
-        prelude::{KeyPackage, KeyPackageVerifyError, OpenMlsCryptoProvider},
+        prelude::{KeyPackage, OpenMlsCryptoProvider},
         versions::ProtocolVersion,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -18,9 +18,9 @@ use crate::{
 impl AuthService {
     pub(crate) async fn as_publish_key_packages<S: AsStorageProvider>(
         storage_provider: &S,
-        params: PublishConnectionKpParamsTbs,
-    ) -> Result<PublishKeyPackagesResponse, PublishKeyPackageError> {
-        let PublishConnectionKpParamsTbs {
+        params: AsPublishKeyPackagesParamsTbs,
+    ) -> Result<(), PublishKeyPackageError> {
+        let AsPublishKeyPackagesParamsTbs {
             client_id,
             key_packages,
         } = params;
@@ -35,21 +35,22 @@ impl AuthService {
                     OpenMlsRustCrypto::default().crypto(),
                     ProtocolVersion::default(),
                 )
+                .map_err(|_| PublishKeyPackageError::InvalidKeyPackage)
             })
-            .collect::<Result<Vec<KeyPackage>, KeyPackageVerifyError>>()?;
+            .collect::<Result<Vec<KeyPackage>, PublishKeyPackageError>>()?;
 
         storage_provider
             .store_key_packages(&client_id, key_packages)
             .await
             .map_err(|_| PublishKeyPackageError::StorageError)?;
-        Ok(PublishKeyPackagesResponse {})
+        Ok(())
     }
 
     pub(crate) async fn as_client_key_package<S: AsStorageProvider>(
         storage_provider: &S,
         params: ClientKeyPackageParamsTbs,
     ) -> Result<AsClientKeyPackageResponse, ClientKeyPackageError> {
-        let client_id = params;
+        let client_id = params.0;
 
         let key_package = storage_provider
             .client_key_package(&client_id)

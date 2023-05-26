@@ -18,9 +18,9 @@ use crate::{
 
 use super::{
     client_qs::{
-        ClientKeyPackageParams, CreateClientRecordParams, DeleteClientRecordParams,
-        DeleteUserRecordParams, DequeueMessagesParams, KeyPackageBatchParams,
-        PublishKeyPackagesParams, UpdateClientRecordParams, UpdateUserRecordParams,
+        ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
+        DequeueMessagesParams, KeyPackageBatchParams, UpdateClientRecordParams,
+        UpdateUserRecordParams,
     },
     FriendshipToken, MlsInfraVersion,
 };

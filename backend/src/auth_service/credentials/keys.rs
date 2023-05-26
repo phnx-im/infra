@@ -135,7 +135,7 @@ pub(crate) enum KeyGenerationError {
 }
 
 #[derive(Debug)]
-struct ClientSigningKey {
+pub struct ClientSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: ClientCredential,
 }
@@ -162,7 +162,7 @@ impl ClientSigningKey {
         })
     }
 
-    pub(crate) fn credential(&self) -> &ClientCredential {
+    pub fn credential(&self) -> &ClientCredential {
         &self.credential
     }
 }
