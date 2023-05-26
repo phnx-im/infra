@@ -122,7 +122,7 @@ impl AuthService {
         storage_provider: &S,
         ephemeral_storage_provider: &E,
         params: FinishClientAdditionParamsTbs,
-    ) -> Result<FinishClientAdditionResponse, FinishUserRegistrationError> {
+    ) -> Result<(), FinishUserRegistrationError> {
         let FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
@@ -166,16 +166,14 @@ impl AuthService {
                 FinishUserRegistrationError::StorageError
             })?;
 
-        let response = FinishClientAdditionResponse {};
-
-        Ok(response)
+        Ok(())
     }
 
     pub(crate) async fn as_delete_client<S: AsStorageProvider>(
         storage_provider: &S,
         params: DeleteClientParamsTbs,
-    ) -> Result<DeleteClientResponse, DeleteClientError> {
-        let client_id = params;
+    ) -> Result<(), DeleteClientError> {
+        let client_id = params.0;
 
         // Delete the client
         storage_provider
@@ -185,9 +183,8 @@ impl AuthService {
                 tracing::error!("Storage provider error: {:?}", e);
                 DeleteClientError::StorageError
             })?;
-        let response = DeleteClientResponse {};
 
-        Ok(response)
+        Ok(())
     }
 
     pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(

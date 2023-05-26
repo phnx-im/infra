@@ -16,10 +16,8 @@ use crate::{
     ds::group_state::TimeStamp,
     messages::client_as::{
         AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-        AsEnqueueMessageResponse, DeleteClientResponse, DeleteUserResponse,
-        FinishClientAdditionResponse, FinishUserRegistrationResponse, Init2FactorAuthResponse,
-        InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
-        PublishKeyPackagesResponse, UserClientsResponse, UserKeyPackagesResponse,
+        Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
+        IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
         VerifiableClientToAsMessage, VerifiedAsRequestParams,
     },
 };
@@ -86,12 +84,12 @@ pub struct OpaqueLoginFinish {
 ///
 /// The TLS serialization implementation of this
 #[derive(Debug)]
-pub(crate) struct OpaqueRegistrationRequest {
+pub struct OpaqueRegistrationRequest {
     client_message: RegistrationRequest<OpaqueCiphersuite>,
 }
 
 #[derive(Debug)]
-pub(crate) struct OpaqueRegistrationResponse {
+pub struct OpaqueRegistrationResponse {
     server_message: RegistrationResponse<OpaqueCiphersuite>,
 }
 
@@ -104,7 +102,7 @@ impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationRespons
 }
 
 #[derive(Debug)]
-pub(crate) struct OpaqueRegistrationRecord {
+pub struct OpaqueRegistrationRecord {
     client_message: RegistrationUpload<OpaqueCiphersuite>,
 }
 
@@ -172,13 +170,12 @@ impl AuthService {
                     ephemeral_storage_provider,
                     params,
                 )
-                .await
-                .map(AsProcessResponse::FinishUserRegistration)?
+                .await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteUser(params) => {
-                AuthService::as_delete_user(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::DeleteUser)?
+                AuthService::as_delete_user(storage_provider, params).await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::FinishClientAddition(params) => {
                 AuthService::as_finish_client_addition(
@@ -186,13 +183,12 @@ impl AuthService {
                     ephemeral_storage_provider,
                     params,
                 )
-                .await
-                .map(AsProcessResponse::FinishClientAddition)?
+                .await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteClient(params) => {
-                AuthService::as_delete_client(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::DeleteClient)?
+                AuthService::as_delete_client(storage_provider, params).await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DequeueMessages(params) => {
                 AuthService::as_dequeue_messages(storage_provider, params)
@@ -200,9 +196,8 @@ impl AuthService {
                     .map(AsProcessResponse::DequeueMessages)?
             }
             VerifiedAsRequestParams::PublishKeyPackages(params) => {
-                AuthService::as_publish_key_packages(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::PublishKeyPackages)?
+                AuthService::as_publish_key_packages(storage_provider, params).await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::ClientKeyPackage(params) => {
                 AuthService::as_client_key_package(storage_provider, params)
@@ -239,9 +234,8 @@ impl AuthService {
                     .map(AsProcessResponse::AsCredentials)?
             }
             VerifiedAsRequestParams::EnqueueMessage(params) => {
-                AuthService::as_enqueue_message(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::EnqueueMessage)?
+                AuthService::as_enqueue_message(storage_provider, params).await?;
+                AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::InitUserRegistration(params) => {
                 AuthService::as_init_user_registration(
@@ -260,19 +254,14 @@ impl AuthService {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum AsProcessResponse {
+    Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
-    FinishUserRegistration(FinishUserRegistrationResponse),
-    DeleteUser(DeleteUserResponse),
-    FinishClientAddition(FinishClientAdditionResponse),
-    DeleteClient(DeleteClientResponse),
     DequeueMessages(AsDequeueMessagesResponse),
-    PublishKeyPackages(PublishKeyPackagesResponse),
     ClientKeyPackage(AsClientKeyPackageResponse),
     IssueTokens(IssueTokensResponse),
     UserKeyPackages(UserKeyPackagesResponse),
     InitiateClientAddition(InitClientAdditionResponse),
     UserClients(UserClientsResponse),
     AsCredentials(AsCredentialsResponse),
-    EnqueueMessage(AsEnqueueMessageResponse),
     InitUserRegistration(InitUserRegistrationResponse),
 }

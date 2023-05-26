@@ -10,3 +10,6 @@ pub const ENDPOINT_DS: &str = "/ds";
 
 /// QS endpoints
 pub const ENDPOINT_QS: &str = "/qs";
+
+/// AS endpoints
+pub const ENDPOINT_AS: &str = "/as";

@@ -8,7 +8,7 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::openmls::prelude::SignaturePublicKey;
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         signatures::keys::QsClientVerifyingKey,
         signatures::{
             keys::QsUserVerifyingKey,
-            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+            signable::{Signature, Verifiable, VerifiedStruct},
         },
         QueueRatchet, RatchetPublicKey,
     },
