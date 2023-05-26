@@ -4,7 +4,6 @@
 
 use std::{net::TcpListener, sync::Arc};
 
-use actix::Addr;
 use phnxserver::{
     configurations::*,
     endpoints::qs::ws::DispatchWebsocketNotifier,
