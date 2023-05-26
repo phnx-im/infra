@@ -225,6 +225,14 @@ impl DispatchWebsocketNotifier {
     pub fn new(dispatch_addr: Addr<Dispatch>) -> Self {
         DispatchWebsocketNotifier { dispatch_addr }
     }
+
+    /// Create a new instance
+    pub fn default_addr() -> Self {
+        let dispatch: Addr<Dispatch> = Dispatch::default().start();
+        DispatchWebsocketNotifier {
+            dispatch_addr: dispatch,
+        }
+    }
 }
 
 #[async_trait]

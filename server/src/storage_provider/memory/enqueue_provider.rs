@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::{ops::Deref, sync::Arc};
+
 use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
@@ -13,21 +15,19 @@ use phnxbackend::{
 
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
-use super::qs::{LoadSigningKeyError, MemStorageProvider};
-
 #[derive(Debug)]
-pub struct MemoryEnqueueProvider<'a> {
-    storage: &'a MemStorageProvider,
-    notifier: &'a DispatchWebsocketNotifier,
+pub struct MemoryEnqueueProvider<T: QsStorageProvider> {
+    pub storage: Arc<T>,
+    pub notifier: DispatchWebsocketNotifier,
 }
 
 #[async_trait]
-impl<'a> QsEnqueueProvider for MemoryEnqueueProvider<'a> {
-    type EnqueueError = QsEnqueueError<MemStorageProvider>;
-    type VerifyingKeyError = LoadSigningKeyError;
+impl<T: QsStorageProvider> QsEnqueueProvider for MemoryEnqueueProvider<T> {
+    type EnqueueError = QsEnqueueError<T>;
+    type VerifyingKeyError = T::LoadSigningKeyError;
 
     async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
-        Qs::enqueue_message(self.storage, self.notifier, message).await
+        Qs::enqueue_message(self.storage.deref(), &self.notifier, message).await
     }
 
     async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError> {

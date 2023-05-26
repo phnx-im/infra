@@ -21,16 +21,16 @@ use phnxbackend::{
     ds::DsStorageProvider,
     qs::{storage_provider_trait::QsStorageProvider, Qs, QsEnqueueProvider},
 };
-use std::net::TcpListener;
+use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;
 
 use crate::endpoints::qs::qs_process_message;
 
 /// Configure and run the server application.
-pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvider + 'static>(
+pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvider>(
     listener: TcpListener,
     ds_storage_provider: Dsp,
-    qs_storage_provider: Qsp,
+    qs_storage_provider: Arc<Qsp>,
     qs_enqueue_provider: Qep,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>

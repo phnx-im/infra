@@ -142,7 +142,7 @@ pub trait WebsocketNotifier {
 }
 
 #[async_trait]
-pub trait QsEnqueueProvider: Sync + Send + std::fmt::Debug {
+pub trait QsEnqueueProvider: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError;
     type VerifyingKeyError;
     async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
