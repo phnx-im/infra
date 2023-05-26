@@ -121,7 +121,8 @@ linux-debug:
 	cp $(RUST_TARGET_DIR)/debug/libcoreclient.so linux/libcoreclient.so
 
 dart-bridge:
-	 flutter_rust_bridge_codegen \
+	dart pub get
+	flutter_rust_bridge_codegen \
 	 	--rust-input ../src/dart_api.rs \
         --dart-output $(DART_BASE_DIR)/bridge_generated.dart \
         --dart-decl-output $(DART_BASE_DIR)/bridge_definitions.dart \
