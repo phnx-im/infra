@@ -10,10 +10,15 @@ pub(crate) struct GroupStore {
 }
 
 impl GroupStore {
-    pub(crate) fn create_group(&mut self, user: &mut SelfUser) -> Result<Uuid, GroupStoreError> {
+    pub(crate) fn create_group(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider,
+        signer: &impl Signer,
+        credential_with_key: &CredentialWithKey,
+    ) -> Result<Uuid, GroupStoreError> {
         let mut try_counter = 0;
         while try_counter < 10 {
-            let group = Group::create_group(user);
+            let group = Group::create_group(backend, signer, credential_with_key);
             let uuid = group.group_id();
             if self.groups.insert(uuid, group).is_some() {
                 try_counter += 1;
@@ -39,11 +44,13 @@ impl GroupStore {
 
     pub(crate) fn create_message(
         &mut self,
-        self_user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        signer: &impl Signer,
+        credential_with_key: &CredentialWithKey,
         group_id: &Uuid,
         message: &str,
     ) -> Result<GroupMessage, GroupOperationError> {
         let group = self.groups.get_mut(group_id).unwrap();
-        group.create_message(self_user, message)
+        group.create_message(backend, signer, credential_with_key, message)
     }
 }
