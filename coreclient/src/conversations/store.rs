@@ -22,9 +22,9 @@ impl ConversationStore {
     ) {
         let conversation = Conversation {
             id: UuidBytes::from_uuid(&conversation_id),
-            conversation_type: ConversationType::Group.into(),
+            conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),
-            attributes: attributes,
+            attributes,
             status: ConversationStatus::Active(ActiveConversation {}),
         };
         self.conversations.insert(conversation_id, conversation);
