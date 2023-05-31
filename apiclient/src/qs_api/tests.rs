@@ -12,7 +12,11 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
-use phnxserver::endpoints::qs::ws::{QsOpenWsParams, QsWsMessage};
+use phnxbackend::qs::QsClientId;
+use phnxserver::endpoints::{
+    qs::ws::{QsOpenWsParams, QsWsMessage},
+    ENDPOINT_QS,
+};
 use tokio::time::sleep;
 
 use crate::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
@@ -30,9 +34,7 @@ async fn test_ws_lifecycle() {
     // Execute the server in the background
     let _ = tokio::spawn(server);
 
-    let queue_id = QueueId {
-        id: QUEUE_ID_VALUE.to_vec(),
-    };
+    let queue_id = QsClientId::from_bytes(QUEUE_ID_VALUE.to_vec());
 
     // Websocket parameters
     let timeout = 1;
@@ -79,7 +81,7 @@ fn run_server(listener: TcpListener) -> Result<Server, std::io::Error> {
     let server = HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
+            .route(ENDPOINT_QS, web::get().to(upgrade_connection))
     })
     .listen(listener)?
     .run();
@@ -121,7 +123,10 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     };
 
     // Check the queue id value
-    assert_eq!(qs_open_ws_params.queue_id.id, QUEUE_ID_VALUE.to_vec());
+    assert_eq!(
+        qs_open_ws_params.queue_id.as_slice(),
+        QUEUE_ID_VALUE.as_slice()
+    );
 
     // Extract the queue ID
     let qs_ws_connection = QsWsConnection::new();
