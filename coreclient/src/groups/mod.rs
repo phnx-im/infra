@@ -8,49 +8,106 @@ pub(crate) mod store;
 use ds_lib::GroupMessage;
 pub(crate) use error::*;
 use openmls_memory_keystore::MemoryKeyStore;
+use openmls_rust_crypto::OpenMlsRustCrypto;
 use openmls_traits::signatures::Signer;
+use phnxbackend::{
+    auth_service::credentials::keys::{generate_signature_keypair, ClientSigningKey},
+    crypto::signatures::traits::SigningKey,
+};
 pub(crate) use store::*;
 
-use crate::{backend::Backend, conversations::*, types::MessageContentType, types::*};
+use crate::{conversations::*, types::MessageContentType, types::*};
 use std::collections::HashMap;
 
-use openmls::prelude::*;
+use openmls::prelude::{group_info::GroupInfo, *};
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub(crate) struct InfraCredentialSigningKey {
+    signing_key_bytes: Vec<u8>,
+    credential: InfraCredential,
+}
+
+// 30 days lifetime in seconds
+pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
+
+impl InfraCredentialSigningKey {
+    pub fn generate(client_signer: &ClientSigningKey) -> Self {
+        let keypair = generate_signature_keypair().unwrap();
+        let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+        let credential = InfraCredential::new(
+            identity,
+            // 30 days lifetime
+            Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
+            SignatureScheme::ED25519,
+            keypair.1.clone().into(),
+        );
+        Self {
+            signing_key_bytes: keypair.0,
+            credential,
+        }
+    }
+
+    pub(crate) fn credential(&self) -> &InfraCredential {
+        &self.credential
+    }
+}
+
+impl SigningKey for InfraCredentialSigningKey {}
+
+impl AsRef<[u8]> for InfraCredentialSigningKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.signing_key_bytes
+    }
+}
+
+impl Signer for InfraCredentialSigningKey {
+    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
+        <Self as SigningKey>::sign(self, payload)
+            .map_err(|_| Error::SigningError)
+            .map(|s| s.into_bytes())
+    }
+
+    fn signature_scheme(&self) -> SignatureScheme {
+        self.credential.credential_ciphersuite()
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: Uuid,
+    leaf_signer: InfraCredentialSigningKey,
     mls_group: MlsGroup,
 }
 
 impl Group {
     /// Create a group.
-    pub fn create_group(
-        backend: &impl OpenMlsCryptoProvider,
-        signer: &impl Signer,
-        credential_with_key: &CredentialWithKey,
-    ) -> Self {
-        log::debug!(
-            "{:?} creates a group",
-            credential_with_key.credential.identity()
-        );
+    pub fn create_group(backend: &impl OpenMlsCryptoProvider, signer: &ClientSigningKey) -> Self {
         let group_id = Uuid::new_v4();
+
+        let leaf_signer = InfraCredentialSigningKey::generate(signer);
 
         let mls_group_config = MlsGroupConfig::builder()
             .use_ratchet_tree_extension(true)
             .build();
 
+        let credential_with_key = CredentialWithKey {
+            credential: Credential::from(leaf_signer.credential.clone()),
+            signature_key: leaf_signer.credential.verifying_key().clone(),
+        };
+
         let mls_group = MlsGroup::new_with_group_id(
             backend,
-            signer,
+            &leaf_signer,
             &mls_group_config,
             GroupId::from_slice(group_id.as_bytes()),
-            credential_with_key.clone(),
+            credential_with_key,
         )
         .unwrap();
 
         Group {
             group_id,
+            leaf_signer,
             mls_group,
         }
     }
@@ -59,6 +116,7 @@ impl Group {
     pub(crate) fn join_group(
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome: Welcome,
+        leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
 
@@ -77,6 +135,9 @@ impl Group {
             }
         };
 
+        let verifying_key = mls_group.own_leaf_node().unwrap().signature_key();
+        let leaf_signer = leaf_signers.remove(verifying_key).unwrap();
+
         let mut members = Vec::new();
         for member in mls_group.members() {
             let identity = member.credential.identity().to_vec();
@@ -86,6 +147,7 @@ impl Group {
         let group = Group {
             group_id: UuidBytes::from_bytes(mls_group.group_id().as_slice()).as_uuid(),
             mls_group,
+            leaf_signer,
         };
 
         Ok(group)
@@ -101,51 +163,19 @@ impl Group {
     }
 
     /// Invite user with the given name to the group.
+    ///
+    /// Returns the Commit, as well as the Welcome message as a tuple in that
+    /// order.
     pub(crate) fn invite<'a>(
         &'a mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &impl Signer,
         credential_with_key: &CredentialWithKey,
         key_package: KeyPackage,
-        network_backend: &Backend,
-    ) -> Result<&'a StagedCommit, GroupOperationError> {
-        let (mls_message_out, welcome_msg, _group_info_option) =
-            self.mls_group
-                .add_members(backend, signer, &[key_package])?;
-
-        // Make a copy of the pending commit for later inspection
-        let staged_commit = self.mls_group.pending_commit().unwrap();
-
-        // Filter out own user and create a list of members to whom to send the
-        // commit.
-        let members = self
+    ) -> Result<(MlsMessageOut, MlsMessageOut, Option<GroupInfo>), GroupOperationError> {
+        Ok(self
             .mls_group
-            .members()
-            .filter_map(|member| {
-                if member.credential != credential_with_key.credential {
-                    Some(member.credential.identity().to_vec())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // Send Commit to the group.
-        log::trace!("Sending Commit");
-
-        let msg = GroupMessage::new(mls_message_out.into(), &members);
-        network_backend
-            .send_msg(&msg)
-            .map_err(|_| GroupOperationError::InvitationError)?;
-
-        // Send Welcome to the client.
-        log::trace!("Sending Welcome");
-
-        network_backend
-            .send_welcome(&welcome_msg)
-            .map_err(|_| GroupOperationError::InvitationError)?;
-
-        Ok(staged_commit)
+            .add_members(backend, signer, &[key_package])?)
     }
 
     /// Merge the pending commit

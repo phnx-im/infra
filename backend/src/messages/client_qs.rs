@@ -19,7 +19,7 @@ use crate::{
             keys::QsUserVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
-        QueueRatchet, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey,
     },
     qs::{
         AddPackage, AddPackageIn, EncryptedPushToken, KeyPackageBatch, QsClientId,
@@ -55,7 +55,7 @@ pub struct QsFetchMessagesResponse {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct QsQueueUpdate {
-    pub owner_public_key_option: Option<RatchetPublicKey>,
+    pub owner_public_key_option: Option<RatchetEncryptionKey>,
     pub owner_signature_key_option: Option<QsClientVerifyingKey>,
 }
 
@@ -75,7 +75,7 @@ pub struct CreateUserRecordParams {
     pub(crate) user_record_auth_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
-    pub(crate) queue_encryption_key: RatchetPublicKey,
+    pub(crate) queue_encryption_key: RatchetEncryptionKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
@@ -117,7 +117,7 @@ pub struct DeleteUserRecordParams {
 pub struct CreateClientRecordParams {
     pub(crate) sender: QsUserId,
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
-    pub(crate) queue_encryption_key: RatchetPublicKey,
+    pub(crate) queue_encryption_key: RatchetEncryptionKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: FriendshipEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
@@ -133,7 +133,7 @@ pub struct CreateClientRecordResponse {
 pub struct UpdateClientRecordParams {
     pub sender: QsClientId,
     pub client_record_auth_key: QsClientVerifyingKey,
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
 }
 
@@ -148,7 +148,7 @@ pub struct ClientRecordParams {
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub(crate) struct ClientRecordResponse {
     pub(crate) client_record_auth_key: SignaturePublicKey,
-    pub(crate) queue_encryption_key: RatchetPublicKey,
+    pub(crate) queue_encryption_key: RatchetEncryptionKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]

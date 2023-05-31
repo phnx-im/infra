@@ -247,7 +247,7 @@ pub enum DecryptionError {
 #[derive(Debug, Clone)]
 pub struct DecryptionPrivateKey {
     private_key: HpkePrivateKey,
-    public_key: HpkePublicKey,
+    public_key: EncryptionPublicKey,
 }
 
 impl DecryptionPrivateKey {
@@ -271,7 +271,7 @@ impl DecryptionPrivateKey {
             .map_err(|_| DecryptionError::DecryptionError)
     }
 
-    pub(crate) fn generate() -> Result<Self, RandomnessError> {
+    pub fn generate() -> Result<Self, RandomnessError> {
         let provider = OpenMlsRustCrypto::default();
         let key_seed = provider
             .rand()
@@ -284,12 +284,30 @@ impl DecryptionPrivateKey {
                 .into_keys();
         Ok(Self {
             private_key,
-            public_key,
+            public_key: EncryptionPublicKey { public_key },
         })
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct RatchetPublicKey {
+pub struct RatchetEncryptionKey {
     encryption_key: EncryptionPublicKey,
+}
+
+pub struct RatchetDecryptionKey {
+    decryption_key: DecryptionPrivateKey,
+}
+
+impl RatchetDecryptionKey {
+    pub fn generate() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            decryption_key: DecryptionPrivateKey::generate()?,
+        })
+    }
+
+    pub fn encryption_key(&self) -> RatchetEncryptionKey {
+        RatchetEncryptionKey {
+            encryption_key: self.decryption_key.public_key.clone(),
+        }
+    }
 }

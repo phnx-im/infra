@@ -13,12 +13,11 @@ impl GroupStore {
     pub(crate) fn create_group(
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
-        signer: &impl Signer,
-        credential_with_key: &CredentialWithKey,
+        signer: &ClientSigningKey,
     ) -> Result<Uuid, GroupStoreError> {
         let mut try_counter = 0;
         while try_counter < 10 {
-            let group = Group::create_group(backend, signer, credential_with_key);
+            let group = Group::create_group(backend, signer);
             let uuid = group.group_id();
             if self.groups.insert(uuid, group).is_some() {
                 try_counter += 1;

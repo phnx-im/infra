@@ -63,6 +63,10 @@ impl Signature {
             signature: token.token().to_vec(),
         }
     }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.signature
+    }
 }
 
 /// This trait must be implemented by all structs that contain a self-signature.

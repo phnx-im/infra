@@ -11,7 +11,7 @@ use crate::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signable, Signature, SignedStruct},
         },
-        QueueRatchet, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey,
     },
     qs::{AddPackage, EncryptedPushToken, QsClientId, QsUserId},
 };
@@ -78,7 +78,7 @@ pub struct CreateUserRecordParamsOut {
     pub user_record_auth_key: QsUserVerifyingKey,
     pub friendship_token: FriendshipToken,
     pub client_record_auth_key: QsClientVerifyingKey,
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub add_packages: Vec<AddPackage>,
     pub friendship_ear_key: FriendshipEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
@@ -89,7 +89,7 @@ pub struct CreateUserRecordParamsOut {
 pub struct CreateClientRecordParamsOut {
     pub sender: QsUserId,
     pub client_record_auth_key: QsClientVerifyingKey,
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub add_packages: Vec<AddPackage>,
     pub friendship_ear_key: FriendshipEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,

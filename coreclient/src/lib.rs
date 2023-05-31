@@ -4,7 +4,6 @@
 
 #[macro_use]
 mod errors;
-mod backend;
 mod contacts;
 mod conversations;
 mod groups;
@@ -20,7 +19,7 @@ mod dart_api;
 use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
-use crate::{backend::Backend, conversations::*, groups::*, types::*, users::*};
+use crate::{conversations::*, groups::*, types::*, users::*};
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
@@ -35,7 +34,6 @@ pub struct Corelib<T>
 where
     T: Notifiable,
 {
-    backend: Option<Backend>,
     self_user: Option<SelfUser>,
     notification_hub: NotificationHub<T>,
 }
@@ -43,46 +41,24 @@ where
 impl<T: Notifiable> Corelib<T> {
     pub fn new() -> Self {
         Self {
-            backend: None,
             self_user: None,
             notification_hub: NotificationHub::<T>::default(),
         }
     }
 
-    /// Set the corelib's backend url.
-    pub fn initialize_backend(&mut self, backend_url: &str) {
-        self.backend = Some(Backend::new(backend_url));
-    }
-
-    /// Reset the backend.
-    pub fn reset_backend(&mut self) -> Result<(), CorelibError> {
-        match &self.backend {
-            Some(backend) => match backend.reset_backend() {
-                Ok(_) => Ok(()),
-                Err(_) => Err(CorelibError::NetworkError),
-            },
-            None => Err(CorelibError::BackendNotInitialized),
-        }
-    }
-
     /// Create user
-    pub fn create_user(&mut self, username: &str) -> Result<(), CorelibError> {
-        match &self.backend {
-            Some(backend) => {
-                let user = SelfUser::new(username.to_string());
-                match backend.register_client(&user) {
-                    Ok(response) => {
-                        log::debug!("Created new user: {:?}", response);
-                        self.self_user = Some(user);
-                        Ok(())
-                    }
-                    Err(error) => {
-                        println!("Error creating user: {:?}", error);
-                        Err(CorelibError::NetworkError)
-                    }
-                }
+    pub fn create_user(&mut self, username: &str, password: &str) -> Result<(), CorelibError> {
+        let user = SelfUser::new(username.to_string(), password.to_string());
+        match backend.register_client(&user) {
+            Ok(response) => {
+                log::debug!("Created new user: {:?}", response);
+                self.self_user = Some(user);
+                Ok(())
             }
-            None => Err(CorelibError::BackendNotInitialized),
+            Err(error) => {
+                println!("Error creating user: {:?}", error);
+                Err(CorelibError::NetworkError)
+            }
         }
     }
 
@@ -145,7 +121,6 @@ impl<T: Notifiable> Corelib<T> {
                             &self_user.signer,
                             &self_user.credential_with_key,
                             key_package,
-                            backend,
                         )
                         .map_err(CorelibError::Group)
                     {

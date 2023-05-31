@@ -11,7 +11,7 @@ use phnxbackend::{
             signable::Signable,
             traits::SigningKey,
         },
-        QueueRatchet, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey,
     },
     messages::{
         client_qs::{
@@ -118,7 +118,7 @@ impl ApiClient {
         &self,
         friendship_token: FriendshipToken,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
         friendship_ear_key: FriendshipEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
@@ -201,7 +201,7 @@ impl ApiClient {
         &self,
         sender: QsUserId,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
         friendship_ear_key: FriendshipEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
@@ -235,7 +235,7 @@ impl ApiClient {
     pub async fn qs_update_client(
         &self,
         sender: QsClientId,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {

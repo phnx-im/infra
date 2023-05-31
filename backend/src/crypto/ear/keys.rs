@@ -87,7 +87,7 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
     }
 }
 
-// EAR key for the [`KeyPackage`] structs.
+// EAR key for the [`ClientCredential`]s.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
 pub struct FriendshipEarKey {
     key: FriendshipEarKeySecret,

@@ -12,6 +12,7 @@ use crate::auth_service::credentials::{
     AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey,
 };
 
+use crate::crypto::ear::EarEncryptable;
 use crate::crypto::signatures::traits::{SigningKey, VerifyingKey};
 
 use thiserror::Error;
@@ -51,7 +52,8 @@ impl AsIntermediateSigningKey {
     }
 }
 
-pub(super) enum SigningKeyCreationError {
+#[derive(Debug)]
+pub enum SigningKeyCreationError {
     PublicKeyMismatch,
 }
 
@@ -86,7 +88,7 @@ impl AsSigningKey {
 impl SigningKey for AsSigningKey {}
 
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub(super) struct AsVerifyingKey {
+pub struct AsVerifyingKey {
     verifying_key_bytes: SignaturePublicKey,
 }
 
@@ -107,7 +109,7 @@ impl From<Vec<u8>> for AsVerifyingKey {
 }
 
 /// Generates a tuple consisting of private and public key.
-pub(super) fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGenerationError> {
+pub fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGenerationError> {
     OpenMlsRustCrypto::default()
         .crypto()
         .signature_key_gen(SignatureScheme::ED25519)
@@ -115,7 +117,7 @@ pub(super) fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGene
 }
 
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, Eq, PartialEq)]
-pub(super) struct AsIntermediateVerifyingKey {
+pub struct AsIntermediateVerifyingKey {
     pub(super) verifying_key_bytes: SignaturePublicKey,
 }
 
@@ -128,7 +130,7 @@ impl AsRef<[u8]> for AsIntermediateVerifyingKey {
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub(crate) enum KeyGenerationError {
+pub enum KeyGenerationError {
     /// Error generating signature keypair
     #[error("Error generating signature keypair")]
     KeypairGeneration,
@@ -149,7 +151,7 @@ impl AsRef<[u8]> for ClientSigningKey {
 impl SigningKey for ClientSigningKey {}
 
 impl ClientSigningKey {
-    pub(super) fn from_prelim_key(
+    pub fn from_prelim_key(
         prelim_key: PreliminaryClientSigningKey,
         credential: ClientCredential,
     ) -> Result<Self, SigningKeyCreationError> {

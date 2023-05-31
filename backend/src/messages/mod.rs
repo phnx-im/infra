@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::{
+    openmls::{prelude::OpenMlsRand, test_utils::OpenMlsCryptoProvider},
+    openmls_rust_crypto::OpenMlsRustCrypto,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::crypto::ear::Ciphertext;
+use crate::crypto::{ear::Ciphertext, RandomnessError};
 
 pub mod client_as;
 pub mod client_as_out;
@@ -33,6 +37,15 @@ pub struct FriendshipToken {
 }
 
 impl FriendshipToken {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let token = OpenMlsRustCrypto::default()
+            .rand()
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+
+        Ok(Self { token })
+    }
+
     pub fn token(&self) -> &[u8] {
         self.token.as_ref()
     }

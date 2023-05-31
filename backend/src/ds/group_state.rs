@@ -20,7 +20,7 @@ use tls_codec::{
 
 use crate::{
     crypto::{
-        ear::{keys::GroupStateEarKey, EarEncryptable},
+        ear::{keys::GroupStateEarKey, Ciphertext, EarEncryptable},
         signatures::keys::UserAuthKey,
         EncryptedDsGroupState,
     },
@@ -109,7 +109,23 @@ pub(super) struct UserProfile {
 }
 
 #[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
-pub struct EncryptedCredentialChain {}
+pub struct EncryptedCredentialChain {
+    pub(super) encrypted_credential_chain: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedCredentialChain {
+    fn from(value: Ciphertext) -> Self {
+        Self {
+            encrypted_credential_chain: value,
+        }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedCredentialChain {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.encrypted_credential_chain
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct ClientProfile {

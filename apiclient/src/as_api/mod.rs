@@ -11,7 +11,7 @@ use phnxbackend::{
         AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
         OpaqueRegistrationRequest, UserName,
     },
-    crypto::{signatures::signable::Signable, QueueRatchet, RatchetPublicKey},
+    crypto::{signatures::signable::Signable, QueueRatchet, RatchetEncryptionKey},
     messages::{
         client_as::{
             AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
@@ -24,7 +24,8 @@ use phnxbackend::{
         },
         client_as_out::{
             AsClientKeyPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            InitClientAdditionResponseIn, UserClientsResponseIn, UserKeyPackagesResponseIn,
+            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
+            UserKeyPackagesResponseIn,
         },
         client_ds::QueueMessagePayload,
     },
@@ -101,7 +102,7 @@ impl ApiClient {
         &self,
         client_payload: ClientCredentialPayload,
         opaque_registration_request: OpaqueRegistrationRequest,
-    ) -> Result<(), AsRequestError> {
+    ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
         let payload = InitUserRegistrationParams {
             client_payload,
             opaque_registration_request,
@@ -112,8 +113,8 @@ impl ApiClient {
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
+                if let AsProcessResponseIn::InitUserRegistration(response) = response {
+                    Ok(response)
                 } else {
                     Err(AsRequestError::UnexpectedResponse)
                 }
@@ -150,7 +151,7 @@ impl ApiClient {
     pub async fn as_finish_user_registration(
         &self,
         user_name: UserName,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: QueueRatchet,
         connection_key_packages: Vec<KeyPackageIn>,
         opaque_registration_record: OpaqueRegistrationRecord,
@@ -236,7 +237,7 @@ impl ApiClient {
     pub async fn as_finish_client_addition(
         &self,
         client_id: AsClientId,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: QueueRatchet,
         connection_key_package: KeyPackageIn,
         opaque_login_finish: OpaqueLoginFinish,

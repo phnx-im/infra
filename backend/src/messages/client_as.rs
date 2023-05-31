@@ -22,7 +22,7 @@ use crate::{
     },
     crypto::{
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-        QueueRatchet, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey,
     },
 };
 
@@ -171,7 +171,7 @@ pub struct InitUserRegistrationResponse {
 pub struct FinishUserRegistrationParamsTbs {
     pub client_id: AsClientId,
     pub user_name: UserName,
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_key: QueueRatchet,
     pub connection_key_packages: Vec<KeyPackageIn>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
@@ -295,7 +295,7 @@ pub struct InitClientAdditionResponse {
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
 pub struct FinishClientAdditionParamsTbs {
     pub client_id: AsClientId,
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_key: QueueRatchet,
     pub connection_key_package: KeyPackageIn,
 }

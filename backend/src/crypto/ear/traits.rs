@@ -10,7 +10,7 @@ use aes_gcm::{
     aead::{Aead as AesGcmAead, Key, Nonce},
     NewAead,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 use tracing::instrument;
 
 use crate::crypto::{secrets::Secret, RandomnessError};
@@ -70,15 +70,36 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
     }
 }
 
+pub trait GenericCodec: Sized {
+    type Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
+}
+
+impl<T: serde::Serialize + DeserializeOwned> GenericCodec for T {
+    type Error = serde_json::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        serde_json::to_vec(self)
+    }
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        serde_json::from_slice(bytes)
+    }
+}
+
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
 pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
-    Serialize + DeserializeOwned
+    GenericCodec
 {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<CiphertextType, EncryptionError> {
-        let plaintext = serde_json::to_vec(self).map_err(|_| EncryptionError::LibraryError)?;
+        let plaintext = self
+            .serialize()
+            .map_err(|_| EncryptionError::LibraryError)?;
         let ciphertext = ear_key.encrypt(&plaintext)?;
         Ok(ciphertext.into())
     }
@@ -88,8 +109,7 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
     fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {
         let ciphertext = ciphertext.as_ref();
         let plaintext = ear_key.decrypt(ciphertext)?;
-        let res =
-            serde_json::from_slice(&plaintext).map_err(|_| DecryptionError::DecryptionError)?;
+        let res = Self::deserialize(&plaintext).map_err(|_| DecryptionError::DecryptionError)?;
         Ok(res)
     }
 }

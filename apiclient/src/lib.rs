@@ -76,4 +76,8 @@ impl ApiClient {
             protocol, transport_encryption, self.base_url, endpoint
         )
     }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
 }

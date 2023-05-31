@@ -9,7 +9,7 @@ use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
         signatures::keys::QsClientVerifyingKey,
-        QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
     messages::{client_ds::QueueMessagePayload, QueueMessage},
@@ -36,7 +36,7 @@ pub(super) enum QsQueueMessage {
 pub struct QsClientRecord {
     pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
-    pub(crate) owner_public_key: RatchetPublicKey,
+    pub(crate) owner_public_key: RatchetEncryptionKey,
     pub(crate) owner_signature_key: QsClientVerifyingKey,
     pub(crate) current_ratchet_key: QueueRatchet,
     pub(crate) activity_time: TimeStamp,
@@ -47,7 +47,7 @@ impl QsClientRecord {
     pub(crate) fn update(
         &mut self,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         encrypted_push_token: Option<EncryptedPushToken>,
     ) {
         self.owner_signature_key = client_record_auth_key;

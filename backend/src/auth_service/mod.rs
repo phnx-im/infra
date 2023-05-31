@@ -12,7 +12,7 @@ use opaque_ke::{
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{OpaqueCiphersuite, QueueRatchet, RatchetPublicKey},
+    crypto::{OpaqueCiphersuite, QueueRatchet, RatchetEncryptionKey},
     ds::group_state::TimeStamp,
     messages::client_as::{
         AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
@@ -85,12 +85,12 @@ pub struct OpaqueLoginFinish {
 /// The TLS serialization implementation of this
 #[derive(Debug)]
 pub struct OpaqueRegistrationRequest {
-    client_message: RegistrationRequest<OpaqueCiphersuite>,
+    pub client_message: RegistrationRequest<OpaqueCiphersuite>,
 }
 
 #[derive(Debug)]
 pub struct OpaqueRegistrationResponse {
-    server_message: RegistrationResponse<OpaqueCiphersuite>,
+    pub server_message: RegistrationResponse<OpaqueCiphersuite>,
 }
 
 impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationResponse {
@@ -118,7 +118,17 @@ pub struct AsUserRecord {
 }
 
 #[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct UserName {}
+pub struct UserName {
+    pub(crate) user_name: Vec<u8>,
+}
+
+impl From<String> for UserName {
+    fn from(value: String) -> Self {
+        Self {
+            user_name: value.into_bytes(),
+        }
+    }
+}
 
 // === Client ===
 
@@ -129,12 +139,22 @@ pub struct AsClientId {
 
 impl AsClientId {
     pub fn username(&self) -> UserName {
-        todo!()
+        UserName {
+            user_name: self.client_id.clone(),
+        }
+    }
+}
+
+impl From<String> for AsClientId {
+    fn from(value: String) -> Self {
+        Self {
+            client_id: value.into_bytes(),
+        }
     }
 }
 
 pub struct AsClientRecord {
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub ratchet_key: QueueRatchet,
     pub activity_time: TimeStamp,
     pub credential: ClientCredential,

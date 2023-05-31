@@ -474,6 +474,13 @@ pub struct AddPackage {
 }
 
 impl AddPackageIn {
+    pub fn new(key_package: KeyPackageIn, icc_ciphertext: Vec<u8>) -> Self {
+        Self {
+            key_package,
+            icc_ciphertext,
+        }
+    }
+
     pub fn validate(
         self,
         crypto: &impl OpenMlsCrypto,
