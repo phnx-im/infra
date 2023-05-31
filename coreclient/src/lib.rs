@@ -36,8 +36,6 @@ where
     T: Notifiable,
 {
     backend: Option<Backend>,
-    conversation_store: ConversationStore,
-    group_store: GroupStore,
     self_user: Option<SelfUser>,
     notification_hub: NotificationHub<T>,
 }
@@ -46,8 +44,6 @@ impl<T: Notifiable> Corelib<T> {
     pub fn new() -> Self {
         Self {
             backend: None,
-            conversation_store: ConversationStore::default(),
-            group_store: GroupStore::default(),
             self_user: None,
             notification_hub: NotificationHub::<T>::default(),
         }
@@ -104,12 +100,16 @@ impl<T: Notifiable> Corelib<T> {
     /// Create new group
     pub fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
         match &mut self.self_user {
-            Some(user) => match self.group_store.create_group(user) {
+            Some(user) => match user.group_store.create_group(
+                &user.crypto_backend,
+                &user.signer,
+                &user.credential_with_key,
+            ) {
                 Ok(conversation_id) => {
                     let attributes = ConversationAttributes {
                         title: title.to_string(),
                     };
-                    self.conversation_store
+                    user.conversation_store
                         .create_group_conversation(conversation_id, attributes);
                     Ok(conversation_id)
                 }
@@ -121,7 +121,10 @@ impl<T: Notifiable> Corelib<T> {
 
     /// Get existing conversations
     pub fn get_conversations(&self) -> Vec<Conversation> {
-        self.conversation_store.conversations()
+        match &self.self_user {
+            Some(user) => user.conversation_store.conversations(),
+            None => vec![],
+        }
     }
 
     /// Invite user to an existing group
@@ -134,10 +137,16 @@ impl<T: Notifiable> Corelib<T> {
                         .clone()
                         .validate(self_user.crypto_backend.crypto(), ProtocolVersion::Mls10)
                         .map_err(|_| CorelibError::InvalidKeyPackage)?;
-                    let group = self.group_store.get_group_mut(&group_id).unwrap();
+                    let group = self_user.group_store.get_group_mut(&group_id).unwrap();
                     // Adds new member and staged commit
                     match group
-                        .invite(self_user, key_package.clone(), backend)
+                        .invite(
+                            &self_user.crypto_backend,
+                            &self_user.signer,
+                            &self_user.credential_with_key,
+                            key_package,
+                            backend,
+                        )
                         .map_err(CorelibError::Group)
                     {
                         Ok(staged_commit) => {
@@ -145,14 +154,15 @@ impl<T: Notifiable> Corelib<T> {
                                 &self_user.credential_with_key.credential,
                                 staged_commit,
                             );
-                            group.merge_pending_commit(&self_user)?;
+                            group.merge_pending_commit(&self_user.crypto_backend)?;
                             for conversation_message in conversation_messages {
                                 let dispatched_conversation_message =
                                     DispatchedConversationMessage {
                                         conversation_id: UuidBytes::from_uuid(&group_id),
                                         conversation_message: conversation_message.clone(),
                                     };
-                                self.conversation_store
+                                self_user
+                                    .conversation_store
                                     .store_message(&group_id, conversation_message)?;
                                 self.notification_hub
                                     .dispatch_message_notification(dispatched_conversation_message);
@@ -178,13 +188,19 @@ impl<T: Notifiable> Corelib<T> {
         group_id: Uuid,
         message: &str,
     ) -> Result<ConversationMessage, CorelibError> {
-        match &self.self_user {
-            Some(ref user) => {
+        match &mut self.self_user {
+            Some(ref mut user) => {
                 let sender = user.username.clone();
                 // Generate ciphertext
-                let group_message = self
+                let group_message = user
                     .group_store
-                    .create_message(user, &group_id, message)
+                    .create_message(
+                        &user.crypto_backend,
+                        &user.signer,
+                        &user.credential_with_key,
+                        &group_id,
+                        message,
+                    )
                     .map_err(CorelibError::Group)?;
 
                 // Store message locally
@@ -195,7 +211,7 @@ impl<T: Notifiable> Corelib<T> {
                     }),
                 });
                 let conversation_message = new_conversation_message(message);
-                self.conversation_store
+                user.conversation_store
                     .store_message(&group_id, conversation_message.clone())
                     .map_err(CorelibError::ConversationStore)?;
 
@@ -223,7 +239,10 @@ impl<T: Notifiable> Corelib<T> {
     }
 
     pub fn get_messages(&self, conversation_id: &Uuid, last_n: usize) -> Vec<ConversationMessage> {
-        self.conversation_store.messages(conversation_id, last_n)
+        match &self.self_user {
+            Some(user) => user.conversation_store.messages(conversation_id, last_n),
+            None => vec![],
+        }
     }
 
     /// Process the queue messages from the DS
@@ -231,7 +250,7 @@ impl<T: Notifiable> Corelib<T> {
         &mut self,
         messages: Vec<MlsMessageIn>,
     ) -> Result<(), CorelibError> {
-        let self_user = match &self.self_user {
+        let self_user = match &mut self.self_user {
             Some(self_user) => self_user,
             None => return Err(CorelibError::UserNotInitialized),
         };
@@ -262,15 +281,16 @@ impl<T: Notifiable> Corelib<T> {
                 WireFormat::Welcome => {
                     if let Some(welcome) = message.into_welcome() {
                         println!("Received a Welcome message");
-                        match Group::join_group(self_user, welcome) {
+                        match Group::join_group(&self_user.crypto_backend, welcome) {
                             Ok(group) => {
                                 let group_id = group.group_id();
-                                match self.group_store.store_group(group) {
+                                match self_user.group_store.store_group(group) {
                                     Ok(()) => {
                                         let attributes = ConversationAttributes {
                                             title: "New conversation".to_string(),
                                         };
-                                        self.conversation_store
+                                        self_user
+                                            .conversation_store
                                             .create_group_conversation(group_id, attributes);
                                         self.notification_hub.dispatch_conversation_notification();
                                     }
@@ -302,53 +322,16 @@ impl<T: Notifiable> Corelib<T> {
         group_id: Uuid,
         messages: Vec<MlsMessageIn>,
     ) -> Result<(), CorelibError> {
-        match self.group_store.get_group_mut(&group_id) {
-            Some(group) => {
-                for message in messages {
-                    match group.process_message(self.self_user.as_ref().unwrap(), message) {
-                        Ok(processed_message) => {
-                            let sender_credential = processed_message.credential().clone();
-                            let conversation_messages = match processed_message.into_content() {
-                                ProcessedMessageContent::ApplicationMessage(
-                                    application_message,
-                                ) => application_message_to_conversation_messages(
-                                    &sender_credential,
-                                    application_message,
-                                ),
-                                ProcessedMessageContent::ProposalMessage(_) => {
-                                    unimplemented!()
-                                }
-                                ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                                    staged_commit_to_conversation_messages(
-                                        &sender_credential,
-                                        &staged_commit,
-                                    )
-                                }
-                                ProcessedMessageContent::ExternalJoinProposalMessage(_) => todo!(),
-                            };
+        let user = match &mut self.self_user {
+            Some(user) => user,
+            None => return Err(CorelibError::UserNotInitialized),
+        };
+        let notification_messages = user.process_messages(group_id, messages)?;
 
-                            for conversation_message in conversation_messages {
-                                let dispatched_conversation_message =
-                                    DispatchedConversationMessage {
-                                        conversation_id: UuidBytes::from_uuid(&group_id),
-                                        conversation_message: conversation_message.clone(),
-                                    };
-                                self.conversation_store
-                                    .store_message(&group_id, conversation_message)?;
-                                self.notification_hub
-                                    .dispatch_message_notification(dispatched_conversation_message);
-                            }
-                        }
-                        Err(e) => {
-                            println!("Error occured while processing inbound messages: {:?}", e);
-                        }
-                    }
-                }
-
-                Ok(())
-            }
-            None => Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup)),
+        for message in notification_messages {
+            self.notification_hub.dispatch_message_notification(message);
         }
+        Ok(())
     }
 }
 

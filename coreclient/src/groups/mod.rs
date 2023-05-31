@@ -7,9 +7,11 @@ pub(crate) mod store;
 
 use ds_lib::GroupMessage;
 pub(crate) use error::*;
+use openmls_memory_keystore::MemoryKeyStore;
+use openmls_traits::signatures::Signer;
 pub(crate) use store::*;
 
-use crate::{backend::Backend, conversations::*, types::MessageContentType, types::*, users::*};
+use crate::{backend::Backend, conversations::*, types::MessageContentType, types::*};
 use std::collections::HashMap;
 
 use openmls::prelude::*;
@@ -23,8 +25,15 @@ pub(crate) struct Group {
 
 impl Group {
     /// Create a group.
-    pub fn create_group(user: &mut SelfUser) -> Self {
-        log::debug!("{} creates a group", user.username);
+    pub fn create_group(
+        backend: &impl OpenMlsCryptoProvider,
+        signer: &impl Signer,
+        credential_with_key: &CredentialWithKey,
+    ) -> Self {
+        log::debug!(
+            "{:?} creates a group",
+            credential_with_key.credential.identity()
+        );
         let group_id = Uuid::new_v4();
 
         let mls_group_config = MlsGroupConfig::builder()
@@ -32,11 +41,11 @@ impl Group {
             .build();
 
         let mls_group = MlsGroup::new_with_group_id(
-            &user.crypto_backend,
-            &user.signer,
+            backend,
+            signer,
             &mls_group_config,
             GroupId::from_slice(group_id.as_bytes()),
-            user.credential_with_key.clone(),
+            credential_with_key.clone(),
         )
         .unwrap();
 
@@ -48,14 +57,14 @@ impl Group {
 
     /// Join a group with the provided welcome message. Returns the group name.
     pub(crate) fn join_group(
-        self_user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome: Welcome,
     ) -> Result<Self, GroupOperationError> {
-        log::debug!("{} joining group ...", self_user.username);
+        //log::debug!("{} joining group ...", self_user.username);
 
         let mls_group_config = MlsGroupConfig::default();
         let mls_group = match MlsGroup::new_from_welcome(
-            &self_user.crypto_backend,
+            backend,
             &mls_group_config,
             welcome,
             None, /* no public tree here, has to be in the extension */
@@ -85,24 +94,24 @@ impl Group {
     /// Process inbound message
     pub(crate) fn process_message(
         &mut self,
-        user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider,
         message: MlsMessageIn,
     ) -> Result<ProcessedMessage, GroupOperationError> {
-        Ok(self
-            .mls_group
-            .process_message(&user.crypto_backend, message)?)
+        Ok(self.mls_group.process_message(backend, message)?)
     }
 
     /// Invite user with the given name to the group.
     pub(crate) fn invite<'a>(
         &'a mut self,
-        user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        signer: &impl Signer,
+        credential_with_key: &CredentialWithKey,
         key_package: KeyPackage,
-        backend: &Backend,
+        network_backend: &Backend,
     ) -> Result<&'a StagedCommit, GroupOperationError> {
         let (mls_message_out, welcome_msg, _group_info_option) =
             self.mls_group
-                .add_members(&user.crypto_backend, user.signer(), &[key_package])?;
+                .add_members(backend, signer, &[key_package])?;
 
         // Make a copy of the pending commit for later inspection
         let staged_commit = self.mls_group.pending_commit().unwrap();
@@ -113,7 +122,7 @@ impl Group {
             .mls_group
             .members()
             .filter_map(|member| {
-                if member.credential != user.credential_with_key.credential {
+                if member.credential != credential_with_key.credential {
                     Some(member.credential.identity().to_vec())
                 } else {
                     None
@@ -125,14 +134,14 @@ impl Group {
         log::trace!("Sending Commit");
 
         let msg = GroupMessage::new(mls_message_out.into(), &members);
-        backend
+        network_backend
             .send_msg(&msg)
             .map_err(|_| GroupOperationError::InvitationError)?;
 
         // Send Welcome to the client.
         log::trace!("Sending Welcome");
 
-        backend
+        network_backend
             .send_welcome(&welcome_msg)
             .map_err(|_| GroupOperationError::InvitationError)?;
 
@@ -142,19 +151,18 @@ impl Group {
     /// Merge the pending commit
     pub(crate) fn merge_pending_commit(
         &mut self,
-        user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
     ) -> Result<(), GroupOperationError> {
-        Ok(self.mls_group.merge_pending_commit(&user.crypto_backend)?)
+        Ok(self.mls_group.merge_pending_commit(backend)?)
     }
 
     /// Get a list of clients in the group to send messages to.
-    fn recipients(&self, user: &SelfUser) -> Vec<Vec<u8>> {
+    fn recipients(&self, credential_with_key: &CredentialWithKey) -> Vec<Vec<u8>> {
         let recipients: Vec<Vec<u8>> = self
             .mls_group
             .members()
-            .into_iter()
             .filter_map(|kp| {
-                if user.credential_with_key.credential.identity() != kp.credential.identity() {
+                if credential_with_key.credential.identity() != kp.credential.identity() {
                     Some(kp.credential.identity().to_vec())
                 } else {
                     None
@@ -167,16 +175,18 @@ impl Group {
     /// Send an application message to the group.
     pub fn create_message(
         &mut self,
-        user: &SelfUser,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        signer: &impl Signer,
+        credential_with_key: &CredentialWithKey,
         msg: &str,
     ) -> Result<GroupMessage, GroupOperationError> {
-        let mls_message_out =
-            self.mls_group
-                .create_message(&user.crypto_backend, user.signer(), msg.as_bytes())?;
+        let mls_message_out = self
+            .mls_group
+            .create_message(backend, signer, msg.as_bytes())?;
 
         Ok(GroupMessage::new(
             mls_message_out.into(),
-            &self.recipients(user),
+            &self.recipients(credential_with_key),
         ))
     }
 
