@@ -176,7 +176,7 @@ impl SelfUser {
                     .as_queue_decryption_key
                     .encryption_key()
                     .clone(),
-                ratchet_key,
+                as_ratchet_key,
                 connection_key_packages,
                 opaque_registration_record,
                 &user.key_store.signing_key,
@@ -185,7 +185,8 @@ impl SelfUser {
         .unwrap();
 
         // AS registration is complete, now create the user on the QS.
-        let icc_ciphertext = signing_key.credential().encrypt();
+        let icc_ciphertext = todo!();
+        //let icc_ciphertext = signing_key.credential();
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
             let kp = user.generate_keypackage();
