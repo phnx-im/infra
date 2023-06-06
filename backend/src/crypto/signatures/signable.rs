@@ -38,7 +38,11 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::{messages::FriendshipToken, LibraryError};
+use crate::{
+    crypto::ear::{keys::SignatureEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+    messages::FriendshipToken,
+    LibraryError,
+};
 
 use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
 
@@ -68,6 +72,26 @@ impl Signature {
         self.signature
     }
 }
+
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+pub struct EncryptedSignature {
+    ciphertext: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedSignature {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedSignature {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
+    }
+}
+
+impl EarEncryptable<SignatureEarKey, EncryptedSignature> for Signature {}
+impl EarDecryptable<SignatureEarKey, EncryptedSignature> for Signature {}
 
 /// This trait must be implemented by all structs that contain a self-signature.
 pub trait SignedStruct<T> {
@@ -174,7 +198,7 @@ pub trait Verifiable: Sized {
     fn signature(&self) -> &Signature;
 
     /// Return the string label used for labeled verification.
-    fn label(&self) -> &str;
+    fn label() -> &'static str;
 
     /// Verifies the payload against the given `credential`.
     /// The signature is fetched via the [`Verifiable::signature()`] function and
@@ -192,7 +216,7 @@ pub trait Verifiable: Sized {
         let payload = self
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
-        let sign_content: SignContent = (self.label(), payload.as_slice()).into();
+        let sign_content: SignContent = (Self::label(), payload.as_slice()).into();
         let serialized_sign_content = sign_content
             .tls_serialize_detached()
             .map_err(LibraryError::missing_bound_check)?;

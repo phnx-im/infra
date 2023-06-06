@@ -7,7 +7,7 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
+        ear::{keys::PushTokenEarKey, DecryptionError, EarDecryptable},
         signatures::keys::QsClientVerifyingKey,
         QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },

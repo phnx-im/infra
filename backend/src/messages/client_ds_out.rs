@@ -24,11 +24,14 @@ use crate::{
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
-            keys::UserAuthKey,
+            keys::UserAuthVerifyingKey,
             signable::{Signable, Signature, SignedStruct},
         },
     },
-    ds::group_state::{EncryptedCredentialChain, UserKeyHash},
+    ds::{
+        group_state::{EncryptedClientCredential, UserKeyHash},
+        EncryptedWelcomeAttributionInfo,
+    },
     qs::{KeyPackageBatch, QsClientReference, VERIFIED},
 };
 
@@ -49,9 +52,9 @@ pub enum DsProcessResponseIn {
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub leaf_node: RatchetTree,
-    pub encrypted_credential_chain: EncryptedCredentialChain,
+    pub encrypted_credential_chain: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
-    pub creator_user_auth_key: UserAuthKey,
+    pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: GroupInfo,
 }
 
@@ -63,7 +66,7 @@ pub struct AddUsersParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
-    pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
+    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
@@ -77,7 +80,7 @@ pub struct RemoveUsersParamsOut {
 pub struct UpdateClientParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: LeafNodeIndex,
-    pub new_user_auth_key_option: Option<UserAuthKey>,
+    pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -90,7 +93,7 @@ pub struct JoinGroupParamsOut {
 #[derive(TlsSerialize, TlsSize)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessagePlusOut,
-    pub sender: UserAuthKey,
+    pub sender: UserAuthVerifyingKey,
     pub qs_client_reference: QsClientReference,
 }
 
@@ -108,7 +111,7 @@ pub struct AddClientsParamsOut {
 pub struct RemoveClientsParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
-    pub new_auth_key: UserAuthKey,
+    pub new_auth_key: UserAuthVerifyingKey,
 }
 
 #[derive(TlsSerialize, TlsSize)]

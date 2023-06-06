@@ -9,16 +9,20 @@ use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
+use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{OpaqueCiphersuite, QueueRatchet, RatchetEncryptionKey},
     ds::group_state::TimeStamp,
-    messages::client_as::{
-        AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-        Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
-        IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
-        VerifiableClientToAsMessage, VerifiedAsRequestParams,
+    messages::{
+        client_as::{
+            AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
+            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
+            IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
+            VerifiedAsRequestParams,
+        },
+        client_as_out::VerifiableClientToAsMessage,
     },
 };
 
@@ -117,7 +121,7 @@ pub struct AsUserRecord {
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, PartialEq, Eq, Hash)]
 pub struct UserName {
     pub(crate) user_name: Vec<u8>,
 }
@@ -132,9 +136,17 @@ impl From<String> for UserName {
 
 // === Client ===
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(
+    Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, Serialize, Deserialize, Eq, PartialEq, Hash,
+)]
 pub struct AsClientId {
     pub(crate) client_id: Vec<u8>,
+}
+
+impl AsRef<[u8]> for AsClientId {
+    fn as_ref(&self) -> &[u8] {
+        &self.client_id
+    }
 }
 
 impl AsClientId {

@@ -10,7 +10,10 @@ pub mod keys;
 mod traits;
 
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
-pub use traits::{DecryptionError, EarEncryptable, EncryptionError, GenericCodec};
+pub use traits::{
+    DecryptionError, EarDecryptable, EarEncryptable, EarKey, EncryptionError,
+    GenericDeserializable, GenericSerializable,
+};
 
 use aes_gcm::Aes256Gcm;
 use serde::{Deserialize, Serialize};

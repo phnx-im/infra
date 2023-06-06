@@ -141,3 +141,33 @@ impl From<Secret<KDF_KEY_SIZE>> for RatchetSecret {
 impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
     const LABEL: &'static str = "RatchetSecret derive";
 }
+
+pub type FriendshipSecretKey = Secret<KDF_KEY_SIZE>;
+
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct FriendshipSecret {
+    key: FriendshipSecretKey,
+}
+
+impl FriendshipSecret {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let key = Secret::random()?;
+        Ok(Self { key })
+    }
+}
+
+impl AsRef<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+    fn as_ref(&self) -> &Secret<KDF_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl KdfKey for FriendshipSecret {
+    const ADDITIONAL_LABEL: &'static str = "FriendshipSecret";
+}
+
+impl From<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+    fn from(key: Secret<KDF_KEY_SIZE>) -> Self {
+        Self { key }
+    }
+}

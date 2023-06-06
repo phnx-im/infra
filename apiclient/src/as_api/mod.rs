@@ -15,9 +15,9 @@ use phnxbackend::{
     messages::{
         client_as::{
             AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
-            AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, DeleteClientParamsTbs,
-            DeleteUserParamsTbs, DequeueMessagesParamsTbs, EnqueueMessageParams,
-            FinishClientAdditionParams, FinishClientAdditionParamsTbs,
+            AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
+            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
             IssueTokensResponse, UserClientsParams, UserKeyPackagesParams,
@@ -153,7 +153,7 @@ impl ApiClient {
         user_name: UserName,
         queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: QueueRatchet,
-        connection_key_packages: Vec<KeyPackageIn>,
+        connection_packages: Vec<ConnectionPackage>,
         opaque_registration_record: OpaqueRegistrationRecord,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
@@ -162,7 +162,7 @@ impl ApiClient {
             user_name,
             queue_encryption_key,
             initial_ratchet_key,
-            connection_key_packages,
+            connection_packages,
             opaque_registration_record,
         };
         let payload = tbs

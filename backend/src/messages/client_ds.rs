@@ -9,8 +9,12 @@
 
 use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome},
-    openmls::prelude::{
-        group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, Sender,
+    openmls::{
+        prelude::{
+            group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn,
+            Sender,
+        },
+        treesync::RatchetTree,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -27,11 +31,14 @@ use crate::{
             EarEncryptable,
         },
         signatures::{
-            keys::{LeafVerifyingKey, UserAuthKey},
+            keys::{LeafVerifyingKey, UserAuthVerifyingKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
     },
-    ds::group_state::{EncryptedCredentialChain, UserKeyHash},
+    ds::{
+        group_state::{EncryptedClientCredential, UserKeyHash},
+        EncryptedWelcomeAttributionInfo,
+    },
     qs::{KeyPackageBatch, QsClientReference, UNVERIFIED},
 };
 
@@ -69,9 +76,9 @@ impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_credential_chain: EncryptedCredentialChain,
+    pub encrypted_credential_chain: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
-    pub creator_user_auth_key: UserAuthKey,
+    pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: VerifiableGroupInfo,
 }
 
@@ -128,7 +135,7 @@ pub struct AddUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
-    pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
+    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
@@ -140,7 +147,7 @@ impl AddUsersParams {
         let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
         let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
         let encrypted_welcome_attribution_infos =
-            Vec::<Vec<u8>>::tls_deserialize(&mut remaining_bytes)?;
+            Vec::<EncryptedWelcomeAttributionInfo>::tls_deserialize(&mut remaining_bytes)?;
         let key_package_batches =
             Vec::<KeyPackageBatch<UNVERIFIED>>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
@@ -158,7 +165,7 @@ impl AddUsersParams {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddUsersParamsAad {
-    pub encrypted_credential_information: Vec<EncryptedCredentialChain>,
+    pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -187,7 +194,7 @@ impl RemoveUsersParams {
 pub struct UpdateClientParams {
     pub commit: AssistedMessagePlus,
     pub sender: LeafNodeIndex,
-    pub new_user_auth_key_option: Option<UserAuthKey>,
+    pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
 impl UpdateClientParams {
@@ -197,7 +204,7 @@ impl UpdateClientParams {
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
         let sender = LeafNodeIndex::tls_deserialize(&mut remaining_bytes)?;
         let new_user_auth_key_option =
-            Option::<UserAuthKey>::tls_deserialize(&mut remaining_bytes)?;
+            Option::<UserAuthVerifyingKey>::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
                 message: commit,
@@ -211,7 +218,7 @@ impl UpdateClientParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct UpdateClientParamsAad {
-    pub option_encrypted_credential_information: Option<EncryptedCredentialChain>,
+    pub option_encrypted_credential_information: Option<EncryptedClientCredential>,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -242,13 +249,13 @@ impl JoinGroupParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinGroupParamsAad {
     pub existing_user_clients: Vec<LeafNodeIndex>,
-    pub encrypted_credential_information: EncryptedCredentialChain,
+    pub encrypted_credential_information: EncryptedClientCredential,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParams {
     pub external_commit: AssistedMessagePlus,
-    pub sender: UserAuthKey,
+    pub sender: UserAuthVerifyingKey,
     pub qs_client_reference: QsClientReference,
 }
 
@@ -257,7 +264,7 @@ impl JoinConnectionGroupParams {
         let bytes_copy = bytes;
         let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserAuthKey::tls_deserialize(&mut remaining_bytes)?;
+        let sender = UserAuthVerifyingKey::tls_deserialize(&mut remaining_bytes)?;
         let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             external_commit: AssistedMessagePlus {
@@ -272,7 +279,7 @@ impl JoinConnectionGroupParams {
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParamsAad {
-    pub encrypted_credential_information: EncryptedCredentialChain,
+    pub encrypted_credential_information: EncryptedClientCredential,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
@@ -282,7 +289,7 @@ pub struct AddClientsParams {
     pub welcome: AssistedWelcome,
     // TODO: Do we need those? They come from our own clients. We can probably
     // just send these through the all-clients group.
-    pub encrypted_welcome_attribution_infos: Vec<u8>,
+    pub encrypted_welcome_attribution_infos: EncryptedWelcomeAttributionInfo,
 }
 
 impl AddClientsParams {
@@ -292,7 +299,8 @@ impl AddClientsParams {
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
         let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
         let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
-        let encrypted_welcome_attribution_infos = Vec::<u8>::tls_deserialize(&mut remaining_bytes)?;
+        let encrypted_welcome_attribution_infos =
+            EncryptedWelcomeAttributionInfo::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
                 message: commit,
@@ -307,14 +315,14 @@ impl AddClientsParams {
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AddClientsParamsAad {
-    pub encrypted_credential_information: Vec<EncryptedCredentialChain>,
+    pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct RemoveClientsParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
-    pub new_auth_key: UserAuthKey,
+    pub new_auth_key: UserAuthVerifyingKey,
 }
 
 impl RemoveClientsParams {
@@ -323,7 +331,7 @@ impl RemoveClientsParams {
         let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
         let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
         let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        let new_auth_key = UserAuthKey::tls_deserialize(&mut remaining_bytes)?;
+        let new_auth_key = UserAuthVerifyingKey::tls_deserialize(&mut remaining_bytes)?;
         Ok(Self {
             commit: AssistedMessagePlus {
                 message: commit,
@@ -722,7 +730,7 @@ impl VerifiableClientToDsMessage {
     /// If the message contains a request to join a connection group, return the
     /// UserAuthKey. Requests to join connection groups are essentially
     /// self-authenticated, which is okay.
-    pub(crate) fn join_connection_group_sender(&self) -> Option<&UserAuthKey> {
+    pub(crate) fn join_connection_group_sender(&self) -> Option<&UserAuthVerifyingKey> {
         match &self.message.payload.body {
             DsRequestParams::JoinConnectionGroup(params) => Some(&params.sender),
             _ => None,
@@ -750,4 +758,27 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
     fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {
         verifiable.message.payload.body
     }
+}
+
+#[derive(TlsSerialize, TlsSize, Clone)]
+pub struct DsJoinerInformation {
+    pub group_state_ear_key: GroupStateEarKey,
+    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+    pub ratchet_tree: RatchetTree,
+}
+
+#[derive(TlsDeserialize, TlsSize, Clone)]
+pub struct DsJoinerInformationIn {
+    pub group_state_ear_key: GroupStateEarKey,
+    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+    pub ratchet_tree: RatchetTreeIn,
+}
+
+#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+pub struct WelcomeBundle {
+    pub welcome: AssistedWelcome,
+    // This is the part the DS shouldn't see.
+    pub encrypted_attribution_info: EncryptedWelcomeAttributionInfo,
+    // This part is added by the DS later.
+    pub encrypted_joiner_info: Vec<u8>,
 }

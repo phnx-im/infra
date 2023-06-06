@@ -5,7 +5,7 @@
 use mls_assist::openmls::prelude::{TlsDeserializeTrait, TlsSerializeTrait};
 use phnxbackend::{
     crypto::{
-        ear::keys::FriendshipEarKey,
+        ear::keys::AddPackageEarKey,
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
             signable::Signable,
@@ -120,7 +120,7 @@ impl ApiClient {
         client_record_auth_key: QsClientVerifyingKey,
         queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        add_package_ear_key: AddPackageEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         initial_ratchet_key: QueueRatchet,
         signing_key: &QsUserSigningKey,
@@ -131,7 +131,7 @@ impl ApiClient {
             client_record_auth_key,
             queue_encryption_key,
             add_packages,
-            friendship_ear_key,
+            add_package_ear_key,
             encrypted_push_token,
             initial_ratchet_key,
         };
@@ -203,7 +203,7 @@ impl ApiClient {
         client_record_auth_key: QsClientVerifyingKey,
         queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        friendship_ear_key: AddPackageEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         initial_ratchet_key: QueueRatchet,
         signing_key: &QsUserSigningKey,
@@ -285,7 +285,7 @@ impl ApiClient {
         &self,
         sender: QsClientId,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        friendship_ear_key: AddPackageEarKey,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let payload = PublishKeyPackagesParamsOut {

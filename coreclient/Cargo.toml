@@ -44,19 +44,7 @@ dart-bridge = ["anyhow", "flutter_rust_bridge"]
 
 [build-dependencies]
 
-[profile.release]
-strip = true  # Automatically strip symbols from the binary.
-lto = true
-codegen-units = 1
-
-[patch.crates-io.hpke-rs]
-git = "https://github.com/franziskuskiefer/hpke-rs.git"
-
-[patch.crates-io.hpke-rs-crypto]
-git = "https://github.com/franziskuskiefer/hpke-rs.git"
-
-[patch.crates-io.hpke-rs-evercrypt]
-git = "https://github.com/franziskuskiefer/hpke-rs.git"
-
-[patch.crates-io.hpke-rs-rust-crypto]
-git = "https://github.com/franziskuskiefer/hpke-rs.git"
+#[profile.release]
+#strip = true  # Automatically strip symbols from the binary.
+#lto = true
+#codegen-units = 1

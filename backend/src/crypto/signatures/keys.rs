@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::ds::group_state::UserKeyHash;
+use crate::{
+    auth_service::credentials::keys::{generate_signature_keypair, KeyGenerationError},
+    ds::group_state::UserKeyHash,
+};
 
 use super::traits::{SigningKey, VerifyingKey};
 
@@ -78,36 +81,48 @@ impl<'a> From<&'a SignaturePublicKey> for LeafVerifyingKeyRef<'a> {
 /// key is used by pseudomnymous clients to prove they belong to a certain
 /// pseudonymous user account.
 #[derive(Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
-pub struct UserAuthKey {
-    signature_key: Vec<u8>,
+pub struct UserAuthVerifyingKey {
+    verifying_key: Vec<u8>,
 }
 
-impl AsRef<[u8]> for UserAuthKey {
+impl AsRef<[u8]> for UserAuthVerifyingKey {
     fn as_ref(&self) -> &[u8] {
-        &self.signature_key
+        &self.verifying_key
     }
 }
 
-impl VerifyingKey for UserAuthKey {}
+impl VerifyingKey for UserAuthVerifyingKey {}
 
-impl UserAuthKey {
+impl UserAuthVerifyingKey {
     pub fn hash(&self) -> UserKeyHash {
         let hash = OpenMlsRustCrypto::default()
             .crypto()
-            .hash(HashType::Sha2_256, &self.signature_key)
+            .hash(HashType::Sha2_256, &self.verifying_key)
             .unwrap_or_default();
         UserKeyHash::new(hash)
     }
 }
 
+#[derive(Debug)]
 pub struct UserAuthSigningKey {
     signing_key: Vec<u8>,
-    verifying_key: UserAuthKey,
+    verifying_key: UserAuthVerifyingKey,
 }
 
 impl UserAuthSigningKey {
-    pub fn verifying_key(&self) -> &UserAuthKey {
+    pub fn verifying_key(&self) -> &UserAuthVerifyingKey {
         &self.verifying_key
+    }
+
+    pub fn generate() -> Result<Self, KeyGenerationError> {
+        let keypair = generate_signature_keypair()?;
+        let verifying_key = UserAuthVerifyingKey {
+            verifying_key: keypair.1,
+        };
+        Ok(Self {
+            signing_key: keypair.0,
+            verifying_key,
+        })
     }
 }
 

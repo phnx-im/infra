@@ -7,21 +7,22 @@ use std::collections::HashMap;
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::{AssistedMessage, AssistedWelcome},
+    messages::AssistedMessage,
     openmls::prelude::Extension,
     openmls::prelude::{
         KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize, TlsDeserialize, TlsSerialize, TlsSize,
-};
+use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
 
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
     messages::{
-        client_ds::{AddUsersParams, AddUsersParamsAad, QueueMessagePayload},
+        client_ds::{
+            AddUsersParams, AddUsersParamsAad, DsJoinerInformation, QueueMessagePayload,
+            WelcomeBundle,
+        },
         intra_backend::DsFanOutMessage,
     },
     qs::{
@@ -33,17 +34,10 @@ use crate::{
 use super::{
     api::USER_EXPIRATION_DAYS,
     errors::UserAdditionError,
-    group_state::{ClientProfile, EncryptedCredentialChain, TimeStamp},
+    group_state::{ClientProfile, EncryptedClientCredential, TimeStamp},
 };
 
 use super::group_state::DsGroupState;
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
-pub struct WelcomeBundle {
-    pub welcome: AssistedWelcome,
-    pub encrypted_attribution_info: Vec<u8>,
-    pub encrypted_group_state_ear_key: Vec<u8>,
-}
 
 impl DsGroupState {
     pub(crate) async fn add_users<Q: QsEnqueueProvider>(
@@ -106,7 +100,7 @@ impl DsGroupState {
         if staged_commit.add_proposals().count() != aad.encrypted_credential_information.len() {
             return Err(UserAdditionError::InvalidMessage);
         }
-        let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedCredentialChain)> =
+        let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)> =
             staged_commit
                 .add_proposals()
                 .zip(aad.encrypted_credential_information.into_iter())
@@ -120,7 +114,7 @@ impl DsGroupState {
                     Ok((key_package_ref, (key_package, ecc)))
                 })
                 .collect::<Result<
-                    HashMap<KeyPackageRef, (KeyPackage, EncryptedCredentialChain)>,
+                    HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)>,
                     UserAdditionError,
                 >>()?;
 
@@ -221,7 +215,7 @@ impl DsGroupState {
                 .map_err(|_| UserAdditionError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    credential_chain: ecc,
+                    encrypted_client_credential: ecc,
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
@@ -237,15 +231,22 @@ impl DsGroupState {
                 ]
                 .concat();
                 let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
-                let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes)
-                    .encrypt(&info, &[], group_state_ear_key.as_slice())
+                let serialized_joiner_info = DsJoinerInformation {
+                    group_state_ear_key: group_state_ear_key.clone(),
+                    encrypted_client_credentials: self.client_credentials(),
+                    ratchet_tree: self.group().export_ratchet_tree(),
+                }
+                .tls_serialize_detached()
+                .map_err(|_| UserAdditionError::LibraryError)?;
+                let encrypted_joiner_info = EncryptionPublicKey::from(encryption_key_bytes)
+                    .encrypt(&info, &[], &serialized_joiner_info)
+                    .map_err(|_| UserAdditionError::LibraryError)?
+                    .tls_serialize_detached()
                     .map_err(|_| UserAdditionError::LibraryError)?;
                 let welcome_bundle = WelcomeBundle {
                     welcome: params.welcome.clone(),
                     encrypted_attribution_info: attribution_info.clone(),
-                    encrypted_group_state_ear_key: encrypted_ear_key
-                        .tls_serialize_detached()
-                        .map_err(|_| UserAdditionError::LibraryError)?,
+                    encrypted_joiner_info,
                 };
                 let fan_out_message = DsFanOutMessage {
                     payload: QueueMessagePayload {

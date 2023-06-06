@@ -6,7 +6,7 @@ use tls_codec::{Serialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::keys::FriendshipEarKey,
+        ear::keys::AddPackageEarKey,
         signatures::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signable, Signature, SignedStruct},
@@ -80,7 +80,7 @@ pub struct CreateUserRecordParamsOut {
     pub client_record_auth_key: QsClientVerifyingKey,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub add_packages: Vec<AddPackage>,
-    pub friendship_ear_key: FriendshipEarKey,
+    pub add_package_ear_key: AddPackageEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
     pub initial_ratchet_key: QueueRatchet,
 }
@@ -91,7 +91,7 @@ pub struct CreateClientRecordParamsOut {
     pub client_record_auth_key: QsClientVerifyingKey,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub add_packages: Vec<AddPackage>,
-    pub friendship_ear_key: FriendshipEarKey,
+    pub friendship_ear_key: AddPackageEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
     pub initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
 }
@@ -100,7 +100,7 @@ pub struct CreateClientRecordParamsOut {
 pub struct PublishKeyPackagesParamsOut {
     pub sender: QsClientId,
     pub add_packages: Vec<AddPackage>,
-    pub friendship_ear_key: FriendshipEarKey,
+    pub friendship_ear_key: AddPackageEarKey,
 }
 
 /// This enum contains variants for each DS endpoint.

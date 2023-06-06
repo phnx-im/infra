@@ -14,28 +14,33 @@ use crate::{
         client_api::privacypass::AsTokenType,
         credentials::{
             AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialPayload,
-            CredentialFingerprint,
+            CredentialFingerprint, ExpirationData,
         },
-        errors::AsVerificationError,
-        storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
         *,
     },
     crypto::{
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-        QueueRatchet, RatchetEncryptionKey,
+        ConnectionEncryptionKey, QueueRatchet, RatchetEncryptionKey,
     },
 };
 
-use super::{client_ds::QueueMessagePayload, MlsInfraVersion, QueueMessage};
+use super::{
+    client_as_out::{
+        FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
+        VerifiableConnectionPackage,
+    },
+    client_ds::QueueMessagePayload,
+    MlsInfraVersion, QueueMessage,
+};
 
 mod private_mod {
     #[derive(Default)]
-    pub(crate) struct Seal;
+    pub struct Seal;
 }
 
 // === Authentication ===
 
-trait ClientCredentialAuthenticator
+pub(super) trait ClientCredentialAuthenticator
 where
     Self: Sized,
 {
@@ -58,7 +63,7 @@ where
     }
 }
 
-trait TwoFactorAuthenticator
+pub(super) trait TwoFactorAuthenticator
 where
     Self: Sized,
 {
@@ -87,7 +92,7 @@ where
     }
 }
 
-trait NoAuth
+pub(super) trait NoAuth
 where
     Self: Sized,
 {
@@ -147,6 +152,65 @@ pub struct Init2FactorAuthResponse {
     pub(crate) opaque_ke2: OpaqueLoginResponse,
 }
 
+#[derive(Debug, TlsSerialize, TlsSize)]
+pub struct ConnectionPackageTbs {
+    pub(super) protocol_version: MlsInfraVersion,
+    pub(super) encryption_key: ConnectionEncryptionKey,
+    pub(super) lifetime: ExpirationData,
+    pub(super) client_credential: ClientCredential,
+}
+
+impl ConnectionPackageTbs {
+    pub fn new(
+        protocol_version: MlsInfraVersion,
+        encryption_key: ConnectionEncryptionKey,
+        lifetime: ExpirationData,
+        client_credential: ClientCredential,
+    ) -> Self {
+        Self {
+            protocol_version,
+            encryption_key,
+            lifetime,
+            client_credential,
+        }
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsSize)]
+pub struct ConnectionPackage {
+    payload: ConnectionPackageTbs,
+    signature: Signature,
+}
+
+impl VerifiedStruct<VerifiableConnectionPackage> for ConnectionPackage {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: VerifiableConnectionPackage, _seal: Self::SealingType) -> Self {
+        Self {
+            payload: verifiable.payload,
+            signature: verifiable.signature,
+        }
+    }
+}
+
+impl Signable for ConnectionPackageTbs {
+    type SignedOutput = ConnectionPackage;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "Connection Package"
+    }
+}
+
+impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
+    fn from_payload(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+}
+
 // === User ===
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -167,13 +231,13 @@ pub struct InitUserRegistrationResponse {
     pub(crate) opaque_registration_response: OpaqueRegistrationResponse,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct FinishUserRegistrationParamsTbs {
     pub client_id: AsClientId,
     pub user_name: UserName,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_key: QueueRatchet,
-    pub connection_key_packages: Vec<KeyPackageIn>,
+    pub connection_packages: Vec<ConnectionPackage>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
 }
 
@@ -185,7 +249,7 @@ impl Signable for FinishUserRegistrationParamsTbs {
     }
 
     fn label(&self) -> &str {
-        FinishUserRegistrationParams::LABEL
+        FinishUserRegistrationParamsIn::LABEL
     }
 }
 
@@ -195,28 +259,10 @@ impl SignedStruct<FinishUserRegistrationParamsTbs> for FinishUserRegistrationPar
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct FinishUserRegistrationParams {
     payload: FinishUserRegistrationParamsTbs,
     signature: Signature,
-}
-
-impl ClientCredentialAuthenticator for FinishUserRegistrationParams {
-    type Tbs = FinishUserRegistrationParamsTbs;
-
-    fn client_id(&self) -> AsClientId {
-        self.payload.client_id.clone()
-    }
-
-    fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::FinishUserRegistration(self.payload)
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    const LABEL: &'static str = "Finish User Registration Parameters";
 }
 
 #[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
@@ -310,7 +356,7 @@ impl FinishClientAdditionParams {
     // TODO: This is currently implemented manually since this is the only
     // request that needs user auth. We might want to generalize this into a
     // trait later on.
-    fn user_auth(self) -> UserAuth {
+    pub(super) fn user_auth(self) -> UserAuth {
         UserAuth {
             user_name: self.payload.client_id.username(),
             opaque_finish: self.opaque_login_finish.clone(),
@@ -637,110 +683,7 @@ pub struct IssueTokensResponse {
 
 // === Auth & Framing ===
 
-/// Wrapper struct around a message from a client to the AS. It does not
-/// implement the [`Verifiable`] trait, but instead is verified depending on the
-/// verification method of the individual payload.
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct VerifiableClientToAsMessage {
-    message: ClientToAsMessage,
-}
-
-impl VerifiableClientToAsMessage {
-    /// Verify/authenticate the message. The authentication method depends on
-    /// the request type and is specified for each request in `auth_method`.
-    pub(crate) async fn verify<Asp: AsStorageProvider, Eph: AsEphemeralStorageProvider>(
-        self,
-        as_storage_provider: &Asp,
-        ephemeral_storage_provider: &Eph,
-    ) -> Result<VerifiedAsRequestParams, AsVerificationError> {
-        let parameters = match self.message.auth_method() {
-            // No authentication at all. We just return the parameters without
-            // verification.
-            AsAuthMethod::None(params) => params,
-            // Authentication via client credential. We load the client
-            // credential from the client's record and use it to verify the
-            // request.
-            AsAuthMethod::ClientCredential(cca) => {
-                let client_record = as_storage_provider
-                    .load_client(&cca.client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                cca.verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
-            }
-            // 2-Factor authentication using a signature by the client
-            // credential, as well as an OPAQUE login flow. This requires that
-            // the client has first called the endpoint to initiate the OPAQUE
-            // login flow.
-            // We load the pending OPAQUE login state from the ephemeral
-            // database and complete the OPAQUE flow. If that is successful, we
-            // verify the signature (which spans the OPAQUE data sent by the
-            // client).
-            // After successful verification, we delete the entry from the
-            // ephemeral DB.
-            // TODO: We currently store the credential of the client to be added
-            // along with the OPAQUE entry. This is not great, since we can't
-            // really return it from here. For now, we just load it again from
-            // the processing function.
-            AsAuthMethod::Client2Fa(auth_info) => {
-                // We authenticate opaque first.
-                let client_id = &auth_info.client_credential_auth.client_id.clone();
-                let (_client_credential, opaque_state) = ephemeral_storage_provider
-                    .load_client_login_state(client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                // Finish the OPAQUE handshake
-                opaque_state
-                    .finish(auth_info.opaque_finish.client_message)
-                    .map_err(|e| {
-                        tracing::error!("Error during OPAQUE login handshake: {e}");
-                        AsVerificationError::AuthenticationFailed
-                    })?;
-
-                let client_record = as_storage_provider
-                    .load_client(client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                let verified_params = auth_info
-                    .client_credential_auth
-                    .verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?;
-                ephemeral_storage_provider
-                    .delete_client_login_state(client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?;
-                verified_params
-            }
-            // Authentication using only the user's password via an OPAQUE login flow.
-            AsAuthMethod::User(user_auth) => {
-                let opaque_state = ephemeral_storage_provider
-                    .load_user_login_state(&user_auth.user_name)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
-                    .ok_or(AsVerificationError::UnknownUser)?;
-                // Finish the OPAQUE handshake
-                opaque_state
-                    .finish(user_auth.opaque_finish.client_message)
-                    .map_err(|e| {
-                        tracing::error!("Error during OPAQUE login handshake: {e}");
-                        AsVerificationError::AuthenticationFailed
-                    })?;
-
-                ephemeral_storage_provider
-                    .delete_user_login_state(&user_auth.user_name)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?;
-                *user_auth.payload
-            }
-        };
-        Ok(parameters)
-    }
-}
-
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToAsMessage {
     _version: MlsInfraVersion,
     // This essentially includes the wire format.
@@ -754,13 +697,9 @@ impl ClientToAsMessage {
             body,
         }
     }
-
-    pub(crate) fn auth_method(self) -> AsAuthMethod {
-        self.body.auth_method()
-    }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParams {
     Initiate2FaAuthentication(Initiate2FaAuthenticationParams),
@@ -780,64 +719,11 @@ pub enum AsRequestParams {
     IssueTokens(IssueTokensParams),
 }
 
-impl AsRequestParams {
-    pub(crate) fn auth_method(self) -> AsAuthMethod {
-        match self {
-            // Requests authenticated only by the user's password.
-            // TODO: We should probably sign/verify the CSR with the verifying
-            // key inside to prove ownership of the key.
-            // TODO: For now, client addition is only verified by the user's
-            // password, not with an additional client credential.
-            AsRequestParams::FinishClientAddition(params) => AsAuthMethod::User(params.user_auth()),
-            // Requests authenticated using two factors
-            AsRequestParams::DeleteUser(params) => {
-                AsAuthMethod::Client2Fa(params.two_factor_auth_info())
-            }
-            // Requests signed by the client's client credential
-            AsRequestParams::Initiate2FaAuthentication(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            AsRequestParams::DeleteClient(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            AsRequestParams::DequeueMessages(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            AsRequestParams::PublishKeyPackages(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            AsRequestParams::ClientKeyPackage(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            AsRequestParams::IssueTokens(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            // We verify user registration finish requests like a
-            // ClientCredentialAuth request and then additionally complete the
-            // OPAQUE registration afterwards.
-            AsRequestParams::FinishUserRegistration(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            // Requests not requiring any authentication
-            AsRequestParams::UserClients(params) => AsAuthMethod::None(params.into_verified()),
-            AsRequestParams::UserKeyPackages(params) => AsAuthMethod::None(params.into_verified()),
-            AsRequestParams::EnqueueMessage(params) => AsAuthMethod::None(params.into_verified()),
-            AsRequestParams::InitUserRegistration(params) => {
-                AsAuthMethod::None(params.into_verified())
-            }
-            AsRequestParams::InitiateClientAddition(params) => {
-                AsAuthMethod::None(params.into_verified())
-            }
-            AsRequestParams::AsCredentials(params) => AsAuthMethod::None(params.into_verified()),
-        }
-    }
-}
-
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub(crate) enum VerifiedAsRequestParams {
     Initiate2FaAuthentication(Init2FactorAuthParamsTbs),
-    FinishUserRegistration(FinishUserRegistrationParamsTbs),
+    FinishUserRegistration(FinishUserRegistrationParamsTbsIn),
     DeleteUser(DeleteUserParamsTbs),
     FinishClientAddition(FinishClientAdditionParamsTbs),
     DeleteClient(DeleteClientParamsTbs),
@@ -911,9 +797,9 @@ pub struct Client2FaAuth {
 
 #[derive(Debug)]
 pub struct UserAuth {
-    user_name: UserName,
-    opaque_finish: OpaqueLoginFinish,
-    payload: Box<VerifiedAsRequestParams>,
+    pub(super) user_name: UserName,
+    pub(super) opaque_finish: OpaqueLoginFinish,
+    pub(super) payload: Box<VerifiedAsRequestParams>,
 }
 
 #[derive(Debug)]

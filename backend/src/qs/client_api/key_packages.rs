@@ -8,7 +8,10 @@ use mls_assist::{
 };
 
 use crate::{
-    crypto::{ear::EarEncryptable, signatures::signable::Signable},
+    crypto::{
+        ear::{EarDecryptable, EarEncryptable},
+        signatures::signable::Signable,
+    },
     ds::group_state::TimeStamp,
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, KeyPackageBatchParams,
@@ -17,7 +20,7 @@ use crate::{
     qs::{
         errors::{QsClientKeyPackageError, QsKeyPackageBatchError, QsPublishKeyPackagesError},
         storage_provider_trait::QsStorageProvider,
-        AddPackage, KeyPackageBatchTbs, Qs,
+        AddPackageIn, KeyPackageBatchTbs, Qs,
     },
 };
 
@@ -94,8 +97,15 @@ impl Qs {
         let add_packages = encrypted_key_packages
             .into_iter()
             .map(|encrypted_key_package| {
-                AddPackage::decrypt(&friendship_ear_key, &encrypted_key_package)
+                AddPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
                     .map_err(|_| QsKeyPackageBatchError::DecryptionError)
+                    .and_then(|ap| {
+                        ap.validate(
+                            OpenMlsRustCrypto::default().crypto(),
+                            ProtocolVersion::default(),
+                        )
+                        .map_err(|_| QsKeyPackageBatchError::InvalidKeyPackage)
+                    })
             })
             .collect::<Result<Vec<_>, _>>()?;
 

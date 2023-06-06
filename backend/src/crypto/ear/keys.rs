@@ -17,6 +17,7 @@ use crate::crypto::{
         KdfDerivable,
     },
     secrets::Secret,
+    RandomnessError,
 };
 
 use super::{traits::EarKey, AEAD_KEY_SIZE};
@@ -26,7 +27,7 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 /// Key to encrypt/decrypt the roster of the DS group state. Roster keys can be
 /// derived either from an initial client KDF key or from a derived roster KDF
 /// key.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
 }
@@ -34,6 +35,12 @@ pub struct GroupStateEarKey {
 impl GroupStateEarKey {
     pub(crate) fn as_slice(&self) -> &[u8] {
         self.key.secret.as_slice()
+    }
+
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: GroupStateEarKeySecret::random()?,
+        })
     }
 }
 
@@ -43,13 +50,13 @@ impl From<Secret<AEAD_KEY_SIZE>> for GroupStateEarKey {
     }
 }
 
-impl EarKey for GroupStateEarKey {}
-
 impl AsRef<Secret<AEAD_KEY_SIZE>> for GroupStateEarKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
+
+impl EarKey for GroupStateEarKey {}
 
 impl KdfDerivable<InitialClientKdfKey, GroupId, AEAD_KEY_SIZE> for GroupStateEarKey {
     const LABEL: &'static str = "roster ear key";
@@ -63,14 +70,20 @@ pub type DeleteAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 pub type PushTokenEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
-pub type FriendshipEarKeySecret = Secret<AEAD_KEY_SIZE>;
-
 pub type RatchetKeySecret = Secret<AEAD_KEY_SIZE>;
 
 /// EAR key for the [`PushToken`] structs.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
 pub struct PushTokenEarKey {
     key: PushTokenEarKeySecret,
+}
+
+impl PushTokenEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: AddPackageEarKeySecret::random()?,
+        })
+    }
 }
 
 impl EarKey for PushTokenEarKey {}
@@ -87,21 +100,61 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
     }
 }
 
-// EAR key for the [`ClientCredential`]s.
+pub type AddPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+// EAR key used to encrypt [`AddPackage`]s.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
-pub struct FriendshipEarKey {
-    key: FriendshipEarKeySecret,
+pub struct AddPackageEarKey {
+    key: AddPackageEarKeySecret,
 }
 
-impl EarKey for FriendshipEarKey {}
+impl AddPackageEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: AddPackageEarKeySecret::random()?,
+        })
+    }
+}
 
-impl AsRef<Secret<AEAD_KEY_SIZE>> for FriendshipEarKey {
+impl EarKey for AddPackageEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for AddPackageEarKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for FriendshipEarKey {
+impl From<Secret<AEAD_KEY_SIZE>> for AddPackageEarKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
+pub type ClientCredentialEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+// EAR key used to encrypt [`ClientCredential`]s.
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+pub struct ClientCredentialEarKey {
+    key: ClientCredentialEarKeySecret,
+}
+
+impl ClientCredentialEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: ClientCredentialEarKeySecret::random()?,
+        })
+    }
+}
+
+impl EarKey for ClientCredentialEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for ClientCredentialEarKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for ClientCredentialEarKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }
@@ -132,23 +185,60 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
 
-pub type SignatureEncryptionSecret = Secret<AEAD_KEY_SIZE>;
+pub type SignatureEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
-/// EAR key for the [`PushToken`] structs.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
-pub struct SignatureEncryptionKey {
-    key: SignatureEncryptionSecret,
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct SignatureEarKey {
+    key: SignatureEarKeySecret,
 }
 
-impl EarKey for SignatureEncryptionKey {}
+impl SignatureEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: SignatureEarKeySecret::random()?,
+        })
+    }
+}
 
-impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEncryptionKey {
+impl EarKey for SignatureEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for SignatureEncryptionKey {
+impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
+pub type WelcomeAttributionInfoEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+// EAR key used to encrypt [`WelcomeAttributionInfo`]s.
+#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+pub struct WelcomeAttributionInfoEarKey {
+    key: WelcomeAttributionInfoEarKeySecret,
+}
+
+impl WelcomeAttributionInfoEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: WelcomeAttributionInfoEarKeySecret::random()?,
+        })
+    }
+}
+
+impl EarKey for WelcomeAttributionInfoEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for WelcomeAttributionInfoEarKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for WelcomeAttributionInfoEarKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }

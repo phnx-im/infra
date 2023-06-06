@@ -20,12 +20,15 @@ use phnxbackend::{
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
-            keys::{LeafSigningKey, UserAuthKey, UserAuthSigningKey},
+            keys::{LeafSigningKey, UserAuthSigningKey, UserAuthVerifyingKey},
             signable::Signable,
             traits::SigningKey,
         },
     },
-    ds::{errors::DsProcessingError, group_state::EncryptedCredentialChain},
+    ds::{
+        errors::DsProcessingError, group_state::EncryptedClientCredential,
+        EncryptedWelcomeAttributionInfo,
+    },
     messages::{
         client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
         client_ds_out::{
@@ -39,7 +42,7 @@ use phnxbackend::{
     },
     qs::{KeyPackageBatch, QsClientReference, VERIFIED},
 };
-use phnxserver::endpoints::ENDPOINT_DS;
+use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
 
 #[cfg(test)]
 mod tests;
@@ -59,6 +62,37 @@ pub enum DsRequestError {
 }
 
 impl ApiClient {
+    // Single purpose function since this is the only endpoint that doesn't require authentication.
+    pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
+        match self
+            .client
+            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUP_IDS))
+            .send()
+            .await
+        {
+            Ok(res) => {
+                match res.status().as_u16() {
+                    // Success!
+                    x if (200..=299).contains(&x) => {
+                        let ds_proc_res_bytes =
+                            res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
+                        let ds_proc_res = GroupId::tls_deserialize_bytes(ds_proc_res_bytes)
+                            .map_err(|_| DsRequestError::BadResponse)?;
+                        Ok(ds_proc_res)
+                    }
+                    // An error occurred. (There are no DS specific errors for this endpoint.)
+                    _ => {
+                        let error_text =
+                            res.text().await.map_err(|_| DsRequestError::BadResponse)?;
+                        Err(DsRequestError::NetworkError(error_text))
+                    }
+                }
+            }
+            // A network error occurred.
+            Err(err) => Err(DsRequestError::NetworkError(err.to_string())),
+        }
+    }
+
     async fn prepare_and_send_ds_message(
         &self,
         request_params: DsRequestParamsOut,
@@ -74,7 +108,7 @@ impl ApiClient {
             .map_err(|_| DsRequestError::LibraryError)?;
         match self
             .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_DS))
+            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS))
             .body(message_bytes)
             .send()
             .await
@@ -116,7 +150,7 @@ impl ApiClient {
     pub async fn ds_create_group(
         &self,
         leaf_node: RatchetTree,
-        encrypted_credential_chain: EncryptedCredentialChain,
+        encrypted_credential_chain: EncryptedClientCredential,
         creator_client_reference: QsClientReference,
         group_info: GroupInfo,
         group_state_ear_key: &GroupStateEarKey,
@@ -151,7 +185,7 @@ impl ApiClient {
         &self,
         commit: AssistedMessagePlusOut,
         welcome: AssistedWelcome,
-        encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
+        encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
         key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
@@ -270,7 +304,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         own_index: LeafNodeIndex,
         signing_key: &LeafSigningKey,
-        new_user_auth_key_option: Option<UserAuthKey>,
+        new_user_auth_key_option: Option<UserAuthVerifyingKey>,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateClientParamsOut {
             commit,
@@ -386,7 +420,7 @@ impl ApiClient {
     pub async fn ds_remove_clients(
         &self,
         commit: AssistedMessagePlusOut,
-        new_auth_key: UserAuthKey,
+        new_auth_key: UserAuthVerifyingKey,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {

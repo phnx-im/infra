@@ -191,6 +191,9 @@ pub enum QsKeyPackageBatchError {
     /// Decryption error
     #[error("Decryption error")]
     DecryptionError,
+    /// Invalid KeyPackage
+    #[error("Invalid KeyPackage")]
+    InvalidKeyPackage,
     /// Error retrieving user key packages
     #[error("Error retrieving user key packages")]
     StorageError,

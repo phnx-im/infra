@@ -128,7 +128,7 @@ impl DsGroupState {
                     .client_profiles
                     .get_mut(&sender)
                     .ok_or(ClientUpdateError::UnknownSender)?;
-                client_profile.credential_chain = ecc;
+                client_profile.encrypted_client_credential = ecc;
             } else {
                 return Err(ClientUpdateError::InvalidMessage);
             }

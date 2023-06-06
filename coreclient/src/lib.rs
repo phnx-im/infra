@@ -46,114 +46,11 @@ impl<T: Notifiable> Corelib<T> {
         }
     }
 
-    /// Create user
-    pub fn create_user(&mut self, username: &str, password: &str) -> Result<(), CorelibError> {
-        let user = SelfUser::new(username.to_string(), password.to_string());
-        match backend.register_client(&user) {
-            Ok(response) => {
-                log::debug!("Created new user: {:?}", response);
-                self.self_user = Some(user);
-                Ok(())
-            }
-            Err(error) => {
-                println!("Error creating user: {:?}", error);
-                Err(CorelibError::NetworkError)
-            }
-        }
-    }
-
-    /// List clients from the backend
-    pub fn list_clients(&self) -> Result<Vec<ClientInfo>, CorelibError> {
-        match &self.backend {
-            Some(backend) => Ok(backend
-                .list_clients()
-                .map_err(|_| CorelibError::NetworkError)?
-                .into()),
-            None => Err(CorelibError::BackendNotInitialized),
-        }
-    }
-
-    /// Create new group
-    pub fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
-        match &mut self.self_user {
-            Some(user) => match user.group_store.create_group(
-                &user.crypto_backend,
-                &user.signer,
-                &user.credential_with_key,
-            ) {
-                Ok(conversation_id) => {
-                    let attributes = ConversationAttributes {
-                        title: title.to_string(),
-                    };
-                    user.conversation_store
-                        .create_group_conversation(conversation_id, attributes);
-                    Ok(conversation_id)
-                }
-                Err(e) => Err(CorelibError::GroupStore(e)),
-            },
-            None => Err(CorelibError::UserNotInitialized),
-        }
-    }
-
     /// Get existing conversations
     pub fn get_conversations(&self) -> Vec<Conversation> {
         match &self.self_user {
             Some(user) => user.conversation_store.conversations(),
             None => vec![],
-        }
-    }
-
-    /// Invite user to an existing group
-    pub fn invite_user(&mut self, group_id: Uuid, invited_user: &str) -> Result<(), CorelibError> {
-        if let Some(backend) = &self.backend {
-            if let Some(self_user) = &mut self.self_user {
-                if let Ok(key_package_in) = backend.fetch_key_package(invited_user.as_bytes()) {
-                    let key_package = key_package_in.0[0]
-                        .1
-                        .clone()
-                        .validate(self_user.crypto_backend.crypto(), ProtocolVersion::Mls10)
-                        .map_err(|_| CorelibError::InvalidKeyPackage)?;
-                    let group = self_user.group_store.get_group_mut(&group_id).unwrap();
-                    // Adds new member and staged commit
-                    match group
-                        .invite(
-                            &self_user.crypto_backend,
-                            &self_user.signer,
-                            &self_user.credential_with_key,
-                            key_package,
-                        )
-                        .map_err(CorelibError::Group)
-                    {
-                        Ok(staged_commit) => {
-                            let conversation_messages = staged_commit_to_conversation_messages(
-                                &self_user.credential_with_key.credential,
-                                staged_commit,
-                            );
-                            group.merge_pending_commit(&self_user.crypto_backend)?;
-                            for conversation_message in conversation_messages {
-                                let dispatched_conversation_message =
-                                    DispatchedConversationMessage {
-                                        conversation_id: UuidBytes::from_uuid(&group_id),
-                                        conversation_message: conversation_message.clone(),
-                                    };
-                                self_user
-                                    .conversation_store
-                                    .store_message(&group_id, conversation_message)?;
-                                self.notification_hub
-                                    .dispatch_message_notification(dispatched_conversation_message);
-                            }
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    }
-                } else {
-                    Err(CorelibError::NetworkError)
-                }
-            } else {
-                Err(CorelibError::UserNotInitialized)
-            }
-        } else {
-            Err(CorelibError::BackendNotInitialized)
         }
     }
 

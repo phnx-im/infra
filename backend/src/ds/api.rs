@@ -159,7 +159,7 @@ use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::EarEncryptable,
+        ear::{EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{

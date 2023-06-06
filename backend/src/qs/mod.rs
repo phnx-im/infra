@@ -64,8 +64,8 @@
 use crate::{
     crypto::{
         ear::{
-            keys::{FriendshipEarKey, PushTokenEarKey},
-            Ciphertext, EarEncryptable,
+            keys::{AddPackageEarKey, PushTokenEarKey},
+            Ciphertext, EarDecryptable, EarEncryptable,
         },
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -73,7 +73,7 @@ use crate::{
         },
         DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext, RandomnessError,
     },
-    ds::group_state::TimeStamp,
+    ds::group_state::{EncryptedClientCredential, TimeStamp},
     messages::intra_backend::DsFanOutMessage,
 };
 
@@ -102,11 +102,16 @@ pub mod storage_provider_trait;
 pub mod user_record;
 
 #[derive(Serialize, Deserialize)]
-struct PushToken {
+pub struct PushToken {
     token: Vec<u8>,
 }
 
 impl PushToken {
+    // TODO: This is a dummy implementation for now
+    pub fn dummy() -> Self {
+        Self { token: vec![0; 32] }
+    }
+
     /// If the alert level is high enough, send a notification to the client.
     fn send_notification(&self, _alert_level: u8) {
         todo!()
@@ -130,6 +135,7 @@ impl From<Ciphertext> for EncryptedPushToken {
 }
 
 impl EarEncryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
+impl EarDecryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
 
 pub enum WebsocketNotifierError {
     WebsocketNotFound,
@@ -377,9 +383,9 @@ impl From<Ciphertext> for QsEncryptedAddPackage {
     }
 }
 
-impl EarEncryptable<FriendshipEarKey, QsEncryptedAddPackage> for AddPackage {}
+impl EarEncryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackage {}
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct KeyPackageBatchTbs {
     homeserver_domain: Fqdn,
     key_package_refs: Vec<KeyPackageRef>,
@@ -450,7 +456,7 @@ impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatchTbs {
     }
 }
 
-#[derive(Debug, ToSchema, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, ToSchema, TlsSerialize, TlsSize)]
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     payload: KeyPackageBatchTbs,
     signature: Signature,
@@ -470,17 +476,28 @@ impl TlsDeserializeTrait for KeyPackageBatch<UNVERIFIED> {
 #[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsSize)]
 pub struct AddPackage {
     key_package: KeyPackage,
-    icc_ciphertext: Vec<u8>,
+    encrypted_client_credential: EncryptedClientCredential,
+}
+
+impl AddPackage {
+    pub fn new(
+        key_package: KeyPackage,
+        encrypted_client_credential: EncryptedClientCredential,
+    ) -> Self {
+        Self {
+            key_package,
+            encrypted_client_credential,
+        }
+    }
+}
+
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct AddPackageIn {
+    key_package: KeyPackageIn,
+    encrypted_client_credential: EncryptedClientCredential,
 }
 
 impl AddPackageIn {
-    pub fn new(key_package: KeyPackageIn, icc_ciphertext: Vec<u8>) -> Self {
-        Self {
-            key_package,
-            icc_ciphertext,
-        }
-    }
-
     pub fn validate(
         self,
         crypto: &impl OpenMlsCrypto,
@@ -489,13 +506,9 @@ impl AddPackageIn {
         let key_package = self.key_package.validate(crypto, protocol_version)?;
         Ok(AddPackage {
             key_package,
-            icc_ciphertext: self.icc_ciphertext,
+            encrypted_client_credential: self.encrypted_client_credential,
         })
     }
 }
 
-#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct AddPackageIn {
-    key_package: KeyPackageIn,
-    icc_ciphertext: Vec<u8>,
-}
+impl EarDecryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackageIn {}

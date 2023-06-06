@@ -240,6 +240,7 @@ impl EncryptionPublicKey {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum DecryptionError {
     DecryptionError,
 }
@@ -251,7 +252,14 @@ pub struct DecryptionPrivateKey {
 }
 
 impl DecryptionPrivateKey {
-    pub(crate) fn decrypt(
+    pub fn new(private_key: HpkePrivateKey, public_key: EncryptionPublicKey) -> Self {
+        Self {
+            private_key,
+            public_key,
+        }
+    }
+
+    pub fn decrypt(
         &self,
         info: &[u8],
         aad: &[u8],
@@ -307,6 +315,29 @@ impl RatchetDecryptionKey {
 
     pub fn encryption_key(&self) -> RatchetEncryptionKey {
         RatchetEncryptionKey {
+            encryption_key: self.decryption_key.public_key.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct ConnectionEncryptionKey {
+    encryption_key: EncryptionPublicKey,
+}
+
+pub struct ConnectionDecryptionKey {
+    decryption_key: DecryptionPrivateKey,
+}
+
+impl ConnectionDecryptionKey {
+    pub fn generate() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            decryption_key: DecryptionPrivateKey::generate()?,
+        })
+    }
+
+    pub fn encryption_key(&self) -> ConnectionEncryptionKey {
+        ConnectionEncryptionKey {
             encryption_key: self.decryption_key.public_key.clone(),
         }
     }

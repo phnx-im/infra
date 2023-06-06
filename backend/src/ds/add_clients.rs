@@ -16,14 +16,13 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
     messages::{
-        client_ds::{AddClientsParams, AddClientsParamsAad, QueueMessagePayload},
+        client_ds::{AddClientsParams, AddClientsParamsAad, QueueMessagePayload, WelcomeBundle},
         intra_backend::DsFanOutMessage,
     },
     qs::QsClientReference,
 };
 
 use super::{
-    add_users::WelcomeBundle,
     api::USER_EXPIRATION_DAYS,
     errors::ClientAdditionError,
     group_state::{ClientProfile, TimeStamp},
@@ -129,7 +128,7 @@ impl DsGroupState {
 
         // ... s.t. it's easier to update the user profile.
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
-        for (key_package, credential_chain) in added_clients
+        for (key_package, encrypted_client_credential) in added_clients
             .into_iter()
             .zip(aad.encrypted_credential_information.into_iter())
         {
@@ -164,7 +163,7 @@ impl DsGroupState {
             .map_err(|_| ClientAdditionError::MissingQueueConfig)?;
             let client_profile = ClientProfile {
                 leaf_index,
-                credential_chain,
+                encrypted_client_credential,
                 client_queue_config: client_queue_config.clone(),
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -186,7 +185,7 @@ impl DsGroupState {
             let welcome_bundle = WelcomeBundle {
                 welcome: params.welcome.clone(),
                 encrypted_attribution_info: params.encrypted_welcome_attribution_infos.clone(),
-                encrypted_group_state_ear_key: encrypted_ear_key
+                encrypted_joiner_info: encrypted_ear_key
                     .tls_serialize_detached()
                     .map_err(|_| ClientAdditionError::LibraryError)?,
             };

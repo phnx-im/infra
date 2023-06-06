@@ -6,7 +6,7 @@ use super::*;
 
 #[derive(Default)]
 pub(crate) struct GroupStore {
-    groups: HashMap<Uuid, Group>,
+    groups: HashMap<GroupId, Group>,
 }
 
 impl GroupStore {
@@ -14,18 +14,12 @@ impl GroupStore {
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
         signer: &ClientSigningKey,
-    ) -> Result<Uuid, GroupStoreError> {
-        let mut try_counter = 0;
-        while try_counter < 10 {
-            let group = Group::create_group(backend, signer);
-            let uuid = group.group_id();
-            if self.groups.insert(uuid, group).is_some() {
-                try_counter += 1;
-            } else {
-                return Ok(uuid);
-            }
-        }
-        Err(GroupStoreError::InsertionError)
+        group_id: GroupId,
+    ) {
+        let group = Group::create_group(backend, signer, group_id.clone());
+        // TODO: For now we trust that the server won't serve us colliding group
+        // ids.
+        self.groups.insert(group_id, group);
     }
 
     pub(crate) fn store_group(&mut self, group: Group) -> Result<(), GroupStoreError> {
@@ -37,7 +31,7 @@ impl GroupStore {
 
     //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
 
-    pub(crate) fn get_group_mut(&mut self, group_id: &Uuid) -> Option<&mut Group> {
+    pub(crate) fn get_group_mut(&mut self, group_id: &GroupId) -> Option<&mut Group> {
         self.groups.get_mut(group_id)
     }
 
@@ -46,7 +40,7 @@ impl GroupStore {
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &impl Signer,
         credential_with_key: &CredentialWithKey,
-        group_id: &Uuid,
+        group_id: &GroupId,
         message: &str,
     ) -> Result<GroupMessage, GroupOperationError> {
         let group = self.groups.get_mut(group_id).unwrap();

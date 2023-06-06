@@ -18,12 +18,14 @@ use crate::crypto::{secrets::Secret, RandomnessError};
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
 
 /// Errors that can occur during an encryption operation.
+#[derive(Debug)]
 pub enum EncryptionError {
     RandomnessError, // Not enough randomness to generate Nonce
     LibraryError,    // Error encrypting the plaintext
 }
 
 /// Errors that can occur during a decryption operation.
+#[derive(Debug)]
 pub enum DecryptionError {
     DecryptionError, // Error decrypting the ciphertext
 }
@@ -70,19 +72,28 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
     }
 }
 
-pub trait GenericCodec: Sized {
+pub trait GenericSerializable: Sized {
     type Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
 }
 
-impl<T: serde::Serialize + DeserializeOwned> GenericCodec for T {
+impl<T: serde::Serialize> GenericSerializable for T {
     type Error = serde_json::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
         serde_json::to_vec(self)
     }
+}
+
+pub trait GenericDeserializable: Sized {
+    type Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
+}
+
+impl<T: DeserializeOwned> GenericDeserializable for T {
+    type Error = serde_json::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
         serde_json::from_slice(bytes)
@@ -92,7 +103,7 @@ impl<T: serde::Serialize + DeserializeOwned> GenericCodec for T {
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
 pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
-    GenericCodec
+    GenericSerializable
 {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
@@ -103,7 +114,13 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
         let ciphertext = ear_key.encrypt(&plaintext)?;
         Ok(ciphertext.into())
     }
+}
 
+/// A trait that can be derived for structs that are encryptable/decryptable by
+/// an EAR key.
+pub trait EarDecryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
+    GenericDeserializable
+{
     /// Decrypt the given ciphertext using the given [`EarKey`]. Returns a
     /// [`DecryptionError`] or the resulting plaintext.
     fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {

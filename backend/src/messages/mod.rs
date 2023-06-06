@@ -55,7 +55,7 @@ impl FriendshipToken {
 /// the given message.
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
 #[repr(u8)]
-pub(crate) enum MlsInfraVersion {
+pub enum MlsInfraVersion {
     Alpha,
 }
 

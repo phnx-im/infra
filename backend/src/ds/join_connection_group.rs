@@ -99,7 +99,7 @@ impl DsGroupState {
         };
         let client_profile = ClientProfile {
             leaf_index: sender,
-            credential_chain: aad.encrypted_credential_information,
+            encrypted_client_credential: aad.encrypted_credential_information,
             client_queue_config: params.qs_client_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),

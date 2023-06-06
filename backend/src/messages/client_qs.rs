@@ -13,7 +13,7 @@ use utoipa::ToSchema;
 
 use crate::{
     crypto::{
-        ear::keys::FriendshipEarKey,
+        ear::keys::AddPackageEarKey,
         signatures::keys::QsClientVerifyingKey,
         signatures::{
             keys::QsUserVerifyingKey,
@@ -77,15 +77,15 @@ pub struct CreateUserRecordParams {
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetEncryptionKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) friendship_ear_key: FriendshipEarKey,
+    pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_key: QueueRatchet,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateUserRecordResponse {
-    pub(crate) user_id: QsUserId,
-    pub(crate) client_id: QsClientId,
+    pub user_id: QsUserId,
+    pub client_id: QsClientId,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -119,7 +119,7 @@ pub struct CreateClientRecordParams {
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetEncryptionKey,
     pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) friendship_ear_key: FriendshipEarKey,
+    pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
 }
@@ -160,7 +160,7 @@ pub struct DeleteClientRecordParams {
 pub struct PublishKeyPackagesParams {
     pub(crate) sender: QsClientId,
     pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) friendship_ear_key: FriendshipEarKey,
+    pub(crate) friendship_ear_key: AddPackageEarKey,
 }
 
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
@@ -177,7 +177,7 @@ pub struct ClientKeyPackageResponse {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct KeyPackageBatchParams {
     pub sender: FriendshipToken,
-    pub friendship_ear_key: FriendshipEarKey,
+    pub friendship_ear_key: AddPackageEarKey,
 }
 
 #[derive(TlsSerialize, TlsSize, ToSchema)]
