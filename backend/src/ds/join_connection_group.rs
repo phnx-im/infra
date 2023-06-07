@@ -115,9 +115,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let payload = QueueMessagePayload {
-            payload: params.external_commit.message_bytes,
-        };
+        let payload = params.external_commit.message_bytes.into();
 
         Ok(payload)
     }

@@ -198,7 +198,7 @@ pub trait Verifiable: Sized {
     fn signature(&self) -> &Signature;
 
     /// Return the string label used for labeled verification.
-    fn label() -> &'static str;
+    fn label(&self) -> &str;
 
     /// Verifies the payload against the given `credential`.
     /// The signature is fetched via the [`Verifiable::signature()`] function and
@@ -216,7 +216,7 @@ pub trait Verifiable: Sized {
         let payload = self
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
-        let sign_content: SignContent = (Self::label(), payload.as_slice()).into();
+        let sign_content: SignContent = (self.label(), payload.as_slice()).into();
         let serialized_sign_content = sign_content
             .tls_serialize_detached()
             .map_err(LibraryError::missing_bound_check)?;

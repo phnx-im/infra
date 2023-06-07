@@ -54,62 +54,6 @@ impl<T: Notifiable> Corelib<T> {
         }
     }
 
-    /// Send a message
-    pub fn send_message(
-        &mut self,
-        group_id: Uuid,
-        message: &str,
-    ) -> Result<ConversationMessage, CorelibError> {
-        match &mut self.self_user {
-            Some(ref mut user) => {
-                let sender = user.username.clone();
-                // Generate ciphertext
-                let group_message = user
-                    .group_store
-                    .create_message(
-                        &user.crypto_backend,
-                        &user.signer,
-                        &user.credential_with_key,
-                        &group_id,
-                        message,
-                    )
-                    .map_err(CorelibError::Group)?;
-
-                // Store message locally
-                let message = Message::Content(ContentMessage {
-                    sender,
-                    content: MessageContentType::Text(TextMessage {
-                        message: message.to_string(),
-                    }),
-                });
-                let conversation_message = new_conversation_message(message);
-                user.conversation_store
-                    .store_message(&group_id, conversation_message.clone())
-                    .map_err(CorelibError::ConversationStore)?;
-
-                // Send message to DS
-                println!("Sending message to DS");
-                match &self.backend {
-                    Some(backend) => match backend.send_msg(&group_message) {
-                        Ok(_) => Ok(conversation_message),
-                        Err(e) => {
-                            println!("Error sending message: {e}");
-                            println!("Message: {:?}", group_message);
-                            let bytes = &mut group_message.tls_serialize_detached().unwrap();
-                            match GroupMessage::tls_deserialize(&mut bytes.as_slice()) {
-                                Ok(_) => println!("Codec worked."),
-                                Err(_) => println!("Codec did not work."),
-                            }
-                            Err(CorelibError::NetworkError)
-                        }
-                    },
-                    None => Err(CorelibError::BackendNotInitialized),
-                }
-            }
-            None => Err(CorelibError::UserNotInitialized),
-        }
-    }
-
     pub fn get_messages(&self, conversation_id: &Uuid, last_n: usize) -> Vec<ConversationMessage> {
         match &self.self_user {
             Some(user) => user.conversation_store.messages(conversation_id, last_n),
@@ -156,14 +100,17 @@ impl<T: Notifiable> Corelib<T> {
                         match Group::join_group(&self_user.crypto_backend, welcome) {
                             Ok(group) => {
                                 let group_id = group.group_id();
+                                let conversation_id = Uuid::new_v4();
                                 match self_user.group_store.store_group(group) {
                                     Ok(()) => {
                                         let attributes = ConversationAttributes {
                                             title: "New conversation".to_string(),
                                         };
-                                        self_user
-                                            .conversation_store
-                                            .create_group_conversation(group_id, attributes);
+                                        self_user.conversation_store.create_group_conversation(
+                                            conversation_id,
+                                            group_id,
+                                            attributes,
+                                        );
                                         self.notification_hub.dispatch_conversation_notification();
                                     }
                                     Err(_) => {

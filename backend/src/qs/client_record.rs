@@ -7,9 +7,9 @@ use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::{keys::PushTokenEarKey, DecryptionError, EarDecryptable},
+        ear::{keys::PushTokenEarKey, EarDecryptable},
         signatures::keys::QsClientVerifyingKey,
-        QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
+        DecryptionError, QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
     messages::{client_ds::QueueMessagePayload, QueueMessage},

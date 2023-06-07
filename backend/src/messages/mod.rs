@@ -7,7 +7,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{ear::Ciphertext, RandomnessError};

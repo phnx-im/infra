@@ -5,11 +5,9 @@
 pub(crate) mod error;
 pub(crate) mod store;
 
-use ds_lib::GroupMessage;
 pub(crate) use error::*;
 
 use openmls_memory_keystore::MemoryKeyStore;
-use openmls_traits::signatures::Signer;
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -19,7 +17,7 @@ use phnxbackend::{
             },
             AsIntermediateCredential, ClientCredential, VerifiableClientCredential,
         },
-        UserName,
+        AsClientId, UserName,
     },
     crypto::{
         ear::{
@@ -27,23 +25,28 @@ use phnxbackend::{
                 ClientCredentialEarKey, GroupStateEarKey, SignatureEarKey,
                 WelcomeAttributionInfoEarKey,
             },
-            EarDecryptable,
+            EarDecryptable, EarEncryptable,
         },
-        signatures::{keys::UserAuthSigningKey, signable::Verifiable},
+        signatures::{
+            keys::UserAuthSigningKey,
+            signable::{Signable, Verifiable},
+        },
         DecryptionPrivateKey, HpkeCiphertext,
     },
     ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
     messages::{
         client_ds::{DsJoinerInformationIn, WelcomeBundle},
-        client_ds_out::AddUsersParamsOut,
+        client_ds_out::{AddUsersParamsOut, SendMessageParamsOut},
     },
+    qs::{KeyPackageBatch, VERIFIED},
+    AssistedGroupInfo,
 };
 pub(crate) use store::*;
 
 use crate::{contacts::Contact, conversations::*, types::MessageContentType, types::*};
 use std::{collections::HashMap, panic::panic_any};
 
-use openmls::prelude::{group_info::GroupInfo, *};
+use openmls::prelude::*;
 
 #[derive(Debug)]
 pub(crate) struct Group {
@@ -274,63 +277,75 @@ impl Group {
         backend: &impl OpenMlsCryptoProvider,
         message: MlsMessageIn,
     ) -> Result<ProcessedMessage, GroupOperationError> {
+        // TODO: It's not clear how we can call this here, since we can only
+        // convert MlsMessageIn into ProtocolMessage with the test-utils
+        // feature. I'll leave it as it is for now, since we're only feeding
+        // this protocol messages anyway.
         Ok(self.mls_group.process_message(backend, message)?)
     }
 
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    pub(crate) fn invite<'a>(
-        &'a mut self,
+    pub(crate) fn invite(
+        &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &ClientSigningKey,
         contacts: Vec<&Contact>,
-    ) -> Result<AddUsersParamsOut, GroupOperationError> {
-        // TODO:
-        // * Create the MLS messages
-        // * Split the GroupInfo into Signature and Extensions
-        // * Make sure that the AssistedWelcome deserializes properly
-        // * Create and encrypt the WelcomeAttributionInfos
-        let add_infos = contacts.iter().map(|c| c.add_infos()).collect::<Vec<_>>();
+    ) -> Result<(AddUsersParamsOut, &StagedCommit), GroupOperationError> {
+        // Prepare KeyPackageBatches and KeyPackages
+        let (key_package_vecs, key_package_batches): (
+            Vec<Vec<KeyPackage>>,
+            Vec<KeyPackageBatch<VERIFIED>>,
+        ) = contacts
+            .iter()
+            .map(|c| c.add_infos())
+            .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
+            .unzip();
 
-        for contact in contacts {
-            // WAI = WelcomeAttributionInfo
-            let wai_payload = WelcomeAttributionInfoPayload::new(
-                signer.credential().identity(),
-                self.credential_ear_key.clone(),
-                self.signature_ear_key.clone(),
-            );
-
-            let encrypted_welcome_infos = WelcomeAttributionInfoTbs {
-                payload: wai_payload,
-                group_id: self.group_id.clone(),
-                welcome: welcome.tls_serialize_detached().unwrap(),
-            };
-        }
-
-        let key_packages = add_infos
-            .into_iter()
-            .map(|add_info| {
-                add_info
-                    .key_packages
-                    .into_iter()
-                    .map(|(_, key_package)| key_package)
-            })
-            .flatten()
-            .collect::<Vec<_>>();
+        let key_packages = key_package_vecs.into_iter().flatten().collect::<Vec<_>>();
 
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
                 .add_members(backend, &self.leaf_signer, key_packages.as_slice())?;
 
-        let output = AddUsersParamsOut {
-            commit: todo!(),
+        // Groups should always have the flag set that makes them return groupinfos with every Commit.
+        // Or at least with Add commits for now.
+        let group_info = group_info_option.unwrap();
+        // TODO: For now, we use the full group info, as OpenMLS does not yet allow splitting up a group info.
+        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
+        let commit = (mls_commit, assisted_group_info);
+
+        let encrypted_welcome_attribution_infos = contacts
+            .iter()
+            .map(|contact| {
+                // WAI = WelcomeAttributionInfo
+                let wai_payload = WelcomeAttributionInfoPayload::new(
+                    signer.credential().identity(),
+                    self.credential_ear_key.clone(),
+                    self.signature_ear_key.clone(),
+                );
+
+                let wai = WelcomeAttributionInfoTbs {
+                    payload: wai_payload,
+                    group_id: self.group_id.clone(),
+                    welcome: welcome.tls_serialize_detached().unwrap(),
+                }
+                .sign(signer)
+                .unwrap();
+                wai.encrypt(contact.wai_ear_key()).unwrap()
+            })
+            .collect();
+
+        let params = AddUsersParamsOut {
+            commit,
             sender: self.user_auth_key.verifying_key().hash(),
-            welcome: todo!(),
-            encrypted_welcome_attribution_infos: todo!(),
-            key_package_batches: todo!(),
+            welcome,
+            encrypted_welcome_attribution_infos,
+            key_package_batches,
         };
-        Ok(output)
+        let staged_commit = self.mls_group.pending_commit().unwrap().clone();
+        Ok((params, staged_commit))
     }
 
     /// Merge the pending commit
@@ -342,13 +357,17 @@ impl Group {
     }
 
     /// Get a list of clients in the group to send messages to.
-    fn recipients(&self, credential_with_key: &CredentialWithKey) -> Vec<Vec<u8>> {
-        let recipients: Vec<Vec<u8>> = self
-            .mls_group
-            .members()
-            .filter_map(|kp| {
-                if credential_with_key.credential.identity() != kp.credential.identity() {
-                    Some(kp.credential.identity().to_vec())
+    fn recipients(&self, own_credential: &ClientCredential) -> Vec<AsClientId> {
+        let recipients: Vec<AsClientId> = self
+            .client_credentials
+            .iter()
+            .filter_map(|client_credential_option| {
+                if let Some(client_credential) = client_credential_option {
+                    if own_credential.identity() != client_credential.identity() {
+                        Some(client_credential.identity())
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -361,23 +380,30 @@ impl Group {
     pub fn create_message(
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
-        signer: &impl Signer,
-        credential_with_key: &CredentialWithKey,
         msg: &str,
-    ) -> Result<GroupMessage, GroupOperationError> {
-        let mls_message_out = self
+    ) -> Result<SendMessageParamsOut, GroupOperationError> {
+        let message = self
             .mls_group
-            .create_message(backend, signer, msg.as_bytes())?;
+            .create_message(backend, &self.leaf_signer, msg.as_bytes())?;
 
-        Ok(GroupMessage::new(
-            mls_message_out.into(),
-            &self.recipients(credential_with_key),
-        ))
+        let send_message_params = SendMessageParamsOut {
+            sender: self.mls_group.own_leaf_index(),
+            message,
+        };
+        Ok(send_message_params)
     }
 
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> GroupId {
         self.group_id
+    }
+
+    pub(crate) fn user_auth_key(&self) -> &UserAuthSigningKey {
+        &self.user_auth_key
+    }
+
+    pub(crate) fn group_state_ear_key(&self) -> &GroupStateEarKey {
+        &self.group_state_ear_key
     }
 }
 
@@ -394,7 +420,7 @@ pub(crate) fn application_message_to_conversation_messages(
 }
 
 pub(crate) fn staged_commit_to_conversation_messages(
-    sender: &Credential,
+    own_identity: &UserName,
     staged_commit: &StagedCommit,
 ) -> Vec<ConversationMessage> {
     let adds: Vec<ConversationMessage> = staged_commit
@@ -408,7 +434,7 @@ pub(crate) fn staged_commit_to_conversation_messages(
                 .identity();
             let event_message = format!(
                 "{} added {} to the conversation",
-                String::from_utf8_lossy(sender.identity()),
+                String::from_utf8_lossy(own_identity.as_bytes()),
                 String::from_utf8_lossy(added_member)
             );
             event_message_from_string(event_message)
@@ -420,7 +446,7 @@ pub(crate) fn staged_commit_to_conversation_messages(
             let removed_member = staged_remove_proposal.remove_proposal().removed();
             let event_message = format!(
                 "{} removed {:?} from the conversation",
-                String::from_utf8_lossy(sender.identity()),
+                String::from_utf8_lossy(own_identity.as_bytes()),
                 removed_member
             );
             event_message_from_string(event_message)

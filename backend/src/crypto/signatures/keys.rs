@@ -17,45 +17,6 @@ use crate::{
 
 use super::traits::{SigningKey, VerifyingKey};
 
-#[derive(Clone, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct LeafVerifyingKey {
-    verifying_key: SignaturePublicKey,
-}
-
-impl LeafVerifyingKey {
-    pub fn verifying_key(&self) -> &SignaturePublicKey {
-        &self.verifying_key
-    }
-}
-
-impl VerifyingKey for LeafVerifyingKey {}
-
-impl AsRef<[u8]> for LeafVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key.as_slice()
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct LeafSigningKey {
-    signing_key: Vec<u8>,
-    verifying_key: LeafVerifyingKey,
-}
-
-impl LeafSigningKey {
-    pub fn verifying_key(&self) -> &LeafVerifyingKey {
-        &self.verifying_key
-    }
-}
-
-impl SigningKey for LeafSigningKey {}
-
-impl AsRef<[u8]> for LeafSigningKey {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key.as_ref()
-    }
-}
-
 #[derive(Debug)]
 pub struct LeafVerifyingKeyRef<'a> {
     verifying_key: &'a SignaturePublicKey,

@@ -219,10 +219,8 @@ impl DsGroupState {
         &mut self,
         welcome_info_params: WelcomeInfoParams,
     ) -> Option<&RatchetTree> {
-        self.group_mut().past_group_state(
-            &welcome_info_params.epoch,
-            welcome_info_params.sender.verifying_key(),
-        )
+        self.group_mut()
+            .past_group_state(&welcome_info_params.epoch, &welcome_info_params.sender)
     }
 
     pub(super) fn external_commit_info(&mut self) -> (GroupInfo, RatchetTree) {

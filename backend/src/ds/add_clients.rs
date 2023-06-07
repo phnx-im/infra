@@ -16,7 +16,10 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
     messages::{
-        client_ds::{AddClientsParams, AddClientsParamsAad, QueueMessagePayload, WelcomeBundle},
+        client_ds::{
+            AddClientsParams, AddClientsParamsAad, QueueMessagePayload, QueueMessageType,
+            WelcomeBundle,
+        },
         intra_backend::DsFanOutMessage,
     },
     qs::QsClientReference,
@@ -194,6 +197,7 @@ impl DsGroupState {
                     payload: welcome_bundle
                         .tls_serialize_detached()
                         .map_err(|_| ClientAdditionError::LibraryError)?,
+                    message_type: QueueMessageType::WelcomeBundle,
                 },
                 client_reference: client_queue_config,
             };
@@ -204,9 +208,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
-            payload: params.commit.message_bytes,
-        };
+        let c2c_message = params.commit.message_bytes.into();
 
         Ok((c2c_message, fan_out_messages))
     }

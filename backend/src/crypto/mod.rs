@@ -33,7 +33,7 @@ use crate::{
 };
 
 use self::{
-    ear::{keys::RatchetKey, Ciphertext, EncryptionError},
+    ear::{keys::RatchetKey, Ciphertext, EarDecryptable, EncryptionError},
     kdf::{keys::RatchetSecret, KdfDerivable},
 };
 
@@ -149,6 +149,19 @@ impl QueueRatchet {
         })
     }
 
+    fn ratchet_forward(&mut self) -> Result<(), EncryptionError> {
+        let secret = RatchetSecret::derive(&self.secret, Vec::new())
+            .map_err(|_| EncryptionError::LibraryError)?;
+        let key =
+            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
+
+        self.secret = secret;
+        self.key = key;
+        self.sequence_number = 0;
+
+        Ok(())
+    }
+
     /// Encrypt the given payload.
     pub fn encrypt(
         &mut self,
@@ -157,14 +170,7 @@ impl QueueRatchet {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?;
 
-        let secret = RatchetSecret::derive(&self.secret, Vec::new())
-            .map_err(|_| EncryptionError::LibraryError)?;
-        let key =
-            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
-
-        self.secret = secret;
-        self.key = key;
-        self.sequence_number += 1;
+        self.ratchet_forward()?;
 
         Ok(QueueMessage {
             sequence_number: self.sequence_number,
@@ -173,8 +179,14 @@ impl QueueRatchet {
     }
 
     /// Decrypt the given payload.
-    pub fn decrypt(&self, queue_message: QueueMessage) -> Vec<u8> {
-        todo!()
+    pub fn decrypt(
+        &self,
+        queue_message: QueueMessage,
+    ) -> Result<QueueMessagePayload, DecryptionError> {
+        let plaintext = QueueMessagePayload::decrypt(&self.key, &queue_message.ciphertext)?;
+        self.ratchet_forward()
+            .map_err(|_| DecryptionError::DecryptionError)?;
+        Ok(plaintext)
     }
 
     /// Sample some fresh entropy and inject it into the current key. Returns the entropy.

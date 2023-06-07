@@ -17,7 +17,7 @@ use crate::{
             keys::{ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
-        signatures::signable::{Signable, Signature, Verifiable, VerifiedStruct},
+        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         *,
     },
 };
@@ -98,7 +98,16 @@ impl Signable for WelcomeAttributionInfoTbs {
     }
 
     fn label(&self) -> &str {
-        VerifiableWelcomeAttributionInfo::label()
+        "WelcomeAttributionInfo"
+    }
+}
+
+impl SignedStruct<WelcomeAttributionInfoTbs> for WelcomeAttributionInfo {
+    fn from_payload(payload: WelcomeAttributionInfoTbs, signature: Signature) -> Self {
+        Self {
+            payload: payload.payload,
+            signature,
+        }
     }
 }
 

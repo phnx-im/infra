@@ -163,10 +163,7 @@ use crate::{
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
-        client_ds::{
-            CreateGroupParams, DsRequestParams, DsSender, QueueMessagePayload,
-            VerifiableClientToDsMessage,
-        },
+        client_ds::{CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage},
         intra_backend::DsFanOutMessage,
     },
     qs::QsEnqueueProvider,
@@ -364,9 +361,7 @@ impl DsApi {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = QueueMessagePayload {
-                    payload: send_message_params.message.message_bytes,
-                };
+                let c2c_message = send_message_params.message.message_bytes.into();
                 (Some(c2c_message), None, None)
             }
         };

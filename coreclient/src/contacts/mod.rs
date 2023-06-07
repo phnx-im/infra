@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use openmls::prelude::KeyPackage;
 use phnxbackend::{
     auth_service::{credentials::ClientCredential, AsClientId, UserName},
+    crypto::ear::keys::WelcomeAttributionInfoEarKey,
     qs::{KeyPackageBatch, VERIFIED},
 };
 
@@ -17,11 +18,13 @@ pub struct Contact {
     last_resort_add_info: ContactAddInfos,
     add_infos: Vec<ContactAddInfos>,
     client_credentials: HashMap<AsClientId, ClientCredential>,
+    // Encryption key for WelcomeAttributionInfos
+    wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
 #[derive(Debug, Clone)]
-struct ContactAddInfos {
-    pub key_packages: Vec<(AsClientId, KeyPackage)>,
+pub(crate) struct ContactAddInfos {
+    pub key_packages: Vec<KeyPackage>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
@@ -36,5 +39,9 @@ impl Contact {
         self.add_infos
             .pop()
             .unwrap_or(self.last_resort_add_info.clone())
+    }
+
+    pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
+        &self.wai_ear_key
     }
 }

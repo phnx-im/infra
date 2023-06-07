@@ -288,7 +288,7 @@ impl Verifiable for InfraCredentialPlaintext {
         self.payload.tls_serialize_detached()
     }
 
-    fn label() -> &'static str {
+    fn label(&self) -> &str {
         "InfraCredential"
     }
 }

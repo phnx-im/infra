@@ -13,7 +13,7 @@ use aes_gcm::{
 use serde::de::DeserializeOwned;
 use tracing::instrument;
 
-use crate::crypto::{secrets::Secret, RandomnessError};
+use crate::crypto::{secrets::Secret, DecryptionError, RandomnessError};
 
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
 
@@ -22,12 +22,6 @@ use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
 pub enum EncryptionError {
     RandomnessError, // Not enough randomness to generate Nonce
     LibraryError,    // Error encrypting the plaintext
-}
-
-/// Errors that can occur during a decryption operation.
-#[derive(Debug)]
-pub enum DecryptionError {
-    DecryptionError, // Error decrypting the ciphertext
 }
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].

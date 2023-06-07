@@ -4,7 +4,7 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::openmls::prelude::KeyPackage;
+use mls_assist::{openmls::prelude::KeyPackage, openmls_traits::random::OpenMlsRand};
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{OpaqueCiphersuite, QueueRatchet, RatchetEncryptionKey},
+    crypto::{OpaqueCiphersuite, QueueRatchet, RandomnessError, RatchetEncryptionKey},
     ds::group_state::TimeStamp,
     messages::{
         client_as::{
@@ -121,9 +121,17 @@ pub struct AsUserRecord {
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, PartialEq, Eq, Hash)]
+#[derive(
+    Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize,
+)]
 pub struct UserName {
     pub(crate) user_name: Vec<u8>,
+}
+
+impl UserName {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.user_name
+    }
 }
 
 impl From<String> for UserName {
@@ -140,6 +148,7 @@ impl From<String> for UserName {
     Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, Serialize, Deserialize, Eq, PartialEq, Hash,
 )]
 pub struct AsClientId {
+    pub(crate) user_name: UserName,
     pub(crate) client_id: Vec<u8>,
 }
 
@@ -150,18 +159,21 @@ impl AsRef<[u8]> for AsClientId {
 }
 
 impl AsClientId {
-    pub fn username(&self) -> UserName {
-        UserName {
-            user_name: self.client_id.clone(),
-        }
+    pub fn random(
+        backend: &impl OpenMlsRand,
+        user_name: UserName,
+    ) -> Result<Self, RandomnessError> {
+        let client_id = backend
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        Ok(Self {
+            user_name,
+            client_id,
+        })
     }
-}
 
-impl From<String> for AsClientId {
-    fn from(value: String) -> Self {
-        Self {
-            client_id: value.into_bytes(),
-        }
+    pub fn username(&self) -> UserName {
+        self.user_name.clone()
     }
 }
 

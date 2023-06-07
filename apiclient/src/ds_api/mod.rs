@@ -10,13 +10,14 @@ use mls_assist::{
     openmls::{
         prelude::{
             group_info::{GroupInfo, VerifiableGroupInfo},
-            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsDeserializeTrait,
+            GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsDeserializeTrait,
             TlsSerializeTrait,
         },
         treesync::RatchetTree,
     },
 };
 use phnxbackend::{
+    auth_service::credentials::keys::InfraCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
@@ -183,20 +184,10 @@ impl ApiClient {
     /// Add one or more users to a group.
     pub async fn ds_add_users(
         &self,
-        commit: AssistedMessagePlusOut,
-        welcome: AssistedWelcome,
-        encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-        key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
+        payload: AddUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        let payload = AddUsersParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-            welcome,
-            encrypted_welcome_attribution_infos,
-            key_package_batches,
-        };
         self.prepare_and_send_ds_message(
             DsRequestParamsOut::AddUsers(payload),
             signing_key,
@@ -502,17 +493,12 @@ impl ApiClient {
     /// Send a message to the given group.
     pub async fn ds_send_message(
         &self,
-        message: AssistedMessagePlusOut,
-        own_index: LeafNodeIndex,
-        signing_key: &LeafSigningKey,
+        params: SendMessageParamsOut,
+        signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        let payload = SendMessageParamsOut {
-            message,
-            sender: own_index,
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::SendMessage(payload),
+            DsRequestParamsOut::SendMessage(params),
             signing_key,
             group_state_ear_key,
         )

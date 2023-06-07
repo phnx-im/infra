@@ -7,6 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
+use openmls_traits::crypto;
 use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxbackend::{
     auth_service::{
@@ -15,7 +16,7 @@ use phnxbackend::{
             AsIntermediateCredential, ClientCredential, ClientCredentialCsr,
             ClientCredentialPayload, ExpirationData,
         },
-        OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
+        AsClientId, OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
     },
     crypto::{
         ear::{
@@ -36,6 +37,8 @@ use rand::rngs::OsRng;
 use crate::contacts::Contact;
 
 use super::*;
+
+pub mod process;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -68,7 +71,7 @@ pub(crate) struct MemoryUserKeyStore {
 pub struct SelfUser {
     pub(crate) crypto_backend: OpenMlsRustCrypto,
     pub(crate) api_client: ApiClient,
-    pub(crate) username: String,
+    pub(crate) user_name: UserName,
     pub(crate) qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) conversation_store: ConversationStore,
@@ -79,7 +82,8 @@ pub struct SelfUser {
 
 impl SelfUser {
     /// Create a new user with the given name and a fresh set of credentials.
-    pub fn new(username: String, password: String) -> Self {
+    pub fn new(user_name: String, password: String) -> Self {
+        let user_name: UserName = user_name.into();
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
         let api_client = ApiClient::initialize(
@@ -88,8 +92,9 @@ impl SelfUser {
         )
         .unwrap();
 
+        let as_client_id = AsClientId::random(crypto_backend.rand(), user_name).unwrap();
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(username.clone().into(), SignatureScheme::ED25519).unwrap();
+            ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519).unwrap();
 
         let as_credentials = block_on(api_client.as_as_credentials()).unwrap();
         let verifiable_intemediate_credential =
@@ -132,7 +137,7 @@ impl SelfUser {
 
         // Complete the OPAQUE registration.
         let identifiers = Identifiers {
-            client: Some(username.as_bytes()),
+            client: Some(user_name.as_bytes()),
             server: Some(api_client.base_url().as_bytes()),
         };
         let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
@@ -207,7 +212,7 @@ impl SelfUser {
         };
 
         block_on(api_client.as_finish_user_registration(
-            username.into(),
+            user_name.into(),
             key_store.as_queue_decryption_key.encryption_key().clone(),
             as_ratchet_key,
             connection_packages,
@@ -257,7 +262,7 @@ impl SelfUser {
         Self {
             crypto_backend,
             api_client,
-            username,
+            user_name,
             conversation_store: ConversationStore::default(),
             group_store: GroupStore::default(),
             key_store,
@@ -295,130 +300,109 @@ impl SelfUser {
     /// Create new group
     pub fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
         let group_id = block_on(self.api_client.ds_request_group_id()).unwrap();
-        match self.group_store.create_group(
-            &self.crypto_backend,
-            &self.key_store.signing_key,
-            group_id,
-        ) {
-            Ok(conversation_id) => {
-                let attributes = ConversationAttributes {
-                    title: title.to_string(),
-                };
-                self.conversation_store
-                    .create_group_conversation(conversation_id, attributes);
-                Ok(conversation_id)
-            }
-            Err(e) => Err(CorelibError::GroupStore(e)),
-        }
+        self.group_store
+            .create_group(&self.crypto_backend, &self.key_store.signing_key, group_id);
+        let conversation_id = Uuid::new_v4();
+        let attributes = ConversationAttributes {
+            title: title.to_string(),
+        };
+        self.conversation_store
+            .create_group_conversation(conversation_id, group_id, attributes);
+        Ok(conversation_id)
     }
 
-    /// Invite user to an existing group
-    pub fn invite_user(&mut self, group_id: Uuid, invited_user: &str) -> Result<(), CorelibError> {
-        if let Some(backend) = &self.backend {
-            if let Some(self_user) = &mut self.self_user {
-                if let Ok(key_package_in) = backend.fetch_key_package(invited_user.as_bytes()) {
-                    let key_package = key_package_in.0[0]
-                        .1
-                        .clone()
-                        .validate(self_user.crypto_backend.crypto(), ProtocolVersion::Mls10)
-                        .map_err(|_| CorelibError::InvalidKeyPackage)?;
-                    let group = self_user.group_store.get_group_mut(&group_id).unwrap();
-                    // Adds new member and staged commit
-                    match group
-                        .invite(
-                            &self_user.crypto_backend,
-                            &self_user.signer,
-                            &self_user.credential_with_key,
-                            key_package,
-                        )
-                        .map_err(CorelibError::Group)
-                    {
-                        Ok(staged_commit) => {
-                            let conversation_messages = staged_commit_to_conversation_messages(
-                                &self_user.credential_with_key.credential,
-                                staged_commit,
-                            );
-                            group.merge_pending_commit(&self_user.crypto_backend)?;
-                            for conversation_message in conversation_messages {
-                                let dispatched_conversation_message =
-                                    DispatchedConversationMessage {
-                                        conversation_id: UuidBytes::from_uuid(&group_id),
-                                        conversation_message: conversation_message.clone(),
-                                    };
-                                self_user
-                                    .conversation_store
-                                    .store_message(&group_id, conversation_message)?;
-                                self.notification_hub
-                                    .dispatch_message_notification(dispatched_conversation_message);
-                            }
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    }
-                } else {
-                    Err(CorelibError::NetworkError)
-                }
-            } else {
-                Err(CorelibError::UserNotInitialized)
-            }
-        } else {
-            Err(CorelibError::BackendNotInitialized)
-        }
-    }
-
-    /// Process received messages by group
-    pub fn process_messages(
+    /// Invite users to an existing group
+    pub fn invite_users<T: Notifiable>(
         &mut self,
-        group_id: Uuid,
-        messages: Vec<MlsMessageIn>,
-    ) -> Result<Vec<DispatchedConversationMessage>, CorelibError> {
-        let mut notification_messages = vec![];
-        match self.group_store.get_group_mut(&group_id) {
-            Some(group) => {
-                for message in messages {
-                    let processed_message = group.process_message(&self.crypto_backend, message);
-                    match processed_message {
-                        Ok(processed_message) => {
-                            let sender_credential = processed_message.credential().clone();
-                            let conversation_messages = match processed_message.into_content() {
-                                ProcessedMessageContent::ApplicationMessage(
-                                    application_message,
-                                ) => application_message_to_conversation_messages(
-                                    &sender_credential,
-                                    application_message,
-                                ),
-                                ProcessedMessageContent::ProposalMessage(_) => {
-                                    unimplemented!()
-                                }
-                                ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                                    staged_commit_to_conversation_messages(
-                                        &sender_credential,
-                                        &staged_commit,
-                                    )
-                                }
-                                ProcessedMessageContent::ExternalJoinProposalMessage(_) => todo!(),
-                            };
-
-                            for conversation_message in conversation_messages {
-                                let dispatched_conversation_message =
-                                    DispatchedConversationMessage {
-                                        conversation_id: UuidBytes::from_uuid(&group_id),
-                                        conversation_message: conversation_message.clone(),
-                                    };
-                                self.conversation_store
-                                    .store_message(&group_id, conversation_message)?;
-                                notification_messages.push(dispatched_conversation_message);
-                            }
-                        }
-                        Err(e) => {
-                            println!("Error occured while processing inbound messages: {:?}", e);
-                        }
-                    }
-                }
-
-                Ok(notification_messages)
-            }
-            None => Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup)),
+        conversation_id: &Uuid,
+        invited_users: Vec<&str>,
+        // For now, we're  passing this in. It might be better to pass the
+        // necessary data back out instead.
+        notification_hub: &mut NotificationHub<T>,
+    ) -> Result<(), CorelibError> {
+        let conversation = self
+            .conversation_store
+            .conversation(conversation_id)
+            .unwrap();
+        let group_id = &conversation.group_id;
+        let group = self.group_store.get_group_mut(group_id).unwrap();
+        let invited_contacts = invited_users
+            .iter()
+            .map(|u| {
+                let user_name = u.to_string().into();
+                self.contacts.get(&user_name).unwrap()
+            })
+            .collect();
+        // Adds new member and staged commit
+        let (params, staged_commit) = group
+            .invite(
+                &self.crypto_backend,
+                &self.key_store.signing_key,
+                invited_contacts,
+            )
+            .map_err(CorelibError::Group)?;
+        // We're not getting a response, but if it's not an error, the commit
+        // must have gone through.
+        block_on(self.api_client.ds_add_users(
+            params,
+            group.group_state_ear_key(),
+            group.user_auth_key(),
+        ))
+        .unwrap();
+        // Now that we know the commit went through, we can merge the commit and
+        // create the events.
+        group.merge_pending_commit(&self.crypto_backend)?;
+        let conversation_messages =
+            staged_commit_to_conversation_messages(&self.user_name, staged_commit);
+        for conversation_message in conversation_messages {
+            let dispatched_conversation_message = DispatchedConversationMessage {
+                conversation_id: conversation_id.clone(),
+                conversation_message: conversation_message.clone(),
+            };
+            self.conversation_store
+                .store_message(conversation_id, conversation_message)?;
+            notification_hub.dispatch_message_notification(dispatched_conversation_message);
         }
+        Ok(())
+    }
+
+    /// Send a message and return it. Note that the message has already been
+    /// sent to the DS and has internally been stored in the conversation store.
+    pub fn send_message(
+        &mut self,
+        conversation_id: Uuid,
+        message: &str,
+    ) -> Result<ConversationMessage, CorelibError> {
+        let group_id = &self
+            .conversation_store
+            .conversation(&conversation_id)
+            .unwrap()
+            .group_id;
+        // Generate ciphertext
+        let params = self
+            .group_store
+            .create_message(&self.crypto_backend, group_id, message)
+            .map_err(CorelibError::Group)?;
+
+        // Store message locally
+        let message = Message::Content(ContentMessage {
+            content: MessageContentType::Text(TextMessage {
+                message: message.to_string(),
+            }),
+            sender: self.user_name.clone(),
+        });
+        let conversation_message = new_conversation_message(message);
+        self.conversation_store
+            .store_message(&conversation_id, conversation_message.clone())
+            .map_err(CorelibError::ConversationStore)?;
+
+        // Send message to DS
+        println!("Sending message to DS");
+        block_on(self.api_client.ds_send_message(
+            params,
+            self.group_store.leaf_signing_key(group_id),
+            group_state_ear_key,
+        ))?;
+        Ok(conversation_message)
     }
 }

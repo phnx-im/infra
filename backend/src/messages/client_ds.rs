@@ -12,15 +12,15 @@ use mls_assist::{
     openmls::{
         prelude::{
             group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn,
-            Sender,
+            Sender, SignaturePublicKey,
         },
         treesync::RatchetTree,
     },
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
-    TlsSerialize, TlsSize,
+    Deserialize as TlsDeserializeTrait, DeserializeBytes, Serialize as TlsSerializeTrait, Size,
+    TlsDeserialize, TlsSerialize, TlsSize,
 };
 use utoipa::ToSchema;
 
@@ -28,10 +28,10 @@ use crate::{
     crypto::{
         ear::{
             keys::{GroupStateEarKey, RatchetKey},
-            EarEncryptable,
+            EarDecryptable, EarEncryptable,
         },
         signatures::{
-            keys::{LeafVerifyingKey, UserAuthVerifyingKey},
+            keys::UserAuthVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
     },
@@ -58,19 +58,41 @@ pub(crate) struct DsClientId {
 // === DS ===
 
 #[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum QueueMessageType {
+    WelcomeBundle,
+    MlsMessage,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct QueueMessagePayload {
+    pub message_type: QueueMessageType,
     pub payload: Vec<u8>,
 }
 
+impl TryFrom<WelcomeBundle> for QueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn try_from(welcome_bundle: WelcomeBundle) -> Result<Self, Self::Error> {
+        let payload = welcome_bundle.tls_serialize_detached()?;
+        Ok(Self {
+            message_type: QueueMessageType::WelcomeBundle,
+            payload,
+        })
+    }
+}
+
 impl From<Vec<u8>> for QueueMessagePayload {
-    fn from(assisted_message: Vec<u8>) -> Self {
+    fn from(payload: Vec<u8>) -> Self {
         Self {
-            payload: assisted_message,
+            message_type: QueueMessageType::MlsMessage,
+            payload,
         }
     }
 }
 
 impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 
 #[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
@@ -102,7 +124,8 @@ impl UpdateQsClientReferenceParams {
 #[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    pub sender: LeafVerifyingKey,
+    // The Public key from the sender's InfraCredential
+    pub sender: SignaturePublicKey,
     pub epoch: GroupEpoch,
 }
 
@@ -118,10 +141,15 @@ pub struct ExternalCommitInfoParams {
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
 pub struct AssistedMessagePlus {
     pub message: AssistedMessage,
     pub message_bytes: Vec<u8>,
+}
+
+impl Size for AssistedMessagePlus {
+    fn tls_serialized_len(&self) -> usize {
+        self.message.tls_serialized_len()
+    }
 }
 
 impl TlsSerializeTrait for AssistedMessagePlus {
@@ -130,7 +158,27 @@ impl TlsSerializeTrait for AssistedMessagePlus {
     }
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+impl DeserializeBytes for AssistedMessagePlus {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (assisted_message, remainder) =
+            <AssistedMessage as DeserializeBytes>::tls_deserialize(bytes)?;
+        Ok((
+            Self {
+                message: assisted_message,
+                message_bytes: bytes
+                    .get(..bytes.len() - remainder.len())
+                    .ok_or(tls_codec::Error::EndOfStream)?
+                    .to_vec(),
+            },
+            &[],
+        ))
+    }
+}
+
+#[derive(tls_codec::TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,

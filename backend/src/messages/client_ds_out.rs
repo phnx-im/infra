@@ -8,12 +8,11 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::AssistedWelcome,
+    messages::{AssistedGroupInfo, AssistedWelcome},
     openmls::{
         prelude::{
             group_info::{GroupInfo, VerifiableGroupInfo},
-            Extensions, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
-            Signature as MlsAssistSignature,
+            GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
         },
         treesync::RatchetTree,
     },
@@ -58,14 +57,14 @@ pub struct CreateGroupParamsOut {
     pub group_info: GroupInfo,
 }
 
-pub type AssistedMessagePlusOut = (MlsMessageOut, (MlsAssistSignature, Extensions));
+pub type AssistedMessagePlusOut = (MlsMessageOut, AssistedGroupInfo);
 
 #[derive(TlsSerialize, TlsSize)]
 pub struct AddUsersParamsOut {
     // The commit and a partial assisted group info.
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
-    pub welcome: AssistedWelcome,
+    pub welcome: MlsMessageOut,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
@@ -128,7 +127,7 @@ pub struct SelfRemoveClientParamsOut {
 
 #[derive(TlsSerialize, TlsSize)]
 pub struct SendMessageParamsOut {
-    pub message: AssistedMessagePlusOut,
+    pub message: MlsMessageOut,
     pub sender: LeafNodeIndex,
 }
 

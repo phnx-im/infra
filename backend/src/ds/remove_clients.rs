@@ -141,9 +141,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
-            payload: params.commit.message_bytes,
-        };
+        let c2c_message = params.commit.message_bytes.into();
 
         Ok(c2c_message)
     }
