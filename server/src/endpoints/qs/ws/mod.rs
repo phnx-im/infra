@@ -59,7 +59,7 @@ impl QsWsConnection {
     fn heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.heartbeat) > CLIENT_TIMEOUT {
-                log::info!("Disconnecting websocket because heartbeat failed");
+                tracing::info!("Disconnecting websocket because heartbeat failed");
                 act.dispatch_addr.do_send(Disconnect {
                     queue_id: act.queue_id.clone(),
                 });
@@ -67,6 +67,7 @@ impl QsWsConnection {
                 return;
             }
 
+            tracing::info!("Sending server ping");
             ctx.ping(b"Phoenix");
         });
     }
@@ -78,6 +79,7 @@ impl Actor for QsWsConnection {
     /// This method is called on actor start. We start the heartbeat process
     /// here.
     fn started(&mut self, ctx: &mut Self::Context) {
+        tracing::info!("QsWsConnection started, starting heartbeat");
         // Start heartbeat task for this connection
         self.heartbeat(ctx);
 
@@ -94,7 +96,7 @@ impl Actor for QsWsConnection {
                     Ok(_res) => (),
                     // If we can't register the client, stop the actor
                     _ => {
-                        log::error!("Error registering client with dispatch");
+                        tracing::error!("Error registering client with dispatch");
                         ctx.stop()
                     }
                 }
@@ -165,6 +167,8 @@ pub(crate) async fn upgrade_connection(
     stream: web::Payload,
     dispatch_data: Data<Addr<Dispatch>>,
 ) -> impl Responder {
+    /* tracing::info!("Upgrade reached!");
+    return HttpResponse::Accepted().body("body"); */
     // Read parameter from the request
     let header_value = match req.headers().get("QsOpenWsParams") {
         Some(value) => value,
@@ -215,7 +219,7 @@ pub(crate) async fn upgrade_connection(
 
 /// This is a wrapper for dispatch actor that can be used to send out a
 /// notification over the dispatch.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DispatchWebsocketNotifier {
     pub dispatch_addr: Addr<Dispatch>,
 }

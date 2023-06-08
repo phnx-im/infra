@@ -9,7 +9,6 @@ pub mod endpoints;
 pub mod storage_provider;
 pub mod telemetry;
 
-use actix::{Actor, Addr};
 use endpoints::{ds::*, *};
 
 use actix_web::{
@@ -19,16 +18,23 @@ use actix_web::{
 };
 use phnxbackend::{
     ds::DsStorageProvider,
-    qs::{storage_provider_trait::QsStorageProvider, Qs, QsEnqueueProvider},
+    qs::{storage_provider_trait::QsStorageProvider, QsEnqueueProvider},
 };
 use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;
 
-use crate::endpoints::qs::qs_process_message;
+use crate::endpoints::{
+    health_check,
+    qs::{
+        qs_process_message,
+        ws::{upgrade_connection, DispatchWebsocketNotifier},
+    },
+};
 
 /// Configure and run the server application.
 pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvider>(
     listener: TcpListener,
+    ws_dispatch_notifier: DispatchWebsocketNotifier,
     ds_storage_provider: Dsp,
     qs_storage_provider: Arc<Qsp>,
     qs_enqueue_provider: Qep,
@@ -37,6 +43,7 @@ pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvide
     let ds_storage_provider_data = Data::new(ds_storage_provider);
     let qs_storage_provider_data = Data::new(qs_storage_provider);
     let qs_enqueue_provider_data = Data::new(qs_enqueue_provider);
+    let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier.dispatch_addr);
 
     tracing::info!(
         "Starting server, listening on {}:{}",
@@ -54,13 +61,17 @@ pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvide
     let server = HttpServer::new(move || {
         let app = App::new()
             .wrap(TracingLogger::default())
+            .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_storage_provider_data.clone())
             .app_data(qs_storage_provider_data.clone())
             .app_data(qs_enqueue_provider_data.clone())
             // DS enpoint
             .route(ENDPOINT_DS, web::post().to(ds_process_message::<Dsp, Qep>))
             // QS endpoint
-            .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>));
+            .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
+            // WS endpoint
+            .app_data(ws_dispatch_notifier_data.clone())
+            .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection));
         app
     })
     .listen(listener)?

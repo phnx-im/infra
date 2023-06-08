@@ -4,6 +4,7 @@
 
 //! API client for the phnx server.
 
+use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
 use reqwest::{Client, ClientBuilder};
 use thiserror::Error;
 
@@ -75,5 +76,19 @@ impl ApiClient {
             "{}{}://{}{}",
             protocol, transport_encryption, self.base_url, endpoint
         )
+    }
+
+    /// Call the health check endpoint
+    pub async fn health_check(&self) -> bool {
+        match self
+            .client
+            .post(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
+            //.body(message_bytes)
+            .send()
+            .await
+        {
+            Ok(_) => true,
+            Err(_) => false,
+        }
     }
 }

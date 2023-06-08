@@ -32,7 +32,7 @@ impl Dispatch {
             socket_recipient.do_send(QsWsMessage::NewMessage);
             Ok(())
         } else {
-            log::info!("attempting to send message but couldn't find user id.");
+            tracing::info!("attempting to send message but couldn't find user id.");
             Err(NotifyClientError::ClientNotFound)
         }
     }
