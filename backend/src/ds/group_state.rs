@@ -14,8 +14,8 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
-    TlsSerialize, TlsSize,
+    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait, Size,
+    TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
 use crate::{
@@ -50,19 +50,22 @@ impl TlsSerializeTrait for TimeStamp {
     }
 }
 
-impl TlsDeserializeTrait for TimeStamp {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl TlsDeserializeBytesTrait for TimeStamp {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut millis_bytes = [0u8; 8];
-        bytes.read_exact(&mut millis_bytes)?;
+        let millis_bytes: [u8; 8] = bytes
+            .get(..8)
+            .ok_or(tls_codec::Error::EndOfStream)?
+            .try_into()
+            .map_err(|_| tls_codec::Error::EndOfStream)?;
         let millis = i64::from_be_bytes(millis_bytes);
         let time = DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_millis(millis).ok_or(tls_codec::Error::InvalidInput)?,
             Utc,
         );
-        Ok(Self { time })
+        Ok((Self { time }, &bytes[8..]))
     }
 }
 
@@ -89,7 +92,7 @@ impl TimeStamp {
 }
 
 #[derive(
-    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserialize, TlsSize,
+    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct UserKeyHash {
     pub(super) hash: Vec<u8>,
@@ -108,7 +111,7 @@ pub(super) struct UserProfile {
     pub(super) user_auth_key: UserAuthVerifyingKey,
 }
 
-#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct EncryptedClientCredential {
     pub(super) encrypted_credential_chain: Ciphertext,
 }

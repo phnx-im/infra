@@ -33,18 +33,21 @@ impl tls_codec::Serialize for OpaqueRegistrationRequest {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueRegistrationRequest {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueRegistrationRequest {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_REQUEST_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_REGISTRATION_REQUEST_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+
+        let client_message = RegistrationRequest::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let client_message = RegistrationRequest::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { client_message })
+        let remainder = bytes
+            .get(OPAQUE_REGISTRATION_REQUEST_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { client_message }, remainder))
     }
 }
 
@@ -62,18 +65,20 @@ impl tls_codec::Serialize for OpaqueRegistrationResponse {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueRegistrationResponse {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueRegistrationResponse {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_RESPONSE_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_REGISTRATION_RESPONSE_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        let server_message = RegistrationResponse::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let server_message = RegistrationResponse::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { server_message })
+        let remainder = bytes
+            .get(OPAQUE_REGISTRATION_RESPONSE_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { server_message }, remainder))
     }
 }
 
@@ -91,18 +96,20 @@ impl tls_codec::Serialize for OpaqueRegistrationRecord {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueRegistrationRecord {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueRegistrationRecord {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_RESPONSE_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_REGISTRATION_RECORD_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        let client_message = RegistrationUpload::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let client_message = RegistrationUpload::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { client_message })
+        let remainder = bytes
+            .get(OPAQUE_REGISTRATION_RECORD_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { client_message }, remainder))
     }
 }
 
@@ -120,18 +127,20 @@ impl tls_codec::Serialize for OpaqueLoginRequest {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueLoginRequest {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueLoginRequest {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_RESPONSE_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_LOGIN_REQUEST_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        let client_message = CredentialRequest::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let client_message = CredentialRequest::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { client_message })
+        let remainder = bytes
+            .get(OPAQUE_LOGIN_REQUEST_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { client_message }, remainder))
     }
 }
 
@@ -149,18 +158,20 @@ impl tls_codec::Serialize for OpaqueLoginResponse {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueLoginResponse {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueLoginResponse {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_RESPONSE_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_LOGIN_RESPONSE_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        let server_message = CredentialResponse::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let server_message = CredentialResponse::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { server_message })
+        let remainder = bytes
+            .get(OPAQUE_LOGIN_RESPONSE_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { server_message }, remainder))
     }
 }
 
@@ -178,17 +189,19 @@ impl tls_codec::Serialize for OpaqueLoginFinish {
     }
 }
 
-impl tls_codec::Deserialize for OpaqueLoginFinish {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl tls_codec::DeserializeBytes for OpaqueLoginFinish {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut serialized_request = vec![0u8; OPAQUE_REGISTRATION_RESPONSE_SIZE];
-        bytes
-            .read(&mut serialized_request)
+        let serialized_request = bytes
+            .get(..OPAQUE_LOGIN_FINISH_SIZE)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        let client_message = CredentialFinalization::deserialize(serialized_request)
             .map_err(|_| tls_codec::Error::InvalidInput)?;
-        let client_message = CredentialFinalization::deserialize(&serialized_request)
-            .map_err(|_| tls_codec::Error::InvalidInput)?;
-        Ok(Self { client_message })
+        let remainder = bytes
+            .get(OPAQUE_LOGIN_FINISH_SIZE..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { client_message }, remainder))
     }
 }

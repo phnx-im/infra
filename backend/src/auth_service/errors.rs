@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use thiserror::Error;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum AsDequeueError {
     /// Storage provider error
@@ -17,7 +17,7 @@ pub enum AsDequeueError {
     QueueNotFound,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum InitUserRegistrationError {
     /// Library error
@@ -37,7 +37,7 @@ pub enum InitUserRegistrationError {
     OpaqueRegistrationFailed,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum FinishUserRegistrationError {
     /// Storage provider error
@@ -51,7 +51,7 @@ pub enum FinishUserRegistrationError {
     OpaqueLoginFinishFailed,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum DeleteUserError {
     /// Storage provider error
@@ -59,7 +59,7 @@ pub enum DeleteUserError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum UserClientsError {
     /// Storage provider error
@@ -67,7 +67,7 @@ pub enum UserClientsError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum InitClientAdditionError {
     /// Library error
@@ -87,7 +87,7 @@ pub enum InitClientAdditionError {
     OpaqueLoginFailed,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum FinishClientAdditionError {
     /// Storage provider error
@@ -98,7 +98,7 @@ pub enum FinishClientAdditionError {
     ClientCredentialNotFound,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum DeleteClientError {
     /// Storage provider error
@@ -106,7 +106,7 @@ pub enum DeleteClientError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum PublishKeyPackageError {
     /// Storage provider error
@@ -117,7 +117,7 @@ pub enum PublishKeyPackageError {
     InvalidKeyPackage,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum ClientKeyPackageError {
     /// Storage provider error
@@ -125,7 +125,7 @@ pub enum ClientKeyPackageError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum UserKeyPackagesError {
     /// Storage provider error
@@ -133,7 +133,7 @@ pub enum UserKeyPackagesError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum EnqueueMessageError {
     /// Library error
@@ -147,7 +147,7 @@ pub enum EnqueueMessageError {
     ClientNotFound,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum IssueTokensError {
     /// Storage provider error
@@ -161,7 +161,7 @@ pub enum IssueTokensError {
     PrivacyPassError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum Init2FactorAuthError {
     /// Library error
@@ -175,7 +175,7 @@ pub enum Init2FactorAuthError {
     OpaqueLoginFailed,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum AsCredentialsError {
     /// Storage provider error
@@ -183,7 +183,7 @@ pub enum AsCredentialsError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum AsVerificationError {
     /// Storage provider error
@@ -200,7 +200,7 @@ pub enum AsVerificationError {
     AuthenticationFailed,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserialize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum AsProcessingError {
     /// Authentication error

@@ -7,7 +7,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage,
     openmls::prelude::ProcessedMessageContent,
 };
-use tls_codec::Deserialize;
+use tls_codec::DeserializeBytes;
 
 use crate::messages::client_ds::{JoinGroupParams, JoinGroupParamsAad, QueueMessagePayload};
 
@@ -59,7 +59,7 @@ impl DsGroupState {
         };
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad = JoinGroupParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
+        let aad = JoinGroupParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
             .map_err(|_| JoinGroupError::InvalidMessage)?;
 
         // Check if the claimed client indices match those in the user's profile.
@@ -112,7 +112,7 @@ impl DsGroupState {
         self.client_profiles.insert(sender, client_profile);
 
         // Finally, we create the message for distribution.
-        let payload = params.external_commit.message_bytes.into();
+        let payload = params.external_commit.into();
 
         Ok(payload)
     }

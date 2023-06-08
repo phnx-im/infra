@@ -71,7 +71,7 @@ use crate::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SigningKey, VerifyingKey},
         },
-        DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext, RandomnessError,
+        DecryptionPrivateKey, EncryptionPublicKey, RandomnessError,
     },
     ds::group_state::{EncryptedClientCredential, TimeStamp},
     messages::intra_backend::DsFanOutMessage,
@@ -84,11 +84,12 @@ use mls_assist::{
         OpenMlsCryptoProvider, OpenMlsRand, ProtocolVersion,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
-    TlsSerialize, TlsSize,
+    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait,
+    TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 use utoipa::ToSchema;
 
@@ -117,7 +118,9 @@ impl PushToken {
         todo!()
     }
 }
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct EncryptedPushToken {
     ctxt: Ciphertext,
 }
@@ -170,7 +173,7 @@ impl ClientIdDecryptionKey {
             .private_key
             .decrypt(&[], &[], &sealed_client_reference.ciphertext)
             .map_err(|_| UnsealError::DecryptionError)?;
-        ClientConfig::tls_deserialize(&mut bytes.as_slice()).map_err(|_| UnsealError::CodecError)
+        ClientConfig::tls_deserialize_exact(&bytes).map_err(|_| UnsealError::CodecError)
     }
 
     pub fn generate() -> Result<Self, RandomnessError> {
@@ -192,10 +195,7 @@ impl ClientIdEncryptionKey {
         let bytes = client_config
             .tls_serialize_detached()
             .map_err(|_| SealError::CodecError)?;
-        let ciphertext = self
-            .public_key
-            .encrypt(&[], &[], &bytes)
-            .map_err(|_| SealError::EncryptionError)?;
+        let ciphertext = self.public_key.encrypt(&[], &[], &bytes);
         Ok(SealedClientReference { ciphertext })
     }
 }
@@ -203,7 +203,7 @@ impl ClientIdEncryptionKey {
 /// This is the pseudonymous client id used on the QS.
 #[derive(
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     Serialize,
     Deserialize,
@@ -226,7 +226,16 @@ impl QsClientId {
 }
 
 #[derive(
-    Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, PartialEq, Eq, Hash,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
 )]
 pub struct QsUserId {
     pub(crate) user_id: Vec<u8>,
@@ -240,7 +249,7 @@ impl QsUserId {
 }
 
 /// Info describing the queue configuration for a member of a given group.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ClientConfig {
     pub(crate) client_id: QsClientId,
     // Some clients might not use push tokens.
@@ -318,7 +327,7 @@ pub struct Qs {}
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -333,7 +342,7 @@ pub struct Fqdn {}
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -350,7 +359,7 @@ pub struct QsClientReference {
     ToSchema,
     Clone,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -366,7 +375,7 @@ pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Clone)]
 pub struct QsEncryptedAddPackage {
     ctxt: Ciphertext,
 }
@@ -385,7 +394,9 @@ impl From<Ciphertext> for QsEncryptedAddPackage {
 
 impl EarEncryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackage {}
 
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct KeyPackageBatchTbs {
     homeserver_domain: Fqdn,
     key_package_refs: Vec<KeyPackageRef>,
@@ -462,14 +473,14 @@ pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     signature: Signature,
 }
 
-impl TlsDeserializeTrait for KeyPackageBatch<UNVERIFIED> {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl TlsDeserializeBytesTrait for KeyPackageBatch<UNVERIFIED> {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let payload = KeyPackageBatchTbs::tls_deserialize(bytes)?;
-        let signature = Signature::tls_deserialize(bytes)?;
-        Ok(Self { payload, signature })
+        let (payload, bytes) = KeyPackageBatchTbs::tls_deserialize(bytes)?;
+        let (signature, bytes) = Signature::tls_deserialize(bytes)?;
+        Ok((Self { payload, signature }, bytes))
     }
 }
 
@@ -491,7 +502,7 @@ impl AddPackage {
     }
 }
 
-#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct AddPackageIn {
     key_package: KeyPackageIn,
     encrypted_client_credential: EncryptedClientCredential,

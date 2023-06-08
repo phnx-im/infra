@@ -9,7 +9,7 @@
 
 use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{
@@ -22,7 +22,9 @@ use super::{traits::MacKey, MAC_KEY_SIZE};
 pub type EnqueueAuthenticationKeySecret = Secret<MAC_KEY_SIZE>;
 
 /// A secret that is used to authenticate enqueue requests.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Clone, Serialize, Deserialize,
+)]
 pub struct EnqueueAuthenticationKey {
     key: EnqueueAuthenticationKeySecret,
 }
@@ -67,7 +69,7 @@ impl KdfDerivable<InitialClientKdfKey, GroupId, MAC_KEY_SIZE> for MemberAuthenti
 }
 
 /// A secret allowing the authentication of requests to delete an QS queue.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct QueueDeletionAuthKey {
     key: Secret<MAC_KEY_SIZE>,
 }
@@ -87,7 +89,7 @@ impl AsRef<Secret<MAC_KEY_SIZE>> for QueueDeletionAuthKey {
 impl MacKey for QueueDeletionAuthKey {}
 
 /// A secret allowing the authentication of requests to update an QS queue.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueUpdateAuthKey {
     key: Secret<MAC_KEY_SIZE>,
 }

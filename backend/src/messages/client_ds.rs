@@ -18,10 +18,7 @@ use mls_assist::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{
-    Deserialize as TlsDeserializeTrait, DeserializeBytes, Serialize as TlsSerializeTrait, Size,
-    TlsDeserialize, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -50,21 +47,21 @@ mod private_mod {
 }
 
 /// This is the pseudonymous client id used on the DS.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub(crate) struct DsClientId {
     id: Vec<u8>,
 }
 
 // === DS ===
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum QueueMessageType {
     WelcomeBundle,
     MlsMessage,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 pub struct QueueMessagePayload {
     pub message_type: QueueMessageType,
     pub payload: Vec<u8>,
@@ -82,11 +79,11 @@ impl TryFrom<WelcomeBundle> for QueueMessagePayload {
     }
 }
 
-impl From<Vec<u8>> for QueueMessagePayload {
-    fn from(payload: Vec<u8>) -> Self {
+impl From<AssistedMessagePlus> for QueueMessagePayload {
+    fn from(value: AssistedMessagePlus) -> Self {
         Self {
             message_type: QueueMessageType::MlsMessage,
-            payload,
+            payload: value.message_bytes,
         }
     }
 }
@@ -94,7 +91,7 @@ impl From<Vec<u8>> for QueueMessagePayload {
 impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 impl EarDecryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
@@ -104,7 +101,7 @@ pub struct CreateGroupParams {
     pub group_info: VerifiableGroupInfo,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateQsClientReferenceParams {
     pub group_id: GroupId,
     pub sender: LeafNodeIndex,
@@ -121,7 +118,7 @@ impl UpdateQsClientReferenceParams {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
     // The Public key from the sender's InfraCredential
@@ -129,56 +126,28 @@ pub struct WelcomeInfoParams {
     pub epoch: GroupEpoch,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct GetWelcomeInfoResponse {
     public_tree: Option<RatchetTreeIn>,
     credential_chains: Vec<u8>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ExternalCommitInfoParams {
     pub group_id: GroupId,
     pub sender: UserKeyHash,
 }
 
+// TODO: We want this to contain the message bytes as well s.t. we don't have to
+// re-serialize after processing on the server side. This proves to be tricky
+// even though we now have DeserializeBytes.
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AssistedMessagePlus {
     pub message: AssistedMessage,
     pub message_bytes: Vec<u8>,
 }
 
-impl Size for AssistedMessagePlus {
-    fn tls_serialized_len(&self) -> usize {
-        self.message.tls_serialized_len()
-    }
-}
-
-impl TlsSerializeTrait for AssistedMessagePlus {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        writer.write(&self.message_bytes).map_err(|e| e.into())
-    }
-}
-
-impl DeserializeBytes for AssistedMessagePlus {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (assisted_message, remainder) =
-            <AssistedMessage as DeserializeBytes>::tls_deserialize(bytes)?;
-        Ok((
-            Self {
-                message: assisted_message,
-                message_bytes: bytes
-                    .get(..bytes.len() - remainder.len())
-                    .ok_or(tls_codec::Error::EndOfStream)?
-                    .to_vec(),
-            },
-            &[],
-        ))
-    }
-}
-
-#[derive(tls_codec::TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(TlsSize, TlsDeserializeBytes)]
 pub struct AddUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -187,150 +156,55 @@ pub struct AddUsersParams {
     pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
-impl AddUsersParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
-        let encrypted_welcome_attribution_infos =
-            Vec::<EncryptedWelcomeAttributionInfo>::tls_deserialize(&mut remaining_bytes)?;
-        let key_package_batches =
-            Vec::<KeyPackageBatch<UNVERIFIED>>::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            welcome,
-            encrypted_welcome_attribution_infos,
-            key_package_batches,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddUsersParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct RemoveUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-impl RemoveUsersParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateClientParams {
     pub commit: AssistedMessagePlus,
     pub sender: LeafNodeIndex,
     pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
-impl UpdateClientParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = LeafNodeIndex::tls_deserialize(&mut remaining_bytes)?;
-        let new_user_auth_key_option =
-            Option::<UserAuthVerifyingKey>::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            new_user_auth_key_option,
-        })
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateClientParamsAad {
     pub option_encrypted_credential_information: Option<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinGroupParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub qs_client_reference: QsClientReference,
 }
 
-impl JoinGroupParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            external_commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            qs_client_reference,
-        })
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinGroupParamsAad {
     pub existing_user_clients: Vec<LeafNodeIndex>,
     pub encrypted_credential_information: EncryptedClientCredential,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserAuthVerifyingKey,
     pub qs_client_reference: QsClientReference,
 }
 
-impl JoinConnectionGroupParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserAuthVerifyingKey::tls_deserialize(&mut remaining_bytes)?;
-        let qs_client_reference = QsClientReference::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            external_commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            qs_client_reference,
-        })
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParamsAad {
     pub encrypted_credential_information: EncryptedClientCredential,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddClientsParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -340,146 +214,44 @@ pub struct AddClientsParams {
     pub encrypted_welcome_attribution_infos: EncryptedWelcomeAttributionInfo,
 }
 
-impl AddClientsParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        let welcome = AssistedWelcome::tls_deserialize(&mut remaining_bytes)?;
-        let encrypted_welcome_attribution_infos =
-            EncryptedWelcomeAttributionInfo::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            welcome,
-            encrypted_welcome_attribution_infos,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddClientsParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct RemoveClientsParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub new_auth_key: UserAuthVerifyingKey,
 }
 
-impl RemoveClientsParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        let new_auth_key = UserAuthVerifyingKey::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-            new_auth_key,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ResyncClientParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-impl ResyncClientParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, commit) = AssistedMessage::try_from_bytes(bytes)?;
-        let commit_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            external_commit: AssistedMessagePlus {
-                message: commit,
-                message_bytes: commit_bytes,
-            },
-            sender,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct SelfRemoveClientParams {
     pub remove_proposal: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-impl SelfRemoveClientParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, proposal) = AssistedMessage::try_from_bytes(bytes)?;
-        let proposal_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            remove_proposal: AssistedMessagePlus {
-                message: proposal,
-                message_bytes: proposal_bytes,
-            },
-            sender,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct SendMessageParams {
     pub message: AssistedMessagePlus,
     pub sender: LeafNodeIndex,
 }
 
-impl SendMessageParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, message) = AssistedMessage::try_from_bytes(bytes)?;
-        let message_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = LeafNodeIndex::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            message: AssistedMessagePlus {
-                message,
-                message_bytes,
-            },
-            sender,
-        })
-    }
-}
-
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-impl DeleteGroupParams {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let bytes_copy = bytes;
-        let (mut remaining_bytes, message) = AssistedMessage::try_from_bytes(bytes)?;
-        let message_bytes = bytes_copy[0..bytes_copy.len() - remaining_bytes.len()].to_vec();
-        let sender = UserKeyHash::tls_deserialize(&mut remaining_bytes)?;
-        Ok(Self {
-            commit: AssistedMessagePlus {
-                message,
-                message_bytes,
-            },
-            sender,
-        })
-    }
-}
-
 /// This enum contains variants for each DS endpoint.
+#[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub(crate) enum DsRequestParams {
     AddUsers(AddUsersParams),
@@ -643,57 +415,17 @@ impl DsRequestParams {
             }
         }
     }
-
-    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let mut reader = bytes;
-        let params_type = u8::tls_deserialize(&mut reader)?;
-        match params_type {
-            0 => Ok(Self::AddUsers(AddUsersParams::try_from_bytes(bytes)?)),
-            1 => Ok(Self::WelcomeInfo(WelcomeInfoParams::tls_deserialize(
-                &mut bytes,
-            )?)),
-            2 => Ok(Self::ExternalCommitInfo(
-                ExternalCommitInfoParams::tls_deserialize(&mut bytes)?,
-            )),
-            3 => Ok(Self::CreateGroupParams(CreateGroupParams::tls_deserialize(
-                &mut bytes,
-            )?)),
-            4 => Ok(Self::UpdateQsClientReference(
-                UpdateQsClientReferenceParams::tls_deserialize(&mut bytes)?,
-            )),
-            5 => Ok(Self::RemoveUsers(RemoveUsersParams::try_from_bytes(bytes)?)),
-            6 => Ok(Self::UpdateClient(UpdateClientParams::try_from_bytes(
-                bytes,
-            )?)),
-            7 => Ok(Self::JoinGroup(JoinGroupParams::try_from_bytes(bytes)?)),
-            8 => Ok(Self::JoinConnectionGroup(
-                JoinConnectionGroupParams::try_from_bytes(bytes)?,
-            )),
-            9 => Ok(Self::AddClients(AddClientsParams::try_from_bytes(bytes)?)),
-            10 => Ok(Self::RemoveClients(RemoveClientsParams::try_from_bytes(
-                bytes,
-            )?)),
-            11 => Ok(Self::ResyncClient(ResyncClientParams::try_from_bytes(
-                bytes,
-            )?)),
-            12 => Ok(Self::SelfRemoveClient(
-                SelfRemoveClientParams::try_from_bytes(bytes)?,
-            )),
-            13 => Ok(Self::SendMessage(SendMessageParams::try_from_bytes(bytes)?)),
-            14 => Ok(Self::DeleteGroup(DeleteGroupParams::try_from_bytes(bytes)?)),
-            _ => Err(tls_codec::Error::InvalidInput),
-        }
-    }
 }
 
-#[derive(Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsSender {
     LeafIndex(LeafNodeIndex),
-    LeafSignatureKey(LeafVerifyingKey),
+    LeafSignatureKey(SignaturePublicKey),
     UserKeyHash(UserKeyHash),
 }
 
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageTbs {
     _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
@@ -702,53 +434,25 @@ pub(crate) struct ClientToDsMessageTbs {
 }
 
 impl ClientToDsMessageTbs {
-    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let version = MlsInfraVersion::tls_deserialize(&mut bytes)?;
-        let group_state_ear_key = GroupStateEarKey::tls_deserialize(&mut bytes)?;
-        let body = DsRequestParams::try_from_bytes(bytes)?;
-        Ok(Self {
-            _version: version,
-            group_state_ear_key,
-            body,
-        })
-    }
-
     fn sender(&self) -> DsSender {
         self.body.ds_sender()
     }
 }
 
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageIn {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
 }
 
-impl ClientToDsMessageIn {
-    pub(crate) fn try_from_bytes(mut bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let payload = ClientToDsMessageTbs::try_from_bytes(bytes)?;
-        let signature = Signature::tls_deserialize(&mut bytes)?;
-        Ok(Self { payload, signature })
-    }
-}
-
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessageIn,
     serialized_payload: Vec<u8>,
 }
 
 impl VerifiableClientToDsMessage {
-    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error> {
-        let all_bytes = bytes;
-        let bytes_len_before = bytes.len();
-        let message = ClientToDsMessageIn::try_from_bytes(bytes)?;
-        let serialized_payload = all_bytes[..bytes_len_before - bytes.len()].to_vec();
-        Ok(Self {
-            message,
-            serialized_payload,
-        })
-    }
-
     pub(crate) fn group_id(&self) -> &GroupId {
         self.message.payload.body.group_id()
     }
@@ -815,14 +519,14 @@ pub struct DsJoinerInformation {
     pub ratchet_tree: RatchetTree,
 }
 
-#[derive(TlsDeserialize, TlsSize, Clone)]
+#[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
     pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
     pub ratchet_tree: RatchetTreeIn,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct WelcomeBundle {
     pub welcome: AssistedWelcome,
     // This is the part the DS shouldn't see.

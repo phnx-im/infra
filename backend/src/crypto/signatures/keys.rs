@@ -7,7 +7,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -41,7 +41,9 @@ impl<'a> From<&'a SignaturePublicKey> for LeafVerifyingKeyRef<'a> {
 /// Public signature key known to all clients of a given user. This signature
 /// key is used by pseudomnymous clients to prove they belong to a certain
 /// pseudonymous user account.
-#[derive(Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone,
+)]
 pub struct UserAuthVerifyingKey {
     verifying_key: Vec<u8>,
 }
@@ -95,7 +97,9 @@ impl AsRef<[u8]> for UserAuthSigningKey {
 
 impl SigningKey for UserAuthSigningKey {}
 
-#[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct QsClientVerifyingKey {
     verifying_key: Vec<u8>,
 }
@@ -142,7 +146,9 @@ impl AsRef<[u8]> for QsClientSigningKey {
 
 impl SigningKey for QsClientSigningKey {}
 
-#[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct QsUserVerifyingKey {
     verifying_key: Vec<u8>,
 }

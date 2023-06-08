@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::crypto::signatures::keys::LeafSigningKey;
-
 use super::*;
 
 #[derive(Default)]
@@ -49,12 +47,13 @@ impl GroupStore {
 
     /// Returns the leaf signing key for the given group.
     /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn leaf_signing_key(&self, group_id: &GroupId) -> LeafSigningKey {
-        self.groups
-            .get(group_id)
-            .unwrap()
-            .leaf_signer
-            .leaf_signing_key()
-            .unwrap()
+    pub(crate) fn leaf_signing_key(&self, group_id: &GroupId) -> InfraCredentialSigningKey {
+        self.groups.get(group_id).unwrap().leaf_signer.clone()
+    }
+
+    /// Returns the group state EAR key for the given group.
+    /// TODO: We're returning a copy here, which is not ideal.
+    pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> GroupStateEarKey {
+        self.groups.get(group_id).unwrap().group_state_ear_key
     }
 }

@@ -98,7 +98,7 @@ impl DsGroupState {
         // index, credential, qs client ref, etc.) remains the same.
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.external_commit.message_bytes.into();
+        let c2c_message = params.external_commit.into();
 
         Ok(c2c_message)
     }

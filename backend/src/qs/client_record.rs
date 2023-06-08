@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -23,7 +23,7 @@ use super::{
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
 /// TODO: This needs a codec that allows decoding to the proper type.
-#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Debug)]
+#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Debug)]
 #[repr(u8)]
 pub(super) enum QsQueueMessage {
     #[tls_codec(discriminant = 1)]
@@ -32,7 +32,7 @@ pub(super) enum QsQueueMessage {
 }
 
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QsClientRecord {
     pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,

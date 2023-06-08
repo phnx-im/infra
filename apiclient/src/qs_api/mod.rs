@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{TlsDeserializeTrait, TlsSerializeTrait};
 use phnxbackend::{
     crypto::{
         ear::keys::AddPackageEarKey,
@@ -30,6 +29,7 @@ use phnxbackend::{
 };
 use phnxserver::endpoints::ENDPOINT_QS;
 use thiserror::Error;
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{ApiClient, Protocol};
 
@@ -89,7 +89,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            QsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            QsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| QsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -97,7 +97,7 @@ impl ApiClient {
                     418 => {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
-                        let ds_proc_err = QsProcessError::tls_deserialize_bytes(ds_proc_err_bytes)
+                        let ds_proc_err = QsProcessError::tls_deserialize_exact(&ds_proc_err_bytes)
                             .map_err(|_| QsRequestError::BadResponse)?;
                         Err(QsRequestError::QsError(ds_proc_err))
                     }

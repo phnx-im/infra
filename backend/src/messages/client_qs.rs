@@ -8,7 +8,7 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::openmls::prelude::SignaturePublicKey;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -34,26 +34,26 @@ mod private_mod {
     pub struct Seal;
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct QsFetchMessagesParams {
     pub payload: QsFetchMessageParamsTBS,
     pub signature: Signature, // A signature over the whole request using the queue owner's private key.
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct QsFetchMessageParamsTBS {
     pub client_id: QsClientId,      // The target queue id.
     pub sequence_number_start: u64, // The sequence number of the first message we want to fetch.
     pub max_messages: u64, // The maximum number of messages we'd like to retrieve from the QS.
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QsFetchMessagesResponse {
     pub messages: Vec<QueueMessage>,
     pub remaining_messages: u64,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct QsQueueUpdate {
     pub owner_public_key_option: Option<RatchetEncryptionKey>,
     pub owner_signature_key_option: Option<QsClientVerifyingKey>,
@@ -70,7 +70,7 @@ pub enum GroupOpsDeserializationError {
 
 // === User ===
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateUserRecordParams {
     pub(crate) user_record_auth_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -82,38 +82,38 @@ pub struct CreateUserRecordParams {
     pub(crate) initial_ratchet_key: QueueRatchet,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateUserRecordResponse {
     pub user_id: QsUserId,
     pub client_id: QsClientId,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateUserRecordParams {
     pub sender: QsUserId,
     pub user_record_auth_key: QsUserVerifyingKey,
     pub friendship_token: FriendshipToken,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UserRecordParams {
     pub(crate) sender: QsUserId,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UserRecordResponse {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_records: Vec<ClientRecordResponse>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DeleteUserRecordParams {
     pub sender: QsUserId,
 }
 
 // === Client ===
 
-#[derive(TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateClientRecordParams {
     pub(crate) sender: QsUserId,
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
@@ -124,12 +124,12 @@ pub struct CreateClientRecordParams {
     pub(crate) initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateClientRecordResponse {
     pub(crate) client_id: QsClientId,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateClientRecordParams {
     pub sender: QsClientId,
     pub client_record_auth_key: QsClientVerifyingKey,
@@ -137,7 +137,7 @@ pub struct UpdateClientRecordParams {
     pub encrypted_push_token: Option<EncryptedPushToken>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ClientRecordParams {
     pub(crate) sender: QsUserId,
     pub(crate) client_id: QsClientId,
@@ -145,36 +145,36 @@ pub struct ClientRecordParams {
 
 //pub type ClientRecordResponse = QsClientRecord;
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub(crate) struct ClientRecordResponse {
     pub(crate) client_record_auth_key: SignaturePublicKey,
     pub(crate) queue_encryption_key: RatchetEncryptionKey,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DeleteClientRecordParams {
     pub sender: QsClientId,
 }
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct PublishKeyPackagesParams {
     pub(crate) sender: QsClientId,
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: AddPackageEarKey,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ClientKeyPackageParams {
     pub sender: QsUserId,
     pub client_id: QsClientId,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ClientKeyPackageResponse {
     pub(crate) encrypted_key_package: QsEncryptedAddPackage,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct KeyPackageBatchParams {
     pub sender: FriendshipToken,
     pub friendship_ear_key: AddPackageEarKey,
@@ -186,33 +186,33 @@ pub struct KeyPackageBatchResponse {
     pub(crate) key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
-#[derive(TlsSize, TlsDeserialize, ToSchema)]
+#[derive(TlsSize, TlsDeserializeBytes, ToSchema)]
 pub struct KeyPackageBatchResponseIn {
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) key_package_batch: KeyPackageBatch<UNVERIFIED>,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DequeueMessagesParams {
     pub sender: QsClientId,
     pub sequence_number_start: u64,
     pub max_message_number: u64,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DequeueMessagesResponse {
     pub(crate) messages: Vec<QueueMessage>,
     pub(crate) remaining_messages_number: u64,
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub(crate) struct WsParams {
     pub(crate) client_id: QsClientId,
 }
 
 // === Auth & Framing ===
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct VerifiableClientToQsMessage {
     message: ClientToQsMessage,
     serialized_payload: Vec<u8>,
@@ -255,7 +255,7 @@ impl VerifiedStruct<VerifiableClientToQsMessage> for QsRequestParams {
     }
 }
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct ClientToQsMessage {
     payload: ClientToQsMessageTbs,
     // Signature over all of the above or friendship token
@@ -268,7 +268,7 @@ impl ClientToQsMessage {
     }
 }
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct ClientToQsMessageTbs {
     version: MlsInfraVersion,
     // This essentially includes the wire format.
@@ -282,7 +282,7 @@ impl ClientToQsMessageTbs {
 }
 
 /// This enum contains variatns for each DS endpoint.
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsRequestParams {
     // User
@@ -333,7 +333,7 @@ pub enum QsProcessResponse {
     DequeueMessages(DequeueMessagesResponse),
 }
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsProcessResponseIn {
     Ok,

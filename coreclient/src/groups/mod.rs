@@ -31,7 +31,7 @@ use phnxbackend::{
             keys::UserAuthSigningKey,
             signable::{Signable, Verifiable},
         },
-        DecryptionPrivateKey, HpkeCiphertext,
+        DecryptionPrivateKey,
     },
     ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
     messages::{
@@ -42,6 +42,7 @@ use phnxbackend::{
     AssistedGroupInfo,
 };
 pub(crate) use store::*;
+use tls_codec::DeserializeBytes;
 
 use crate::{contacts::Contact, conversations::*, types::MessageContentType, types::*};
 use std::{collections::HashMap, panic::panic_any};
@@ -166,13 +167,13 @@ impl Group {
             .decrypt(
                 &info,
                 &[],
-                &HpkeCiphertext::tls_deserialize(
-                    &mut welcome_bundle.encrypted_joiner_info.as_slice(),
+                &<HpkeCiphertext as DeserializeBytes>::tls_deserialize_exact(
+                    welcome_bundle.encrypted_joiner_info.as_slice(),
                 )
                 .unwrap(),
             )
             .unwrap();
-        let joiner_info = DsJoinerInformationIn::tls_deserialize_bytes(joiner_info_bytes).unwrap();
+        let joiner_info = DsJoinerInformationIn::tls_deserialize_exact(&joiner_info_bytes).unwrap();
 
         // Decrypt WelcomeAttributionInfo
         let welcome_attribution_info = WelcomeAttributionInfo::decrypt(
@@ -412,7 +413,7 @@ pub(crate) fn application_message_to_conversation_messages(
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: String::from_utf8_lossy(sender.identity()).into(),
+        sender: sender.identity().to_vec().into(),
         content: MessageContentType::Text(TextMessage {
             message: String::from_utf8_lossy(&application_message.into_bytes()).into(),
         }),

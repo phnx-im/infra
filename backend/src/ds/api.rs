@@ -230,7 +230,7 @@ impl DsApi {
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
             DsSender::LeafSignatureKey(verifying_key) => message
-                .verify(&verifying_key)
+                .verify(&LeafVerifyingKeyRef::from(&verifying_key))
                 .map_err(|_| DsProcessingError::InvalidSignature)?,
             DsSender::UserKeyHash(user_key_hash) => {
                 let verifying_key =
@@ -361,7 +361,7 @@ impl DsApi {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = send_message_params.message.message_bytes.into();
+                let c2c_message = send_message_params.message.into();
                 (Some(c2c_message), None, None)
             }
         };

@@ -11,7 +11,7 @@ use std::fmt::Display;
 use rand::{RngCore, SeedableRng};
 use secrecy::Zeroize;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::{
     openapi::{ArrayBuilder, Schema},
     ToSchema,
@@ -20,7 +20,7 @@ use utoipa::{
 use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
     pub secret: [u8; LENGTH],

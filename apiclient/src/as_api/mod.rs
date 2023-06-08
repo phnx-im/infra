@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{KeyPackageIn, TlsDeserializeTrait, TlsSerializeTrait};
+use mls_assist::openmls::prelude::KeyPackageIn;
 use phnxbackend::{
     auth_service::{
         client_api::privacypass::AsTokenType,
@@ -33,6 +33,7 @@ use phnxbackend::{
 use phnxserver::endpoints::ENDPOINT_AS;
 use privacypass::batched_tokens::TokenRequest;
 use thiserror::Error;
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{ApiClient, Protocol};
 
@@ -72,7 +73,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            AsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            AsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -81,7 +82,7 @@ impl ApiClient {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_err =
-                            AsProcessingError::tls_deserialize_bytes(ds_proc_err_bytes)
+                            AsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Err(AsRequestError::AsError(ds_proc_err))
                     }

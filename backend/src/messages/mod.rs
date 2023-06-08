@@ -7,7 +7,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{ear::Ciphertext, RandomnessError};
@@ -25,7 +25,7 @@ pub mod intra_backend;
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -53,7 +53,7 @@ impl FriendshipToken {
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 #[repr(u8)]
 pub enum MlsInfraVersion {
     Alpha,
@@ -67,13 +67,13 @@ impl Default for MlsInfraVersion {
 
 // === Queue ===
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueMessage {
     pub sequence_number: u64,
     pub ciphertext: EncryptedQueueMessage,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct EncryptedQueueMessage {
     payload: Ciphertext,
 }

@@ -7,7 +7,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage, messages::AssistedMessage,
     openmls::prelude::ProcessedMessageContent,
 };
-use tls_codec::Deserialize;
+use tls_codec::DeserializeBytes;
 
 use crate::messages::client_ds::{
     JoinConnectionGroupParams, JoinConnectionGroupParamsAad, QueueMessagePayload,
@@ -60,8 +60,8 @@ impl DsGroupState {
             return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
-        let aad = JoinConnectionGroupParamsAad::tls_deserialize(
-            &mut processed_message.authenticated_data(),
+        let aad = JoinConnectionGroupParamsAad::tls_deserialize_exact(
+            processed_message.authenticated_data(),
         )
         .map_err(|_| JoinConnectionGroupError::InvalidMessage)?;
 
@@ -115,7 +115,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let payload = params.external_commit.message_bytes.into();
+        let payload = params.external_commit.into();
 
         Ok(payload)
     }

@@ -35,7 +35,7 @@
 //! [`tls_codec::Deserialize`] trait.
 
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -48,7 +48,9 @@ use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
 
 pub type SignatureType = ed25519::Signature;
 
-#[derive(Debug, Clone, ToSchema, TlsDeserialize, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, ToSchema, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct Signature {
     signature: Vec<u8>,
 }
@@ -73,7 +75,7 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct EncryptedSignature {
     ciphertext: Ciphertext,
 }
@@ -100,7 +102,7 @@ pub trait SignedStruct<T> {
 }
 
 /// Labeled signature content.
-#[derive(Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct SignContent {
     label: Vec<u8>,
     content: Vec<u8>,

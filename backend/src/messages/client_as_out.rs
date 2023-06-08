@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::KeyPackageIn;
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
@@ -39,28 +39,28 @@ use super::{
     MlsInfraVersion,
 };
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct AsClientKeyPackageResponseIn {
     pub key_package: Option<KeyPackageIn>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserKeyPackagesResponseIn {
     pub key_packages: Vec<KeyPackageIn>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct InitClientAdditionResponseIn {
     pub client_credential: VerifiableClientCredential,
     pub opaque_login_response: OpaqueLoginResponse,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserClientsResponseIn {
     pub client_credentials: Vec<VerifiableClientCredential>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct AsCredentialsResponseIn {
     // TODO: We might want a Verifiable... type variant here that ensures that
     // this is matched against the local trust store or something.
@@ -69,13 +69,13 @@ pub struct AsCredentialsResponseIn {
     pub revoked_credentials: Vec<CredentialFingerprint>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct InitUserRegistrationResponseIn {
     pub client_credential: VerifiableClientCredential,
     pub opaque_registration_response: OpaqueRegistrationResponse,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum AsProcessResponseIn {
     Ok,
@@ -90,7 +90,7 @@ pub enum AsProcessResponseIn {
     InitUserRegistration(InitUserRegistrationResponseIn),
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ConnectionPackageTbsIn {
     pub protocol_version: MlsInfraVersion,
     pub encryption_key: ConnectionEncryptionKey,
@@ -98,7 +98,7 @@ pub struct ConnectionPackageTbsIn {
     pub client_credential: VerifiableClientCredential,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ConnectionPackageIn {
     pub(super) payload: ConnectionPackageTbsIn,
     pub(super) signature: Signature,
@@ -146,7 +146,7 @@ impl Verifiable for VerifiableConnectionPackage {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct FinishUserRegistrationParamsTbsIn {
     pub client_id: AsClientId,
     pub user_name: UserName,
@@ -156,7 +156,7 @@ pub struct FinishUserRegistrationParamsTbsIn {
     pub opaque_registration_record: OpaqueRegistrationRecord,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct FinishUserRegistrationParamsIn {
     payload: FinishUserRegistrationParamsTbsIn,
     signature: Signature,
@@ -180,7 +180,7 @@ impl ClientCredentialAuthenticator for FinishUserRegistrationParamsIn {
     const LABEL: &'static str = "Finish User Registration Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct ClientToAsMessageIn {
     _version: MlsInfraVersion,
     // This essentially includes the wire format.
@@ -200,7 +200,7 @@ impl ClientToAsMessageIn {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParamsIn {
     Initiate2FaAuthentication(Initiate2FaAuthenticationParams),
@@ -270,7 +270,7 @@ impl AsRequestParamsIn {
 /// Wrapper struct around a message from a client to the AS. It does not
 /// implement the [`Verifiable`] trait, but instead is verified depending on the
 /// verification method of the individual payload.
-#[derive(Debug, TlsDeserialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct VerifiableClientToAsMessage {
     message: ClientToAsMessageIn,
 }

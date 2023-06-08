@@ -9,7 +9,7 @@ use mls_assist::openmls::prelude::{
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
 use mls_assist::openmls_traits::{signatures::Signer, types::Error};
-use tls_codec::{Deserialize, Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::auth_service::credentials::{
     AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey,
@@ -94,7 +94,7 @@ impl AsSigningKey {
 
 impl SigningKey for AsSigningKey {}
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct AsVerifyingKey {
     verifying_key_bytes: SignaturePublicKey,
 }
@@ -123,7 +123,7 @@ pub fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGenerationE
         .map_err(|_| KeyGenerationError::KeypairGeneration)
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, Eq, PartialEq)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq)]
 pub struct AsIntermediateVerifyingKey {
     pub(super) verifying_key_bytes: SignaturePublicKey,
 }
@@ -176,7 +176,7 @@ impl ClientSigningKey {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, Eq, PartialEq)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq)]
 pub struct ClientVerifyingKey {
     pub(super) verifying_key_bytes: SignaturePublicKey,
 }
@@ -189,7 +189,7 @@ impl AsRef<[u8]> for ClientVerifyingKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct InfraCredentialSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: InfraCredential,
@@ -248,7 +248,7 @@ impl Signer for InfraCredentialSigningKey {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Debug, Clone)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
 pub struct InfraCredentialPlaintext {
     pub(crate) payload: InfraCredentialTbs,
     pub(crate) signature: Signature,
@@ -257,7 +257,7 @@ pub struct InfraCredentialPlaintext {
 impl InfraCredentialPlaintext {
     pub fn decrypt(credential: &InfraCredential, ear_key: &SignatureEarKey) -> Result<Self, Error> {
         let encrypted_signature =
-            Ciphertext::tls_deserialize(&mut credential.encrypted_signature().as_slice())
+            Ciphertext::tls_deserialize_exact(credential.encrypted_signature().as_slice())
                 .unwrap()
                 .into();
         let signature = Signature::decrypt(ear_key, &encrypted_signature).unwrap();
@@ -271,7 +271,7 @@ impl InfraCredentialPlaintext {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Debug, Clone)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
 pub struct InfraCredentialTbs {
     pub(crate) identity: Vec<u8>,
     pub(crate) lifetime: Lifetime,

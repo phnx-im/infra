@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -54,7 +54,7 @@ pub enum LoadState {
     Expired,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfoPayload {
     sender_client_id: AsClientId,
     client_credential_encryption_key: ClientCredentialEarKey,
@@ -83,7 +83,7 @@ impl WelcomeAttributionInfoPayload {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct WelcomeAttributionInfoTbs {
     pub payload: WelcomeAttributionInfoPayload,
     pub group_id: GroupId,
@@ -111,7 +111,7 @@ impl SignedStruct<WelcomeAttributionInfoTbs> for WelcomeAttributionInfo {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfo {
     payload: WelcomeAttributionInfoPayload,
     signature: Signature,
@@ -175,7 +175,7 @@ impl VerifiedStruct<VerifiableWelcomeAttributionInfo> for WelcomeAttributionInfo
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct EncryptedWelcomeAttributionInfo {
     ciphertext: Ciphertext,
 }

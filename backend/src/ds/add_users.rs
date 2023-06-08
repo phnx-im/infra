@@ -14,7 +14,7 @@ use mls_assist::{
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
@@ -69,7 +69,7 @@ impl DsGroupState {
             };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad = AddUsersParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
+        let aad = AddUsersParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
             .map_err(|_| UserAdditionError::InvalidMessage)?;
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
@@ -201,8 +201,8 @@ impl DsGroupState {
                     .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
                     .ok_or(UserAdditionError::InvalidMessage)?;
                 let leaf_index = member.index;
-                let client_queue_config = QsClientReference::tls_deserialize(
-                    &mut key_package
+                let client_queue_config = QsClientReference::tls_deserialize_exact(
+                    key_package
                         .extensions()
                         .iter()
                         .find_map(|e| match e {
@@ -240,7 +240,6 @@ impl DsGroupState {
                 .map_err(|_| UserAdditionError::LibraryError)?;
                 let encrypted_joiner_info = EncryptionPublicKey::from(encryption_key_bytes)
                     .encrypt(&info, &[], &serialized_joiner_info)
-                    .map_err(|_| UserAdditionError::LibraryError)?
                     .tls_serialize_detached()
                     .map_err(|_| UserAdditionError::LibraryError)?;
                 let welcome_bundle = WelcomeBundle {
@@ -268,7 +267,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.message_bytes.into();
+        let c2c_message = params.commit.into();
 
         Ok((c2c_message, fan_out_messages))
     }

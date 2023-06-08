@@ -10,8 +10,7 @@ use mls_assist::{
     openmls::{
         prelude::{
             group_info::{GroupInfo, VerifiableGroupInfo},
-            GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsDeserializeTrait,
-            TlsSerializeTrait,
+            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsSerializeTrait,
         },
         treesync::RatchetTree,
     },
@@ -21,15 +20,12 @@ use phnxbackend::{
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
-            keys::{LeafSigningKey, UserAuthSigningKey, UserAuthVerifyingKey},
+            keys::{UserAuthSigningKey, UserAuthVerifyingKey},
             signable::Signable,
             traits::SigningKey,
         },
     },
-    ds::{
-        errors::DsProcessingError, group_state::EncryptedClientCredential,
-        EncryptedWelcomeAttributionInfo,
-    },
+    ds::{errors::DsProcessingError, group_state::EncryptedClientCredential},
     messages::{
         client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
         client_ds_out::{
@@ -41,9 +37,10 @@ use phnxbackend::{
             UpdateClientParamsOut,
         },
     },
-    qs::{KeyPackageBatch, QsClientReference, VERIFIED},
+    qs::QsClientReference,
 };
 use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
+use tls_codec::DeserializeBytes;
 
 #[cfg(test)]
 mod tests;
@@ -77,7 +74,7 @@ impl ApiClient {
                     x if (200..=299).contains(&x) => {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
-                        let ds_proc_res = GroupId::tls_deserialize_bytes(ds_proc_res_bytes)
+                        let ds_proc_res = GroupId::tls_deserialize_exact(&ds_proc_res_bytes)
                             .map_err(|_| DsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -121,7 +118,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            DsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -130,7 +127,7 @@ impl ApiClient {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_err =
-                            DsProcessingError::tls_deserialize_bytes(ds_proc_err_bytes)
+                            DsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
                         Err(DsRequestError::DsError(ds_proc_err))
                     }
@@ -237,10 +234,10 @@ impl ApiClient {
         group_id: GroupId,
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &LeafSigningKey,
+        signing_key: &InfraCredentialSigningKey,
     ) -> Result<RatchetTreeIn, DsRequestError> {
         let payload = WelcomeInfoParams {
-            sender: signing_key.verifying_key().clone(),
+            sender: signing_key.credential().verifying_key().clone(),
             group_id,
             epoch,
         };
@@ -294,7 +291,7 @@ impl ApiClient {
         commit: AssistedMessagePlusOut,
         group_state_ear_key: &GroupStateEarKey,
         own_index: LeafNodeIndex,
-        signing_key: &LeafSigningKey,
+        signing_key: &InfraCredentialSigningKey,
         new_user_auth_key_option: Option<UserAuthVerifyingKey>,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateClientParamsOut {
@@ -546,7 +543,7 @@ impl ApiClient {
         own_index: LeafNodeIndex,
         group_id: GroupId,
         new_queue_config: QsClientReference,
-        signing_key: &LeafSigningKey,
+        signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateQsClientReferenceParams {

@@ -5,7 +5,7 @@
 //! This module contains structs and enums that represent messages that are
 //! passed internally within the backend.
 
-use tls_codec::{TlsDeserialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSize};
 
 use crate::qs::QsClientReference;
 
@@ -13,7 +13,7 @@ use super::client_ds::QueueMessagePayload;
 
 // === DS to QS ===
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: QueueMessagePayload,
     pub client_reference: QsClientReference,

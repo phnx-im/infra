@@ -17,7 +17,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -39,7 +39,7 @@ use super::{
     MlsInfraVersion,
 };
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
     Ok,

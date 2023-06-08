@@ -86,7 +86,7 @@ impl DsGroupState {
         // anyway.
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.message_bytes.into();
+        let c2c_message = params.commit.into();
 
         Ok(c2c_message)
     }

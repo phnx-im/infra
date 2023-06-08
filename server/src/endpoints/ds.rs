@@ -11,7 +11,7 @@ use phnxbackend::{
     messages::client_ds::VerifiableClientToDsMessage,
     qs::QsEnqueueProvider,
 };
-use tls_codec::Serialize;
+use tls_codec::{DeserializeBytes, Serialize};
 
 /// DS endpoint for all group-based functionalities.
 #[utoipa::path(
@@ -33,7 +33,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsEnqueuePro
     let storage_provider = ds_storage_provider.get_ref();
     let enqueue_provider = qs_enqueue_provider.get_ref();
     // Create a new group on the DS.
-    let message = match VerifiableClientToDsMessage::try_from_bytes(&message) {
+    let message = match VerifiableClientToDsMessage::tls_deserialize_exact(&message) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("Received invalid message: {:?}", e);

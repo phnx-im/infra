@@ -7,7 +7,6 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use openmls_traits::crypto;
 use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxbackend::{
     auth_service::{
@@ -400,8 +399,8 @@ impl SelfUser {
         println!("Sending message to DS");
         block_on(self.api_client.ds_send_message(
             params,
-            self.group_store.leaf_signing_key(group_id),
-            group_state_ear_key,
+            &self.group_store.leaf_signing_key(group_id),
+            &self.group_store.group_state_ear_key(group_id),
         ))?;
         Ok(conversation_message)
     }

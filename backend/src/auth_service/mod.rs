@@ -10,7 +10,7 @@ use opaque_ke::{
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{OpaqueCiphersuite, QueueRatchet, RandomnessError, RatchetEncryptionKey},
@@ -122,10 +122,25 @@ pub struct AsUserRecord {
 }
 
 #[derive(
-    Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize,
+    Clone,
+    Debug,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
 )]
 pub struct UserName {
     pub(crate) user_name: Vec<u8>,
+}
+
+impl From<Vec<u8>> for UserName {
+    fn from(value: Vec<u8>) -> Self {
+        Self { user_name: value }
+    }
 }
 
 impl UserName {
@@ -145,7 +160,16 @@ impl From<String> for UserName {
 // === Client ===
 
 #[derive(
-    Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize, Serialize, Deserialize, Eq, PartialEq, Hash,
+    Clone,
+    Debug,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
 )]
 pub struct AsClientId {
     pub(crate) user_name: UserName,

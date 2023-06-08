@@ -8,7 +8,7 @@ use mls_assist::{
     messages::AssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
-use tls_codec::Deserialize;
+use tls_codec::DeserializeBytes;
 
 use crate::messages::client_ds::{QueueMessagePayload, UpdateClientParams, UpdateClientParamsAad};
 
@@ -75,7 +75,7 @@ impl DsGroupState {
 
         // If there is an AAD, we might have to update the client profile later.
         let aad =
-            UpdateClientParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
+            UpdateClientParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
                 .map_err(|_| ClientUpdateError::InvalidMessage)?;
 
         // Finalize processing.
@@ -135,7 +135,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.message_bytes.into();
+        let c2c_message = params.commit.into();
 
         Ok(c2c_message)
     }

@@ -117,7 +117,7 @@ impl DsGroupState {
         debug_assert!(removed_client.is_some());
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.remove_proposal.message_bytes.into();
+        let c2c_message = params.remove_proposal.into();
 
         Ok(c2c_message)
     }

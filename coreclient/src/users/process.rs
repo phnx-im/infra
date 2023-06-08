@@ -18,10 +18,14 @@ impl SelfUser {
         let messages = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let serialized_message =
-                    self.key_store.qs_ratchet_key.decrypt(message_ciphertext)?;
+                let serialized_message = self
+                    .key_store
+                    .qs_ratchet_key
+                    .decrypt(message_ciphertext)
+                    .unwrap();
                 let message =
-                    MlsMessageIn::tls_deserialize(&mut serialized_message.payload).unwrap();
+                    MlsMessageIn::tls_deserialize(&mut serialized_message.payload.as_slice())
+                        .unwrap();
                 Ok(message)
             })
             .collect::<Result<Vec<_>, CorelibError>>()?;
@@ -30,6 +34,7 @@ impl SelfUser {
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
+        // TODO: Continue here.
         let mut notification_messages = vec![];
         for message in messages {
             // TODO: Check version?

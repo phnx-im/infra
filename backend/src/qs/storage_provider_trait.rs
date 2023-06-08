@@ -5,7 +5,7 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
-use tls_codec::{Deserialize, Serialize, Size};
+use tls_codec::{DeserializeBytes, Serialize, Size};
 
 use crate::messages::{FriendshipToken, QueueMessage};
 
@@ -18,11 +18,11 @@ use super::{
 #[async_trait]
 pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     type CreateUserError: Error + Debug + Clone;
-    type StoreUserError: Error + Debug + Clone + Serialize + Size + Deserialize;
+    type StoreUserError: Error + Debug + Clone + Serialize + Size + DeserializeBytes;
     type DeleteUserError: Error + Debug + Clone;
 
     type StoreClientError: Error + Debug + Clone;
-    type CreateClientError: Error + Debug + Clone + Serialize + Size + Deserialize;
+    type CreateClientError: Error + Debug + Clone + Serialize + Size + DeserializeBytes;
     type DeleteClientError: Error + Debug + Clone;
 
     type EnqueueError: Error + Debug + Clone;

@@ -8,7 +8,7 @@
 
 use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{
@@ -27,7 +27,7 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 /// Key to encrypt/decrypt the roster of the DS group state. Roster keys can be
 /// derived either from an initial client KDF key or from a derived roster KDF
 /// key.
-#[derive(Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
 }
@@ -73,7 +73,9 @@ pub type PushTokenEarKeySecret = Secret<AEAD_KEY_SIZE>;
 pub type RatchetKeySecret = Secret<AEAD_KEY_SIZE>;
 
 /// EAR key for the [`PushToken`] structs.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Serialize, Deserialize,
+)]
 pub struct PushTokenEarKey {
     key: PushTokenEarKeySecret,
 }
@@ -103,7 +105,9 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
 pub type AddPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`AddPackage`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Serialize, Deserialize,
+)]
 pub struct AddPackageEarKey {
     key: AddPackageEarKeySecret,
 }
@@ -133,7 +137,9 @@ impl From<Secret<AEAD_KEY_SIZE>> for AddPackageEarKey {
 pub type ClientCredentialEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`ClientCredential`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Serialize, Deserialize,
+)]
 pub struct ClientCredentialEarKey {
     key: ClientCredentialEarKeySecret,
 }
@@ -162,7 +168,7 @@ impl From<Secret<AEAD_KEY_SIZE>> for ClientCredentialEarKey {
 
 pub type EnqueueAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct RatchetKey {
     key: RatchetKeySecret,
 }
@@ -187,7 +193,7 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
 
 pub type SignatureEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct SignatureEarKey {
     key: SignatureEarKeySecret,
 }
@@ -217,7 +223,9 @@ impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
 pub type WelcomeAttributionInfoEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`WelcomeAttributionInfo`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Serialize, Deserialize,
+)]
 pub struct WelcomeAttributionInfoEarKey {
     key: WelcomeAttributionInfoEarKeySecret,
 }

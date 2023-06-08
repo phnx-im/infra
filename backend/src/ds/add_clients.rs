@@ -11,7 +11,7 @@ use mls_assist::{
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize};
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
@@ -62,8 +62,9 @@ impl DsGroupState {
             };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad = AddClientsParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
-            .map_err(|_| ClientAdditionError::InvalidMessage)?;
+        let aad =
+            AddClientsParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
+                .map_err(|_| ClientAdditionError::InvalidMessage)?;
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         {
@@ -152,8 +153,8 @@ impl DsGroupState {
             user_profile.clients.push(leaf_index);
 
             // Create the client profile.
-            let client_queue_config = QsClientReference::tls_deserialize(
-                &mut key_package
+            let client_queue_config = QsClientReference::tls_deserialize_exact(
+                key_package
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
@@ -182,9 +183,11 @@ impl DsGroupState {
             ]
             .concat();
             let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
-            let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes)
-                .encrypt(&info, &[], group_state_ear_key.as_slice())
-                .map_err(|_| ClientAdditionError::LibraryError)?;
+            let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes).encrypt(
+                &info,
+                &[],
+                group_state_ear_key.as_slice(),
+            );
             let welcome_bundle = WelcomeBundle {
                 welcome: params.welcome.clone(),
                 encrypted_attribution_info: params.encrypted_welcome_attribution_infos.clone(),
@@ -208,7 +211,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.message_bytes.into();
+        let c2c_message = params.commit.into();
 
         Ok((c2c_message, fan_out_messages))
     }

@@ -9,7 +9,7 @@
 
 use mls_assist::openmls::prelude::GroupEpoch;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::crypto::{secrets::Secret, RandomnessError};
@@ -17,7 +17,7 @@ use crate::crypto::{secrets::Secret, RandomnessError};
 use super::{traits::KdfKey, KdfDerivable, KdfExtractable, KDF_KEY_SIZE};
 
 /// A secret meant to be injected into the extraction of the new roster kdf key.
-#[derive(TlsSerialize, TlsSize, TlsDeserialize, Clone, Debug)]
+#[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug)]
 pub struct RosterKdfInjection {
     secret: Secret<KDF_KEY_SIZE>,
 }
@@ -58,7 +58,7 @@ impl KdfExtractable<RosterKdfKey, RosterKdfInjection> for RosterExtractedKey {}
 /// [`RosterExtractedKey`].
 /// TODO: I think for a clean key schedule design, we need another derivation
 /// step before we can use this as input for an extraction.
-#[derive(TlsSerialize, TlsSize, TlsDeserialize, Clone, Debug)]
+#[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug)]
 pub struct RosterKdfKey {
     key: Secret<KDF_KEY_SIZE>,
 }
@@ -87,7 +87,7 @@ pub type InitialClientKdfKeySecret = Secret<KDF_KEY_SIZE>;
 
 /// A key used to derive further key material for use by the DS when a client
 /// joins a group.
-#[derive(TlsSerialize, TlsSize, TlsDeserialize, Clone, Debug, ToSchema)]
+#[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug, ToSchema)]
 pub struct InitialClientKdfKey {
     key: InitialClientKdfKeySecret,
 }
@@ -110,7 +110,7 @@ impl AsRef<Secret<KDF_KEY_SIZE>> for InitialClientKdfKey {
 
 pub type RatchetSecretKey = Secret<KDF_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct RatchetSecret {
     key: RatchetSecretKey,
 }
@@ -144,7 +144,7 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
 
 pub type FriendshipSecretKey = Secret<KDF_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct FriendshipSecret {
     key: FriendshipSecretKey,
 }

@@ -7,7 +7,7 @@ use privacypass::{
     batched_tokens::{TokenRequest, TokenResponse},
     Serialize,
 };
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, Size, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
@@ -99,7 +99,7 @@ where
     fn into_verified(self) -> VerifiedAsRequestParams;
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct Init2FactorAuthParamsTbs {
     pub client_id: AsClientId,
     pub opaque_ke1: OpaqueLoginRequest,
@@ -123,7 +123,7 @@ impl SignedStruct<Init2FactorAuthParamsTbs> for Initiate2FaAuthenticationParams 
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct Initiate2FaAuthenticationParams {
     payload: Init2FactorAuthParamsTbs,
     signature: Signature,
@@ -147,7 +147,7 @@ impl ClientCredentialAuthenticator for Initiate2FaAuthenticationParams {
     const LABEL: &'static str = "Initiate 2FA Authentication Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct Init2FactorAuthResponse {
     pub(crate) opaque_ke2: OpaqueLoginResponse,
 }
@@ -213,7 +213,7 @@ impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
 
 // === User ===
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationParams {
     pub client_payload: ClientCredentialPayload,
     pub opaque_registration_request: OpaqueRegistrationRequest,
@@ -265,7 +265,7 @@ pub struct FinishUserRegistrationParams {
     signature: Signature,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteUserParamsTbs {
     pub user_name: UserName,
     pub client_id: AsClientId,
@@ -290,7 +290,7 @@ impl SignedStruct<DeleteUserParamsTbs> for DeleteUserParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteUserParams {
     payload: DeleteUserParamsTbs,
     signature: Signature,
@@ -320,7 +320,7 @@ impl TwoFactorAuthenticator for DeleteUserParams {
 
 // === Client ===
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct InitiateClientAdditionParams {
     pub client_credential_payload: ClientCredentialPayload,
     pub opaque_login_request: OpaqueLoginRequest,
@@ -338,7 +338,7 @@ pub struct InitClientAdditionResponse {
     pub(crate) opaque_login_response: OpaqueLoginResponse,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct FinishClientAdditionParamsTbs {
     pub client_id: AsClientId,
     pub queue_encryption_key: RatchetEncryptionKey,
@@ -346,7 +346,7 @@ pub struct FinishClientAdditionParamsTbs {
     pub connection_key_package: KeyPackageIn,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct FinishClientAdditionParams {
     pub payload: FinishClientAdditionParamsTbs,
     pub opaque_login_finish: OpaqueLoginFinish,
@@ -365,7 +365,7 @@ impl FinishClientAdditionParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteClientParamsTbs(pub AsClientId);
 
 impl Signable for DeleteClientParamsTbs {
@@ -386,7 +386,7 @@ impl SignedStruct<DeleteClientParamsTbs> for DeleteClientParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteClientParams {
     payload: DeleteClientParamsTbs,
     signature: Signature,
@@ -410,7 +410,7 @@ impl ClientCredentialAuthenticator for DeleteClientParams {
     const LABEL: &'static str = "Delete Client Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DequeueMessagesParamsTbs {
     pub sender: AsClientId,
     pub sequence_number_start: u64,
@@ -435,7 +435,7 @@ impl SignedStruct<DequeueMessagesParamsTbs> for AsDequeueMessagesParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsDequeueMessagesParams {
     payload: DequeueMessagesParamsTbs,
     signature: Signature,
@@ -459,13 +459,13 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsDequeueMessagesResponse {
     pub(crate) messages: Vec<QueueMessage>,
     pub(crate) remaining_messages_number: u64,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsPublishKeyPackagesParamsTbs {
     pub client_id: AsClientId,
     pub key_packages: Vec<KeyPackageIn>,
@@ -489,7 +489,7 @@ impl SignedStruct<AsPublishKeyPackagesParamsTbs> for AsPublishKeyPackagesParams 
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsPublishKeyPackagesParams {
     payload: AsPublishKeyPackagesParamsTbs,
     signature: Signature,
@@ -513,7 +513,7 @@ impl ClientCredentialAuthenticator for AsPublishKeyPackagesParams {
     const LABEL: &'static str = "Publish KeyPackages Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ClientKeyPackageParamsTbs(pub AsClientId);
 
 impl Signable for ClientKeyPackageParamsTbs {
@@ -534,7 +534,7 @@ impl SignedStruct<ClientKeyPackageParamsTbs> for AsClientKeyPackageParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsClientKeyPackageParams {
     payload: ClientKeyPackageParamsTbs,
     signature: Signature,
@@ -565,7 +565,7 @@ pub struct AsClientKeyPackageResponse {
 
 // === Anonymous requests ===
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct UserClientsParams {
     pub user_name: UserName,
 }
@@ -581,7 +581,7 @@ pub struct UserClientsResponse {
     pub(crate) client_credentials: Vec<ClientCredential>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct UserKeyPackagesParams {
     pub user_name: UserName,
 }
@@ -597,7 +597,7 @@ pub struct UserKeyPackagesResponse {
     pub key_packages: Vec<KeyPackage>,
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct EnqueueMessageParams {
     pub client_id: AsClientId,
     pub connection_establishment_ctxt: QueueMessagePayload,
@@ -609,7 +609,7 @@ impl NoAuth for EnqueueMessageParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsCredentialsParams {}
 
 impl NoAuth for AsCredentialsParams {
@@ -627,11 +627,35 @@ pub struct AsCredentialsResponse {
 
 // === Privacy Pass ===
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct IssueTokensParamsTbs {
     pub client_id: AsClientId,
     pub token_type: AsTokenType,
     pub token_request: TokenRequest,
+}
+
+impl DeserializeBytes for IssueTokensParamsTbs {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (client_id, bytes) = AsClientId::tls_deserialize(bytes)?;
+        let (token_type, bytes) = AsTokenType::tls_deserialize(bytes)?;
+        let mut bytes_reader = bytes;
+        let token_request =
+            <TokenRequest as tls_codec::Deserialize>::tls_deserialize(&mut bytes_reader)?;
+        let bytes = bytes
+            .get(token_request.tls_serialized_len()..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((
+            Self {
+                client_id,
+                token_type,
+                token_request,
+            },
+            bytes,
+        ))
+    }
 }
 
 impl Signable for IssueTokensParamsTbs {
@@ -652,7 +676,7 @@ impl SignedStruct<IssueTokensParamsTbs> for IssueTokensParams {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct IssueTokensParams {
     payload: IssueTokensParamsTbs,
     signature: Signature,
@@ -676,9 +700,23 @@ impl ClientCredentialAuthenticator for IssueTokensParams {
     const LABEL: &'static str = "Issue Tokens Parameters";
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct IssueTokensResponse {
     pub(crate) tokens: TokenResponse,
+}
+
+impl DeserializeBytes for IssueTokensResponse {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let mut bytes_reader = bytes;
+        let tokens = <TokenResponse as tls_codec::Deserialize>::tls_deserialize(&mut bytes_reader)?;
+        let bytes = bytes
+            .get(tokens.tls_serialized_len()..)
+            .ok_or(tls_codec::Error::EndOfStream)?;
+        Ok((Self { tokens }, bytes))
+    }
 }
 
 // === Auth & Framing ===
