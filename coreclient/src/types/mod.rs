@@ -89,7 +89,7 @@ pub struct ErrorMessage {
 
 #[derive(Debug, Clone)]
 pub struct Conversation {
-    pub id: UuidBytes,
+    pub id: Uuid,
     // Id of the (active) MLS group representing this conversation.
     pub group_id: GroupId,
     pub status: ConversationStatus,

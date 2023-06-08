@@ -35,7 +35,7 @@ impl Contact {
 
     // TODO: This might be a bit wasteful, since it always removes an add_info,
     // even though the resulting commit might not succeed.
-    pub(crate) fn add_infos(&self) -> ContactAddInfos {
+    pub(crate) fn add_infos(&mut self) -> ContactAddInfos {
         self.add_infos
             .pop()
             .unwrap_or(self.last_resort_add_info.clone())

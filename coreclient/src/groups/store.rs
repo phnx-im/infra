@@ -23,10 +23,35 @@ impl GroupStore {
     }
 
     pub(crate) fn store_group(&mut self, group: Group) -> Result<(), GroupStoreError> {
-        match self.groups.insert(group.group_id, group) {
+        match self.groups.insert(group.group_id.clone(), group) {
             Some(_) => Err(GroupStoreError::DuplicateGroup),
             None => Ok(()),
         }
+    }
+
+    pub(crate) fn join_group(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        welcome_bundle: WelcomeBundle,
+        // This is our own key that the sender uses to encrypt to us. We should
+        // be able to retrieve it from the client's key store.
+        welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
+        leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
+        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
+        contacts: &HashMap<UserName, Contact>,
+    ) -> GroupId {
+        let group = Group::join_group(
+            backend,
+            welcome_bundle,
+            welcome_attribution_info_ear_key,
+            leaf_signers,
+            as_intermediate_credentials,
+            contacts,
+        )
+        .unwrap();
+        let group_id = group.group_id().clone();
+        self.groups.insert(group_id.clone(), group);
+        group_id
     }
 
     //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
@@ -54,6 +79,10 @@ impl GroupStore {
     /// Returns the group state EAR key for the given group.
     /// TODO: We're returning a copy here, which is not ideal.
     pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> GroupStateEarKey {
-        self.groups.get(group_id).unwrap().group_state_ear_key
+        self.groups
+            .get(group_id)
+            .unwrap()
+            .group_state_ear_key
+            .clone()
     }
 }

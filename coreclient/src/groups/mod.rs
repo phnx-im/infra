@@ -44,7 +44,12 @@ use phnxbackend::{
 pub(crate) use store::*;
 use tls_codec::DeserializeBytes;
 
-use crate::{contacts::Contact, conversations::*, types::MessageContentType, types::*};
+use crate::{
+    contacts::{Contact, ContactAddInfos},
+    conversations::*,
+    types::MessageContentType,
+    types::*,
+};
 use std::{collections::HashMap, panic::panic_any};
 
 use openmls::prelude::*;
@@ -88,7 +93,7 @@ impl Group {
             backend,
             &leaf_signer,
             &mls_group_config,
-            group_id,
+            group_id.clone(),
             credential_with_key,
         )
         .unwrap();
@@ -113,13 +118,29 @@ impl Group {
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
-        as_credentials: &Vec<AsIntermediateCredential>,
+        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
         contacts: &HashMap<UserName, Contact>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
         let mls_group_config = MlsGroupConfig::default();
+
+        // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
+        let (key_package, _) = welcome_bundle
+            .welcome
+            .welcome
+            .secrets()
+            .iter()
+            .find_map(|egs| {
+                let hash_ref = egs.new_member().as_slice().to_vec();
+                backend
+                    .key_store()
+                    .read(&hash_ref)
+                    .map(|kp: KeyPackage| (kp, hash_ref))
+            })
+            .unwrap();
+
         // Let's create the group first so that we can access the GroupId.
         let mls_group = match MlsGroup::new_from_welcome(
             backend,
@@ -134,21 +155,6 @@ impl Group {
                 return Err(GroupOperationError::WelcomeError(e));
             }
         };
-
-        // Decrypt encrypted credentials
-        let (key_package, _) = welcome_bundle
-            .welcome
-            .welcome
-            .secrets()
-            .iter()
-            .find_map(|egs| {
-                let hash_ref = egs.new_member().as_slice().to_vec();
-                backend
-                    .key_store()
-                    .read(&hash_ref)
-                    .map(|kp: KeyPackage| (kp, hash_ref))
-            })
-            .unwrap();
 
         // TODO: This should probably all be moved into a member function "decrypt" of JoinerInfo.
         let public_key: Vec<u8> = key_package.hpke_init_key().clone().into();
@@ -196,7 +202,7 @@ impl Group {
 
         let client_credentials: Vec<Option<ClientCredential>> = joiner_info
             .encrypted_client_credentials
-            .iter()
+            .into_iter()
             .map(|ciphertext_option| {
                 ciphertext_option.map(|ciphertext| {
                     let verifiable_credential = VerifiableClientCredential::decrypt(
@@ -204,7 +210,7 @@ impl Group {
                         &ciphertext,
                     )
                     .unwrap();
-                    let as_credential = as_credentials
+                    let as_credential = as_intermediate_credentials
                         .into_iter()
                         .find(|as_cred| {
                             &as_cred.fingerprint().unwrap()
@@ -234,6 +240,7 @@ impl Group {
                             client_credentials
                                 .get(m.index.usize())
                                 .unwrap()
+                                .as_ref()
                                 .unwrap()
                                 .verifying_key(),
                         )
@@ -276,7 +283,7 @@ impl Group {
     pub(crate) fn process_message(
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
-        message: MlsMessageIn,
+        message: impl Into<ProtocolMessage>,
     ) -> Result<ProcessedMessage, GroupOperationError> {
         // TODO: It's not clear how we can call this here, since we can only
         // convert MlsMessageIn into ProtocolMessage with the test-utils
@@ -292,15 +299,17 @@ impl Group {
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &ClientSigningKey,
-        contacts: Vec<&Contact>,
-    ) -> Result<(AddUsersParamsOut, &StagedCommit), GroupOperationError> {
+        // The following two vectors have to be in sync, i.e. of the same length
+        // and refer to the same contacts in order.
+        add_infos: Vec<ContactAddInfos>,
+        wai_keys: Vec<WelcomeAttributionInfoEarKey>,
+    ) -> Result<AddUsersParamsOut, GroupOperationError> {
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
             Vec<Vec<KeyPackage>>,
             Vec<KeyPackageBatch<VERIFIED>>,
-        ) = contacts
-            .iter()
-            .map(|c| c.add_infos())
+        ) = add_infos
+            .into_iter()
             .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
             .unzip();
 
@@ -317,9 +326,9 @@ impl Group {
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
         let commit = (mls_commit, assisted_group_info);
 
-        let encrypted_welcome_attribution_infos = contacts
+        let encrypted_welcome_attribution_infos = wai_keys
             .iter()
-            .map(|contact| {
+            .map(|wai_key| {
                 // WAI = WelcomeAttributionInfo
                 let wai_payload = WelcomeAttributionInfoPayload::new(
                     signer.credential().identity(),
@@ -334,7 +343,7 @@ impl Group {
                 }
                 .sign(signer)
                 .unwrap();
-                wai.encrypt(contact.wai_ear_key()).unwrap()
+                wai.encrypt(wai_key).unwrap()
             })
             .collect();
 
@@ -345,8 +354,7 @@ impl Group {
             encrypted_welcome_attribution_infos,
             key_package_batches,
         };
-        let staged_commit = self.mls_group.pending_commit().unwrap().clone();
-        Ok((params, staged_commit))
+        Ok(params)
     }
 
     /// Merge the pending commit
@@ -396,7 +404,7 @@ impl Group {
 
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> GroupId {
-        self.group_id
+        self.group_id.clone()
     }
 
     pub(crate) fn user_auth_key(&self) -> &UserAuthSigningKey {
@@ -405,6 +413,10 @@ impl Group {
 
     pub(crate) fn group_state_ear_key(&self) -> &GroupStateEarKey {
         &self.group_state_ear_key
+    }
+
+    pub(crate) fn pending_commit(&self) -> Option<&StagedCommit> {
+        self.mls_group.pending_commit()
     }
 }
 

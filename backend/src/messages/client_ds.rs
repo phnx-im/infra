@@ -11,14 +11,16 @@ use mls_assist::{
     messages::{AssistedMessage, AssistedWelcome},
     openmls::{
         prelude::{
-            group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn,
-            Sender, SignaturePublicKey,
+            group_info::VerifiableGroupInfo, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn,
+            RatchetTreeIn, Sender, SignaturePublicKey,
         },
         treesync::RatchetTree,
     },
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 use utoipa::ToSchema;
 
 use crate::{
@@ -65,6 +67,29 @@ pub enum QueueMessageType {
 pub struct QueueMessagePayload {
     pub message_type: QueueMessageType,
     pub payload: Vec<u8>,
+}
+
+impl QueueMessagePayload {
+    pub fn extract(self) -> Result<ExtractedQueueMessagePayload, tls_codec::Error> {
+        let message = match self.message_type {
+            QueueMessageType::WelcomeBundle => {
+                let wb = WelcomeBundle::tls_deserialize_exact(&self.payload)?;
+                ExtractedQueueMessagePayload::WelcomeBundle(wb)
+            }
+            QueueMessageType::MlsMessage => {
+                let message = <MlsMessageIn as tls_codec::Deserialize>::tls_deserialize(
+                    &mut self.payload.as_slice(),
+                )?;
+                ExtractedQueueMessagePayload::MlsMessage(message)
+            }
+        };
+        Ok(message)
+    }
+}
+
+pub enum ExtractedQueueMessagePayload {
+    WelcomeBundle(WelcomeBundle),
+    MlsMessage(MlsMessageIn),
 }
 
 impl TryFrom<WelcomeBundle> for QueueMessagePayload {

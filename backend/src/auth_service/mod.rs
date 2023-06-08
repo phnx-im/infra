@@ -107,7 +107,7 @@ impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationRespons
 
 #[derive(Debug)]
 pub struct OpaqueRegistrationRecord {
-    client_message: RegistrationUpload<OpaqueCiphersuite>,
+    pub client_message: RegistrationUpload<OpaqueCiphersuite>,
 }
 
 // === User ===

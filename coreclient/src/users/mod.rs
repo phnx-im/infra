@@ -12,14 +12,17 @@ use phnxbackend::{
     auth_service::{
         credentials::{
             keys::{ClientSigningKey, InfraCredentialSigningKey},
-            AsIntermediateCredential, ClientCredential, ClientCredentialCsr,
+            AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialCsr,
             ClientCredentialPayload, ExpirationData,
         },
         AsClientId, OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
     },
     crypto::{
         ear::{
-            keys::{AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKey},
+            keys::{
+                AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKey,
+                WelcomeAttributionInfoEarKey,
+            },
             EarEncryptable,
         },
         signatures::{
@@ -33,7 +36,7 @@ use phnxbackend::{
 };
 use rand::rngs::OsRng;
 
-use crate::contacts::Contact;
+use crate::contacts::{Contact, ContactAddInfos};
 
 use super::*;
 
@@ -52,16 +55,20 @@ pub(crate) struct MemoryUserKeyStore {
     // AS-specific key material
     as_queue_decryption_key: RatchetDecryptionKey,
     as_ratchet_key: QueueRatchet,
+    as_credentials: Vec<AsCredential>,
+    as_intermediate_credentials: Vec<AsIntermediateCredential>,
     // QS-specific key material
     qs_client_signing_key: QsClientSigningKey,
     qs_user_signing_key: QsUserSigningKey,
     qs_queue_decryption_key: RatchetDecryptionKey,
     qs_ratchet_key: QueueRatchet,
+    push_token_ear_key: PushTokenEarKey,
+    // These are keys that we send to our con
     friendship_token: FriendshipToken,
     add_package_ear_key: AddPackageEarKey,
     client_credential_ear_key: ClientCredentialEarKey,
     signature_ear_key: SignatureEarKey,
-    push_token_ear_key: PushTokenEarKey,
+    wai_ear_key: WelcomeAttributionInfoEarKey,
     // Leaf credentials in KeyPackages the active ones are stored in the group
     // that they belong to.
     leaf_signers: HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
@@ -91,29 +98,30 @@ impl SelfUser {
         )
         .unwrap();
 
-        let as_client_id = AsClientId::random(crypto_backend.rand(), user_name).unwrap();
+        let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone()).unwrap();
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519).unwrap();
 
-        let as_credentials = block_on(api_client.as_as_credentials()).unwrap();
-        let verifiable_intemediate_credential =
-            as_credentials.as_intermediate_credentials.pop().unwrap();
-        let as_credential = as_credentials
-            .as_credentials
+        let as_credentials_response = block_on(api_client.as_as_credentials()).unwrap();
+        let as_intermediate_credentials: Vec<AsIntermediateCredential> = as_credentials_response
+            .as_intermediate_credentials
             .into_iter()
-            .find(|as_cred| {
-                &as_cred.fingerprint().unwrap() == verifiable_intemediate_credential.fingerprint()
+            .map(|as_inter_cred| {
+                let as_credential = as_credentials_response
+                    .as_credentials
+                    .iter()
+                    .find(|as_cred| &as_cred.fingerprint().unwrap() == as_inter_cred.fingerprint())
+                    .unwrap();
+                as_inter_cred.verify(as_credential.verifying_key()).unwrap()
             })
-            .unwrap();
-        let as_intermediate_credential: AsIntermediateCredential =
-            verifiable_intemediate_credential
-                .verify(as_credential.verifying_key())
-                .unwrap();
+            .collect();
+
+        let chosen_inter_credential = as_intermediate_credentials.first().unwrap();
 
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
             None,
-            as_intermediate_credential.fingerprint().unwrap(),
+            chosen_inter_credential.fingerprint().unwrap(),
         );
 
         // Let's do OPAQUE registration.
@@ -153,7 +161,7 @@ impl SelfUser {
 
         let credential: ClientCredential = response
             .client_credential
-            .verify(as_intermediate_credential.verifying_key())
+            .verify(chosen_inter_credential.verifying_key())
             .unwrap();
 
         let signing_key =
@@ -166,15 +174,18 @@ impl SelfUser {
         let qs_user_signing_key = QsUserSigningKey::random().unwrap();
 
         let leaf_signers = HashMap::new();
-        // TODO: The following four keys should be derived from a single
+        // TODO: The following five keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random().unwrap();
         let add_package_ear_key = AddPackageEarKey::random().unwrap();
         let client_credential_ear_key = ClientCredentialEarKey::random().unwrap();
         let signature_ear_key = SignatureEarKey::random().unwrap();
+        let wai_ear_key: WelcomeAttributionInfoEarKey =
+            WelcomeAttributionInfoEarKey::random().unwrap();
         let push_token_ear_key = PushTokenEarKey::random().unwrap();
 
-        let key_store = MemoryUserKeyStore {
+        // Mutable, because we need to access the leaf signers later.
+        let mut key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
             as_ratchet_key,
@@ -182,12 +193,15 @@ impl SelfUser {
             qs_user_signing_key,
             qs_queue_decryption_key,
             qs_ratchet_key,
+            push_token_ear_key,
             friendship_token,
             add_package_ear_key,
             client_credential_ear_key,
             signature_ear_key,
-            push_token_ear_key,
+            wai_ear_key,
             leaf_signers,
+            as_credentials: as_credentials_response.as_credentials,
+            as_intermediate_credentials,
         };
 
         // TODO: We need another leaf credential type in OpenMLS for connection
@@ -211,9 +225,9 @@ impl SelfUser {
         };
 
         block_on(api_client.as_finish_user_registration(
-            user_name.into(),
-            key_store.as_queue_decryption_key.encryption_key().clone(),
-            as_ratchet_key,
+            user_name.clone(),
+            key_store.as_queue_decryption_key.encryption_key(),
+            key_store.as_ratchet_key.clone(),
             connection_packages,
             opaque_registration_record,
             &key_store.signing_key,
@@ -221,9 +235,10 @@ impl SelfUser {
         .unwrap();
 
         // AS registration is complete, now create the user on the QS.
-        let icc_ciphertext = signing_key
+        let encrypted_client_credential = key_store
+            .signing_key
             .credential()
-            .encrypt(&client_credential_ear_key)
+            .encrypt(&key_store.client_credential_ear_key)
             .unwrap();
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
@@ -239,12 +254,12 @@ impl SelfUser {
                 leaf_signer.credential().verifying_key().clone(),
                 leaf_signer,
             );
-            let add_package = AddPackage::new(kp.clone(), icc_ciphertext);
+            let add_package = AddPackage::new(kp.clone(), encrypted_client_credential.clone());
             qs_add_packages.push(add_package);
         }
 
         let push_token = PushToken::dummy();
-        let encrypted_push_token = push_token.encrypt(&push_token_ear_key).unwrap();
+        let encrypted_push_token = push_token.encrypt(&key_store.push_token_ear_key).unwrap();
 
         let create_user_record_response = block_on(api_client.qs_create_user(
             key_store.friendship_token.clone(),
@@ -254,7 +269,7 @@ impl SelfUser {
             key_store.add_package_ear_key.clone(),
             Some(encrypted_push_token),
             key_store.qs_ratchet_key.clone(),
-            &qs_user_signing_key,
+            &key_store.qs_user_signing_key,
         ))
         .unwrap();
 
@@ -299,8 +314,11 @@ impl SelfUser {
     /// Create new group
     pub fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
         let group_id = block_on(self.api_client.ds_request_group_id()).unwrap();
-        self.group_store
-            .create_group(&self.crypto_backend, &self.key_store.signing_key, group_id);
+        self.group_store.create_group(
+            &self.crypto_backend,
+            &self.key_store.signing_key,
+            group_id.clone(),
+        );
         let conversation_id = Uuid::new_v4();
         let attributes = ConversationAttributes {
             title: title.to_string(),
@@ -325,21 +343,24 @@ impl SelfUser {
             .unwrap();
         let group_id = &conversation.group_id;
         let group = self.group_store.get_group_mut(group_id).unwrap();
-        let invited_contacts = invited_users
-            .iter()
-            .map(|u| {
-                let user_name = u.to_string().into();
-                self.contacts.get(&user_name).unwrap()
-            })
-            .collect();
+        let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
+        let mut contact_wai_keys = vec![];
+        for invited_user in invited_users {
+            let user_name = invited_user.to_string().into();
+            let contact = self.contacts.get_mut(&user_name).unwrap();
+            contact_add_infos.push(contact.add_infos());
+            contact_wai_keys.push(contact.wai_ear_key().clone());
+        }
         // Adds new member and staged commit
-        let (params, staged_commit) = group
+        let params = group
             .invite(
                 &self.crypto_backend,
                 &self.key_store.signing_key,
-                invited_contacts,
+                contact_add_infos,
+                contact_wai_keys,
             )
             .map_err(CorelibError::Group)?;
+        let staged_commit = group.pending_commit().unwrap();
         // We're not getting a response, but if it's not an error, the commit
         // must have gone through.
         block_on(self.api_client.ds_add_users(
@@ -350,9 +371,11 @@ impl SelfUser {
         .unwrap();
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        group.merge_pending_commit(&self.crypto_backend)?;
         let conversation_messages =
             staged_commit_to_conversation_messages(&self.user_name, staged_commit);
+        // Merge the pending commit.
+        group.merge_pending_commit(&self.crypto_backend)?;
+        // Send off the notifications
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
                 conversation_id: conversation_id.clone(),
@@ -376,7 +399,8 @@ impl SelfUser {
             .conversation_store
             .conversation(&conversation_id)
             .unwrap()
-            .group_id;
+            .group_id
+            .clone();
         // Generate ciphertext
         let params = self
             .group_store
