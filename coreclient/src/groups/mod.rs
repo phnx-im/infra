@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub(crate) mod diff;
 pub(crate) mod error;
 pub(crate) mod store;
 
@@ -33,10 +34,13 @@ use phnxbackend::{
         },
         DecryptionPrivateKey,
     },
-    ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
+    ds::{
+        group_state::EncryptedClientCredential, WelcomeAttributionInfo,
+        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+    },
     messages::{
         client_ds::{DsJoinerInformationIn, WelcomeBundle},
-        client_ds_out::{AddUsersParamsOut, SendMessageParamsOut},
+        client_ds_out::{AddUsersParamsOut, RemoveUsersParamsOut, SendMessageParamsOut},
     },
     qs::{KeyPackageBatch, VERIFIED},
     AssistedGroupInfo,
@@ -54,6 +58,8 @@ use std::{collections::HashMap, panic::panic_any};
 
 use openmls::prelude::*;
 
+use self::diff::GroupDiff;
+
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
@@ -64,6 +70,7 @@ pub(crate) struct Group {
     user_auth_key: UserAuthSigningKey,
     mls_group: MlsGroup,
     client_credentials: Vec<Option<ClientCredential>>,
+    pending_diff: Option<GroupDiff>,
 }
 
 impl Group {
@@ -107,6 +114,7 @@ impl Group {
             group_state_ear_key,
             user_auth_key,
             client_credentials: vec![Some(signer.credential().clone())],
+            pending_diff: None,
         }
     }
 
@@ -183,7 +191,7 @@ impl Group {
 
         // Decrypt WelcomeAttributionInfo
         let welcome_attribution_info = WelcomeAttributionInfo::decrypt(
-            &welcome_attribution_info_ear_key,
+            welcome_attribution_info_ear_key,
             &welcome_bundle.encrypted_attribution_info,
         )
         .unwrap();
@@ -211,7 +219,7 @@ impl Group {
                     )
                     .unwrap();
                     let as_credential = as_intermediate_credentials
-                        .into_iter()
+                        .iter()
                         .find(|as_cred| {
                             &as_cred.fingerprint().unwrap()
                                 == verifiable_credential.signer_fingerprint()
@@ -228,7 +236,7 @@ impl Group {
         // TODO: Right now, this just panics if the verification fails.
         mls_group
             .members()
-            .map(|m| match m.credential.mls_credential_type() {
+            .for_each(|m| match m.credential.mls_credential_type() {
                 MlsCredentialType::Infra(credential) => {
                     let _verified_credential: InfraCredentialTbs =
                         InfraCredentialPlaintext::decrypt(
@@ -274,6 +282,7 @@ impl Group {
             // This one needs to be rolled fresh.
             user_auth_key,
             client_credentials,
+            pending_diff: None,
         };
 
         Ok(group)
@@ -284,12 +293,76 @@ impl Group {
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
         message: impl Into<ProtocolMessage>,
+        // Required in case there are new joiners.
+        // TODO: In the federated case, we might have to fetch them first.
+        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
     ) -> Result<ProcessedMessage, GroupOperationError> {
-        // TODO: It's not clear how we can call this here, since we can only
-        // convert MlsMessageIn into ProtocolMessage with the test-utils
-        // feature. I'll leave it as it is for now, since we're only feeding
-        // this protocol messages anyway.
-        Ok(self.mls_group.process_message(backend, message)?)
+        let processed_message = self.mls_group.process_message(backend, message)?;
+        let staged_commit = match processed_message.content() {
+            // For now, we only care about commits.
+            ProcessedMessageContent::ApplicationMessage(_)
+            | ProcessedMessageContent::ProposalMessage(_)
+            | ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                return Ok(processed_message)
+            }
+            ProcessedMessageContent::StagedCommitMessage(staged_commit) => staged_commit,
+        };
+        // Process removes
+        let mut diff = GroupDiff::new(self);
+        for proposal in staged_commit.remove_proposals() {
+            let removed_member = proposal.remove_proposal().removed();
+            diff.remove_client_credential(removed_member);
+        }
+        // Process adds
+        // Decrypt and verify client credentials.
+        let client_credentials: Vec<ClientCredential> =
+            Vec::<EncryptedClientCredential>::tls_deserialize_exact(
+                processed_message.authenticated_data(),
+            )
+            .unwrap()
+            .into_iter()
+            .map(|ciphertext| {
+                let verifiable_credential =
+                    VerifiableClientCredential::decrypt(&self.credential_ear_key, &ciphertext)
+                        .unwrap();
+                let as_credential = as_intermediate_credentials
+                    .iter()
+                    .find(|as_cred| {
+                        &as_cred.fingerprint().unwrap()
+                            == verifiable_credential.signer_fingerprint()
+                    })
+                    .unwrap();
+                verifiable_credential
+                    .verify(as_credential.verifying_key())
+                    .unwrap()
+            })
+            .collect();
+
+        for client_credential in client_credentials {
+            diff.add_client_credentials(&self.client_credentials, client_credential)
+        }
+
+        // Validate a potential new leaf credential, potentially based on a new client credential.
+        match processed_message.credential().mls_credential_type() {
+            MlsCredentialType::Basic(_) | MlsCredentialType::X509(_) => {
+                panic!("unsupported credential found")
+            }
+            MlsCredentialType::Infra(infra_credential) => {
+                let credential_plaintext =
+                    InfraCredentialPlaintext::decrypt(infra_credential, &self.signature_ear_key)
+                        .unwrap();
+                let sender_index = match processed_message.sender() {
+                    Sender::Member(index) => index.usize(),
+                    Sender::External(_) => panic!("external senders not supported yet"),
+                    Sender::NewMemberProposal => panic!("individual proposals not supported yet"),
+                    Sender::NewMemberCommit => todo!(),
+                }
+                let verifier_key = diff.credential(processed_message, self.existing_client_credentials)
+                credential_plaintext.verify(signature_public_key)
+            }
+        }
+
+        Ok(processed_message)
     }
 
     /// Invite the given list of contacts to join the group.
@@ -299,11 +372,13 @@ impl Group {
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &ClientSigningKey,
-        // The following two vectors have to be in sync, i.e. of the same length
+        // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
         add_infos: Vec<ContactAddInfos>,
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
+        client_credentials: Vec<Vec<ClientCredential>>,
     ) -> Result<AddUsersParamsOut, GroupOperationError> {
+        let client_credentials = client_credentials.into_iter().flatten().collect::<Vec<_>>();
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
             Vec<Vec<KeyPackage>>,
@@ -315,9 +390,18 @@ impl Group {
 
         let key_packages = key_package_vecs.into_iter().flatten().collect::<Vec<_>>();
 
+        let ecc = client_credentials
+            .iter()
+            .map(|client_credential| client_credential.encrypt(&self.credential_ear_key).unwrap())
+            .collect::<Vec<_>>();
+        // Set Aad to contain the encrypted client credentials.
+        self.mls_group
+            .set_aad(&ecc.tls_serialize_detached().unwrap());
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
                 .add_members(backend, &self.leaf_signer, key_packages.as_slice())?;
+        // Reset Aad to empty.
+        self.mls_group.set_aad(&[]);
 
         // Groups should always have the flag set that makes them return groupinfos with every Commit.
         // Or at least with Add commits for now.
@@ -347,6 +431,14 @@ impl Group {
             })
             .collect();
 
+        // Create the GroupDiff
+        let mut diff = GroupDiff::new(self);
+        for client_credential in client_credentials.into_iter() {
+            diff.add_client_credentials(&self.client_credentials, client_credential)
+        }
+
+        self.pending_diff = Some(diff);
+
         let params = AddUsersParamsOut {
             commit,
             sender: self.user_auth_key.verifying_key().hash(),
@@ -357,11 +449,92 @@ impl Group {
         Ok(params)
     }
 
-    /// Merge the pending commit
+    pub(crate) fn remove(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        members: Vec<AsClientId>,
+    ) -> Result<RemoveUsersParamsOut, GroupOperationError> {
+        let remove_indices = self
+            .client_credentials
+            .iter()
+            .enumerate()
+            .filter_map(|(index, cred_option)| {
+                if let Some(cred) = cred_option {
+                    if members.contains(&cred.identity()) {
+                        Some(LeafNodeIndex::new(index as u32))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        // There shouldn't be a welcome
+        let (mls_message, _welcome_option, group_info_option) = self
+            .mls_group
+            .remove_members(backend, &self.leaf_signer, remove_indices.as_slice())
+            .unwrap();
+        debug_assert!(_welcome_option.is_none());
+        let group_info = group_info_option.unwrap();
+        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
+        let commit = (mls_message, assisted_group_info);
+
+        let mut diff = GroupDiff::new(self);
+        for index in remove_indices {
+            diff.remove_client_credential(index);
+        }
+        self.pending_diff = Some(diff);
+
+        let params = RemoveUsersParamsOut {
+            commit,
+            sender: self.user_auth_key().verifying_key().hash(),
+        };
+        Ok(params)
+    }
+
+    /// Merge the pending commit and apply the pending group diff.
     pub(crate) fn merge_pending_commit(
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
     ) -> Result<(), GroupOperationError> {
+        if let Some(diff) = self.pending_diff.take() {
+            if let Some(leaf_signer) = diff.leaf_signer {
+                self.leaf_signer = leaf_signer;
+            }
+            if let Some(signature_ear_key) = diff.signature_ear_key {
+                self.signature_ear_key = signature_ear_key;
+            }
+            if let Some(credential_ear_key) = diff.credential_ear_key {
+                self.credential_ear_key = credential_ear_key;
+            }
+            if let Some(group_state_ear_key) = diff.group_state_ear_key {
+                self.group_state_ear_key = group_state_ear_key;
+            }
+            if let Some(user_auth_key) = diff.user_auth_key {
+                self.user_auth_key = user_auth_key;
+            }
+            for (index, credential) in diff.client_credentials {
+                if index >= self.client_credentials.len() {
+                    debug_assert!(index == self.client_credentials.len() + 1);
+                    self.client_credentials.push(credential)
+                } else {
+                    *self.client_credentials.get_mut(index).unwrap() = credential;
+                }
+            }
+            // We might have inadvertendly extended the Credential vector with
+            // `None`s. Let's trim it down again.
+            // It shouldn't be empty, but we don't want to loop forever.
+            while let Some(last_entry) = self.client_credentials.last() {
+                if last_entry.is_none() {
+                    self.client_credentials.pop();
+                } else {
+                    break;
+                }
+            }
+        } else {
+            return Err(GroupOperationError::NoPendingGroupDiff);
+        }
         Ok(self.mls_group.merge_pending_commit(backend)?)
     }
 

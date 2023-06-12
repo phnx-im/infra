@@ -75,8 +75,11 @@ impl SelfUser {
                         .clone();
                     match self.group_store.get_group_mut(group_id) {
                         Some(group) => {
-                            let processed_message =
-                                group.process_message(&self.crypto_backend, protocol_message);
+                            let processed_message = group.process_message(
+                                &self.crypto_backend,
+                                protocol_message,
+                                &self.key_store.as_intermediate_credentials,
+                            );
                             match processed_message {
                                 Ok(processed_message) => {
                                     let sender_credential = processed_message.credential().clone();
@@ -106,7 +109,7 @@ impl SelfUser {
                                     for conversation_message in conversation_messages {
                                         let dispatched_conversation_message =
                                             DispatchedConversationMessage {
-                                                conversation_id: conversation_id,
+                                                conversation_id,
                                                 conversation_message: conversation_message.clone(),
                                             };
                                         self.conversation_store.store_message(

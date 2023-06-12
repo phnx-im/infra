@@ -264,7 +264,7 @@ impl SelfUser {
         let create_user_record_response = block_on(api_client.qs_create_user(
             key_store.friendship_token.clone(),
             key_store.qs_client_signing_key.verifying_key().clone(),
-            key_store.qs_queue_decryption_key.encryption_key().clone(),
+            key_store.qs_queue_decryption_key.encryption_key(),
             qs_add_packages,
             key_store.add_package_ear_key.clone(),
             Some(encrypted_push_token),
@@ -345,11 +345,13 @@ impl SelfUser {
         let group = self.group_store.get_group_mut(group_id).unwrap();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
+        let mut client_credentials = vec![];
         for invited_user in invited_users {
             let user_name = invited_user.to_string().into();
             let contact = self.contacts.get_mut(&user_name).unwrap();
             contact_add_infos.push(contact.add_infos());
             contact_wai_keys.push(contact.wai_ear_key().clone());
+            client_credentials.push(contact.client_credentials());
         }
         // Adds new member and staged commit
         let params = group
@@ -358,6 +360,7 @@ impl SelfUser {
                 &self.key_store.signing_key,
                 contact_add_infos,
                 contact_wai_keys,
+                client_credentials,
             )
             .map_err(CorelibError::Group)?;
         let staged_commit = group.pending_commit().unwrap();
@@ -378,7 +381,7 @@ impl SelfUser {
         // Send off the notifications
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
-                conversation_id: conversation_id.clone(),
+                conversation_id: conversation_id.to_owned(),
                 conversation_message: conversation_message.clone(),
             };
             self.conversation_store
@@ -386,6 +389,23 @@ impl SelfUser {
             notification_hub.dispatch_message_notification(dispatched_conversation_message);
         }
         Ok(())
+    }
+
+    pub fn remove_users<T: Notifiable>(
+        &mut self,
+        conversation_id: &Uuid,
+        invited_users: Vec<&str>,
+        // For now, we're  passing this in. It might be better to pass the
+        // necessary data back out instead.
+        notification_hub: &mut NotificationHub<T>,
+    ) -> Result<(), CorelibError> {
+        let conversation = self
+            .conversation_store
+            .conversation(conversation_id)
+            .unwrap();
+        let group_id = &conversation.group_id;
+        let group = self.group_store.get_group_mut(group_id).unwrap();
+        todo!()
     }
 
     /// Send a message and return it. Note that the message has already been
