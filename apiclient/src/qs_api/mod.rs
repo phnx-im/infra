@@ -35,9 +35,8 @@ use crate::{ApiClient, Protocol};
 
 pub mod ws;
 
-// TODO: No tests for now.
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 #[derive(Error, Debug)]
 pub enum QsRequestError {

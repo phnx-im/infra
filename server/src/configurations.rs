@@ -8,7 +8,8 @@ use serde::Deserialize;
 /// Configuration for the server.
 #[derive(Deserialize, Clone)]
 pub struct Settings {
-    pub database: DatabaseSettings,
+    // TODO: Re-enable this once we have a database.
+    // database: DatabaseSettings,
     pub application: ApplicationSettings,
 }
 

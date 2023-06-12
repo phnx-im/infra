@@ -219,9 +219,17 @@ pub struct QsClientId {
 }
 
 impl QsClientId {
+    pub fn from_bytes(client_id: Vec<u8>) -> Self {
+        Self { client_id }
+    }
+
     pub fn random() -> Self {
         let client_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
         Self { client_id }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.client_id
     }
 }
 
