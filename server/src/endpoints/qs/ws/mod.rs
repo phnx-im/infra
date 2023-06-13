@@ -67,7 +67,6 @@ impl QsWsConnection {
                 return;
             }
 
-            tracing::info!("Sending server ping");
             ctx.ping(b"Phoenix");
         });
     }
@@ -79,7 +78,6 @@ impl Actor for QsWsConnection {
     /// This method is called on actor start. We start the heartbeat process
     /// here.
     fn started(&mut self, ctx: &mut Self::Context) {
-        tracing::info!("QsWsConnection started, starting heartbeat");
         // Start heartbeat task for this connection
         self.heartbeat(ctx);
 
@@ -167,8 +165,6 @@ pub(crate) async fn upgrade_connection(
     stream: web::Payload,
     dispatch_data: Data<Addr<Dispatch>>,
 ) -> impl Responder {
-    /* tracing::info!("Upgrade reached!");
-    return HttpResponse::Accepted().body("body"); */
     // Read parameter from the request
     let header_value = match req.headers().get("QsOpenWsParams") {
         Some(value) => value,
