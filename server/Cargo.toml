@@ -28,7 +28,6 @@ config = "0.13.1"
 chrono = "0.4.19"
 uuid = { version = "1.0.0", features = ["v4"] }
 async-trait = "0.1.53"
-log = "0.4.16"
 actix-web-actors = "4.1.0"
 actix = "0.13.0"
 tokio = "1"

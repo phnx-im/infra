@@ -10,7 +10,7 @@ use http::{HeaderValue, Request};
 use phnxbackend::qs::QsClientId;
 use phnxserver::endpoints::{
     qs::ws::{QsOpenWsParams, QsWsMessage},
-    ENDPOINT_QS,
+    ENDPOINT_QS_WS,
 };
 use serde_json;
 use thiserror::*;
@@ -276,7 +276,7 @@ impl ApiClient {
             serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
         let encoded = base64::encode(&serialized);
         // Format the URL
-        let address = self.build_url(Protocol::Ws, ENDPOINT_QS);
+        let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly
         let _ = Request::builder()
             .uri(address.clone())

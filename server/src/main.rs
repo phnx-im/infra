@@ -14,9 +14,6 @@ use phnxserver::{
     telemetry::{get_subscriber, init_subscriber},
 };
 
-#[cfg(features = "postgresql")]
-use phnxserver::storage_provider::psql::ds::PgDsStorage;
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Configure logging/trace subscription
@@ -38,12 +35,13 @@ async fn main() -> std::io::Result<()> {
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let qs_enqueue_provider = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
-        notifier: ws_dispatch_notifier,
+        notifier: ws_dispatch_notifier.clone(),
     };
 
     // Start the server
     run(
         listener,
+        ws_dispatch_notifier,
         ds_storage_provider,
         qs_storage_provider,
         qs_enqueue_provider,

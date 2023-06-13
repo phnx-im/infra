@@ -59,7 +59,7 @@ impl QsWsConnection {
     fn heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.heartbeat) > CLIENT_TIMEOUT {
-                log::info!("Disconnecting websocket because heartbeat failed");
+                tracing::info!("Disconnecting websocket because heartbeat failed");
                 act.dispatch_addr.do_send(Disconnect {
                     queue_id: act.queue_id.clone(),
                 });
@@ -94,7 +94,7 @@ impl Actor for QsWsConnection {
                     Ok(_res) => (),
                     // If we can't register the client, stop the actor
                     _ => {
-                        log::error!("Error registering client with dispatch");
+                        tracing::error!("Error registering client with dispatch");
                         ctx.stop()
                     }
                 }
@@ -215,7 +215,7 @@ pub(crate) async fn upgrade_connection(
 
 /// This is a wrapper for dispatch actor that can be used to send out a
 /// notification over the dispatch.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DispatchWebsocketNotifier {
     pub dispatch_addr: Addr<Dispatch>,
 }

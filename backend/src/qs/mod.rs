@@ -131,6 +131,7 @@ impl From<Ciphertext> for EncryptedPushToken {
 
 impl EarEncryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
 
+#[derive(Debug)]
 pub enum WebsocketNotifierError {
     WebsocketNotFound,
 }
