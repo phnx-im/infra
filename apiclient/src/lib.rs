@@ -82,7 +82,7 @@ impl ApiClient {
     pub async fn health_check(&self) -> bool {
         match self
             .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
+            .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
             //.body(message_bytes)
             .send()
             .await
