@@ -17,8 +17,8 @@ use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
     messages::{
         client_ds::{
-            AddClientsParams, AddClientsParamsAad, QueueMessagePayload, QueueMessageType,
-            WelcomeBundle,
+            AddClientsParams, InfraAadMessage, InfraAadPayload, QueueMessagePayload,
+            QueueMessageType, WelcomeBundle,
         },
         intra_backend::DsFanOutMessage,
     },
@@ -62,9 +62,16 @@ impl DsGroupState {
             };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad =
-            AddClientsParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
                 .map_err(|_| ClientAdditionError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload =
+            if let InfraAadPayload::AddClients(add_clients_aad) = aad_message.into_payload() {
+                add_clients_aad
+            } else {
+                return Err(ClientAdditionError::InvalidMessage);
+            };
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         {
@@ -96,7 +103,7 @@ impl DsGroupState {
         // A few general checks.
         let number_of_add_proposals = staged_commit.add_proposals().count();
         // Check if we have enough encrypted credential chains.
-        if number_of_add_proposals != aad.encrypted_credential_information.len() {
+        if number_of_add_proposals != aad_payload.encrypted_credential_information.len() {
             return Err(ClientAdditionError::InvalidMessage);
         }
         let added_clients: Vec<KeyPackage> = staged_commit
@@ -134,7 +141,7 @@ impl DsGroupState {
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
         for (key_package, encrypted_client_credential) in added_clients
             .into_iter()
-            .zip(aad.encrypted_credential_information.into_iter())
+            .zip(aad_payload.encrypted_credential_information.into_iter())
         {
             let member = self
                 .group()

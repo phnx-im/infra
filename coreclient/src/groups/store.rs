@@ -37,7 +37,7 @@ impl GroupStore {
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
-        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
+        as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
     ) -> GroupId {
         let group = Group::join_group(

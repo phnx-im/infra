@@ -116,6 +116,41 @@ impl From<AssistedMessagePlus> for QueueMessagePayload {
 impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 impl EarDecryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
 
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct InfraAadMessage {
+    version: MlsInfraVersion,
+    payload: InfraAadPayload,
+}
+
+impl From<InfraAadPayload> for InfraAadMessage {
+    fn from(payload: InfraAadPayload) -> Self {
+        Self {
+            version: MlsInfraVersion::default(),
+            payload,
+        }
+    }
+}
+
+impl InfraAadMessage {
+    pub fn version(&self) -> MlsInfraVersion {
+        self.version
+    }
+
+    pub fn into_payload(self) -> InfraAadPayload {
+        self.payload
+    }
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum InfraAadPayload {
+    AddUsers(AddUsersParamsAad),
+    UpdateClient(UpdateClientParamsAad),
+    JoinGroup(JoinGroupParamsAad),
+    JoinConnectionGroup(JoinConnectionGroupParamsAad),
+    AddClients(AddClientsParamsAad),
+}
+
 #[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
@@ -181,7 +216,7 @@ pub struct AddUsersParams {
     pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddUsersParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
@@ -239,7 +274,7 @@ pub struct AddClientsParams {
     pub encrypted_welcome_attribution_infos: EncryptedWelcomeAttributionInfo,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddClientsParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }

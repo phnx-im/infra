@@ -71,8 +71,7 @@ impl SelfUser {
                         .conversation_store
                         .conversation_by_group_id(group_id)
                         .unwrap()
-                        .id
-                        .clone();
+                        .id;
                     match self.group_store.get_group_mut(group_id) {
                         Some(group) => {
                             let processed_message = group.process_message(

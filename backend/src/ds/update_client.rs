@@ -10,7 +10,9 @@ use mls_assist::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::messages::client_ds::{QueueMessagePayload, UpdateClientParams, UpdateClientParamsAad};
+use crate::messages::client_ds::{
+    InfraAadMessage, InfraAadPayload, QueueMessagePayload, UpdateClientParams,
+};
 
 use super::{
     api::USER_EXPIRATION_DAYS,
@@ -74,9 +76,15 @@ impl DsGroupState {
             .clone();
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad =
-            UpdateClientParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
                 .map_err(|_| ClientUpdateError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload = if let InfraAadPayload::UpdateClient(aad) = aad_message.into_payload() {
+            aad
+        } else {
+            return Err(ClientUpdateError::InvalidMessage);
+        };
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
@@ -123,7 +131,7 @@ impl DsGroupState {
             .credential()
             .clone();
         if new_sender_credential != old_sender_credential {
-            if let Some(ecc) = aad.option_encrypted_credential_information {
+            if let Some(ecc) = aad_payload.option_encrypted_credential_information {
                 let client_profile = self
                     .client_profiles
                     .get_mut(&sender)

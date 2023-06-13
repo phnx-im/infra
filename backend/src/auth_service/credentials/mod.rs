@@ -428,6 +428,32 @@ impl ClientCredential {
     pub fn verifying_key(&self) -> &ClientVerifyingKey {
         &self.payload.csr.verifying_key
     }
+
+    pub fn decrypt_and_verify(
+        ear_key: &ClientCredentialEarKey,
+        ciphertext: &EncryptedClientCredential,
+        as_intermediate_credentials: &[AsIntermediateCredential],
+    ) -> Result<Self, ClientCredentialProcessingError> {
+        let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)
+            .map_err(|_| ClientCredentialProcessingError::DecryptionError)?;
+        let as_credential = as_intermediate_credentials
+            .iter()
+            .find(|as_cred| {
+                &as_cred.fingerprint().unwrap() == verifiable_credential.signer_fingerprint()
+            })
+            .ok_or(ClientCredentialProcessingError::NoMatchingAsCredential)?;
+        let client_credential = verifiable_credential
+            .verify(as_credential.verifying_key())
+            .map_err(|_| ClientCredentialProcessingError::VerificationError)?;
+        Ok(client_credential)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ClientCredentialProcessingError {
+    DecryptionError,
+    VerificationError,
+    NoMatchingAsCredential,
 }
 
 impl VerifiedStruct<VerifiableClientCredential> for ClientCredential {

@@ -39,7 +39,10 @@ use phnxbackend::{
         WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
     },
     messages::{
-        client_ds::{DsJoinerInformationIn, WelcomeBundle},
+        client_ds::{
+            AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
+            JoinGroupParams, JoinGroupParamsAad, WelcomeBundle,
+        },
         client_ds_out::{AddUsersParamsOut, RemoveUsersParamsOut, SendMessageParamsOut},
     },
     qs::{KeyPackageBatch, VERIFIED},
@@ -53,8 +56,12 @@ use crate::{
     conversations::*,
     types::MessageContentType,
     types::*,
+    users::process,
 };
-use std::{collections::HashMap, panic::panic_any};
+use std::{
+    collections::{HashMap, HashSet},
+    panic::panic_any,
+};
 
 use openmls::prelude::*;
 
@@ -126,7 +133,7 @@ impl Group {
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
-        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
+        as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
@@ -260,12 +267,6 @@ impl Group {
         let verifying_key = mls_group.own_leaf_node().unwrap().signature_key();
         let leaf_signer = leaf_signers.remove(verifying_key).unwrap();
 
-        let mut members = Vec::new();
-        for member in mls_group.members() {
-            let identity = member.credential.identity().to_vec();
-            members.push(identity);
-        }
-
         // TODO: Once we support multiple clients, this should be synchronized
         // across clients.
         let user_auth_key = UserAuthSigningKey::generate().unwrap();
@@ -295,7 +296,7 @@ impl Group {
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
-        as_intermediate_credentials: &Vec<AsIntermediateCredential>,
+        as_intermediate_credentials: &[AsIntermediateCredential],
     ) -> Result<ProcessedMessage, GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
         let staged_commit = match processed_message.content() {
@@ -313,52 +314,171 @@ impl Group {
             let removed_member = proposal.remove_proposal().removed();
             diff.remove_client_credential(removed_member);
         }
-        // Process adds
-        // Decrypt and verify client credentials.
-        let client_credentials: Vec<ClientCredential> =
-            Vec::<EncryptedClientCredential>::tls_deserialize_exact(
-                processed_message.authenticated_data(),
-            )
-            .unwrap()
-            .into_iter()
-            .map(|ciphertext| {
-                let verifiable_credential =
-                    VerifiableClientCredential::decrypt(&self.credential_ear_key, &ciphertext)
-                        .unwrap();
-                let as_credential = as_intermediate_credentials
-                    .iter()
-                    .find(|as_cred| {
-                        &as_cred.fingerprint().unwrap()
-                            == verifiable_credential.signer_fingerprint()
+
+        // Let's figure out which operation this is meant to be.
+        let aad_payload =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+                .unwrap()
+                .into_payload();
+        match aad_payload {
+            InfraAadPayload::AddUsers(add_users_payload) => {
+                let client_credentials: Vec<ClientCredential> = add_users_payload
+                    .encrypted_credential_information
+                    .into_iter()
+                    .map(|ciphertext| {
+                        ClientCredential::decrypt_and_verify(
+                            &self.credential_ear_key,
+                            &ciphertext,
+                            as_intermediate_credentials,
+                        )
+                        .unwrap()
                     })
-                    .unwrap();
-                verifiable_credential
-                    .verify(as_credential.verifying_key())
-                    .unwrap()
-            })
-            .collect();
+                    .collect();
 
-        for client_credential in client_credentials {
-            diff.add_client_credentials(&self.client_credentials, client_credential)
-        }
+                // TODO: Validation:
+                // * Check that this commit only contains (inline) add proposals
+                // * Check that the leaf credential is not changed in the path
+                //   (or maybe if it is, check that it's valid).
+                // * User names MUST be unique within the group (check both new
+                //   and existing credentials for duplicates).
+                // * Client IDs MUST be unique within the group (only need to
+                //   check new credentials, as client IDs are scoped to user
+                //   names).
 
-        // Validate a potential new leaf credential, potentially based on a new client credential.
-        match processed_message.credential().mls_credential_type() {
-            MlsCredentialType::Basic(_) | MlsCredentialType::X509(_) => {
-                panic!("unsupported credential found")
-            }
-            MlsCredentialType::Infra(infra_credential) => {
-                let credential_plaintext =
-                    InfraCredentialPlaintext::decrypt(infra_credential, &self.signature_ear_key)
-                        .unwrap();
-                let sender_index = match processed_message.sender() {
-                    Sender::Member(index) => index.usize(),
-                    Sender::External(_) => panic!("external senders not supported yet"),
-                    Sender::NewMemberProposal => panic!("individual proposals not supported yet"),
-                    Sender::NewMemberCommit => todo!(),
+                // Verify the leaf credentials in all add proposals. We assume
+                // that leaf credentials are in the same order as client
+                // credentials.
+                for (index, proposal) in staged_commit.add_proposals().enumerate() {
+                    let client_credential = client_credentials.get(index).unwrap();
+                    match proposal
+                        .add_proposal()
+                        .key_package()
+                        .leaf_node()
+                        .credential()
+                        .mls_credential_type()
+                    {
+                        MlsCredentialType::Basic(_) | MlsCredentialType::X509(_) => {
+                            panic!("Unsupported credential type.")
+                        }
+                        MlsCredentialType::Infra(infra_credential) => {
+                            // Verify the leaf credential
+                            let credential_plaintext = InfraCredentialPlaintext::decrypt(
+                                infra_credential,
+                                &self.signature_ear_key,
+                            )
+                            .unwrap();
+                            credential_plaintext
+                                .verify::<InfraCredentialTbs>(client_credential.verifying_key())
+                                .unwrap();
+                        }
+                    }
                 }
-                let verifier_key = diff.credential(processed_message, self.existing_client_credentials)
-                credential_plaintext.verify(signature_public_key)
+
+                // Add the client credentials to the group.
+                for client_credential in client_credentials {
+                    diff.add_client_credentials(&self.client_credentials, client_credential)
+                }
+            }
+            InfraAadPayload::UpdateClient(_) => todo!(),
+            InfraAadPayload::JoinGroup(_) => todo!(),
+            InfraAadPayload::JoinConnectionGroup(_) => todo!(),
+            InfraAadPayload::AddClients(_) => todo!(),
+        };
+
+        // Process adds
+        // To process adds, we have to check the Aad. Depending on the
+        // operation, the AAD looks slightly different. We recognize the
+        // operation by checking if it's an external commit.
+        match processed_message.sender() {
+            Sender::External(_) | Sender::NewMemberProposal => panic!("Unsupported sender type."),
+            // If it's a member, it can be a number of operations.
+            Sender::Member(_) => {
+                // Check which operation it is:
+                // * AddUser: Sender is not the owner of the added clients. We
+                // can only check this after we have parsed and processed the
+                // EncryptedClientCredentials, which we can only do after we
+                // know which operation we have.
+                // TODO: Add Enum to AAD to identify operation.
+
+                // TODO: Branch here to see if it's an AddUsers, an UpdateClient
+                // or a RemoveUsers operation, etc. Before we do that, we should
+                // probably add a notion of User on the group level. Then verify
+                // that the operation is clean (no adds in a RemoveClient
+                // operation, ets.).
+                // Then create and populate a diff s.t. we can perform
+                // verification based on potentially changed client credentials.
+                // Then perform further verification:
+                // * new leaf credentials in proposals and path
+                // * new client credentials (of new members or as part of an update)
+                // Don't forget to deal with connection groups in the TODO below.
+
+                // Decrypt and verify client credentials for added users.
+                let client_credentials: Vec<ClientCredential> =
+                    Vec::<EncryptedClientCredential>::tls_deserialize_exact(
+                        processed_message.authenticated_data(),
+                    )
+                    .unwrap()
+                    .into_iter()
+                    .map(|ciphertext| {
+                        ClientCredential::decrypt_and_verify(
+                            &self.credential_ear_key,
+                            &ciphertext,
+                            as_intermediate_credentials,
+                        )
+                        .unwrap()
+                    })
+                    .collect();
+
+                // Add the client credentials to the group.
+                for client_credential in client_credentials {
+                    diff.add_client_credentials(&self.client_credentials, client_credential)
+                }
+
+                // Verify the leaf credentials in all add proposals.
+                for proposal in staged_commit.add_proposals() {
+                    // TODO
+                }
+
+                // TODO: Verify a potential new leaf credential from the leaf in
+                // the path. How to get it from the ProcessedMessage?
+                if let Some(new_credential) = processed_message.new_credential_option() {}
+            }
+            // If it's a NewMemberCommit, it's either a new client of an
+            // existing member, or a new member in a connection group.
+            // TODO: Deal with connection groups.
+            Sender::NewMemberCommit => {
+                // deserialize aad.
+                let join_group_params = JoinGroupParamsAad::tls_deserialize_exact(
+                    processed_message.authenticated_data(),
+                )
+                .unwrap();
+                // TODO: Check if the clients in the params match. We can do
+                // this once we have a notion of user in Group.
+                // Verify the client credential.
+                let client_credential = ClientCredential::decrypt_and_verify(
+                    &self.credential_ear_key,
+                    &join_group_params.encrypted_credential_information,
+                    as_intermediate_credentials,
+                )
+                .unwrap();
+                match processed_message.credential().mls_credential_type() {
+                    MlsCredentialType::Basic(_) | MlsCredentialType::X509(_) => {
+                        panic!("Unsupported credential type.")
+                    }
+                    MlsCredentialType::Infra(infra_credential) => {
+                        // Verify the leaf credential
+                        let credential_plaintext = InfraCredentialPlaintext::decrypt(
+                            infra_credential,
+                            &self.signature_ear_key,
+                        )
+                        .unwrap();
+                        credential_plaintext
+                            .verify::<InfraCredentialTbs>(client_credential.verifying_key())
+                            .unwrap();
+                        // Insert the client credential into the diff. This covers resync operations, since we've already dealt with removes.
+                        diff.add_client_credentials(&self.client_credentials, client_credential);
+                    }
+                }
             }
         }
 
@@ -394,9 +514,13 @@ impl Group {
             .iter()
             .map(|client_credential| client_credential.encrypt(&self.credential_ear_key).unwrap())
             .collect::<Vec<_>>();
+        let aad_message: InfraAadMessage = InfraAadPayload::AddUsers(AddUsersParamsAad {
+            encrypted_credential_information: ecc,
+        })
+        .into();
         // Set Aad to contain the encrypted client credentials.
         self.mls_group
-            .set_aad(&ecc.tls_serialize_detached().unwrap());
+            .set_aad(&aad_message.tls_serialize_detached().unwrap());
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
                 .add_members(backend, &self.leaf_signer, key_packages.as_slice())?;
@@ -535,6 +659,7 @@ impl Group {
         } else {
             return Err(GroupOperationError::NoPendingGroupDiff);
         }
+        self.pending_diff = None;
         Ok(self.mls_group.merge_pending_commit(backend)?)
     }
 
@@ -590,6 +715,21 @@ impl Group {
 
     pub(crate) fn pending_commit(&self) -> Option<&StagedCommit> {
         self.mls_group.pending_commit()
+    }
+
+    /// Returns the leaf indices of the clients owned by the given user.
+    pub(crate) fn user_clients(&self, user_name: UserName) -> Vec<usize> {
+        let mut user_clients = vec![];
+        for (index, cred_option) in self.client_credentials.iter().enumerate() {
+            if let Some(cred_user_name) =
+                cred_option.as_ref().map(|cred| cred.identity().username())
+            {
+                if cred_user_name == user_name {
+                    user_clients.push(index)
+                }
+            }
+        }
+        user_clients
     }
 }
 

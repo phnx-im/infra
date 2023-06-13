@@ -9,7 +9,9 @@ use mls_assist::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::messages::client_ds::{JoinGroupParams, JoinGroupParamsAad, QueueMessagePayload};
+use crate::messages::client_ds::{
+    InfraAadMessage, InfraAadPayload, JoinGroupParams, QueueMessagePayload,
+};
 
 use super::{
     api::USER_EXPIRATION_DAYS,
@@ -59,12 +61,18 @@ impl DsGroupState {
         };
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad = JoinGroupParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
-            .map_err(|_| JoinGroupError::InvalidMessage)?;
-
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+                .map_err(|_| JoinGroupError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload = if let InfraAadPayload::JoinGroup(aad) = aad_message.into_payload() {
+            aad
+        } else {
+            return Err(JoinGroupError::InvalidMessage);
+        };
         // Check if the claimed client indices match those in the user's profile.
         if let Some(user_profile) = self.user_profiles.get(&params.sender) {
-            if user_profile.clients != aad.existing_user_clients {
+            if user_profile.clients != aad_payload.existing_user_clients {
                 return Err(JoinGroupError::InvalidMessage);
             }
         } else {
@@ -104,7 +112,7 @@ impl DsGroupState {
 
         let client_profile = ClientProfile {
             leaf_index: sender,
-            encrypted_client_credential: aad.encrypted_credential_information,
+            encrypted_client_credential: aad_payload.encrypted_credential_information,
             client_queue_config: params.qs_client_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),

@@ -10,7 +10,7 @@ use mls_assist::{
 use tls_codec::DeserializeBytes;
 
 use crate::messages::client_ds::{
-    JoinConnectionGroupParams, JoinConnectionGroupParamsAad, QueueMessagePayload,
+    InfraAadMessage, InfraAadPayload, JoinConnectionGroupParams, QueueMessagePayload,
 };
 
 use super::{
@@ -60,10 +60,16 @@ impl DsGroupState {
             return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
-        let aad = JoinConnectionGroupParamsAad::tls_deserialize_exact(
-            processed_message.authenticated_data(),
-        )
-        .map_err(|_| JoinConnectionGroupError::InvalidMessage)?;
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+                .map_err(|_| JoinConnectionGroupError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload =
+            if let InfraAadPayload::JoinConnectionGroup(aad) = aad_message.into_payload() {
+                aad
+            } else {
+                return Err(JoinConnectionGroupError::InvalidMessage);
+            };
 
         // Check if the group indeed only has one user (prior to the new one joining).
         if self.user_profiles.len() > 1 {
@@ -99,7 +105,7 @@ impl DsGroupState {
         };
         let client_profile = ClientProfile {
             leaf_index: sender,
-            encrypted_client_credential: aad.encrypted_credential_information,
+            encrypted_client_credential: aad_payload.encrypted_credential_information,
             client_queue_config: params.qs_client_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),

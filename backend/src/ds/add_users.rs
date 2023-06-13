@@ -20,8 +20,8 @@ use crate::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
     messages::{
         client_ds::{
-            AddUsersParams, AddUsersParamsAad, DsJoinerInformation, QueueMessagePayload,
-            WelcomeBundle,
+            AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
+            QueueMessagePayload, WelcomeBundle,
         },
         intra_backend::DsFanOutMessage,
     },
@@ -69,8 +69,15 @@ impl DsGroupState {
             };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad = AddUsersParamsAad::tls_deserialize_exact(processed_message.authenticated_data())
-            .map_err(|_| UserAdditionError::InvalidMessage)?;
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+                .map_err(|_| UserAdditionError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload = if let InfraAadPayload::AddUsers(aad) = aad_message.into_payload() {
+            aad
+        } else {
+            return Err(UserAdditionError::InvalidMessage);
+        };
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         {
@@ -97,13 +104,15 @@ impl DsGroupState {
         }
 
         // Check if we have enough encrypted credential chains.
-        if staged_commit.add_proposals().count() != aad.encrypted_credential_information.len() {
+        if staged_commit.add_proposals().count()
+            != aad_payload.encrypted_credential_information.len()
+        {
             return Err(UserAdditionError::InvalidMessage);
         }
         let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)> =
             staged_commit
                 .add_proposals()
-                .zip(aad.encrypted_credential_information.into_iter())
+                .zip(aad_payload.encrypted_credential_information.into_iter())
                 .map(|(add_proposal, ecc)| {
                     let key_package_ref = add_proposal
                         .add_proposal()

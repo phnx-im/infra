@@ -63,7 +63,7 @@ pub(crate) struct MemoryUserKeyStore {
     qs_queue_decryption_key: RatchetDecryptionKey,
     qs_ratchet_key: QueueRatchet,
     push_token_ear_key: PushTokenEarKey,
-    // These are keys that we send to our con
+    // These are keys that we send to our contacts
     friendship_token: FriendshipToken,
     add_package_ear_key: AddPackageEarKey,
     client_credential_ear_key: ClientCredentialEarKey,
