@@ -10,7 +10,7 @@ use phnxbackend::{
     messages::client_qs::VerifiableClientToQsMessage,
     qs::{storage_provider_trait::QsStorageProvider, Qs},
 };
-use tls_codec::{Deserialize, Serialize};
+use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod ws;
 
@@ -32,7 +32,7 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     let storage_provider = qs_storage_provider.get_ref();
 
     // Deserialize the message.
-    let message = match VerifiableClientToQsMessage::tls_deserialize(&mut message.as_ref()) {
+    let message = match VerifiableClientToQsMessage::tls_deserialize_exact(message.as_ref()) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("Received invalid message: {:?}", e);

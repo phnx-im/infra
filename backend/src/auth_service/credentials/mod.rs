@@ -3,13 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{
-        HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey, SignatureScheme,
-    },
+    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use privacypass::Serialize;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{
     generate_signature_keypair, AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey,
@@ -18,13 +16,13 @@ use keys::{
 
 use crate::{
     crypto::{
-        ear::{keys::SignatureEncryptionKey, Ciphertext, EarEncryptable},
-        signatures::{
-            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-            traits::{SignatureVerificationError, VerifyingKey},
+        ear::{
+            keys::ClientCredentialEarKey, EarDecryptable, EarEncryptable, GenericDeserializable,
+            GenericSerializable,
         },
+        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
-    ds::group_state::TimeStamp,
+    ds::group_state::{EncryptedClientCredential, TimeStamp},
     messages::MlsInfraVersion,
     qs::Fqdn,
     LibraryError,
@@ -44,12 +42,12 @@ use self::keys::ClientVerifyingKey;
 
 use super::AsClientId;
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct CredentialFingerprint {
     value: Vec<u8>,
 }
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ExpirationData {
     not_before: TimeStamp,
     not_after: TimeStamp,
@@ -58,7 +56,7 @@ pub struct ExpirationData {
 impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
-    pub(crate) fn new(lifetime: i64) -> Self {
+    pub fn new(lifetime: i64) -> Self {
         Self {
             not_before: TimeStamp::now(),
             not_after: TimeStamp::in_days(lifetime),
@@ -67,7 +65,7 @@ impl ExpirationData {
 
     /// Return false either if the `not_after` date has passed, or if the
     /// `not_before` date has not passed yet.
-    pub(crate) fn validate(&self) -> bool {
+    pub fn validate(&self) -> bool {
         self.not_after.has_passed() && !self.not_before.has_passed()
     }
 }
@@ -91,7 +89,7 @@ fn fingerprint_with_label(
 const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize, Clone)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone)]
 pub struct AsCredential {
     version: MlsInfraVersion,
     as_domain: Fqdn,
@@ -128,8 +126,12 @@ impl AsCredential {
         Ok((credential, signing_key))
     }
 
-    fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
+    pub fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
         fingerprint_with_label(self, AS_CREDENTIAL_LABEL)
+    }
+
+    pub fn verifying_key(&self) -> &AsVerifyingKey {
+        &self.verifying_key
     }
 }
 
@@ -146,7 +148,7 @@ impl PreliminaryAsSigningKey {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub(crate) struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
     signature_scheme: SignatureScheme,
@@ -205,7 +207,7 @@ impl AsIntermediateCredentialCsr {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 struct AsIntermediateCredentialPayload {
     csr: AsIntermediateCredentialCsr,
     expiration_data: ExpirationData,
@@ -233,11 +235,11 @@ pub struct AsIntermediateCredential {
 }
 
 impl AsIntermediateCredential {
-    fn verifying_key(&self) -> &AsIntermediateVerifyingKey {
+    pub fn verifying_key(&self) -> &AsIntermediateVerifyingKey {
         &self.credential.csr.verifying_key
     }
 
-    fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
+    pub fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
         fingerprint_with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
     }
 }
@@ -251,10 +253,16 @@ impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential 
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct VerifiableAsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
+}
+
+impl VerifiableAsIntermediateCredential {
+    pub fn fingerprint(&self) -> &CredentialFingerprint {
+        &self.credential.signer_fingerprint
+    }
 }
 
 impl Verifiable for VerifiableAsIntermediateCredential {
@@ -271,10 +279,24 @@ impl Verifiable for VerifiableAsIntermediateCredential {
     }
 }
 
+impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCredential {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(
+        verifiable: VerifiableAsIntermediateCredential,
+        _seal: Self::SealingType,
+    ) -> Self {
+        Self {
+            credential: verifiable.credential,
+            signature: verifiable.signature,
+        }
+    }
+}
+
 const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
 const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: i64 = 90;
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ClientCredentialCsr {
     version: MlsInfraVersion,
     client_id: AsClientId,
@@ -289,7 +311,7 @@ impl ClientCredentialCsr {
     /// Returns the CSR and a preliminary signing key. The preliminary signing
     /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
     /// signed.
-    pub(crate) fn new(
+    pub fn new(
         client_id: AsClientId,
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
@@ -335,7 +357,7 @@ impl ClientCredentialCsr {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ClientCredentialPayload {
     csr: ClientCredentialCsr,
     expiration_data: ExpirationData,
@@ -343,6 +365,20 @@ pub struct ClientCredentialPayload {
 }
 
 impl ClientCredentialPayload {
+    pub fn new(
+        csr: ClientCredentialCsr,
+        expiration_data_option: Option<ExpirationData>,
+        signer_fingerprint: CredentialFingerprint,
+    ) -> Self {
+        let expiration_data = expiration_data_option
+            .unwrap_or(ExpirationData::new(DEFAULT_CLIENT_CREDENTIAL_LIFETIME));
+        Self {
+            csr,
+            expiration_data,
+            signer_fingerprint,
+        }
+    }
+
     pub(crate) fn validate(&self) -> bool {
         // TODO: Check uniqueness of client id
         self.expiration_data.validate()
@@ -367,7 +403,7 @@ impl ClientCredentialPayload {
     }
 }
 
-pub(crate) struct PreliminaryClientSigningKey {
+pub struct PreliminaryClientSigningKey {
     signing_key_bytes: Vec<u8>,
     verifying_key: ClientVerifyingKey,
 }
@@ -378,7 +414,7 @@ impl PreliminaryClientSigningKey {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -389,8 +425,45 @@ impl ClientCredential {
         self.payload.identity()
     }
 
-    pub(crate) fn verifying_key(&self) -> &ClientVerifyingKey {
+    pub fn verifying_key(&self) -> &ClientVerifyingKey {
         &self.payload.csr.verifying_key
+    }
+
+    pub fn decrypt_and_verify(
+        ear_key: &ClientCredentialEarKey,
+        ciphertext: &EncryptedClientCredential,
+        as_intermediate_credentials: &[AsIntermediateCredential],
+    ) -> Result<Self, ClientCredentialProcessingError> {
+        let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)
+            .map_err(|_| ClientCredentialProcessingError::DecryptionError)?;
+        let as_credential = as_intermediate_credentials
+            .iter()
+            .find(|as_cred| {
+                &as_cred.fingerprint().unwrap() == verifiable_credential.signer_fingerprint()
+            })
+            .ok_or(ClientCredentialProcessingError::NoMatchingAsCredential)?;
+        let client_credential = verifiable_credential
+            .verify(as_credential.verifying_key())
+            .map_err(|_| ClientCredentialProcessingError::VerificationError)?;
+        Ok(client_credential)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ClientCredentialProcessingError {
+    DecryptionError,
+    VerificationError,
+    NoMatchingAsCredential,
+}
+
+impl VerifiedStruct<VerifiableClientCredential> for ClientCredential {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: VerifiableClientCredential, _seal: Self::SealingType) -> Self {
+        Self {
+            payload: verifiable.payload,
+            signature: verifiable.signature,
+        }
     }
 }
 
@@ -400,10 +473,40 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+impl GenericSerializable for ClientCredential {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+impl EarEncryptable<ClientCredentialEarKey, EncryptedClientCredential> for ClientCredential {}
+
+impl GenericDeserializable for VerifiableClientCredential {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        use tls_codec::DeserializeBytes;
+        Self::tls_deserialize_exact(bytes)
+    }
+}
+
+impl EarDecryptable<ClientCredentialEarKey, EncryptedClientCredential>
+    for VerifiableClientCredential
+{
+}
+
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
+}
+
+impl VerifiableClientCredential {
+    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+        &self.payload.signer_fingerprint
+    }
 }
 
 impl Verifiable for VerifiableClientCredential {
@@ -417,114 +520,5 @@ impl Verifiable for VerifiableClientCredential {
 
     fn label(&self) -> &str {
         CLIENT_CREDENTIAL_LABEL
-    }
-}
-
-#[derive(Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct LeafVerifyingKey {
-    signature_key: SignaturePublicKey,
-}
-
-impl VerifyingKey for LeafVerifyingKey {}
-
-impl AsRef<[u8]> for LeafVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.signature_key.as_slice()
-    }
-}
-
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct LeafCredentialPayload {
-    expiration_data: ExpirationData,
-    signature_scheme: SignatureScheme,
-    public_key: LeafVerifyingKey,
-    signer_fingerprint: CredentialFingerprint,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct LeafCredential {
-    payload: LeafCredentialPayload,
-    signature: Signature,
-}
-
-pub const LEAF_CREDENTIAL_LABEL: &str = "Leaf Intermediate Credential";
-
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct VerifiableLeafCredential {
-    payload: LeafCredentialPayload,
-    signature: Signature,
-}
-
-impl Verifiable for VerifiableLeafCredential {
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.payload.tls_serialize_detached()
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    fn label(&self) -> &str {
-        LEAF_CREDENTIAL_LABEL
-    }
-}
-
-impl VerifiedStruct<VerifiableLeafCredential> for LeafCredential {
-    type SealingType = private_mod::Seal;
-
-    fn from_verifiable(verifiable: VerifiableLeafCredential, _seal: Self::SealingType) -> Self {
-        Self {
-            payload: verifiable.payload,
-            signature: verifiable.signature,
-        }
-    }
-}
-
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct EncryptedSignature {
-    ciphertext: Ciphertext,
-}
-
-impl From<Ciphertext> for EncryptedSignature {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self { ciphertext }
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedSignature {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ciphertext
-    }
-}
-
-impl EarEncryptable<SignatureEncryptionKey, EncryptedSignature> for Signature {}
-
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct UnlinkableLeafCredential {
-    payload: LeafCredentialPayload,
-    encrypted_signature: EncryptedSignature,
-}
-
-impl UnlinkableLeafCredential {
-    /// Verify this credential using the given [`ClientCredential`]. The
-    /// [`SignatureEncryptionKey`] is required to decrypt the signature on this
-    /// [`UnlinkableLeafCredential`].
-    ///
-    /// Note that type-based verification enforces that the [`ClientCredential`]
-    /// was already validated, thus guaranteeing verification of the whole
-    /// chain.
-    pub fn verify(
-        &self,
-        client_credential: &ClientCredential,
-        signature_encryption_key: &SignatureEncryptionKey,
-    ) -> Result<LeafCredential, SignatureVerificationError> {
-        // TODO: We might want to throw a more specific error here.
-        let signature = Signature::decrypt(signature_encryption_key, &self.encrypted_signature)
-            .map_err(|_| SignatureVerificationError::VerificationFailure)?;
-        VerifiableLeafCredential {
-            payload: self.payload.clone(),
-            signature,
-        }
-        .verify(&client_credential.payload.csr.verifying_key)
     }
 }

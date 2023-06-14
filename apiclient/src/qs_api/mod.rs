@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{TlsDeserializeTrait, TlsSerializeTrait};
 use phnxbackend::{
     crypto::{
-        ear::keys::FriendshipEarKey,
+        ear::keys::AddPackageEarKey,
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
             signable::Signable,
             traits::SigningKey,
         },
-        QueueRatchet, RatchetPublicKey,
+        QueueRatchet, RatchetEncryptionKey,
     },
     messages::{
         client_qs::{
@@ -30,6 +29,7 @@ use phnxbackend::{
 };
 use phnxserver::endpoints::ENDPOINT_QS;
 use thiserror::Error;
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{ApiClient, Protocol};
 
@@ -88,7 +88,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            QsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            QsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| QsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -96,7 +96,7 @@ impl ApiClient {
                     418 => {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
-                        let ds_proc_err = QsProcessError::tls_deserialize_bytes(ds_proc_err_bytes)
+                        let ds_proc_err = QsProcessError::tls_deserialize_exact(&ds_proc_err_bytes)
                             .map_err(|_| QsRequestError::BadResponse)?;
                         Err(QsRequestError::QsError(ds_proc_err))
                     }
@@ -117,9 +117,9 @@ impl ApiClient {
         &self,
         friendship_token: FriendshipToken,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        add_package_ear_key: AddPackageEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         initial_ratchet_key: QueueRatchet,
         signing_key: &QsUserSigningKey,
@@ -130,7 +130,7 @@ impl ApiClient {
             client_record_auth_key,
             queue_encryption_key,
             add_packages,
-            friendship_ear_key,
+            add_package_ear_key,
             encrypted_push_token,
             initial_ratchet_key,
         };
@@ -200,9 +200,9 @@ impl ApiClient {
         &self,
         sender: QsUserId,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        friendship_ear_key: AddPackageEarKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         initial_ratchet_key: QueueRatchet,
         signing_key: &QsUserSigningKey,
@@ -234,7 +234,7 @@ impl ApiClient {
     pub async fn qs_update_client(
         &self,
         sender: QsClientId,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
@@ -284,7 +284,7 @@ impl ApiClient {
         &self,
         sender: QsClientId,
         add_packages: Vec<AddPackage>,
-        friendship_ear_key: FriendshipEarKey,
+        friendship_ear_key: AddPackageEarKey,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let payload = PublishKeyPackagesParamsOut {

@@ -12,28 +12,30 @@
 #![allow(unused_variables)]
 use argon2::Argon2;
 use chrono::{DateTime, Utc};
-use hpke::{Hpke, HpkePrivateKey, HpkePublicKey};
-use hpke_rs_crypto::types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
-use hpke_rs_rust_crypto::HpkeRustCrypto;
 use mls_assist::{
     openmls::prelude::{OpenMlsCryptoProvider, OpenMlsRand},
     openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::{
+        crypto::OpenMlsCrypto,
+        types::{
+            HpkeAeadType, HpkeCiphertext, HpkeConfig, HpkeKdfType, HpkeKemType, HpkePrivateKey,
+        },
+    },
 };
 use opaque_ke::CipherSuite;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
     crypto::ear::EarEncryptable,
     messages::{client_ds::QueueMessagePayload, QueueMessage},
     qs::SealedClientReference,
-    LibraryError,
 };
 
 use self::{
-    ear::{keys::RatchetKey, Ciphertext, EncryptionError},
+    ear::{keys::RatchetKey, Ciphertext, EarDecryptable, EncryptionError},
     kdf::{keys::RatchetSecret, KdfDerivable},
 };
 
@@ -128,7 +130,7 @@ impl AsRef<Ciphertext> for EncryptedDsGroupState {
 
 pub(crate) type RatchetKeyUpdate = Vec<u8>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueRatchet {
     sequence_number: u64,
     secret: RatchetSecret,
@@ -149,6 +151,19 @@ impl QueueRatchet {
         })
     }
 
+    fn ratchet_forward(&mut self) -> Result<(), EncryptionError> {
+        let secret = RatchetSecret::derive(&self.secret, Vec::new())
+            .map_err(|_| EncryptionError::LibraryError)?;
+        let key =
+            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
+
+        self.secret = secret;
+        self.key = key;
+        self.sequence_number = 0;
+
+        Ok(())
+    }
+
     /// Encrypt the given payload.
     pub fn encrypt(
         &mut self,
@@ -157,14 +172,7 @@ impl QueueRatchet {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?;
 
-        let secret = RatchetSecret::derive(&self.secret, Vec::new())
-            .map_err(|_| EncryptionError::LibraryError)?;
-        let key =
-            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
-
-        self.secret = secret;
-        self.key = key;
-        self.sequence_number += 1;
+        self.ratchet_forward()?;
 
         Ok(QueueMessage {
             sequence_number: self.sequence_number,
@@ -173,8 +181,14 @@ impl QueueRatchet {
     }
 
     /// Decrypt the given payload.
-    pub fn decrypt(&self, queue_message: QueueMessage) -> Vec<u8> {
-        todo!()
+    pub fn decrypt(
+        &mut self,
+        queue_message: QueueMessage,
+    ) -> Result<QueueMessagePayload, DecryptionError> {
+        let plaintext = QueueMessagePayload::decrypt(&self.key, &queue_message.ciphertext)?;
+        self.ratchet_forward()
+            .map_err(|_| DecryptionError::DecryptionError)?;
+        Ok(plaintext)
     }
 
     /// Sample some fresh entropy and inject it into the current key. Returns the entropy.
@@ -189,57 +203,35 @@ impl QueueRatchet {
 }
 
 #[derive(
-    Serialize,
-    Deserialize,
-    ToSchema,
-    Clone,
-    TlsSerialize,
-    TlsDeserialize,
-    TlsSize,
-    Eq,
-    PartialEq,
-    Hash,
+    Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct HpkeCiphertext {
-    pub kem_output: Vec<u8>,
-    pub ciphertext: Vec<u8>,
-}
-
-#[derive(Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct EncryptionPublicKey {
-    public_key: HpkePublicKey,
+    public_key: Vec<u8>,
 }
 
 impl From<Vec<u8>> for EncryptionPublicKey {
     fn from(value: Vec<u8>) -> Self {
-        Self {
-            public_key: value.into(),
-        }
+        Self { public_key: value }
     }
 }
 
-pub const HPKE_KEM: KemAlgorithm = KemAlgorithm::DhKem25519;
-pub const HPKE_KDF: KdfAlgorithm = KdfAlgorithm::HkdfSha256;
-pub const HPKE_AEAD: AeadAlgorithm = AeadAlgorithm::Aes256Gcm;
+pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
+    HpkeKemType::DhKem25519,
+    HpkeKdfType::HkdfSha256,
+    HpkeAeadType::AesGcm256,
+);
 
 impl EncryptionPublicKey {
     /// Encrypt the given plaintext using this key.
-    pub(crate) fn encrypt(
-        &self,
-        info: &[u8],
-        aad: &[u8],
-        plain_txt: &[u8],
-    ) -> Result<HpkeCiphertext, LibraryError> {
-        Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
-            .seal(&self.public_key, info, aad, plain_txt, None, None, None)
-            .map_err(|_| LibraryError::unexpected_crypto_error("Error encrypting with HPKE."))
-            .map(|(kem_output, ciphertext)| HpkeCiphertext {
-                kem_output,
-                ciphertext,
-            })
+    pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
+        let backend = OpenMlsRustCrypto::default();
+        backend
+            .crypto()
+            .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum DecryptionError {
     DecryptionError,
 }
@@ -247,49 +239,94 @@ pub enum DecryptionError {
 #[derive(Debug, Clone)]
 pub struct DecryptionPrivateKey {
     private_key: HpkePrivateKey,
-    public_key: HpkePublicKey,
+    public_key: EncryptionPublicKey,
 }
 
 impl DecryptionPrivateKey {
-    pub(crate) fn decrypt(
+    pub fn new(private_key: HpkePrivateKey, public_key: EncryptionPublicKey) -> Self {
+        Self {
+            private_key,
+            public_key,
+        }
+    }
+
+    pub fn decrypt(
         &self,
         info: &[u8],
         aad: &[u8],
         ct: &HpkeCiphertext,
     ) -> Result<Vec<u8>, DecryptionError> {
-        Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
-            .open(
-                &ct.kem_output,
-                &self.private_key,
-                info,
-                aad,
-                &ct.ciphertext,
-                None,
-                None,
-                None,
-            )
+        let backend = OpenMlsRustCrypto::default();
+        backend
+            .crypto()
+            .hpke_open(HPKE_CONFIG, ct, &self.private_key, info, aad)
             .map_err(|_| DecryptionError::DecryptionError)
     }
 
-    pub(crate) fn generate() -> Result<Self, RandomnessError> {
+    pub fn generate() -> Result<Self, RandomnessError> {
         let provider = OpenMlsRustCrypto::default();
         let key_seed = provider
             .rand()
             .random_array::<32>()
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        let (private_key, public_key) =
-            Hpke::<HpkeRustCrypto>::new(hpke::Mode::Base, HPKE_KEM, HPKE_KDF, HPKE_AEAD)
-                .derive_key_pair(&key_seed)
-                .map_err(|_| RandomnessError::InsufficientRandomness)?
-                .into_keys();
+        let keypair = provider
+            .crypto()
+            .derive_hpke_keypair(HPKE_CONFIG, &key_seed);
         Ok(Self {
-            private_key,
-            public_key,
+            private_key: keypair.private,
+            public_key: EncryptionPublicKey {
+                public_key: keypair.public,
+            },
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct RatchetPublicKey {
+#[derive(
+    Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
+pub struct RatchetEncryptionKey {
     encryption_key: EncryptionPublicKey,
+}
+
+pub struct RatchetDecryptionKey {
+    decryption_key: DecryptionPrivateKey,
+}
+
+impl RatchetDecryptionKey {
+    pub fn generate() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            decryption_key: DecryptionPrivateKey::generate()?,
+        })
+    }
+
+    pub fn encryption_key(&self) -> RatchetEncryptionKey {
+        RatchetEncryptionKey {
+            encryption_key: self.decryption_key.public_key.clone(),
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
+pub struct ConnectionEncryptionKey {
+    encryption_key: EncryptionPublicKey,
+}
+
+pub struct ConnectionDecryptionKey {
+    decryption_key: DecryptionPrivateKey,
+}
+
+impl ConnectionDecryptionKey {
+    pub fn generate() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            decryption_key: DecryptionPrivateKey::generate()?,
+        })
+    }
+
+    pub fn encryption_key(&self) -> ConnectionEncryptionKey {
+        ConnectionEncryptionKey {
+            encryption_key: self.decryption_key.public_key.clone(),
+        }
+    }
 }

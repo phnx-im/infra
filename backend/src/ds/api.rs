@@ -159,14 +159,11 @@ use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::EarEncryptable,
+        ear::{EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
-        client_ds::{
-            CreateGroupParams, DsRequestParams, DsSender, QueueMessagePayload,
-            VerifiableClientToDsMessage,
-        },
+        client_ds::{CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage},
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::QsConnector,
@@ -233,7 +230,7 @@ impl DsApi {
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
             DsSender::LeafSignatureKey(verifying_key) => message
-                .verify(&verifying_key)
+                .verify(&LeafVerifyingKeyRef::from(&verifying_key))
                 .map_err(|_| DsProcessingError::InvalidSignature)?,
             DsSender::UserKeyHash(user_key_hash) => {
                 let verifying_key =
@@ -364,9 +361,7 @@ impl DsApi {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
-                    payload: send_message_params.message.message_bytes,
-                });
+                let c2c_message = send_message_params.message.into();
                 (Some(c2c_message), None, None)
             }
             // ======= Events =======

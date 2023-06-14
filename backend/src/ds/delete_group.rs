@@ -8,10 +8,7 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
-use crate::messages::{
-    client_ds::{DeleteGroupParams, QueueMessagePayload},
-    intra_backend::DsFanOutPayload,
-};
+use crate::messages::{client_ds::DeleteGroupParams, intra_backend::DsFanOutPayload};
 
 use super::errors::GroupDeletionError;
 
@@ -89,9 +86,7 @@ impl DsGroupState {
         // anyway.
 
         // Finally, we create the message for distribution.
-        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
-            payload: params.commit.message_bytes,
-        });
+        let c2c_message = params.commit.into();
 
         Ok(c2c_message)
     }

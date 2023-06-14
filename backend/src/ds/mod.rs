@@ -7,10 +7,25 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signature, *};
+use crate::{
+    auth_service::AsClientId,
+    crypto::{
+        ear::{
+            keys::{ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey},
+            Ciphertext, EarDecryptable, EarEncryptable,
+        },
+        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+        *,
+    },
+};
+
+mod private_mod {
+    #[derive(Default)]
+    pub struct Seal;
+}
 
 use self::group_state::TimeStamp;
 
@@ -39,27 +54,152 @@ pub enum LoadState {
     Expired,
 }
 
-/// This is the client's actual client id, not a pseudonym.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema)]
-pub struct ClientId {}
-
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfoPayload {
-    sender_client_id: ClientId,
-    group_credential_encryption_key: GroupStateEarKey,
+    sender_client_id: AsClientId,
+    client_credential_encryption_key: ClientCredentialEarKey,
+    signature_encryption_key: SignatureEarKey,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+impl WelcomeAttributionInfoPayload {
+    pub fn new(
+        sender_client_id: AsClientId,
+        client_credential_encryption_key: ClientCredentialEarKey,
+        signature_encryption_key: SignatureEarKey,
+    ) -> Self {
+        Self {
+            sender_client_id,
+            client_credential_encryption_key,
+            signature_encryption_key,
+        }
+    }
+
+    pub fn client_credential_encryption_key(&self) -> &ClientCredentialEarKey {
+        &self.client_credential_encryption_key
+    }
+
+    pub fn signature_encryption_key(&self) -> &SignatureEarKey {
+        &self.signature_encryption_key
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct WelcomeAttributionInfoTbs {
-    payload: WelcomeAttributionInfoPayload,
-    group_id: GroupId,
-    welcome: Vec<u8>,
+    pub payload: WelcomeAttributionInfoPayload,
+    pub group_id: GroupId,
+    pub welcome: Vec<u8>,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+impl Signable for WelcomeAttributionInfoTbs {
+    type SignedOutput = WelcomeAttributionInfo;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "WelcomeAttributionInfo"
+    }
+}
+
+impl SignedStruct<WelcomeAttributionInfoTbs> for WelcomeAttributionInfo {
+    fn from_payload(payload: WelcomeAttributionInfoTbs, signature: Signature) -> Self {
+        Self {
+            payload: payload.payload,
+            signature,
+        }
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfo {
     payload: WelcomeAttributionInfoPayload,
     signature: Signature,
+}
+
+impl WelcomeAttributionInfo {
+    pub fn new(payload: WelcomeAttributionInfoPayload, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
+    pub fn into_verifiable(
+        self,
+        group_id: GroupId,
+        serialized_welcome: Vec<u8>,
+    ) -> VerifiableWelcomeAttributionInfo {
+        let tbs = WelcomeAttributionInfoTbs {
+            payload: self.payload,
+            group_id,
+            welcome: serialized_welcome,
+        };
+        VerifiableWelcomeAttributionInfo {
+            payload: tbs,
+            signature: self.signature,
+        }
+    }
+}
+
+pub struct VerifiableWelcomeAttributionInfo {
+    payload: WelcomeAttributionInfoTbs,
+    signature: Signature,
+}
+
+impl VerifiableWelcomeAttributionInfo {
+    pub fn sender(&self) -> AsClientId {
+        self.payload.payload.sender_client_id.clone()
+    }
+}
+
+impl Verifiable for VerifiableWelcomeAttributionInfo {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.payload.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        "WelcomeAttributionInfo"
+    }
+}
+
+impl VerifiedStruct<VerifiableWelcomeAttributionInfo> for WelcomeAttributionInfoPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(
+        verifiable: VerifiableWelcomeAttributionInfo,
+        _seal: Self::SealingType,
+    ) -> Self {
+        verifiable.payload.payload
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct EncryptedWelcomeAttributionInfo {
+    ciphertext: Ciphertext,
+}
+
+impl AsRef<Ciphertext> for EncryptedWelcomeAttributionInfo {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
+    }
+}
+
+impl From<Ciphertext> for EncryptedWelcomeAttributionInfo {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl EarEncryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfo>
+    for WelcomeAttributionInfo
+{
+}
+
+impl EarDecryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfo>
+    for WelcomeAttributionInfo
+{
 }
 
 /// Storage provider trait for the DS.

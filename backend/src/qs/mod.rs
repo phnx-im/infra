@@ -64,16 +64,16 @@
 use crate::{
     crypto::{
         ear::{
-            keys::{FriendshipEarKey, PushTokenEarKey},
-            Ciphertext, EarEncryptable,
+            keys::{AddPackageEarKey, PushTokenEarKey},
+            Ciphertext, EarDecryptable, EarEncryptable,
         },
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SigningKey, VerifyingKey},
         },
-        DecryptionPrivateKey, EncryptionPublicKey, HpkeCiphertext, RandomnessError,
+        DecryptionPrivateKey, EncryptionPublicKey, RandomnessError,
     },
-    ds::group_state::TimeStamp,
+    ds::group_state::{EncryptedClientCredential, TimeStamp},
     messages::{client_ds::EventMessage, intra_backend::DsFanOutMessage},
 };
 
@@ -84,11 +84,12 @@ use mls_assist::{
         OpenMlsCryptoProvider, OpenMlsRand, ProtocolVersion,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserialize,
-    TlsSerialize, TlsSize,
+    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait,
+    TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 use utoipa::ToSchema;
 
@@ -102,17 +103,24 @@ pub mod storage_provider_trait;
 pub mod user_record;
 
 #[derive(Serialize, Deserialize)]
-struct PushToken {
+pub struct PushToken {
     token: Vec<u8>,
 }
 
 impl PushToken {
+    // TODO: This is a dummy implementation for now
+    pub fn dummy() -> Self {
+        Self { token: vec![0; 32] }
+    }
+
     /// If the alert level is high enough, send a notification to the client.
     fn send_notification(&self, _alert_level: u8) {
         todo!()
     }
 }
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct EncryptedPushToken {
     ctxt: Ciphertext,
 }
@@ -130,6 +138,7 @@ impl From<Ciphertext> for EncryptedPushToken {
 }
 
 impl EarEncryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
+impl EarDecryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
 
 pub enum WsNotification {
     Event(EventMessage),
@@ -173,7 +182,7 @@ impl ClientIdDecryptionKey {
             .private_key
             .decrypt(&[], &[], &sealed_client_reference.ciphertext)
             .map_err(|_| UnsealError::DecryptionError)?;
-        ClientConfig::tls_deserialize(&mut bytes.as_slice()).map_err(|_| UnsealError::CodecError)
+        ClientConfig::tls_deserialize_exact(&bytes).map_err(|_| UnsealError::CodecError)
     }
 
     pub fn generate() -> Result<Self, RandomnessError> {
@@ -195,10 +204,7 @@ impl ClientIdEncryptionKey {
         let bytes = client_config
             .tls_serialize_detached()
             .map_err(|_| SealError::CodecError)?;
-        let ciphertext = self
-            .public_key
-            .encrypt(&[], &[], &bytes)
-            .map_err(|_| SealError::EncryptionError)?;
+        let ciphertext = self.public_key.encrypt(&[], &[], &bytes);
         Ok(SealedClientReference { ciphertext })
     }
 }
@@ -206,7 +212,7 @@ impl ClientIdEncryptionKey {
 /// This is the pseudonymous client id used on the QS.
 #[derive(
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     Serialize,
     Deserialize,
@@ -237,7 +243,16 @@ impl QsClientId {
 }
 
 #[derive(
-    Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, PartialEq, Eq, Hash,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
 )]
 pub struct QsUserId {
     pub(crate) user_id: Vec<u8>,
@@ -251,7 +266,7 @@ impl QsUserId {
 }
 
 /// Info describing the queue configuration for a member of a given group.
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ClientConfig {
     pub(crate) client_id: QsClientId,
     // Some clients might not use push tokens.
@@ -329,7 +344,7 @@ pub struct Qs {}
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -344,7 +359,7 @@ pub struct Fqdn {}
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -361,7 +376,7 @@ pub struct QsClientReference {
     ToSchema,
     Clone,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -377,7 +392,7 @@ pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, ToSchema, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Clone)]
 pub struct QsEncryptedAddPackage {
     ctxt: Ciphertext,
 }
@@ -394,9 +409,11 @@ impl From<Ciphertext> for QsEncryptedAddPackage {
     }
 }
 
-impl EarEncryptable<FriendshipEarKey, QsEncryptedAddPackage> for AddPackage {}
+impl EarEncryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackage {}
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct KeyPackageBatchTbs {
     homeserver_domain: Fqdn,
     key_package_refs: Vec<KeyPackageRef>,
@@ -467,27 +484,45 @@ impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatchTbs {
     }
 }
 
-#[derive(Debug, ToSchema, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, ToSchema, TlsSerialize, TlsSize)]
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     payload: KeyPackageBatchTbs,
     signature: Signature,
 }
 
-impl TlsDeserializeTrait for KeyPackageBatch<UNVERIFIED> {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl TlsDeserializeBytesTrait for KeyPackageBatch<UNVERIFIED> {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let payload = KeyPackageBatchTbs::tls_deserialize(bytes)?;
-        let signature = Signature::tls_deserialize(bytes)?;
-        Ok(Self { payload, signature })
+        let (payload, bytes) = KeyPackageBatchTbs::tls_deserialize(bytes)?;
+        let (signature, bytes) = Signature::tls_deserialize(bytes)?;
+        Ok((Self { payload, signature }, bytes))
     }
 }
 
 #[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsSize)]
 pub struct AddPackage {
     key_package: KeyPackage,
-    icc_ciphertext: Vec<u8>,
+    encrypted_client_credential: EncryptedClientCredential,
+}
+
+impl AddPackage {
+    pub fn new(
+        key_package: KeyPackage,
+        encrypted_client_credential: EncryptedClientCredential,
+    ) -> Self {
+        Self {
+            key_package,
+            encrypted_client_credential,
+        }
+    }
+}
+
+#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct AddPackageIn {
+    key_package: KeyPackageIn,
+    encrypted_client_credential: EncryptedClientCredential,
 }
 
 impl AddPackageIn {
@@ -499,13 +534,9 @@ impl AddPackageIn {
         let key_package = self.key_package.validate(crypto, protocol_version)?;
         Ok(AddPackage {
             key_package,
-            icc_ciphertext: self.icc_ciphertext,
+            encrypted_client_credential: self.encrypted_client_credential,
         })
     }
 }
 
-#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
-pub struct AddPackageIn {
-    key_package: KeyPackageIn,
-    icc_ciphertext: Vec<u8>,
-}
+impl EarDecryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackageIn {}

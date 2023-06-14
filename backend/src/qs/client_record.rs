@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::{keys::PushTokenEarKey, DecryptionError, EarEncryptable},
+        ear::{keys::PushTokenEarKey, EarDecryptable},
         signatures::keys::QsClientVerifyingKey,
-        QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
+        DecryptionError, QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
     messages::{intra_backend::DsFanOutPayload, QueueMessage},
@@ -24,7 +24,7 @@ use super::{
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
 /// TODO: This needs a codec that allows decoding to the proper type.
-#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Debug)]
+#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Debug)]
 #[repr(u8)]
 pub(super) enum QsQueueMessage {
     #[tls_codec(discriminant = 1)]
@@ -33,11 +33,11 @@ pub(super) enum QsQueueMessage {
 }
 
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QsClientRecord {
     pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
-    pub(crate) owner_public_key: RatchetPublicKey,
+    pub(crate) owner_public_key: RatchetEncryptionKey,
     pub(crate) owner_signature_key: QsClientVerifyingKey,
     pub(crate) current_ratchet_key: QueueRatchet,
     pub(crate) activity_time: TimeStamp,
@@ -48,7 +48,7 @@ impl QsClientRecord {
     pub(crate) fn update(
         &mut self,
         client_record_auth_key: QsClientVerifyingKey,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         encrypted_push_token: Option<EncryptedPushToken>,
     ) {
         self.owner_signature_key = client_record_auth_key;

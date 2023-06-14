@@ -6,7 +6,7 @@
 //! computation and verification of MACs over other structs.
 
 use hmac::Hmac;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use super::Hash;
@@ -25,7 +25,7 @@ pub type MacError = hmac::digest::MacError;
 // TODO: There might be a way to get this generically from Mac.
 pub const MAC_KEY_SIZE: usize = 32;
 
-#[derive(TlsSerialize, TlsDeserialize, TlsSize, ToSchema)]
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct MacTag {
     tag: Vec<u8>,
 }

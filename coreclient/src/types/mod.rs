@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use openmls::prelude::GroupId;
+use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -46,7 +48,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub struct ContentMessage {
-    pub sender: String,
+    pub sender: UserName,
     pub content: MessageContentType,
 }
 
@@ -87,7 +89,9 @@ pub struct ErrorMessage {
 
 #[derive(Debug, Clone)]
 pub struct Conversation {
-    pub id: UuidBytes,
+    pub id: Uuid,
+    // Id of the (active) MLS group representing this conversation.
+    pub group_id: GroupId,
     pub status: ConversationStatus,
     pub conversation_type: ConversationType,
     pub last_used: u64,
@@ -121,7 +125,7 @@ pub struct ConversationAttributes {
 
 #[derive(Debug, Clone)]
 pub struct DispatchedConversationMessage {
-    pub conversation_id: UuidBytes,
+    pub conversation_id: Uuid,
     pub conversation_message: ConversationMessage,
 }
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{KeyPackageIn, TlsDeserializeTrait, TlsSerializeTrait};
+use mls_assist::openmls::prelude::KeyPackageIn;
 use phnxbackend::{
     auth_service::{
         client_api::privacypass::AsTokenType,
@@ -11,20 +11,21 @@ use phnxbackend::{
         AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
         OpaqueRegistrationRequest, UserName,
     },
-    crypto::{signatures::signable::Signable, QueueRatchet, RatchetPublicKey},
+    crypto::{signatures::signable::Signable, QueueRatchet, RatchetEncryptionKey},
     messages::{
         client_as::{
             AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
-            AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, DeleteClientParamsTbs,
-            DeleteUserParamsTbs, DequeueMessagesParamsTbs, EnqueueMessageParams,
-            FinishClientAdditionParams, FinishClientAdditionParamsTbs,
+            AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
+            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
             IssueTokensResponse, UserClientsParams, UserKeyPackagesParams,
         },
         client_as_out::{
             AsClientKeyPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            InitClientAdditionResponseIn, UserClientsResponseIn, UserKeyPackagesResponseIn,
+            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
+            UserKeyPackagesResponseIn,
         },
         client_ds::QueueMessagePayload,
     },
@@ -32,6 +33,7 @@ use phnxbackend::{
 use phnxserver::endpoints::ENDPOINT_AS;
 use privacypass::batched_tokens::TokenRequest;
 use thiserror::Error;
+use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{ApiClient, Protocol};
 
@@ -71,7 +73,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            AsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            AsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -80,7 +82,7 @@ impl ApiClient {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_err =
-                            AsProcessingError::tls_deserialize_bytes(ds_proc_err_bytes)
+                            AsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Err(AsRequestError::AsError(ds_proc_err))
                     }
@@ -101,7 +103,7 @@ impl ApiClient {
         &self,
         client_payload: ClientCredentialPayload,
         opaque_registration_request: OpaqueRegistrationRequest,
-    ) -> Result<(), AsRequestError> {
+    ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
         let payload = InitUserRegistrationParams {
             client_payload,
             opaque_registration_request,
@@ -112,8 +114,8 @@ impl ApiClient {
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
+                if let AsProcessResponseIn::InitUserRegistration(response) = response {
+                    Ok(response)
                 } else {
                     Err(AsRequestError::UnexpectedResponse)
                 }
@@ -150,9 +152,9 @@ impl ApiClient {
     pub async fn as_finish_user_registration(
         &self,
         user_name: UserName,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: QueueRatchet,
-        connection_key_packages: Vec<KeyPackageIn>,
+        connection_packages: Vec<ConnectionPackage>,
         opaque_registration_record: OpaqueRegistrationRecord,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
@@ -161,7 +163,7 @@ impl ApiClient {
             user_name,
             queue_encryption_key,
             initial_ratchet_key,
-            connection_key_packages,
+            connection_packages,
             opaque_registration_record,
         };
         let payload = tbs
@@ -236,7 +238,7 @@ impl ApiClient {
     pub async fn as_finish_client_addition(
         &self,
         client_id: AsClientId,
-        queue_encryption_key: RatchetPublicKey,
+        queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: QueueRatchet,
         connection_key_package: KeyPackageIn,
         opaque_login_finish: OpaqueLoginFinish,
@@ -422,9 +424,8 @@ impl ApiClient {
 
     pub async fn as_user_key_packages(
         &self,
-        user_name: UserName,
+        payload: UserKeyPackagesParams,
     ) -> Result<UserKeyPackagesResponseIn, AsRequestError> {
-        let payload = UserKeyPackagesParams { user_name };
         let params = AsRequestParams::UserKeyPackages(payload);
         let message = ClientToAsMessage::new(params);
         self.prepare_and_send_as_message(message)

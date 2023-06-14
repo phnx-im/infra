@@ -9,10 +9,7 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
-use crate::messages::{
-    client_ds::{QueueMessagePayload, ResyncClientParams},
-    intra_backend::DsFanOutPayload,
-};
+use crate::messages::{client_ds::ResyncClientParams, intra_backend::DsFanOutPayload};
 
 use super::api::USER_EXPIRATION_DAYS;
 use super::errors::ResyncClientError;
@@ -101,9 +98,7 @@ impl DsGroupState {
         // index, credential, qs client ref, etc.) remains the same.
 
         // Finally, we create the message for distribution.
-        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
-            payload: params.external_commit.message_bytes,
-        });
+        let c2c_message = params.external_commit.into();
 
         Ok(c2c_message)
     }

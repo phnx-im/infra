@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use privacypass::batched_tokens::server::Server;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
@@ -12,7 +12,7 @@ use crate::{
     messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
 };
 
-#[derive(Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum AsTokenType {
     AsEnqueue,

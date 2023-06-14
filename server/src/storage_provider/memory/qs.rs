@@ -18,7 +18,7 @@ use phnxbackend::{
         QsEncryptedAddPackage, QsSigningKey, QsUserId,
     },
 };
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 #[derive(Debug)]
 struct QueueData {
@@ -380,7 +380,7 @@ impl QsStorageProvider for MemStorageProvider {
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum StoreUserError {
     /// Cannot access user records.
@@ -403,7 +403,7 @@ pub enum StoreClientError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum CreateClientError {
     /// Cannot access user records.

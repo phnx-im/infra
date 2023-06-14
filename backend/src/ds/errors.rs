@@ -4,10 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 /// Error updating queue config.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum UpdateQueueConfigError {
     /// Couldn't find sender.
@@ -16,7 +16,7 @@ pub enum UpdateQueueConfigError {
 }
 
 /// Potential errors when removing users.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum UserRemovalError {
     /// Unrecoverable implementation error
@@ -34,7 +34,7 @@ pub enum UserRemovalError {
 }
 
 /// Potential errors when adding a user.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum UserAdditionError {
     /// Unrecoverable implementation error
@@ -64,7 +64,7 @@ pub enum UserAdditionError {
 }
 
 /// Potential errors when updating a client.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ClientUpdateError {
     /// Unrecoverable implementation error
@@ -82,7 +82,7 @@ pub enum ClientUpdateError {
 }
 
 /// Potential errors when processing a message.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessingError {
     /// Failed to distribute message to other members
@@ -151,7 +151,7 @@ pub enum DsProcessingError {
 }
 
 /// Potential errors when joining a group.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum JoinGroupError {
     /// Unrecoverable implementation error
@@ -169,7 +169,7 @@ pub enum JoinGroupError {
 }
 
 /// Potential errors when joining a connection group.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum JoinConnectionGroupError {
     /// Unrecoverable implementation error
@@ -193,7 +193,7 @@ pub enum JoinConnectionGroupError {
 }
 
 /// Potential errors when adding a user.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ClientAdditionError {
     /// Unrecoverable implementation error
@@ -214,7 +214,7 @@ pub enum ClientAdditionError {
 }
 
 /// Potential errors when removing clients.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ClientRemovalError {
     /// Unrecoverable implementation error
@@ -229,7 +229,7 @@ pub enum ClientRemovalError {
 }
 
 /// Potential errors when deleting a group.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum GroupDeletionError {
     /// Unrecoverable implementation error
@@ -244,7 +244,7 @@ pub enum GroupDeletionError {
 }
 
 /// Potential errors when processing a self remove proposal.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ClientSelfRemovalError {
     /// Unrecoverable implementation error
@@ -259,7 +259,7 @@ pub enum ClientSelfRemovalError {
 }
 
 /// Potential errors when sending a message.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum MessageSendingError {
     /// Unrecoverable implementation error
@@ -274,7 +274,7 @@ pub enum MessageSendingError {
 }
 
 /// Potential errors when resyncing a client.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ResyncClientError {
     /// Unrecoverable implementation error
@@ -289,7 +289,7 @@ pub enum ResyncClientError {
 }
 
 /// Potential errors when validating a commit or proposal.
-#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum ValidationError {
     /// Invalid assisted message.

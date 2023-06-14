@@ -10,6 +10,7 @@ use crate::{
     groups::{GroupOperationError, GroupStoreError},
 };
 
+use phnxapiclient::ds_api::DsRequestError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -29,7 +30,7 @@ pub enum CorelibError {
     #[error(transparent)]
     ConversationStore(#[from] ConversationStoreError),
     #[error(transparent)]
-    Grpc(#[from] GrpcError),
+    DsError(#[from] DsRequestError),
 }
 
 #[derive(Error, Debug)]

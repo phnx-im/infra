@@ -11,16 +11,16 @@ use phnxbackend::{
     messages::client_ds::VerifiableClientToDsMessage,
     qs::QsConnector,
 };
-use tls_codec::Serialize;
+use tls_codec::{DeserializeBytes, Serialize};
 
-/// DS endpoint for all functionalities.
+/// DS endpoint for all group-based functionalities.
 #[utoipa::path(
     post,
-    path = "{ENDPOINT_DS}",
-    tag = "DS",
+    path = "{ENDPOINT_DS_GROUPS}",
+    tag = "DS GROUPS",
     request_body = VerifiableClientToDsMessage,
     responses(
-        (status = 200, description = "Group created successfully."),
+        (status = 200, description = "Message processed successfully."),
     )
 )]
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
@@ -33,7 +33,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
     let storage_provider = ds_storage_provider.get_ref();
     let qs_connector = qs_connector.get_ref();
     // Create a new group on the DS.
-    let message = match VerifiableClientToDsMessage::try_from_bytes(&message) {
+    let message = match VerifiableClientToDsMessage::tls_deserialize_exact(&message) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("Received invalid message: {:?}", e);
@@ -52,4 +52,25 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
             HttpResponse::InternalServerError().body(e.to_string())
         }
     }
+}
+
+/// DS endpoint to fetch group ids.
+#[utoipa::path(
+    post,
+    path = "{ENDPOINT_DS_GROUP_IDS}",
+    tag = "DS GROUP IDS",
+    responses(
+        (status = 200, description = "Issued group ID."),
+    )
+)]
+#[tracing::instrument(name = "Issue group id", skip_all)]
+pub(crate) async fn ds_request_group_id<Dsp: DsStorageProvider>(
+    ds_storage_provider: Data<Dsp>,
+) -> impl Responder {
+    // Extract the storage provider.
+    let storage_provider = ds_storage_provider.get_ref();
+    // Create a new group on the DS.
+    let group_id = DsApi::request_group_id(storage_provider).await;
+
+    HttpResponse::Ok().body(group_id.tls_serialize_detached().unwrap())
 }

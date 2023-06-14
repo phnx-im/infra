@@ -10,22 +10,18 @@ use aes_gcm::{
     aead::{Aead as AesGcmAead, Key, Nonce},
     NewAead,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 use tracing::instrument;
 
-use crate::crypto::{secrets::Secret, RandomnessError};
+use crate::crypto::{secrets::Secret, DecryptionError, RandomnessError};
 
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
 
 /// Errors that can occur during an encryption operation.
+#[derive(Debug)]
 pub enum EncryptionError {
     RandomnessError, // Not enough randomness to generate Nonce
     LibraryError,    // Error encrypting the plaintext
-}
-
-/// Errors that can occur during a decryption operation.
-pub enum DecryptionError {
-    DecryptionError, // Error decrypting the ciphertext
 }
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
@@ -70,26 +66,61 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
     }
 }
 
+pub trait GenericSerializable: Sized {
+    type Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
+}
+
+impl<T: serde::Serialize> GenericSerializable for T {
+    type Error = serde_json::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        serde_json::to_vec(self)
+    }
+}
+
+pub trait GenericDeserializable: Sized {
+    type Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
+}
+
+impl<T: DeserializeOwned> GenericDeserializable for T {
+    type Error = serde_json::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        serde_json::from_slice(bytes)
+    }
+}
+
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
 pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
-    Serialize + DeserializeOwned
+    GenericSerializable
 {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<CiphertextType, EncryptionError> {
-        let plaintext = serde_json::to_vec(self).map_err(|_| EncryptionError::LibraryError)?;
+        let plaintext = self
+            .serialize()
+            .map_err(|_| EncryptionError::LibraryError)?;
         let ciphertext = ear_key.encrypt(&plaintext)?;
         Ok(ciphertext.into())
     }
+}
 
+/// A trait that can be derived for structs that are encryptable/decryptable by
+/// an EAR key.
+pub trait EarDecryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
+    GenericDeserializable
+{
     /// Decrypt the given ciphertext using the given [`EarKey`]. Returns a
     /// [`DecryptionError`] or the resulting plaintext.
     fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {
         let ciphertext = ciphertext.as_ref();
         let plaintext = ear_key.decrypt(ciphertext)?;
-        let res =
-            serde_json::from_slice(&plaintext).map_err(|_| DecryptionError::DecryptionError)?;
+        let res = Self::deserialize(&plaintext).map_err(|_| DecryptionError::DecryptionError)?;
         Ok(res)
     }
 }

@@ -9,10 +9,7 @@ use mls_assist::{
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 
-use crate::messages::{
-    client_ds::{QueueMessagePayload, RemoveClientsParams},
-    intra_backend::DsFanOutPayload,
-};
+use crate::messages::{client_ds::RemoveClientsParams, intra_backend::DsFanOutPayload};
 
 use super::{api::USER_EXPIRATION_DAYS, errors::ClientRemovalError};
 
@@ -144,9 +141,7 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
-            payload: params.commit.message_bytes,
-        });
+        let c2c_message = params.commit.into();
 
         Ok(c2c_message)
     }

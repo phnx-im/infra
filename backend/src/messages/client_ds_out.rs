@@ -8,27 +8,29 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::AssistedWelcome,
+    messages::{AssistedGroupInfo, AssistedWelcome},
     openmls::{
         prelude::{
             group_info::{GroupInfo, VerifiableGroupInfo},
-            Extensions, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
-            Signature as MlsAssistSignature,
+            GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
         },
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
-            keys::UserAuthKey,
+            keys::UserAuthVerifyingKey,
             signable::{Signable, Signature, SignedStruct},
         },
     },
-    ds::group_state::{EncryptedCredentialChain, UserKeyHash},
+    ds::{
+        group_state::{EncryptedClientCredential, UserKeyHash},
+        EncryptedWelcomeAttributionInfo,
+    },
     qs::{KeyPackageBatch, QsClientReference, VERIFIED},
 };
 
@@ -37,7 +39,7 @@ use super::{
     MlsInfraVersion,
 };
 
-#[derive(TlsDeserialize, TlsSize)]
+#[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
     Ok,
@@ -49,21 +51,21 @@ pub enum DsProcessResponseIn {
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub leaf_node: RatchetTree,
-    pub encrypted_credential_chain: EncryptedCredentialChain,
+    pub encrypted_credential_chain: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
-    pub creator_user_auth_key: UserAuthKey,
+    pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: GroupInfo,
 }
 
-pub type AssistedMessagePlusOut = (MlsMessageOut, (MlsAssistSignature, Extensions));
+pub type AssistedMessagePlusOut = (MlsMessageOut, AssistedGroupInfo);
 
 #[derive(TlsSerialize, TlsSize)]
 pub struct AddUsersParamsOut {
     // The commit and a partial assisted group info.
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
-    pub welcome: AssistedWelcome,
-    pub encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
+    pub welcome: MlsMessageOut,
+    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
@@ -77,7 +79,7 @@ pub struct RemoveUsersParamsOut {
 pub struct UpdateClientParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: LeafNodeIndex,
-    pub new_user_auth_key_option: Option<UserAuthKey>,
+    pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -90,7 +92,7 @@ pub struct JoinGroupParamsOut {
 #[derive(TlsSerialize, TlsSize)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessagePlusOut,
-    pub sender: UserAuthKey,
+    pub sender: UserAuthVerifyingKey,
     pub qs_client_reference: QsClientReference,
 }
 
@@ -108,7 +110,7 @@ pub struct AddClientsParamsOut {
 pub struct RemoveClientsParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
-    pub new_auth_key: UserAuthKey,
+    pub new_auth_key: UserAuthVerifyingKey,
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -125,7 +127,7 @@ pub struct SelfRemoveClientParamsOut {
 
 #[derive(TlsSerialize, TlsSize)]
 pub struct SendMessageParamsOut {
-    pub message: AssistedMessagePlusOut,
+    pub message: MlsMessageOut,
     pub sender: LeafNodeIndex,
 }
 

@@ -35,7 +35,7 @@ impl<T: Notifiable> Notifier<T> {
     }
 }
 
-pub(crate) struct NotificationHub<T: Notifiable> {
+pub struct NotificationHub<T: Notifiable> {
     pub(crate) sinks: Vec<Notifier<T>>,
 }
 

@@ -78,17 +78,17 @@ impl ApiClient {
         )
     }
 
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
     /// Call the health check endpoint
     pub async fn health_check(&self) -> bool {
-        match self
-            .client
+        self.client
             .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
             //.body(message_bytes)
             .send()
             .await
-        {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+            .is_ok()
     }
 }

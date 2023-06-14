@@ -10,22 +10,22 @@ use mls_assist::{
     openmls::{
         prelude::{
             group_info::{GroupInfo, VerifiableGroupInfo},
-            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsDeserializeTrait,
-            TlsSerializeTrait,
+            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsSerializeTrait,
         },
         treesync::RatchetTree,
     },
 };
 use phnxbackend::{
+    auth_service::credentials::keys::InfraCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
-            keys::{LeafSigningKey, UserAuthKey, UserAuthSigningKey},
+            keys::{UserAuthSigningKey, UserAuthVerifyingKey},
             signable::Signable,
             traits::SigningKey,
         },
     },
-    ds::{errors::DsProcessingError, group_state::EncryptedCredentialChain},
+    ds::{errors::DsProcessingError, group_state::EncryptedClientCredential},
     messages::{
         client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
         client_ds_out::{
@@ -37,9 +37,10 @@ use phnxbackend::{
             UpdateClientParamsOut,
         },
     },
-    qs::{KeyPackageBatch, QsClientReference, VERIFIED},
+    qs::QsClientReference,
 };
-use phnxserver::endpoints::ENDPOINT_DS;
+use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
+use tls_codec::DeserializeBytes;
 
 #[cfg(test)]
 mod tests;
@@ -59,6 +60,37 @@ pub enum DsRequestError {
 }
 
 impl ApiClient {
+    // Single purpose function since this is the only endpoint that doesn't require authentication.
+    pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
+        match self
+            .client
+            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUP_IDS))
+            .send()
+            .await
+        {
+            Ok(res) => {
+                match res.status().as_u16() {
+                    // Success!
+                    x if (200..=299).contains(&x) => {
+                        let ds_proc_res_bytes =
+                            res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
+                        let ds_proc_res = GroupId::tls_deserialize_exact(&ds_proc_res_bytes)
+                            .map_err(|_| DsRequestError::BadResponse)?;
+                        Ok(ds_proc_res)
+                    }
+                    // An error occurred. (There are no DS specific errors for this endpoint.)
+                    _ => {
+                        let error_text =
+                            res.text().await.map_err(|_| DsRequestError::BadResponse)?;
+                        Err(DsRequestError::NetworkError(error_text))
+                    }
+                }
+            }
+            // A network error occurred.
+            Err(err) => Err(DsRequestError::NetworkError(err.to_string())),
+        }
+    }
+
     async fn prepare_and_send_ds_message(
         &self,
         request_params: DsRequestParamsOut,
@@ -74,7 +106,7 @@ impl ApiClient {
             .map_err(|_| DsRequestError::LibraryError)?;
         match self
             .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_DS))
+            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS))
             .body(message_bytes)
             .send()
             .await
@@ -86,7 +118,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            DsProcessResponseIn::tls_deserialize_bytes(ds_proc_res_bytes)
+                            DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -95,7 +127,7 @@ impl ApiClient {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_err =
-                            DsProcessingError::tls_deserialize_bytes(ds_proc_err_bytes)
+                            DsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
                         Err(DsRequestError::DsError(ds_proc_err))
                     }
@@ -116,7 +148,7 @@ impl ApiClient {
     pub async fn ds_create_group(
         &self,
         leaf_node: RatchetTree,
-        encrypted_credential_chain: EncryptedCredentialChain,
+        encrypted_credential_chain: EncryptedClientCredential,
         creator_client_reference: QsClientReference,
         group_info: GroupInfo,
         group_state_ear_key: &GroupStateEarKey,
@@ -149,20 +181,10 @@ impl ApiClient {
     /// Add one or more users to a group.
     pub async fn ds_add_users(
         &self,
-        commit: AssistedMessagePlusOut,
-        welcome: AssistedWelcome,
-        encrypted_welcome_attribution_infos: Vec<Vec<u8>>,
-        key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
+        payload: AddUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        let payload = AddUsersParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-            welcome,
-            encrypted_welcome_attribution_infos,
-            key_package_batches,
-        };
         self.prepare_and_send_ds_message(
             DsRequestParamsOut::AddUsers(payload),
             signing_key,
@@ -182,16 +204,12 @@ impl ApiClient {
     /// Remove one or more users from a group.
     pub async fn ds_remove_users(
         &self,
-        commit: AssistedMessagePlusOut,
+        params: RemoveUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        let payload = RemoveUsersParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::RemoveUsers(payload),
+            DsRequestParamsOut::RemoveUsers(params),
             signing_key,
             group_state_ear_key,
         )
@@ -212,10 +230,10 @@ impl ApiClient {
         group_id: GroupId,
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &LeafSigningKey,
+        signing_key: &InfraCredentialSigningKey,
     ) -> Result<RatchetTreeIn, DsRequestError> {
         let payload = WelcomeInfoParams {
-            sender: signing_key.verifying_key().clone(),
+            sender: signing_key.credential().verifying_key().clone(),
             group_id,
             epoch,
         };
@@ -269,8 +287,8 @@ impl ApiClient {
         commit: AssistedMessagePlusOut,
         group_state_ear_key: &GroupStateEarKey,
         own_index: LeafNodeIndex,
-        signing_key: &LeafSigningKey,
-        new_user_auth_key_option: Option<UserAuthKey>,
+        signing_key: &InfraCredentialSigningKey,
+        new_user_auth_key_option: Option<UserAuthVerifyingKey>,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateClientParamsOut {
             commit,
@@ -386,7 +404,7 @@ impl ApiClient {
     pub async fn ds_remove_clients(
         &self,
         commit: AssistedMessagePlusOut,
-        new_auth_key: UserAuthKey,
+        new_auth_key: UserAuthVerifyingKey,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
@@ -468,17 +486,12 @@ impl ApiClient {
     /// Send a message to the given group.
     pub async fn ds_send_message(
         &self,
-        message: AssistedMessagePlusOut,
-        own_index: LeafNodeIndex,
-        signing_key: &LeafSigningKey,
+        params: SendMessageParamsOut,
+        signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        let payload = SendMessageParamsOut {
-            message,
-            sender: own_index,
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::SendMessage(payload),
+            DsRequestParamsOut::SendMessage(params),
             signing_key,
             group_state_ear_key,
         )
@@ -526,7 +539,7 @@ impl ApiClient {
         own_index: LeafNodeIndex,
         group_id: GroupId,
         new_queue_config: QsClientReference,
-        signing_key: &LeafSigningKey,
+        signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateQsClientReferenceParams {

@@ -4,21 +4,25 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::openmls::prelude::KeyPackage;
+use mls_assist::{openmls::prelude::KeyPackage, openmls_traits::random::OpenMlsRand};
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use serde::{Deserialize, Serialize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{OpaqueCiphersuite, QueueRatchet, RatchetPublicKey},
+    crypto::{OpaqueCiphersuite, QueueRatchet, RandomnessError, RatchetEncryptionKey},
     ds::group_state::TimeStamp,
-    messages::client_as::{
-        AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-        Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
-        IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
-        VerifiableClientToAsMessage, VerifiedAsRequestParams,
+    messages::{
+        client_as::{
+            AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
+            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
+            IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
+            VerifiedAsRequestParams,
+        },
+        client_as_out::VerifiableClientToAsMessage,
     },
 };
 
@@ -85,12 +89,12 @@ pub struct OpaqueLoginFinish {
 /// The TLS serialization implementation of this
 #[derive(Debug)]
 pub struct OpaqueRegistrationRequest {
-    client_message: RegistrationRequest<OpaqueCiphersuite>,
+    pub client_message: RegistrationRequest<OpaqueCiphersuite>,
 }
 
 #[derive(Debug)]
 pub struct OpaqueRegistrationResponse {
-    server_message: RegistrationResponse<OpaqueCiphersuite>,
+    pub server_message: RegistrationResponse<OpaqueCiphersuite>,
 }
 
 impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationResponse {
@@ -103,7 +107,7 @@ impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationRespons
 
 #[derive(Debug)]
 pub struct OpaqueRegistrationRecord {
-    client_message: RegistrationUpload<OpaqueCiphersuite>,
+    pub client_message: RegistrationUpload<OpaqueCiphersuite>,
 }
 
 // === User ===
@@ -117,24 +121,88 @@ pub struct AsUserRecord {
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
-pub struct UserName {}
+#[derive(
+    Clone,
+    Debug,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub struct UserName {
+    pub(crate) user_name: Vec<u8>,
+}
+
+impl From<Vec<u8>> for UserName {
+    fn from(value: Vec<u8>) -> Self {
+        Self { user_name: value }
+    }
+}
+
+impl UserName {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.user_name
+    }
+}
+
+impl From<String> for UserName {
+    fn from(value: String) -> Self {
+        Self {
+            user_name: value.into_bytes(),
+        }
+    }
+}
 
 // === Client ===
 
-#[derive(Clone, Debug, TlsDeserialize, TlsSerialize, TlsSize)]
+#[derive(
+    Clone,
+    Debug,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
+)]
 pub struct AsClientId {
+    pub(crate) user_name: UserName,
     pub(crate) client_id: Vec<u8>,
 }
 
+impl AsRef<[u8]> for AsClientId {
+    fn as_ref(&self) -> &[u8] {
+        &self.client_id
+    }
+}
+
 impl AsClientId {
+    pub fn random(
+        backend: &impl OpenMlsRand,
+        user_name: UserName,
+    ) -> Result<Self, RandomnessError> {
+        let client_id = backend
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        Ok(Self {
+            user_name,
+            client_id,
+        })
+    }
+
     pub fn username(&self) -> UserName {
-        todo!()
+        self.user_name.clone()
     }
 }
 
 pub struct AsClientRecord {
-    pub queue_encryption_key: RatchetPublicKey,
+    pub queue_encryption_key: RatchetEncryptionKey,
     pub ratchet_key: QueueRatchet,
     pub activity_time: TimeStamp,
     pub credential: ClientCredential,

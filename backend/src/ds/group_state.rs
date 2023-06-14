@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use mls_assist::{
@@ -14,14 +14,14 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size, TlsDeserialize,
-    TlsSerialize, TlsSize,
+    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait, Size,
+    TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
 use crate::{
     crypto::{
-        ear::{keys::GroupStateEarKey, EarEncryptable},
-        signatures::keys::UserAuthKey,
+        ear::{keys::GroupStateEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+        signatures::keys::UserAuthVerifyingKey,
         EncryptedDsGroupState,
     },
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
@@ -50,19 +50,22 @@ impl TlsSerializeTrait for TimeStamp {
     }
 }
 
-impl TlsDeserializeTrait for TimeStamp {
-    fn tls_deserialize<R: std::io::Read>(bytes: &mut R) -> Result<Self, tls_codec::Error>
+impl TlsDeserializeBytesTrait for TimeStamp {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let mut millis_bytes = [0u8; 8];
-        bytes.read_exact(&mut millis_bytes)?;
+        let millis_bytes: [u8; 8] = bytes
+            .get(..8)
+            .ok_or(tls_codec::Error::EndOfStream)?
+            .try_into()
+            .map_err(|_| tls_codec::Error::EndOfStream)?;
         let millis = i64::from_be_bytes(millis_bytes);
         let time = DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_millis(millis).ok_or(tls_codec::Error::InvalidInput)?,
             Utc,
         );
-        Ok(Self { time })
+        Ok((Self { time }, &bytes[8..]))
     }
 }
 
@@ -89,7 +92,7 @@ impl TimeStamp {
 }
 
 #[derive(
-    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserialize, TlsSize,
+    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct UserKeyHash {
     pub(super) hash: Vec<u8>,
@@ -105,16 +108,32 @@ impl UserKeyHash {
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
     pub(super) clients: Vec<LeafNodeIndex>,
-    pub(super) user_auth_key: UserAuthKey,
+    pub(super) user_auth_key: UserAuthVerifyingKey,
 }
 
-#[derive(Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
-pub struct EncryptedCredentialChain {}
+#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct EncryptedClientCredential {
+    pub(super) encrypted_credential_chain: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedClientCredential {
+    fn from(value: Ciphertext) -> Self {
+        Self {
+            encrypted_credential_chain: value,
+        }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedClientCredential {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.encrypted_credential_chain
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
-    pub(super) credential_chain: EncryptedCredentialChain,
+    pub(super) encrypted_client_credential: EncryptedClientCredential,
     pub(super) client_queue_config: QsClientReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
@@ -134,15 +153,15 @@ pub(crate) struct DsGroupState {
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
     // Here we keep users that haven't set their user key yet.
     pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
-    pub(super) client_profiles: HashMap<LeafNodeIndex, ClientProfile>,
+    pub(super) client_profiles: BTreeMap<LeafNodeIndex, ClientProfile>,
 }
 
 impl DsGroupState {
     //#[instrument(level = "trace", skip_all)]
     pub(crate) fn new(
         group: Group,
-        creator_user_auth_key: UserAuthKey,
-        creator_encrypted_credential_chain: EncryptedCredentialChain,
+        creator_user_auth_key: UserAuthVerifyingKey,
+        creator_encrypted_credential_chain: EncryptedClientCredential,
         creator_queue_config: QsClientReference,
     ) -> Self {
         let creator_key_hash = creator_user_auth_key.hash();
@@ -153,7 +172,7 @@ impl DsGroupState {
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
         let creator_client_profile = ClientProfile {
-            credential_chain: creator_encrypted_credential_chain,
+            encrypted_client_credential: creator_encrypted_credential_chain,
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
@@ -190,7 +209,10 @@ impl DsGroupState {
         Ok(())
     }
 
-    pub(crate) fn get_user_key(&self, user_key_hash: &UserKeyHash) -> Option<&UserAuthKey> {
+    pub(crate) fn get_user_key(
+        &self,
+        user_key_hash: &UserKeyHash,
+    ) -> Option<&UserAuthVerifyingKey> {
         self.user_profiles
             .get(user_key_hash)
             .map(|user_profile| &user_profile.user_auth_key)
@@ -200,10 +222,8 @@ impl DsGroupState {
         &mut self,
         welcome_info_params: WelcomeInfoParams,
     ) -> Option<&RatchetTree> {
-        self.group_mut().past_group_state(
-            &welcome_info_params.epoch,
-            welcome_info_params.sender.verifying_key(),
-        )
+        self.group_mut()
+            .past_group_state(&welcome_info_params.epoch, &welcome_info_params.sender)
     }
 
     pub(super) fn external_commit_info(&mut self) -> (GroupInfo, RatchetTree) {
@@ -274,6 +294,21 @@ impl DsGroupState {
         }
         Ok(())
     }
+
+    /// Create vector of encrypted client credentials options from the current
+    /// list of client records.
+    pub(super) fn client_credentials(&self) -> Vec<Option<EncryptedClientCredential>> {
+        let mut client_credentials = vec![];
+        for (client_index, client_profile) in self.client_profiles.iter() {
+            if client_index.u32() == client_credentials.len() as u32 {
+                client_credentials.push(Some(client_profile.encrypted_client_credential.clone()));
+            } else {
+                client_credentials.push(None);
+            }
+        }
+        client_credentials
+    }
 }
 
 impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}

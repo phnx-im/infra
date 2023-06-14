@@ -66,7 +66,10 @@ pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsConnector>(
             .app_data(qs_storage_provider_data.clone())
             .app_data(qs_connector_data.clone())
             // DS enpoint
-            .route(ENDPOINT_DS, web::post().to(ds_process_message::<Dsp, Qep>))
+            .route(
+                ENDPOINT_DS_GROUPS,
+                web::post().to(ds_process_message::<Dsp, Qep>),
+            )
             // QS endpoint
             .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
             // WS endpoint

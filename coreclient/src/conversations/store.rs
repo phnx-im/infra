@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 
+use openmls::prelude::GroupId;
+
 use crate::types::*;
 
 use super::*;
@@ -15,17 +17,25 @@ pub(crate) struct ConversationStore {
 }
 
 impl ConversationStore {
+    pub(crate) fn conversation_by_group_id(&self, group_id: &GroupId) -> Option<&Conversation> {
+        self.conversations
+            .values()
+            .find(|conversation| conversation.group_id == *group_id)
+    }
+
     pub(crate) fn create_group_conversation(
         &mut self,
         conversation_id: Uuid,
+        group_id: GroupId,
         attributes: ConversationAttributes,
     ) {
         let conversation = Conversation {
-            id: UuidBytes::from_uuid(&conversation_id),
+            id: conversation_id.clone(),
+            group_id,
+            status: ConversationStatus::Active(ActiveConversation {}),
             conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),
             attributes,
-            status: ConversationStatus::Active(ActiveConversation {}),
         };
         self.conversations.insert(conversation_id, conversation);
     }
@@ -36,7 +46,7 @@ impl ConversationStore {
         conversations
     }
 
-    pub(crate) fn _conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
+    pub(crate) fn conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
         self.conversations.get(conversation_id)
     }
 

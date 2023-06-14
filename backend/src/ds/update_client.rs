@@ -8,10 +8,10 @@ use mls_assist::{
     messages::AssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
-use tls_codec::Deserialize;
+use tls_codec::DeserializeBytes;
 
 use crate::messages::{
-    client_ds::{QueueMessagePayload, UpdateClientParams, UpdateClientParamsAad},
+    client_ds::{InfraAadMessage, InfraAadPayload, UpdateClientParams},
     intra_backend::DsFanOutPayload,
 };
 
@@ -77,9 +77,15 @@ impl DsGroupState {
             .clone();
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad =
-            UpdateClientParamsAad::tls_deserialize(&mut processed_message.authenticated_data())
+        let aad_message =
+            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
                 .map_err(|_| ClientUpdateError::InvalidMessage)?;
+        // TODO: Check version of Aad Message
+        let aad_payload = if let InfraAadPayload::UpdateClient(aad) = aad_message.into_payload() {
+            aad
+        } else {
+            return Err(ClientUpdateError::InvalidMessage);
+        };
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
@@ -126,21 +132,19 @@ impl DsGroupState {
             .credential()
             .clone();
         if new_sender_credential != old_sender_credential {
-            if let Some(ecc) = aad.option_encrypted_credential_information {
+            if let Some(ecc) = aad_payload.option_encrypted_credential_information {
                 let client_profile = self
                     .client_profiles
                     .get_mut(&sender)
                     .ok_or(ClientUpdateError::UnknownSender)?;
-                client_profile.credential_chain = ecc;
+                client_profile.encrypted_client_credential = ecc;
             } else {
                 return Err(ClientUpdateError::InvalidMessage);
             }
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
-            payload: params.commit.message_bytes,
-        });
+        let c2c_message = params.commit.into();
 
         Ok(c2c_message)
     }

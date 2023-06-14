@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::{
+    openmls::{prelude::OpenMlsRand, test_utils::OpenMlsCryptoProvider},
+    openmls_rust_crypto::OpenMlsRustCrypto,
+};
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
-use crate::crypto::ear::Ciphertext;
+use crate::crypto::{ear::Ciphertext, RandomnessError};
 
 pub mod client_as;
 pub mod client_as_out;
@@ -21,7 +25,7 @@ pub mod intra_backend;
     Deserialize,
     ToSchema,
     TlsSerialize,
-    TlsDeserialize,
+    TlsDeserializeBytes,
     TlsSize,
     PartialEq,
     Eq,
@@ -33,6 +37,15 @@ pub struct FriendshipToken {
 }
 
 impl FriendshipToken {
+    pub fn random() -> Result<Self, RandomnessError> {
+        let token = OpenMlsRustCrypto::default()
+            .rand()
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+
+        Ok(Self { token })
+    }
+
     pub fn token(&self) -> &[u8] {
         self.token.as_ref()
     }
@@ -40,9 +53,9 @@ impl FriendshipToken {
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.
-#[derive(Debug, TlsSerialize, TlsDeserialize, TlsSize, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Copy)]
 #[repr(u8)]
-pub(crate) enum MlsInfraVersion {
+pub enum MlsInfraVersion {
     Alpha,
 }
 
@@ -54,13 +67,13 @@ impl Default for MlsInfraVersion {
 
 // === Queue ===
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueMessage {
     pub sequence_number: u64,
     pub ciphertext: EncryptedQueueMessage,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct EncryptedQueueMessage {
     payload: Ciphertext,
 }

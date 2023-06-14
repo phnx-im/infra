@@ -8,7 +8,7 @@ use privacypass::Serialize;
 use crate::{
     auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
     crypto::signatures::signable::Signable,
-    messages::client_as::*,
+    messages::{client_as::*, client_as_out::FinishUserRegistrationParamsTbsIn},
 };
 
 impl AuthService {
@@ -100,14 +100,14 @@ impl AuthService {
     >(
         storage_provider: &S,
         ephemeral_storage_provider: &E,
-        params: FinishUserRegistrationParamsTbs,
+        params: FinishUserRegistrationParamsTbsIn,
     ) -> Result<(), FinishUserRegistrationError> {
-        let FinishUserRegistrationParamsTbs {
+        let FinishUserRegistrationParamsTbsIn {
             client_id,
             user_name,
             queue_encryption_key,
             initial_ratchet_key,
-            connection_key_packages,
+            connection_packages,
             opaque_registration_record,
         } = params;
 

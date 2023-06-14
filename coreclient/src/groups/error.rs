@@ -24,6 +24,12 @@ pub enum GroupOperationError {
     AddMembersError(#[from] AddMembersError<MemoryKeyStoreError>),
     #[error(transparent)]
     MergePendingCommitError(#[from] MergePendingCommitError<MemoryKeyStoreError>),
+    #[error("No pending group diff")]
+    NoPendingGroupDiff,
+    #[error("User already in group")]
+    DuplicateUserAddition,
+    #[error("Client already in group")]
+    DuplicateClientAddition,
 }
 
 implement_error! {
