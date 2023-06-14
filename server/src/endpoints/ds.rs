@@ -64,7 +64,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
     )
 )]
 #[tracing::instrument(name = "Issue group id", skip_all)]
-pub(crate) async fn ds_request_group_id<Dsp: DsStorageProvider, Qep: QsEnqueueProvider>(
+pub(crate) async fn ds_request_group_id<Dsp: DsStorageProvider>(
     ds_storage_provider: Data<Dsp>,
 ) -> impl Responder {
     // Extract the storage provider.

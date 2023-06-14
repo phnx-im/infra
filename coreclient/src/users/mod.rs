@@ -489,19 +489,15 @@ impl SelfUser {
     }
 
     pub fn add_contact(&self, user_name: &str) {
-        let user_name = user_name.to_string().into();
-        let params = UserKeyPackagesParams { user_name };
+        let user_name: UserName = user_name.to_string().into();
+        let params = UserKeyPackagesParams {
+            user_name: user_name.clone(),
+        };
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_key_packages = block_on(self.api_client.as_user_key_packages(params)).unwrap();
         let connection_key_packages = user_key_packages.key_packages;
 
-        let contact = Contact {
-            user_name,
-            last_resort_add_info: todo!(),
-            add_infos: todo!(),
-            client_credentials: todo!(),
-            wai_ear_key: todo!(),
-        };
+        todo!()
     }
 }
