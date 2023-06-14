@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
-        errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, Fqdn, Qs,
-        QsEnqueueProvider, QsVerifyingKey,
+        errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, Fqdn, Qs, QsConnector,
+        QsVerifyingKey,
     },
 };
 
@@ -22,15 +22,15 @@ pub struct MemoryEnqueueProvider<T: QsStorageProvider> {
 }
 
 #[async_trait]
-impl<T: QsStorageProvider> QsEnqueueProvider for MemoryEnqueueProvider<T> {
+impl<T: QsStorageProvider> QsConnector for MemoryEnqueueProvider<T> {
     type EnqueueError = QsEnqueueError<T>;
     type VerifyingKeyError = T::LoadSigningKeyError;
 
-    async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
+    async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
         Qs::enqueue_message(self.storage.deref(), &self.notifier, message).await
     }
 
-    async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError> {
+    async fn verifying_key(&self, _fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError> {
         let key = self
             .storage
             .load_signing_key()

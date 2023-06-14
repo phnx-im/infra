@@ -495,12 +495,13 @@ impl SelfUser {
         // a connection group. Finally, we fully add the user as a contact.
         let user_key_packages = block_on(self.api_client.as_user_key_packages(params)).unwrap();
         let connection_key_packages = user_key_packages.key_packages;
+
         let contact = Contact {
             user_name,
             last_resort_add_info: todo!(),
             add_infos: todo!(),
             client_credentials: todo!(),
             wai_ear_key: todo!(),
-        }
+        };
     }
 }

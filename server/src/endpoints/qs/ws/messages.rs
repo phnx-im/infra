@@ -32,4 +32,5 @@ pub enum NotifyMessageError {
 #[rtype(result = "Result<(), NotifyMessageError>")]
 pub struct NotifyMessage {
     pub queue_id: QsClientId,
+    pub payload: QsWsMessage,
 }

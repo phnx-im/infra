@@ -74,7 +74,7 @@ use crate::{
         DecryptionPrivateKey, EncryptionPublicKey, RandomnessError,
     },
     ds::group_state::{EncryptedClientCredential, TimeStamp},
-    messages::intra_backend::DsFanOutMessage,
+    messages::{client_ds::EventMessage, intra_backend::DsFanOutMessage},
 };
 
 use async_trait::*;
@@ -140,6 +140,11 @@ impl From<Ciphertext> for EncryptedPushToken {
 impl EarEncryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
 impl EarDecryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
 
+pub enum WsNotification {
+    Event(EventMessage),
+    QueueUpdate,
+}
+
 #[derive(Debug)]
 pub enum WebsocketNotifierError {
     WebsocketNotFound,
@@ -148,15 +153,18 @@ pub enum WebsocketNotifierError {
 /// TODO: This should be unified with push notifications later
 #[async_trait]
 pub trait WebsocketNotifier {
-    async fn notify(&self, client_id: &QsClientId) -> Result<(), WebsocketNotifierError>;
+    async fn notify(
+        &self,
+        client_id: &QsClientId,
+        ws_notification: WsNotification,
+    ) -> Result<(), WebsocketNotifierError>;
 }
 
 #[async_trait]
-pub trait QsEnqueueProvider: Sync + Send + std::fmt::Debug + 'static {
+pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError;
     type VerifyingKeyError;
-    async fn enqueue(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
-
+    async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
     async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
 

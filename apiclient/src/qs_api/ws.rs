@@ -28,11 +28,11 @@ use tokio_tungstenite::{
 
 use crate::{ApiClient, Protocol};
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum WsEvent {
     ConnectedEvent,
     DisconnectedEvent,
-    NewMessageEvent,
+    MessageEvent(QsWsMessage),
 }
 
 enum ConnectionStatusError {
@@ -172,15 +172,16 @@ impl QsWebSocket {
                                 {
                                     match qs_ws_message {
                                         // We received a new message notification from the QS
-                                        QsWsMessage::NewMessage => {
+                                        QsWsMessage::QueueUpdate => {
                                             // Send the event to the channel
-                                            if tx.send(WsEvent::NewMessageEvent).is_err() {
+                                            if tx.send(WsEvent::MessageEvent(QsWsMessage::QueueUpdate)).is_err() {
                                                 log::info!("Closing the connection because all subscribers are dropped");
                                                 // Close the stream if all subscribers of the watch have been dropped
                                                 let _ = ws_stream.close().await;
                                                 return;
                                             }
                                         }
+                                        _ => {}
                                     }
                                 }
                             }

@@ -9,7 +9,7 @@ use phnxserver::{
     endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
-        ds::MemoryDsStorage, enqueue_provider::MemoryEnqueueProvider, qs::MemStorageProvider,
+        ds::MemoryDsStorage, qs::MemStorageProvider, qs_connector::MemoryEnqueueProvider,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -33,7 +33,7 @@ async fn main() -> std::io::Result<()> {
     let ds_storage_provider = MemoryDsStorage::new();
     let qs_storage_provider = Arc::new(MemStorageProvider::default());
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
-    let qs_enqueue_provider = MemoryEnqueueProvider {
+    let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
     };
@@ -44,7 +44,7 @@ async fn main() -> std::io::Result<()> {
         ws_dispatch_notifier,
         ds_storage_provider,
         qs_storage_provider,
-        qs_enqueue_provider,
+        qs_connector,
     )?
     .await
 }

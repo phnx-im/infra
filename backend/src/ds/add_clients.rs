@@ -20,7 +20,7 @@ use crate::{
             AddClientsParams, InfraAadMessage, InfraAadPayload, QueueMessagePayload,
             QueueMessageType, WelcomeBundle,
         },
-        intra_backend::DsFanOutMessage,
+        intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::QsClientReference,
 };
@@ -38,7 +38,7 @@ impl DsGroupState {
         &mut self,
         params: AddClientsParams,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(QueueMessagePayload, Vec<DsFanOutMessage>), ClientAdditionError> {
+    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), ClientAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -203,12 +203,12 @@ impl DsGroupState {
                     .map_err(|_| ClientAdditionError::LibraryError)?,
             };
             let fan_out_message = DsFanOutMessage {
-                payload: QueueMessagePayload {
+                payload: DsFanOutPayload::QueueMessage(QueueMessagePayload {
                     payload: welcome_bundle
                         .tls_serialize_detached()
                         .map_err(|_| ClientAdditionError::LibraryError)?,
                     message_type: QueueMessageType::WelcomeBundle,
-                },
+                }),
                 client_reference: client_queue_config,
             };
             // Add the the client profile to the group's client profiles.

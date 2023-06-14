@@ -20,13 +20,12 @@ use crate::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
     messages::{
         client_ds::{
-            AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
-            QueueMessagePayload, WelcomeBundle,
+            AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload, WelcomeBundle,
         },
-        intra_backend::DsFanOutMessage,
+        intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{
-        Fqdn, KeyPackageBatchTbs, QsClientReference, QsEnqueueProvider, QsVerifyingKey,
+        Fqdn, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
         KEYPACKAGEBATCH_EXPIRATION_DAYS,
     },
 };
@@ -40,12 +39,12 @@ use super::{
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
-    pub(crate) async fn add_users<Q: QsEnqueueProvider>(
+    pub(crate) async fn add_users<Q: QsConnector>(
         &mut self,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
-    ) -> Result<(QueueMessagePayload, Vec<DsFanOutMessage>), UserAdditionError> {
+    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -257,9 +256,11 @@ impl DsGroupState {
                     encrypted_joiner_info,
                 };
                 let fan_out_message = DsFanOutMessage {
-                    payload: welcome_bundle
-                        .try_into()
-                        .map_err(|_| UserAdditionError::LibraryError)?,
+                    payload: DsFanOutPayload::QueueMessage(
+                        welcome_bundle
+                            .try_into()
+                            .map_err(|_| UserAdditionError::LibraryError)?,
+                    ),
                     client_reference: client_queue_config,
                 };
                 fan_out_messages.push(fan_out_message);

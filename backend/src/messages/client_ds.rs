@@ -158,6 +158,43 @@ pub enum InfraAadPayload {
     // proposals, there is not need to signal it explicitly.
 }
 
+#[derive(
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    ToSchema,
+)]
+pub struct EventMessage {
+    pub group_id: GroupId,
+    pub sender_index: LeafNodeIndex,
+    pub epoch: GroupEpoch,
+    pub payload: Vec<u8>,
+}
+
+impl EventMessage {
+    pub fn group_id(&self) -> &GroupId {
+        &self.group_id
+    }
+
+    pub fn sender_index(&self) -> LeafNodeIndex {
+        self.sender_index
+    }
+
+    pub fn epoch(&self) -> GroupEpoch {
+        self.epoch
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+}
+
 #[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
@@ -312,6 +349,12 @@ pub struct SendMessageParams {
 }
 
 #[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+pub struct DispatchEventParams {
+    pub event: EventMessage,
+    pub sender: LeafNodeIndex,
+}
+
+#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -336,6 +379,7 @@ pub(crate) enum DsRequestParams {
     SelfRemoveClient(SelfRemoveClientParams),
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
+    DispatchEvent(DispatchEventParams),
 }
 
 impl DsRequestParams {
@@ -385,6 +429,9 @@ impl DsRequestParams {
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 delete_group_params.commit.message.group_id()
             }
+            DsRequestParams::DispatchEvent(dispatch_event_params) => {
+                dispatch_event_params.event.group_id()
+            }
         }
     }
 
@@ -421,6 +468,9 @@ impl DsRequestParams {
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 delete_group_params.commit.message.sender()
+            }
+            DsRequestParams::DispatchEvent(_) => {
+                None
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
@@ -479,6 +529,9 @@ impl DsRequestParams {
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 DsSender::UserKeyHash(delete_group_params.sender.clone())
+            }
+            DsRequestParams::DispatchEvent(dispatch_event_params) => {
+                DsSender::LeafIndex(dispatch_event_params.event.sender_index())
             }
         }
     }

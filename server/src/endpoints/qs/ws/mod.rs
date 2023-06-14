@@ -17,7 +17,10 @@ use actix_web_actors::ws::{self};
 use async_trait::*;
 use dispatch::*;
 use messages::*;
-use phnxbackend::qs::{QsClientId, WebsocketNotifier, WebsocketNotifierError};
+use phnxbackend::{
+    messages::client_ds::EventMessage,
+    qs::{QsClientId, WebsocketNotifier, WebsocketNotifierError, WsNotification},
+};
 use serde::{Deserialize, Serialize};
 use tokio::{self, time::Duration};
 
@@ -29,10 +32,20 @@ pub struct QsOpenWsParams {
     pub queue_id: QsClientId,
 }
 
-#[derive(Serialize, Deserialize, Message)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Message)]
 #[rtype(result = "()")]
 pub enum QsWsMessage {
-    NewMessage = 1,
+    QueueUpdate,
+    Event(EventMessage),
+}
+
+impl From<WsNotification> for QsWsMessage {
+    fn from(notification: WsNotification) -> Self {
+        match notification {
+            WsNotification::QueueUpdate => QsWsMessage::QueueUpdate,
+            WsNotification::Event(event) => QsWsMessage::Event(event),
+        }
+    }
 }
 
 pub struct Client {
@@ -241,16 +254,22 @@ impl WebsocketNotifier for DispatchWebsocketNotifier {
     ///
     /// # Arguments
     /// queue_id - The queue ID of the client
+    /// ws_notification - The notification to send
     ///
     /// # Returns
     ///
     /// Returns `()` of the operation was successful and
     /// `WebsocketNotifierError::ClientNotFound` if the client was not found.
-    async fn notify(&self, queue_id: &QsClientId) -> Result<(), WebsocketNotifierError> {
+    async fn notify(
+        &self,
+        queue_id: &QsClientId,
+        ws_notification: WsNotification,
+    ) -> Result<(), WebsocketNotifierError> {
         // Send the notification message to the dispatch actor
         self.dispatch_addr
             .send(NotifyMessage {
                 queue_id: queue_id.clone(),
+                payload: ws_notification.into(),
             })
             .await
             // If the actor doesn't reply, we get a MailboxError

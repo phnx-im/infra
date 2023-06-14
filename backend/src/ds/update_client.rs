@@ -10,8 +10,9 @@ use mls_assist::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::messages::client_ds::{
-    InfraAadMessage, InfraAadPayload, QueueMessagePayload, UpdateClientParams,
+use crate::messages::{
+    client_ds::{InfraAadMessage, InfraAadPayload, UpdateClientParams},
+    intra_backend::DsFanOutPayload,
 };
 
 use super::{
@@ -24,7 +25,7 @@ impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
         params: UpdateClientParams,
-    ) -> Result<QueueMessagePayload, ClientUpdateError> {
+    ) -> Result<DsFanOutPayload, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {

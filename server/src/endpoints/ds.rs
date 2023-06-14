@@ -9,7 +9,7 @@ use actix_web::{
 use phnxbackend::{
     ds::{api::DsApi, DsStorageProvider},
     messages::client_ds::VerifiableClientToDsMessage,
-    qs::QsEnqueueProvider,
+    qs::QsConnector,
 };
 use tls_codec::{DeserializeBytes, Serialize};
 
@@ -24,14 +24,14 @@ use tls_codec::{DeserializeBytes, Serialize};
     )
 )]
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
-pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsEnqueueProvider>(
+pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>(
     message: web::Bytes,
     ds_storage_provider: Data<Dsp>,
-    qs_enqueue_provider: Data<Qep>,
+    qs_connector: Data<Qep>,
 ) -> impl Responder {
     // Extract the storage provider.
     let storage_provider = ds_storage_provider.get_ref();
-    let enqueue_provider = qs_enqueue_provider.get_ref();
+    let qs_connector = qs_connector.get_ref();
     // Create a new group on the DS.
     let message = match VerifiableClientToDsMessage::tls_deserialize_exact(&message) {
         Ok(message) => message,
@@ -40,7 +40,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsEnqueuePro
             return HttpResponse::BadRequest().body(e.to_string());
         }
     };
-    match DsApi::process(storage_provider, enqueue_provider, message).await {
+    match DsApi::process(storage_provider, qs_connector, message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");
