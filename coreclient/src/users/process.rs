@@ -80,7 +80,8 @@ impl SelfUser {
                                 &self.key_store.as_intermediate_credentials,
                             );
                             match processed_message {
-                                Ok(processed_message) => {
+                                // TODO: Process the information that the given group was deleted.
+                                Ok((processed_message, group_was_deleted)) => {
                                     let sender_credential = processed_message.credential().clone();
                                     let conversation_messages = match processed_message
                                         .into_content()

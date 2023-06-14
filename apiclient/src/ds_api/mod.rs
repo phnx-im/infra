@@ -204,16 +204,12 @@ impl ApiClient {
     /// Remove one or more users from a group.
     pub async fn ds_remove_users(
         &self,
-        commit: AssistedMessagePlusOut,
+        params: RemoveUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        let payload = RemoveUsersParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::RemoveUsers(payload),
+            DsRequestParamsOut::RemoveUsers(params),
             signing_key,
             group_state_ear_key,
         )

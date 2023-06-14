@@ -34,14 +34,11 @@ use phnxbackend::{
         },
         DecryptionPrivateKey,
     },
-    ds::{
-        group_state::EncryptedClientCredential, WelcomeAttributionInfo,
-        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
-    },
+    ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            JoinGroupParams, JoinGroupParamsAad, WelcomeBundle,
+            WelcomeBundle,
         },
         client_ds_out::{AddUsersParamsOut, RemoveUsersParamsOut, SendMessageParamsOut},
     },
@@ -56,12 +53,8 @@ use crate::{
     conversations::*,
     types::MessageContentType,
     types::*,
-    users::process,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    panic::panic_any,
-};
+use std::{collections::HashMap, panic::panic_any};
 
 use openmls::prelude::*;
 
@@ -290,20 +283,24 @@ impl Group {
     }
 
     /// Process inbound message
+    ///
+    /// Returns the processed message and whether the group was deleted.
     pub(crate) fn process_message(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
         as_intermediate_credentials: &[AsIntermediateCredential],
-    ) -> Result<ProcessedMessage, GroupOperationError> {
+    ) -> Result<(ProcessedMessage, bool), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
+        // Will be set to true if the group was deleted.
+        let mut was_deleted = false;
         let diff = match processed_message.content() {
             // For now, we only care about commits.
             ProcessedMessageContent::ApplicationMessage(_)
             | ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                return Ok(processed_message)
+                return Ok((processed_message, false))
             }
             ProcessedMessageContent::ProposalMessage(proposal) => {
                 // The only proposal messages we allow at this point are
@@ -627,15 +624,21 @@ impl Group {
                         diff
                     }
                     InfraAadPayload::DeleteGroup => {
-                        // At this point, all we can do is mark the group as inactive.
-                        // TODO: Continue here.
-                        todo!()
+                        // After processing the message, the MLS Group should already be marked as inactive.
+                        debug_assert!(!self.mls_group.is_active());
+                        was_deleted = true;
+                        // There is nothing else to do at this point.
+                        GroupDiff::new(self)
                     }
                 }
             }
         };
+        self.pending_diff = Some(diff);
 
-        Ok(processed_message)
+        // If we got until here, the message was deemed valid and we can apply the diff.
+        self.merge_pending_commit(backend).unwrap();
+
+        Ok((processed_message, was_deleted))
     }
 
     /// Invite the given list of contacts to join the group.

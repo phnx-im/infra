@@ -11,8 +11,7 @@ use phnxbackend::{
 
 #[derive(Debug, Clone)]
 pub struct Contact {
-    username: String,
-    id: UserName,
+    user_name: UserName,
     last_resort_add_info: ContactAddInfos,
     add_infos: Vec<ContactAddInfos>,
     // These should be in the same order as the KeyPackages in the ContactInfos.

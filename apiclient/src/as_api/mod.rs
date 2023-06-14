@@ -424,9 +424,8 @@ impl ApiClient {
 
     pub async fn as_user_key_packages(
         &self,
-        user_name: UserName,
+        payload: UserKeyPackagesParams,
     ) -> Result<UserKeyPackagesResponseIn, AsRequestError> {
-        let payload = UserKeyPackagesParams { user_name };
         let params = AsRequestParams::UserKeyPackages(payload);
         let message = ClientToAsMessage::new(params);
         self.prepare_and_send_as_message(message)

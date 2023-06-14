@@ -31,7 +31,11 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, QueueRatchet, RatchetDecryptionKey,
     },
-    messages::{client_as::ConnectionPackageTbs, FriendshipToken, MlsInfraVersion},
+    messages::{
+        client_as::{ConnectionPackageTbs, UserKeyPackagesParams},
+        client_ds_out::RemoveUsersParamsOut,
+        FriendshipToken, MlsInfraVersion,
+    },
     qs::{AddPackage, PushToken, QsClientId, QsUserId},
 };
 use rand::rngs::OsRng;
@@ -394,7 +398,7 @@ impl SelfUser {
     pub fn remove_users<T: Notifiable>(
         &mut self,
         conversation_id: &Uuid,
-        invited_users: Vec<&str>,
+        target_users: Vec<&str>,
         // For now, we're  passing this in. It might be better to pass the
         // necessary data back out instead.
         notification_hub: &mut NotificationHub<T>,
@@ -405,7 +409,42 @@ impl SelfUser {
             .unwrap();
         let group_id = &conversation.group_id;
         let group = self.group_store.get_group_mut(group_id).unwrap();
-        todo!()
+        let mut clients = vec![];
+        for user_name in target_users {
+            let user_name = user_name.to_string().into();
+            let contact = self.contacts.get(&user_name).unwrap();
+            let mut contact_clients = contact
+                .client_credentials()
+                .iter()
+                .map(|credential| credential.identity())
+                .collect();
+            clients.append(&mut contact_clients);
+        }
+        let params = group.remove(&self.crypto_backend, clients).unwrap();
+        block_on(self.api_client.ds_remove_users(
+            params,
+            group.group_state_ear_key(),
+            group.user_auth_key(),
+        ))
+        .unwrap();
+        let staged_commit = group.pending_commit().unwrap();
+        // Now that we know the commit went through, we can merge the commit and
+        // create the events.
+        let conversation_messages =
+            staged_commit_to_conversation_messages(&self.user_name, staged_commit);
+        // Merge the pending commit.
+        group.merge_pending_commit(&self.crypto_backend)?;
+        // Send off the notifications
+        for conversation_message in conversation_messages {
+            let dispatched_conversation_message = DispatchedConversationMessage {
+                conversation_id: conversation_id.to_owned(),
+                conversation_message: conversation_message.clone(),
+            };
+            self.conversation_store
+                .store_message(conversation_id, conversation_message)?;
+            notification_hub.dispatch_message_notification(dispatched_conversation_message);
+        }
+        Ok(())
     }
 
     /// Send a message and return it. Note that the message has already been
@@ -447,5 +486,21 @@ impl SelfUser {
             &self.group_store.group_state_ear_key(group_id),
         ))?;
         Ok(conversation_message)
+    }
+
+    pub fn add_contact(&self, user_name: &str) {
+        let user_name = user_name.to_string().into();
+        let params = UserKeyPackagesParams { user_name };
+        // First we fetch connection key packages from the AS, then we establish
+        // a connection group. Finally, we fully add the user as a contact.
+        let user_key_packages = block_on(self.api_client.as_user_key_packages(params)).unwrap();
+        let connection_key_packages = user_key_packages.key_packages;
+        let contact = Contact {
+            user_name,
+            last_resort_add_info: todo!(),
+            add_infos: todo!(),
+            client_credentials: todo!(),
+            wai_ear_key: todo!(),
+        }
     }
 }
