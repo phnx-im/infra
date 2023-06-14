@@ -341,7 +341,7 @@ impl QsStorageProvider for MemStorageProvider {
                 return Err(ReadAndDeleteError::SequenceNumberNotFound)
             }
             // Everything is okay. Let's proceed by deleting and returning messages.
-            Some(message) => (),
+            Some(_) => (),
         };
 
         let mut return_messages = vec![];

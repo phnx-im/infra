@@ -15,7 +15,7 @@ use actix_web_actors::ws;
 use phnxbackend::qs::QsClientId;
 use phnxserver::endpoints::{
     qs::ws::{QsOpenWsParams, QsWsMessage},
-    ENDPOINT_QS,
+    ENDPOINT_QS_WS,
 };
 use tokio::time::sleep;
 
@@ -81,7 +81,7 @@ fn run_server(listener: TcpListener) -> Result<Server, std::io::Error> {
     let server = HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .route(ENDPOINT_QS, web::get().to(upgrade_connection))
+            .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
     })
     .listen(listener)?
     .run();
