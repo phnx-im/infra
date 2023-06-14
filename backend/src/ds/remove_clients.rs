@@ -9,7 +9,10 @@ use mls_assist::{
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 
-use crate::messages::client_ds::{QueueMessagePayload, RemoveClientsParams};
+use crate::messages::{
+    client_ds::{QueueMessagePayload, RemoveClientsParams},
+    intra_backend::DsFanOutPayload,
+};
 
 use super::{api::USER_EXPIRATION_DAYS, errors::ClientRemovalError};
 
@@ -19,7 +22,7 @@ impl DsGroupState {
     pub(crate) fn remove_clients(
         &mut self,
         params: RemoveClientsParams,
-    ) -> Result<QueueMessagePayload, ClientRemovalError> {
+    ) -> Result<DsFanOutPayload, ClientRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -141,9 +144,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
+        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.commit.message_bytes,
-        };
+        });
 
         Ok(c2c_message)
     }

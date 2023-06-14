@@ -9,7 +9,10 @@ use mls_assist::{
 };
 use tls_codec::Deserialize;
 
-use crate::messages::client_ds::{JoinGroupParams, JoinGroupParamsAad, QueueMessagePayload};
+use crate::messages::{
+    client_ds::{JoinGroupParams, JoinGroupParamsAad, QueueMessagePayload},
+    intra_backend::DsFanOutPayload,
+};
 
 use super::{
     api::USER_EXPIRATION_DAYS,
@@ -21,7 +24,7 @@ impl DsGroupState {
     pub(super) fn join_group(
         &mut self,
         params: JoinGroupParams,
-    ) -> Result<QueueMessagePayload, JoinGroupError> {
+    ) -> Result<DsFanOutPayload, JoinGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
@@ -112,9 +115,9 @@ impl DsGroupState {
         self.client_profiles.insert(sender, client_profile);
 
         // Finally, we create the message for distribution.
-        let payload = QueueMessagePayload {
+        let payload = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.external_commit.message_bytes,
-        };
+        });
 
         Ok(payload)
     }

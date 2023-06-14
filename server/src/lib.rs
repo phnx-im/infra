@@ -18,7 +18,7 @@ use actix_web::{
 };
 use phnxbackend::{
     ds::DsStorageProvider,
-    qs::{storage_provider_trait::QsStorageProvider, QsEnqueueProvider},
+    qs::{storage_provider_trait::QsStorageProvider, QsConnector},
 };
 use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;
@@ -32,17 +32,17 @@ use crate::endpoints::{
 };
 
 /// Configure and run the server application.
-pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvider>(
+pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsConnector>(
     listener: TcpListener,
     ws_dispatch_notifier: DispatchWebsocketNotifier,
     ds_storage_provider: Dsp,
     qs_storage_provider: Arc<Qsp>,
-    qs_enqueue_provider: Qep,
+    qs_connector: Qep,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
     let ds_storage_provider_data = Data::new(ds_storage_provider);
     let qs_storage_provider_data = Data::new(qs_storage_provider);
-    let qs_enqueue_provider_data = Data::new(qs_enqueue_provider);
+    let qs_connector_data = Data::new(qs_connector);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier.dispatch_addr);
 
     tracing::info!(
@@ -64,7 +64,7 @@ pub fn run<Dsp: DsStorageProvider, Qsp: QsStorageProvider, Qep: QsEnqueueProvide
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_storage_provider_data.clone())
             .app_data(qs_storage_provider_data.clone())
-            .app_data(qs_enqueue_provider_data.clone())
+            .app_data(qs_connector_data.clone())
             // DS enpoint
             .route(ENDPOINT_DS, web::post().to(ds_process_message::<Dsp, Qep>))
             // QS endpoint

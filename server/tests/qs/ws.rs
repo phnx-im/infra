@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
-use phnxbackend::qs::{QsClientId, WebsocketNotifier};
+use phnxbackend::qs::{QsClientId, WebsocketNotifier, WsNotification};
+use phnxserver::endpoints::qs::ws::QsWsMessage;
 
 use super::*;
 
@@ -72,10 +73,13 @@ async fn test_ws_sending() {
 
     // Dispatch a NewMessage event
     ws_dispatch
-        .notify(&client_id)
+        .notify(&client_id, WsNotification::QueueUpdate)
         .await
         .expect("Failed to dispatch");
 
     // We expect to receive the NewMessage event
-    assert_eq!(ws.next().await, Some(WsEvent::NewMessageEvent));
+    assert_eq!(
+        ws.next().await,
+        Some(WsEvent::MessageEvent(QsWsMessage::QueueUpdate))
+    );
 }

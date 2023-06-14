@@ -9,7 +9,10 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
 };
 
-use crate::messages::client_ds::{QueueMessagePayload, SelfRemoveClientParams};
+use crate::messages::{
+    client_ds::{QueueMessagePayload, SelfRemoveClientParams},
+    intra_backend::DsFanOutPayload,
+};
 
 use super::{api::USER_EXPIRATION_DAYS, errors::ClientSelfRemovalError};
 
@@ -19,7 +22,7 @@ impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
         params: SelfRemoveClientParams,
-    ) -> Result<QueueMessagePayload, ClientSelfRemovalError> {
+    ) -> Result<DsFanOutPayload, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs
         // mls-assist-level validations and puts the proposal into mls-assist's
         // proposal store.
@@ -117,9 +120,9 @@ impl DsGroupState {
         debug_assert!(removed_client.is_some());
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
+        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.remove_proposal.message_bytes,
-        };
+        });
 
         Ok(c2c_message)
     }
