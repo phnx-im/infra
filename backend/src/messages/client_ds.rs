@@ -149,6 +149,13 @@ pub enum InfraAadPayload {
     JoinGroup(JoinGroupParamsAad),
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     AddClients(AddClientsParamsAad),
+    RemoveUsers,
+    RemoveClients,
+    ResyncClient,
+    DeleteGroup,
+    // There is no SelfRemoveClient entry, since that message consists of a
+    // single proposal and since we don't otherwise support individual
+    // proposals, there is not need to signal it explicitly.
 }
 
 #[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
