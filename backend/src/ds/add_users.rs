@@ -22,10 +22,10 @@ use crate::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
     messages::{
         client_ds::{AddUsersParams, AddUsersParamsAad, QueueMessagePayload},
-        intra_backend::DsFanOutMessage,
+        intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{
-        Fqdn, KeyPackageBatchTbs, QsClientReference, QsEnqueueProvider, QsVerifyingKey,
+        Fqdn, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
         KEYPACKAGEBATCH_EXPIRATION_DAYS,
     },
 };
@@ -46,12 +46,12 @@ pub struct WelcomeBundle {
 }
 
 impl DsGroupState {
-    pub(crate) async fn add_users<Q: QsEnqueueProvider>(
+    pub(crate) async fn add_users<Q: QsConnector>(
         &mut self,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
-    ) -> Result<(QueueMessagePayload, Vec<DsFanOutMessage>), UserAdditionError> {
+    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), UserAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -248,11 +248,11 @@ impl DsGroupState {
                         .map_err(|_| UserAdditionError::LibraryError)?,
                 };
                 let fan_out_message = DsFanOutMessage {
-                    payload: QueueMessagePayload {
+                    payload: DsFanOutPayload::QueueMessage(QueueMessagePayload {
                         payload: welcome_bundle
                             .tls_serialize_detached()
                             .map_err(|_| UserAdditionError::LibraryError)?,
-                    },
+                    }),
                     client_reference: client_queue_config,
                 };
                 fan_out_messages.push(fan_out_message);
@@ -269,9 +269,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
+        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.commit.message_bytes,
-        };
+        });
 
         Ok((c2c_message, fan_out_messages))
     }

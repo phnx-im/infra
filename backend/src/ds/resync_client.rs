@@ -9,7 +9,10 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
-use crate::messages::client_ds::{QueueMessagePayload, ResyncClientParams};
+use crate::messages::{
+    client_ds::{QueueMessagePayload, ResyncClientParams},
+    intra_backend::DsFanOutPayload,
+};
 
 use super::api::USER_EXPIRATION_DAYS;
 use super::errors::ResyncClientError;
@@ -20,7 +23,7 @@ impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
         params: ResyncClientParams,
-    ) -> Result<QueueMessagePayload, ResyncClientError> {
+    ) -> Result<DsFanOutPayload, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
@@ -98,9 +101,9 @@ impl DsGroupState {
         // index, credential, qs client ref, etc.) remains the same.
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
+        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.external_commit.message_bytes,
-        };
+        });
 
         Ok(c2c_message)
     }

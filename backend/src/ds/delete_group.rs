@@ -8,7 +8,10 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 
-use crate::messages::client_ds::{DeleteGroupParams, QueueMessagePayload};
+use crate::messages::{
+    client_ds::{DeleteGroupParams, QueueMessagePayload},
+    intra_backend::DsFanOutPayload,
+};
 
 use super::errors::GroupDeletionError;
 
@@ -18,7 +21,7 @@ impl DsGroupState {
     pub(crate) fn delete_group(
         &mut self,
         params: DeleteGroupParams,
-    ) -> Result<QueueMessagePayload, GroupDeletionError> {
+    ) -> Result<DsFanOutPayload, GroupDeletionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message =
             if matches!(params.commit.message, AssistedMessage::Commit(_)) {
@@ -86,9 +89,9 @@ impl DsGroupState {
         // anyway.
 
         // Finally, we create the message for distribution.
-        let c2c_message = QueueMessagePayload {
+        let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
             payload: params.commit.message_bytes,
-        };
+        });
 
         Ok(c2c_message)
     }

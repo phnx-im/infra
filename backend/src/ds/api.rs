@@ -167,9 +167,9 @@ use crate::{
             CreateGroupParams, DsRequestParams, DsSender, QueueMessagePayload,
             VerifiableClientToDsMessage,
         },
-        intra_backend::DsFanOutMessage,
+        intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
-    qs::QsEnqueueProvider,
+    qs::QsConnector,
 };
 
 use super::{errors::DsProcessingError, group_state::DsGroupState, DsStorageProvider, LoadState};
@@ -179,9 +179,9 @@ pub const USER_EXPIRATION_DAYS: i64 = 90;
 pub struct DsApi {}
 
 impl DsApi {
-    pub async fn process<Dsp: DsStorageProvider, Q: QsEnqueueProvider>(
+    pub async fn process<Dsp: DsStorageProvider, Q: QsConnector>(
         ds_storage_provider: &Dsp,
-        qs_enqueue_provider: &Q,
+        qs_connector: &Q,
         message: VerifiableClientToDsMessage,
     ) -> Result<Option<DsProcessResponse>, DsProcessingError> {
         let group_id = message.group_id().clone();
@@ -315,7 +315,7 @@ impl DsApi {
                 // needs to fetch the verifying keys from the QS of all added
                 // users.
                 let (c2c_message, welcome_bundles) = group_state
-                    .add_users(add_users_params, &ear_key, qs_enqueue_provider)
+                    .add_users(add_users_params, &ear_key, qs_connector)
                     .await?;
                 (Some(c2c_message), None, Some(welcome_bundles))
             }
@@ -359,14 +359,19 @@ impl DsApi {
                 let c2c_message = group_state.self_remove_client(self_remove_client_params)?;
                 (Some(c2c_message), None, None)
             }
-            //
+            // ======= Sending messages =======
             DsRequestParams::SendMessage(send_message_params) => {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = QueueMessagePayload {
+                let c2c_message = DsFanOutPayload::QueueMessage(QueueMessagePayload {
                     payload: send_message_params.message.message_bytes,
-                };
+                });
+                (Some(c2c_message), None, None)
+            }
+            // ======= Events =======
+            DsRequestParams::DispatchEvent(dispatch_event_params) => {
+                let c2c_message = DsFanOutPayload::EventMessage(dispatch_event_params.event);
                 (Some(c2c_message), None, None)
             }
         };
@@ -398,8 +403,8 @@ impl DsApi {
                     client_reference,
                 };
 
-                qs_enqueue_provider
-                    .enqueue(ds_fan_out_msg)
+                qs_connector
+                    .dispatch(ds_fan_out_msg)
                     .await
                     .map_err(|_| DsProcessingError::DistributionError)?;
             }
@@ -408,8 +413,8 @@ impl DsApi {
         // Distribute WelcomeBundles
         if let Some(fan_out_messages) = fan_out_messages {
             for message in fan_out_messages {
-                qs_enqueue_provider
-                    .enqueue(message)
+                qs_connector
+                    .dispatch(message)
                     .await
                     .map_err(|_| DsProcessingError::DistributionError)?;
             }

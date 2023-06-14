@@ -12,7 +12,7 @@ use phnxserver::{
     endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
-        ds::MemoryDsStorage, enqueue_provider::MemoryEnqueueProvider, qs::MemStorageProvider,
+        ds::MemoryDsStorage, qs::MemStorageProvider, qs_connector::MemoryEnqueueProvider,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -52,7 +52,7 @@ pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
             let ds_storage_provider = MemoryDsStorage::new();
             let qs_storage_provider = Arc::new(MemStorageProvider::default());
 
-            let qs_enqueue_provider = MemoryEnqueueProvider {
+            let qs_connector = MemoryEnqueueProvider {
                 storage: qs_storage_provider.clone(),
                 notifier: ws_dispatch_notifier.clone(),
             };
@@ -63,7 +63,7 @@ pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
                 ws_dispatch_notifier.clone(),
                 ds_storage_provider,
                 qs_storage_provider,
-                qs_enqueue_provider,
+                qs_connector,
             )
             .expect("Failed to bind to address.");
 
@@ -74,7 +74,7 @@ pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
             let ds_storage_provider = MemoryDsStorage::new();
             let qs_storage_provider = Arc::new(MemStorageProvider::default());
 
-            let qs_enqueue_provider = MemoryEnqueueProvider {
+            let qs_connector = MemoryEnqueueProvider {
                 storage: qs_storage_provider.clone(),
                 notifier: ws_dispatch_notifier.clone(),
             };
@@ -85,7 +85,7 @@ pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
                 ws_dispatch_notifier.clone(),
                 ds_storage_provider,
                 qs_storage_provider,
-                qs_enqueue_provider,
+                qs_connector,
             )
             .expect("Failed to bind to address.");
 

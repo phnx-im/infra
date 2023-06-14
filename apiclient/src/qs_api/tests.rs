@@ -64,7 +64,10 @@ async fn test_ws_lifecycle() {
     // Connected event because we received a NewMessage event
     assert_eq!(ws.next().await, Some(WsEvent::ConnectedEvent));
     // Actual NewMessage event
-    assert_eq!(ws.next().await, Some(WsEvent::NewMessageEvent));
+    assert_eq!(
+        ws.next().await,
+        Some(WsEvent::MessageEvent(QsWsMessage::QueueUpdate))
+    );
     // Disconnected event because the websocket was close from the server side
     assert_eq!(ws.next().await, Some(WsEvent::DisconnectedEvent));
     // Connected event because the client tried to reconnect to the websocket
@@ -173,7 +176,7 @@ impl Actor for QsWsConnection {
                 ctx.run_later(Duration::from_secs(2), |_act, ctx| {
                     // Now we send an actual message
                     // Serialize the message
-                    let serialized = serde_json::to_vec(&QsWsMessage::NewMessage)
+                    let serialized = serde_json::to_vec(&QsWsMessage::QueueUpdate)
                         .expect("Failed to serialize message");
                     // Send the message to the client
                     log::info!("Sending binary message");

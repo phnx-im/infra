@@ -27,9 +27,13 @@ pub struct Dispatch {
 
 impl Dispatch {
     /// Notifies a connected client by sending a [`QsWsMessage::NewMessage`] to it.
-    fn notify_client(&self, queue_id: &QsClientId) -> Result<(), NotifyClientError> {
+    fn notify_client(
+        &self,
+        queue_id: &QsClientId,
+        message: QsWsMessage,
+    ) -> Result<(), NotifyClientError> {
         if let Some(socket_recipient) = self.sessions.get(queue_id) {
-            socket_recipient.do_send(QsWsMessage::NewMessage);
+            socket_recipient.do_send(message);
             Ok(())
         } else {
             tracing::info!("attempting to send message but couldn't find user id.");
@@ -66,7 +70,7 @@ impl Handler<NotifyMessage> for Dispatch {
     type Result = ResponseFuture<Result<(), NotifyMessageError>>;
 
     fn handle(&mut self, msg: NotifyMessage, _ctx: &mut Context<Self>) -> Self::Result {
-        match self.notify_client(&msg.queue_id) {
+        match self.notify_client(&msg.queue_id, msg.payload) {
             Ok(_) => Box::pin(async { Ok(()) }),
             Err(_) => Box::pin(async { Err(NotifyMessageError::ClientNotFound) }),
         }

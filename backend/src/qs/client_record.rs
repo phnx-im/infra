@@ -12,7 +12,8 @@ use crate::{
         QueueRatchet, RatchetKeyUpdate, RatchetPublicKey,
     },
     ds::group_state::TimeStamp,
-    messages::{client_ds::QueueMessagePayload, QueueMessage},
+    messages::{intra_backend::DsFanOutPayload, QueueMessage},
+    qs::WsNotification,
 };
 
 use super::{
@@ -62,46 +63,62 @@ impl QsClientRecord {
         client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
-        msg: QueueMessagePayload,
+        msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
-        // Serialize the message so that we can put it in the queue.
-        // TODO: The message should be serialized differently, using a struct
-        // with the sequence number
+        match msg {
+            // Enqueue a queue message.
+            // Serialize the message so that we can put it in the queue.
+            // TODO: The message should be serialized differently, using a struct
+            // with the sequence number
+            DsFanOutPayload::QueueMessage(queue_message) => {
+                // Encrypt the message under the current ratchet key.
+                let queue_message = self
+                    .current_ratchet_key
+                    .encrypt(queue_message)
+                    .map_err(|_| EnqueueError::LibraryError)?;
 
-        // Encrypt the message under the current ratchet key.
-        let queue_message = self
-            .current_ratchet_key
-            .encrypt(msg)
-            .map_err(|_| EnqueueError::LibraryError)?;
+                // TODO: Store the new key.
 
-        // TODO: Store the new key.
+                // TODO: Future work: PCS
 
-        // TODO: Future work: PCS
+                tracing::trace!("Enqueueing message in storage provider");
+                storage_provider
+                    .enqueue(client_id, queue_message)
+                    .await
+                    .map_err(EnqueueError::StorageProviderError::<S>)?;
 
-        tracing::trace!("Enqueueing message in storage provider");
-        storage_provider
-            .enqueue(client_id, queue_message)
-            .await
-            .map_err(EnqueueError::StorageProviderError::<S>)?;
-
-        // TODO: This should be refactored once we have a HTTP server
-        // Try to send a notification over the websocket, otherwise use push tokens if available
-        if websocket_notifier.notify(client_id).await.is_err() {
-            // Send a push notification under the following conditions:
-            // - there is a push token associated with the queue
-            // - there is a push token decryption key
-            // - the decryption is successful
-            if let Some(ref encrypted_push_token) = self.encrypted_push_token {
-                if let Some(ref ear_key) = push_token_key_option {
-                    let push_token =
-                        PushToken::decrypt(ear_key, encrypted_push_token).map_err(|e| match e {
-                            DecryptionError::DecryptionError => EnqueueError::PushNotificationError,
-                        })?;
-                    // TODO: It's currently not clear where we store the alert level.
-                    let alert_level = 0;
-                    push_token.send_notification(alert_level);
+                // Try to send a notification over the websocket, otherwise use push tokens if available
+                if websocket_notifier
+                    .notify(client_id, WsNotification::QueueUpdate)
+                    .await
+                    .is_err()
+                {
+                    // Send a push notification under the following conditions:
+                    // - there is a push token associated with the queue
+                    // - there is a push token decryption key
+                    // - the decryption is successful
+                    if let Some(ref encrypted_push_token) = self.encrypted_push_token {
+                        if let Some(ref ear_key) = push_token_key_option {
+                            let push_token = PushToken::decrypt(ear_key, encrypted_push_token)
+                                .map_err(|e| match e {
+                                    DecryptionError::DecryptionError => {
+                                        EnqueueError::PushNotificationError
+                                    }
+                                })?;
+                            // TODO: It's currently not clear where we store the alert level.
+                            let alert_level = 0;
+                            push_token.send_notification(alert_level);
+                        }
+                    }
                 }
+            }
+            // Dispatch an event message.
+            DsFanOutPayload::EventMessage(event_message) => {
+                // We ignore the result, because dispatching events is best effort.œ
+                let _ = websocket_notifier
+                    .notify(client_id, WsNotification::Event(event_message))
+                    .await;
             }
         }
 
