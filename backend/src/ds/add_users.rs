@@ -25,8 +25,8 @@ use crate::{
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{
-        Fqdn, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
-        KEYPACKAGEBATCH_EXPIRATION_DAYS,
+        Fqdn, KeyPackageBatch, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
+        KEYPACKAGEBATCH_EXPIRATION_DAYS, VERIFIED,
     },
 };
 
@@ -150,7 +150,7 @@ impl DsGroupState {
             .zip(params.encrypted_welcome_attribution_infos.into_iter())
         {
             let fqdn = key_package_batch.homeserver_domain().clone();
-            let key_package_batch: KeyPackageBatchTbs =
+            let key_package_batch: KeyPackageBatch<VERIFIED> =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
                     key_package_batch
                         .verify(verifying_key)

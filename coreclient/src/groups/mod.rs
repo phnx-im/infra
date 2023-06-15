@@ -54,7 +54,10 @@ use crate::{
     types::MessageContentType,
     types::*,
 };
-use std::{collections::HashMap, panic::panic_any};
+use std::{
+    collections::{HashMap, HashSet},
+    panic::panic_any,
+};
 
 use openmls::prelude::*;
 
@@ -200,7 +203,7 @@ impl Group {
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
         let sender_client_credential = contacts
-            .get(&verifiable_attribution_info.sender().username())
+            .get(&verifiable_attribution_info.sender().user_name())
             .and_then(|c| c.client_credential(&verifiable_attribution_info.sender()))
             .unwrap();
 
@@ -292,15 +295,26 @@ impl Group {
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
         as_intermediate_credentials: &[AsIntermediateCredential],
-    ) -> Result<(ProcessedMessage, bool), GroupOperationError> {
+    ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
         // Will be set to true if the group was deleted.
         let mut was_deleted = false;
         let diff = match processed_message.content() {
             // For now, we only care about commits.
-            ProcessedMessageContent::ApplicationMessage(_)
-            | ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                return Ok((processed_message, false))
+            ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                panic!("Unsupported message type")
+            }
+            ProcessedMessageContent::ApplicationMessage(_) => {
+                let sender_credential = if let Sender::Member(index) = processed_message.sender() {
+                    self.client_credentials
+                        .get(index.usize())
+                        .unwrap()
+                        .as_ref()
+                        .unwrap()
+                } else {
+                    panic!("Invalid sender type.")
+                };
+                return Ok((processed_message, false, sender_credential.clone()));
             }
             ProcessedMessageContent::ProposalMessage(proposal) => {
                 // The only proposal messages we allow at this point are
@@ -462,7 +476,7 @@ impl Group {
                                 .unwrap();
                         }
                         // Check that the existing user clients match up.
-                        if self.user_clients(client_credential.identity().username())
+                        if self.user_clients(client_credential.identity().user_name())
                             != join_group_payload
                                 .existing_user_clients
                                 .into_iter()
@@ -638,7 +652,22 @@ impl Group {
         // If we got until here, the message was deemed valid and we can apply the diff.
         self.merge_pending_commit(backend).unwrap();
 
-        Ok((processed_message, was_deleted))
+        // Get the sender's credential
+        let sender_index = self
+            .mls_group
+            .members()
+            .find(|m| &m.credential == processed_message.credential())
+            .unwrap()
+            .index
+            .usize();
+        let sender_credential = self
+            .client_credentials
+            .get(sender_index)
+            .unwrap()
+            .as_ref()
+            .unwrap();
+
+        Ok((processed_message, was_deleted, sender_credential.clone()))
     }
 
     /// Invite the given list of contacts to join the group.
@@ -878,7 +907,7 @@ impl Group {
         let mut user_clients = vec![];
         for (index, cred_option) in self.client_credentials.iter().enumerate() {
             if let Some(cred_user_name) =
-                cred_option.as_ref().map(|cred| cred.identity().username())
+                cred_option.as_ref().map(|cred| cred.identity().user_name())
             {
                 if cred_user_name == user_name {
                     user_clients.push(index)
@@ -887,14 +916,37 @@ impl Group {
         }
         user_clients
     }
+
+    pub(crate) fn credential_ear_key(&self) -> &ClientCredentialEarKey {
+        &self.credential_ear_key
+    }
+
+    pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
+        &self.signature_ear_key
+    }
+
+    pub(crate) fn members(&self) -> Vec<UserName> {
+        self.client_credentials
+            .iter()
+            .filter_map(|cred_option| {
+                if let Some(cred) = cred_option {
+                    Some(cred.identity().user_name())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<UserName>>()
+            .into_iter()
+            .collect()
+    }
 }
 
 pub(crate) fn application_message_to_conversation_messages(
-    sender: &Credential,
+    sender: &ClientCredential,
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().to_vec().into(),
+        sender: sender.identity().user_name(),
         content: MessageContentType::Text(TextMessage {
             message: String::from_utf8_lossy(&application_message.into_bytes()).into(),
         }),

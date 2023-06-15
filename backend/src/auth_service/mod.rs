@@ -18,11 +18,12 @@ use crate::{
     messages::{
         client_as::{
             AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
-            IssueTokensResponse, UserClientsResponse, UserKeyPackagesResponse,
-            VerifiedAsRequestParams,
+            AsQueueMessagePayload, Init2FactorAuthResponse, InitClientAdditionResponse,
+            InitUserRegistrationResponse, IssueTokensResponse, UserClientsResponse,
+            UserKeyPackagesResponse, VerifiedAsRequestParams,
         },
         client_as_out::VerifiableClientToAsMessage,
+        EncryptedAsQueueMessage,
     },
 };
 
@@ -157,6 +158,12 @@ impl From<String> for UserName {
     }
 }
 
+impl ToString for UserName {
+    fn to_string(&self) -> String {
+        String::from_utf8(self.user_name.clone()).unwrap()
+    }
+}
+
 // === Client ===
 
 #[derive(
@@ -196,14 +203,14 @@ impl AsClientId {
         })
     }
 
-    pub fn username(&self) -> UserName {
+    pub fn user_name(&self) -> UserName {
         self.user_name.clone()
     }
 }
 
 pub struct AsClientRecord {
     pub queue_encryption_key: RatchetEncryptionKey,
-    pub ratchet_key: QueueRatchet,
+    pub ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
     pub activity_time: TimeStamp,
     pub credential: ClientCredential,
 }

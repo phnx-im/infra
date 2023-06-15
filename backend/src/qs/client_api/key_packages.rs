@@ -15,10 +15,13 @@ use crate::{
     ds::group_state::TimeStamp,
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, KeyPackageBatchParams,
-        KeyPackageBatchResponse, PublishKeyPackagesParams,
+        KeyPackageBatchResponse, PublishKeyPackagesParams, VerifyingKeyResponse,
     },
     qs::{
-        errors::{QsClientKeyPackageError, QsKeyPackageBatchError, QsPublishKeyPackagesError},
+        errors::{
+            QsClientKeyPackageError, QsKeyPackageBatchError, QsPublishKeyPackagesError,
+            QsVerifyingKeyError,
+        },
         storage_provider_trait::QsStorageProvider,
         AddPackageIn, KeyPackageBatchTbs, Qs,
     },
@@ -144,5 +147,20 @@ impl Qs {
             key_package_batch,
         };
         Ok(response)
+    }
+
+    /// Retrieve the verifying key of this QS
+    #[tracing::instrument(skip_all, err)]
+    pub(crate) async fn qs_verifying_key<S: QsStorageProvider>(
+        storage_provider: &S,
+    ) -> Result<VerifyingKeyResponse, QsVerifyingKeyError> {
+        storage_provider
+            .load_signing_key()
+            .await
+            .map(|signing_key| {
+                let verifying_key = signing_key.verifying_key().clone();
+                VerifyingKeyResponse { verifying_key }
+            })
+            .map_err(|_| QsVerifyingKeyError::StorageError)
     }
 }

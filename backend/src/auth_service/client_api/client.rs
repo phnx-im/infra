@@ -33,7 +33,7 @@ impl AuthService {
         })?;
 
         // Load the user record from storage
-        let user_name = client_credential_payload.identity().username();
+        let user_name = client_credential_payload.identity().user_name();
         let password_file_option = storage_provider
             .load_user(&user_name)
             .await
@@ -122,11 +122,11 @@ impl AuthService {
         storage_provider: &S,
         ephemeral_storage_provider: &E,
         params: FinishClientAdditionParamsTbs,
-    ) -> Result<(), FinishUserRegistrationError> {
+    ) -> Result<(), FinishClientAdditionError> {
         let FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
-            initial_ratchet_key,
+            initial_ratchet_secret: initial_ratchet_key,
             connection_key_package,
         } = params;
 
@@ -137,14 +137,17 @@ impl AuthService {
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
+                FinishClientAdditionError::StorageError
             })?
-            .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
+            .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
 
         // Create the new client entry
         let client_record = AsClientRecord {
             queue_encryption_key,
-            ratchet_key: initial_ratchet_key,
+            ratchet_key: initial_ratchet_key
+                .try_into()
+                // Hiding the LibraryError here behind a StorageError
+                .map_err(|_| FinishClientAdditionError::StorageError)?,
             activity_time: TimeStamp::now(),
             credential: client_credential,
         };
@@ -154,7 +157,7 @@ impl AuthService {
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
+                FinishClientAdditionError::StorageError
             })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
@@ -163,7 +166,7 @@ impl AuthService {
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
+                FinishClientAdditionError::StorageError
             })?;
 
         Ok(())

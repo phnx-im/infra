@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn};
-use privacypass::{
-    batched_tokens::{TokenRequest, TokenResponse},
-    Serialize,
+use mls_assist::{
+    openmls::prelude::{GroupId, KeyPackage, KeyPackageIn},
+    openmls_traits::types::HpkeCiphertext,
 };
-use tls_codec::{DeserializeBytes, Size, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use privacypass::batched_tokens::{TokenRequest, TokenResponse};
+
+use tls_codec::{DeserializeBytes, Serialize, Size, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
@@ -19,6 +20,12 @@ use crate::{
         *,
     },
     crypto::{
+        ear::{
+            keys::{ClientCredentialEarKey, GroupStateEarKey, RatchetKey, SignatureEarKey},
+            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+        },
+        hpke::HpkeEncryptable,
+        kdf::keys::RatchetSecret,
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         ConnectionEncryptionKey, QueueRatchet, RatchetEncryptionKey,
     },
@@ -26,11 +33,10 @@ use crate::{
 
 use super::{
     client_as_out::{
-        FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
-        VerifiableConnectionPackage,
+        ConnectionEstablishmentPackageIn, FinishUserRegistrationParamsIn,
+        FinishUserRegistrationParamsTbsIn, VerifiableConnectionPackage,
     },
-    client_ds::QueueMessagePayload,
-    MlsInfraVersion, QueueMessage,
+    EncryptedAsQueueMessage, MlsInfraVersion, QueueMessage,
 };
 
 mod private_mod {
@@ -182,6 +188,16 @@ pub struct ConnectionPackage {
     signature: Signature,
 }
 
+impl ConnectionPackage {
+    pub fn client_credential(&self) -> &ClientCredential {
+        &self.payload.client_credential
+    }
+
+    pub fn encryption_key(&self) -> &ConnectionEncryptionKey {
+        &self.payload.encryption_key
+    }
+}
+
 impl VerifiedStruct<VerifiableConnectionPackage> for ConnectionPackage {
     type SealingType = private_mod::Seal;
 
@@ -201,7 +217,7 @@ impl Signable for ConnectionPackageTbs {
     }
 
     fn label(&self) -> &str {
-        "Connection Package"
+        "ConnectionPackage"
     }
 }
 
@@ -236,7 +252,7 @@ pub struct FinishUserRegistrationParamsTbs {
     pub client_id: AsClientId,
     pub user_name: UserName,
     pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_key: QueueRatchet,
+    pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackage>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
 }
@@ -342,7 +358,7 @@ pub struct InitClientAdditionResponse {
 pub struct FinishClientAdditionParamsTbs {
     pub client_id: AsClientId,
     pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_key: QueueRatchet,
+    pub initial_ratchet_secret: RatchetSecret,
     pub connection_key_package: KeyPackageIn,
 }
 
@@ -358,7 +374,7 @@ impl FinishClientAdditionParams {
     // trait later on.
     pub(super) fn user_auth(self) -> UserAuth {
         UserAuth {
-            user_name: self.payload.client_id.username(),
+            user_name: self.payload.client_id.user_name(),
             opaque_finish: self.opaque_login_finish.clone(),
             payload: Box::new(VerifiedAsRequestParams::FinishClientAddition(self.payload)),
         }
@@ -458,6 +474,142 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
 
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
+
+#[derive(Debug, TlsSerialize, TlsSize, Clone)]
+pub struct ConnectionEstablishmentPackageTbs {
+    pub sender_client_credential: ClientCredential,
+    pub connection_group_id: GroupId,
+    pub connection_group_ear_key: GroupStateEarKey,
+    pub connection_group_credential_key: ClientCredentialEarKey,
+    pub connection_group_signature_ear_key: SignatureEarKey,
+}
+
+impl Signable for ConnectionEstablishmentPackageTbs {
+    type SignedOutput = ConnectionEstablishmentPackage;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "ConnectionEstablishmentPackageTBS"
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsSize, Clone)]
+pub struct ConnectionEstablishmentPackage {
+    payload: ConnectionEstablishmentPackageTbs,
+    // TBS: All information above signed by the ClientCredential.
+    signature: Signature,
+}
+
+impl GenericSerializable for ConnectionEstablishmentPackage {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+impl HpkeEncryptable<ConnectionEncryptionKey, EncryptedConnectionEstablishmentPackage>
+    for ConnectionEstablishmentPackage
+{
+}
+
+impl SignedStruct<ConnectionEstablishmentPackageTbs> for ConnectionEstablishmentPackage {
+    fn from_payload(payload: ConnectionEstablishmentPackageTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+}
+
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct EncryptedConnectionEstablishmentPackage {
+    ciphertext: HpkeCiphertext,
+}
+
+impl AsRef<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+    fn as_ref(&self) -> &HpkeCiphertext {
+        &self.ciphertext
+    }
+}
+
+impl From<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+    fn from(ciphertext: HpkeCiphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+#[repr(u8)]
+pub enum AsQueueMessageType {
+    ConnectionEstablishmentPackage,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct AsQueueMessagePayload {
+    pub message_type: AsQueueMessageType,
+    pub payload: Vec<u8>,
+}
+
+impl AsQueueMessagePayload {
+    pub fn extract(self) -> Result<ExtractedAsQueueMessagePayload, tls_codec::Error> {
+        let message = match self.message_type {
+            AsQueueMessageType::ConnectionEstablishmentPackage => {
+                let cep = ConnectionEstablishmentPackageIn::tls_deserialize_exact(&self.payload)?;
+                ExtractedAsQueueMessagePayload::ConnectionEstablishmentPackage(cep)
+            }
+        };
+        Ok(message)
+    }
+}
+
+impl TryFrom<EncryptedConnectionEstablishmentPackage> for AsQueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            message_type: AsQueueMessageType::ConnectionEstablishmentPackage,
+            payload: value.tls_serialize_detached()?,
+        })
+    }
+}
+
+impl GenericDeserializable for AsQueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
+}
+
+impl GenericSerializable for AsQueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+pub enum ExtractedAsQueueMessagePayload {
+    ConnectionEstablishmentPackage(ConnectionEstablishmentPackageIn),
+}
+
+impl TryFrom<ConnectionEstablishmentPackage> for AsQueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn try_from(cep: ConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
+        let payload = cep.tls_serialize_detached()?;
+        Ok(Self {
+            message_type: AsQueueMessageType::ConnectionEstablishmentPackage,
+            payload,
+        })
+    }
+}
+
+impl EarEncryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsDequeueMessagesResponse {
@@ -594,13 +746,13 @@ impl NoAuth for UserKeyPackagesParams {
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct UserKeyPackagesResponse {
-    pub key_packages: Vec<KeyPackage>,
+    pub key_packages: Vec<ConnectionPackage>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct EnqueueMessageParams {
     pub client_id: AsClientId,
-    pub connection_establishment_ctxt: QueueMessagePayload,
+    pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
 }
 
 impl NoAuth for EnqueueMessageParams {

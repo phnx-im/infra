@@ -199,6 +199,14 @@ pub enum QsKeyPackageBatchError {
     StorageError,
 }
 
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum QsVerifyingKeyError {
+    /// Error retrieving user key packages
+    #[error("Error retrieving user key packages")]
+    StorageError,
+}
+
 // === Other errors ===
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -267,4 +275,8 @@ pub enum QsProcessError {
     /// Dequeue error
     #[error("Dequeue error")]
     QsDequeueError(#[from] QsDequeueError),
+
+    /// Verifying key error
+    #[error("Verifying key error")]
+    QsVerifyingKeyError(#[from] QsVerifyingKeyError),
 }

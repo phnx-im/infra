@@ -33,6 +33,7 @@ use crate::{
             keys::UserAuthVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
+        QueueRatchet,
     },
     ds::{
         group_state::{EncryptedClientCredential, UserKeyHash},
@@ -41,7 +42,7 @@ use crate::{
     qs::{KeyPackageBatch, QsClientReference, UNVERIFIED},
 };
 
-use super::{EncryptedQueueMessage, MlsInfraVersion};
+use super::{EncryptedQsQueueMessage, MlsInfraVersion};
 
 mod private_mod {
     #[derive(Default)]
@@ -56,65 +57,67 @@ pub(crate) struct DsClientId {
 
 // === DS ===
 
+pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
+
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 #[repr(u8)]
-pub enum QueueMessageType {
+pub enum QsQueueMessageType {
     WelcomeBundle,
     MlsMessage,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-pub struct QueueMessagePayload {
-    pub message_type: QueueMessageType,
+pub struct QsQueueMessagePayload {
+    pub message_type: QsQueueMessageType,
     pub payload: Vec<u8>,
 }
 
-impl QueueMessagePayload {
-    pub fn extract(self) -> Result<ExtractedQueueMessagePayload, tls_codec::Error> {
+impl QsQueueMessagePayload {
+    pub fn extract(self) -> Result<ExtractedQsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
-            QueueMessageType::WelcomeBundle => {
+            QsQueueMessageType::WelcomeBundle => {
                 let wb = WelcomeBundle::tls_deserialize_exact(&self.payload)?;
-                ExtractedQueueMessagePayload::WelcomeBundle(wb)
+                ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
             }
-            QueueMessageType::MlsMessage => {
+            QsQueueMessageType::MlsMessage => {
                 let message = <MlsMessageIn as tls_codec::Deserialize>::tls_deserialize(
                     &mut self.payload.as_slice(),
                 )?;
-                ExtractedQueueMessagePayload::MlsMessage(message)
+                ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };
         Ok(message)
     }
 }
 
-pub enum ExtractedQueueMessagePayload {
+pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
     MlsMessage(MlsMessageIn),
 }
 
-impl TryFrom<WelcomeBundle> for QueueMessagePayload {
+impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
     type Error = tls_codec::Error;
 
     fn try_from(welcome_bundle: WelcomeBundle) -> Result<Self, Self::Error> {
         let payload = welcome_bundle.tls_serialize_detached()?;
         Ok(Self {
-            message_type: QueueMessageType::WelcomeBundle,
+            message_type: QsQueueMessageType::WelcomeBundle,
             payload,
         })
     }
 }
 
-impl From<AssistedMessagePlus> for QueueMessagePayload {
+impl From<AssistedMessagePlus> for QsQueueMessagePayload {
     fn from(value: AssistedMessagePlus) -> Self {
         Self {
-            message_type: QueueMessageType::MlsMessage,
+            message_type: QsQueueMessageType::MlsMessage,
             payload: value.message_bytes,
         }
     }
 }
 
-impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
-impl EarDecryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
+impl EarEncryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct InfraAadMessage {

@@ -17,8 +17,8 @@ use crate::{
     crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
     messages::{
         client_ds::{
-            AddClientsParams, InfraAadMessage, InfraAadPayload, QueueMessagePayload,
-            QueueMessageType, WelcomeBundle,
+            AddClientsParams, InfraAadMessage, InfraAadPayload, QsQueueMessagePayload,
+            QsQueueMessageType, WelcomeBundle,
         },
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
@@ -203,11 +203,11 @@ impl DsGroupState {
                     .map_err(|_| ClientAdditionError::LibraryError)?,
             };
             let fan_out_message = DsFanOutMessage {
-                payload: DsFanOutPayload::QueueMessage(QueueMessagePayload {
+                payload: DsFanOutPayload::QueueMessage(QsQueueMessagePayload {
                     payload: welcome_bundle
                         .tls_serialize_detached()
                         .map_err(|_| ClientAdditionError::LibraryError)?,
-                    message_type: QueueMessageType::WelcomeBundle,
+                    message_type: QsQueueMessageType::WelcomeBundle,
                 }),
                 client_reference: client_queue_config,
             };

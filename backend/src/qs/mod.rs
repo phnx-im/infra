@@ -317,7 +317,7 @@ impl AsRef<[u8]> for QsSigningKey {
 
 impl SigningKey for QsSigningKey {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct QsVerifyingKey {
     verifying_key: Vec<u8>,
 }
@@ -420,16 +420,6 @@ pub struct KeyPackageBatchTbs {
     time_of_signature: TimeStamp,
 }
 
-impl KeyPackageBatchTbs {
-    pub(crate) fn key_package_refs(&self) -> &[KeyPackageRef] {
-        &self.key_package_refs
-    }
-
-    pub fn has_expired(&self, expiration_days: i64) -> bool {
-        self.time_of_signature.has_expired(expiration_days)
-    }
-}
-
 impl Signable for KeyPackageBatchTbs {
     type SignedOutput = KeyPackageBatch<VERIFIED>;
 
@@ -476,11 +466,14 @@ mod private_mod {
     pub struct Seal;
 }
 
-impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatchTbs {
+impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatch<VERIFIED> {
     type SealingType = private_mod::Seal;
 
     fn from_verifiable(verifiable: KeyPackageBatch<UNVERIFIED>, _seal: Self::SealingType) -> Self {
-        verifiable.payload
+        KeyPackageBatch::<VERIFIED> {
+            payload: verifiable.payload,
+            signature: verifiable.signature,
+        }
     }
 }
 
@@ -488,6 +481,16 @@ impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatchTbs {
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     payload: KeyPackageBatchTbs,
     signature: Signature,
+}
+
+impl KeyPackageBatch<VERIFIED> {
+    pub(crate) fn key_package_refs(&self) -> &[KeyPackageRef] {
+        &self.payload.key_package_refs
+    }
+
+    pub fn has_expired(&self, expiration_days: i64) -> bool {
+        self.payload.time_of_signature.has_expired(expiration_days)
+    }
 }
 
 impl TlsDeserializeBytesTrait for KeyPackageBatch<UNVERIFIED> {
@@ -516,6 +519,10 @@ impl AddPackage {
             key_package,
             encrypted_client_credential,
         }
+    }
+
+    pub fn key_package(&self) -> &KeyPackage {
+        &self.key_package
     }
 }
 

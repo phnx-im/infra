@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::KeyPackageIn;
+use mls_assist::openmls::prelude::{GroupId, KeyPackageIn};
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
@@ -18,11 +18,13 @@ use crate::{
         UserName,
     },
     crypto::{
+        ear::keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKey},
+        kdf::keys::RatchetSecret,
         signatures::{
-            signable::{Signature, Verifiable},
+            signable::{Signature, Verifiable, VerifiedStruct},
             traits::SignatureVerificationError,
         },
-        ConnectionEncryptionKey, QueueRatchet, RatchetEncryptionKey,
+        ConnectionEncryptionKey, RatchetEncryptionKey,
     },
 };
 
@@ -46,7 +48,7 @@ pub struct AsClientKeyPackageResponseIn {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserKeyPackagesResponseIn {
-    pub key_packages: Vec<KeyPackageIn>,
+    pub key_packages: Vec<ConnectionPackageIn>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -105,6 +107,10 @@ pub struct ConnectionPackageIn {
 }
 
 impl ConnectionPackageIn {
+    pub fn client_credential_signer_fingerprint(&self) -> &CredentialFingerprint {
+        self.payload.client_credential.signer_fingerprint()
+    }
+
     pub fn verify(
         self,
         credential_verifying_key: &AsIntermediateVerifyingKey,
@@ -151,7 +157,7 @@ pub struct FinishUserRegistrationParamsTbsIn {
     pub client_id: AsClientId,
     pub user_name: UserName,
     pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_key: QueueRatchet,
+    pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackageIn>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
 }
@@ -367,5 +373,51 @@ impl VerifiableClientToAsMessage {
             }
         };
         Ok(parameters)
+    }
+}
+
+mod private_mod {
+    #[derive(Default)]
+    pub struct Seal;
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct ConnectionEstablishmentPackageTbsIn {
+    sender_client_credential: VerifiableClientCredential,
+    connection_group_id: GroupId,
+    connection_group_ear_key: GroupStateEarKey,
+    connection_group_credential_key: ClientCredentialEarKey,
+    connection_group_signature_ear_key: SignatureEarKey,
+}
+
+impl VerifiedStruct<ConnectionEstablishmentPackageIn> for ConnectionEstablishmentPackageTbsIn {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(
+        verifiable: ConnectionEstablishmentPackageIn,
+        _seal: Self::SealingType,
+    ) -> Self {
+        verifiable.payload
+    }
+}
+
+#[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct ConnectionEstablishmentPackageIn {
+    payload: ConnectionEstablishmentPackageTbsIn,
+    // TBS: All information above signed by the ClientCredential.
+    signature: Signature,
+}
+
+impl Verifiable for ConnectionEstablishmentPackageIn {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.payload.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        "ConnectionEstablishmentPackageTBS"
     }
 }

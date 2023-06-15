@@ -12,7 +12,10 @@ use crate::{
         DecryptionError, QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
-    messages::{intra_backend::DsFanOutPayload, QueueMessage},
+    messages::{
+        client_ds::QsQueueMessagePayload, intra_backend::DsFanOutPayload, EncryptedQsQueueMessage,
+        QueueMessage,
+    },
     qs::WsNotification,
 };
 
@@ -26,7 +29,7 @@ use super::{
 /// TODO: This needs a codec that allows decoding to the proper type.
 #[derive(Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Debug)]
 #[repr(u8)]
-pub(super) enum QsQueueMessage {
+pub(super) enum QueueMessageType {
     #[tls_codec(discriminant = 1)]
     RatchetKeyUpdate(RatchetKeyUpdate),
     EnqueuedMessage(QueueMessage),
@@ -39,7 +42,7 @@ pub struct QsClientRecord {
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) owner_public_key: RatchetEncryptionKey,
     pub(crate) owner_signature_key: QsClientVerifyingKey,
-    pub(crate) current_ratchet_key: QueueRatchet,
+    pub(crate) current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
     pub(crate) activity_time: TimeStamp,
 }
 

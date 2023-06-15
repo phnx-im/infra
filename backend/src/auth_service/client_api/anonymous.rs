@@ -53,9 +53,13 @@ impl AuthService {
             .map_err(|_| EnqueueMessageError::StorageError)?
             .ok_or(EnqueueMessageError::ClientNotFound)?;
 
+        let payload = connection_establishment_ctxt
+            .try_into()
+            .map_err(|_| EnqueueMessageError::LibraryError)?;
+
         let queue_message = client_record
             .ratchet_key
-            .encrypt(connection_establishment_ctxt)
+            .encrypt(payload)
             .map_err(|_| EnqueueMessageError::LibraryError)?;
 
         // TODO: Future work: PCS

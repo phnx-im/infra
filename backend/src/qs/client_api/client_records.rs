@@ -36,7 +36,7 @@ impl Qs {
             add_packages,
             friendship_ear_key,
             encrypted_push_token,
-            initial_ratchet_key,
+            initial_ratchet_secret,
         } = params;
 
         let client_record = QsClientRecord {
@@ -44,7 +44,9 @@ impl Qs {
             encrypted_push_token,
             owner_public_key: queue_encryption_key,
             owner_signature_key: client_record_auth_key,
-            current_ratchet_key: initial_ratchet_key,
+            current_ratchet_key: initial_ratchet_secret
+                .try_into()
+                .map_err(|_| QsCreateClientRecordError::LibraryError)?,
             activity_time: TimeStamp::now(),
         };
 

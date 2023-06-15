@@ -9,7 +9,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSize};
 
 use crate::qs::QsClientReference;
 
-use super::client_ds::{AssistedMessagePlus, EventMessage, QueueMessagePayload};
+use super::client_ds::{AssistedMessagePlus, EventMessage, QsQueueMessagePayload};
 
 // === DS to QS ===
 
@@ -22,7 +22,7 @@ pub struct DsFanOutMessage {
 #[derive(Clone, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsFanOutPayload {
-    QueueMessage(QueueMessagePayload),
+    QueueMessage(QsQueueMessagePayload),
     EventMessage(EventMessage),
 }
 

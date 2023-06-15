@@ -11,12 +11,16 @@ use phnxbackend::{
         AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
         OpaqueRegistrationRequest, UserName,
     },
-    crypto::{signatures::signable::Signable, QueueRatchet, RatchetEncryptionKey},
+    crypto::{
+        kdf::keys::RatchetSecret, signatures::signable::Signable, QueueRatchet,
+        RatchetEncryptionKey,
+    },
     messages::{
         client_as::{
             AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
-            AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
-            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            AsQueueMessagePayload, AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage,
+            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
+            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
@@ -27,7 +31,7 @@ use phnxbackend::{
             InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
             UserKeyPackagesResponseIn,
         },
-        client_ds::QueueMessagePayload,
+        client_ds::QsQueueMessagePayload,
     },
 };
 use phnxserver::endpoints::ENDPOINT_AS;
@@ -153,7 +157,7 @@ impl ApiClient {
         &self,
         user_name: UserName,
         queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_key: QueueRatchet,
+        initial_ratchet_secret: RatchetSecret,
         connection_packages: Vec<ConnectionPackage>,
         opaque_registration_record: OpaqueRegistrationRecord,
         signing_key: &ClientSigningKey,
@@ -162,7 +166,7 @@ impl ApiClient {
             client_id: signing_key.credential().identity(),
             user_name,
             queue_encryption_key,
-            initial_ratchet_key,
+            initial_ratchet_secret,
             connection_packages,
             opaque_registration_record,
         };
@@ -239,7 +243,7 @@ impl ApiClient {
         &self,
         client_id: AsClientId,
         queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_key: QueueRatchet,
+        initial_ratchet_key: RatchetSecret,
         connection_key_package: KeyPackageIn,
         opaque_login_finish: OpaqueLoginFinish,
     ) -> Result<(), AsRequestError> {
@@ -248,7 +252,7 @@ impl ApiClient {
         let tbs = FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
-            initial_ratchet_key,
+            initial_ratchet_secret: initial_ratchet_key,
             connection_key_package,
         };
         let payload = FinishClientAdditionParams {
@@ -443,7 +447,7 @@ impl ApiClient {
     pub async fn as_enqueue_message(
         &self,
         client_id: AsClientId,
-        connection_establishment_ctxt: QueueMessagePayload,
+        connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
     ) -> Result<(), AsRequestError> {
         let payload = EnqueueMessageParams {
             client_id,

@@ -14,16 +14,17 @@ use utoipa::ToSchema;
 use crate::{
     crypto::{
         ear::keys::AddPackageEarKey,
+        kdf::keys::RatchetSecret,
         signatures::keys::QsClientVerifyingKey,
         signatures::{
             keys::QsUserVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
-        QueueRatchet, RatchetEncryptionKey,
+        RatchetEncryptionKey,
     },
     qs::{
         AddPackage, AddPackageIn, EncryptedPushToken, KeyPackageBatch, QsClientId,
-        QsEncryptedAddPackage, QsUserId, UNVERIFIED, VERIFIED,
+        QsEncryptedAddPackage, QsUserId, QsVerifyingKey, UNVERIFIED, VERIFIED,
     },
 };
 
@@ -79,7 +80,7 @@ pub struct CreateUserRecordParams {
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
-    pub(crate) initial_ratchet_key: QueueRatchet,
+    pub(crate) initial_ratchet_secret: RatchetSecret,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
@@ -121,7 +122,7 @@ pub struct CreateClientRecordParams {
     pub(crate) add_packages: Vec<AddPackageIn>,
     pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
-    pub(crate) initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
+    pub(crate) initial_ratchet_secret: RatchetSecret, // TODO: This can be dropped once we support PCS
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
@@ -188,8 +189,13 @@ pub struct KeyPackageBatchResponse {
 
 #[derive(TlsSize, TlsDeserializeBytes, ToSchema)]
 pub struct KeyPackageBatchResponseIn {
-    pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) key_package_batch: KeyPackageBatch<UNVERIFIED>,
+    pub add_packages: Vec<AddPackageIn>,
+    pub key_package_batch: KeyPackageBatch<UNVERIFIED>,
+}
+
+#[derive(TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct VerifyingKeyResponse {
+    pub verifying_key: QsVerifyingKey,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
@@ -258,7 +264,8 @@ impl VerifiedStruct<VerifiableClientToQsMessage> for QsRequestParams {
 #[derive(TlsDeserializeBytes, TlsSize)]
 pub struct ClientToQsMessage {
     payload: ClientToQsMessageTbs,
-    // Signature over all of the above or friendship token
+    // Signature over all of the above or friendship token or empty for messages
+    // without authentication
     token_or_signature: Signature,
 }
 
@@ -299,6 +306,8 @@ pub enum QsRequestParams {
     KeyPackageBatch(KeyPackageBatchParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
+    // Key material
+    VerifyingKey,
 }
 
 impl QsRequestParams {
@@ -318,6 +327,7 @@ impl QsRequestParams {
                 QsSender::FriendshipToken(params.sender.clone())
             }
             QsRequestParams::DequeueMessages(params) => QsSender::Client(params.sender.clone()),
+            QsRequestParams::VerifyingKey => todo!(),
         }
     }
 }
@@ -331,6 +341,7 @@ pub enum QsProcessResponse {
     ClientKeyPackage(ClientKeyPackageResponse),
     KeyPackageBatch(KeyPackageBatchResponse),
     DequeueMessages(DequeueMessagesResponse),
+    VerifyingKey(VerifyingKeyResponse),
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -342,6 +353,7 @@ pub enum QsProcessResponseIn {
     ClientKeyPackage(ClientKeyPackageResponse),
     KeyPackageBatch(KeyPackageBatchResponseIn),
     DequeueMessages(DequeueMessagesResponse),
+    VerifyingKey(VerifyingKeyResponse),
 }
 
 pub enum QsSender {
@@ -349,4 +361,5 @@ pub enum QsSender {
     Client(QsClientId),
     FriendshipToken(FriendshipToken),
     QsUserVerifyingKey(QsUserVerifyingKey),
+    Anonymous,
 }

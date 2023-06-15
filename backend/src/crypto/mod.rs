@@ -10,6 +10,8 @@
 //! TODO: A proper RNG provider for use with all crypto functions that require
 //! randomness, i.e. mainly secret and nonce sampling.
 #![allow(unused_variables)]
+use std::marker::PhantomData;
+
 use argon2::Argon2;
 use chrono::{DateTime, Utc};
 use mls_assist::{
@@ -30,12 +32,14 @@ use utoipa::ToSchema;
 
 use crate::{
     crypto::ear::EarEncryptable,
-    messages::{client_ds::QueueMessagePayload, QueueMessage},
+    messages::{client_ds::QsQueueMessagePayload, QueueMessage},
     qs::SealedClientReference,
+    LibraryError,
 };
 
 use self::{
     ear::{keys::RatchetKey, Ciphertext, EarDecryptable, EncryptionError},
+    hpke::{HpkeDecryptionKey, HpkeEncryptionKey},
     kdf::{keys::RatchetSecret, KdfDerivable},
 };
 
@@ -94,6 +98,7 @@ pub(crate) const OPAQUE_LOGIN_FINISH_SIZE: usize = OPAQUE_NM;
 pub type Hash = Sha256;
 
 pub mod ear;
+pub mod hpke;
 pub mod kdf;
 pub mod mac;
 pub mod secrets;
@@ -131,24 +136,46 @@ impl AsRef<Ciphertext> for EncryptedDsGroupState {
 pub(crate) type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct QueueRatchet {
+pub struct QueueRatchet<
+    CiphertextType: AsRef<Ciphertext> + From<Ciphertext>,
+    PayloadType: EarEncryptable<RatchetKey, CiphertextType> + EarDecryptable<RatchetKey, CiphertextType>,
+> {
     sequence_number: u64,
     secret: RatchetSecret,
     key: RatchetKey,
+    _phantom: PhantomData<(CiphertextType, PayloadType)>,
 }
 
-// TODO: Implement the ratchet key.
-impl QueueRatchet {
-    /// Initialize a new ratchet key.
-    pub fn random() -> Result<Self, RandomnessError> {
-        let secret = RatchetSecret::random()?;
-        let key = RatchetKey::derive(&secret, Vec::new())
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+impl<
+        CiphertextType: AsRef<Ciphertext> + From<Ciphertext>,
+        PayloadType: EarEncryptable<RatchetKey, CiphertextType> + EarDecryptable<RatchetKey, CiphertextType>,
+    > TryFrom<RatchetSecret> for QueueRatchet<CiphertextType, PayloadType>
+{
+    type Error = LibraryError;
+
+    fn try_from(secret: RatchetSecret) -> Result<Self, Self::Error> {
+        let key = RatchetKey::derive(&secret, Vec::new()).map_err(|_| LibraryError)?;
         Ok(Self {
             sequence_number: 0,
             secret,
             key,
+            _phantom: PhantomData,
         })
+    }
+}
+
+// TODO: Implement the ratchet key.
+impl<
+        CiphertextType: AsRef<Ciphertext> + From<Ciphertext>,
+        PayloadType: EarEncryptable<RatchetKey, CiphertextType> + EarDecryptable<RatchetKey, CiphertextType>,
+    > QueueRatchet<CiphertextType, PayloadType>
+{
+    /// Initialize a new ratchet key.
+    pub fn random() -> Result<Self, RandomnessError> {
+        let secret = RatchetSecret::random()?;
+        secret
+            .try_into()
+            .map_err(|_| RandomnessError::InsufficientRandomness)
     }
 
     fn ratchet_forward(&mut self) -> Result<(), EncryptionError> {
@@ -165,10 +192,7 @@ impl QueueRatchet {
     }
 
     /// Encrypt the given payload.
-    pub fn encrypt(
-        &mut self,
-        payload: QueueMessagePayload,
-    ) -> Result<QueueMessage, EncryptionError> {
+    pub fn encrypt(&mut self, payload: PayloadType) -> Result<QueueMessage, EncryptionError> {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?;
 
@@ -176,7 +200,7 @@ impl QueueRatchet {
 
         Ok(QueueMessage {
             sequence_number: self.sequence_number,
-            ciphertext,
+            ciphertext: ciphertext.as_ref().clone(),
         })
     }
 
@@ -184,8 +208,9 @@ impl QueueRatchet {
     pub fn decrypt(
         &mut self,
         queue_message: QueueMessage,
-    ) -> Result<QueueMessagePayload, DecryptionError> {
-        let plaintext = QueueMessagePayload::decrypt(&self.key, &queue_message.ciphertext)?;
+    ) -> Result<QsQueueMessagePayload, DecryptionError> {
+        let ciphertext = queue_message.ciphertext.into();
+        let plaintext = QsQueueMessagePayload::decrypt(&self.key, &ciphertext)?;
         self.ratchet_forward()
             .map_err(|_| DecryptionError::DecryptionError)?;
         Ok(plaintext)
@@ -313,9 +338,25 @@ pub struct ConnectionEncryptionKey {
     encryption_key: EncryptionPublicKey,
 }
 
+impl AsRef<EncryptionPublicKey> for ConnectionEncryptionKey {
+    fn as_ref(&self) -> &EncryptionPublicKey {
+        &self.encryption_key
+    }
+}
+
+impl HpkeEncryptionKey for ConnectionEncryptionKey {}
+
 pub struct ConnectionDecryptionKey {
     decryption_key: DecryptionPrivateKey,
 }
+
+impl AsRef<DecryptionPrivateKey> for ConnectionDecryptionKey {
+    fn as_ref(&self) -> &DecryptionPrivateKey {
+        &self.decryption_key
+    }
+}
+
+impl HpkeDecryptionKey for ConnectionDecryptionKey {}
 
 impl ConnectionDecryptionKey {
     pub fn generate() -> Result<Self, RandomnessError> {

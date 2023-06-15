@@ -47,6 +47,7 @@ impl Qs {
             QsSender::QsUserVerifyingKey(key) => message
                 .verify(&key)
                 .map_err(|_| QsProcessError::AuthenticationError)?,
+            QsSender::Anonymous => QsRequestParams::VerifyingKey,
         };
 
         Ok(match request_params {
@@ -85,6 +86,9 @@ impl Qs {
             QsRequestParams::DequeueMessages(params) => QsProcessResponse::DequeueMessages(
                 Self::qs_dequeue_messages(storage_provider, params).await?,
             ),
+            QsRequestParams::VerifyingKey => {
+                QsProcessResponse::VerifyingKey(Self::qs_verifying_key(storage_provider).await?)
+            }
         })
     }
 
