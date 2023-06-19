@@ -116,9 +116,6 @@ pub struct ActiveConversation {}
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(UserName),
-    // A connection conversation that is confirmed by the other party, but for
-    // which we haven't received the necessary secrets.
-    ConfirmedConnection(UserName),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
     Connection(UserName),

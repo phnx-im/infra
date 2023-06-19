@@ -245,6 +245,11 @@ pub struct ExternalCommitInfoParams {
     pub sender: UserKeyHash,
 }
 
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+pub struct ConnectionGroupInfoParams {
+    pub group_id: GroupId,
+}
+
 // TODO: We want this to contain the message bytes as well s.t. we don't have to
 // re-serialize after processing on the server side. This proves to be tricky
 // even though we now have DeserializeBytes.
@@ -371,6 +376,7 @@ pub(crate) enum DsRequestParams {
     RemoveUsers(RemoveUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
+    ConnectionGroupInfo(ConnectionGroupInfoParams),
     CreateGroupParams(CreateGroupParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
@@ -399,6 +405,7 @@ impl DsRequestParams {
             DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
                 &external_commit_info_params.group_id
             }
+            DsRequestParams::ConnectionGroupInfo(params) => &params.group_id,
             DsRequestParams::RemoveUsers(remove_users_params) => {
                 remove_users_params.commit.message.group_id()
             }
@@ -477,6 +484,7 @@ impl DsRequestParams {
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
+            | DsRequestParams::ConnectionGroupInfo(_)
             | DsRequestParams::CreateGroupParams(_)
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
@@ -536,6 +544,7 @@ impl DsRequestParams {
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 DsSender::LeafIndex(dispatch_event_params.event.sender_index())
             }
+            DsRequestParams::ConnectionGroupInfo(_) => DsSender::Anonymous,
         }
     }
 }
@@ -546,6 +555,7 @@ pub enum DsSender {
     LeafIndex(LeafNodeIndex),
     LeafSignatureKey(SignaturePublicKey),
     UserKeyHash(UserKeyHash),
+    Anonymous,
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -608,6 +618,15 @@ impl VerifiableClientToDsMessage {
     pub(crate) fn join_connection_group_sender(&self) -> Option<&UserAuthVerifyingKey> {
         match &self.message.payload.body {
             DsRequestParams::JoinConnectionGroup(params) => Some(&params.sender),
+            _ => None,
+        }
+    }
+
+    /// This returns the payload without any verification. Can only be used with
+    /// payloads that have an `Anonymous` sender.
+    pub(crate) fn extract_without_verification(self) -> Option<DsRequestParams> {
+        match self.message.payload.sender() {
+            DsSender::Anonymous => Some(self.message.payload.body),
             _ => None,
         }
     }

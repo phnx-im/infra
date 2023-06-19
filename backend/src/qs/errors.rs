@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::crypto::DecryptionError;
+
 use super::storage_provider_trait::QsStorageProvider;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -16,7 +18,7 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     QueueNotFound,
     /// Unseal error
     #[error(transparent)]
-    UnsealError(#[from] UnsealError),
+    UnsealError(#[from] DecryptionError),
     /// An error ocurred enqueueing in a fan out queue
     #[error(transparent)]
     EnqueueError(#[from] EnqueueError<S>),
@@ -207,6 +209,14 @@ pub enum QsVerifyingKeyError {
     StorageError,
 }
 
+#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum QsEncryptionKeyError {
+    /// Error retrieving user key packages
+    #[error("Error retrieving user key packages")]
+    StorageError,
+}
+
 // === Other errors ===
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -279,4 +289,7 @@ pub enum QsProcessError {
     /// Verifying key error
     #[error("Verifying key error")]
     QsVerifyingKeyError(#[from] QsVerifyingKeyError),
+    /// Encryption key error
+    #[error("Encryption key error")]
+    QsEncryptionKeyError(#[from] QsEncryptionKeyError),
 }

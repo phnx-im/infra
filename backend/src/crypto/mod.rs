@@ -27,14 +27,12 @@ use mls_assist::{
 use opaque_ke::CipherSuite;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use crate::{
-    crypto::ear::EarEncryptable,
-    messages::{client_ds::QsQueueMessagePayload, QueueMessage},
-    qs::SealedClientReference,
-    LibraryError,
+    crypto::ear::EarEncryptable, messages::QueueMessage, qs::SealedClientReference, LibraryError,
 };
 
 use self::{
@@ -205,12 +203,9 @@ impl<
     }
 
     /// Decrypt the given payload.
-    pub fn decrypt(
-        &mut self,
-        queue_message: QueueMessage,
-    ) -> Result<QsQueueMessagePayload, DecryptionError> {
+    pub fn decrypt(&mut self, queue_message: QueueMessage) -> Result<PayloadType, DecryptionError> {
         let ciphertext = queue_message.ciphertext.into();
-        let plaintext = QsQueueMessagePayload::decrypt(&self.key, &ciphertext)?;
+        let plaintext = PayloadType::decrypt(&self.key, &ciphertext)?;
         self.ratchet_forward()
             .map_err(|_| DecryptionError::DecryptionError)?;
         Ok(plaintext)
@@ -256,9 +251,14 @@ impl EncryptionPublicKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum DecryptionError {
+    /// Error decrypting ciphertext.
+    #[error("Error decrypting ciphertext.")]
     DecryptionError,
+    /// Error deserializing payload.
+    #[error("Error deserializing payload.")]
+    DeserializationError,
 }
 
 #[derive(Debug, Clone)]
@@ -303,6 +303,10 @@ impl DecryptionPrivateKey {
                 public_key: keypair.public,
             },
         })
+    }
+
+    pub fn public_key(&self) -> &EncryptionPublicKey {
+        &self.public_key
     }
 }
 

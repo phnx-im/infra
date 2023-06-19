@@ -229,6 +229,7 @@ impl InfraCredentialSigningKey {
 }
 
 impl SigningKey for InfraCredentialSigningKey {}
+impl SigningKey for &InfraCredentialSigningKey {}
 
 impl AsRef<[u8]> for InfraCredentialSigningKey {
     fn as_ref(&self) -> &[u8] {

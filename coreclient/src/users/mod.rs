@@ -36,12 +36,12 @@ use phnxbackend::{
     messages::{
         client_as::{
             AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackage,
-            ConnectionPackageTbs, UserKeyPackagesParams,
+            ConnectionPackageTbs, FriendshipPackage, UserKeyPackagesParams,
         },
         client_ds::QsQueueRatchet,
         FriendshipToken, MlsInfraVersion,
     },
-    qs::{AddPackage, PushToken, QsClientId, QsUserId, QsVerifyingKey},
+    qs::{AddPackage, ClientIdEncryptionKey, PushToken, QsClientId, QsUserId, QsVerifyingKey},
 };
 use rand::rngs::OsRng;
 
@@ -64,6 +64,7 @@ pub(crate) struct MemoryUserKeyStore {
     // AS-specific key material
     as_queue_decryption_key: RatchetDecryptionKey,
     as_queue_ratchet: AsQueueRatchet,
+    connection_decryption_key: ConnectionDecryptionKey,
     as_credentials: Vec<AsCredential>,
     as_intermediate_credentials: Vec<AsIntermediateCredential>,
     // QS-specific key material
@@ -72,6 +73,7 @@ pub(crate) struct MemoryUserKeyStore {
     qs_queue_decryption_key: RatchetDecryptionKey,
     qs_queue_ratchet: QsQueueRatchet,
     qs_verifying_key: QsVerifyingKey,
+    qs_client_id_encryption_key: ClientIdEncryptionKey,
     push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     friendship_token: FriendshipToken,
@@ -197,16 +199,24 @@ impl SelfUser {
         let qs_verifying_key = block_on(api_client.qs_verifying_key())
             .unwrap()
             .verifying_key;
+        let qs_encryption_key = block_on(api_client.qs_encryption_key())
+            .unwrap()
+            .encryption_key;
+        let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
         // Mutable, because we need to access the leaf signers later.
         let mut key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
             as_queue_ratchet: as_initial_ratchet_secret.clone().try_into().unwrap(),
+            connection_decryption_key,
+            as_credentials: as_credentials_response.as_credentials,
+            as_intermediate_credentials,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
             qs_queue_ratchet: qs_initial_ratchet_secret.clone().try_into().unwrap(),
+            qs_verifying_key,
             push_token_ear_key,
             friendship_token,
             add_package_ear_key,
@@ -214,20 +224,18 @@ impl SelfUser {
             signature_ear_key,
             wai_ear_key,
             leaf_signers,
-            as_credentials: as_credentials_response.as_credentials,
-            as_intermediate_credentials,
-            qs_verifying_key,
+            qs_client_id_encryption_key: todo!(),
         };
 
-        // TODO: We need another leaf credential type in OpenMLS for connection
-        // key packages. Should we use the client credentials directly?
+        // TODO: For now, we use the same ConnectionDecryptionKey for all
+        // connection packages.
+
         let mut connection_packages = vec![];
         for _ in 0..CONNECTION_PACKAGES {
-            let decryption_key = ConnectionDecryptionKey::generate().unwrap();
             let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION_DAYS);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
-                decryption_key.encryption_key(),
+                key_store.connection_decryption_key.encryption_key(),
                 lifetime,
                 key_store.signing_key.credential().clone(),
             );
@@ -547,6 +555,14 @@ impl SelfUser {
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
 
+        let friendship_package = FriendshipPackage {
+            friendship_token: self.key_store.friendship_token.clone(),
+            add_package_ear_key: self.key_store.add_package_ear_key.clone(),
+            client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
+            signature_ear_key: self.key_store.signature_ear_key.clone(),
+            wai_ear_key: self.key_store.wai_ear_key.clone(),
+        };
+
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
             sender_client_credential: self.key_store.signing_key.credential().clone(),
@@ -554,6 +570,7 @@ impl SelfUser {
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
             connection_group_credential_key: connection_group.credential_ear_key().clone(),
             connection_group_signature_ear_key: connection_group.signature_ear_key().clone(),
+            friendship_package,
         }
         .sign(&self.key_store.signing_key)
         .unwrap();

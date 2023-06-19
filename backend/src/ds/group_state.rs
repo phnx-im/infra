@@ -8,7 +8,7 @@ use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use mls_assist::{
     group::Group,
     openmls::{
-        prelude::{group_info::GroupInfo, GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
+        prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
         treesync::RatchetTree,
     },
 };
@@ -28,7 +28,10 @@ use crate::{
     qs::QsClientReference,
 };
 
-use super::errors::{UpdateQueueConfigError, ValidationError};
+use super::{
+    api::ExternalCommitInfo,
+    errors::{UpdateQueueConfigError, ValidationError},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimeStamp {
@@ -226,10 +229,15 @@ impl DsGroupState {
             .past_group_state(&welcome_info_params.epoch, &welcome_info_params.sender)
     }
 
-    pub(super) fn external_commit_info(&mut self) -> (GroupInfo, RatchetTree) {
+    pub(super) fn external_commit_info(&self) -> ExternalCommitInfo {
         let group_info = self.group().group_info().clone();
-        let nodes = self.group().export_ratchet_tree();
-        (group_info, nodes)
+        let ratchet_tree = self.group().export_ratchet_tree();
+        let encrypted_client_credentials = self.client_credentials();
+        ExternalCommitInfo {
+            group_info,
+            ratchet_tree,
+            encrypted_client_credentials,
+        }
     }
 
     pub(super) fn process_referenced_remove_proposals(

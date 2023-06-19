@@ -14,13 +14,14 @@ use crate::{
     },
     ds::group_state::TimeStamp,
     messages::client_qs::{
-        ClientKeyPackageParams, ClientKeyPackageResponse, KeyPackageBatchParams,
-        KeyPackageBatchResponse, PublishKeyPackagesParams, VerifyingKeyResponse,
+        ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse,
+        KeyPackageBatchParams, KeyPackageBatchResponse, PublishKeyPackagesParams,
+        VerifyingKeyResponse,
     },
     qs::{
         errors::{
-            QsClientKeyPackageError, QsKeyPackageBatchError, QsPublishKeyPackagesError,
-            QsVerifyingKeyError,
+            QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
+            QsPublishKeyPackagesError, QsVerifyingKeyError,
         },
         storage_provider_trait::QsStorageProvider,
         AddPackageIn, KeyPackageBatchTbs, Qs,
@@ -162,5 +163,20 @@ impl Qs {
                 VerifyingKeyResponse { verifying_key }
             })
             .map_err(|_| QsVerifyingKeyError::StorageError)
+    }
+
+    /// Retrieve the client id encryption key of this QS
+    #[tracing::instrument(skip_all, err)]
+    pub(crate) async fn qs_encryption_key<S: QsStorageProvider>(
+        storage_provider: &S,
+    ) -> Result<EncryptionKeyResponse, QsEncryptionKeyError> {
+        storage_provider
+            .load_decryption_key()
+            .await
+            .map(|decryption_key| {
+                let encryption_key = decryption_key.encryption_key().clone();
+                EncryptionKeyResponse { encryption_key }
+            })
+            .map_err(|_| QsEncryptionKeyError::StorageError)
     }
 }

@@ -89,6 +89,9 @@ impl Qs {
             QsRequestParams::VerifyingKey => {
                 QsProcessResponse::VerifyingKey(Self::qs_verifying_key(storage_provider).await?)
             }
+            QsRequestParams::EncryptionKey => {
+                QsProcessResponse::EncryptionKey(Self::qs_encryption_key(storage_provider).await?)
+            }
         })
     }
 

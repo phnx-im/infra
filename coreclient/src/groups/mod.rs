@@ -38,9 +38,11 @@ use phnxbackend::{
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            WelcomeBundle,
+            JoinConnectionGroupParamsAad, WelcomeBundle,
         },
-        client_ds_out::{AddUsersParamsOut, RemoveUsersParamsOut, SendMessageParamsOut},
+        client_ds_out::{
+            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut, SendMessageParamsOut,
+        },
     },
     qs::{KeyPackageBatch, VERIFIED},
     AssistedGroupInfo,
@@ -135,7 +137,9 @@ impl Group {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
-        let mls_group_config = MlsGroupConfig::default();
+        let mls_group_config = MlsGroupConfig::builder()
+            .use_ratchet_tree_extension(true)
+            .build();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
         let (key_package, _) = welcome_bundle
@@ -283,6 +287,121 @@ impl Group {
         };
 
         Ok(group)
+    }
+
+    /// Join a group using an external commit.
+    pub(crate) fn join_group_externally(
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        external_commit_info: ExternalCommitInfoIn,
+        key_package: KeyPackage,
+        leaf_signer: InfraCredentialSigningKey,
+        group_state_ear_key: GroupStateEarKey,
+        signature_ear_key: SignatureEarKey,
+        credential_ear_key: ClientCredentialEarKey,
+        own_client_credential: &ClientCredential,
+        as_intermediate_credentials: &[AsIntermediateCredential],
+    ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
+        // TODO: We set the ratchet tree extension for now, as it is the only
+        // way to make OpenMLS return a GroupInfo. This should change in the
+        // future.
+        let mls_group_config = MlsGroupConfig::builder()
+            .use_ratchet_tree_extension(true)
+            .build();
+        let credential_with_key = CredentialWithKey {
+            credential: leaf_signer.credential().clone().into(),
+            signature_key: leaf_signer.credential().verifying_key().clone(),
+        };
+        let ExternalCommitInfoIn {
+            verifiable_group_info,
+            ratchet_tree_in,
+            encrypted_client_credentials,
+        } = external_commit_info;
+
+        let aad = JoinConnectionGroupParamsAad {
+            encrypted_credential_information: own_client_credential
+                .encrypt(&credential_ear_key)
+                .unwrap(),
+        }
+        .tls_serialize_detached()
+        .unwrap();
+
+        // Let's create the group first so that we can access the GroupId.
+        let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
+            backend,
+            &leaf_signer,
+            Some(ratchet_tree_in),
+            verifiable_group_info,
+            &mls_group_config,
+            &aad,
+            credential_with_key,
+        )
+        .unwrap();
+        mls_group.set_aad(&[]);
+
+        let group_info = group_info_option.unwrap();
+
+        // TODO: Verify all leaf credentials.
+
+        let client_credentials: Vec<Option<ClientCredential>> = encrypted_client_credentials
+            .into_iter()
+            .map(|ciphertext_option| {
+                ciphertext_option.map(|ciphertext| {
+                    let verifiable_credential =
+                        VerifiableClientCredential::decrypt(&credential_ear_key, &ciphertext)
+                            .unwrap();
+                    let as_credential = as_intermediate_credentials
+                        .iter()
+                        .find(|as_cred| {
+                            &as_cred.fingerprint().unwrap()
+                                == verifiable_credential.signer_fingerprint()
+                        })
+                        .unwrap();
+                    verifiable_credential
+                        .verify(as_credential.verifying_key())
+                        .unwrap()
+                })
+            })
+            .collect();
+
+        // Decrypt and verify the infra credentials.
+        // TODO: Right now, this just panics if the verification fails.
+        mls_group
+            .members()
+            .for_each(|m| match m.credential.mls_credential_type() {
+                MlsCredentialType::Infra(credential) => {
+                    let _verified_credential: InfraCredentialTbs =
+                        InfraCredentialPlaintext::decrypt(credential, &signature_ear_key)
+                            .unwrap()
+                            .verify(
+                                client_credentials
+                                    .get(m.index.usize())
+                                    .unwrap()
+                                    .as_ref()
+                                    .unwrap()
+                                    .verifying_key(),
+                            )
+                            .unwrap();
+                }
+                _ => panic_any("We should only use infra credentials."),
+            });
+
+        // TODO: Once we support multiple clients, this should be synchronized
+        // across clients.
+        let user_auth_key = UserAuthSigningKey::generate().unwrap();
+
+        let group = Group {
+            group_id: mls_group.group_id().clone(),
+            mls_group,
+            leaf_signer,
+            signature_ear_key,
+            credential_ear_key,
+            group_state_ear_key,
+            user_auth_key,
+            client_credentials,
+            pending_diff: None,
+        };
+
+        Ok((group, commit, group_info.into()))
     }
 
     /// Process inbound message

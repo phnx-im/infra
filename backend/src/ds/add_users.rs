@@ -25,7 +25,7 @@ use crate::{
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{
-        Fqdn, KeyPackageBatch, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
+        Fqdn, KeyPackageBatch, QsClientReference, QsConnector, QsVerifyingKey,
         KEYPACKAGEBATCH_EXPIRATION_DAYS, VERIFIED,
     },
 };

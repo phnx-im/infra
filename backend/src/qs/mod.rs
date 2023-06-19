@@ -67,6 +67,7 @@ use crate::{
             keys::{AddPackageEarKey, PushTokenEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
+        hpke::{HpkeDecryptable, HpkeDecryptionKey, HpkeEncryptable, HpkeEncryptionKey},
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::{SigningKey, VerifyingKey},
@@ -93,7 +94,7 @@ use tls_codec::{
 };
 use utoipa::ToSchema;
 
-use self::errors::{SealError, UnsealError};
+use self::errors::SealError;
 
 pub mod client_api;
 pub mod client_record;
@@ -171,30 +172,57 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
 #[derive(Debug, Clone)]
 pub struct ClientIdDecryptionKey {
     private_key: DecryptionPrivateKey,
+    encryption_key: ClientIdEncryptionKey,
 }
 
-impl ClientIdDecryptionKey {
-    pub(super) fn unseal_client_config(
-        &self,
-        sealed_client_reference: &SealedClientReference,
-    ) -> Result<ClientConfig, UnsealError> {
-        let bytes = self
-            .private_key
-            .decrypt(&[], &[], &sealed_client_reference.ciphertext)
-            .map_err(|_| UnsealError::DecryptionError)?;
-        ClientConfig::tls_deserialize_exact(&bytes).map_err(|_| UnsealError::CodecError)
+impl AsRef<DecryptionPrivateKey> for ClientIdDecryptionKey {
+    fn as_ref(&self) -> &DecryptionPrivateKey {
+        &self.private_key
     }
+}
+
+impl HpkeDecryptionKey for ClientIdDecryptionKey {}
+
+impl ClientIdDecryptionKey {
+    //pub(super) fn unseal_client_config(
+    //    &self,
+    //    sealed_client_reference: &SealedClientReference,
+    //) -> Result<ClientConfig, UnsealError> {
+    //    let bytes = self
+    //        .private_key
+    //        .decrypt(&[], &[], &sealed_client_reference.ciphertext)
+    //        .map_err(|_| UnsealError::DecryptionError)?;
+    //    ClientConfig::tls_deserialize_exact(&bytes).map_err(|_| UnsealError::CodecError)
+    //}
 
     pub fn generate() -> Result<Self, RandomnessError> {
         let private_key = DecryptionPrivateKey::generate()?;
-        Ok(Self { private_key })
+        let encryption_key = ClientIdEncryptionKey {
+            public_key: private_key.public_key().clone(),
+        };
+        Ok(Self {
+            private_key,
+            encryption_key,
+        })
+    }
+
+    pub fn encryption_key(&self) -> &ClientIdEncryptionKey {
+        &self.encryption_key
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ClientIdEncryptionKey {
     public_key: EncryptionPublicKey,
 }
+
+impl AsRef<EncryptionPublicKey> for ClientIdEncryptionKey {
+    fn as_ref(&self) -> &EncryptionPublicKey {
+        &self.public_key
+    }
+}
+
+impl HpkeEncryptionKey for ClientIdEncryptionKey {}
 
 impl ClientIdEncryptionKey {
     pub fn seal_client_config(
@@ -268,10 +296,13 @@ impl QsUserId {
 /// Info describing the queue configuration for a member of a given group.
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ClientConfig {
-    pub(crate) client_id: QsClientId,
+    pub client_id: QsClientId,
     // Some clients might not use push tokens.
-    pub(crate) push_token_ear_key: Option<PushTokenEarKey>,
+    pub push_token_ear_key: Option<PushTokenEarKey>,
 }
+
+impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientConfig {}
+impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
 
 impl ClientConfig {
     pub fn dummy_config() -> Self {
@@ -366,8 +397,8 @@ pub struct Fqdn {}
     Hash,
 )]
 pub struct QsClientReference {
-    client_homeserver_domain: Fqdn,
-    sealed_reference: SealedClientReference,
+    pub client_homeserver_domain: Fqdn,
+    pub sealed_reference: SealedClientReference,
 }
 
 #[derive(
@@ -384,6 +415,18 @@ pub struct QsClientReference {
 )]
 pub struct SealedClientReference {
     ciphertext: HpkeCiphertext,
+}
+
+impl From<HpkeCiphertext> for SealedClientReference {
+    fn from(value: HpkeCiphertext) -> Self {
+        Self { ciphertext: value }
+    }
+}
+
+impl AsRef<HpkeCiphertext> for SealedClientReference {
+    fn as_ref(&self) -> &HpkeCiphertext {
+        &self.ciphertext
+    }
 }
 
 // This is used to check keypackage batch freshness by the DS, so it's

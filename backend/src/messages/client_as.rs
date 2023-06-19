@@ -21,7 +21,10 @@ use crate::{
     },
     crypto::{
         ear::{
-            keys::{ClientCredentialEarKey, GroupStateEarKey, RatchetKey, SignatureEarKey},
+            keys::{
+                AddPackageEarKey, ClientCredentialEarKey, GroupStateEarKey, RatchetKey,
+                SignatureEarKey, WelcomeAttributionInfoEarKey,
+            },
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::HpkeEncryptable,
@@ -33,10 +36,10 @@ use crate::{
 
 use super::{
     client_as_out::{
-        ConnectionEstablishmentPackageIn, FinishUserRegistrationParamsIn,
-        FinishUserRegistrationParamsTbsIn, VerifiableConnectionPackage,
+        FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
+        VerifiableConnectionPackage,
     },
-    EncryptedAsQueueMessage, MlsInfraVersion, QueueMessage,
+    EncryptedAsQueueMessage, FriendshipToken, MlsInfraVersion, QueueMessage,
 };
 
 mod private_mod {
@@ -475,6 +478,15 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
 
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct FriendshipPackage {
+    pub friendship_token: FriendshipToken,
+    pub add_package_ear_key: AddPackageEarKey,
+    pub client_credential_ear_key: ClientCredentialEarKey,
+    pub signature_ear_key: SignatureEarKey,
+    pub wai_ear_key: WelcomeAttributionInfoEarKey,
+}
+
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {
     pub sender_client_credential: ClientCredential,
@@ -482,6 +494,7 @@ pub struct ConnectionEstablishmentPackageTbs {
     pub connection_group_ear_key: GroupStateEarKey,
     pub connection_group_credential_key: ClientCredentialEarKey,
     pub connection_group_signature_ear_key: SignatureEarKey,
+    pub friendship_package: FriendshipPackage,
 }
 
 impl Signable for ConnectionEstablishmentPackageTbs {
@@ -544,7 +557,7 @@ pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePa
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 #[repr(u8)]
 pub enum AsQueueMessageType {
-    ConnectionEstablishmentPackage,
+    EncryptedConnectionEstablishmentPackage,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
@@ -556,9 +569,10 @@ pub struct AsQueueMessagePayload {
 impl AsQueueMessagePayload {
     pub fn extract(self) -> Result<ExtractedAsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
-            AsQueueMessageType::ConnectionEstablishmentPackage => {
-                let cep = ConnectionEstablishmentPackageIn::tls_deserialize_exact(&self.payload)?;
-                ExtractedAsQueueMessagePayload::ConnectionEstablishmentPackage(cep)
+            AsQueueMessageType::EncryptedConnectionEstablishmentPackage => {
+                let cep =
+                    EncryptedConnectionEstablishmentPackage::tls_deserialize_exact(&self.payload)?;
+                ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(cep)
             }
         };
         Ok(message)
@@ -570,7 +584,7 @@ impl TryFrom<EncryptedConnectionEstablishmentPackage> for AsQueueMessagePayload 
 
     fn try_from(value: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
         Ok(Self {
-            message_type: AsQueueMessageType::ConnectionEstablishmentPackage,
+            message_type: AsQueueMessageType::EncryptedConnectionEstablishmentPackage,
             payload: value.tls_serialize_detached()?,
         })
     }
@@ -593,19 +607,7 @@ impl GenericSerializable for AsQueueMessagePayload {
 }
 
 pub enum ExtractedAsQueueMessagePayload {
-    ConnectionEstablishmentPackage(ConnectionEstablishmentPackageIn),
-}
-
-impl TryFrom<ConnectionEstablishmentPackage> for AsQueueMessagePayload {
-    type Error = tls_codec::Error;
-
-    fn try_from(cep: ConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
-        let payload = cep.tls_serialize_detached()?;
-        Ok(Self {
-            message_type: AsQueueMessageType::ConnectionEstablishmentPackage,
-            payload,
-        })
-    }
+    EncryptedConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage),
 }
 
 impl EarEncryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}

@@ -9,8 +9,8 @@ use mls_assist::{
     messages::AssistedWelcome,
     openmls::{
         prelude::{
-            group_info::{GroupInfo, VerifiableGroupInfo},
-            GroupEpoch, GroupId, LeafNodeIndex, RatchetTreeIn, TlsSerializeTrait,
+            group_info::GroupInfo, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut,
+            RatchetTreeIn, TlsSerializeTrait,
         },
         treesync::RatchetTree,
     },
@@ -27,17 +27,21 @@ use phnxbackend::{
     },
     ds::{errors::DsProcessingError, group_state::EncryptedClientCredential},
     messages::{
-        client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
+        client_ds::{
+            ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
+            WelcomeInfoParams,
+        },
         client_ds_out::{
-            AddClientsParamsOut, AddUsersParamsOut, AssistedMessagePlusOut,
+            AddClientsParamsOut, AddUsersParamsOut, AssistedMessagePlusOut, ClientToDsMessageOut,
             ClientToDsMessageTbsOut, CreateGroupParamsOut, DeleteGroupParamsOut,
-            DsProcessResponseIn, DsRequestParamsOut, JoinConnectionGroupParamsOut,
-            JoinGroupParamsOut, RemoveClientsParamsOut, RemoveUsersParamsOut,
-            ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            DsProcessResponseIn, DsRequestParamsOut, ExternalCommitInfoIn,
+            JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
+            RemoveUsersParamsOut, ResyncClientParamsOut, SelfRemoveClientParamsOut,
+            SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
     qs::QsClientReference,
+    AssistedGroupInfo,
 };
 use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
 use tls_codec::DeserializeBytes;
@@ -57,6 +61,17 @@ pub enum DsRequestError {
     NetworkError(String),
     #[error(transparent)]
     DsError(#[from] DsProcessingError),
+}
+
+pub enum AuthenticationMethod<'a, T: SigningKey> {
+    Signature(&'a T),
+    None,
+}
+
+impl<'a, T: SigningKey + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
+    fn from(key: &'a T) -> Self {
+        AuthenticationMethod::Signature(key)
+    }
 }
 
 impl ApiClient {
@@ -91,16 +106,19 @@ impl ApiClient {
         }
     }
 
-    async fn prepare_and_send_ds_message(
+    async fn prepare_and_send_ds_message<'a, T: SigningKey + 'a>(
         &self,
         request_params: DsRequestParamsOut,
-        signing_key: &impl SigningKey,
+        auth_method: impl Into<AuthenticationMethod<'a, T>>,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<DsProcessResponseIn, DsRequestError> {
         let tbs = ClientToDsMessageTbsOut::new(group_state_ear_key.clone(), request_params);
-        let message = tbs
-            .sign(signing_key)
-            .map_err(|_| DsRequestError::LibraryError)?;
+        let message = match auth_method.into() {
+            AuthenticationMethod::Signature(signer) => {
+                tbs.sign(signer).map_err(|_| DsRequestError::LibraryError)?
+            }
+            AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
+        };
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| DsRequestError::LibraryError)?;
@@ -259,7 +277,7 @@ impl ApiClient {
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
-    ) -> Result<(VerifiableGroupInfo, RatchetTreeIn), DsRequestError> {
+    ) -> Result<ExternalCommitInfoIn, DsRequestError> {
         let payload = ExternalCommitInfoParams {
             sender: signing_key.verifying_key().hash(),
             group_id,
@@ -267,6 +285,29 @@ impl ApiClient {
         self.prepare_and_send_ds_message(
             DsRequestParamsOut::ExternalCommitInfo(payload),
             signing_key,
+            group_state_ear_key,
+        )
+        .await
+        // Check if the response is what we expected it to be.
+        .and_then(|response| {
+            if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
+                Ok(info)
+            } else {
+                Err(DsRequestError::UnexpectedResponse)
+            }
+        })
+    }
+
+    /// Get external commit information for a connection group.
+    pub async fn ds_connection_group_info(
+        &self,
+        group_id: GroupId,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<ExternalCommitInfoIn, DsRequestError> {
+        let payload = ConnectionGroupInfoParams { group_id };
+        self.prepare_and_send_ds_message(
+            DsRequestParamsOut::ConnectionGroupInfo(payload),
+            AuthenticationMethod::<InfraCredentialSigningKey>::None,
             group_state_ear_key,
         )
         .await
@@ -343,14 +384,15 @@ impl ApiClient {
     /// Join the connection group with a new client.
     pub async fn ds_join_connection_group(
         &self,
-        external_commit: AssistedMessagePlusOut,
+        commit: MlsMessageOut,
+        group_info: MlsMessageOut,
         qs_client_reference: QsClientReference,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let payload = JoinConnectionGroupParamsOut {
             sender: signing_key.verifying_key().clone(),
-            external_commit,
+            external_commit: (commit, AssistedGroupInfo::Full(group_info)),
             qs_client_reference,
         };
         self.prepare_and_send_ds_message(

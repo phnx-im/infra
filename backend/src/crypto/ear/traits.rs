@@ -120,7 +120,8 @@ pub trait EarDecryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
     fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {
         let ciphertext = ciphertext.as_ref();
         let plaintext = ear_key.decrypt(ciphertext)?;
-        let res = Self::deserialize(&plaintext).map_err(|_| DecryptionError::DecryptionError)?;
+        let res =
+            Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)?;
         Ok(res)
     }
 }

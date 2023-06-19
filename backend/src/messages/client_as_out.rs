@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::{GroupId, KeyPackageIn};
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
         credentials::{
-            keys::AsIntermediateVerifyingKey, AsCredential, ClientCredential,
-            CredentialFingerprint, ExpirationData, VerifiableAsIntermediateCredential,
-            VerifiableClientCredential,
+            keys::AsIntermediateVerifyingKey, AsCredential, AsIntermediateCredential,
+            ClientCredential, CredentialFingerprint, ExpirationData,
+            VerifiableAsIntermediateCredential, VerifiableClientCredential,
         },
         errors::AsVerificationError,
         storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
@@ -18,13 +18,17 @@ use crate::{
         UserName,
     },
     crypto::{
-        ear::keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKey},
+        ear::{
+            keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKey},
+            GenericDeserializable,
+        },
+        hpke::HpkeDecryptable,
         kdf::keys::RatchetSecret,
         signatures::{
             signable::{Signature, Verifiable, VerifiedStruct},
             traits::SignatureVerificationError,
         },
-        ConnectionEncryptionKey, RatchetEncryptionKey,
+        ConnectionDecryptionKey, ConnectionEncryptionKey, RatchetEncryptionKey,
     },
 };
 
@@ -32,11 +36,12 @@ use super::{
     client_as::{
         AsAuthMethod, AsClientKeyPackageParams, AsCredentialsParams, AsDequeueMessagesParams,
         AsDequeueMessagesResponse, AsPublishKeyPackagesParams, ClientCredentialAuthenticator,
-        ConnectionPackage, ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
-        EnqueueMessageParams, FinishClientAdditionParams, Init2FactorAuthResponse,
-        InitUserRegistrationParams, Initiate2FaAuthenticationParams, InitiateClientAdditionParams,
-        IssueTokensParams, IssueTokensResponse, NoAuth, TwoFactorAuthenticator, UserClientsParams,
-        UserKeyPackagesParams, VerifiedAsRequestParams,
+        ConnectionEstablishmentPackageTbs, ConnectionPackage, ConnectionPackageTbs,
+        DeleteClientParams, DeleteUserParams, EncryptedConnectionEstablishmentPackage,
+        EnqueueMessageParams, FinishClientAdditionParams, FriendshipPackage,
+        Init2FactorAuthResponse, InitUserRegistrationParams, Initiate2FaAuthenticationParams,
+        InitiateClientAdditionParams, IssueTokensParams, IssueTokensResponse, NoAuth,
+        TwoFactorAuthenticator, UserClientsParams, UserKeyPackagesParams, VerifiedAsRequestParams,
     },
     MlsInfraVersion,
 };
@@ -388,6 +393,7 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     connection_group_ear_key: GroupStateEarKey,
     connection_group_credential_key: ClientCredentialEarKey,
     connection_group_signature_ear_key: SignatureEarKey,
+    friendship_package: FriendshipPackage,
 }
 
 impl VerifiedStruct<ConnectionEstablishmentPackageIn> for ConnectionEstablishmentPackageTbsIn {
@@ -406,6 +412,51 @@ pub struct ConnectionEstablishmentPackageIn {
     payload: ConnectionEstablishmentPackageTbsIn,
     // TBS: All information above signed by the ClientCredential.
     signature: Signature,
+}
+
+impl GenericDeserializable for ConnectionEstablishmentPackageIn {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
+}
+
+impl ConnectionEstablishmentPackageIn {
+    pub fn sender_credential(&self) -> &VerifiableClientCredential {
+        &self.payload.sender_client_credential
+    }
+
+    pub fn verify_all(
+        self,
+        as_intermediate_credentials: &[AsIntermediateCredential],
+    ) -> ConnectionEstablishmentPackageTbs {
+        let as_credential = as_intermediate_credentials
+            .iter()
+            .find(|as_cred| {
+                &as_cred.fingerprint().unwrap()
+                    == self.payload.sender_client_credential.signer_fingerprint()
+            })
+            .unwrap();
+        let sender_client_credential: ClientCredential = self
+            .payload
+            .sender_client_credential
+            .verify(as_credential.verifying_key())
+            .unwrap();
+        ConnectionEstablishmentPackageTbs {
+            sender_client_credential,
+            connection_group_id: self.payload.connection_group_id,
+            connection_group_ear_key: self.payload.connection_group_ear_key,
+            connection_group_credential_key: self.payload.connection_group_credential_key,
+            connection_group_signature_ear_key: self.payload.connection_group_signature_ear_key,
+            friendship_package: self.payload.friendship_package,
+        }
+    }
+}
+
+impl HpkeDecryptable<ConnectionDecryptionKey, EncryptedConnectionEstablishmentPackage>
+    for ConnectionEstablishmentPackageIn
+{
 }
 
 impl Verifiable for ConnectionEstablishmentPackageIn {

@@ -23,8 +23,8 @@ use crate::{
         RatchetEncryptionKey,
     },
     qs::{
-        AddPackage, AddPackageIn, EncryptedPushToken, KeyPackageBatch, QsClientId,
-        QsEncryptedAddPackage, QsUserId, QsVerifyingKey, UNVERIFIED, VERIFIED,
+        AddPackage, AddPackageIn, ClientIdEncryptionKey, EncryptedPushToken, KeyPackageBatch,
+        QsClientId, QsEncryptedAddPackage, QsUserId, QsVerifyingKey, UNVERIFIED, VERIFIED,
     },
 };
 
@@ -198,6 +198,11 @@ pub struct VerifyingKeyResponse {
     pub verifying_key: QsVerifyingKey,
 }
 
+#[derive(TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct EncryptionKeyResponse {
+    pub encryption_key: ClientIdEncryptionKey,
+}
+
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DequeueMessagesParams {
     pub sender: QsClientId,
@@ -308,6 +313,7 @@ pub enum QsRequestParams {
     DequeueMessages(DequeueMessagesParams),
     // Key material
     VerifyingKey,
+    EncryptionKey,
 }
 
 impl QsRequestParams {
@@ -327,7 +333,7 @@ impl QsRequestParams {
                 QsSender::FriendshipToken(params.sender.clone())
             }
             QsRequestParams::DequeueMessages(params) => QsSender::Client(params.sender.clone()),
-            QsRequestParams::VerifyingKey => todo!(),
+            QsRequestParams::EncryptionKey | QsRequestParams::VerifyingKey => QsSender::Anonymous,
         }
     }
 }
@@ -342,6 +348,7 @@ pub enum QsProcessResponse {
     KeyPackageBatch(KeyPackageBatchResponse),
     DequeueMessages(DequeueMessagesResponse),
     VerifyingKey(VerifyingKeyResponse),
+    EncryptionKey(EncryptionKeyResponse),
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -354,6 +361,7 @@ pub enum QsProcessResponseIn {
     KeyPackageBatch(KeyPackageBatchResponseIn),
     DequeueMessages(DequeueMessagesResponse),
     VerifyingKey(VerifyingKeyResponse),
+    EncryptionKey(EncryptionKeyResponse),
 }
 
 pub enum QsSender {

@@ -43,8 +43,9 @@ pub trait HpkeDecryptable<
         decryption_key: &HpkeDecryptionKeyType,
         info: &[u8],
         aad: &[u8],
-    ) -> Result<Vec<u8>, DecryptionError> {
-        decryption_key.as_ref().decrypt(info, aad, ct.as_ref())
+    ) -> Result<Self, DecryptionError> {
+        let plaintext = decryption_key.as_ref().decrypt(info, aad, ct.as_ref())?;
+        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
     }
 }
 

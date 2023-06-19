@@ -169,7 +169,11 @@ use crate::{
     qs::QsConnector,
 };
 
-use super::{errors::DsProcessingError, group_state::DsGroupState, DsStorageProvider, LoadState};
+use super::{
+    errors::DsProcessingError,
+    group_state::{DsGroupState, EncryptedClientCredential},
+    DsStorageProvider, LoadState,
+};
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
 
@@ -249,6 +253,9 @@ impl DsApi {
                     .verify(&verifying_key)
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
+            DsSender::Anonymous => message
+                .extract_without_verification()
+                .ok_or(DsProcessingError::InvalidSenderType)?,
         };
 
         let sender = verified_message.mls_sender().cloned();
@@ -300,6 +307,13 @@ impl DsApi {
                 (None, None, None)
             }
             DsRequestParams::ExternalCommitInfo(_) => (
+                None,
+                Some(DsProcessResponse::ExternalCommitInfo(
+                    group_state.external_commit_info(),
+                )),
+                None,
+            ),
+            DsRequestParams::ConnectionGroupInfo(_) => (
                 None,
                 Some(DsProcessResponse::ExternalCommitInfo(
                     group_state.external_commit_info(),
@@ -432,9 +446,16 @@ impl DsApi {
 }
 
 #[derive(TlsSerialize, TlsSize)]
+pub struct ExternalCommitInfo {
+    pub group_info: GroupInfo,
+    pub ratchet_tree: RatchetTree,
+    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+}
+
+#[derive(TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponse {
     Ok,
     WelcomeInfo(RatchetTree),
-    ExternalCommitInfo((GroupInfo, RatchetTree)),
+    ExternalCommitInfo(ExternalCommitInfo),
 }

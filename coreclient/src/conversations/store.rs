@@ -62,18 +62,7 @@ impl ConversationStore {
 
     pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {
         if let Some(conversation) = self.conversations.get_mut(conversation_id) {
-            if let ConversationType::ConfirmedConnection(user_name) =
-                conversation.conversation_type.clone()
-            {
-                conversation.conversation_type = ConversationType::Connection(user_name);
-            }
-        }
-    }
-
-    pub(crate) fn complete_connection_conversation(&mut self, conversation_id: &Uuid) {
-        if let Some(conversation) = self.conversations.get_mut(conversation_id) {
-            if let ConversationType::ConfirmedConnection(user_name) =
-                conversation.conversation_type.clone()
+            if let ConversationType::Connection(user_name) = conversation.conversation_type.clone()
             {
                 conversation.conversation_type = ConversationType::Connection(user_name);
             }

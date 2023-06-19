@@ -129,4 +129,5 @@ pub enum QsRequestParamsOut {
     DequeueMessages(DequeueMessagesParams),
     // Key material
     QsVerifyingKey,
+    QsEncryptionKey,
 }

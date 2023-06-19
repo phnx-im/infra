@@ -9,7 +9,7 @@ use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, EarDecryptable},
         signatures::keys::QsClientVerifyingKey,
-        DecryptionError, QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
+        QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
     messages::{
@@ -104,11 +104,7 @@ impl QsClientRecord {
                     if let Some(ref encrypted_push_token) = self.encrypted_push_token {
                         if let Some(ref ear_key) = push_token_key_option {
                             let push_token = PushToken::decrypt(ear_key, encrypted_push_token)
-                                .map_err(|e| match e {
-                                    DecryptionError::DecryptionError => {
-                                        EnqueueError::PushNotificationError
-                                    }
-                                })?;
+                                .map_err(|_| EnqueueError::PushNotificationError)?;
                             // TODO: It's currently not clear where we store the alert level.
                             let alert_level = 0;
                             push_token.send_notification(alert_level);

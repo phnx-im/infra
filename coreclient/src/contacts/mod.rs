@@ -8,20 +8,11 @@ use phnxbackend::{
     crypto::ear::keys::{
         AddPackageEarKey, ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey,
     },
-    messages::FriendshipToken,
+    messages::{client_as::FriendshipPackage, FriendshipToken},
     qs::{KeyPackageBatch, VERIFIED},
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use uuid::Uuid;
-
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct FriendshipPackage {
-    pub(crate) friendship_token: FriendshipToken,
-    pub(crate) add_package_ear_key: AddPackageEarKey,
-    pub(crate) client_credential_ear_key: ClientCredentialEarKey,
-    pub(crate) signature_ear_key: SignatureEarKey,
-    pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
-}
 
 #[derive(Debug, Clone)]
 pub struct Contact {

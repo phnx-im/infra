@@ -17,9 +17,9 @@ use phnxbackend::{
         client_qs::{
             ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
             CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
-            DequeueMessagesParams, DequeueMessagesResponse, KeyPackageBatchParams,
-            KeyPackageBatchResponseIn, QsProcessResponseIn, UpdateClientRecordParams,
-            UpdateUserRecordParams, VerifyingKeyResponse,
+            DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
+            KeyPackageBatchParams, KeyPackageBatchResponseIn, QsProcessResponseIn,
+            UpdateClientRecordParams, UpdateUserRecordParams, VerifyingKeyResponse,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
@@ -393,6 +393,22 @@ impl ApiClient {
         // Check if the response is what we expected it to be.
         .and_then(|response| {
             if let QsProcessResponseIn::VerifyingKey(resp) = response {
+                Ok(resp)
+            } else {
+                Err(QsRequestError::UnexpectedResponse)
+            }
+        })
+    }
+
+    pub async fn qs_encryption_key(&self) -> Result<EncryptionKeyResponse, QsRequestError> {
+        self.prepare_and_send_qs_message(
+            QsRequestParamsOut::QsVerifyingKey,
+            AuthenticationMethod::<QsUserSigningKey>::None,
+        )
+        .await
+        // Check if the response is what we expected it to be.
+        .and_then(|response| {
+            if let QsProcessResponseIn::EncryptionKey(resp) = response {
                 Ok(resp)
             } else {
                 Err(QsRequestError::UnexpectedResponse)
