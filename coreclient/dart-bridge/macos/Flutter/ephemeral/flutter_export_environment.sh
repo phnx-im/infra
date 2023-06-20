@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=/Users/raph/dev/flutter/flutter"
 export "FLUTTER_APPLICATION_PATH=/Users/raph/dev/phoenix/phnx/infra/coreclient/dart-bridge"
