@@ -177,6 +177,8 @@ use super::{
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
 
+pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
+
 pub struct DsApi {}
 
 impl DsApi {

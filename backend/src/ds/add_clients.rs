@@ -29,7 +29,7 @@ use crate::{
 };
 
 use super::{
-    api::USER_EXPIRATION_DAYS,
+    api::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, USER_EXPIRATION_DAYS},
     errors::ClientAdditionError,
     group_state::{ClientProfile, TimeStamp},
 };
@@ -168,7 +168,9 @@ impl DsGroupState {
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
-                        Extension::Unknown(0xff00, bytes) => Some(&bytes.0),
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, bytes) => {
+                            Some(&bytes.0)
+                        }
                         _ => None,
                     })
                     .ok_or(ClientAdditionError::MissingQueueConfig)?

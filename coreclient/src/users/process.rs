@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::prelude::group_info::VerifiableGroupInfo;
 use phnxbackend::crypto::hpke::HpkeDecryptable;
 use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
 use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
@@ -124,7 +123,7 @@ impl SelfUser {
                                                         .queued_proposals()
                                                         .find_map(|qp| match qp.proposal() {
                                                             Proposal::Unknown((
-                                                                0xff00,
+                                                                FRIENDSHIP_PACKAGE_PROPOSAL_TYPE,
                                                                 unknown_proposal,
                                                             )) => {
                                                                 Some(unknown_proposal.0.as_slice())
@@ -292,7 +291,6 @@ impl SelfUser {
                     let (group, commit, group_info) = Group::join_group_externally(
                         &self.crypto_backend,
                         eci,
-                        key_package,
                         leaf_signer,
                         cep_tbs.connection_group_ear_key.clone(),
                         cep_tbs.connection_group_signature_ear_key,

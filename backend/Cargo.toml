@@ -30,9 +30,6 @@ subtle = { version = "2.4.1" }
 hkdf = { version = "0.12" }
 aes-gcm = { version = "0.9.4" }
 ed25519 = { version = "1.5.2", features = ["serde"] }
-hpke = { version = "0.1.0", package = "hpke-rs", default-features = false, features = ["hazmat", "serialization"] }
-hpke-rs-crypto = { version = "0.1.1" }
-hpke-rs-rust-crypto = { version = "0.1.1" }
 tracing = { version = "0.1.35", features = ["log"] }
 secrecy = { version = "0.8", features = ["serde"] }
 opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"]}

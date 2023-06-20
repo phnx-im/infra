@@ -35,7 +35,10 @@ use phnxbackend::{
         },
         DecryptionPrivateKey,
     },
-    ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
+    ds::{
+        api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, WelcomeAttributionInfo,
+        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+    },
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
@@ -66,6 +69,22 @@ use openmls::prelude::*;
 
 use self::diff::GroupDiff;
 
+pub const FRIENDSHIP_PACKAGE_PROPOSAL_TYPE: u16 = 0xff00;
+
+pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 0] = [];
+pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 0] = [];
+pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infra];
+
+// Default capabilities for every leaf node we create.
+pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [ProtocolVersion::Mls10];
+pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] =
+    [Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519];
+pub const SUPPORTED_EXTENSIONS: [ExtensionType; 1] =
+    [ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE)];
+pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
+    [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
+pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];
+
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
@@ -80,6 +99,29 @@ pub(crate) struct Group {
 }
 
 impl Group {
+    fn default_mls_group_config() -> MlsGroupConfig {
+        let required_capabilities = RequiredCapabilitiesExtension::new(
+            &REQUIRED_EXTENSION_TYPES,
+            &REQUIRED_PROPOSAL_TYPES,
+            &REQUIRED_CREDENTIAL_TYPES,
+        );
+
+        MlsGroupConfig::builder()
+            // This is turned on for now, as it makes OpenMLS return GroupInfos
+            // with every commit. At some point, there should be a dedicated
+            // config flag for this.
+            .leaf_node_capabilities(Capabilities::new(
+                Some(&SUPPORTED_PROTOCOL_VERSIONS),
+                Some(&SUPPORTED_CIPHERSUITES),
+                Some(&SUPPORTED_EXTENSIONS),
+                Some(&SUPPORTED_PROPOSALS),
+                Some(&SUPPORTED_CREDENTIALS),
+            ))
+            .use_ratchet_tree_extension(true)
+            .required_capabilities(required_capabilities)
+            .build()
+    }
+
     /// Create a group.
     pub fn create_group(
         backend: &impl OpenMlsCryptoProvider,
@@ -93,9 +135,7 @@ impl Group {
 
         let leaf_signer = InfraCredentialSigningKey::generate(signer, &signature_ear_key);
 
-        let mls_group_config = MlsGroupConfig::builder()
-            .use_ratchet_tree_extension(true)
-            .build();
+        let mls_group_config = Self::default_mls_group_config();
 
         let credential_with_key = CredentialWithKey {
             credential: Credential::from(leaf_signer.credential().clone()),
@@ -138,9 +178,7 @@ impl Group {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
-        let mls_group_config = MlsGroupConfig::builder()
-            .use_ratchet_tree_extension(true)
-            .build();
+        let mls_group_config = Self::default_mls_group_config();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
         let (key_package, _) = welcome_bundle
@@ -172,23 +210,16 @@ impl Group {
             }
         };
 
-        // TODO: This should probably all be moved into a member function "decrypt" of JoinerInfo.
         let private_key = backend
             .key_store()
             .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
             .unwrap();
-        // TODO: No GroupStateEarKey in the info for now.
-        //let info = [
-        //    "GroupStateEarKey ".as_bytes(),
-        //    mls_group.group_id().as_slice(),
-        //]
-        //.concat();
         let info = &[];
         let aad = &[];
         let decryption_key =
             JoinerInfoDecryptionKey::from((private_key, key_package.hpke_init_key().clone()));
         let joiner_info = DsJoinerInformationIn::decrypt(
-            &welcome_bundle.encrypted_joiner_info,
+            welcome_bundle.encrypted_joiner_info,
             &decryption_key,
             info,
             aad,
@@ -292,7 +323,6 @@ impl Group {
     pub(crate) fn join_group_externally(
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         external_commit_info: ExternalCommitInfoIn,
-        key_package: KeyPackage,
         leaf_signer: InfraCredentialSigningKey,
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key: SignatureEarKey,
@@ -303,9 +333,7 @@ impl Group {
         // TODO: We set the ratchet tree extension for now, as it is the only
         // way to make OpenMLS return a GroupInfo. This should change in the
         // future.
-        let mls_group_config = MlsGroupConfig::builder()
-            .use_ratchet_tree_extension(true)
-            .build();
+        let mls_group_config = Self::default_mls_group_config();
         let credential_with_key = CredentialWithKey {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
@@ -338,8 +366,6 @@ impl Group {
         mls_group.set_aad(&[]);
 
         let group_info = group_info_option.unwrap();
-
-        // TODO: Verify all leaf credentials.
 
         let client_credentials: Vec<Option<ClientCredential>> = encrypted_client_credentials
             .into_iter()

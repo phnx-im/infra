@@ -321,7 +321,15 @@ impl SelfUser {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
         };
+        let capabilities = Capabilities::new(
+            Some(&SUPPORTED_PROTOCOL_VERSIONS),
+            Some(&SUPPORTED_CIPHERSUITES),
+            Some(&SUPPORTED_EXTENSIONS),
+            Some(&SUPPORTED_PROPOSALS),
+            Some(&SUPPORTED_CREDENTIALS),
+        );
         let kp = KeyPackage::builder()
+            .leaf_node_capabilities(capabilities)
             .build(
                 CryptoConfig {
                     ciphersuite: CIPHERSUITE,
