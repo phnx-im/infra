@@ -41,7 +41,7 @@ async fn test_ws_lifecycle() {
     let retry_interval = 1;
 
     // Initialize the client
-    let client = ApiClient::initialize(address.to_string(), TransportEncryption::Off)
+    let client = ApiClient::initialize(address, TransportEncryption::Off)
         .expect("Failed to initialize client");
 
     // Spawn the websocket connection task

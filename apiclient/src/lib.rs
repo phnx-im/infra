@@ -4,6 +4,9 @@
 
 //! API client for the phnx server.
 
+use std::net::SocketAddr;
+
+use http::StatusCode;
 use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
 use reqwest::{Client, ClientBuilder};
 use thiserror::Error;
@@ -37,7 +40,7 @@ pub enum ApiClientInitError {
 // It exposes a single function for each API endpoint.
 pub struct ApiClient {
     client: Client,
-    base_url: String,
+    address: SocketAddr,
     transport_encryption: TransportEncryption,
 }
 
@@ -51,13 +54,13 @@ impl ApiClient {
     /// # Returns
     /// A new [`ApiClient`].
     pub fn initialize(
-        base_url: String,
+        address: SocketAddr,
         transport_encryption: TransportEncryption,
     ) -> Result<Self, ApiClientInitError> {
         let client = ClientBuilder::new().user_agent("PhnxClient/0.1").build()?;
         Ok(Self {
             client,
-            base_url,
+            address,
             transport_encryption,
         })
     }
@@ -74,21 +77,39 @@ impl ApiClient {
         };
         format!(
             "{}{}://{}{}",
-            protocol, transport_encryption, self.base_url, endpoint
+            protocol, transport_encryption, self.address, endpoint
         )
     }
 
-    pub fn base_url(&self) -> &str {
-        &self.base_url
+    pub fn address(&self) -> SocketAddr {
+        self.address
     }
 
     /// Call the health check endpoint
     pub async fn health_check(&self) -> bool {
         self.client
             .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
-            //.body(message_bytes)
             .send()
             .await
             .is_ok()
+    }
+
+    /// Call an inexistant endpoint
+    pub async fn inexistant_endpoint(&self) -> bool {
+        let res = self
+            .client
+            .post(self.build_url(Protocol::Http, "/as"))
+            .body("test")
+            .send()
+            .await;
+        let status = match res {
+            Ok(r) => Some(r.status()),
+            Err(e) => e.status(),
+        };
+        if let Some(status) = status {
+            status == StatusCode::NOT_FOUND
+        } else {
+            false
+        }
     }
 }
