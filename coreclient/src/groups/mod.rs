@@ -28,6 +28,7 @@ use phnxbackend::{
             },
             EarDecryptable, EarEncryptable,
         },
+        hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         signatures::{
             keys::UserAuthSigningKey,
             signable::{Signable, Verifiable},
@@ -172,29 +173,27 @@ impl Group {
         };
 
         // TODO: This should probably all be moved into a member function "decrypt" of JoinerInfo.
-        let public_key: Vec<u8> = key_package.hpke_init_key().clone().into();
         let private_key = backend
             .key_store()
             .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
             .unwrap();
-        let info = [
-            "GroupStateEarKey ".as_bytes(),
-            mls_group.group_id().as_slice(),
-        ]
-        .concat();
+        // TODO: No GroupStateEarKey in the info for now.
+        //let info = [
+        //    "GroupStateEarKey ".as_bytes(),
+        //    mls_group.group_id().as_slice(),
+        //]
+        //.concat();
+        let info = &[];
+        let aad = &[];
         let decryption_key =
-            DecryptionPrivateKey::new(private_key.as_ref().to_vec().into(), public_key.into());
-        let joiner_info_bytes = decryption_key
-            .decrypt(
-                &info,
-                &[],
-                &<HpkeCiphertext as DeserializeBytes>::tls_deserialize_exact(
-                    welcome_bundle.encrypted_joiner_info.as_slice(),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-        let joiner_info = DsJoinerInformationIn::tls_deserialize_exact(&joiner_info_bytes).unwrap();
+            JoinerInfoDecryptionKey::from((private_key, key_package.hpke_init_key().clone()));
+        let joiner_info = DsJoinerInformationIn::decrypt(
+            &welcome_bundle.encrypted_joiner_info,
+            &decryption_key,
+            info,
+            aad,
+        )
+        .unwrap();
 
         // Decrypt WelcomeAttributionInfo
         let welcome_attribution_info = WelcomeAttributionInfo::decrypt(

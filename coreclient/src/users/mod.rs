@@ -224,7 +224,7 @@ impl SelfUser {
             signature_ear_key,
             wai_ear_key,
             leaf_signers,
-            qs_client_id_encryption_key: todo!(),
+            qs_client_id_encryption_key: qs_encryption_key,
         };
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all

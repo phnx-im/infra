@@ -16,6 +16,7 @@ use mls_assist::{
         },
         treesync::RatchetTree,
     },
+    openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -27,7 +28,10 @@ use crate::{
     crypto::{
         ear::{
             keys::{GroupStateEarKey, RatchetKey},
-            EarDecryptable, EarEncryptable,
+            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+        },
+        hpke::{
+            HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
         },
         signatures::{
             keys::UserAuthVerifyingKey,
@@ -661,11 +665,54 @@ pub struct DsJoinerInformation {
     pub ratchet_tree: RatchetTree,
 }
 
+impl GenericSerializable for DsJoinerInformation {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct EncryptedDsJoinerInformation {
+    pub ciphertext: HpkeCiphertext,
+}
+
+impl AsRef<HpkeCiphertext> for EncryptedDsJoinerInformation {
+    fn as_ref(&self) -> &HpkeCiphertext {
+        &self.ciphertext
+    }
+}
+
+impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
+    fn from(ciphertext: HpkeCiphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
+    for DsJoinerInformation
+{
+}
+
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
     pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
     pub ratchet_tree: RatchetTreeIn,
+}
+
+impl HpkeDecryptable<JoinerInfoDecryptionKey, EncryptedDsJoinerInformation>
+    for DsJoinerInformationIn
+{
+}
+
+impl GenericDeserializable for DsJoinerInformationIn {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
@@ -674,5 +721,5 @@ pub struct WelcomeBundle {
     // This is the part the DS shouldn't see.
     pub encrypted_attribution_info: EncryptedWelcomeAttributionInfo,
     // This part is added by the DS later.
-    pub encrypted_joiner_info: Vec<u8>,
+    pub encrypted_joiner_info: EncryptedDsJoinerInformation,
 }

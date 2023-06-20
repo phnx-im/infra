@@ -14,10 +14,14 @@ use mls_assist::{
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{DeserializeBytes, Serialize};
+use tls_codec::DeserializeBytes;
 
 use crate::{
-    crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
+        signatures::signable::Verifiable,
+    },
     messages::{
         client_ds::{
             AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload, WelcomeBundle,
@@ -228,28 +232,26 @@ impl DsGroupState {
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
                 };
-                // TODO: We should do this nicely via a trait at some point.
-                let info = [
-                    "GroupStateEarKey ".as_bytes(),
-                    self.group()
-                        .group_info()
-                        .group_context()
-                        .group_id()
-                        .as_slice(),
-                ]
-                .concat();
-                let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
-                let serialized_joiner_info = DsJoinerInformation {
+                // TODO: No specific info for now until we extend the trait.
+                //let info = [
+                //    "GroupStateEarKey ".as_bytes(),
+                //    self.group()
+                //        .group_info()
+                //        .group_context()
+                //        .group_id()
+                //        .as_slice(),
+                //]
+                //.concat();
+                let info = &[];
+                let aad = &[];
+                let encryption_key: JoinerInfoEncryptionKey =
+                    key_package.hpke_init_key().clone().into();
+                let encrypted_joiner_info = DsJoinerInformation {
                     group_state_ear_key: group_state_ear_key.clone(),
                     encrypted_client_credentials: self.client_credentials(),
                     ratchet_tree: self.group().export_ratchet_tree(),
                 }
-                .tls_serialize_detached()
-                .map_err(|_| UserAdditionError::LibraryError)?;
-                let encrypted_joiner_info = EncryptionPublicKey::from(encryption_key_bytes)
-                    .encrypt(&info, &[], &serialized_joiner_info)
-                    .tls_serialize_detached()
-                    .map_err(|_| UserAdditionError::LibraryError)?;
+                .encrypt(&encryption_key, info, aad);
                 let welcome_bundle = WelcomeBundle {
                     welcome: params.welcome.clone(),
                     encrypted_attribution_info: attribution_info.clone(),
