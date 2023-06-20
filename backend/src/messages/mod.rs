@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::{prelude::OpenMlsRand, test_utils::OpenMlsCryptoProvider},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::OpenMlsCryptoProvider,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};

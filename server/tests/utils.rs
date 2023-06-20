@@ -4,11 +4,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{net::TcpListener, sync::Arc};
+use std::{
+    net::{SocketAddr, TcpListener},
+    sync::Arc,
+};
 
 use once_cell::sync::Lazy;
 use phnxserver::{
-    configurations::{get_configuration, Environment},
+    configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
@@ -33,8 +36,9 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 });
 
 /// Start the server and initialize the database connection. Returns the
-/// address.
-pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
+/// address and a DispatchWebsocketNotifier to dispatch notofication over the
+/// websocket.
+pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
 
@@ -42,58 +46,35 @@ pub async fn spawn_app() -> (String, DispatchWebsocketNotifier) {
     let _configuration = get_configuration("").expect("Could not load configuration.");
 
     // Port binding
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port.");
-    let port = listener.local_addr().unwrap().port();
+    let localhost = "127.0.0.1";
+
+    let listener =
+        TcpListener::bind(format!("{localhost}:0")).expect("Failed to bind to random port.");
+    let address = listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
-    match Environment::from_env().expect("Invalid value for APP_ENVIRONMENT found") {
-        Environment::Local => {
-            let ds_storage_provider = MemoryDsStorage::new();
-            let qs_storage_provider = Arc::new(MemStorageProvider::default());
+    let ds_storage_provider = MemoryDsStorage::new();
+    let qs_storage_provider = Arc::new(MemStorageProvider::default());
 
-            let qs_connector = MemoryEnqueueProvider {
-                storage: qs_storage_provider.clone(),
-                notifier: ws_dispatch_notifier.clone(),
-            };
-
-            // Start the server
-            let server = run(
-                listener,
-                ws_dispatch_notifier.clone(),
-                ds_storage_provider,
-                qs_storage_provider,
-                qs_connector,
-            )
-            .expect("Failed to bind to address.");
-
-            // Execute the server in the background
-            tokio::spawn(server);
-        }
-        Environment::Production => {
-            let ds_storage_provider = MemoryDsStorage::new();
-            let qs_storage_provider = Arc::new(MemStorageProvider::default());
-
-            let qs_connector = MemoryEnqueueProvider {
-                storage: qs_storage_provider.clone(),
-                notifier: ws_dispatch_notifier.clone(),
-            };
-
-            // Start the server
-            let server = run(
-                listener,
-                ws_dispatch_notifier.clone(),
-                ds_storage_provider,
-                qs_storage_provider,
-                qs_connector,
-            )
-            .expect("Failed to bind to address.");
-
-            // Execute the server in the background
-            tokio::spawn(server);
-        }
+    let qs_connector = MemoryEnqueueProvider {
+        storage: qs_storage_provider.clone(),
+        notifier: ws_dispatch_notifier.clone(),
     };
 
+    // Start the server
+    let server = run(
+        listener,
+        ws_dispatch_notifier.clone(),
+        ds_storage_provider,
+        qs_storage_provider,
+        qs_connector,
+    )
+    .expect("Failed to bind to address.");
+
+    // Execute the server in the background
+    tokio::spawn(server);
+
     // Return the address
-    (format!("127.0.0.1:{port}"), ws_dispatch_notifier)
+    (address, ws_dispatch_notifier)
 }

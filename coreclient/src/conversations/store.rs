@@ -20,7 +20,7 @@ impl ConversationStore {
     pub(crate) fn conversation_by_group_id(&self, group_id: &GroupId) -> Option<&Conversation> {
         self.conversations
             .values()
-            .find(|conversation| conversation.group_id == *group_id)
+            .find(|conversation| conversation.group_id.as_group_id() == *group_id)
     }
 
     pub(crate) fn create_group_conversation(
@@ -31,7 +31,7 @@ impl ConversationStore {
     ) {
         let conversation = Conversation {
             id: conversation_id.clone(),
-            group_id,
+            group_id: UuidBytes::from_group_id(&group_id),
             status: ConversationStatus::Active(ActiveConversation {}),
             conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),

@@ -10,7 +10,7 @@ mod groups;
 mod notifications;
 mod providers;
 mod types;
-mod users;
+pub mod users;
 mod utils;
 
 #[cfg(feature = "dart-bridge")]
@@ -24,8 +24,6 @@ use crate::{conversations::*, groups::*, types::*, users::*};
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
 pub(crate) use openmls_rust_crypto::OpenMlsRustCrypto;
-
-use ds_lib::{ClientInfo, GroupMessage};
 
 use uuid::Uuid;
 

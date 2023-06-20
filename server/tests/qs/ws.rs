@@ -12,7 +12,7 @@ use super::*;
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
 async fn test_ws_reconnect() {
-    let (address, _ws_dispatch) = &spawn_app().await;
+    let (address, _ws_dispatch) = spawn_app().await;
 
     let client_id = QsClientId::random();
 
@@ -20,10 +20,10 @@ async fn test_ws_reconnect() {
     let timeout = 1;
     let retry_interval = 1;
 
-    tracing::info!("Server started: {}", address);
+    tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
-    let client = ApiClient::initialize(address.to_string(), TransportEncryption::Off)
+    let client = ApiClient::initialize(address, TransportEncryption::Off)
         .expect("Failed to initialize client");
 
     let mut ws = client
@@ -48,7 +48,7 @@ async fn test_ws_reconnect() {
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
 async fn test_ws_sending() {
-    let (address, ws_dispatch) = &spawn_app().await;
+    let (address, ws_dispatch) = spawn_app().await;
 
     let client_id = QsClientId::random();
 
@@ -56,10 +56,10 @@ async fn test_ws_sending() {
     let timeout = 1;
     let retry_interval = 1;
 
-    tracing::info!("Server started: {}", address);
+    tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
-    let client = ApiClient::initialize(address.to_string(), TransportEncryption::Off)
+    let client = ApiClient::initialize(address, TransportEncryption::Off)
         .expect("Failed to initialize client");
 
     let mut ws = client
