@@ -14,10 +14,14 @@ use mls_assist::{
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{DeserializeBytes, Serialize};
+use tls_codec::DeserializeBytes;
 
 use crate::{
-    crypto::{ear::keys::GroupStateEarKey, signatures::signable::Verifiable, EncryptionPublicKey},
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
+        signatures::signable::Verifiable,
+    },
     messages::{
         client_ds::{
             AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload, WelcomeBundle,
@@ -25,13 +29,13 @@ use crate::{
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{
-        Fqdn, KeyPackageBatchTbs, QsClientReference, QsConnector, QsVerifyingKey,
-        KEYPACKAGEBATCH_EXPIRATION_DAYS,
+        Fqdn, KeyPackageBatch, QsClientReference, QsConnector, QsVerifyingKey,
+        KEYPACKAGEBATCH_EXPIRATION_DAYS, VERIFIED,
     },
 };
 
 use super::{
-    api::USER_EXPIRATION_DAYS,
+    api::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, USER_EXPIRATION_DAYS},
     errors::UserAdditionError,
     group_state::{ClientProfile, EncryptedClientCredential, TimeStamp},
 };
@@ -150,7 +154,7 @@ impl DsGroupState {
             .zip(params.encrypted_welcome_attribution_infos.into_iter())
         {
             let fqdn = key_package_batch.homeserver_domain().clone();
-            let key_package_batch: KeyPackageBatchTbs =
+            let key_package_batch: KeyPackageBatch<VERIFIED> =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
                     key_package_batch
                         .verify(verifying_key)
@@ -214,7 +218,9 @@ impl DsGroupState {
                         .extensions()
                         .iter()
                         .find_map(|e| match e {
-                            Extension::Unknown(0xff00, ref bytes) => Some(&bytes.0),
+                            Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                                Some(&bytes.0)
+                            }
                             _ => None,
                         })
                         .ok_or(UserAdditionError::MissingQueueConfig)?
@@ -228,28 +234,26 @@ impl DsGroupState {
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
                 };
-                // TODO: We should do this nicely via a trait at some point.
-                let info = [
-                    "GroupStateEarKey ".as_bytes(),
-                    self.group()
-                        .group_info()
-                        .group_context()
-                        .group_id()
-                        .as_slice(),
-                ]
-                .concat();
-                let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
-                let serialized_joiner_info = DsJoinerInformation {
+                // TODO: No specific info for now until we extend the trait.
+                //let info = [
+                //    "GroupStateEarKey ".as_bytes(),
+                //    self.group()
+                //        .group_info()
+                //        .group_context()
+                //        .group_id()
+                //        .as_slice(),
+                //]
+                //.concat();
+                let info = &[];
+                let aad = &[];
+                let encryption_key: JoinerInfoEncryptionKey =
+                    key_package.hpke_init_key().clone().into();
+                let encrypted_joiner_info = DsJoinerInformation {
                     group_state_ear_key: group_state_ear_key.clone(),
                     encrypted_client_credentials: self.client_credentials(),
                     ratchet_tree: self.group().export_ratchet_tree(),
                 }
-                .tls_serialize_detached()
-                .map_err(|_| UserAdditionError::LibraryError)?;
-                let encrypted_joiner_info = EncryptionPublicKey::from(encryption_key_bytes)
-                    .encrypt(&info, &[], &serialized_joiner_info)
-                    .tls_serialize_detached()
-                    .map_err(|_| UserAdditionError::LibraryError)?;
+                .encrypt(&encryption_key, info, aad);
                 let welcome_bundle = WelcomeBundle {
                     welcome: params.welcome.clone(),
                     encrypted_attribution_info: attribution_info.clone(),

@@ -14,11 +14,14 @@ use mls_assist::{
 use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{
-    crypto::{ear::keys::GroupStateEarKey, EncryptionPublicKey},
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
+    },
     messages::{
         client_ds::{
-            AddClientsParams, InfraAadMessage, InfraAadPayload, QueueMessagePayload,
-            QueueMessageType, WelcomeBundle,
+            AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
+            QsQueueMessagePayload, QsQueueMessageType, WelcomeBundle,
         },
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
@@ -26,7 +29,7 @@ use crate::{
 };
 
 use super::{
-    api::USER_EXPIRATION_DAYS,
+    api::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, USER_EXPIRATION_DAYS},
     errors::ClientAdditionError,
     group_state::{ClientProfile, TimeStamp},
 };
@@ -165,7 +168,9 @@ impl DsGroupState {
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
-                        Extension::Unknown(0xff00, bytes) => Some(&bytes.0),
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, bytes) => {
+                            Some(&bytes.0)
+                        }
                         _ => None,
                     })
                     .ok_or(ClientAdditionError::MissingQueueConfig)?
@@ -179,41 +184,33 @@ impl DsGroupState {
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
             };
-            // TODO: We should do this nicely via a trait at some point.
-            let info = [
-                "GroupStateEarKey ".as_bytes(),
-                self.group()
-                    .group_info()
-                    .group_context()
-                    .group_id()
-                    .as_slice(),
-            ]
-            .concat();
-            let encryption_key_bytes: Vec<u8> = key_package.hpke_init_key().clone().into();
-            let encrypted_ear_key = EncryptionPublicKey::from(encryption_key_bytes).encrypt(
-                &info,
-                &[],
-                group_state_ear_key.as_slice(),
-            );
-            let welcome_bundle = WelcomeBundle {
-                welcome: params.welcome.clone(),
-                encrypted_attribution_info: params.encrypted_welcome_attribution_infos.clone(),
-                encrypted_joiner_info: encrypted_ear_key
-                    .tls_serialize_detached()
-                    .map_err(|_| ClientAdditionError::LibraryError)?,
-            };
-            let fan_out_message = DsFanOutMessage {
-                payload: DsFanOutPayload::QueueMessage(QueueMessagePayload {
-                    payload: welcome_bundle
-                        .tls_serialize_detached()
-                        .map_err(|_| ClientAdditionError::LibraryError)?,
-                    message_type: QueueMessageType::WelcomeBundle,
-                }),
-                client_reference: client_queue_config,
-            };
             // Add the the client profile to the group's client profiles.
             self.client_profiles
                 .insert(client_profile.leaf_index, client_profile);
+            let info = &[];
+            let aad = &[];
+            let encryption_key: JoinerInfoEncryptionKey =
+                key_package.hpke_init_key().clone().into();
+            let encrypted_joiner_info = DsJoinerInformation {
+                group_state_ear_key: group_state_ear_key.clone(),
+                encrypted_client_credentials: self.client_credentials(),
+                ratchet_tree: self.group().export_ratchet_tree(),
+            }
+            .encrypt(&encryption_key, info, aad);
+            let welcome_bundle = WelcomeBundle {
+                welcome: params.welcome.clone(),
+                encrypted_attribution_info: params.encrypted_welcome_attribution_infos.clone(),
+                encrypted_joiner_info,
+            };
+            let fan_out_message = DsFanOutMessage {
+                payload: DsFanOutPayload::QueueMessage(QsQueueMessagePayload {
+                    payload: welcome_bundle
+                        .tls_serialize_detached()
+                        .map_err(|_| ClientAdditionError::LibraryError)?,
+                    message_type: QsQueueMessageType::WelcomeBundle,
+                }),
+                client_reference: client_queue_config,
+            };
             fan_out_messages.push(fan_out_message);
         }
 

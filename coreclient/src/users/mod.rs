@@ -27,21 +27,27 @@ use phnxbackend::{
             },
             EarEncryptable,
         },
+        hpke::HpkeEncryptable,
+        kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsUserSigningKey},
             signable::{Signable, Verifiable},
         },
-        ConnectionDecryptionKey, OpaqueCiphersuite, QueueRatchet, RatchetDecryptionKey,
+        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
     messages::{
-        client_as::{ConnectionPackageTbs, UserKeyPackagesParams},
+        client_as::{
+            AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackage,
+            ConnectionPackageTbs, FriendshipPackage, UserKeyPackagesParams,
+        },
+        client_ds::QsQueueRatchet,
         FriendshipToken, MlsInfraVersion,
     },
-    qs::{AddPackage, PushToken, QsClientId, QsUserId},
+    qs::{AddPackage, ClientIdEncryptionKey, PushToken, QsClientId, QsUserId, QsVerifyingKey},
 };
 use rand::rngs::OsRng;
 
-use crate::contacts::{Contact, ContactAddInfos};
+use crate::contacts::{Contact, ContactAddInfos, PartialContact};
 
 use super::*;
 
@@ -59,14 +65,17 @@ pub(crate) struct MemoryUserKeyStore {
     signing_key: ClientSigningKey,
     // AS-specific key material
     as_queue_decryption_key: RatchetDecryptionKey,
-    as_ratchet_key: QueueRatchet,
+    as_queue_ratchet: AsQueueRatchet,
+    connection_decryption_key: ConnectionDecryptionKey,
     as_credentials: Vec<AsCredential>,
     as_intermediate_credentials: Vec<AsIntermediateCredential>,
     // QS-specific key material
     qs_client_signing_key: QsClientSigningKey,
     qs_user_signing_key: QsUserSigningKey,
     qs_queue_decryption_key: RatchetDecryptionKey,
-    qs_ratchet_key: QueueRatchet,
+    qs_queue_ratchet: QsQueueRatchet,
+    qs_verifying_key: QsVerifyingKey,
+    qs_client_id_encryption_key: ClientIdEncryptionKey,
     push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     friendship_token: FriendshipToken,
@@ -89,6 +98,7 @@ pub struct SelfUser {
     pub(crate) group_store: GroupStore,
     pub(crate) key_store: MemoryUserKeyStore,
     pub(crate) contacts: HashMap<UserName, Contact>,
+    pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
 }
 
 impl SelfUser {
@@ -173,9 +183,9 @@ impl SelfUser {
         let signing_key =
             ClientSigningKey::from_prelim_key(prelim_signing_key, credential).unwrap();
         let as_queue_decryption_key = RatchetDecryptionKey::generate().unwrap();
-        let as_ratchet_key = QueueRatchet::random().unwrap();
+        let as_initial_ratchet_secret = RatchetSecret::random().unwrap();
         let qs_queue_decryption_key = RatchetDecryptionKey::generate().unwrap();
-        let qs_ratchet_key = QueueRatchet::random().unwrap();
+        let qs_initial_ratchet_secret = RatchetSecret::random().unwrap();
         let qs_client_signing_key = QsClientSigningKey::random().unwrap();
         let qs_user_signing_key = QsUserSigningKey::random().unwrap();
 
@@ -189,16 +199,27 @@ impl SelfUser {
         let wai_ear_key: WelcomeAttributionInfoEarKey =
             WelcomeAttributionInfoEarKey::random().unwrap();
         let push_token_ear_key = PushTokenEarKey::random().unwrap();
+        let qs_verifying_key = block_on(api_client.qs_verifying_key())
+            .unwrap()
+            .verifying_key;
+        let qs_encryption_key = block_on(api_client.qs_encryption_key())
+            .unwrap()
+            .encryption_key;
+        let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
         // Mutable, because we need to access the leaf signers later.
         let mut key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
-            as_ratchet_key,
+            as_queue_ratchet: as_initial_ratchet_secret.clone().try_into().unwrap(),
+            connection_decryption_key,
+            as_credentials: as_credentials_response.as_credentials,
+            as_intermediate_credentials,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
-            qs_ratchet_key,
+            qs_queue_ratchet: qs_initial_ratchet_secret.clone().try_into().unwrap(),
+            qs_verifying_key,
             push_token_ear_key,
             friendship_token,
             add_package_ear_key,
@@ -206,19 +227,18 @@ impl SelfUser {
             signature_ear_key,
             wai_ear_key,
             leaf_signers,
-            as_credentials: as_credentials_response.as_credentials,
-            as_intermediate_credentials,
+            qs_client_id_encryption_key: qs_encryption_key,
         };
 
-        // TODO: We need another leaf credential type in OpenMLS for connection
-        // key packages. Should we use the client credentials directly?
+        // TODO: For now, we use the same ConnectionDecryptionKey for all
+        // connection packages.
+
         let mut connection_packages = vec![];
         for _ in 0..CONNECTION_PACKAGES {
-            let decryption_key = ConnectionDecryptionKey::generate().unwrap();
             let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION_DAYS);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
-                decryption_key.encryption_key(),
+                key_store.connection_decryption_key.encryption_key(),
                 lifetime,
                 key_store.signing_key.credential().clone(),
             );
@@ -233,7 +253,7 @@ impl SelfUser {
         block_on(api_client.as_finish_user_registration(
             user_name.clone(),
             key_store.as_queue_decryption_key.encryption_key(),
-            key_store.as_ratchet_key.clone(),
+            as_initial_ratchet_secret,
             connection_packages,
             opaque_registration_record,
             &key_store.signing_key,
@@ -274,7 +294,7 @@ impl SelfUser {
             qs_add_packages,
             key_store.add_package_ear_key.clone(),
             Some(encrypted_push_token),
-            key_store.qs_ratchet_key.clone(),
+            qs_initial_ratchet_secret,
             &key_store.qs_user_signing_key,
         ))
         .unwrap();
@@ -289,6 +309,7 @@ impl SelfUser {
             qs_user_id: create_user_record_response.user_id,
             qs_client_id: create_user_record_response.client_id,
             contacts: HashMap::default(),
+            partial_contacts: HashMap::default(),
         }
     }
 
@@ -303,7 +324,15 @@ impl SelfUser {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
         };
+        let capabilities = Capabilities::new(
+            Some(&SUPPORTED_PROTOCOL_VERSIONS),
+            Some(&SUPPORTED_CIPHERSUITES),
+            Some(&SUPPORTED_EXTENSIONS),
+            Some(&SUPPORTED_PROPOSALS),
+            Some(&SUPPORTED_CREDENTIALS),
+        );
         let kp = KeyPackage::builder()
+            .leaf_node_capabilities(capabilities)
             .build(
                 CryptoConfig {
                     ciphersuite: CIPHERSUITE,
@@ -500,7 +529,7 @@ impl SelfUser {
         Ok(conversation_message)
     }
 
-    pub fn add_contact(&self, user_name: &str) {
+    pub fn add_contact(&mut self, user_name: &str) {
         let user_name: UserName = user_name.to_string().into();
         let params = UserKeyPackagesParams {
             user_name: user_name.clone(),
@@ -508,8 +537,91 @@ impl SelfUser {
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_key_packages = block_on(self.api_client.as_user_key_packages(params)).unwrap();
-        let connection_key_packages = user_key_packages.key_packages;
+        let connection_packages = user_key_packages.key_packages;
+        // Verify the connection key packages
+        let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
+            .into_iter()
+            .map(|cp| {
+                let verifying_key = self
+                    .key_store
+                    .as_intermediate_credentials
+                    .iter()
+                    .find_map(|as_intermediate_credential| {
+                        if &as_intermediate_credential.fingerprint().unwrap()
+                            == cp.client_credential_signer_fingerprint()
+                        {
+                            Some(as_intermediate_credential.verifying_key())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap();
+                cp.verify(verifying_key).unwrap()
+            })
+            .collect();
 
-        todo!()
+        // TODO: Connection Package Validation
+        // * Version
+        // * Lifetime
+
+        // Get a group id for the connection group
+        let group_id = block_on(self.api_client.ds_request_group_id()).unwrap();
+        // Create the connection group
+        let connection_group = Group::create_group(
+            &self.crypto_backend,
+            &self.key_store.signing_key,
+            group_id.clone(),
+        );
+
+        // TODO: Once we allow multi-client, invite all our other clients to the
+        // connection group.
+
+        let friendship_package = FriendshipPackage {
+            friendship_token: self.key_store.friendship_token.clone(),
+            add_package_ear_key: self.key_store.add_package_ear_key.clone(),
+            client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
+            signature_ear_key: self.key_store.signature_ear_key.clone(),
+            wai_ear_key: self.key_store.wai_ear_key.clone(),
+        };
+
+        // Create a connection establishment package
+        let connection_establishment_package = ConnectionEstablishmentPackageTbs {
+            sender_client_credential: self.key_store.signing_key.credential().clone(),
+            connection_group_id: group_id.clone(),
+            connection_group_ear_key: connection_group.group_state_ear_key().clone(),
+            connection_group_credential_key: connection_group.credential_ear_key().clone(),
+            connection_group_signature_ear_key: connection_group.signature_ear_key().clone(),
+            friendship_package,
+        }
+        .sign(&self.key_store.signing_key)
+        .unwrap();
+
+        self.group_store.store_group(connection_group).unwrap();
+        // Create the connection conversation
+        let conversation_id = self.conversation_store.create_connection_conversation(
+            group_id,
+            user_name.clone(),
+            ConversationAttributes {
+                title: user_name.to_string(),
+            },
+        );
+
+        let contact = PartialContact {
+            user_name: user_name.clone(),
+            conversation_id,
+        };
+        self.partial_contacts.insert(user_name, contact);
+
+        // Encrypt the connection establishment package for each connection and send it off.
+        for connection_package in verified_connection_packages {
+            let ciphertext = connection_establishment_package.encrypt(
+                connection_package.encryption_key(),
+                &[],
+                &[],
+            );
+            let client_id = connection_package.client_credential().identity();
+
+            block_on(self.api_client.as_enqueue_message(client_id, ciphertext)).unwrap();
+        }
     }
 }

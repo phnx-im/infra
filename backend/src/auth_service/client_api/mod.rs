@@ -46,7 +46,7 @@ impl AuthService {
         })?;
 
         // Load the user record from storage
-        let user_name = &client_id.username();
+        let user_name = &client_id.user_name();
         let password_file_option = storage_provider
             .load_user(user_name)
             .await

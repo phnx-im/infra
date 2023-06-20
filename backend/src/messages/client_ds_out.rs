@@ -35,16 +35,26 @@ use crate::{
 };
 
 use super::{
-    client_ds::{ExternalCommitInfoParams, UpdateQsClientReferenceParams, WelcomeInfoParams},
+    client_ds::{
+        ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
+        WelcomeInfoParams,
+    },
     MlsInfraVersion,
 };
+
+#[derive(TlsDeserializeBytes, TlsSize)]
+pub struct ExternalCommitInfoIn {
+    pub verifiable_group_info: VerifiableGroupInfo,
+    pub ratchet_tree_in: RatchetTreeIn,
+    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+}
 
 #[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
     Ok,
     WelcomeInfo(RatchetTreeIn),
-    ExternalCommitInfo((VerifiableGroupInfo, RatchetTreeIn)),
+    ExternalCommitInfo(ExternalCommitInfoIn),
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -145,6 +155,7 @@ pub enum DsRequestParamsOut {
     RemoveUsers(RemoveUsersParamsOut),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
+    ConnectionGroupInfo(ConnectionGroupInfoParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParamsOut),
     JoinGroup(JoinGroupParamsOut),
@@ -192,6 +203,13 @@ pub struct ClientToDsMessageOut {
     payload: ClientToDsMessageTbsOut,
     // Signature over all of the above.
     signature: Signature,
+}
+
+impl ClientToDsMessageOut {
+    pub fn without_signature(payload: ClientToDsMessageTbsOut) -> Self {
+        let signature = Signature::empty();
+        Self { payload, signature }
+    }
 }
 
 impl SignedStruct<ClientToDsMessageTbsOut> for ClientToDsMessageOut {

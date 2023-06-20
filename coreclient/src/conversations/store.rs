@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 
 use openmls::prelude::GroupId;
+use phnxbackend::auth_service::UserName;
 
 use crate::types::*;
 
@@ -23,6 +24,27 @@ impl ConversationStore {
             .find(|conversation| conversation.group_id.as_group_id() == *group_id)
     }
 
+    pub(crate) fn create_connection_conversation(
+        &mut self,
+        group_id: GroupId,
+        user_name: UserName,
+        attributes: ConversationAttributes,
+    ) -> Uuid {
+        let conversation_id = Uuid::new_v4();
+        let conversation = Conversation {
+            id: conversation_id,
+            group_id: UuidBytes::from_group_id(&group_id),
+            status: ConversationStatus::Active(ActiveConversation {}),
+            conversation_type: ConversationType::UnconfirmedConnection(
+                user_name.as_bytes().to_vec(),
+            ),
+            last_used: Timestamp::now().as_u64(),
+            attributes,
+        };
+        self.conversations.insert(conversation_id, conversation);
+        conversation_id
+    }
+
     pub(crate) fn create_group_conversation(
         &mut self,
         conversation_id: Uuid,
@@ -30,7 +52,7 @@ impl ConversationStore {
         attributes: ConversationAttributes,
     ) {
         let conversation = Conversation {
-            id: conversation_id.clone(),
+            id: conversation_id,
             group_id: UuidBytes::from_group_id(&group_id),
             status: ConversationStatus::Active(ActiveConversation {}),
             conversation_type: ConversationType::Group,
@@ -38,6 +60,15 @@ impl ConversationStore {
             attributes,
         };
         self.conversations.insert(conversation_id, conversation);
+    }
+
+    pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {
+        if let Some(conversation) = self.conversations.get_mut(conversation_id) {
+            if let ConversationType::Connection(user_name) = conversation.conversation_type.clone()
+            {
+                conversation.conversation_type = ConversationType::Connection(user_name);
+            }
+        }
     }
 
     pub(crate) fn conversations(&self) -> Vec<Conversation> {
@@ -48,6 +79,16 @@ impl ConversationStore {
 
     pub(crate) fn conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
         self.conversations.get(conversation_id)
+    }
+
+    pub(crate) fn set_inactive(&mut self, conversation_id: &Uuid, past_members: &[String]) {
+        self.conversations
+            .get_mut(conversation_id)
+            .map(|conversation| {
+                conversation.status = ConversationStatus::Inactive(InactiveConversation {
+                    past_members: past_members.to_vec(),
+                })
+            });
     }
 
     pub(crate) fn messages(

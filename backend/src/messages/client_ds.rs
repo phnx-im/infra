@@ -16,6 +16,7 @@ use mls_assist::{
         },
         treesync::RatchetTree,
     },
+    openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
@@ -27,12 +28,16 @@ use crate::{
     crypto::{
         ear::{
             keys::{GroupStateEarKey, RatchetKey},
-            EarDecryptable, EarEncryptable,
+            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+        },
+        hpke::{
+            HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
         },
         signatures::{
             keys::UserAuthVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
+        QueueRatchet,
     },
     ds::{
         group_state::{EncryptedClientCredential, UserKeyHash},
@@ -41,7 +46,7 @@ use crate::{
     qs::{KeyPackageBatch, QsClientReference, UNVERIFIED},
 };
 
-use super::{EncryptedQueueMessage, MlsInfraVersion};
+use super::{EncryptedQsQueueMessage, MlsInfraVersion};
 
 mod private_mod {
     #[derive(Default)]
@@ -56,65 +61,67 @@ pub(crate) struct DsClientId {
 
 // === DS ===
 
+pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
+
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 #[repr(u8)]
-pub enum QueueMessageType {
+pub enum QsQueueMessageType {
     WelcomeBundle,
     MlsMessage,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-pub struct QueueMessagePayload {
-    pub message_type: QueueMessageType,
+pub struct QsQueueMessagePayload {
+    pub message_type: QsQueueMessageType,
     pub payload: Vec<u8>,
 }
 
-impl QueueMessagePayload {
-    pub fn extract(self) -> Result<ExtractedQueueMessagePayload, tls_codec::Error> {
+impl QsQueueMessagePayload {
+    pub fn extract(self) -> Result<ExtractedQsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
-            QueueMessageType::WelcomeBundle => {
+            QsQueueMessageType::WelcomeBundle => {
                 let wb = WelcomeBundle::tls_deserialize_exact(&self.payload)?;
-                ExtractedQueueMessagePayload::WelcomeBundle(wb)
+                ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
             }
-            QueueMessageType::MlsMessage => {
+            QsQueueMessageType::MlsMessage => {
                 let message = <MlsMessageIn as tls_codec::Deserialize>::tls_deserialize(
                     &mut self.payload.as_slice(),
                 )?;
-                ExtractedQueueMessagePayload::MlsMessage(message)
+                ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };
         Ok(message)
     }
 }
 
-pub enum ExtractedQueueMessagePayload {
+pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
     MlsMessage(MlsMessageIn),
 }
 
-impl TryFrom<WelcomeBundle> for QueueMessagePayload {
+impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
     type Error = tls_codec::Error;
 
     fn try_from(welcome_bundle: WelcomeBundle) -> Result<Self, Self::Error> {
         let payload = welcome_bundle.tls_serialize_detached()?;
         Ok(Self {
-            message_type: QueueMessageType::WelcomeBundle,
+            message_type: QsQueueMessageType::WelcomeBundle,
             payload,
         })
     }
 }
 
-impl From<AssistedMessagePlus> for QueueMessagePayload {
+impl From<AssistedMessagePlus> for QsQueueMessagePayload {
     fn from(value: AssistedMessagePlus) -> Self {
         Self {
-            message_type: QueueMessageType::MlsMessage,
+            message_type: QsQueueMessageType::MlsMessage,
             payload: value.message_bytes,
         }
     }
 }
 
-impl EarEncryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
-impl EarDecryptable<RatchetKey, EncryptedQueueMessage> for QueueMessagePayload {}
+impl EarEncryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct InfraAadMessage {
@@ -240,6 +247,11 @@ pub struct GetWelcomeInfoResponse {
 pub struct ExternalCommitInfoParams {
     pub group_id: GroupId,
     pub sender: UserKeyHash,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+pub struct ConnectionGroupInfoParams {
+    pub group_id: GroupId,
 }
 
 // TODO: We want this to contain the message bytes as well s.t. we don't have to
@@ -368,6 +380,7 @@ pub(crate) enum DsRequestParams {
     RemoveUsers(RemoveUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
+    ConnectionGroupInfo(ConnectionGroupInfoParams),
     CreateGroupParams(CreateGroupParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
@@ -396,6 +409,7 @@ impl DsRequestParams {
             DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
                 &external_commit_info_params.group_id
             }
+            DsRequestParams::ConnectionGroupInfo(params) => &params.group_id,
             DsRequestParams::RemoveUsers(remove_users_params) => {
                 remove_users_params.commit.message.group_id()
             }
@@ -474,6 +488,7 @@ impl DsRequestParams {
             }
             DsRequestParams::WelcomeInfo(_)
             | DsRequestParams::ExternalCommitInfo(_)
+            | DsRequestParams::ConnectionGroupInfo(_)
             | DsRequestParams::CreateGroupParams(_)
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
@@ -533,6 +548,7 @@ impl DsRequestParams {
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 DsSender::LeafIndex(dispatch_event_params.event.sender_index())
             }
+            DsRequestParams::ConnectionGroupInfo(_) => DsSender::Anonymous,
         }
     }
 }
@@ -543,6 +559,7 @@ pub enum DsSender {
     LeafIndex(LeafNodeIndex),
     LeafSignatureKey(SignaturePublicKey),
     UserKeyHash(UserKeyHash),
+    Anonymous,
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -608,6 +625,15 @@ impl VerifiableClientToDsMessage {
             _ => None,
         }
     }
+
+    /// This returns the payload without any verification. Can only be used with
+    /// payloads that have an `Anonymous` sender.
+    pub(crate) fn extract_without_verification(self) -> Option<DsRequestParams> {
+        match self.message.payload.sender() {
+            DsSender::Anonymous => Some(self.message.payload.body),
+            _ => None,
+        }
+    }
 }
 
 impl Verifiable for VerifiableClientToDsMessage {
@@ -639,11 +665,54 @@ pub struct DsJoinerInformation {
     pub ratchet_tree: RatchetTree,
 }
 
+impl GenericSerializable for DsJoinerInformation {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+pub struct EncryptedDsJoinerInformation {
+    pub ciphertext: HpkeCiphertext,
+}
+
+impl AsRef<HpkeCiphertext> for EncryptedDsJoinerInformation {
+    fn as_ref(&self) -> &HpkeCiphertext {
+        &self.ciphertext
+    }
+}
+
+impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
+    fn from(ciphertext: HpkeCiphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
+    for DsJoinerInformation
+{
+}
+
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
     pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
     pub ratchet_tree: RatchetTreeIn,
+}
+
+impl HpkeDecryptable<JoinerInfoDecryptionKey, EncryptedDsJoinerInformation>
+    for DsJoinerInformationIn
+{
+}
+
+impl GenericDeserializable for DsJoinerInformationIn {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
@@ -652,5 +721,5 @@ pub struct WelcomeBundle {
     // This is the part the DS shouldn't see.
     pub encrypted_attribution_info: EncryptedWelcomeAttributionInfo,
     // This part is added by the DS later.
-    pub encrypted_joiner_info: Vec<u8>,
+    pub encrypted_joiner_info: EncryptedDsJoinerInformation,
 }

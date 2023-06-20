@@ -122,7 +122,11 @@ pub struct ActiveConversation {}
 
 #[derive(Debug, Clone)]
 pub enum ConversationType {
-    OneToOne,
+    // A connection conversation that is not yet confirmed by the other party.
+    UnconfirmedConnection(Vec<u8>),
+    // A connection conversation that is confirmed by the other party and for
+    // which we have received the necessary secrets.
+    Connection(Vec<u8>),
     Group,
 }
 

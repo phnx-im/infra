@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::messages::intra_backend::DsFanOutMessage;
+use crate::{crypto::hpke::HpkeDecryptable, messages::intra_backend::DsFanOutMessage};
 
 use super::{
-    errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, Qs, WebsocketNotifier,
+    errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, ClientConfig, Qs,
+    WebsocketNotifier,
 };
 
 impl Qs {
@@ -27,8 +28,12 @@ impl Qs {
             .load_decryption_key()
             .await
             .map_err(|_| QsEnqueueError::StorageError)?;
-        let client_config =
-            decryption_key.unseal_client_config(&message.client_reference.sealed_reference)?;
+        let client_config = ClientConfig::decrypt(
+            message.client_reference.sealed_reference,
+            &decryption_key,
+            &[],
+            &[],
+        )?;
 
         // Fetch the client record.
         let mut client_record = storage_provider

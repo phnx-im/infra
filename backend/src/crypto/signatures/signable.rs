@@ -56,6 +56,12 @@ pub struct Signature {
 }
 
 impl Signature {
+    pub(crate) fn empty() -> Self {
+        Self {
+            signature: Vec::new(),
+        }
+    }
+
     pub(crate) fn as_slice(&self) -> &[u8] {
         &self.signature
     }

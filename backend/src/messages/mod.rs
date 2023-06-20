@@ -70,21 +70,38 @@ impl Default for MlsInfraVersion {
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueMessage {
     pub sequence_number: u64,
-    pub ciphertext: EncryptedQueueMessage,
+    pub ciphertext: Ciphertext,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct EncryptedQueueMessage {
+pub struct EncryptedQsQueueMessage {
     payload: Ciphertext,
 }
 
-impl From<Ciphertext> for EncryptedQueueMessage {
+impl From<Ciphertext> for EncryptedQsQueueMessage {
     fn from(payload: Ciphertext) -> Self {
         Self { payload }
     }
 }
 
-impl AsRef<Ciphertext> for EncryptedQueueMessage {
+impl AsRef<Ciphertext> for EncryptedQsQueueMessage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.payload
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct EncryptedAsQueueMessage {
+    payload: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedAsQueueMessage {
+    fn from(payload: Ciphertext) -> Self {
+        Self { payload }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedAsQueueMessage {
     fn as_ref(&self) -> &Ciphertext {
         &self.payload
     }

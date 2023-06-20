@@ -5,9 +5,14 @@
 use openmls::prelude::KeyPackage;
 use phnxbackend::{
     auth_service::{credentials::ClientCredential, AsClientId, UserName},
-    crypto::ear::keys::WelcomeAttributionInfoEarKey,
+    crypto::ear::keys::{
+        AddPackageEarKey, ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey,
+    },
+    messages::{client_as::FriendshipPackage, FriendshipToken},
     qs::{KeyPackageBatch, VERIFIED},
 };
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct Contact {
@@ -23,6 +28,12 @@ pub struct Contact {
     client_credentials: Vec<ClientCredential>,
     // Encryption key for WelcomeAttributionInfos
     wai_ear_key: WelcomeAttributionInfoEarKey,
+    friendship_token: FriendshipToken,
+    add_package_ear_key: AddPackageEarKey,
+    client_credential_ear_key: ClientCredentialEarKey,
+    signature_ear_key: SignatureEarKey,
+    // ID of the connection conversation with this contact.
+    conversation_id: Uuid,
 }
 
 #[derive(Debug, Clone)]
@@ -52,5 +63,34 @@ impl Contact {
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
         &self.wai_ear_key
+    }
+}
+
+/// Contact which has not yet accepted our connection request.
+pub(crate) struct PartialContact {
+    pub(crate) user_name: UserName,
+    // ID of the connection conversation with this contact.
+    pub(crate) conversation_id: Uuid,
+}
+
+impl PartialContact {
+    pub(crate) fn into_contact(
+        self,
+        friendship_package: FriendshipPackage,
+        mut add_infos: Vec<ContactAddInfos>,
+        client_credential: ClientCredential,
+    ) -> Contact {
+        Contact {
+            user_name: self.user_name,
+            last_resort_add_info: add_infos.pop().unwrap(),
+            add_infos,
+            client_credentials: vec![client_credential],
+            wai_ear_key: friendship_package.wai_ear_key,
+            friendship_token: friendship_package.friendship_token,
+            add_package_ear_key: friendship_package.add_package_ear_key,
+            client_credential_ear_key: friendship_package.client_credential_ear_key,
+            signature_ear_key: friendship_package.signature_ear_key,
+            conversation_id: self.conversation_id,
+        }
     }
 }

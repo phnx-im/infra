@@ -7,11 +7,12 @@ use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::keys::AddPackageEarKey,
+        kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signable, Signature, SignedStruct},
         },
-        QueueRatchet, RatchetEncryptionKey,
+        RatchetEncryptionKey,
     },
     qs::{AddPackage, EncryptedPushToken, QsClientId, QsUserId},
 };
@@ -35,6 +36,11 @@ pub struct ClientToQsMessageOut {
 impl ClientToQsMessageOut {
     pub fn from_token(payload: ClientToQsMessageTbsOut, token: FriendshipToken) -> Self {
         let signature = Signature::from_token(token);
+        Self { payload, signature }
+    }
+
+    pub fn without_signature(payload: ClientToQsMessageTbsOut) -> Self {
+        let signature = Signature::empty();
         Self { payload, signature }
     }
 }
@@ -82,7 +88,7 @@ pub struct CreateUserRecordParamsOut {
     pub add_packages: Vec<AddPackage>,
     pub add_package_ear_key: AddPackageEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
-    pub initial_ratchet_key: QueueRatchet,
+    pub initial_ratchet_secret: RatchetSecret,
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -93,7 +99,7 @@ pub struct CreateClientRecordParamsOut {
     pub add_packages: Vec<AddPackage>,
     pub friendship_ear_key: AddPackageEarKey,
     pub encrypted_push_token: Option<EncryptedPushToken>,
-    pub initial_ratchet_key: QueueRatchet, // TODO: This can be dropped once we support PCS
+    pub initial_ratchet_secret: RatchetSecret, // TODO: This can be dropped once we support PCS
 }
 
 #[derive(TlsSerialize, TlsSize)]
@@ -121,4 +127,7 @@ pub enum QsRequestParamsOut {
     KeyPackageBatch(KeyPackageBatchParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
+    // Key material
+    QsVerifyingKey,
+    QsEncryptionKey,
 }

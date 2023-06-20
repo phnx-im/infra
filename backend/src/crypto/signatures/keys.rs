@@ -96,6 +96,7 @@ impl AsRef<[u8]> for UserAuthSigningKey {
 }
 
 impl SigningKey for UserAuthSigningKey {}
+impl SigningKey for &UserAuthSigningKey {}
 
 #[derive(
     Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,

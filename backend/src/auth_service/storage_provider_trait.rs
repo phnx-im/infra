@@ -8,7 +8,10 @@ use async_trait::async_trait;
 use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
 use privacypass::batched_tokens::server::BatchedKeyStore;
 
-use crate::{crypto::OpaqueCiphersuite, messages::QueueMessage};
+use crate::{
+    crypto::OpaqueCiphersuite,
+    messages::{client_as::ConnectionPackage, QueueMessage},
+};
 
 use super::{
     credentials::{
@@ -124,7 +127,7 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     async fn load_user_key_packages(
         &self,
         user_name: &UserName,
-    ) -> Result<Vec<KeyPackage>, Self::StorageError>;
+    ) -> Result<Vec<ConnectionPackage>, Self::StorageError>;
 
     // === Messages ===
 

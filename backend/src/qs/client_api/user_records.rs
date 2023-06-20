@@ -31,7 +31,7 @@ impl Qs {
             add_packages,
             friendship_ear_key,
             encrypted_push_token,
-            initial_ratchet_key,
+            initial_ratchet_secret,
         } = params;
 
         let user_id = storage_provider.create_user().await.map_err(|e| {
@@ -46,7 +46,7 @@ impl Qs {
             add_packages,
             friendship_ear_key,
             encrypted_push_token,
-            initial_ratchet_key,
+            initial_ratchet_secret,
         };
 
         let CreateClientRecordResponse { client_id } =

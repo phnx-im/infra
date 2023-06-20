@@ -28,19 +28,24 @@ use phnxbackend::{
             },
             EarDecryptable, EarEncryptable,
         },
+        hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         signatures::{
             keys::UserAuthSigningKey,
             signable::{Signable, Verifiable},
         },
-        DecryptionPrivateKey,
     },
-    ds::{WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs},
+    ds::{
+        api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, WelcomeAttributionInfo,
+        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+    },
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            WelcomeBundle,
+            JoinConnectionGroupParamsAad, WelcomeBundle,
         },
-        client_ds_out::{AddUsersParamsOut, RemoveUsersParamsOut, SendMessageParamsOut},
+        client_ds_out::{
+            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut, SendMessageParamsOut,
+        },
     },
     qs::{KeyPackageBatch, VERIFIED},
     AssistedGroupInfo,
@@ -54,11 +59,30 @@ use crate::{
     types::MessageContentType,
     types::*,
 };
-use std::{collections::HashMap, panic::panic_any};
+use std::{
+    collections::{HashMap, HashSet},
+    panic::panic_any,
+};
 
 use openmls::prelude::*;
 
 use self::diff::GroupDiff;
+
+pub const FRIENDSHIP_PACKAGE_PROPOSAL_TYPE: u16 = 0xff00;
+
+pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 0] = [];
+pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 0] = [];
+pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infra];
+
+// Default capabilities for every leaf node we create.
+pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [ProtocolVersion::Mls10];
+pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] =
+    [Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519];
+pub const SUPPORTED_EXTENSIONS: [ExtensionType; 1] =
+    [ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE)];
+pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
+    [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
+pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];
 
 #[derive(Debug)]
 pub(crate) struct Group {
@@ -74,6 +98,29 @@ pub(crate) struct Group {
 }
 
 impl Group {
+    fn default_mls_group_config() -> MlsGroupConfig {
+        let required_capabilities = RequiredCapabilitiesExtension::new(
+            &REQUIRED_EXTENSION_TYPES,
+            &REQUIRED_PROPOSAL_TYPES,
+            &REQUIRED_CREDENTIAL_TYPES,
+        );
+
+        MlsGroupConfig::builder()
+            // This is turned on for now, as it makes OpenMLS return GroupInfos
+            // with every commit. At some point, there should be a dedicated
+            // config flag for this.
+            .leaf_node_capabilities(Capabilities::new(
+                Some(&SUPPORTED_PROTOCOL_VERSIONS),
+                Some(&SUPPORTED_CIPHERSUITES),
+                Some(&SUPPORTED_EXTENSIONS),
+                Some(&SUPPORTED_PROPOSALS),
+                Some(&SUPPORTED_CREDENTIALS),
+            ))
+            .use_ratchet_tree_extension(true)
+            .required_capabilities(required_capabilities)
+            .build()
+    }
+
     /// Create a group.
     pub fn create_group(
         backend: &impl OpenMlsCryptoProvider,
@@ -87,9 +134,12 @@ impl Group {
 
         let leaf_signer = InfraCredentialSigningKey::generate(signer, &signature_ear_key);
 
-        let mls_group_config = MlsGroupConfig::builder()
-            .use_ratchet_tree_extension(true)
-            .build();
+        let mls_group_config = Self::default_mls_group_config();
+
+        let credential_with_key = CredentialWithKey {
+            credential: Credential::from(leaf_signer.credential().clone()),
+            signature_key: leaf_signer.credential().verifying_key().clone(),
+        };
 
         let credential_with_key = CredentialWithKey {
             credential: Credential::from(leaf_signer.credential().clone()),
@@ -132,7 +182,7 @@ impl Group {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
-        let mls_group_config = MlsGroupConfig::default();
+        let mls_group_config = Self::default_mls_group_config();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
         let (key_package, _) = welcome_bundle
@@ -164,30 +214,21 @@ impl Group {
             }
         };
 
-        // TODO: This should probably all be moved into a member function "decrypt" of JoinerInfo.
-        let public_key: Vec<u8> = key_package.hpke_init_key().clone().into();
         let private_key = backend
             .key_store()
             .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
             .unwrap();
-        let info = [
-            "GroupStateEarKey ".as_bytes(),
-            mls_group.group_id().as_slice(),
-        ]
-        .concat();
+        let info = &[];
+        let aad = &[];
         let decryption_key =
-            DecryptionPrivateKey::new(private_key.as_ref().to_vec().into(), public_key.into());
-        let joiner_info_bytes = decryption_key
-            .decrypt(
-                &info,
-                &[],
-                &<HpkeCiphertext as DeserializeBytes>::tls_deserialize_exact(
-                    welcome_bundle.encrypted_joiner_info.as_slice(),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-        let joiner_info = DsJoinerInformationIn::tls_deserialize_exact(&joiner_info_bytes).unwrap();
+            JoinerInfoDecryptionKey::from((private_key, key_package.hpke_init_key().clone()));
+        let joiner_info = DsJoinerInformationIn::decrypt(
+            welcome_bundle.encrypted_joiner_info,
+            &decryption_key,
+            info,
+            aad,
+        )
+        .unwrap();
 
         // Decrypt WelcomeAttributionInfo
         let welcome_attribution_info = WelcomeAttributionInfo::decrypt(
@@ -200,7 +241,7 @@ impl Group {
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
         let sender_client_credential = contacts
-            .get(&verifiable_attribution_info.sender().username())
+            .get(&verifiable_attribution_info.sender().user_name())
             .and_then(|c| c.client_credential(&verifiable_attribution_info.sender()))
             .unwrap();
 
@@ -282,6 +323,116 @@ impl Group {
         Ok(group)
     }
 
+    /// Join a group using an external commit.
+    pub(crate) fn join_group_externally(
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        external_commit_info: ExternalCommitInfoIn,
+        leaf_signer: InfraCredentialSigningKey,
+        group_state_ear_key: GroupStateEarKey,
+        signature_ear_key: SignatureEarKey,
+        credential_ear_key: ClientCredentialEarKey,
+        own_client_credential: &ClientCredential,
+        as_intermediate_credentials: &[AsIntermediateCredential],
+    ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
+        // TODO: We set the ratchet tree extension for now, as it is the only
+        // way to make OpenMLS return a GroupInfo. This should change in the
+        // future.
+        let mls_group_config = Self::default_mls_group_config();
+        let credential_with_key = CredentialWithKey {
+            credential: leaf_signer.credential().clone().into(),
+            signature_key: leaf_signer.credential().verifying_key().clone(),
+        };
+        let ExternalCommitInfoIn {
+            verifiable_group_info,
+            ratchet_tree_in,
+            encrypted_client_credentials,
+        } = external_commit_info;
+
+        let aad = JoinConnectionGroupParamsAad {
+            encrypted_credential_information: own_client_credential
+                .encrypt(&credential_ear_key)
+                .unwrap(),
+        }
+        .tls_serialize_detached()
+        .unwrap();
+
+        // Let's create the group first so that we can access the GroupId.
+        let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
+            backend,
+            &leaf_signer,
+            Some(ratchet_tree_in),
+            verifiable_group_info,
+            &mls_group_config,
+            &aad,
+            credential_with_key,
+        )
+        .unwrap();
+        mls_group.set_aad(&[]);
+
+        let group_info = group_info_option.unwrap();
+
+        let client_credentials: Vec<Option<ClientCredential>> = encrypted_client_credentials
+            .into_iter()
+            .map(|ciphertext_option| {
+                ciphertext_option.map(|ciphertext| {
+                    let verifiable_credential =
+                        VerifiableClientCredential::decrypt(&credential_ear_key, &ciphertext)
+                            .unwrap();
+                    let as_credential = as_intermediate_credentials
+                        .iter()
+                        .find(|as_cred| {
+                            &as_cred.fingerprint().unwrap()
+                                == verifiable_credential.signer_fingerprint()
+                        })
+                        .unwrap();
+                    verifiable_credential
+                        .verify(as_credential.verifying_key())
+                        .unwrap()
+                })
+            })
+            .collect();
+
+        // Decrypt and verify the infra credentials.
+        // TODO: Right now, this just panics if the verification fails.
+        mls_group
+            .members()
+            .for_each(|m| match m.credential.mls_credential_type() {
+                MlsCredentialType::Infra(credential) => {
+                    let _verified_credential: InfraCredentialTbs =
+                        InfraCredentialPlaintext::decrypt(credential, &signature_ear_key)
+                            .unwrap()
+                            .verify(
+                                client_credentials
+                                    .get(m.index.usize())
+                                    .unwrap()
+                                    .as_ref()
+                                    .unwrap()
+                                    .verifying_key(),
+                            )
+                            .unwrap();
+                }
+                _ => panic_any("We should only use infra credentials."),
+            });
+
+        // TODO: Once we support multiple clients, this should be synchronized
+        // across clients.
+        let user_auth_key = UserAuthSigningKey::generate().unwrap();
+
+        let group = Group {
+            group_id: mls_group.group_id().clone(),
+            mls_group,
+            leaf_signer,
+            signature_ear_key,
+            credential_ear_key,
+            group_state_ear_key,
+            user_auth_key,
+            client_credentials,
+            pending_diff: None,
+        };
+
+        Ok((group, commit, group_info.into()))
+    }
+
     /// Process inbound message
     ///
     /// Returns the processed message and whether the group was deleted.
@@ -292,15 +443,26 @@ impl Group {
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
         as_intermediate_credentials: &[AsIntermediateCredential],
-    ) -> Result<(ProcessedMessage, bool), GroupOperationError> {
+    ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
         // Will be set to true if the group was deleted.
         let mut was_deleted = false;
         let diff = match processed_message.content() {
             // For now, we only care about commits.
-            ProcessedMessageContent::ApplicationMessage(_)
-            | ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                return Ok((processed_message, false))
+            ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                panic!("Unsupported message type")
+            }
+            ProcessedMessageContent::ApplicationMessage(_) => {
+                let sender_credential = if let Sender::Member(index) = processed_message.sender() {
+                    self.client_credentials
+                        .get(index.usize())
+                        .unwrap()
+                        .as_ref()
+                        .unwrap()
+                } else {
+                    panic!("Invalid sender type.")
+                };
+                return Ok((processed_message, false, sender_credential.clone()));
             }
             ProcessedMessageContent::ProposalMessage(proposal) => {
                 // The only proposal messages we allow at this point are
@@ -462,7 +624,7 @@ impl Group {
                                 .unwrap();
                         }
                         // Check that the existing user clients match up.
-                        if self.user_clients(client_credential.identity().username())
+                        if self.user_clients(client_credential.identity().user_name())
                             != join_group_payload
                                 .existing_user_clients
                                 .into_iter()
@@ -638,7 +800,22 @@ impl Group {
         // If we got until here, the message was deemed valid and we can apply the diff.
         self.merge_pending_commit(backend).unwrap();
 
-        Ok((processed_message, was_deleted))
+        // Get the sender's credential
+        let sender_index = self
+            .mls_group
+            .members()
+            .find(|m| &m.credential == processed_message.credential())
+            .unwrap()
+            .index
+            .usize();
+        let sender_credential = self
+            .client_credentials
+            .get(sender_index)
+            .unwrap()
+            .as_ref()
+            .unwrap();
+
+        Ok((processed_message, was_deleted, sender_credential.clone()))
     }
 
     /// Invite the given list of contacts to join the group.
@@ -878,7 +1055,7 @@ impl Group {
         let mut user_clients = vec![];
         for (index, cred_option) in self.client_credentials.iter().enumerate() {
             if let Some(cred_user_name) =
-                cred_option.as_ref().map(|cred| cred.identity().username())
+                cred_option.as_ref().map(|cred| cred.identity().user_name())
             {
                 if cred_user_name == user_name {
                     user_clients.push(index)
@@ -887,14 +1064,37 @@ impl Group {
         }
         user_clients
     }
+
+    pub(crate) fn credential_ear_key(&self) -> &ClientCredentialEarKey {
+        &self.credential_ear_key
+    }
+
+    pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
+        &self.signature_ear_key
+    }
+
+    pub(crate) fn members(&self) -> Vec<UserName> {
+        self.client_credentials
+            .iter()
+            .filter_map(|cred_option| {
+                if let Some(cred) = cred_option {
+                    Some(cred.identity().user_name())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<UserName>>()
+            .into_iter()
+            .collect()
+    }
 }
 
 pub(crate) fn application_message_to_conversation_messages(
-    sender: &Credential,
+    sender: &ClientCredential,
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().to_vec().into(),
+        sender: sender.identity().user_name().as_bytes().to_vec(),
         content: MessageContentType::Text(TextMessage {
             message: String::from_utf8_lossy(&application_message.into_bytes()).into(),
         }),

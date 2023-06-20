@@ -27,7 +27,7 @@ impl AuthService {
 
         // Check if a user entry with the name given in the client_csr already exists
         let client_id_exists = storage_provider
-            .load_user(&client_payload.identity().username())
+            .load_user(&client_payload.identity().user_name())
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -78,7 +78,7 @@ impl AuthService {
             opaque_registration_request.client_message,
             &client_credential
                 .identity()
-                .username()
+                .user_name()
                 .tls_serialize_detached()
                 .map_err(|_| InitUserRegistrationError::LibraryError)?,
         )
@@ -106,7 +106,7 @@ impl AuthService {
             client_id,
             user_name,
             queue_encryption_key,
-            initial_ratchet_key,
+            initial_ratchet_secret: initial_ratchet_key,
             connection_packages,
             opaque_registration_record,
         } = params;
@@ -132,7 +132,7 @@ impl AuthService {
 
         // Create the user entry with the information given in the request
         let user_record = storage_provider
-            .create_user(&client_id.username(), &password_file)
+            .create_user(&client_id.user_name(), &password_file)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -143,7 +143,10 @@ impl AuthService {
 
         let client_record = AsClientRecord {
             queue_encryption_key,
-            ratchet_key: initial_ratchet_key,
+            ratchet_key: initial_ratchet_key
+                .try_into()
+                // Hiding the LibraryError here behind a StorageError
+                .map_err(|_| FinishUserRegistrationError::StorageError)?,
             activity_time: TimeStamp::now(),
             credential: client_credential,
         };
@@ -180,7 +183,7 @@ impl AuthService {
 
         // Delete the user
         storage_provider
-            .delete_user(&client_id.username())
+            .delete_user(&client_id.user_name())
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
