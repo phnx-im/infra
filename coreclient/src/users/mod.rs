@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::net::SocketAddr;
+
 use futures::executor::block_on;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -101,21 +103,21 @@ pub struct SelfUser {
 
 impl SelfUser {
     /// Create a new user with the given name and a fresh set of credentials.
-    pub fn new(user_name: String, password: String) -> Self {
-        let user_name: UserName = user_name.into();
+    pub async fn new(user_name: &str, password: &str, address: SocketAddr) -> Self {
+        log::info!("Creating new user {}", user_name);
+        let user_name: UserName = UserName::from(user_name.to_string());
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
-        let api_client = ApiClient::initialize(
-            "http://localhost:8000".to_string(),
-            TransportEncryption::Off,
-        )
-        .unwrap();
+        let api_client = ApiClient::initialize(address, TransportEncryption::Off).unwrap();
 
         let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone()).unwrap();
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519).unwrap();
 
-        let as_credentials_response = block_on(api_client.as_as_credentials()).unwrap();
+        log::info!("Fetch AS credentials");
+
+        let as_credentials_response = api_client.as_as_credentials().await.unwrap();
+        log::info!("Verifying credentials");
         let as_intermediate_credentials: Vec<AsIntermediateCredential> = as_credentials_response
             .as_intermediate_credentials
             .into_iter()
@@ -156,9 +158,10 @@ impl SelfUser {
         .unwrap();
 
         // Complete the OPAQUE registration.
+        let address = api_client.address().clone().to_string();
         let identifiers = Identifiers {
             client: Some(user_name.as_bytes()),
-            server: Some(api_client.base_url().as_bytes()),
+            server: Some(address.as_bytes()),
         };
         let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
         let client_registration_finish_result: ClientRegistrationFinishResult<OpaqueCiphersuite> =
@@ -374,7 +377,10 @@ impl SelfUser {
             .conversation(conversation_id)
             .unwrap();
         let group_id = &conversation.group_id;
-        let group = self.group_store.get_group_mut(group_id).unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&group_id.as_group_id())
+            .unwrap();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
@@ -436,7 +442,10 @@ impl SelfUser {
             .conversation(conversation_id)
             .unwrap();
         let group_id = &conversation.group_id;
-        let group = self.group_store.get_group_mut(group_id).unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&group_id.as_group_id())
+            .unwrap();
         let mut clients = vec![];
         for user_name in target_users {
             let user_name = user_name.to_string().into();
@@ -491,7 +500,7 @@ impl SelfUser {
         // Generate ciphertext
         let params = self
             .group_store
-            .create_message(&self.crypto_backend, group_id, message)
+            .create_message(&self.crypto_backend, &group_id.as_group_id(), message)
             .map_err(CorelibError::Group)?;
 
         // Store message locally
@@ -499,7 +508,7 @@ impl SelfUser {
             content: MessageContentType::Text(TextMessage {
                 message: message.to_string(),
             }),
-            sender: self.user_name.clone(),
+            sender: self.user_name.as_bytes().to_vec(),
         });
         let conversation_message = new_conversation_message(message);
         self.conversation_store
@@ -508,11 +517,15 @@ impl SelfUser {
 
         // Send message to DS
         println!("Sending message to DS");
-        block_on(self.api_client.ds_send_message(
-            params,
-            &self.group_store.leaf_signing_key(group_id),
-            &self.group_store.group_state_ear_key(group_id),
-        ))?;
+        block_on(
+            self.api_client.ds_send_message(
+                params,
+                &self.group_store.leaf_signing_key(&group_id.as_group_id()),
+                &self
+                    .group_store
+                    .group_state_ear_key(&group_id.as_group_id()),
+            ),
+        )?;
         Ok(conversation_message)
     }
 

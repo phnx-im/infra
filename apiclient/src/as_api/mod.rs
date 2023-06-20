@@ -11,16 +11,15 @@ use phnxbackend::{
         AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
         OpaqueRegistrationRequest, UserName,
     },
-    crypto::{
-        kdf::keys::RatchetSecret, signatures::signable::Signable, QueueRatchet,
-        RatchetEncryptionKey,
+    crypto::{kdf::keys::RatchetSecret, signatures::signable::Signable, RatchetEncryptionKey},
+    messages::client_as::{
+        AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
+        AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
+        DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+        EncryptedConnectionEstablishmentPackage,
     },
     messages::{
         client_as::{
-            AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
-            AsQueueMessagePayload, AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage,
-            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
-            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
@@ -31,7 +30,6 @@ use phnxbackend::{
             InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
             UserKeyPackagesResponseIn,
         },
-        client_ds::QsQueueMessagePayload,
     },
 };
 use phnxserver::endpoints::ENDPOINT_AS;
@@ -63,14 +61,21 @@ impl ApiClient {
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| AsRequestError::LibraryError)?;
-        match self
+        log::info!(
+            "POST message request: {:?} to URL {}",
+            message,
+            self.build_url(Protocol::Http, ENDPOINT_AS)
+        );
+        let res = self
             .client
             .post(self.build_url(Protocol::Http, ENDPOINT_AS))
             .body(message_bytes)
             .send()
-            .await
-        {
+            .await;
+        log::info!("POST message response: {:?}", res);
+        match res {
             Ok(res) => {
+                log::info!("POST message response: {:?}", res);
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
@@ -99,7 +104,10 @@ impl ApiClient {
                 }
             }
             // A network error occurred.
-            Err(err) => Err(AsRequestError::NetworkError(err.to_string())),
+            Err(err) => {
+                log::error!("POST message error: {:?}", err);
+                Err(AsRequestError::NetworkError(err.to_string()))
+            }
         }
     }
 
@@ -471,10 +479,12 @@ impl ApiClient {
         let payload = AsCredentialsParams {};
         let params = AsRequestParams::AsCredentials(payload);
         let message = ClientToAsMessage::new(params);
+        log::info!("Sending AS credentials request to AS");
         self.prepare_and_send_as_message(message)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
+                log::info!("Received AS credentials response from AS");
                 if let AsProcessResponseIn::AsCredentials(response) = response {
                     Ok(response)
                 } else {

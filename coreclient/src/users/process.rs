@@ -116,7 +116,10 @@ impl SelfUser {
                                             {
                                                 // Check if it was an external commit and if the user name matches
                                                 if matches!(sender, Sender::NewMemberCommit)
-                                                    && &sender_credential.identity().user_name()
+                                                    && &sender_credential
+                                                        .identity()
+                                                        .user_name()
+                                                        .as_bytes()
                                                         == user_name
                                                 {
                                                     let proposal_payload: &[u8] = staged_commit
@@ -170,7 +173,7 @@ impl SelfUser {
                                                     // Now we can turn the partial contact into a full one.
                                                     let partial_contact = self
                                                         .partial_contacts
-                                                        .remove(user_name)
+                                                        .remove(&(user_name.clone().into()))
                                                         .unwrap();
                                                     let contact = partial_contact.into_contact(
                                                         friendship_package,
@@ -179,7 +182,7 @@ impl SelfUser {
                                                     );
                                                     // And add it to our list of contacts
                                                     self.contacts
-                                                        .insert(user_name.clone(), contact);
+                                                        .insert(user_name.clone().into(), contact);
                                                     // Finally, we can turn the conversation type to a full connection group
                                                     self.conversation_store
                                                         .confirm_connection_conversation(

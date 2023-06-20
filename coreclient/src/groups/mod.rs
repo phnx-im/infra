@@ -33,7 +33,6 @@ use phnxbackend::{
             keys::UserAuthSigningKey,
             signable::{Signable, Verifiable},
         },
-        DecryptionPrivateKey,
     },
     ds::{
         api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, WelcomeAttributionInfo,
@@ -136,6 +135,11 @@ impl Group {
         let leaf_signer = InfraCredentialSigningKey::generate(signer, &signature_ear_key);
 
         let mls_group_config = Self::default_mls_group_config();
+
+        let credential_with_key = CredentialWithKey {
+            credential: Credential::from(leaf_signer.credential().clone()),
+            signature_key: leaf_signer.credential().verifying_key().clone(),
+        };
 
         let credential_with_key = CredentialWithKey {
             credential: Credential::from(leaf_signer.credential().clone()),
@@ -1090,7 +1094,7 @@ pub(crate) fn application_message_to_conversation_messages(
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().user_name(),
+        sender: sender.identity().user_name().as_bytes().to_vec(),
         content: MessageContentType::Text(TextMessage {
             message: String::from_utf8_lossy(&application_message.into_bytes()).into(),
         }),

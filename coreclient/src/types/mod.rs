@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::GroupId;
-use phnxbackend::auth_service::UserName;
+//use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -18,6 +18,10 @@ impl UuidBytes {
         Self { bytes: uuid_bytes }
     }
 
+    pub fn from_group_id(group_id: &GroupId) -> Self {
+        Self::from_bytes(group_id.as_slice())
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
@@ -30,6 +34,10 @@ impl UuidBytes {
 
     pub fn as_uuid(&self) -> Uuid {
         Uuid::from_bytes(self.bytes)
+    }
+
+    pub fn as_group_id(&self) -> GroupId {
+        GroupId::from_slice(&self.bytes)
     }
 }
 
@@ -48,7 +56,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub struct ContentMessage {
-    pub sender: UserName,
+    pub sender: Vec<u8>,
     pub content: MessageContentType,
 }
 
@@ -91,7 +99,7 @@ pub struct ErrorMessage {
 pub struct Conversation {
     pub id: Uuid,
     // Id of the (active) MLS group representing this conversation.
-    pub group_id: GroupId,
+    pub group_id: UuidBytes,
     pub status: ConversationStatus,
     pub conversation_type: ConversationType,
     pub last_used: u64,
@@ -115,10 +123,10 @@ pub struct ActiveConversation {}
 #[derive(Debug, Clone)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UserName),
+    UnconfirmedConnection(Vec<u8>),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(UserName),
+    Connection(Vec<u8>),
     Group,
 }
 

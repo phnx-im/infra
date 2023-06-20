@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "coreclient"
+name = "phnxcoreclient"
 version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2021"
 
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 thiserror = "1.0"
@@ -19,7 +19,6 @@ openmls_traits = { git = "https://github.com/openmls/openmls", branch="konrad/pg
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls",branch="konrad/pgi_2" }
 openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
-ds-lib = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
 tls_codec = { workspace = true }
 log = "^0.4.14"
 url = "2.2"

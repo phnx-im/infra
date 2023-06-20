@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude_test::HpkePublicKey,
+    openmls::prelude::HpkePublicKey,
     openmls_traits::types::{HpkeCiphertext, HpkePrivateKey},
 };
 
