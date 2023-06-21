@@ -4,7 +4,7 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::{openmls::prelude::KeyPackage, openmls_traits::random::OpenMlsRand};
+use mls_assist::openmls_traits::random::OpenMlsRand;
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
@@ -17,10 +17,10 @@ use crate::{
     ds::group_state::TimeStamp,
     messages::{
         client_as::{
-            AsClientKeyPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
             AsQueueMessagePayload, Init2FactorAuthResponse, InitClientAdditionResponse,
             InitUserRegistrationResponse, IssueTokensResponse, UserClientsResponse,
-            UserKeyPackagesResponse, VerifiedAsRequestParams,
+            UserConnectionPackagesResponse, VerifiedAsRequestParams,
         },
         client_as_out::VerifiableClientToAsMessage,
         EncryptedAsQueueMessage,
@@ -117,9 +117,19 @@ pub struct AsUserId {
     pub client_id: Vec<u8>,
 }
 
+#[derive(Debug, Clone)]
 pub struct AsUserRecord {
     user_name: UserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
+}
+
+impl AsUserRecord {
+    pub fn new(user_name: UserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
+        Self {
+            user_name,
+            password_file,
+        }
+    }
 }
 
 #[derive(
@@ -208,6 +218,7 @@ impl AsClientId {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct AsClientRecord {
     pub queue_encryption_key: RatchetEncryptionKey,
     pub ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
@@ -270,11 +281,11 @@ impl AuthService {
                     .await
                     .map(AsProcessResponse::DequeueMessages)?
             }
-            VerifiedAsRequestParams::PublishKeyPackages(params) => {
-                AuthService::as_publish_key_packages(storage_provider, params).await?;
+            VerifiedAsRequestParams::PublishConnectionPackages(params) => {
+                AuthService::as_publish_connection_packages(storage_provider, params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::ClientKeyPackage(params) => {
+            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
                 AuthService::as_client_key_package(storage_provider, params)
                     .await
                     .map(AsProcessResponse::ClientKeyPackage)?
@@ -284,7 +295,7 @@ impl AuthService {
                     .await
                     .map(AsProcessResponse::IssueTokens)?
             }
-            VerifiedAsRequestParams::UserKeyPackages(params) => {
+            VerifiedAsRequestParams::UserConnectionPackages(params) => {
                 AuthService::as_user_key_package(storage_provider, params)
                     .await
                     .map(AsProcessResponse::UserKeyPackages)?
@@ -332,9 +343,9 @@ pub enum AsProcessResponse {
     Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
     DequeueMessages(AsDequeueMessagesResponse),
-    ClientKeyPackage(AsClientKeyPackageResponse),
+    ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),
-    UserKeyPackages(UserKeyPackagesResponse),
+    UserKeyPackages(UserConnectionPackagesResponse),
     InitiateClientAddition(InitClientAdditionResponse),
     UserClients(UserClientsResponse),
     AsCredentials(AsCredentialsResponse),

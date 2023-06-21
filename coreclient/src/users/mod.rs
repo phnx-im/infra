@@ -37,7 +37,7 @@ use phnxbackend::{
     messages::{
         client_as::{
             AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackage,
-            ConnectionPackageTbs, FriendshipPackage, UserKeyPackagesParams,
+            ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams,
         },
         client_ds::QsQueueRatchet,
         FriendshipToken, MlsInfraVersion,
@@ -525,13 +525,17 @@ impl SelfUser {
 
     pub async fn add_contact(&mut self, user_name: &str) {
         let user_name: UserName = user_name.to_string().into();
-        let params = UserKeyPackagesParams {
+        let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
-        let user_key_packages = self.api_client.as_user_key_packages(params).await.unwrap();
-        let connection_packages = user_key_packages.key_packages;
+        let user_key_packages = self
+            .api_client
+            .as_user_connection_packages(params)
+            .await
+            .unwrap();
+        let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
         let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
             .into_iter()

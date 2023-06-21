@@ -23,36 +23,33 @@ use super::{
 
 /// Storage provider trait for the QS.
 #[async_trait]
-pub trait AsStorageProvider: Sync + Send + Debug + 'static {
+pub trait AsStorageProvider: Sync + Send + 'static {
     type PrivacyPassKeyStore: BatchedKeyStore;
-    type StorageError: Error + Debug + PartialEq + Eq + Clone;
+    type StorageError: Error + Debug + Clone;
 
-    type CreateUserError: Error + Debug + PartialEq + Eq + Clone;
-    type StoreUserError: Error + Debug + PartialEq + Eq + Clone;
-    type DeleteUserError: Error + Debug + PartialEq + Eq + Clone;
+    type CreateUserError: Error + Debug + Clone;
+    type StoreUserError: Error + Debug + Clone;
+    type DeleteUserError: Error + Debug + Clone;
 
-    type StoreClientError: Error + Debug + PartialEq + Eq + Clone;
-    type CreateClientError: Error + Debug + PartialEq + Eq + Clone;
-    type DeleteClientError: Error + Debug + PartialEq + Eq + Clone;
+    type StoreClientError: Error + Debug + Clone;
+    type CreateClientError: Error + Debug + Clone;
+    type DeleteClientError: Error + Debug + Clone;
 
-    type EnqueueError: Error + Debug + PartialEq + Eq + Clone;
-    type ReadAndDeleteError: Error + Debug + PartialEq + Eq + Clone;
+    type EnqueueError: Error + Debug + Clone;
+    type ReadAndDeleteError: Error + Debug + Clone;
 
-    type StoreKeyPackagesError: Error + Debug + PartialEq + Eq + Clone;
+    type StoreKeyPackagesError: Error + Debug + Clone;
 
-    type LoadSigningKeyError: Error + Debug + PartialEq + Eq + Clone;
-    type LoadAsCredentialsError: Error + Debug + PartialEq + Eq + Clone;
+    type LoadSigningKeyError: Error + Debug + Clone;
+    type LoadAsCredentialsError: Error + Debug + Clone;
 
-    type LoadOpaqueKeyError: Error + Debug + PartialEq + Eq + Clone;
+    type LoadOpaqueKeyError: Error + Debug + Clone;
 
     // === Users ===
 
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
-    async fn load_user(
-        &self,
-        user_name: &UserName,
-    ) -> Result<Option<AsUserRecord>, Self::StorageError>;
+    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord>;
 
     /// Create a new user with the given user name. If a user with the given user
     /// name already exists, an error is returned.
@@ -60,7 +57,7 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
         &self,
         user_name: &UserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
-    ) -> Result<AsUserRecord, Self::StorageError>;
+    ) -> Result<(), Self::StorageError>;
 
     /// Deletes the AsUserRecord for a given UserId. Returns true if a AsUserRecord
     /// was deleted, false if no AsUserRecord existed for the given UserId.
@@ -71,23 +68,10 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     ///  - All key packages for the respective clients
     async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError>;
 
-    // --- Legacy ---
-
-    /// Stores a AsUserRecord for a given UserId. If a AsUserRecord already exists
-    /// for the given UserId, it will be overwritten.
-    async fn store_user(
-        &self,
-        user_id: &AsUserId,
-        user_record: AsUserRecord,
-    ) -> Result<(), Self::StoreUserError>;
-
     // === Clients ===
 
     /// Load the info for the client with the given client ID.
-    async fn load_client(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<AsClientRecord>, Self::StorageError>;
+    async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord>;
 
     /// Saves a client in the storage provider with the given client ID. The
     /// storage provider must associate this client with the user of the client.
@@ -108,23 +92,20 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     // === Key packages ===
 
     /// Store key packages for a specific client.
-    async fn store_key_packages(
+    async fn store_connection_packages(
         &self,
         client_id: &AsClientId,
-        key_packages: Vec<KeyPackage>,
+        key_packages: Vec<ConnectionPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError>;
 
     /// Return a key package for a specific client. The client_id must belong to
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
-    async fn client_key_package(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<KeyPackage>, Self::StorageError>;
+    async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage>;
 
     /// Return a key package for each client of a user referenced by a
     /// user name.
-    async fn load_user_key_packages(
+    async fn load_user_connection_packages(
         &self,
         user_name: &UserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError>;
@@ -184,9 +165,7 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
     // === PrivacyPass ===
 
     /// Loads the handle of the PrivacyPass keystore.
-    async fn load_privacy_pass_key_store(
-        &self,
-    ) -> Result<Self::PrivacyPassKeyStore, Self::StorageError>;
+    async fn privacy_pass_key_store(&self) -> &Self::PrivacyPassKeyStore;
 
     /// Loads the number of tokens is still allowed to request.
     async fn load_client_token_allowance(
@@ -210,7 +189,7 @@ pub trait AsStorageProvider: Sync + Send + Debug + 'static {
 
 #[async_trait]
 pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
-    type StorageError: Error + Debug + PartialEq + Eq + Clone;
+    type StorageError: Error + Debug + Clone;
 
     /// Store a client credential for a given client ID.
     async fn store_credential(

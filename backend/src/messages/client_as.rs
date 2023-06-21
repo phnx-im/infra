@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{
-    openmls::prelude::{GroupId, KeyPackage, KeyPackageIn},
-    openmls_traits::types::HpkeCiphertext,
-};
+use mls_assist::{openmls::prelude::GroupId, openmls_traits::types::HpkeCiphertext};
 use privacypass::batched_tokens::{TokenRequest, TokenResponse};
 
 use tls_codec::{DeserializeBytes, Serialize, Size, TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -36,7 +33,7 @@ use crate::{
 
 use super::{
     client_as_out::{
-        FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
+        ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
         VerifiableConnectionPackage,
     },
     EncryptedAsQueueMessage, FriendshipToken, MlsInfraVersion, QueueMessage,
@@ -161,7 +158,7 @@ pub struct Init2FactorAuthResponse {
     pub(crate) opaque_ke2: OpaqueLoginResponse,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize)]
 pub struct ConnectionPackageTbs {
     pub(super) protocol_version: MlsInfraVersion,
     pub(super) encryption_key: ConnectionEncryptionKey,
@@ -185,7 +182,7 @@ impl ConnectionPackageTbs {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize)]
 pub struct ConnectionPackage {
     payload: ConnectionPackageTbs,
     signature: Signature,
@@ -362,7 +359,7 @@ pub struct FinishClientAdditionParamsTbs {
     pub client_id: AsClientId,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
-    pub connection_key_package: KeyPackageIn,
+    pub connection_package: ConnectionPackageIn,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
@@ -620,81 +617,81 @@ pub struct AsDequeueMessagesResponse {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsPublishKeyPackagesParamsTbs {
+pub struct AsPublishConnectionPackagesParamsTbs {
     pub client_id: AsClientId,
-    pub key_packages: Vec<KeyPackageIn>,
+    pub connection_packages: Vec<ConnectionPackageIn>,
 }
 
-impl Signable for AsPublishKeyPackagesParamsTbs {
-    type SignedOutput = AsPublishKeyPackagesParams;
+impl Signable for AsPublishConnectionPackagesParamsTbs {
+    type SignedOutput = AsPublishConnectionPackagesParams;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
     }
 
     fn label(&self) -> &str {
-        AsPublishKeyPackagesParams::LABEL
+        AsPublishConnectionPackagesParams::LABEL
     }
 }
 
-impl SignedStruct<AsPublishKeyPackagesParamsTbs> for AsPublishKeyPackagesParams {
-    fn from_payload(payload: AsPublishKeyPackagesParamsTbs, signature: Signature) -> Self {
+impl SignedStruct<AsPublishConnectionPackagesParamsTbs> for AsPublishConnectionPackagesParams {
+    fn from_payload(payload: AsPublishConnectionPackagesParamsTbs, signature: Signature) -> Self {
         Self { payload, signature }
     }
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsPublishKeyPackagesParams {
-    payload: AsPublishKeyPackagesParamsTbs,
+pub struct AsPublishConnectionPackagesParams {
+    payload: AsPublishConnectionPackagesParamsTbs,
     signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for AsPublishKeyPackagesParams {
-    type Tbs = AsPublishKeyPackagesParamsTbs;
+impl ClientCredentialAuthenticator for AsPublishConnectionPackagesParams {
+    type Tbs = AsPublishConnectionPackagesParamsTbs;
 
     fn client_id(&self) -> AsClientId {
         self.payload.client_id.clone()
     }
 
     fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::PublishKeyPackages(self.payload)
+        VerifiedAsRequestParams::PublishConnectionPackages(self.payload)
     }
 
     fn signature(&self) -> &Signature {
         &self.signature
     }
 
-    const LABEL: &'static str = "Publish KeyPackages Parameters";
+    const LABEL: &'static str = "Publish ConnectionPackages Parameters";
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct ClientKeyPackageParamsTbs(pub AsClientId);
+pub struct ClientConnectionPackageParamsTbs(pub AsClientId);
 
-impl Signable for ClientKeyPackageParamsTbs {
-    type SignedOutput = AsClientKeyPackageParams;
+impl Signable for ClientConnectionPackageParamsTbs {
+    type SignedOutput = AsClientConnectionPackageParams;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
     }
 
     fn label(&self) -> &str {
-        AsClientKeyPackageParams::LABEL
+        AsClientConnectionPackageParams::LABEL
     }
 }
 
-impl SignedStruct<ClientKeyPackageParamsTbs> for AsClientKeyPackageParams {
-    fn from_payload(payload: ClientKeyPackageParamsTbs, signature: Signature) -> Self {
+impl SignedStruct<ClientConnectionPackageParamsTbs> for AsClientConnectionPackageParams {
+    fn from_payload(payload: ClientConnectionPackageParamsTbs, signature: Signature) -> Self {
         Self { payload, signature }
     }
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsClientKeyPackageParams {
-    payload: ClientKeyPackageParamsTbs,
+pub struct AsClientConnectionPackageParams {
+    payload: ClientConnectionPackageParamsTbs,
     signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for AsClientKeyPackageParams {
+impl ClientCredentialAuthenticator for AsClientConnectionPackageParams {
     type Tbs = AsClientId;
 
     fn client_id(&self) -> AsClientId {
@@ -702,19 +699,19 @@ impl ClientCredentialAuthenticator for AsClientKeyPackageParams {
     }
 
     fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::ClientKeyPackage(self.payload)
+        VerifiedAsRequestParams::ClientConnectionPackage(self.payload)
     }
 
     fn signature(&self) -> &Signature {
         &self.signature
     }
 
-    const LABEL: &'static str = "Client KeyPackage Parameters";
+    const LABEL: &'static str = "Client ConnectionPackage Parameters";
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AsClientKeyPackageResponse {
-    pub(crate) key_package: Option<KeyPackage>,
+pub struct AsClientConnectionPackageResponse {
+    pub(crate) connection_package: Option<ConnectionPackage>,
 }
 
 // === Anonymous requests ===
@@ -736,18 +733,18 @@ pub struct UserClientsResponse {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct UserKeyPackagesParams {
+pub struct UserConnectionPackagesParams {
     pub user_name: UserName,
 }
 
-impl NoAuth for UserKeyPackagesParams {
+impl NoAuth for UserConnectionPackagesParams {
     fn into_verified(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::UserKeyPackages(self)
+        VerifiedAsRequestParams::UserConnectionPackages(self)
     }
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct UserKeyPackagesResponse {
+pub struct UserConnectionPackagesResponse {
     pub key_packages: Vec<ConnectionPackage>,
 }
 
@@ -902,10 +899,10 @@ pub enum AsRequestParams {
     FinishClientAddition(FinishClientAdditionParams),
     DeleteClient(DeleteClientParams),
     DequeueMessages(AsDequeueMessagesParams),
-    PublishKeyPackages(AsPublishKeyPackagesParams),
-    ClientKeyPackage(AsClientKeyPackageParams),
+    PublishConnectionPackages(AsPublishConnectionPackagesParams),
+    ClientConnectionPackage(AsClientConnectionPackageParams),
     UserClients(UserClientsParams),
-    UserKeyPackages(UserKeyPackagesParams),
+    UserConnectionPackages(UserConnectionPackagesParams),
     EnqueueMessage(EnqueueMessageParams),
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
@@ -920,11 +917,11 @@ pub(crate) enum VerifiedAsRequestParams {
     FinishClientAddition(FinishClientAdditionParamsTbs),
     DeleteClient(DeleteClientParamsTbs),
     DequeueMessages(DequeueMessagesParamsTbs),
-    PublishKeyPackages(AsPublishKeyPackagesParamsTbs),
-    ClientKeyPackage(ClientKeyPackageParamsTbs),
+    PublishConnectionPackages(AsPublishConnectionPackagesParamsTbs),
+    ClientConnectionPackage(ClientConnectionPackageParamsTbs),
     IssueTokens(IssueTokensParamsTbs),
     // Endpoints that don't require authentication
-    UserKeyPackages(UserKeyPackagesParams),
+    UserConnectionPackages(UserConnectionPackagesParams),
     InitiateClientAddition(InitiateClientAdditionParams),
     UserClients(UserClientsParams),
     AsCredentials(AsCredentialsParams),
@@ -996,6 +993,7 @@ pub struct UserAuth {
 
 #[derive(Debug)]
 #[repr(u8)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum AsAuthMethod {
     None(VerifiedAsRequestParams),
     ClientCredential(ClientCredentialAuth),

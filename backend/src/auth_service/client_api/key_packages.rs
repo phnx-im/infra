@@ -2,62 +2,61 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{
-    openmls::{
-        prelude::{KeyPackage, OpenMlsCryptoProvider},
-        versions::ProtocolVersion,
-    },
-    openmls_rust_crypto::OpenMlsRustCrypto,
-};
-
 use crate::{
     auth_service::{errors::*, storage_provider_trait::AsStorageProvider, AuthService},
     messages::client_as::*,
 };
 
 impl AuthService {
-    pub(crate) async fn as_publish_key_packages<S: AsStorageProvider>(
+    pub(crate) async fn as_publish_connection_packages<S: AsStorageProvider>(
         storage_provider: &S,
-        params: AsPublishKeyPackagesParamsTbs,
-    ) -> Result<(), PublishKeyPackageError> {
-        let AsPublishKeyPackagesParamsTbs {
+        params: AsPublishConnectionPackagesParamsTbs,
+    ) -> Result<(), PublishConnectionPackageError> {
+        let AsPublishConnectionPackagesParamsTbs {
             client_id,
-            key_packages,
+            connection_packages,
         } = params;
 
-        // TODO: Validate the key packages
+        let (_, as_intermediate_credentials, _) = storage_provider
+            .load_as_credentials()
+            .await
+            .map_err(|_| PublishConnectionPackageError::StorageError)?;
 
         // TODO: Last resort key package
-        let key_packages = key_packages
+        let connection_packages = connection_packages
             .into_iter()
-            .map(|kp| {
-                kp.validate(
-                    OpenMlsRustCrypto::default().crypto(),
-                    ProtocolVersion::default(),
-                )
-                .map_err(|_| PublishKeyPackageError::InvalidKeyPackage)
+            .map(|cp| {
+                let verifying_credential = as_intermediate_credentials
+                    .iter()
+                    .find(|aic| {
+                        if let Ok(fingerprint) = aic.fingerprint() {
+                            &fingerprint == cp.client_credential_signer_fingerprint()
+                        } else {
+                            false
+                        }
+                    })
+                    .ok_or(PublishConnectionPackageError::InvalidKeyPackage)?;
+                cp.verify(verifying_credential.verifying_key())
+                    .map_err(|_| PublishConnectionPackageError::InvalidKeyPackage)
             })
-            .collect::<Result<Vec<KeyPackage>, PublishKeyPackageError>>()?;
+            .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;
 
         storage_provider
-            .store_key_packages(&client_id, key_packages)
+            .store_connection_packages(&client_id, connection_packages)
             .await
-            .map_err(|_| PublishKeyPackageError::StorageError)?;
+            .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())
     }
 
     pub(crate) async fn as_client_key_package<S: AsStorageProvider>(
         storage_provider: &S,
-        params: ClientKeyPackageParamsTbs,
-    ) -> Result<AsClientKeyPackageResponse, ClientKeyPackageError> {
+        params: ClientConnectionPackageParamsTbs,
+    ) -> Result<AsClientConnectionPackageResponse, ClientKeyPackageError> {
         let client_id = params.0;
 
-        let key_package = storage_provider
-            .client_key_package(&client_id)
-            .await
-            .map_err(|_| ClientKeyPackageError::StorageError)?;
+        let connection_package = storage_provider.client_connection_package(&client_id).await;
 
-        let response = AsClientKeyPackageResponse { key_package };
+        let response = AsClientConnectionPackageResponse { connection_package };
         Ok(response)
     }
 }

@@ -50,10 +50,6 @@ impl AuthService {
         let password_file_option = storage_provider
             .load_user(user_name)
             .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                Init2FactorAuthError::StorageError
-            })?
             .map(|record| record.password_file);
 
         let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(

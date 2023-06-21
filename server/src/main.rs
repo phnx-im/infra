@@ -4,12 +4,17 @@
 
 use std::{net::TcpListener, sync::Arc};
 
+use mls_assist::openmls_traits::types::SignatureScheme;
+use phnxbackend::qs::Fqdn;
 use phnxserver::{
     configurations::*,
     endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
-        ds::MemoryDsStorage, qs::MemStorageProvider, qs_connector::MemoryEnqueueProvider,
+        auth_service::{EphemeralAsStorage, MemoryAsStorage},
+        ds::MemoryDsStorage,
+        qs::MemStorageProvider,
+        qs_connector::MemoryEnqueueProvider,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -32,6 +37,8 @@ async fn main() -> std::io::Result<()> {
 
     let ds_storage_provider = MemoryDsStorage::new();
     let qs_storage_provider = Arc::new(MemStorageProvider::default());
+    let as_storage_provider = MemoryAsStorage::new(Fqdn {}, SignatureScheme::ED25519).unwrap();
+    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
@@ -44,6 +51,8 @@ async fn main() -> std::io::Result<()> {
         ws_dispatch_notifier,
         ds_storage_provider,
         qs_storage_provider,
+        as_storage_provider,
+        as_ephemeral_storage_provider,
         qs_connector,
     )?
     .await

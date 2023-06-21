@@ -4,6 +4,7 @@
 
 use actix_web::{HttpResponse, Responder};
 
+pub mod auth_service;
 pub(crate) mod ds;
 pub mod qs;
 

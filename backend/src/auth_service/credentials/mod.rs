@@ -103,7 +103,7 @@ impl AsCredential {
     /// generated signature keypair.
     ///
     /// The default [`ExpirationData`] for an [`AsCredential`] is five years.
-    pub(crate) fn new(
+    pub fn new(
         signature_scheme: SignatureScheme,
         as_domain: Fqdn,
         expiration_data_option: Option<ExpirationData>,
@@ -137,7 +137,7 @@ impl AsCredential {
 
 const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: i64 = 365;
 
-pub(crate) struct PreliminaryAsSigningKey {
+pub struct PreliminaryAsSigningKey {
     signing_key_bytes: Vec<u8>,
     verifying_key: AsIntermediateVerifyingKey,
 }
@@ -148,8 +148,8 @@ impl PreliminaryAsSigningKey {
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub(crate) struct AsIntermediateCredentialCsr {
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
     signature_scheme: SignatureScheme,
     verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
@@ -162,7 +162,7 @@ impl AsIntermediateCredentialCsr {
     /// Returns the CSR and a preliminary signing key. The preliminary signing
     /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
     /// signed.
-    pub(crate) fn new(
+    pub fn new(
         signature_scheme: SignatureScheme,
         as_domain: Fqdn,
     ) -> Result<(Self, PreliminaryAsSigningKey), KeyGenerationError> {
@@ -188,7 +188,7 @@ impl AsIntermediateCredentialCsr {
     ///
     /// If no expiration data is given, the default [`ExpirationData`] of one
     /// year is set.
-    pub(crate) fn sign(
+    pub fn sign(
         self,
         as_signing_key: &AsSigningKey,
         expiration_data_option: Option<ExpirationData>,
@@ -207,7 +207,7 @@ impl AsIntermediateCredentialCsr {
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 struct AsIntermediateCredentialPayload {
     csr: AsIntermediateCredentialCsr,
     expiration_data: ExpirationData,
@@ -228,7 +228,7 @@ impl Signable for AsIntermediateCredentialPayload {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize)]
 pub struct AsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
