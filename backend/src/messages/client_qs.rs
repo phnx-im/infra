@@ -212,8 +212,8 @@ pub struct DequeueMessagesParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DequeueMessagesResponse {
-    pub(crate) messages: Vec<QueueMessage>,
-    pub(crate) remaining_messages_number: u64,
+    pub messages: Vec<QueueMessage>,
+    pub remaining_messages_number: u64,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]

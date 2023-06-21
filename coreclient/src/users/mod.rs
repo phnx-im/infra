@@ -40,7 +40,7 @@ use phnxbackend::{
             ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams,
         },
         client_ds::QsQueueRatchet,
-        FriendshipToken, MlsInfraVersion,
+        FriendshipToken, MlsInfraVersion, QueueMessage,
     },
     qs::{AddPackage, ClientIdEncryptionKey, PushToken, QsClientId, QsUserId, QsVerifyingKey},
 };
@@ -87,12 +87,15 @@ pub(crate) struct MemoryUserKeyStore {
     leaf_signers: HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
 }
 
-pub struct SelfUser {
+pub struct SelfUser<T: Notifiable> {
     pub(crate) crypto_backend: OpenMlsRustCrypto,
+    pub(crate) notification_hub: NotificationHub<T>,
     pub(crate) api_client: ApiClient,
     pub(crate) user_name: UserName,
     pub(crate) qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
+    pub(crate) qs_client_sequence_number_start: u64,
+    pub(crate) as_client_sequence_number_start: u64,
     pub(crate) conversation_store: ConversationStore,
     pub(crate) group_store: GroupStore,
     pub(crate) key_store: MemoryUserKeyStore,
@@ -100,9 +103,14 @@ pub struct SelfUser {
     pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
 }
 
-impl SelfUser {
+impl<T: Notifiable> SelfUser<T> {
     /// Create a new user with the given name and a fresh set of credentials.
-    pub async fn new(user_name: &str, password: &str, address: SocketAddr) -> Self {
+    pub async fn new(
+        user_name: &str,
+        password: &str,
+        address: SocketAddr,
+        notification_hub: NotificationHub<T>,
+    ) -> Self {
         log::info!("Creating new user {}", user_name);
         let user_name: UserName = UserName::from(user_name.to_string());
         let crypto_backend = OpenMlsRustCrypto::default();
@@ -267,7 +275,7 @@ impl SelfUser {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
-            let (kp, leaf_signer) = SelfUser::generate_keypackage(
+            let (kp, leaf_signer) = SelfUser::<T>::generate_keypackage(
                 &crypto_backend,
                 &key_store.signing_key,
                 &key_store.signature_ear_key,
@@ -306,8 +314,11 @@ impl SelfUser {
             key_store,
             qs_user_id: create_user_record_response.user_id,
             qs_client_id: create_user_record_response.client_id,
+            qs_client_sequence_number_start: 0,
+            as_client_sequence_number_start: 0,
             contacts: HashMap::default(),
             partial_contacts: HashMap::default(),
+            notification_hub,
         }
     }
 
@@ -362,13 +373,10 @@ impl SelfUser {
     }
 
     /// Invite users to an existing group
-    pub async fn invite_users<T: Notifiable>(
+    pub async fn invite_users(
         &mut self,
         conversation_id: &Uuid,
-        invited_users: Vec<&str>,
-        // For now, we're  passing this in. It might be better to pass the
-        // necessary data back out instead.
-        notification_hub: &mut NotificationHub<T>,
+        invited_users: &[&str],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -420,18 +428,16 @@ impl SelfUser {
             };
             self.conversation_store
                 .store_message(conversation_id, conversation_message)?;
-            notification_hub.dispatch_message_notification(dispatched_conversation_message);
+            self.notification_hub
+                .dispatch_message_notification(dispatched_conversation_message);
         }
         Ok(())
     }
 
-    pub async fn remove_users<T: Notifiable>(
+    pub async fn remove_users(
         &mut self,
         conversation_id: &Uuid,
         target_users: Vec<&str>,
-        // For now, we're  passing this in. It might be better to pass the
-        // necessary data back out instead.
-        notification_hub: &mut NotificationHub<T>,
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -473,7 +479,8 @@ impl SelfUser {
             };
             self.conversation_store
                 .store_message(conversation_id, conversation_message)?;
-            notification_hub.dispatch_message_notification(dispatched_conversation_message);
+            self.notification_hub
+                .dispatch_message_notification(dispatched_conversation_message);
         }
         Ok(())
     }
@@ -624,5 +631,62 @@ impl SelfUser {
                 .await
                 .unwrap();
         }
+    }
+
+    pub async fn as_fetch_messages(&mut self) -> Vec<QueueMessage> {
+        let mut remaining_messages = 1;
+        let mut messages: Vec<QueueMessage> = Vec::new();
+        while remaining_messages > 0 {
+            let mut response = self
+                .api_client
+                .as_dequeue_messages(
+                    self.as_client_sequence_number_start,
+                    1_000_000,
+                    &self.key_store.signing_key,
+                )
+                .await
+                .unwrap();
+
+            if let Some(message) = messages.last() {
+                self.as_client_sequence_number_start = message.sequence_number;
+            }
+
+            remaining_messages = response.remaining_messages_number;
+            messages.append(&mut response.messages);
+        }
+        messages
+    }
+
+    pub async fn qs_fetch_messages(&mut self) -> Vec<QueueMessage> {
+        let mut remaining_messages = 1;
+        let mut messages: Vec<QueueMessage> = Vec::new();
+        while remaining_messages > 0 {
+            let mut response = self
+                .api_client
+                .qs_dequeue_messages(
+                    &self.qs_client_id,
+                    self.qs_client_sequence_number_start,
+                    1_000_000,
+                    &self.key_store.qs_client_signing_key,
+                )
+                .await
+                .unwrap();
+
+            if let Some(message) = messages.last() {
+                self.as_client_sequence_number_start = message.sequence_number;
+            }
+
+            remaining_messages = response.remaining_messages_number;
+            messages.append(&mut response.messages);
+        }
+        messages
+    }
+
+    pub fn contacts(&self) -> Vec<Contact> {
+        self.contacts.values().cloned().collect()
+    }
+
+    pub fn partial_contacts(&self) -> Vec<PartialContact> {
+        self.partial_contacts.values().cloned().collect()
     }
 }

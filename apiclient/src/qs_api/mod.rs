@@ -335,13 +335,13 @@ impl ApiClient {
 
     pub async fn qs_dequeue_messages(
         &self,
-        sender: QsClientId,
+        sender: &QsClientId,
         sequence_number_start: u64,
         max_message_number: u64,
         signing_key: &QsClientSigningKey,
     ) -> Result<DequeueMessagesResponse, QsRequestError> {
         let payload = DequeueMessagesParams {
-            sender,
+            sender: sender.clone(),
             sequence_number_start,
             max_message_number,
         };
