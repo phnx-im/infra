@@ -98,7 +98,7 @@ impl ApiClient {
     pub async fn inexistant_endpoint(&self) -> bool {
         let res = self
             .client
-            .post(self.build_url(Protocol::Http, "/as"))
+            .post(self.build_url(Protocol::Http, "/null"))
             .body("test")
             .send()
             .await;
