@@ -29,10 +29,6 @@ impl AuthService {
         let client_id_exists = storage_provider
             .load_user(&client_payload.identity().user_name())
             .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitUserRegistrationError::StorageError
-            })?
             .is_some();
 
         if client_id_exists {
@@ -131,7 +127,7 @@ impl AuthService {
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
 
         // Create the user entry with the information given in the request
-        let user_record = storage_provider
+        storage_provider
             .create_user(&client_id.user_name(), &password_file)
             .await
             .map_err(|e| {

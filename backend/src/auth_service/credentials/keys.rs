@@ -26,7 +26,7 @@ use thiserror::Error;
 
 use super::{private_mod, ClientCredential, PreliminaryClientSigningKey};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AsIntermediateSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: AsIntermediateCredential,
@@ -41,7 +41,7 @@ impl AsRef<[u8]> for AsIntermediateSigningKey {
 impl SigningKey for AsIntermediateSigningKey {}
 
 impl AsIntermediateSigningKey {
-    pub(super) fn from_prelim_key(
+    pub fn from_prelim_key(
         prelim_key: PreliminaryAsSigningKey,
         credential: AsIntermediateCredential,
     ) -> Result<Self, SigningKeyCreationError> {
@@ -54,7 +54,7 @@ impl AsIntermediateSigningKey {
         })
     }
 
-    pub(crate) fn credential(&self) -> &AsIntermediateCredential {
+    pub fn credential(&self) -> &AsIntermediateCredential {
         &self.credential
     }
 }
@@ -65,7 +65,7 @@ pub enum SigningKeyCreationError {
 }
 
 #[derive(Debug)]
-pub(crate) struct AsSigningKey {
+pub struct AsSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: AsCredential,
 }
@@ -87,7 +87,7 @@ impl AsSigningKey {
         }
     }
 
-    pub(crate) fn credential(&self) -> &AsCredential {
+    pub fn credential(&self) -> &AsCredential {
         &self.credential
     }
 }

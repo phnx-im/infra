@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::KeyPackageIn;
 use phnxbackend::{
     auth_service::{
         client_api::privacypass::AsTokenType,
@@ -12,23 +11,26 @@ use phnxbackend::{
         OpaqueRegistrationRequest, UserName,
     },
     crypto::{kdf::keys::RatchetSecret, signatures::signable::Signable, RatchetEncryptionKey},
-    messages::client_as::{
-        AsCredentialsParams, AsDequeueMessagesResponse, AsPublishKeyPackagesParamsTbs,
-        AsRequestParams, ClientKeyPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
-        DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-        EncryptedConnectionEstablishmentPackage,
+    messages::{
+        client_as::{
+            AsCredentialsParams, AsDequeueMessagesResponse, AsPublishConnectionPackagesParamsTbs,
+            AsRequestParams, ClientConnectionPackageParamsTbs, ClientToAsMessage,
+            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
+            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+        },
+        client_as_out::ConnectionPackageIn,
     },
     messages::{
         client_as::{
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
-            IssueTokensResponse, UserClientsParams, UserKeyPackagesParams,
+            IssueTokensResponse, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
-            AsClientKeyPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
+            AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
             InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
-            UserKeyPackagesResponseIn,
+            UserConnectionPackagesResponseIn,
         },
     },
 };
@@ -252,7 +254,7 @@ impl ApiClient {
         client_id: AsClientId,
         queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_key: RatchetSecret,
-        connection_key_package: KeyPackageIn,
+        connection_package: ConnectionPackageIn,
         opaque_login_finish: OpaqueLoginFinish,
     ) -> Result<(), AsRequestError> {
         // This is called TBS, but isn't signed yet. It will be signed by the
@@ -261,7 +263,7 @@ impl ApiClient {
             client_id,
             queue_encryption_key,
             initial_ratchet_secret: initial_ratchet_key,
-            connection_key_package,
+            connection_package,
         };
         let payload = FinishClientAdditionParams {
             opaque_login_finish,
@@ -337,17 +339,17 @@ impl ApiClient {
     pub async fn as_publish_key_packages(
         &self,
         client_id: AsClientId,
-        key_packages: Vec<KeyPackageIn>,
+        connection_packages: Vec<ConnectionPackageIn>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
-        let tbs = AsPublishKeyPackagesParamsTbs {
+        let tbs = AsPublishConnectionPackagesParamsTbs {
             client_id,
-            key_packages,
+            connection_packages,
         };
         let payload = tbs
             .sign(signing_key)
             .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::PublishKeyPackages(payload);
+        let params = AsRequestParams::PublishConnectionPackages(payload);
         let message = ClientToAsMessage::new(params);
         self.prepare_and_send_as_message(message)
             .await
@@ -368,18 +370,18 @@ impl ApiClient {
         &self,
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
-    ) -> Result<AsClientKeyPackageResponseIn, AsRequestError> {
-        let tbs = ClientKeyPackageParamsTbs(client_id);
+    ) -> Result<AsClientConnectionPackageResponseIn, AsRequestError> {
+        let tbs = ClientConnectionPackageParamsTbs(client_id);
         let payload = tbs
             .sign(signing_key)
             .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::ClientKeyPackage(payload);
+        let params = AsRequestParams::ClientConnectionPackage(payload);
         let message = ClientToAsMessage::new(params);
         self.prepare_and_send_as_message(message)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
-                if let AsProcessResponseIn::ClientKeyPackage(response) = response {
+                if let AsProcessResponseIn::ClientConnectionPackage(response) = response {
                     Ok(response)
                 } else {
                     Err(AsRequestError::UnexpectedResponse)
@@ -436,15 +438,15 @@ impl ApiClient {
 
     pub async fn as_user_key_packages(
         &self,
-        payload: UserKeyPackagesParams,
-    ) -> Result<UserKeyPackagesResponseIn, AsRequestError> {
-        let params = AsRequestParams::UserKeyPackages(payload);
+        payload: UserConnectionPackagesParams,
+    ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
+        let params = AsRequestParams::UserConnectionPackages(payload);
         let message = ClientToAsMessage::new(params);
         self.prepare_and_send_as_message(message)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
-                if let AsProcessResponseIn::UserKeyPackages(response) = response {
+                if let AsProcessResponseIn::UserConnectionPackages(response) = response {
                     Ok(response)
                 } else {
                     Err(AsRequestError::UnexpectedResponse)

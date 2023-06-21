@@ -48,13 +48,10 @@ impl AuthService {
             return Err(IssueTokensError::TooManyTokens);
         }
 
-        let pp_key_store = storage_provider
-            .load_privacy_pass_key_store()
-            .await
-            .map_err(|_| IssueTokensError::StorageError)?;
+        let pp_key_store = storage_provider.privacy_pass_key_store().await;
         let pp_server = Server::new();
         let token_response = pp_server
-            .issue_token_response(&pp_key_store, token_request)
+            .issue_token_response(pp_key_store, token_request)
             .await
             .map_err(|_| IssueTokensError::PrivacyPassError)?;
 
