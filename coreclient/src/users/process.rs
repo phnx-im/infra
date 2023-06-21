@@ -16,7 +16,7 @@ use super::*;
 impl SelfUser {
     /// Process received messages by group. This function is meant to be called
     /// with messages received from the QS queue.
-    pub fn process_qs_messages<T: Notifiable>(
+    pub async fn process_qs_messages<T: Notifiable>(
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
         notification_hub: &mut NotificationHub<T>,
@@ -143,17 +143,18 @@ impl SelfUser {
                                                     // We also need to get the add infos
                                                     let mut add_infos = vec![];
                                                     for _ in 0..5 {
-                                                        let key_package_batch_response = block_on(
-                                                            self.api_client.qs_key_package_batch(
+                                                        let key_package_batch_response = self
+                                                            .api_client
+                                                            .qs_key_package_batch(
                                                                 friendship_package
                                                                     .friendship_token
                                                                     .clone(),
                                                                 friendship_package
                                                                     .add_package_ear_key
                                                                     .clone(),
-                                                            ),
-                                                        )
-                                                        .unwrap();
+                                                            )
+                                                            .await
+                                                            .unwrap();
                                                         let key_packages: Vec<KeyPackage> = key_package_batch_response.add_packages.into_iter().map(|add_package| add_package.validate(self.crypto_backend.crypto(), ProtocolVersion::default()).unwrap().key_package().clone()).collect();
                                                         let key_package_batch =
                                                             key_package_batch_response
@@ -245,7 +246,7 @@ impl SelfUser {
         Ok(())
     }
 
-    pub fn process_as_messages<T: Notifiable>(
+    pub async fn process_as_messages<T: Notifiable>(
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
         notification_hub: &mut NotificationHub<T>,
@@ -263,7 +264,7 @@ impl SelfUser {
             })
             .collect();
 
-        let mut notification_messages = vec![];
+        let notification_messages = vec![];
         for message in messages {
             match message {
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
@@ -280,11 +281,13 @@ impl SelfUser {
                     // connection.
 
                     // Fetch external commit information.
-                    let eci: ExternalCommitInfoIn =
-                        block_on(self.api_client.ds_connection_group_info(
+                    let eci: ExternalCommitInfoIn = self
+                        .api_client
+                        .ds_connection_group_info(
                             cep_tbs.connection_group_id.clone(),
                             &cep_tbs.connection_group_ear_key,
-                        ))
+                        )
+                        .await
                         .unwrap();
                     let (key_package, leaf_signer) = Self::generate_keypackage(
                         &self.crypto_backend,
@@ -315,11 +318,14 @@ impl SelfUser {
                         .confirm_connection_conversation(&conversation_id);
                     // Fetch a keypackage for our new contact.
                     // TODO: For now, one is enough.
-                    let response = block_on(self.api_client.qs_key_package_batch(
-                        cep_tbs.friendship_package.friendship_token.clone(),
-                        cep_tbs.friendship_package.add_package_ear_key.clone(),
-                    ))
-                    .unwrap();
+                    let response = self
+                        .api_client
+                        .qs_key_package_batch(
+                            cep_tbs.friendship_package.friendship_token.clone(),
+                            cep_tbs.friendship_package.add_package_ear_key.clone(),
+                        )
+                        .await
+                        .unwrap();
                     let key_packages: Vec<KeyPackage> = response
                         .add_packages
                         .into_iter()
@@ -365,14 +371,16 @@ impl SelfUser {
                         sealed_reference,
                     };
                     // Send the confirmation by way of commit and group info to the DS.
-                    block_on(self.api_client.ds_join_connection_group(
-                        commit,
-                        group_info,
-                        qs_client_reference,
-                        group.user_auth_key(),
-                        &cep_tbs.connection_group_ear_key,
-                    ))
-                    .unwrap();
+                    self.api_client
+                        .ds_join_connection_group(
+                            commit,
+                            group_info,
+                            qs_client_reference,
+                            group.user_auth_key(),
+                            &cep_tbs.connection_group_ear_key,
+                        )
+                        .await
+                        .unwrap();
                 }
             }
         }

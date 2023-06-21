@@ -336,7 +336,7 @@ impl ApiClient {
             })
     }
 
-    pub async fn as_publish_key_packages(
+    pub async fn as_publish_connection_packages(
         &self,
         client_id: AsClientId,
         connection_packages: Vec<ConnectionPackageIn>,
@@ -366,7 +366,7 @@ impl ApiClient {
     // TODO: Verify that this fetches the correct key packages. I believe right
     // now it expects the signature to be from the client with the given client
     // id, which doesn't make a lot of sense.
-    pub async fn as_client_key_packages(
+    pub async fn as_client_connection_packages(
         &self,
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
@@ -436,7 +436,7 @@ impl ApiClient {
             })
     }
 
-    pub async fn as_user_key_packages(
+    pub async fn as_user_connection_packages(
         &self,
         payload: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {

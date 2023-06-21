@@ -4,7 +4,6 @@
 
 use std::net::SocketAddr;
 
-use futures::executor::block_on;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
@@ -151,11 +150,10 @@ impl SelfUser {
         };
 
         // Register the user with the backend.
-        let response = block_on(
-            api_client
-                .as_initiate_create_user(client_credential_payload, opaque_registration_request),
-        )
-        .unwrap();
+        let response = api_client
+            .as_initiate_create_user(client_credential_payload, opaque_registration_request)
+            .await
+            .unwrap();
 
         // Complete the OPAQUE registration.
         let address = api_client.address().clone().to_string();
@@ -199,12 +197,8 @@ impl SelfUser {
         let wai_ear_key: WelcomeAttributionInfoEarKey =
             WelcomeAttributionInfoEarKey::random().unwrap();
         let push_token_ear_key = PushTokenEarKey::random().unwrap();
-        let qs_verifying_key = block_on(api_client.qs_verifying_key())
-            .unwrap()
-            .verifying_key;
-        let qs_encryption_key = block_on(api_client.qs_encryption_key())
-            .unwrap()
-            .encryption_key;
+        let qs_verifying_key = api_client.qs_verifying_key().await.unwrap().verifying_key;
+        let qs_encryption_key = api_client.qs_encryption_key().await.unwrap().encryption_key;
         let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
         // Mutable, because we need to access the leaf signers later.
@@ -250,15 +244,17 @@ impl SelfUser {
             client_message: client_registration_finish_result.message,
         };
 
-        block_on(api_client.as_finish_user_registration(
-            user_name.clone(),
-            key_store.as_queue_decryption_key.encryption_key(),
-            as_initial_ratchet_secret,
-            connection_packages,
-            opaque_registration_record,
-            &key_store.signing_key,
-        ))
-        .unwrap();
+        api_client
+            .as_finish_user_registration(
+                user_name.clone(),
+                key_store.as_queue_decryption_key.encryption_key(),
+                as_initial_ratchet_secret,
+                connection_packages,
+                opaque_registration_record,
+                &key_store.signing_key,
+            )
+            .await
+            .unwrap();
 
         // AS registration is complete, now create the user on the QS.
         let encrypted_client_credential = key_store
@@ -287,17 +283,19 @@ impl SelfUser {
         let push_token = PushToken::dummy();
         let encrypted_push_token = push_token.encrypt(&key_store.push_token_ear_key).unwrap();
 
-        let create_user_record_response = block_on(api_client.qs_create_user(
-            key_store.friendship_token.clone(),
-            key_store.qs_client_signing_key.verifying_key().clone(),
-            key_store.qs_queue_decryption_key.encryption_key(),
-            qs_add_packages,
-            key_store.add_package_ear_key.clone(),
-            Some(encrypted_push_token),
-            qs_initial_ratchet_secret,
-            &key_store.qs_user_signing_key,
-        ))
-        .unwrap();
+        let create_user_record_response = api_client
+            .qs_create_user(
+                key_store.friendship_token.clone(),
+                key_store.qs_client_signing_key.verifying_key().clone(),
+                key_store.qs_queue_decryption_key.encryption_key(),
+                qs_add_packages,
+                key_store.add_package_ear_key.clone(),
+                Some(encrypted_push_token),
+                qs_initial_ratchet_secret,
+                &key_store.qs_user_signing_key,
+            )
+            .await
+            .unwrap();
 
         Self {
             crypto_backend,
@@ -347,8 +345,8 @@ impl SelfUser {
     }
 
     /// Create new group
-    pub fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
-        let group_id = block_on(self.api_client.ds_request_group_id()).unwrap();
+    pub async fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
+        let group_id = self.api_client.ds_request_group_id().await.unwrap();
         self.group_store.create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
@@ -364,7 +362,7 @@ impl SelfUser {
     }
 
     /// Invite users to an existing group
-    pub fn invite_users<T: Notifiable>(
+    pub async fn invite_users<T: Notifiable>(
         &mut self,
         conversation_id: &Uuid,
         invited_users: Vec<&str>,
@@ -404,12 +402,10 @@ impl SelfUser {
         let staged_commit = group.pending_commit().unwrap();
         // We're not getting a response, but if it's not an error, the commit
         // must have gone through.
-        block_on(self.api_client.ds_add_users(
-            params,
-            group.group_state_ear_key(),
-            group.user_auth_key(),
-        ))
-        .unwrap();
+        self.api_client
+            .ds_add_users(params, group.group_state_ear_key(), group.user_auth_key())
+            .await
+            .unwrap();
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
         let conversation_messages =
@@ -429,7 +425,7 @@ impl SelfUser {
         Ok(())
     }
 
-    pub fn remove_users<T: Notifiable>(
+    pub async fn remove_users<T: Notifiable>(
         &mut self,
         conversation_id: &Uuid,
         target_users: Vec<&str>,
@@ -458,12 +454,10 @@ impl SelfUser {
             clients.append(&mut contact_clients);
         }
         let params = group.remove(&self.crypto_backend, clients).unwrap();
-        block_on(self.api_client.ds_remove_users(
-            params,
-            group.group_state_ear_key(),
-            group.user_auth_key(),
-        ))
-        .unwrap();
+        self.api_client
+            .ds_remove_users(params, group.group_state_ear_key(), group.user_auth_key())
+            .await
+            .unwrap();
         let staged_commit = group.pending_commit().unwrap();
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
@@ -486,7 +480,7 @@ impl SelfUser {
 
     /// Send a message and return it. Note that the message has already been
     /// sent to the DS and has internally been stored in the conversation store.
-    pub fn send_message(
+    pub async fn send_message(
         &mut self,
         conversation_id: Uuid,
         message: &str,
@@ -516,27 +510,31 @@ impl SelfUser {
             .map_err(CorelibError::ConversationStore)?;
 
         // Send message to DS
-        println!("Sending message to DS");
-        block_on(
-            self.api_client.ds_send_message(
+        self.api_client
+            .ds_send_message(
                 params,
                 &self.group_store.leaf_signing_key(&group_id.as_group_id()),
                 &self
                     .group_store
                     .group_state_ear_key(&group_id.as_group_id()),
-            ),
-        )?;
+            )
+            .await
+            .unwrap();
         Ok(conversation_message)
     }
 
-    pub fn add_contact(&mut self, user_name: &str) {
+    pub async fn add_contact(&mut self, user_name: &str) {
         let user_name: UserName = user_name.to_string().into();
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
-        let user_key_packages = block_on(self.api_client.as_user_key_packages(params)).unwrap();
+        let user_key_packages = self
+            .api_client
+            .as_user_connection_packages(params)
+            .await
+            .unwrap();
         let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
         let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
@@ -565,7 +563,7 @@ impl SelfUser {
         // * Lifetime
 
         // Get a group id for the connection group
-        let group_id = block_on(self.api_client.ds_request_group_id()).unwrap();
+        let group_id = self.api_client.ds_request_group_id().await.unwrap();
         // Create the connection group
         let connection_group = Group::create_group(
             &self.crypto_backend,
@@ -621,7 +619,10 @@ impl SelfUser {
             );
             let client_id = connection_package.client_credential().identity();
 
-            block_on(self.api_client.as_enqueue_message(client_id, ciphertext)).unwrap();
+            self.api_client
+                .as_enqueue_message(client_id, ciphertext)
+                .await
+                .unwrap();
         }
     }
 }

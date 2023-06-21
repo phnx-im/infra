@@ -10,3 +10,4 @@
 pubspec.lock
 bridge_generated.h
 bridge_generated.rs
+/macos/Flutter
