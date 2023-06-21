@@ -144,6 +144,14 @@ impl From<Vec<u8>> for UserName {
     }
 }
 
+impl From<&str> for UserName {
+    fn from(value: &str) -> Self {
+        Self {
+            user_name: value.as_bytes().to_vec(),
+        }
+    }
+}
+
 impl UserName {
     pub fn as_bytes(&self) -> &[u8] {
         &self.user_name

@@ -67,10 +67,11 @@ impl Contact {
 }
 
 /// Contact which has not yet accepted our connection request.
-pub(crate) struct PartialContact {
-    pub(crate) user_name: UserName,
+#[derive(Clone)]
+pub struct PartialContact {
+    pub user_name: UserName,
     // ID of the connection conversation with this contact.
-    pub(crate) conversation_id: Uuid,
+    pub conversation_id: Uuid,
 }
 
 impl PartialContact {

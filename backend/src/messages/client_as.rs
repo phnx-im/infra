@@ -615,8 +615,8 @@ impl EarDecryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePaylo
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsDequeueMessagesResponse {
-    pub(crate) messages: Vec<QueueMessage>,
-    pub(crate) remaining_messages_number: u64,
+    pub messages: Vec<QueueMessage>,
+    pub remaining_messages_number: u64,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]

@@ -6,7 +6,11 @@ mod qs;
 mod utils;
 
 use phnxapiclient::{ApiClient, TransportEncryption};
-use phnxcoreclient::users::SelfUser;
+use phnxcoreclient::{
+    notifications::{Notifiable, NotificationHub},
+    types::NotificationType,
+    users::SelfUser,
+};
 
 pub use utils::*;
 
@@ -26,14 +30,24 @@ async fn health_check_works() {
     assert!(client.health_check().await);
 }
 
+#[derive(Clone)]
+struct TestNotifier;
+
+impl Notifiable for TestNotifier {
+    fn notify(&self, _notification_type: NotificationType) -> bool {
+        true
+    }
+}
+
 #[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Create user", skip_all)]
 async fn create_user() {
     let (address, _ws_dispatch) = spawn_app().await;
+    let notification_hub = NotificationHub::<TestNotifier>::default();
 
     // Create a user
-    let _user = SelfUser::new("testuser", "testpassword", address).await;
+    let _user = SelfUser::new("testuser", "testpassword", address, notification_hub).await;
 }
 
 #[actix_rt::test]
@@ -47,4 +61,45 @@ async fn inexistant_endpoint() {
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);
+}
+
+#[should_panic]
+#[actix_rt::test]
+#[tracing::instrument(name = "Full cycle", skip_all)]
+async fn full_cycle() {
+    let (address, _ws_dispatch) = spawn_app().await;
+
+    let notification_hub_alice = NotificationHub::<TestNotifier>::default();
+    let notification_hub_bob = NotificationHub::<TestNotifier>::default();
+
+    // Create a users
+    let mut alice = SelfUser::new("alice", "alicepassword", address, notification_hub_alice).await;
+    let mut bob = SelfUser::new("bob", "bobpassword", address, notification_hub_bob).await;
+
+    assert!(alice.get_conversations().is_empty());
+    assert!(bob.get_conversations().is_empty());
+
+    // Alice adds Bob as a contact
+    alice.add_contact("bob").await;
+
+    assert!(alice.contacts().is_empty());
+    assert_eq!(alice.partial_contacts().len(), 1);
+
+    assert_eq!(&alice.partial_contacts()[0].user_name.to_string(), "bob");
+
+    // Bob fetches messages from the AS
+    let as_messages = bob.as_fetch_messages().await;
+    bob.process_as_messages(as_messages).await.unwrap();
+
+    assert_eq!(alice.get_conversations().len(), 1);
+
+    let conversation_id = alice
+        .create_conversation("Conversation Alice/Bob")
+        .await
+        .unwrap();
+
+    alice
+        .invite_users(&conversation_id, &["bob"])
+        .await
+        .unwrap();
 }

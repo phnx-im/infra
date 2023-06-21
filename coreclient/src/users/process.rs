@@ -13,13 +13,12 @@ use tls_codec::DeserializeBytes;
 
 use super::*;
 
-impl SelfUser {
+impl<T: Notifiable> SelfUser<T> {
     /// Process received messages by group. This function is meant to be called
     /// with messages received from the QS queue.
-    pub async fn process_qs_messages<T: Notifiable>(
+    pub async fn process_qs_messages(
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
-        notification_hub: &mut NotificationHub<T>,
     ) -> Result<(), CorelibError> {
         // Decrypt received message.
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
@@ -60,7 +59,7 @@ impl SelfUser {
                         group_id,
                         attributes,
                     );
-                    notification_hub.dispatch_conversation_notification();
+                    self.notification_hub.dispatch_conversation_notification();
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -241,15 +240,15 @@ impl SelfUser {
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
         for notification_message in notification_messages.clone() {
-            notification_hub.dispatch_message_notification(notification_message);
+            self.notification_hub
+                .dispatch_message_notification(notification_message);
         }
         Ok(())
     }
 
-    pub async fn process_as_messages<T: Notifiable>(
+    pub async fn process_as_messages(
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
-        notification_hub: &mut NotificationHub<T>,
     ) -> Result<(), CorelibError> {
         // Decrypt received message.
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
@@ -386,7 +385,8 @@ impl SelfUser {
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
         for notification_message in notification_messages.clone() {
-            notification_hub.dispatch_message_notification(notification_message);
+            self.notification_hub
+                .dispatch_message_notification(notification_message);
         }
         Ok(())
     }
