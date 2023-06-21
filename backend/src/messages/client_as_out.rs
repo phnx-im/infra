@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::{GroupId, KeyPackageIn};
+use mls_assist::openmls::prelude::GroupId;
 use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
@@ -34,26 +34,27 @@ use crate::{
 
 use super::{
     client_as::{
-        AsAuthMethod, AsClientKeyPackageParams, AsCredentialsParams, AsDequeueMessagesParams,
-        AsDequeueMessagesResponse, AsPublishKeyPackagesParams, ClientCredentialAuthenticator,
-        ConnectionEstablishmentPackageTbs, ConnectionPackage, ConnectionPackageTbs,
-        DeleteClientParams, DeleteUserParams, EncryptedConnectionEstablishmentPackage,
-        EnqueueMessageParams, FinishClientAdditionParams, FriendshipPackage,
-        Init2FactorAuthResponse, InitUserRegistrationParams, Initiate2FaAuthenticationParams,
-        InitiateClientAdditionParams, IssueTokensParams, IssueTokensResponse, NoAuth,
-        TwoFactorAuthenticator, UserClientsParams, UserKeyPackagesParams, VerifiedAsRequestParams,
+        AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
+        AsDequeueMessagesParams, AsDequeueMessagesResponse, AsPublishConnectionPackagesParams,
+        ClientCredentialAuthenticator, ConnectionEstablishmentPackageTbs, ConnectionPackage,
+        ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
+        EncryptedConnectionEstablishmentPackage, EnqueueMessageParams, FinishClientAdditionParams,
+        FriendshipPackage, Init2FactorAuthResponse, InitUserRegistrationParams,
+        Initiate2FaAuthenticationParams, InitiateClientAdditionParams, IssueTokensParams,
+        IssueTokensResponse, NoAuth, TwoFactorAuthenticator, UserClientsParams,
+        UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     MlsInfraVersion,
 };
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct AsClientKeyPackageResponseIn {
-    pub key_package: Option<KeyPackageIn>,
+pub struct AsClientConnectionPackageResponseIn {
+    pub connection_package: Option<ConnectionPackageIn>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct UserKeyPackagesResponseIn {
-    pub key_packages: Vec<ConnectionPackageIn>,
+pub struct UserConnectionPackagesResponseIn {
+    pub connection_packages: Vec<ConnectionPackageIn>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -88,9 +89,9 @@ pub enum AsProcessResponseIn {
     Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
     DequeueMessages(AsDequeueMessagesResponse),
-    ClientKeyPackage(AsClientKeyPackageResponseIn),
+    ClientConnectionPackage(AsClientConnectionPackageResponseIn),
     IssueTokens(IssueTokensResponse),
-    UserKeyPackages(UserKeyPackagesResponseIn),
+    UserConnectionPackages(UserConnectionPackagesResponseIn),
     InitiateClientAddition(InitClientAdditionResponseIn),
     UserClients(UserClientsResponseIn),
     AsCredentials(AsCredentialsResponseIn),
@@ -222,10 +223,10 @@ pub enum AsRequestParamsIn {
     FinishClientAddition(FinishClientAdditionParams),
     DeleteClient(DeleteClientParams),
     DequeueMessages(AsDequeueMessagesParams),
-    PublishKeyPackages(AsPublishKeyPackagesParams),
-    ClientKeyPackage(AsClientKeyPackageParams),
+    PublishConnectionPackages(AsPublishConnectionPackagesParams),
+    ClientConnectionPackage(AsClientConnectionPackageParams),
     UserClients(UserClientsParams),
-    UserKeyPackages(UserKeyPackagesParams),
+    UserConnectionPackages(UserConnectionPackagesParams),
     EnqueueMessage(EnqueueMessageParams),
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
@@ -252,10 +253,10 @@ impl AsRequestParamsIn {
             Self::DequeueMessages(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
-            Self::PublishKeyPackages(params) => {
+            Self::PublishConnectionPackages(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
-            Self::ClientKeyPackage(params) => {
+            Self::ClientConnectionPackage(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             Self::IssueTokens(params) => {
@@ -269,7 +270,7 @@ impl AsRequestParamsIn {
             }
             // Requests not requiring any authentication
             Self::UserClients(params) => AsAuthMethod::None(params.into_verified()),
-            Self::UserKeyPackages(params) => AsAuthMethod::None(params.into_verified()),
+            Self::UserConnectionPackages(params) => AsAuthMethod::None(params.into_verified()),
             Self::EnqueueMessage(params) => AsAuthMethod::None(params.into_verified()),
             Self::InitUserRegistration(params) => AsAuthMethod::None(params.into_verified()),
             Self::InitiateClientAddition(params) => AsAuthMethod::None(params.into_verified()),
@@ -305,7 +306,6 @@ impl VerifiableClientToAsMessage {
                 let client_record = as_storage_provider
                     .load_client(&cca.client_id)
                     .await
-                    .map_err(|_| AsVerificationError::StorageError)?
                     .ok_or(AsVerificationError::UnknownClient)?;
                 cca.verify(client_record.credential.verifying_key())
                     .map_err(|_| AsVerificationError::AuthenticationFailed)?
@@ -343,7 +343,6 @@ impl VerifiableClientToAsMessage {
                 let client_record = as_storage_provider
                     .load_client(client_id)
                     .await
-                    .map_err(|_| AsVerificationError::StorageError)?
                     .ok_or(AsVerificationError::UnknownClient)?;
                 let verified_params = auth_info
                     .client_credential_auth

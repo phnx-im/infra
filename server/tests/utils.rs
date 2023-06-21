@@ -9,13 +9,18 @@ use std::{
     sync::Arc,
 };
 
+use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
+use phnxbackend::qs::Fqdn;
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
     run,
     storage_provider::memory::{
-        ds::MemoryDsStorage, qs::MemStorageProvider, qs_connector::MemoryEnqueueProvider,
+        auth_service::{EphemeralAsStorage, MemoryAsStorage},
+        ds::MemoryDsStorage,
+        qs::MemStorageProvider,
+        qs_connector::MemoryEnqueueProvider,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -57,6 +62,9 @@ pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
     let ds_storage_provider = MemoryDsStorage::new();
     let qs_storage_provider = Arc::new(MemStorageProvider::default());
 
+    let as_storage_provider = MemoryAsStorage::new(Fqdn {}, SignatureScheme::ED25519).unwrap();
+    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
+
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
@@ -68,6 +76,8 @@ pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
         ws_dispatch_notifier.clone(),
         ds_storage_provider,
         qs_storage_provider,
+        as_storage_provider,
+        as_ephemeral_storage_provider,
         qs_connector,
     )
     .expect("Failed to bind to address.");

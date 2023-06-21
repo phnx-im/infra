@@ -24,16 +24,16 @@ impl AuthService {
 
     pub async fn as_user_key_package<S: AsStorageProvider>(
         storage_provider: &S,
-        params: UserKeyPackagesParams,
-    ) -> Result<UserKeyPackagesResponse, UserKeyPackagesError> {
-        let UserKeyPackagesParams { user_name } = params;
+        params: UserConnectionPackagesParams,
+    ) -> Result<UserConnectionPackagesResponse, UserKeyPackagesError> {
+        let UserConnectionPackagesParams { user_name } = params;
 
         let key_packages = storage_provider
-            .load_user_key_packages(&user_name)
+            .load_user_connection_packages(&user_name)
             .await
             .map_err(|_| UserKeyPackagesError::StorageError)?;
 
-        let response = UserKeyPackagesResponse { key_packages };
+        let response = UserConnectionPackagesResponse { key_packages };
         Ok(response)
     }
 
@@ -50,7 +50,6 @@ impl AuthService {
         let mut client_record = storage_provider
             .load_client(&client_id)
             .await
-            .map_err(|_| EnqueueMessageError::StorageError)?
             .ok_or(EnqueueMessageError::ClientNotFound)?;
 
         let payload = connection_establishment_ctxt

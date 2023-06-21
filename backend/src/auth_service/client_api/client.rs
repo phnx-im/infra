@@ -37,10 +37,6 @@ impl AuthService {
         let password_file_option = storage_provider
             .load_user(&user_name)
             .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?
             .map(|record| record.password_file);
 
         let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
@@ -68,10 +64,6 @@ impl AuthService {
         let client_id_exists = storage_provider
             .load_client(&client_credential_payload.identity())
             .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?
             .is_some();
 
         if client_id_exists {
@@ -127,7 +119,7 @@ impl AuthService {
             client_id,
             queue_encryption_key,
             initial_ratchet_secret: initial_ratchet_key,
-            connection_key_package,
+            connection_package: connection_key_package,
         } = params;
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based

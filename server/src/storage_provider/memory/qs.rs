@@ -21,9 +21,18 @@ use phnxbackend::{
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 #[derive(Debug)]
-struct QueueData {
-    queue: VecDeque<QueueMessage>,
-    sequence_number: u64,
+pub(super) struct QueueData {
+    pub(super) queue: VecDeque<QueueMessage>,
+    pub(super) sequence_number: u64,
+}
+
+impl QueueData {
+    pub(super) fn new() -> Self {
+        Self {
+            queue: VecDeque::new(),
+            sequence_number: 0,
+        }
+    }
 }
 
 /// An thread-safe, in-memory implementation of an [`QsStorageProvider`] based

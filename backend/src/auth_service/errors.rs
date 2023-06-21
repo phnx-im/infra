@@ -108,7 +108,7 @@ pub enum DeleteClientError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum PublishKeyPackageError {
+pub enum PublishConnectionPackageError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -223,7 +223,7 @@ pub enum AsProcessingError {
     #[error(transparent)]
     DeleteClientError(#[from] DeleteClientError),
     #[error(transparent)]
-    PublishKeyPackageError(#[from] PublishKeyPackageError),
+    PublishKeyPackageError(#[from] PublishConnectionPackageError),
     #[error(transparent)]
     ClientKeyPackageError(#[from] ClientKeyPackageError),
     #[error(transparent)]
