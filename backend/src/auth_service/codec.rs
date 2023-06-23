@@ -6,12 +6,15 @@ use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload,
 };
-use tls_codec::Size;
+use tls_codec::{DeserializeBytes, Size};
 
-use crate::crypto::{
-    OPAQUE_LOGIN_FINISH_SIZE, OPAQUE_LOGIN_REQUEST_SIZE, OPAQUE_LOGIN_RESPONSE_SIZE,
-    OPAQUE_REGISTRATION_RECORD_SIZE, OPAQUE_REGISTRATION_REQUEST_SIZE,
-    OPAQUE_REGISTRATION_RESPONSE_SIZE,
+use crate::{
+    auth_service::client_api::client,
+    crypto::{
+        OpaqueCiphersuite, OPAQUE_LOGIN_FINISH_SIZE, OPAQUE_LOGIN_REQUEST_SIZE,
+        OPAQUE_LOGIN_RESPONSE_SIZE, OPAQUE_REGISTRATION_RECORD_SIZE,
+        OPAQUE_REGISTRATION_REQUEST_SIZE, OPAQUE_REGISTRATION_RESPONSE_SIZE,
+    },
 };
 
 use super::{
@@ -204,4 +207,50 @@ impl tls_codec::DeserializeBytes for OpaqueLoginFinish {
             .ok_or(tls_codec::Error::EndOfStream)?;
         Ok((Self { client_message }, remainder))
     }
+}
+
+#[test]
+fn test_opaque_codec() {
+    use tls_codec::Serialize;
+
+    use opaque_ke::*;
+    use rand::rngs::OsRng;
+
+    let mut rng = OsRng;
+    let server_setup = ServerSetup::<OpaqueCiphersuite>::new(&mut rng);
+
+    let mut client_rng = OsRng;
+    let client_registration_start_result =
+        ClientRegistration::<OpaqueCiphersuite>::start(&mut client_rng, b"password").unwrap();
+
+    let server_registration_start_result = ServerRegistration::<OpaqueCiphersuite>::start(
+        &server_setup,
+        client_registration_start_result.message,
+        b"alice@example.com",
+    )
+    .unwrap();
+
+    let client_registration_finish_result = client_registration_start_result
+        .state
+        .finish(
+            &mut client_rng,
+            b"password",
+            server_registration_start_result.message,
+            ClientRegistrationFinishParameters::default(),
+        )
+        .unwrap();
+
+    let opaque_registration_record = OpaqueRegistrationRecord {
+        client_message: client_registration_finish_result.message,
+    };
+
+    println!(
+        "opaque_registration_record: {:?}",
+        opaque_registration_record
+    );
+
+    let bytes = opaque_registration_record.tls_serialize_detached().unwrap();
+
+    assert_eq!(bytes.len(), OPAQUE_REGISTRATION_RECORD_SIZE);
+    //let _ = OpaqueRegistrationRecord::tls_deserialize(bytes.as_slice()).unwrap();
 }

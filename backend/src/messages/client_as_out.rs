@@ -303,6 +303,7 @@ impl VerifiableClientToAsMessage {
             // credential from the client's record and use it to verify the
             // request.
             AsAuthMethod::ClientCredential(cca) => {
+                tracing::info!("Authenticating client credential request");
                 let client_record = as_storage_provider
                     .load_client(&cca.client_id)
                     .await
@@ -325,6 +326,7 @@ impl VerifiableClientToAsMessage {
             // really return it from here. For now, we just load it again from
             // the processing function.
             AsAuthMethod::Client2Fa(auth_info) => {
+                tracing::info!("Authenticating 2FA request");
                 // We authenticate opaque first.
                 let client_id = &auth_info.client_credential_auth.client_id.clone();
                 let (_client_credential, opaque_state) = ephemeral_storage_provider

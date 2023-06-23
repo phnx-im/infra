@@ -26,7 +26,7 @@ use super::{
     FriendshipToken, MlsInfraVersion,
 };
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToQsMessageOut {
     payload: ClientToQsMessageTbsOut,
     // Signature over all of the above.
@@ -45,7 +45,7 @@ impl ClientToQsMessageOut {
     }
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToQsMessageTbsOut {
     version: MlsInfraVersion,
     // This essentially includes the wire format.
@@ -79,7 +79,7 @@ impl SignedStruct<ClientToQsMessageTbsOut> for ClientToQsMessageOut {
     }
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct CreateUserRecordParamsOut {
     pub user_record_auth_key: QsUserVerifyingKey,
     pub friendship_token: FriendshipToken,
@@ -91,7 +91,7 @@ pub struct CreateUserRecordParamsOut {
     pub initial_ratchet_secret: RatchetSecret,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct CreateClientRecordParamsOut {
     pub sender: QsUserId,
     pub client_record_auth_key: QsClientVerifyingKey,
@@ -102,7 +102,7 @@ pub struct CreateClientRecordParamsOut {
     pub initial_ratchet_secret: RatchetSecret, // TODO: This can be dropped once we support PCS
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct PublishKeyPackagesParamsOut {
     pub sender: QsClientId,
     pub add_packages: Vec<AddPackage>,
@@ -110,7 +110,7 @@ pub struct PublishKeyPackagesParamsOut {
 }
 
 /// This enum contains variants for each DS endpoint.
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum QsRequestParamsOut {
     // User

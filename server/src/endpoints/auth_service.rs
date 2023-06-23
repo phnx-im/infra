@@ -49,7 +49,7 @@ pub(crate) async fn as_process_message<Asp: AsStorageProvider, Aesp: AsEphemeral
         }
         // If the message could not be processed, return an error.
         Err(e) => {
-            tracing::warn!("DS failed to process message: {:?}", e);
+            tracing::warn!("AS failed to process message: {:?}", e);
             HttpResponse::InternalServerError().body(e.to_string())
         }
     }

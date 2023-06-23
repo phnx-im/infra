@@ -47,7 +47,9 @@ impl Qs {
             QsSender::QsUserVerifyingKey(key) => message
                 .verify(&key)
                 .map_err(|_| QsProcessError::AuthenticationError)?,
-            QsSender::Anonymous => QsRequestParams::VerifyingKey,
+            QsSender::Anonymous => message
+                .extract_without_verification()
+                .map_err(|_| QsProcessError::AuthenticationError)?,
         };
 
         Ok(match request_params {

@@ -88,9 +88,8 @@ impl TimeStamp {
         Utc::now() - Duration::days(expiration_days) >= self.time
     }
 
-    /// Checks if this time stamp is in the past.
-    pub(crate) fn has_passed(&self) -> bool {
-        self.has_expired(0)
+    pub(crate) fn is_between(&self, start: &Self, end: &Self) -> bool {
+        self.time >= start.time && self.time <= end.time
     }
 }
 
