@@ -244,11 +244,6 @@ fn test_opaque_codec() {
         client_message: client_registration_finish_result.message,
     };
 
-    println!(
-        "opaque_registration_record: {:?}",
-        opaque_registration_record
-    );
-
     let bytes = opaque_registration_record.tls_serialize_detached().unwrap();
 
     assert_eq!(bytes.len(), OPAQUE_REGISTRATION_RECORD_SIZE);

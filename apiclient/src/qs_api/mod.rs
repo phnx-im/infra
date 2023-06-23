@@ -411,7 +411,6 @@ impl ApiClient {
             if let QsProcessResponseIn::EncryptionKey(resp) = response {
                 Ok(resp)
             } else {
-                print!("Response: {response:?}");
                 Err(QsRequestError::UnexpectedResponse)
             }
         })
