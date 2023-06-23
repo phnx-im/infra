@@ -59,9 +59,9 @@ const OPAQUE_NOK: usize = 32;
 // The OPAQUE ciphersuite's Nn: Nonce length.
 const OPAQUE_NN: usize = 32;
 // The OPAQUE ciphersuite's Nm: MAC length.
-const OPAQUE_NM: usize = 32;
+const OPAQUE_NM: usize = 64;
 // The OPAQUE ciphersuite's Nh: Hash length.
-const OPAQUE_NH: usize = 32;
+const OPAQUE_NH: usize = 64;
 // The OPAQUE ciphersuite's Npk: Public key length.
 const OPAQUE_NPK: usize = 32;
 

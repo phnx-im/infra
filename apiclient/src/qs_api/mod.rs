@@ -402,7 +402,7 @@ impl ApiClient {
 
     pub async fn qs_encryption_key(&self) -> Result<EncryptionKeyResponse, QsRequestError> {
         self.prepare_and_send_qs_message(
-            QsRequestParamsOut::QsVerifyingKey,
+            QsRequestParamsOut::QsEncryptionKey,
             AuthenticationMethod::<QsUserSigningKey>::None,
         )
         .await

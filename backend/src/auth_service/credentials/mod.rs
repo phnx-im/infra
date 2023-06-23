@@ -66,7 +66,8 @@ impl ExpirationData {
     /// Return false either if the `not_after` date has passed, or if the
     /// `not_before` date has not passed yet.
     pub fn validate(&self) -> bool {
-        self.not_after.has_passed() && !self.not_before.has_passed()
+        let now = TimeStamp::now();
+        now.is_between(&self.not_before, &self.not_after)
     }
 }
 
