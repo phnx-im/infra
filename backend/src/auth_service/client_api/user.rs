@@ -111,10 +111,6 @@ impl AuthService {
         let client_credential = ephemeral_storage_provider
             .load_credential(&client_id)
             .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?
             .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
 
         // Authenticate the request using the signature key in the
@@ -158,6 +154,13 @@ impl AuthService {
         // Delete the entry in the ephemeral OPAQUE DB
         ephemeral_storage_provider
             .delete_client_login_state(&client_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                FinishUserRegistrationError::StorageError
+            })?;
+        ephemeral_storage_provider
+            .delete_credential(&client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);

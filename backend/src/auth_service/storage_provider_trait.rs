@@ -199,10 +199,7 @@ pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
     ) -> Result<(), Self::StorageError>;
 
     /// Load a client credential for a given client ID.
-    async fn load_credential(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<ClientCredential>, Self::StorageError>;
+    async fn load_credential(&self, client_id: &AsClientId) -> Option<ClientCredential>;
 
     /// Delete a client credential for a given client ID.
     async fn delete_credential(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
