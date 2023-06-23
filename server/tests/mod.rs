@@ -39,7 +39,7 @@ impl Notifiable for TestNotifier {
     }
 }
 
-#[should_panic]
+//#[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Create user", skip_all)]
 async fn create_user() {

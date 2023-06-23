@@ -565,15 +565,9 @@ impl AsEphemeralStorageProvider for EphemeralAsStorage {
     }
 
     /// Load a client credential for a given client ID.
-    async fn load_credential(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<ClientCredential>, Self::StorageError> {
-        let client_credentials = self
-            .client_credentials
-            .read()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        Ok(client_credentials.get(client_id).cloned())
+    async fn load_credential(&self, client_id: &AsClientId) -> Option<ClientCredential> {
+        let client_credentials = self.client_credentials.read().ok()?;
+        client_credentials.get(client_id).cloned()
     }
 
     /// Delete a client credential for a given client ID.

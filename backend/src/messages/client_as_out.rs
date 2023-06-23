@@ -303,13 +303,29 @@ impl VerifiableClientToAsMessage {
             // credential from the client's record and use it to verify the
             // request.
             AsAuthMethod::ClientCredential(cca) => {
-                tracing::info!("Authenticating client credential request");
-                let client_record = as_storage_provider
-                    .load_client(&cca.client_id)
-                    .await
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                cca.verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
+                // Depending on the request type, we either load the client
+                // credential from the persistend storage, or the ephemeral
+                // storage.
+                if matches!(
+                    *cca.payload,
+                    VerifiedAsRequestParams::FinishUserRegistration(_)
+                ) {
+                    tracing::info!("Loading client credential from ephemeral storage.");
+                    let client_credential = ephemeral_storage_provider
+                        .load_credential(&cca.client_id)
+                        .await
+                        .ok_or(AsVerificationError::UnknownClient)?;
+                    cca.verify(client_credential.verifying_key())
+                        .map_err(|_| AsVerificationError::AuthenticationFailed)?
+                } else {
+                    tracing::info!("Loading client credential from persistent storage.");
+                    let client_record = as_storage_provider
+                        .load_client(&cca.client_id)
+                        .await
+                        .ok_or(AsVerificationError::UnknownClient)?;
+                    cca.verify(client_record.credential.verifying_key())
+                        .map_err(|_| AsVerificationError::AuthenticationFailed)?
+                }
             }
             // 2-Factor authentication using a signature by the client
             // credential, as well as an OPAQUE login flow. This requires that
