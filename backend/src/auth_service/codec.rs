@@ -252,5 +252,5 @@ fn test_opaque_codec() {
     let bytes = opaque_registration_record.tls_serialize_detached().unwrap();
 
     assert_eq!(bytes.len(), OPAQUE_REGISTRATION_RECORD_SIZE);
-    //let _ = OpaqueRegistrationRecord::tls_deserialize(bytes.as_slice()).unwrap();
+    let _ = OpaqueRegistrationRecord::tls_deserialize(bytes.as_slice()).unwrap();
 }

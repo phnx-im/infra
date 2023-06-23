@@ -75,11 +75,9 @@ impl ApiClient {
                 .map_err(|_| QsRequestError::LibraryError)?,
             AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
         };
-        log::info!("Sending QS message: {:?}", message);
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| QsRequestError::LibraryError)?;
-        log::info!("Sending QS message bytes: {:?}", message_bytes);
         match self
             .client
             .post(self.build_url(Protocol::Http, ENDPOINT_QS))
