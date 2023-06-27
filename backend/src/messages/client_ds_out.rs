@@ -57,11 +57,11 @@ pub enum DsProcessResponseIn {
     ExternalCommitInfo(ExternalCommitInfoIn),
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub leaf_node: RatchetTree,
-    pub encrypted_credential_chain: EncryptedClientCredential,
+    pub encrypted_client_credential: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: GroupInfo,
@@ -69,7 +69,7 @@ pub struct CreateGroupParamsOut {
 
 pub type AssistedMessagePlusOut = (MlsMessageOut, AssistedGroupInfo);
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct AddUsersParamsOut {
     // The commit and a partial assisted group info.
     pub commit: AssistedMessagePlusOut,
@@ -79,75 +79,75 @@ pub struct AddUsersParamsOut {
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct RemoveUsersParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct UpdateClientParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: LeafNodeIndex,
     pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct JoinGroupParamsOut {
     pub external_commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
     pub qs_client_reference: QsClientReference,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessagePlusOut,
     pub sender: UserAuthVerifyingKey,
     pub qs_client_reference: QsClientReference,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct AddClientsParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
     pub welcome: AssistedWelcome,
     // TODO: Do we need those? They come from our own clients. We can probably
     // just send these through the all-clients group.
-    pub encrypted_welcome_attribution_infos: Vec<u8>,
+    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct RemoveClientsParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
     pub new_auth_key: UserAuthVerifyingKey,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ResyncClientParamsOut {
     pub external_commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct SelfRemoveClientParamsOut {
     pub remove_proposal: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct SendMessageParamsOut {
     pub message: MlsMessageOut,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct DeleteGroupParamsOut {
     pub commit: AssistedMessagePlusOut,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
     AddUsers(AddUsersParamsOut),
@@ -180,7 +180,7 @@ impl Signable for ClientToDsMessageTbsOut {
     }
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToDsMessageTbsOut {
     _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
@@ -198,7 +198,7 @@ impl ClientToDsMessageTbsOut {
     }
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToDsMessageOut {
     payload: ClientToDsMessageTbsOut,
     // Signature over all of the above.

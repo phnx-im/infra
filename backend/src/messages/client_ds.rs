@@ -202,17 +202,17 @@ impl EventMessage {
     }
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_credential_chain: EncryptedClientCredential,
+    pub encrypted_client_credential: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: VerifiableGroupInfo,
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateQsClientReferenceParams {
     pub group_id: GroupId,
     pub sender: LeafNodeIndex,
@@ -229,7 +229,7 @@ impl UpdateQsClientReferenceParams {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
     // The Public key from the sender's InfraCredential
@@ -237,19 +237,19 @@ pub struct WelcomeInfoParams {
     pub epoch: GroupEpoch,
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct GetWelcomeInfoResponse {
     public_tree: Option<RatchetTreeIn>,
     credential_chains: Vec<u8>,
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ExternalCommitInfoParams {
     pub group_id: GroupId,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ConnectionGroupInfoParams {
     pub group_id: GroupId,
 }
@@ -257,13 +257,13 @@ pub struct ConnectionGroupInfoParams {
 // TODO: We want this to contain the message bytes as well s.t. we don't have to
 // re-serialize after processing on the server side. This proves to be tricky
 // even though we now have DeserializeBytes.
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AssistedMessagePlus {
     pub message: AssistedMessage,
     pub message_bytes: Vec<u8>,
 }
 
-#[derive(TlsSize, TlsDeserializeBytes)]
+#[derive(Debug, TlsSize, TlsDeserializeBytes)]
 pub struct AddUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -277,13 +277,13 @@ pub struct AddUsersParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct RemoveUsersParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct UpdateClientParams {
     pub commit: AssistedMessagePlus,
     pub sender: LeafNodeIndex,
@@ -295,7 +295,7 @@ pub struct UpdateClientParamsAad {
     pub option_encrypted_credential_information: Option<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinGroupParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -308,7 +308,7 @@ pub struct JoinGroupParamsAad {
     pub encrypted_credential_information: EncryptedClientCredential,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct JoinConnectionGroupParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserAuthVerifyingKey,
@@ -320,7 +320,7 @@ pub struct JoinConnectionGroupParamsAad {
     pub encrypted_credential_information: EncryptedClientCredential,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct AddClientsParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
@@ -335,45 +335,45 @@ pub struct AddClientsParamsAad {
     pub encrypted_credential_information: Vec<EncryptedClientCredential>,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct RemoveClientsParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
     pub new_auth_key: UserAuthVerifyingKey,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct ResyncClientParams {
     pub external_commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct SelfRemoveClientParams {
     pub remove_proposal: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct SendMessageParams {
     pub message: AssistedMessagePlus,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DispatchEventParams {
     pub event: EventMessage,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessagePlus,
     pub sender: UserKeyHash,
 }
 
 /// This enum contains variants for each DS endpoint.
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub(crate) enum DsRequestParams {
     AddUsers(AddUsersParams),
@@ -562,7 +562,7 @@ pub enum DsSender {
     Anonymous,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageTbs {
     _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
@@ -576,14 +576,14 @@ impl ClientToDsMessageTbs {
     }
 }
 
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageIn {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
 }
 
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessageIn,
     serialized_payload: Vec<u8>,

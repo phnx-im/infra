@@ -56,7 +56,7 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub(crate) fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             signature: Vec::new(),
         }
@@ -159,7 +159,7 @@ pub trait VerifiedStruct<T> {
 
 /// The `Signable` trait is implemented by all struct that are being signed.
 /// The implementation has to provide the `unsigned_payload` function.
-pub trait Signable: Sized {
+pub trait Signable: Sized + std::fmt::Debug {
     /// The type of the object once it's signed.
     type SignedOutput;
 
@@ -180,11 +180,10 @@ pub trait Signable: Sized {
             .unsigned_payload()
             .map_err(LibraryError::missing_bound_check)?;
         let sign_content: SignContent = (self.label(), payload.as_slice()).into();
-        let signature = signing_key.sign(
-            &sign_content
-                .tls_serialize_detached()
-                .map_err(LibraryError::missing_bound_check)?,
-        )?;
+        let serialized_sign_content = sign_content
+            .tls_serialize_detached()
+            .map_err(LibraryError::missing_bound_check)?;
+        let signature = signing_key.sign(&serialized_sign_content)?;
         Ok(Self::SignedOutput::from_payload(self, signature))
     }
 }
@@ -198,7 +197,7 @@ pub trait Signable: Sized {
 /// `Signable`. If this appears to be necessary, it is probably a sign that the
 /// struct implementing them aren't well defined. Not that both traits define an
 /// `unsigned_payload` function.
-pub trait Verifiable: Sized {
+pub trait Verifiable: Sized + std::fmt::Debug {
     /// Return the unsigned, serialized payload that should be verified.
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
 

@@ -38,7 +38,10 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     // === USERS ===
 
     /// Returns a new unique user ID.
-    async fn create_user(&self) -> Result<QsUserId, Self::CreateUserError>;
+    async fn create_user(
+        &self,
+        user_record: QsUserRecord,
+    ) -> Result<QsUserId, Self::CreateUserError>;
 
     /// Loads the QsUserRecord for a given UserId. Returns None if no QsUserRecord
     /// exists for the given UserId.
@@ -64,7 +67,10 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     // === CLIENTS ===
 
     /// Returns a new unique client ID.
-    async fn create_client(&self) -> Result<QsClientId, Self::CreateClientError>;
+    async fn create_client(
+        &self,
+        client_record: QsClientRecord,
+    ) -> Result<QsClientId, Self::CreateClientError>;
 
     /// Load the info for the client with the given client ID.
     async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord>;

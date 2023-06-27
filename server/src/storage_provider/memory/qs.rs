@@ -88,8 +88,17 @@ impl QsStorageProvider for MemStorageProvider {
 
     type LoadConfigError = LoadConfigError;
 
-    async fn create_user(&self) -> Result<QsUserId, Self::CreateUserError> {
-        Ok(QsUserId::random())
+    async fn create_user(
+        &self,
+        user_record: QsUserRecord,
+    ) -> Result<QsUserId, Self::CreateUserError> {
+        let user_id = QsUserId::random();
+        if let Ok(mut users) = self.users.write() {
+            users.insert(user_id.clone(), user_record);
+            Ok(user_id)
+        } else {
+            Err(CreateUserError::StorageError)
+        }
     }
 
     async fn load_user(&self, user_id: &QsUserId) -> Option<QsUserRecord> {
@@ -142,8 +151,37 @@ impl QsStorageProvider for MemStorageProvider {
         Ok(())
     }
 
-    async fn create_client(&self) -> Result<QsClientId, Self::CreateClientError> {
-        Ok(QsClientId::random())
+    async fn create_client(
+        &self,
+        client_record: QsClientRecord,
+    ) -> Result<QsClientId, Self::CreateClientError> {
+        // TODO: For now, we trust the RNG to prevent collisions.
+        let mut users = self
+            .users
+            .write()
+            .map_err(|_| CreateClientError::StorageError)?;
+        let mut clients = self
+            .clients
+            .write()
+            .map_err(|_| CreateClientError::StorageError)?;
+        let mut key_packages = self
+            .key_packages
+            .write()
+            .map_err(|_| CreateClientError::StorageError)?;
+        let mut queues = self
+            .queues
+            .write()
+            .map_err(|_| CreateClientError::StorageError)?;
+        let user_record = users
+            .get_mut(&client_record.user_id)
+            .ok_or(CreateClientError::UnknownUser)?;
+        let client_id = QsClientId::random();
+        user_record.clients_mut().push(client_id.clone());
+        key_packages.insert(client_id.clone(), vec![]);
+        clients.insert(client_id.clone(), client_record);
+        queues.insert(client_id.clone(), QueueData::new());
+
+        Ok(client_id)
     }
 
     async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord> {
@@ -418,6 +456,9 @@ pub enum CreateClientError {
     /// Cannot access user records.
     #[error("Cannot access user records.")]
     StorageError,
+    /// Unknown user.
+    #[error("Unknown user.")]
+    UnknownUser,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
@@ -444,7 +485,11 @@ pub enum StoreKeyPackagesError {
 
 /// Error creating user
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum CreateUserError {}
+pub enum CreateUserError {
+    /// Cannot access queue storage.
+    #[error("Cannot access queue storage.")]
+    StorageError,
+}
 
 /// Error creating queue
 #[derive(Error, Debug, PartialEq, Eq, Clone)]

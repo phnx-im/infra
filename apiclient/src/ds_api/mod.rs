@@ -25,7 +25,10 @@ use phnxbackend::{
             traits::SigningKey,
         },
     },
-    ds::{errors::DsProcessingError, group_state::EncryptedClientCredential},
+    ds::{
+        errors::DsProcessingError, group_state::EncryptedClientCredential,
+        EncryptedWelcomeAttributionInfo,
+    },
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
@@ -166,7 +169,7 @@ impl ApiClient {
     pub async fn ds_create_group(
         &self,
         leaf_node: RatchetTree,
-        encrypted_credential_chain: EncryptedClientCredential,
+        encrypted_client_credential: EncryptedClientCredential,
         creator_client_reference: QsClientReference,
         group_info: GroupInfo,
         group_state_ear_key: &GroupStateEarKey,
@@ -175,7 +178,7 @@ impl ApiClient {
         let payload = CreateGroupParamsOut {
             group_id: group_info.group_context().group_id().clone(),
             leaf_node,
-            encrypted_credential_chain,
+            encrypted_client_credential,
             creator_client_reference,
             group_info,
             creator_user_auth_key: signing_key.verifying_key().clone(),
@@ -416,7 +419,7 @@ impl ApiClient {
         &self,
         commit: AssistedMessagePlusOut,
         welcome: AssistedWelcome,
-        encrypted_welcome_attribution_infos: Vec<u8>,
+        encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {

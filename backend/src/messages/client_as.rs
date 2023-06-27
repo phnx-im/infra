@@ -250,7 +250,6 @@ pub struct InitUserRegistrationResponse {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct FinishUserRegistrationParamsTbs {
     pub client_id: AsClientId,
-    pub user_name: UserName,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackage>,
@@ -931,34 +930,53 @@ pub(crate) enum VerifiedAsRequestParams {
 
 #[derive(Debug)]
 pub struct ClientCredentialAuth {
-    pub(crate) client_id: AsClientId,
-    pub(crate) payload: Box<VerifiedAsRequestParams>,
-    pub(crate) label: &'static str,
-    pub(crate) signature: Signature,
+    client_id: AsClientId,
+    payload: Box<VerifiedAsRequestParams>,
+    label: &'static str,
+    signature: Signature,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct ClientToAsMessageOut {
-    _version: MlsInfraVersion,
-    // This essentially includes the wire format.
-    body: VerifiedAsRequestParams,
-}
-
-impl Signable for ClientCredentialAuth {
-    type SignedOutput = ClientToAsMessageOut;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.payload.tls_serialize_detached()
+impl ClientCredentialAuth {
+    pub fn client_id(&self) -> &AsClientId {
+        &self.client_id
     }
 
-    fn label(&self) -> &str {
-        self.label
+    pub fn is_finish_user_registration_request(&self) -> bool {
+        matches!(
+            self.payload.as_ref(),
+            VerifiedAsRequestParams::FinishUserRegistration(_)
+        )
     }
 }
 
 impl Verifiable for ClientCredentialAuth {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.payload.tls_serialize_detached()
+        match self.payload.as_ref() {
+            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
+                params.tls_serialize_detached()
+            }
+            VerifiedAsRequestParams::DeleteClient(params) => params.tls_serialize_detached(),
+            VerifiedAsRequestParams::DequeueMessages(params) => params.tls_serialize_detached(),
+            VerifiedAsRequestParams::PublishConnectionPackages(params) => {
+                params.tls_serialize_detached()
+            }
+            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
+                params.tls_serialize_detached()
+            }
+            VerifiedAsRequestParams::IssueTokens(params) => params.tls_serialize_detached(),
+            VerifiedAsRequestParams::FinishUserRegistration(params) => {
+                params.tls_serialize_detached()
+            }
+            // All other endpoints aren't authenticated via client credential signatures.
+            VerifiedAsRequestParams::DeleteUser(_)
+            | VerifiedAsRequestParams::FinishClientAddition(_)
+            | VerifiedAsRequestParams::UserConnectionPackages(_)
+            | VerifiedAsRequestParams::InitiateClientAddition(_)
+            | VerifiedAsRequestParams::UserClients(_)
+            | VerifiedAsRequestParams::AsCredentials(_)
+            | VerifiedAsRequestParams::EnqueueMessage(_)
+            | VerifiedAsRequestParams::InitUserRegistration(_) => Ok(vec![]),
+        }
     }
 
     fn signature(&self) -> &Signature {

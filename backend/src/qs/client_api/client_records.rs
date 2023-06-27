@@ -52,13 +52,7 @@ impl Qs {
 
         // Get new client ID
         let client_id = storage_provider
-            .create_client()
-            .await
-            .map_err(|_| QsCreateClientRecordError::StorageError)?;
-
-        // Store client record
-        storage_provider
-            .store_client(&client_id, client_record)
+            .create_client(client_record)
             .await
             .map_err(|_| QsCreateClientRecordError::StorageError)?;
 

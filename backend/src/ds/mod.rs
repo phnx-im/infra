@@ -139,6 +139,7 @@ impl WelcomeAttributionInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct VerifiableWelcomeAttributionInfo {
     payload: WelcomeAttributionInfoTbs,
     signature: Signature,

@@ -94,7 +94,16 @@ impl TimeStamp {
 }
 
 #[derive(
-    Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
 )]
 pub struct UserKeyHash {
     pub(super) hash: Vec<u8>,

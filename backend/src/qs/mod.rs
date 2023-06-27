@@ -386,6 +386,7 @@ pub struct Fqdn {}
 
 #[derive(
     Clone,
+    Debug,
     Serialize,
     Deserialize,
     ToSchema,
@@ -402,6 +403,7 @@ pub struct QsClientReference {
 }
 
 #[derive(
+    Debug,
     Serialize,
     Deserialize,
     ToSchema,
@@ -520,7 +522,7 @@ impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatch<VERIFIED> {
     }
 }
 
-#[derive(Clone, Debug, ToSchema, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, ToSchema, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     payload: KeyPackageBatchTbs,
     signature: Signature,
@@ -533,17 +535,6 @@ impl KeyPackageBatch<VERIFIED> {
 
     pub fn has_expired(&self, expiration_days: i64) -> bool {
         self.payload.time_of_signature.has_expired(expiration_days)
-    }
-}
-
-impl TlsDeserializeBytesTrait for KeyPackageBatch<UNVERIFIED> {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (payload, bytes) = KeyPackageBatchTbs::tls_deserialize(bytes)?;
-        let (signature, bytes) = Signature::tls_deserialize(bytes)?;
-        Ok((Self { payload, signature }, bytes))
     }
 }
 

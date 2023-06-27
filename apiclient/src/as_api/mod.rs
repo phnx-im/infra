@@ -63,21 +63,14 @@ impl ApiClient {
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| AsRequestError::LibraryError)?;
-        log::info!(
-            "POST message request: {:?} to URL {}",
-            message,
-            self.build_url(Protocol::Http, ENDPOINT_AS)
-        );
         let res = self
             .client
             .post(self.build_url(Protocol::Http, ENDPOINT_AS))
             .body(message_bytes)
             .send()
             .await;
-        log::info!("POST message response: {:?}", res);
         match res {
             Ok(res) => {
-                log::info!("POST message response: {:?}", res);
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
@@ -165,7 +158,6 @@ impl ApiClient {
 
     pub async fn as_finish_user_registration(
         &self,
-        user_name: UserName,
         queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_secret: RatchetSecret,
         connection_packages: Vec<ConnectionPackage>,
@@ -174,7 +166,6 @@ impl ApiClient {
     ) -> Result<(), AsRequestError> {
         let tbs = FinishUserRegistrationParamsTbs {
             client_id: signing_key.credential().identity(),
-            user_name,
             queue_encryption_key,
             initial_ratchet_secret,
             connection_packages,

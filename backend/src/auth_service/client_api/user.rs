@@ -100,7 +100,6 @@ impl AuthService {
     ) -> Result<(), FinishUserRegistrationError> {
         let FinishUserRegistrationParamsTbsIn {
             client_id,
-            user_name,
             queue_encryption_key,
             initial_ratchet_secret: initial_ratchet_key,
             connection_packages,
