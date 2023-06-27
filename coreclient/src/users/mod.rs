@@ -287,9 +287,6 @@ impl<T: Notifiable> SelfUser<T> {
             qs_add_packages.push(add_package);
         }
 
-        let push_token = PushToken::dummy();
-        let encrypted_push_token = push_token.encrypt(&key_store.push_token_ear_key).unwrap();
-
         let create_user_record_response = api_client
             .qs_create_user(
                 key_store.friendship_token.clone(),
@@ -297,7 +294,7 @@ impl<T: Notifiable> SelfUser<T> {
                 key_store.qs_queue_decryption_key.encryption_key(),
                 qs_add_packages,
                 key_store.add_package_ear_key.clone(),
-                Some(encrypted_push_token),
+                None,
                 qs_initial_ratchet_secret,
                 &key_store.qs_user_signing_key,
             )
