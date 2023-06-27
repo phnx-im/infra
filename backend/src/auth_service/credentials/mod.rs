@@ -333,29 +333,6 @@ impl ClientCredentialCsr {
         };
         Ok((credential, prelim_signing_key))
     }
-
-    /// Sign the CSR with the given signing key to obtain a [`ClientCredential`]
-    /// with the given expiration data.
-    ///
-    /// If no expiration data is given, the default [`ExpirationData`] of 90
-    /// days is set.
-    pub(crate) fn sign(
-        self,
-        as_intermediate_signing_key: &AsIntermediateSigningKey,
-        expiration_data_option: Option<ExpirationData>,
-    ) -> Result<ClientCredential, LibraryError> {
-        // Create lifetime valid until 5 years in the future.
-        let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(
-            DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME,
-        ));
-        let signer_fingerprint = as_intermediate_signing_key.credential().fingerprint()?;
-        let credential = ClientCredentialPayload {
-            csr: self,
-            expiration_data,
-            signer_fingerprint,
-        };
-        credential.sign(as_intermediate_signing_key)
-    }
 }
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]

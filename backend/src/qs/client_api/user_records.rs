@@ -34,10 +34,15 @@ impl Qs {
             initial_ratchet_secret,
         } = params;
 
-        let user_id = storage_provider.create_user().await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            QsCreateUserError::StorageError
-        })?;
+        let user_record = QsUserRecord::new(user_record_auth_key, friendship_token);
+
+        let user_id = storage_provider
+            .create_user(user_record)
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                QsCreateUserError::StorageError
+            })?;
 
         let create_client_params = CreateClientRecordParams {
             sender: user_id.clone(),
@@ -53,18 +58,6 @@ impl Qs {
             Self::qs_create_client_record(storage_provider, create_client_params)
                 .await
                 .map_err(|_| QsCreateUserError::StorageError)?;
-
-        let user_record =
-            QsUserRecord::new(user_record_auth_key, friendship_token, client_id.clone());
-
-        tracing::trace!("Storing QsUserProfile in storage provider");
-        storage_provider
-            .store_user(&user_id, user_record)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                QsCreateUserError::StorageError
-            })?;
 
         let response = CreateUserRecordResponse { user_id, client_id };
 

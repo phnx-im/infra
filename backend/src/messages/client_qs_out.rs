@@ -69,7 +69,7 @@ impl Signable for ClientToQsMessageTbsOut {
     }
 
     fn label(&self) -> &str {
-        "ClientToQsMessageTbs"
+        "ClientToQsMessage"
     }
 }
 

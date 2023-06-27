@@ -15,7 +15,6 @@ use crate::{
         errors::AsVerificationError,
         storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
         AsClientId, OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse,
-        UserName,
     },
     crypto::{
         ear::{
@@ -139,6 +138,7 @@ impl ConnectionPackageIn {
     }
 }
 
+#[derive(Debug)]
 pub struct VerifiableConnectionPackage {
     pub(super) payload: ConnectionPackageTbs,
     pub(super) signature: Signature,
@@ -161,7 +161,6 @@ impl Verifiable for VerifiableConnectionPackage {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct FinishUserRegistrationParamsTbsIn {
     pub client_id: AsClientId,
-    pub user_name: UserName,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackageIn>,
@@ -306,13 +305,10 @@ impl VerifiableClientToAsMessage {
                 // Depending on the request type, we either load the client
                 // credential from the persistend storage, or the ephemeral
                 // storage.
-                if matches!(
-                    *cca.payload,
-                    VerifiedAsRequestParams::FinishUserRegistration(_)
-                ) {
+                if cca.is_finish_user_registration_request() {
                     tracing::info!("Loading client credential from ephemeral storage.");
                     let client_credential = ephemeral_storage_provider
-                        .load_credential(&cca.client_id)
+                        .load_credential(cca.client_id())
                         .await
                         .ok_or(AsVerificationError::UnknownClient)?;
                     cca.verify(client_credential.verifying_key())
@@ -320,7 +316,7 @@ impl VerifiableClientToAsMessage {
                 } else {
                     tracing::info!("Loading client credential from persistent storage.");
                     let client_record = as_storage_provider
-                        .load_client(&cca.client_id)
+                        .load_client(cca.client_id())
                         .await
                         .ok_or(AsVerificationError::UnknownClient)?;
                     cca.verify(client_record.credential.verifying_key())
@@ -344,9 +340,9 @@ impl VerifiableClientToAsMessage {
             AsAuthMethod::Client2Fa(auth_info) => {
                 tracing::info!("Authenticating 2FA request");
                 // We authenticate opaque first.
-                let client_id = &auth_info.client_credential_auth.client_id.clone();
+                let client_id = auth_info.client_credential_auth.client_id().clone();
                 let (_client_credential, opaque_state) = ephemeral_storage_provider
-                    .load_client_login_state(client_id)
+                    .load_client_login_state(&client_id)
                     .await
                     .map_err(|_| AsVerificationError::StorageError)?
                     .ok_or(AsVerificationError::UnknownClient)?;
@@ -359,7 +355,7 @@ impl VerifiableClientToAsMessage {
                     })?;
 
                 let client_record = as_storage_provider
-                    .load_client(client_id)
+                    .load_client(&client_id)
                     .await
                     .ok_or(AsVerificationError::UnknownClient)?;
                 let verified_params = auth_info
@@ -367,7 +363,7 @@ impl VerifiableClientToAsMessage {
                     .verify(client_record.credential.verifying_key())
                     .map_err(|_| AsVerificationError::AuthenticationFailed)?;
                 ephemeral_storage_provider
-                    .delete_client_login_state(client_id)
+                    .delete_client_login_state(&client_id)
                     .await
                     .map_err(|_| AsVerificationError::StorageError)?;
                 verified_params

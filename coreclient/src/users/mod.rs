@@ -254,7 +254,6 @@ impl<T: Notifiable> SelfUser<T> {
 
         api_client
             .as_finish_user_registration(
-                user_name.clone(),
                 key_store.as_queue_decryption_key.encryption_key(),
                 as_initial_ratchet_secret,
                 connection_packages,

@@ -37,10 +37,11 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     let message = match VerifiableClientToQsMessage::tls_deserialize_exact(message.as_ref()) {
         Ok(message) => message,
         Err(e) => {
-            tracing::warn!("Received invalid message: {:?}", e);
+            tracing::warn!("QS received invalid message: {:?}", e);
             return HttpResponse::BadRequest().body(e.to_string());
         }
     };
+
     // Process the message.
     match Qs::process(storage_provider.as_ref(), message).await {
         // If the message was processed successfully, return the response.

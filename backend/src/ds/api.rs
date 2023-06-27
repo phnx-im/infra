@@ -204,7 +204,7 @@ impl DsApi {
             let CreateGroupParams {
                 group_id: _,
                 leaf_node,
-                encrypted_credential_chain,
+                encrypted_client_credential,
                 creator_client_reference: creator_queue_config,
                 creator_user_auth_key,
                 group_info,
@@ -214,7 +214,7 @@ impl DsApi {
             DsGroupState::new(
                 group_state,
                 creator_user_auth_key.clone(),
-                encrypted_credential_chain.clone(),
+                encrypted_client_credential.clone(),
                 creator_queue_config.clone(),
             )
         } else {

@@ -9,7 +9,7 @@
 pub mod keys;
 mod traits;
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 pub use traits::{
     EarDecryptable, EarEncryptable, EarKey, EncryptionError, GenericDeserializable,
     GenericSerializable,
@@ -32,6 +32,6 @@ const AEAD_NONCE_SIZE: usize = 12;
     Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct Ciphertext {
-    ciphertext: Vec<u8>,
+    ciphertext: VLBytes,
     nonce: [u8; AEAD_NONCE_SIZE],
 }

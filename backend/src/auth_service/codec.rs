@@ -6,15 +6,12 @@ use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload,
 };
-use tls_codec::{DeserializeBytes, Size};
+use tls_codec::Size;
 
-use crate::{
-    auth_service::client_api::client,
-    crypto::{
-        OpaqueCiphersuite, OPAQUE_LOGIN_FINISH_SIZE, OPAQUE_LOGIN_REQUEST_SIZE,
-        OPAQUE_LOGIN_RESPONSE_SIZE, OPAQUE_REGISTRATION_RECORD_SIZE,
-        OPAQUE_REGISTRATION_REQUEST_SIZE, OPAQUE_REGISTRATION_RESPONSE_SIZE,
-    },
+use crate::crypto::{
+    OPAQUE_LOGIN_FINISH_SIZE, OPAQUE_LOGIN_REQUEST_SIZE, OPAQUE_LOGIN_RESPONSE_SIZE,
+    OPAQUE_REGISTRATION_RECORD_SIZE, OPAQUE_REGISTRATION_REQUEST_SIZE,
+    OPAQUE_REGISTRATION_RESPONSE_SIZE,
 };
 
 use super::{
@@ -213,8 +210,10 @@ impl tls_codec::DeserializeBytes for OpaqueLoginFinish {
 fn test_opaque_codec() {
     use tls_codec::Serialize;
 
+    use crate::crypto::OpaqueCiphersuite;
     use opaque_ke::*;
     use rand::rngs::OsRng;
+    use tls_codec::DeserializeBytes;
 
     let mut rng = OsRng;
     let server_setup = ServerSetup::<OpaqueCiphersuite>::new(&mut rng);

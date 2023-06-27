@@ -11,7 +11,7 @@ use std::fmt::Display;
 use rand::{RngCore, SeedableRng};
 use secrecy::Zeroize;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::{
     openapi::{ArrayBuilder, Schema},
     ToSchema,

@@ -14,15 +14,11 @@ pub struct QsUserRecord {
 }
 
 impl QsUserRecord {
-    pub fn new(
-        auth_key: QsUserVerifyingKey,
-        friendship_token: FriendshipToken,
-        initial_client: QsClientId,
-    ) -> Self {
+    pub fn new(auth_key: QsUserVerifyingKey, friendship_token: FriendshipToken) -> Self {
         Self {
             auth_key,
             friendship_token,
-            clients: vec![initial_client],
+            clients: vec![],
         }
     }
 

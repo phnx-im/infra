@@ -44,7 +44,8 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
         // circumstances it would actually fail.
         let ciphertext = cipher
             .encrypt(&nonce, plaintext)
-            .map_err(|_| EncryptionError::LibraryError)?;
+            .map_err(|_| EncryptionError::LibraryError)?
+            .into();
         Ok(Ciphertext {
             ciphertext,
             nonce: nonce.into(),
