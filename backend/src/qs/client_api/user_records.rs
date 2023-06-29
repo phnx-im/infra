@@ -28,8 +28,6 @@ impl Qs {
             friendship_token,
             client_record_auth_key,
             queue_encryption_key,
-            add_packages,
-            friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_secret,
         } = params;
@@ -48,8 +46,6 @@ impl Qs {
             sender: user_id.clone(),
             client_record_auth_key,
             queue_encryption_key,
-            add_packages,
-            friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_secret,
         };

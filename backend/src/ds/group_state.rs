@@ -124,20 +124,20 @@ pub(super) struct UserProfile {
 
 #[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct EncryptedClientCredential {
-    pub(super) encrypted_credential_chain: Ciphertext,
+    pub(super) encrypted_client_credential: Ciphertext,
 }
 
 impl From<Ciphertext> for EncryptedClientCredential {
     fn from(value: Ciphertext) -> Self {
         Self {
-            encrypted_credential_chain: value,
+            encrypted_client_credential: value,
         }
     }
 }
 
 impl AsRef<Ciphertext> for EncryptedClientCredential {
     fn as_ref(&self) -> &Ciphertext {
-        &self.encrypted_credential_chain
+        &self.encrypted_client_credential
     }
 }
 
@@ -153,12 +153,41 @@ pub(super) struct ClientProfile {
 #[derive(Serialize, Deserialize)]
 pub(super) struct ProposalStore {}
 
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SerializableDsGroupState {
+    pub(super) group: Group,
+    pub(super) user_profiles: Vec<(UserKeyHash, UserProfile)>,
+    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
+    pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
+}
+
+impl From<SerializableDsGroupState> for DsGroupState {
+    fn from(value: SerializableDsGroupState) -> Self {
+        Self {
+            group: value.group,
+            user_profiles: value.user_profiles.into_iter().collect(),
+            unmerged_users: value.unmerged_users,
+            client_profiles: value.client_profiles.into_iter().collect(),
+        }
+    }
+}
+
+impl From<DsGroupState> for SerializableDsGroupState {
+    fn from(value: DsGroupState) -> Self {
+        Self {
+            group: value.group,
+            user_profiles: value.user_profiles.into_iter().collect(),
+            unmerged_users: value.unmerged_users,
+            client_profiles: value.client_profiles.into_iter().collect(),
+        }
+    }
+}
+
 /// The `DsGroupState` is the per-group state that the DS persists.
 /// It is encrypted-at-rest with a roster key.
 ///
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
-#[derive(Serialize, Deserialize)]
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
@@ -172,7 +201,7 @@ impl DsGroupState {
     pub(crate) fn new(
         group: Group,
         creator_user_auth_key: UserAuthVerifyingKey,
-        creator_encrypted_credential_chain: EncryptedClientCredential,
+        creator_encrypted_client_credential: EncryptedClientCredential,
         creator_queue_config: QsClientReference,
     ) -> Self {
         let creator_key_hash = creator_user_auth_key.hash();
@@ -183,7 +212,7 @@ impl DsGroupState {
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
         let creator_client_profile = ClientProfile {
-            encrypted_client_credential: creator_encrypted_credential_chain,
+            encrypted_client_credential: creator_encrypted_client_credential,
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
@@ -326,5 +355,5 @@ impl DsGroupState {
     }
 }
 
-impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}
-impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}
+impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}

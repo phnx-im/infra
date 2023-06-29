@@ -286,6 +286,7 @@ impl AsStorageProvider for MemoryAsStorage {
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
     async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage> {
+        tracing::info!("Loading connection package for client {:?}.", client_id);
         let mut connection_package_store = self.connection_packages.write().ok()?;
 
         let connection_packages = connection_package_store.get_mut(client_id)?;
@@ -302,6 +303,7 @@ impl AsStorageProvider for MemoryAsStorage {
         &self,
         user_name: &UserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
+        tracing::info!("Loading connection packages for user {:?}.", user_name);
         let client_records: Vec<_> = self
             .client_records
             .read()
@@ -309,11 +311,21 @@ impl AsStorageProvider for MemoryAsStorage {
             .keys()
             .cloned()
             .collect();
+        tracing::info!(
+            "Loaded a total of {:?} client records",
+            client_records.len()
+        );
         let mut connection_packages = Vec::new();
         for client_id in &client_records {
             if &client_id.user_name() == user_name {
+                tracing::info!("Found client record with id {:?}.", client_id);
                 if let Some(connection_package) = self.client_connection_package(client_id).await {
                     connection_packages.push(connection_package);
+                } else {
+                    tracing::warn!(
+                        "Did not find connection package for client with id {:?}.",
+                        client_id
+                    );
                 }
             }
         }
@@ -341,10 +353,12 @@ impl AsStorageProvider for MemoryAsStorage {
 
         // Check if sequence numbers are consistent.
         if queue.sequence_number != message.sequence_number {
+            tracing::warn!("Inconsistent sequence numbers.");
             return Err(AsQueueError::SequenceNumberMismatch);
         }
         queue.sequence_number += 1;
         queue.queue.push_back(message);
+        tracing::info!("Successfully enqueued an AS message.");
         Ok(())
     }
 
@@ -372,8 +386,13 @@ impl AsStorageProvider for MemoryAsStorage {
             return Ok((vec![], queue.queue.len() as u64));
         }
 
+        let messages_in_queue = queue.queue.len() as u64;
+        tracing::info!("The client requests {number_of_messages} messages and there are {messages_in_queue} messages in the queue.");
+
         // Client claims to have seen messages that are not even in the queue yet.
-        if sequence_number >= queue.sequence_number {
+        let queue_sequence_number = queue.sequence_number;
+        if sequence_number > queue_sequence_number {
+            tracing::warn!("Sequence number too high: Client requested sequence number {sequence_number}, but we only have {queue_sequence_number}.");
             return Err(ReadAndDeleteError::SequenceNumberNotFound);
         }
 
@@ -383,8 +402,9 @@ impl AsStorageProvider for MemoryAsStorage {
             // Queue is empty, but client expects there to still be messages in
             // the queue.
             // TODO: Should we also just return an empty vector here?
-            None if sequence_number != queue.sequence_number => {
-                return Err(ReadAndDeleteError::SequenceNumberNotFound)
+            None if sequence_number != queue_sequence_number => {
+                tracing::warn!("Queue is empty. Client requested sequence number {sequence_number}, but we only have {queue_sequence_number}.");
+                return Err(ReadAndDeleteError::SequenceNumberNotFound);
             }
             // No new messages. Queue is empty.
             None => return Ok((vec![], 0)),
@@ -392,7 +412,8 @@ impl AsStorageProvider for MemoryAsStorage {
             // TODO: Should we just round the sequence number up to the nearest
             // existing one at this point?
             Some(message) if sequence_number < message.sequence_number => {
-                return Err(ReadAndDeleteError::SequenceNumberNotFound)
+                tracing::warn!("Client requests old messages: Client requested sequence number {sequence_number}, but we only have {queue_sequence_number}.");
+                return Err(ReadAndDeleteError::SequenceNumberNotFound);
             }
             // Everything is okay. Let's proceed by deleting and returning messages.
             Some(_) => (),

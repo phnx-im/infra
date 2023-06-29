@@ -2,13 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{
-    openmls::prelude::{OpenMlsCryptoProvider, ProtocolVersion},
-    openmls_rust_crypto::OpenMlsRustCrypto,
-};
-
 use crate::{
-    crypto::ear::EarEncryptable,
     ds::group_state::TimeStamp,
     messages::client_qs::{
         CreateClientRecordParams, CreateClientRecordResponse, DeleteClientRecordParams,
@@ -33,8 +27,6 @@ impl Qs {
             sender,
             client_record_auth_key,
             queue_encryption_key,
-            add_packages,
-            friendship_ear_key,
             encrypted_push_token,
             initial_ratchet_secret,
         } = params;
@@ -53,28 +45,6 @@ impl Qs {
         // Get new client ID
         let client_id = storage_provider
             .create_client(client_record)
-            .await
-            .map_err(|_| QsCreateClientRecordError::StorageError)?;
-
-        let encrypted_key_packages = add_packages
-            .into_iter()
-            .map(|add_package_in| {
-                add_package_in
-                    .validate(
-                        OpenMlsRustCrypto::default().crypto(),
-                        ProtocolVersion::default(),
-                    )
-                    .map_err(|_| QsCreateClientRecordError::InvalidKeyPackage)
-                    .and_then(|ap| {
-                        ap.encrypt(&friendship_ear_key)
-                            .map_err(|_| QsCreateClientRecordError::LibraryError)
-                    })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // Store key packages
-        storage_provider
-            .store_key_packages(&client_id, encrypted_key_packages)
             .await
             .map_err(|_| QsCreateClientRecordError::StorageError)?;
 

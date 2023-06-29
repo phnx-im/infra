@@ -91,11 +91,11 @@ pub trait AsStorageProvider: Sync + Send + 'static {
 
     // === Key packages ===
 
-    /// Store key packages for a specific client.
+    /// Store connection packages for a specific client.
     async fn store_connection_packages(
         &self,
         client_id: &AsClientId,
-        key_packages: Vec<ConnectionPackage>,
+        connection_packages: Vec<ConnectionPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError>;
 
     /// Return a key package for a specific client. The client_id must belong to

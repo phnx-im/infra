@@ -68,7 +68,7 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
 }
 
 pub trait GenericSerializable: Sized {
-    type Error;
+    type Error: std::fmt::Debug;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
 }
@@ -103,9 +103,10 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<CiphertextType, EncryptionError> {
-        let plaintext = self
-            .serialize()
-            .map_err(|_| EncryptionError::LibraryError)?;
+        let plaintext = self.serialize().map_err(|e| {
+            tracing::error!("Could not serialize plaintext: {:?}", e);
+            EncryptionError::LibraryError
+        })?;
         let ciphertext = ear_key.encrypt(&plaintext)?;
         Ok(ciphertext.into())
     }

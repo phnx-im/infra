@@ -336,6 +336,7 @@ impl QsStorageProvider for MemStorageProvider {
     ) -> Result<(), Self::EnqueueError> {
         let mut queues = self.queues.write().map_err(|_| QueueError::StorageError)?;
         let queue = queues.get_mut(client_id).ok_or(QueueError::QueueNotFound)?;
+        tracing::info!("Enqueueing message.");
 
         // Check if sequence numbers are consistent.
         if queue.sequence_number != message.sequence_number {
@@ -359,6 +360,9 @@ impl QsStorageProvider for MemStorageProvider {
         let queue = queues
             .get_mut(client_id)
             .ok_or(ReadAndDeleteError::QueueNotFound)?;
+
+        let messages_in_queue = queue.queue.len() as u64;
+        tracing::info!("The client requests {number_of_messages} messages and there are {messages_in_queue} messages in the queue.");
 
         if number_of_messages == 0 {
             // Converting usize to u64 should be safe since we don't consider

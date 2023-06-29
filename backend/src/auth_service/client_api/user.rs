@@ -130,6 +130,38 @@ impl AuthService {
                 FinishUserRegistrationError::StorageError
             })?;
 
+        // Verify and store connection packages
+        let (_as_credentials, as_intermediate_credentials, _revoked_fingerprints) =
+            storage_provider.load_as_credentials().await.map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                FinishUserRegistrationError::StorageError
+            })?;
+        let verified_connection_packages = connection_packages
+            .into_iter()
+            .map(|cp| {
+                let verifying_credential = as_intermediate_credentials
+                    .iter()
+                    .find(|aic| {
+                        if let Ok(fingerprint) = aic.fingerprint() {
+                            &fingerprint == cp.client_credential_signer_fingerprint()
+                        } else {
+                            false
+                        }
+                    })
+                    .ok_or(FinishUserRegistrationError::InvalidConnectionPackage)?;
+                cp.verify(verifying_credential.verifying_key())
+                    .map_err(|_| FinishUserRegistrationError::InvalidConnectionPackage)
+            })
+            .collect::<Result<Vec<_>, FinishUserRegistrationError>>()?;
+
+        storage_provider
+            .store_connection_packages(&client_id, verified_connection_packages)
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                FinishUserRegistrationError::StorageError
+            })?;
+
         // Create the initial client entry
 
         let client_record = AsClientRecord {

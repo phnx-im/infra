@@ -7,12 +7,8 @@
 use super::*;
 use mls_assist::{
     messages::AssistedWelcome,
-    openmls::{
-        prelude::{
-            group_info::GroupInfo, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut,
-            RatchetTreeIn, TlsSerializeTrait,
-        },
-        treesync::RatchetTree,
+    openmls::prelude::{
+        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
 };
 use phnxbackend::{
@@ -25,10 +21,7 @@ use phnxbackend::{
             traits::SigningKey,
         },
     },
-    ds::{
-        errors::DsProcessingError, group_state::EncryptedClientCredential,
-        EncryptedWelcomeAttributionInfo,
-    },
+    ds::{errors::DsProcessingError, EncryptedWelcomeAttributionInfo},
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
@@ -133,15 +126,19 @@ impl ApiClient {
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
+                        log::info!("Got a response: OK!");
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
+                        log::info!("Found bytes");
                         let ds_proc_res =
                             DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
+                        log::info!("Successfully deserialized");
                         Ok(ds_proc_res)
                     }
                     // DS Specific Error
                     418 => {
+                        log::info!("Got a response: Server error!");
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_err =
@@ -151,6 +148,7 @@ impl ApiClient {
                     }
                     // All other errors
                     _ => {
+                        log::info!("Got a response: Unknown error!");
                         let error_text =
                             res.text().await.map_err(|_| DsRequestError::BadResponse)?;
                         Err(DsRequestError::NetworkError(error_text))
@@ -165,21 +163,10 @@ impl ApiClient {
     /// Creates a new group on the DS.
     pub async fn ds_create_group(
         &self,
-        leaf_node: RatchetTree,
-        encrypted_client_credential: EncryptedClientCredential,
-        creator_client_reference: QsClientReference,
-        group_info: GroupInfo,
+        payload: CreateGroupParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        let payload = CreateGroupParamsOut {
-            group_id: group_info.group_context().group_id().clone(),
-            leaf_node,
-            encrypted_client_credential,
-            creator_client_reference,
-            group_info,
-            creator_user_auth_key: signing_key.verifying_key().clone(),
-        };
         self.prepare_and_send_ds_message(
             DsRequestParamsOut::CreateGroupParams(payload),
             signing_key,

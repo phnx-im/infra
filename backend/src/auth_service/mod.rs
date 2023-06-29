@@ -304,7 +304,7 @@ impl AuthService {
                     .map(AsProcessResponse::IssueTokens)?
             }
             VerifiedAsRequestParams::UserConnectionPackages(params) => {
-                AuthService::as_user_key_package(storage_provider, params)
+                AuthService::as_user_connection_packages(storage_provider, params)
                     .await
                     .map(AsProcessResponse::UserKeyPackages)?
             }

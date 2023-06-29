@@ -10,8 +10,12 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum GroupOperationError {
+    #[error("LibraryError")]
+    LibraryError,
     #[error("Could not invite user to group")]
     InvitationError,
+    #[error(transparent)]
+    MergeCommitError(#[from] MergeCommitError<MemoryKeyStoreError>),
     #[error(transparent)]
     WelcomeError(#[from] WelcomeError<MemoryKeyStoreError>),
     #[error(transparent)]

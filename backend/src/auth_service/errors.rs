@@ -46,6 +46,9 @@ pub enum FinishUserRegistrationError {
     /// Client credential not found
     #[error("Client credential not found")]
     ClientCredentialNotFound,
+    /// Invalid connection package
+    #[error("Invalid connection package")]
+    InvalidConnectionPackage,
     /// Error finishing OPAQUE login handshake
     #[error("Error finishing OPAQUE login handshake")]
     OpaqueLoginFinishFailed,

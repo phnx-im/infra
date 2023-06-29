@@ -150,7 +150,7 @@
 use mls_assist::{
     group::Group,
     openmls::{
-        prelude::{group_info::GroupInfo, GroupId, Sender},
+        prelude::{group_info::GroupInfo, GroupId, MlsMessageInBody, Sender},
         treesync::RatchetTree,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -171,7 +171,7 @@ use crate::{
 
 use super::{
     errors::DsProcessingError,
-    group_state::{DsGroupState, EncryptedClientCredential},
+    group_state::{DsGroupState, EncryptedClientCredential, SerializableDsGroupState},
     DsStorageProvider, LoadState,
 };
 
@@ -186,40 +186,52 @@ impl DsApi {
         ds_storage_provider: &Dsp,
         qs_connector: &Q,
         message: VerifiableClientToDsMessage,
-    ) -> Result<Option<DsProcessResponse>, DsProcessingError> {
+    ) -> Result<DsProcessResponse, DsProcessingError> {
         let group_id = message.group_id().clone();
         let ear_key = message.ear_key().clone();
-        // Load encrypted group state.
-        let encrypted_group_state = if let LoadState::Success(group_state) =
-            ds_storage_provider.load_group_state(&group_id).await
-        {
-            group_state
-        } else {
-            return Err(DsProcessingError::GroupNotFound);
-        };
 
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
-        let mut group_state = if let Some(create_group_params) = message.create_group_params() {
-            let CreateGroupParams {
-                group_id: _,
-                leaf_node,
-                encrypted_client_credential,
-                creator_client_reference: creator_queue_config,
-                creator_user_auth_key,
-                group_info,
-            } = create_group_params;
-            let group_state = Group::new(group_info.clone(), leaf_node.clone())
-                .map_err(|_| DsProcessingError::InvalidMessage)?;
-            DsGroupState::new(
-                group_state,
-                creator_user_auth_key.clone(),
-                encrypted_client_credential.clone(),
-                creator_queue_config.clone(),
-            )
-        } else {
-            DsGroupState::decrypt(&ear_key, &encrypted_group_state)
-                .map_err(|_| DsProcessingError::CouldNotDecrypt)?
+        let mut group_state = match ds_storage_provider.load_group_state(&group_id).await {
+            LoadState::Success(encrypted_group_state) => {
+                SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
+                    .map_err(|_| DsProcessingError::CouldNotDecrypt)?
+                    .into()
+            }
+            LoadState::Reserved(_time_stamp) => {
+                if let Some(create_group_params) = message.create_group_params() {
+                    let CreateGroupParams {
+                        group_id: _,
+                        leaf_node,
+                        encrypted_client_credential,
+                        creator_client_reference: creator_queue_config,
+                        creator_user_auth_key,
+                        group_info,
+                    } = create_group_params;
+                    let group_info = match group_info.clone().extract() {
+                        MlsMessageInBody::GroupInfo(group_info) => group_info,
+                        MlsMessageInBody::PublicMessage(_)
+                        | MlsMessageInBody::PrivateMessage(_)
+                        | MlsMessageInBody::Welcome(_)
+                        | MlsMessageInBody::KeyPackage(_) => {
+                            return Err(DsProcessingError::InvalidMessage)
+                        }
+                    };
+                    let group_state = Group::new(group_info.clone(), leaf_node.clone())
+                        .map_err(|_| DsProcessingError::InvalidMessage)?;
+                    DsGroupState::new(
+                        group_state,
+                        creator_user_auth_key.clone(),
+                        encrypted_client_credential.clone(),
+                        creator_queue_config.clone(),
+                    )
+                } else {
+                    return Err(DsProcessingError::GroupNotFound);
+                }
+            }
+            LoadState::NotFound | LoadState::Expired => {
+                return Err(DsProcessingError::GroupNotFound)
+            }
         };
 
         // Verify the message.
@@ -308,20 +320,27 @@ impl DsApi {
                     .map_err(|_| DsProcessingError::UnknownSender)?;
                 (None, None, None)
             }
-            DsRequestParams::ExternalCommitInfo(_) => (
-                None,
-                Some(DsProcessResponse::ExternalCommitInfo(
-                    group_state.external_commit_info(),
-                )),
-                None,
-            ),
-            DsRequestParams::ConnectionGroupInfo(_) => (
-                None,
-                Some(DsProcessResponse::ExternalCommitInfo(
-                    group_state.external_commit_info(),
-                )),
-                None,
-            ),
+            DsRequestParams::ExternalCommitInfo(_) => {
+                group_state_has_changed = false;
+                (
+                    None,
+                    Some(DsProcessResponse::ExternalCommitInfo(
+                        group_state.external_commit_info(),
+                    )),
+                    None,
+                )
+            }
+            DsRequestParams::ConnectionGroupInfo(_) => {
+                tracing::info!("Processing connection group info message.");
+                group_state_has_changed = false;
+                (
+                    None,
+                    Some(DsProcessResponse::ExternalCommitInfo(
+                        group_state.external_commit_info(),
+                    )),
+                    None,
+                )
+            }
             // ======= Committing Endpoints =======
             DsRequestParams::AddUsers(add_users_params) => {
                 // This function is async and needs the qs provider, because it
@@ -391,17 +410,24 @@ impl DsApi {
         // group state if it has actually changed.
 
         if group_state_has_changed {
+            let group_id = group_state
+                .group()
+                .group_info()
+                .group_context()
+                .group_id()
+                .clone();
             // ... before we distribute the message, we encrypt ...
-            let encrypted_group_state = group_state
+            let encrypted_group_state = Into::<SerializableDsGroupState>::into(group_state)
                 .encrypt(&ear_key)
-                .map_err(|_| DsProcessingError::CouldNotEncrypt)?;
+                .map_err(|e| {
+                    tracing::error!("Could not encrypt group state: {:?}", e);
+                    DsProcessingError::CouldNotEncrypt
+                })?;
 
             // ... and store the modified group state.
+            tracing::info!("Saving modified group state.");
             ds_storage_provider
-                .save_group_state(
-                    group_state.group().group_info().group_context().group_id(),
-                    encrypted_group_state,
-                )
+                .save_group_state(&group_id, encrypted_group_state)
                 .await
                 .map_err(|_| DsProcessingError::StorageError)?;
         }
@@ -431,7 +457,7 @@ impl DsApi {
             }
         }
 
-        Ok(response_option)
+        Ok(response_option.unwrap_or(DsProcessResponse::Ok))
     }
 
     pub async fn request_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
@@ -447,14 +473,14 @@ impl DsApi {
     }
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
     pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
 }
 
-#[derive(TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponse {
     Ok,

@@ -97,10 +97,8 @@ impl DsStorageProvider for MemoryDsStorage {
         encrypted_group_state: EncryptedDsGroupState,
     ) -> Result<(), MemoryDsStorageError> {
         if let Ok(mut groups) = self.groups.try_lock() {
-            match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
-                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
-                None => Ok(()),
-            }
+            groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state));
+            Ok(())
         } else {
             Err(MemoryDsStorageError::MemoryStoreError)
         }

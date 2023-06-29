@@ -30,8 +30,12 @@ impl DsGroupState {
             if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
                 self.group()
                     .process_assisted_message(params.external_commit.message.clone())
-                    .map_err(|_| JoinConnectionGroupError::ProcessingError)?
+                    .map_err(|e| {
+                        tracing::warn!("Error processing assisted message: {:?}.", e);
+                        JoinConnectionGroupError::ProcessingError
+                    })?
             } else {
+                tracing::warn!("Invalid message: Not an assisted commit.");
                 return Err(JoinConnectionGroupError::InvalidMessage);
             };
 
@@ -44,6 +48,7 @@ impl DsGroupState {
                 processed_message
             } else {
                 // This should be a commit.
+                tracing::warn!("Invalid message: Processed message does not contain a commit.");
                 return Err(JoinConnectionGroupError::InvalidMessage);
             };
 
@@ -58,17 +63,22 @@ impl DsGroupState {
                 return Err(JoinConnectionGroupError::InvalidMessage);
             }
         } else {
+            tracing::warn!("Invalid message: External commit contained unexpected proposals.");
             return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
         let aad_message =
             InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
-                .map_err(|_| JoinConnectionGroupError::InvalidMessage)?;
+                .map_err(|_| {
+                    tracing::warn!("Invalid message: Failed to deserialize AAD.");
+                    JoinConnectionGroupError::InvalidMessage
+                })?;
         // TODO: Check version of Aad Message
         let aad_payload =
             if let InfraAadPayload::JoinConnectionGroup(aad) = aad_message.into_payload() {
                 aad
             } else {
+                tracing::warn!("Invalid message: Wrong AAD payload.");
                 return Err(JoinConnectionGroupError::InvalidMessage);
             };
 
@@ -87,17 +97,18 @@ impl DsGroupState {
         );
 
         // Let's figure out the leaf index of the new member.
-        let sender = self
-            .group()
-            .members()
-            .find_map(|m| {
-                if m.credential == sender_credential {
-                    Some(m.index)
-                } else {
-                    None
-                }
-            })
-            .ok_or(JoinConnectionGroupError::ProcessingError)?;
+        let sender = if let Some(sender) = self.group().members().find_map(|m| {
+            if m.credential == sender_credential {
+                Some(m.index)
+            } else {
+                None
+            }
+        }) {
+            sender
+        } else {
+            tracing::warn!("Could not find sender in group.");
+            return Err(JoinConnectionGroupError::ProcessingError);
+        };
 
         // Create a client profile and a user profile.
         let user_profile = UserProfile {
