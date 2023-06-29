@@ -143,10 +143,10 @@ impl QsWebSocket {
                     // Check if we have reached the timeout
                     if now.duration_since(last_ping) > Duration::from_secs(timeout) {
                         // Change the status to Disconnected and send an event
+                        let _ = ws_stream.close().await;
                         if connection_status.set_disconnected(tx).is_err() {
                             // Close the stream if all subscribers of the watch have been dropped
                             log::info!("Closing the connection because all subscribers are dropped");
-                            let _ = ws_stream.close().await;
                             return;
                         }
                     }
@@ -197,7 +197,8 @@ impl QsWebSocket {
                                 }
                             }
                             Message::Close(_) => {
-                                // Change the status to Disconnected and send an event
+                                // Change the status to Disconnected and send an
+                                // event
                                 let _ = connection_status.set_disconnected(tx);
                                 // We close the websocket
                                 let _ = ws_stream.close().await;
@@ -207,7 +208,8 @@ impl QsWebSocket {
                             }
                         }
                     } else {
-                        // It seems the connection is closed, send disconnect event
+                        // It seems the connection is closed, send disconnect
+                        // event
                         let _ = connection_status.set_disconnected(tx);
                         break;
                     }

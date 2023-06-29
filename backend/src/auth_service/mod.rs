@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::{OpaqueCiphersuite, QueueRatchet, RandomnessError, RatchetEncryptionKey},
+    crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RandomnessError, RatchetEncryptionKey},
     ds::group_state::TimeStamp,
     messages::{
         client_as::{

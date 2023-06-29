@@ -26,8 +26,9 @@ use crate::{
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
+        ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-        ConnectionEncryptionKey, QueueRatchet, RatchetEncryptionKey,
+        ConnectionEncryptionKey, RatchetEncryptionKey,
     },
 };
 

@@ -365,54 +365,30 @@ impl QsStorageProvider for MemStorageProvider {
         tracing::info!("The client requests {number_of_messages} messages and there are {messages_in_queue} messages in the queue.");
 
         if number_of_messages == 0 {
-            // Converting usize to u64 should be safe since we don't consider architectures above 64.
+            // Converting usize to u64 should be safe since we don't consider
+            // architectures above 64.
             return Ok((vec![], queue.queue.len() as u64));
         }
 
-        // Client claims to have seen messages that are not even in the queue yet.
-        if sequence_number > queue.sequence_number {
-            return Err(ReadAndDeleteError::SequenceNumberNotFound);
-        }
-
-        // Let's see what the sequence number at the front of the queue looks
-        // like.
-        match queue.queue.front() {
-            // Queue is empty, but client expects there to still be messages in
-            // the queue.
-            // TODO: Should we also just return an empty vector here?
-            None if sequence_number != queue.sequence_number => {
-                return Err(ReadAndDeleteError::SequenceNumberNotFound)
-            }
-            // No new messages. Queue is empty.
-            None => return Ok((vec![], 0)),
-            // Client expects messages that are not in the queue anymore.
-            // TODO: Should we just round the sequence number up to the nearest
-            // existing one at this point?
-            Some(message) if sequence_number < message.sequence_number => {
-                return Err(ReadAndDeleteError::SequenceNumberNotFound)
-            }
-            // Everything is okay. Let's proceed by deleting and returning messages.
-            Some(_) => (),
-        };
-
         let mut return_messages = vec![];
         while let Some(first_message) = queue.queue.pop_front() {
-            match first_message.sequence_number {
-                // Delete messages until we reached the desired sequence number.
-                x if x < sequence_number => continue,
+            if first_message.sequence_number >= sequence_number {
                 // If we're above the "last seen" sequence number given by the
                 // client, add the popped message to the messages to be
-                // returned. Continue this until there are no more messages, or
-                // until the vector contains as many messages as desired by the
-                // client.
-                _ => return_messages.push(first_message),
+                // returned.
+                // Messages with a lower sequence number are simply dropped.
+                return_messages.push(first_message);
             }
-            // Converting usize to u64 should be safe since we don't consider architectures above 64.
-            if return_messages.len() as u64 == number_of_messages {
+            // Continue this until there are no more messages, or until the
+            // vector contains as many messages as desired by the client.
+            // Converting usize to u64 should be safe since we don't consider
+            // architectures above 64.
+            if return_messages.len() as u64 >= number_of_messages {
                 break;
             }
         }
-        // Converting usize to u64 should be safe since we don't consider architectures above 64.
+        // Converting usize to u64 should be safe since we don't consider
+        // architectures above 64.
         Ok((return_messages, queue.queue.len() as u64))
     }
 

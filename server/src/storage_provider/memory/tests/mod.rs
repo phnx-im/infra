@@ -2,10 +2,4 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pub mod auth_service;
-pub mod ds;
-pub mod qs;
-pub mod qs_connector;
-
-#[cfg(test)]
-mod tests;
+mod qs;

@@ -67,13 +67,17 @@ impl Default for MlsInfraVersion {
 
 // === Queue ===
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct QueueMessage {
     pub sequence_number: u64,
     pub ciphertext: Ciphertext,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct EncryptedQsQueueMessage {
     payload: Ciphertext,
 }

@@ -17,7 +17,6 @@ use phnxserver::endpoints::{
     qs::ws::{QsOpenWsParams, QsWsMessage},
     ENDPOINT_QS_WS,
 };
-use tokio::time::sleep;
 
 use crate::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
 
@@ -49,9 +48,6 @@ async fn test_ws_lifecycle() {
         .spawn_websocket(queue_id, timeout, retry_interval)
         .await
         .expect("Failed to execute request");
-
-    // Wait for the websocket to be connected
-    sleep(Duration::from_secs(1)).await;
 
     // Initial Connected event
     assert_eq!(ws.next().await, Some(WsEvent::ConnectedEvent));

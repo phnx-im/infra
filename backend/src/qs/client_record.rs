@@ -8,8 +8,9 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::{keys::PushTokenEarKey, EarDecryptable},
+        ratchet::QueueRatchet,
         signatures::keys::QsClientVerifyingKey,
-        QueueRatchet, RatchetEncryptionKey, RatchetKeyUpdate,
+        RatchetEncryptionKey, RatchetKeyUpdate,
     },
     ds::group_state::TimeStamp,
     messages::{
@@ -36,7 +37,9 @@ pub(super) enum QueueMessageType {
 }
 
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct QsClientRecord {
     pub user_id: QsUserId,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
@@ -47,6 +50,24 @@ pub struct QsClientRecord {
 }
 
 impl QsClientRecord {
+    /// Create a new client record.
+    pub fn new(
+        user_id: QsUserId,
+        encrypted_push_token: Option<EncryptedPushToken>,
+        owner_public_key: RatchetEncryptionKey,
+        owner_signature_key: QsClientVerifyingKey,
+        current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+    ) -> Self {
+        Self {
+            user_id,
+            encrypted_push_token,
+            owner_public_key,
+            owner_signature_key,
+            current_ratchet_key,
+            activity_time: TimeStamp::now(),
+        }
+    }
+
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
@@ -89,7 +110,14 @@ impl QsClientRecord {
                 storage_provider
                     .enqueue(client_id, queue_message)
                     .await
-                    .map_err(EnqueueError::StorageProviderError::<S>)?;
+                    .map_err(EnqueueError::StorageProviderEnqueueError::<S>)?;
+
+                // We also update th client record in the storage provider,
+                // since we need to store the new ratchet key.
+                storage_provider
+                    .store_client(client_id, self.clone())
+                    .await
+                    .map_err(EnqueueError::StorageProviderStoreClientError::<S>)?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier

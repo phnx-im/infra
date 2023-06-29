@@ -99,7 +99,15 @@ impl SigningKey for UserAuthSigningKey {}
 impl SigningKey for &UserAuthSigningKey {}
 
 #[derive(
-    Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
 )]
 pub struct QsClientVerifyingKey {
     verifying_key: Vec<u8>,
@@ -148,7 +156,15 @@ impl AsRef<[u8]> for QsClientSigningKey {
 impl SigningKey for QsClientSigningKey {}
 
 #[derive(
-    Clone, Serialize, Deserialize, ToSchema, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
 )]
 pub struct QsUserVerifyingKey {
     verifying_key: Vec<u8>,
