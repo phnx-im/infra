@@ -33,11 +33,11 @@ use crate::{
         hpke::{
             HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
         },
+        ratchet::QueueRatchet,
         signatures::{
             keys::UserAuthVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
-        QueueRatchet,
     },
     ds::{
         group_state::{EncryptedClientCredential, UserKeyHash},
@@ -63,14 +63,18 @@ pub(crate) struct DsClientId {
 
 pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum QsQueueMessageType {
     WelcomeBundle,
     MlsMessage,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize,
+)]
 pub struct QsQueueMessagePayload {
     pub message_type: QsQueueMessageType,
     pub payload: Vec<u8>,

@@ -29,9 +29,26 @@ const AEAD_NONCE_SIZE: usize = 12;
 
 // Convenience struct that allows us to keep ciphertext and nonce together.
 #[derive(
-    Clone, Debug, Serialize, Deserialize, ToSchema, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
 )]
 pub struct Ciphertext {
     ciphertext: VLBytes,
     nonce: [u8; AEAD_NONCE_SIZE],
+}
+
+impl Default for Ciphertext {
+    fn default() -> Self {
+        Self {
+            ciphertext: VLBytes::new(vec![]),
+            nonce: [0u8; AEAD_NONCE_SIZE],
+        }
+    }
 }
