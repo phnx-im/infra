@@ -62,7 +62,7 @@ async fn inexistant_endpoint() {
     assert!(client.inexistant_endpoint().await);
 }
 
-//#[should_panic]
+#[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Full cycle", skip_all)]
 async fn full_cycle() {
