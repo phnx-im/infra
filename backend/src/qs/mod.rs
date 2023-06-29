@@ -120,7 +120,7 @@ impl PushToken {
     }
 }
 #[derive(
-    Serialize, Deserialize, ToSchema, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Serialize, Deserialize, PartialEq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct EncryptedPushToken {
     ctxt: Ciphertext,

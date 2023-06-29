@@ -77,6 +77,8 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Saves a client in the storage provider with the given client ID. The
     /// storage provider must associate this client with the user of the client.
+    /// If a client with the given client ID already exists, it will be
+    /// overwritten.
     async fn store_client(
         &self,
         client_id: &QsClientId,

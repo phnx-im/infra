@@ -6,7 +6,7 @@ use crate::{crypto::signatures::keys::QsUserVerifyingKey, messages::FriendshipTo
 
 use super::QsClientId;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct QsUserRecord {
     pub(crate) auth_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,

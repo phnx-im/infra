@@ -33,7 +33,7 @@ use super::{
     errors::{UpdateQueueConfigError, ValidationError},
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeStamp {
     time: DateTime<Utc>,
 }

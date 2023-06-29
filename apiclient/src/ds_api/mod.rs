@@ -49,9 +49,6 @@ use phnxbackend::{
 use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
 use tls_codec::DeserializeBytes;
 
-#[cfg(test)]
-mod tests;
-
 #[derive(Error, Debug)]
 pub enum DsRequestError {
     #[error("Library Error")]
