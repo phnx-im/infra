@@ -62,7 +62,7 @@ async fn inexistant_endpoint() {
     assert!(client.inexistant_endpoint().await);
 }
 
-#[should_panic]
+//#[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Full cycle", skip_all)]
 async fn full_cycle() {
@@ -73,32 +73,42 @@ async fn full_cycle() {
 
     // Create a users
     let mut alice = SelfUser::new("alice", "alicepassword", address, notification_hub_alice).await;
+    tracing::info!("Created alice");
     let mut bob = SelfUser::new("bob", "bobpassword", address, notification_hub_bob).await;
+    tracing::info!("Created bob");
 
     assert!(alice.get_conversations().is_empty());
     assert!(bob.get_conversations().is_empty());
 
     // Alice adds Bob as a contact
+    tracing::info!("Alice adds Bob as a contact");
     alice.add_contact("bob").await;
 
     assert!(alice.contacts().is_empty());
     assert_eq!(alice.partial_contacts().len(), 1);
 
     assert_eq!(&alice.partial_contacts()[0].user_name.to_string(), "bob");
+    assert_eq!(alice.get_conversations().len(), 1);
 
     // Bob fetches messages from the AS
+    tracing::info!("Bob fetches messages from the AS");
     let as_messages = bob.as_fetch_messages().await;
     bob.process_as_messages(as_messages).await.unwrap();
 
-    assert_eq!(alice.get_conversations().len(), 1);
+    tracing::info!("Alice fetches her messages from the QS");
+    let qs_messages = alice.qs_fetch_messages().await;
+    alice.process_qs_messages(qs_messages).await.unwrap();
+    panic!()
 
-    let conversation_id = alice
-        .create_conversation("Conversation Alice/Bob")
-        .await
-        .unwrap();
+    //tracing::info!("Alice creates a conversation with Bob");
+    //let conversation_id = alice
+    //    .create_conversation("Conversation Alice/Bob")
+    //    .await
+    //    .unwrap();
 
-    alice
-        .invite_users(&conversation_id, &["bob"])
-        .await
-        .unwrap();
+    //tracing::info!("Alice invites Bob");
+    //alice
+    //    .invite_users(&conversation_id, &["bob"])
+    //    .await
+    //    .unwrap();
 }

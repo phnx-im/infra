@@ -77,8 +77,6 @@ pub struct CreateUserRecordParams {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetEncryptionKey,
-    pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_secret: RatchetSecret,
 }
@@ -119,8 +117,6 @@ pub struct CreateClientRecordParams {
     pub(crate) sender: QsUserId,
     pub(crate) client_record_auth_key: QsClientVerifyingKey,
     pub(crate) queue_encryption_key: RatchetEncryptionKey,
-    pub(crate) add_packages: Vec<AddPackageIn>,
-    pub(crate) friendship_ear_key: AddPackageEarKey,
     pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
     pub(crate) initial_ratchet_secret: RatchetSecret, // TODO: This can be dropped once we support PCS
 }

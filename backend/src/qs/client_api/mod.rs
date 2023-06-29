@@ -113,7 +113,7 @@ impl Qs {
 
         // TODO: The backend should have its own value for max_messages and use
         // that one if the client-given one exceeds it.
-        tracing::trace!("Reading and deleting messages from storage provider");
+        tracing::info!("Reading and deleting messages from storage provider");
         let (messages, remaining_messages_number) = storage_provider
             .read_and_delete(&sender, sequence_number_start, max_message_number)
             .await

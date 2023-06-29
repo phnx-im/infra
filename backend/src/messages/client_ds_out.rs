@@ -17,7 +17,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -42,11 +42,32 @@ use super::{
     MlsInfraVersion,
 };
 
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(TlsSize)]
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
     pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+}
+
+impl DeserializeBytes for ExternalCommitInfoIn {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (verifiable_group_info, bytes) = VerifiableGroupInfo::tls_deserialize(bytes)?;
+        tracing::info!("Successfully deserialized group info.");
+        let (ratchet_tree_in, bytes) = RatchetTreeIn::tls_deserialize(bytes)?;
+        tracing::info!("Successfully deserialized ratchet tree.");
+        let (encrypted_client_credentials, bytes) =
+            Vec::<Option<EncryptedClientCredential>>::tls_deserialize(bytes)?;
+        tracing::info!("Successfully deserialized client credentials.");
+        let result = Self {
+            verifiable_group_info,
+            ratchet_tree_in,
+            encrypted_client_credentials,
+        };
+        Ok((result, bytes))
+    }
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -64,7 +85,7 @@ pub struct CreateGroupParamsOut {
     pub encrypted_client_credential: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
-    pub group_info: GroupInfo,
+    pub group_info: MlsMessageOut,
 }
 
 pub type AssistedMessagePlusOut = (MlsMessageOut, AssistedGroupInfo);

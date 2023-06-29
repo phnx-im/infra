@@ -44,7 +44,8 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");
-            HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
+            let serialized_response = response.tls_serialize_detached().unwrap();
+            HttpResponse::Ok().body(serialized_response)
         }
         // If the message could not be processed, return an error.
         Err(e) => {
@@ -67,10 +68,13 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
 pub(crate) async fn ds_request_group_id<Dsp: DsStorageProvider>(
     ds_storage_provider: Data<Dsp>,
 ) -> impl Responder {
+    tracing::info!("Processing group id request.");
     // Extract the storage provider.
     let storage_provider = ds_storage_provider.get_ref();
     // Create a new group on the DS.
+    tracing::info!("Generating group id.");
     let group_id = DsApi::request_group_id(storage_provider).await;
 
+    tracing::info!("Done.");
     HttpResponse::Ok().body(group_id.tls_serialize_detached().unwrap())
 }

@@ -20,7 +20,8 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
+    DeserializeBytes, Serialize as TlsSerializeTrait, Size, TlsDeserializeBytes, TlsSerialize,
+    TlsSize,
 };
 use utoipa::ToSchema;
 
@@ -209,7 +210,7 @@ pub struct CreateGroupParams {
     pub encrypted_client_credential: EncryptedClientCredential,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
-    pub group_info: VerifiableGroupInfo,
+    pub group_info: MlsMessageIn,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema)]
@@ -257,10 +258,28 @@ pub struct ConnectionGroupInfoParams {
 // TODO: We want this to contain the message bytes as well s.t. we don't have to
 // re-serialize after processing on the server side. This proves to be tricky
 // even though we now have DeserializeBytes.
-#[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
+#[derive(Debug, TlsSize, ToSchema)]
 pub struct AssistedMessagePlus {
     pub message: AssistedMessage,
     pub message_bytes: Vec<u8>,
+}
+
+impl DeserializeBytes for AssistedMessagePlus {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (message, remainder) = AssistedMessage::tls_deserialize(bytes)?;
+        let message_bytes = bytes
+            .get(..bytes.len() - remainder.len())
+            .ok_or(tls_codec::Error::EndOfStream)?
+            .to_vec();
+        let message_plus = Self {
+            message,
+            message_bytes,
+        };
+        Ok((message_plus, remainder))
+    }
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
@@ -377,11 +396,11 @@ pub struct DeleteGroupParams {
 #[repr(u8)]
 pub(crate) enum DsRequestParams {
     AddUsers(AddUsersParams),
+    CreateGroupParams(CreateGroupParams),
     RemoveUsers(RemoveUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
-    CreateGroupParams(CreateGroupParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
     UpdateClient(UpdateClientParams),
     JoinGroup(JoinGroupParams),
@@ -583,10 +602,29 @@ pub(crate) struct ClientToDsMessageIn {
     signature: Signature,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, TlsSize)]
 pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessageIn,
     serialized_payload: Vec<u8>,
+}
+
+impl DeserializeBytes for VerifiableClientToDsMessage {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (message, remainder) = ClientToDsMessageIn::tls_deserialize(bytes)?;
+        // We want the payload to be the TBS bytes, which means we want all the bytes except the signature.
+        let serialized_payload = bytes
+            .get(..bytes.len() - remainder.len() - message.signature.tls_serialized_len())
+            .ok_or(tls_codec::Error::EndOfStream)?
+            .to_vec();
+        let verifiable_message = Self {
+            message,
+            serialized_payload,
+        };
+        Ok((verifiable_message, remainder))
+    }
 }
 
 impl VerifiableClientToDsMessage {

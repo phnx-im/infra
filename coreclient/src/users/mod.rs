@@ -34,6 +34,7 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
+    ds::api::QS_CLIENT_REFERENCE_EXTENSION_TYPE,
     messages::{
         client_as::{
             AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackage,
@@ -42,7 +43,10 @@ use phnxbackend::{
         client_ds::QsQueueRatchet,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
-    qs::{AddPackage, ClientIdEncryptionKey, PushToken, QsClientId, QsUserId, QsVerifyingKey},
+    qs::{
+        AddPackage, ClientConfig, ClientIdEncryptionKey, Fqdn, QsClientId, QsClientReference,
+        QsUserId, QsVerifyingKey,
+    },
 };
 use rand::rngs::OsRng;
 
@@ -269,6 +273,19 @@ impl<T: Notifiable> SelfUser<T> {
             .credential()
             .encrypt(&key_store.client_credential_ear_key)
             .unwrap();
+
+        let create_user_record_response = api_client
+            .qs_create_user(
+                key_store.friendship_token.clone(),
+                key_store.qs_client_signing_key.verifying_key().clone(),
+                key_store.qs_queue_decryption_key.encryption_key(),
+                None,
+                qs_initial_ratchet_secret,
+                &key_store.qs_user_signing_key,
+            )
+            .await
+            .unwrap();
+
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably
@@ -278,6 +295,9 @@ impl<T: Notifiable> SelfUser<T> {
                 &crypto_backend,
                 &key_store.signing_key,
                 &key_store.signature_ear_key,
+                &create_user_record_response.client_id,
+                Some(&key_store.push_token_ear_key),
+                &key_store.qs_client_id_encryption_key,
             );
             key_store.leaf_signers.insert(
                 leaf_signer.credential().verifying_key().clone(),
@@ -287,16 +307,13 @@ impl<T: Notifiable> SelfUser<T> {
             qs_add_packages.push(add_package);
         }
 
-        let create_user_record_response = api_client
-            .qs_create_user(
-                key_store.friendship_token.clone(),
-                key_store.qs_client_signing_key.verifying_key().clone(),
-                key_store.qs_queue_decryption_key.encryption_key(),
+        // Upload add packages
+        api_client
+            .qs_publish_key_packages(
+                create_user_record_response.client_id.clone(),
                 qs_add_packages,
                 key_store.add_package_ear_key.clone(),
-                None,
-                qs_initial_ratchet_secret,
-                &key_store.qs_user_signing_key,
+                &key_store.qs_client_signing_key,
             )
             .await
             .unwrap();
@@ -322,6 +339,9 @@ impl<T: Notifiable> SelfUser<T> {
         crypto_backend: &impl OpenMlsCryptoProvider,
         signing_key: &ClientSigningKey,
         signature_encryption_key: &SignatureEarKey,
+        qs_client_id: &QsClientId,
+        push_token_ear_key_option: Option<&PushTokenEarKey>,
+        qs_encryption_key: &ClientIdEncryptionKey,
     ) -> (KeyPackage, InfraCredentialSigningKey) {
         let leaf_signer =
             InfraCredentialSigningKey::generate(signing_key, signature_encryption_key);
@@ -336,8 +356,23 @@ impl<T: Notifiable> SelfUser<T> {
             Some(&SUPPORTED_PROPOSALS),
             Some(&SUPPORTED_CREDENTIALS),
         );
+        let sealed_reference = ClientConfig {
+            client_id: qs_client_id.clone(),
+            push_token_ear_key: push_token_ear_key_option.cloned(),
+        }
+        .encrypt(qs_encryption_key, &[], &[]);
+        let client_reference = QsClientReference {
+            client_homeserver_domain: Fqdn {},
+            sealed_reference,
+        };
+        let extension = Extension::Unknown(
+            QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+            UnknownExtension(client_reference.tls_serialize_detached().unwrap()),
+        );
+        let extensions = Extensions::single(extension);
         let kp = KeyPackage::builder()
             .leaf_node_capabilities(capabilities)
+            .leaf_node_extensions(extensions)
             .build(
                 CryptoConfig {
                     ciphersuite: CIPHERSUITE,
@@ -415,7 +450,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation_messages =
             staged_commit_to_conversation_messages(&self.user_name, staged_commit);
         // Merge the pending commit.
-        group.merge_pending_commit(&self.crypto_backend)?;
+        group.merge_pending_commit(&self.crypto_backend, None)?;
         // Send off the notifications
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
@@ -466,7 +501,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation_messages =
             staged_commit_to_conversation_messages(&self.user_name, staged_commit);
         // Merge the pending commit.
-        group.merge_pending_commit(&self.crypto_backend)?;
+        group.merge_pending_commit(&self.crypto_backend, None)?;
         // Send off the notifications
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
@@ -533,12 +568,14 @@ impl<T: Notifiable> SelfUser<T> {
         };
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
+
         let user_key_packages = self
             .api_client
             .as_user_connection_packages(params)
             .await
             .unwrap();
         let connection_packages = user_key_packages.connection_packages;
+        log::info!("Fetched {} connection packages", connection_packages.len());
         // Verify the connection key packages
         let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
             .into_iter()
@@ -598,6 +635,28 @@ impl<T: Notifiable> SelfUser<T> {
         .unwrap();
 
         self.group_store.store_group(connection_group).unwrap();
+        let group = self.group_store.get_group_mut(&group_id).unwrap();
+        let sealed_reference = ClientConfig {
+            client_id: self.qs_client_id.clone(),
+            push_token_ear_key: Some(self.key_store.push_token_ear_key.clone()),
+        }
+        .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
+        let client_reference = QsClientReference {
+            client_homeserver_domain: Fqdn {},
+            sealed_reference,
+        };
+        let params = group.prepare_group_creation(
+            &self.crypto_backend,
+            self.key_store.signing_key.credential(),
+            client_reference,
+        );
+
+        log::info!("Requesting creation of connection group on the DS.");
+        self.api_client
+            .ds_create_group(params, group.group_state_ear_key(), group.user_auth_key())
+            .await
+            .unwrap();
+
         // Create the connection conversation
         let conversation_id = self.conversation_store.create_connection_conversation(
             group_id,
@@ -622,6 +681,7 @@ impl<T: Notifiable> SelfUser<T> {
             );
             let client_id = connection_package.client_credential().identity();
 
+            log::info!("Sending connection package");
             self.api_client
                 .as_enqueue_message(client_id, ciphertext)
                 .await

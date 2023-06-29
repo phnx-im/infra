@@ -502,7 +502,7 @@ impl Verifiable for KeyPackageBatch<UNVERIFIED> {
     }
 
     fn label(&self) -> &str {
-        "KeyPackageBatchTBS"
+        "KeyPackageBatch"
     }
 }
 

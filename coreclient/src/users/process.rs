@@ -5,7 +5,9 @@
 use phnxbackend::crypto::hpke::HpkeDecryptable;
 use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
 use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
-use phnxbackend::messages::client_ds::ExtractedQsQueueMessagePayload;
+use phnxbackend::messages::client_ds::{
+    ExtractedQsQueueMessagePayload, InfraAadPayload, JoinConnectionGroupParamsAad,
+};
 use phnxbackend::messages::client_ds_out::ExternalCommitInfoIn;
 use phnxbackend::messages::QueueMessage;
 use phnxbackend::qs::{ClientConfig, Fqdn, QsClientReference};
@@ -20,6 +22,8 @@ impl<T: Notifiable> SelfUser<T> {
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
     ) -> Result<(), CorelibError> {
+        let number_of_messages = message_ciphertexts.len();
+        log::info!("Processing {number_of_messages} QS messages");
         // Decrypt received message.
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
@@ -62,6 +66,7 @@ impl<T: Notifiable> SelfUser<T> {
                     self.notification_hub.dispatch_conversation_notification();
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
+                    log::info!("Processing MLS Message");
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
                         MlsMessageInBody::PublicMessage(handshake_message) => handshake_message.into(),
                         // Only application messages are private
@@ -84,6 +89,7 @@ impl<T: Notifiable> SelfUser<T> {
                                 protocol_message,
                                 &self.key_store.as_intermediate_credentials,
                             );
+
                             match processed_message {
                                 Ok((processed_message, group_was_deleted, sender_credential)) => {
                                     let sender = processed_message.sender().clone();
@@ -190,25 +196,33 @@ impl<T: Notifiable> SelfUser<T> {
                                                         );
                                                 }
                                             }
-                                            staged_commit_to_conversation_messages(
+                                            // If the group was deleted, we set the group to inactive.
+                                            if group_was_deleted {
+                                                let past_members = group
+                                                    .members()
+                                                    .into_iter()
+                                                    .map(|user_name| user_name.to_string())
+                                                    .collect::<Vec<_>>();
+                                                self.conversation_store
+                                                    .set_inactive(&conversation_id, &past_members);
+                                            }
+                                            let messages = staged_commit_to_conversation_messages(
                                                 &sender_credential.identity().user_name(),
                                                 &staged_commit,
-                                            )
+                                            );
+                                            group
+                                                .merge_pending_commit(
+                                                    &self.crypto_backend,
+                                                    *staged_commit,
+                                                )
+                                                .unwrap();
+                                            messages
                                         }
                                         ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                                             unimplemented!()
                                         }
                                     };
-                                    // If the group was deleted, we set the group to inactive.
-                                    if group_was_deleted {
-                                        let past_members = group
-                                            .members()
-                                            .into_iter()
-                                            .map(|user_name| user_name.to_string())
-                                            .collect::<Vec<_>>();
-                                        self.conversation_store
-                                            .set_inactive(&conversation_id, &past_members);
-                                    }
+                                    // If we got until here, the message was deemed valid and we can apply the diff.
 
                                     for conversation_message in conversation_messages {
                                         let dispatched_conversation_message =
@@ -250,6 +264,8 @@ impl<T: Notifiable> SelfUser<T> {
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
     ) -> Result<(), CorelibError> {
+        let number_of_messages = message_ciphertexts.len();
+        log::info!("Processing {number_of_messages} AS messages.");
         // Decrypt received message.
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
             .into_iter()
@@ -267,6 +283,7 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
+                    log::info!("Found an encrypted connection establishment package.");
                     let cep_in = ConnectionEstablishmentPackageIn::decrypt(
                         ecep,
                         &self.key_store.connection_decryption_key,
@@ -288,11 +305,22 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await
                         .unwrap();
-                    let (key_package, leaf_signer) = Self::generate_keypackage(
-                        &self.crypto_backend,
+
+                    let leaf_signer = InfraCredentialSigningKey::generate(
                         &self.key_store.signing_key,
                         &cep_tbs.connection_group_signature_ear_key,
                     );
+
+                    let aad = InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
+                        encrypted_credential_information: self
+                            .key_store
+                            .signing_key
+                            .credential()
+                            .encrypt(&cep_tbs.connection_group_credential_key)
+                            .unwrap(),
+                    })
+                    .into();
+
                     let (group, commit, group_info) = Group::join_group_externally(
                         &self.crypto_backend,
                         eci,
@@ -300,8 +328,9 @@ impl<T: Notifiable> SelfUser<T> {
                         cep_tbs.connection_group_ear_key.clone(),
                         cep_tbs.connection_group_signature_ear_key,
                         cep_tbs.connection_group_credential_key,
-                        self.key_store.signing_key.credential(),
                         &self.key_store.as_intermediate_credentials,
+                        aad,
+                        self.key_store.signing_key.credential(),
                     )
                     .unwrap();
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
@@ -325,6 +354,7 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await
                         .unwrap();
+                    log::info!("Successfully sent response.");
                     let key_packages: Vec<KeyPackage> = response
                         .add_packages
                         .into_iter()
