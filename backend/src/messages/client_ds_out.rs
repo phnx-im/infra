@@ -16,7 +16,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{

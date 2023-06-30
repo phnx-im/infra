@@ -116,7 +116,7 @@ impl<T: Notifiable> SelfUser<T> {
         address: SocketAddr,
         notification_hub: NotificationHub<T>,
     ) -> Self {
-        log::info!("Creating new user {}", user_name);
+        log::debug!("Creating new user {}", user_name);
         let user_name: UserName = UserName::from(user_name.to_string());
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
@@ -126,10 +126,7 @@ impl<T: Notifiable> SelfUser<T> {
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519).unwrap();
 
-        log::info!("Fetch AS credentials");
-
         let as_credentials_response = api_client.as_as_credentials().await.unwrap();
-        log::info!("Verifying credentials");
         let as_intermediate_credentials: Vec<AsIntermediateCredential> = as_credentials_response
             .as_intermediate_credentials
             .into_iter()

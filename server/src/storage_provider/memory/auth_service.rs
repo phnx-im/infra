@@ -378,8 +378,6 @@ impl AsStorageProvider for MemoryAsStorage {
             return Ok((vec![], queue.queue.len() as u64));
         }
 
-        let messages_in_queue = queue.queue.len() as u64;
-
         // Client claims to have seen messages that are not even in the queue yet.
         let queue_sequence_number = queue.sequence_number;
         if sequence_number > queue_sequence_number {
