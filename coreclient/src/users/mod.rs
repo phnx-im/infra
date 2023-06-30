@@ -540,7 +540,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn send_message(
         &mut self,
         conversation_id: Uuid,
-        message: &str,
+        message: MessageContentType,
     ) -> Result<ConversationMessage, CorelibError> {
         let group_id = &self
             .conversation_store
@@ -551,14 +551,16 @@ impl<T: Notifiable> SelfUser<T> {
         // Generate ciphertext
         let params = self
             .group_store
-            .create_message(&self.crypto_backend, &group_id.as_group_id(), message)
+            .create_message(
+                &self.crypto_backend,
+                &group_id.as_group_id(),
+                message.clone(),
+            )
             .map_err(CorelibError::Group)?;
 
         // Store message locally
         let message = Message::Content(ContentMessage {
-            content: MessageContentType::Text(TextMessage {
-                message: message.to_string(),
-            }),
+            content: message,
             sender: self.user_name.as_bytes().to_vec(),
         });
         let conversation_message = new_conversation_message(message);

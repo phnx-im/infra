@@ -26,7 +26,7 @@ pub struct Notifier<T: Notifiable> {
 }
 
 impl<T: Notifiable> Notifier<T> {
-    pub(crate) fn new(n: T) -> Self {
+    pub fn new(n: T) -> Self {
         Self { n }
     }
 
@@ -40,6 +40,10 @@ pub struct NotificationHub<T: Notifiable> {
 }
 
 impl<T: Notifiable> NotificationHub<T> {
+    pub fn add_sink(&mut self, sink: Notifier<T>) {
+        self.sinks.push(sink);
+    }
+
     pub(crate) fn dispatch_message_notification(
         &mut self,
         dispatched_conversation_message: DispatchedConversationMessage,

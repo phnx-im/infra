@@ -34,7 +34,7 @@ impl ConversationStore {
         let conversation = Conversation {
             id: conversation_id,
             group_id: UuidBytes::from_group_id(&group_id),
-            status: ConversationStatus::Active(ActiveConversation {}),
+            status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(
                 user_name.as_bytes().to_vec(),
             ),
@@ -54,7 +54,7 @@ impl ConversationStore {
         let conversation = Conversation {
             id: conversation_id,
             group_id: UuidBytes::from_group_id(&group_id),
-            status: ConversationStatus::Active(ActiveConversation {}),
+            status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),
             attributes,

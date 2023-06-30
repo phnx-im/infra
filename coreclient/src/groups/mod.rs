@@ -141,6 +141,10 @@ impl Group {
         let user_auth_key = UserAuthSigningKey::generate().unwrap();
         let group_state_ear_key = GroupStateEarKey::random().unwrap();
         let signature_ear_key = SignatureEarKey::random().unwrap();
+        log::info!(
+            "Creating group with signature ear key: {:?}",
+            signature_ear_key
+        );
 
         let leaf_signer = InfraCredentialSigningKey::generate(signer, &signature_ear_key);
 
@@ -218,21 +222,6 @@ impl Group {
             })
             .unwrap();
 
-        // Let's create the group first so that we can access the GroupId.
-        let mls_group = match MlsGroup::new_from_welcome(
-            backend,
-            &mls_group_config,
-            welcome_bundle.welcome.welcome,
-            None, /* no public tree here, has to be in the extension */
-        ) {
-            Ok(g) => g,
-            Err(e) => {
-                let s = format!("Error creating group from Welcome: {:?}", e);
-                log::info!("{}", s);
-                return Err(GroupOperationError::WelcomeError(e));
-            }
-        };
-
         let private_key = backend
             .key_store()
             .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
@@ -248,6 +237,20 @@ impl Group {
             aad,
         )
         .unwrap();
+
+        let mls_group = match MlsGroup::new_from_welcome(
+            backend,
+            &mls_group_config,
+            welcome_bundle.welcome.welcome,
+            None, /* no public tree here, has to be in the extension */
+        ) {
+            Ok(g) => g,
+            Err(e) => {
+                let s = format!("Error creating group from Welcome: {:?}", e);
+                log::info!("{}", s);
+                return Err(GroupOperationError::WelcomeError(e));
+            }
+        };
 
         // Decrypt WelcomeAttributionInfo
         let welcome_attribution_info = WelcomeAttributionInfo::decrypt(
@@ -298,6 +301,10 @@ impl Group {
             .members()
             .for_each(|m| match m.credential.mls_credential_type() {
                 MlsCredentialType::Infra(credential) => {
+                    log::info!(
+                        "Joining group. Decrypting signature with the following key: {:?}",
+                        welcome_attribution_info.signature_encryption_key()
+                    );
                     let _verified_credential: InfraCredentialTbs =
                         InfraCredentialPlaintext::decrypt(
                             credential,
@@ -380,6 +387,7 @@ impl Group {
         )
         .unwrap();
         mls_group.set_aad(&[]);
+        mls_group.merge_pending_commit(backend).unwrap();
 
         let group_info = group_info_option.unwrap();
 
@@ -1047,11 +1055,18 @@ impl Group {
     pub fn create_message(
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
-        msg: &str,
+        msg: MessageContentType,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let message = self
-            .mls_group
-            .create_message(backend, &self.leaf_signer, msg.as_bytes())?;
+        let mls_message = self.mls_group.create_message(
+            backend,
+            &self.leaf_signer,
+            &msg.tls_serialize_detached()?,
+        )?;
+
+        let message = AssistedMessageOut {
+            mls_message,
+            group_info_option: None,
+        };
 
         let send_message_params = SendMessageParamsOut {
             sender: self.mls_group.own_leaf_index(),
@@ -1122,9 +1137,10 @@ pub(crate) fn application_message_to_conversation_messages(
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
         sender: sender.identity().user_name().as_bytes().to_vec(),
-        content: MessageContentType::Text(TextMessage {
-            message: String::from_utf8_lossy(&application_message.into_bytes()).into(),
-        }),
+        content: MessageContentType::tls_deserialize(
+            &mut application_message.into_bytes().as_slice(),
+        )
+        .unwrap(),
     }))]
 }
 

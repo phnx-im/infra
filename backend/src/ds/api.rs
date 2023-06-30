@@ -443,10 +443,10 @@ impl DsApi {
                     client_reference,
                 };
 
-                qs_connector
-                    .dispatch(ds_fan_out_msg)
-                    .await
-                    .map_err(|_| DsProcessingError::DistributionError)?;
+                qs_connector.dispatch(ds_fan_out_msg).await.map_err(|e| {
+                    tracing::warn!("Could not distribute message: {:?}", e);
+                    DsProcessingError::DistributionError
+                })?;
             }
         }
 

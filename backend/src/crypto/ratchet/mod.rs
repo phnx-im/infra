@@ -60,7 +60,7 @@ impl<
 
         self.secret = secret;
         self.key = key;
-        self.sequence_number = 0;
+        self.sequence_number += 1;
 
         Ok(())
     }
@@ -70,12 +70,14 @@ impl<
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?;
 
-        self.ratchet_forward()?;
-
-        Ok(QueueMessage {
+        let queue_message = QueueMessage {
             sequence_number: self.sequence_number,
             ciphertext: ciphertext.as_ref().clone(),
-        })
+        };
+
+        self.ratchet_forward()?;
+
+        Ok(queue_message)
     }
 
     /// Decrypt the given payload.

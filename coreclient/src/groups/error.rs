@@ -34,6 +34,8 @@ pub enum GroupOperationError {
     DuplicateUserAddition,
     #[error("Client already in group")]
     DuplicateClientAddition,
+    #[error(transparent)]
+    TlsCodecError(#[from] tls_codec::Error),
 }
 
 implement_error! {

@@ -133,7 +133,7 @@ pub struct SelfRemoveClientParamsOut {
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct SendMessageParamsOut {
-    pub message: MlsMessageOut,
+    pub message: AssistedMessageOut,
     pub sender: LeafNodeIndex,
 }
 

@@ -17,24 +17,24 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct Contact {
-    user_name: UserName,
-    last_resort_add_info: ContactAddInfos,
-    add_infos: Vec<ContactAddInfos>,
+    pub user_name: UserName,
+    pub(crate) last_resort_add_info: ContactAddInfos,
+    pub(crate) add_infos: Vec<ContactAddInfos>,
     // These should be in the same order as the KeyPackages in the ContactInfos.
     // TODO: This is a bit brittle, but as far as I can see, there is no way to
     // otherwise correlate client credentials with KeyPackages. We might want to
     // change the signature ciphertext in the InfraCredentials to also include
     // the fingerprint of the ClientCredential s.t. we can correlate them
     // without verifying every time.
-    client_credentials: Vec<ClientCredential>,
+    pub(crate) client_credentials: Vec<ClientCredential>,
     // Encryption key for WelcomeAttributionInfos
-    wai_ear_key: WelcomeAttributionInfoEarKey,
-    friendship_token: FriendshipToken,
-    add_package_ear_key: AddPackageEarKey,
-    client_credential_ear_key: ClientCredentialEarKey,
-    signature_ear_key: SignatureEarKey,
+    pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
+    pub(crate) friendship_token: FriendshipToken,
+    pub(crate) add_package_ear_key: AddPackageEarKey,
+    pub(crate) client_credential_ear_key: ClientCredentialEarKey,
+    pub(crate) signature_ear_key: SignatureEarKey,
     // ID of the connection conversation with this contact.
-    conversation_id: Uuid,
+    pub(crate) conversation_id: Uuid,
 }
 
 #[derive(Debug, Clone)]

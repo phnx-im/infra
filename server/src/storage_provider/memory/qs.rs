@@ -339,6 +339,11 @@ impl QsStorageProvider for MemStorageProvider {
 
         // Check if sequence numbers are consistent.
         if queue.sequence_number != message.sequence_number {
+            tracing::warn!(
+                "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
+                message.sequence_number,
+                queue.sequence_number
+            );
             return Err(QueueError::SequenceNumberMismatch);
         }
         queue.sequence_number += 1;
