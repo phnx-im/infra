@@ -15,7 +15,7 @@ use mls_assist::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait, Size,
-    TlsDeserializeBytes, TlsSerialize, TlsSize,
+    TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes,
 };
 
 use crate::{
@@ -106,12 +106,12 @@ impl TimeStamp {
     TlsSize,
 )]
 pub struct UserKeyHash {
-    pub(super) hash: Vec<u8>,
+    pub(super) hash: VLBytes,
 }
 
 impl UserKeyHash {
     pub(crate) fn new(hash: Vec<u8>) -> Self {
-        Self { hash }
+        Self { hash: hash.into() }
     }
 }
 

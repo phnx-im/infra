@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::AssistedMessage,
     openmls::prelude::Extension,
     openmls::prelude::{
         KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
@@ -36,7 +35,7 @@ use crate::{
 
 use super::{
     api::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, USER_EXPIRATION_DAYS},
-    errors::UserAdditionError,
+    errors::AddUsersError,
     group_state::{ClientProfile, EncryptedClientCredential, TimeStamp},
 };
 
@@ -48,48 +47,47 @@ impl DsGroupState {
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
-    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), UserAdditionError> {
+    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), AddUsersError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message =
-            if matches!(params.commit.message, AssistedMessage::Commit(_)) {
-                self.group()
-                    .process_assisted_message(params.commit.message.clone())
-                    .map_err(|_| UserAdditionError::ProcessingError)?
-            } else {
-                return Err(UserAdditionError::InvalidMessage);
-            };
+        let processed_assisted_message_plus = self
+            .group()
+            .process_assisted_message(params.commit)
+            .map_err(|e| {
+                tracing::warn!("Error processing assisted message: {:?}", e);
+                AddUsersError::ProcessingError
+            })?;
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
         let processed_message =
             if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
-                processed_assisted_message
+                &processed_assisted_message_plus.processed_assisted_message
             {
                 processed_message
             } else {
                 // This should be a commit.
-                return Err(UserAdditionError::InvalidMessage);
+                return Err(AddUsersError::InvalidMessage);
             };
 
         // Validate that the AAD includes enough encrypted credential chains
         let aad_message =
             InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
-                .map_err(|_| UserAdditionError::InvalidMessage)?;
+                .map_err(|_| AddUsersError::InvalidMessage)?;
         // TODO: Check version of Aad Message
         let aad_payload = if let InfraAadPayload::AddUsers(aad) = aad_message.into_payload() {
             aad
         } else {
-            return Err(UserAdditionError::InvalidMessage);
+            return Err(AddUsersError::InvalidMessage);
         };
         let staged_commit = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         {
             let remove_proposals: Vec<_> = staged_commit.remove_proposals().collect();
             self.process_referenced_remove_proposals(&remove_proposals)
-                .map_err(|_| UserAdditionError::InvalidMessage)?;
+                .map_err(|_| AddUsersError::InvalidMessage)?;
             staged_commit
         } else {
-            return Err(UserAdditionError::InvalidMessage);
+            return Err(AddUsersError::InvalidMessage);
         };
 
         // Check if sender index and user profile match.
@@ -98,11 +96,11 @@ impl DsGroupState {
             if !self
                 .user_profiles
                 .get(&params.sender)
-                .ok_or(UserAdditionError::LibraryError)?
+                .ok_or(AddUsersError::LibraryError)?
                 .clients
                 .contains(leaf_index)
             {
-                return Err(UserAdditionError::InvalidMessage);
+                return Err(AddUsersError::InvalidMessage);
             };
         }
 
@@ -110,7 +108,7 @@ impl DsGroupState {
         if staged_commit.add_proposals().count()
             != aad_payload.encrypted_credential_information.len()
         {
-            return Err(UserAdditionError::InvalidMessage);
+            return Err(AddUsersError::InvalidMessage);
         }
         let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)> =
             staged_commit
@@ -121,13 +119,13 @@ impl DsGroupState {
                         .add_proposal()
                         .key_package()
                         .hash_ref(OpenMlsRustCrypto::default().crypto())
-                        .map_err(|_| UserAdditionError::LibraryError)?;
+                        .map_err(|_| AddUsersError::LibraryError)?;
                     let key_package = add_proposal.add_proposal().key_package().clone();
                     Ok((key_package_ref, (key_package, ecc)))
                 })
                 .collect::<Result<
                     HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)>,
-                    UserAdditionError,
+                    AddUsersError,
                 >>()?;
 
         // Check if for each added member, there is a corresponding entry
@@ -138,7 +136,7 @@ impl DsGroupState {
                 .joiners()
                 .any(|joiner_ref| &joiner_ref == add_proposal_ref)
         }) {
-            return Err(UserAdditionError::IncompleteWelcome);
+            return Err(AddUsersError::IncompleteWelcome);
         }
 
         // Verify all KeyPackageBatches.
@@ -146,7 +144,7 @@ impl DsGroupState {
         let mut added_users = vec![];
         // Check that we have enough welcome attribution infos.
         if params.key_package_batches.len() != params.encrypted_welcome_attribution_infos.len() {
-            return Err(UserAdditionError::InvalidMessage);
+            return Err(AddUsersError::InvalidMessage);
         }
         for (key_package_batch, attribution_info) in params
             .key_package_batches
@@ -158,22 +156,22 @@ impl DsGroupState {
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
                     key_package_batch
                         .verify(verifying_key)
-                        .map_err(|_| UserAdditionError::InvalidKeyPackageBatch)?
+                        .map_err(|_| AddUsersError::InvalidKeyPackageBatch)?
                 } else {
                     let verifying_key = qs_provider
                         .verifying_key(&fqdn)
                         .await
-                        .map_err(|_| UserAdditionError::FailedToObtainVerifyingKey)?;
+                        .map_err(|_| AddUsersError::FailedToObtainVerifyingKey)?;
                     let kpb = key_package_batch
                         .verify(&verifying_key)
-                        .map_err(|_| UserAdditionError::InvalidKeyPackageBatch)?;
+                        .map_err(|_| AddUsersError::InvalidKeyPackageBatch)?;
                     verifying_keys.insert(fqdn, verifying_key);
                     kpb
                 };
 
             // Validate freshness of the batch.
             if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION_DAYS) {
-                return Err(UserAdditionError::InvalidKeyPackageBatch);
+                return Err(AddUsersError::InvalidKeyPackageBatch);
             }
 
             let mut key_packages = vec![];
@@ -184,7 +182,7 @@ impl DsGroupState {
                     // KeyPackages belonging to one user in the tree.
                     key_packages.push(added_client);
                 } else {
-                    return Err(UserAdditionError::InvalidKeyPackageBatch);
+                    return Err(AddUsersError::InvalidKeyPackageBatch);
                 }
             }
             added_users.push((key_packages, attribution_info));
@@ -198,7 +196,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            processed_assisted_message,
+            processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
@@ -211,10 +209,11 @@ impl DsGroupState {
                     .group()
                     .members()
                     .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
-                    .ok_or(UserAdditionError::InvalidMessage)?;
+                    .ok_or(AddUsersError::InvalidMessage)?;
                 let leaf_index = member.index;
                 let client_queue_config = QsClientReference::tls_deserialize_exact(
                     key_package
+                        .leaf_node()
                         .extensions()
                         .iter()
                         .find_map(|e| match e {
@@ -223,10 +222,10 @@ impl DsGroupState {
                             }
                             _ => None,
                         })
-                        .ok_or(UserAdditionError::MissingQueueConfig)?
+                        .ok_or(AddUsersError::MissingQueueConfig)?
                         .as_slice(),
                 )
-                .map_err(|_| UserAdditionError::MissingQueueConfig)?;
+                .map_err(|_| AddUsersError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
                     encrypted_client_credential: ecc,
@@ -234,16 +233,6 @@ impl DsGroupState {
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
                 };
-                // TODO: No specific info for now until we extend the trait.
-                //let info = [
-                //    "GroupStateEarKey ".as_bytes(),
-                //    self.group()
-                //        .group_info()
-                //        .group_context()
-                //        .group_id()
-                //        .as_slice(),
-                //]
-                //.concat();
                 let info = &[];
                 let aad = &[];
                 let encryption_key: JoinerInfoEncryptionKey =
@@ -263,7 +252,7 @@ impl DsGroupState {
                     payload: DsFanOutPayload::QueueMessage(
                         welcome_bundle
                             .try_into()
-                            .map_err(|_| UserAdditionError::LibraryError)?,
+                            .map_err(|_| AddUsersError::LibraryError)?,
                     ),
                     client_reference: client_queue_config,
                 };
@@ -281,7 +270,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.into();
+        let c2c_message = processed_assisted_message_plus
+            .serialized_mls_message
+            .into();
 
         Ok((c2c_message, fan_out_messages))
     }

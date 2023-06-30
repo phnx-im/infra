@@ -18,7 +18,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub use mls_assist::messages::AssistedGroupInfo;
+pub use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};
 
 /// Unrecoverable error in this implementation.
 #[derive(Debug, Error, Serialize, Deserialize)]

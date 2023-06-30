@@ -21,8 +21,8 @@ use phnxbackend::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKey,
-                WelcomeAttributionInfoEarKey,
+                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
+                SignatureEarKey, WelcomeAttributionInfoEarKey,
             },
             EarEncryptable,
         },
@@ -41,6 +41,7 @@ use phnxbackend::{
             ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams,
         },
         client_ds::QsQueueRatchet,
+        client_ds_out::CreateGroupParamsOut,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
     qs::{
@@ -389,11 +390,32 @@ impl<T: Notifiable> SelfUser<T> {
     /// Create new group
     pub async fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
         let group_id = self.api_client.ds_request_group_id().await.unwrap();
-        self.group_store.create_group(
+        let client_reference = self.create_own_client_reference();
+        let group = Group::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
             group_id.clone(),
         );
+        let partial_params = group.create_group_params(&self.crypto_backend);
+        let encrypted_client_credential = self
+            .key_store
+            .signing_key
+            .credential()
+            .encrypt(group.credential_ear_key())
+            .unwrap();
+        let params = CreateGroupParamsOut {
+            group_id: partial_params.group_id,
+            ratchet_tree: partial_params.ratchet_tree,
+            encrypted_client_credential,
+            creator_client_reference: client_reference,
+            creator_user_auth_key: partial_params.user_auth_key,
+            group_info: partial_params.group_info,
+        };
+        self.api_client
+            .ds_create_group(params, group.group_state_ear_key(), group.user_auth_key())
+            .await
+            .unwrap();
+        self.group_store.store_group(group).unwrap();
         let conversation_id = Uuid::new_v4();
         let attributes = ConversationAttributes {
             title: title.to_string(),
@@ -610,6 +632,7 @@ impl<T: Notifiable> SelfUser<T> {
             &self.key_store.signing_key,
             group_id.clone(),
         );
+        let partial_params = connection_group.create_group_params(&self.crypto_backend);
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -622,6 +645,8 @@ impl<T: Notifiable> SelfUser<T> {
             wai_ear_key: self.key_store.wai_ear_key.clone(),
         };
 
+        let friendship_package_ear_key = FriendshipPackageEarKey::random().unwrap();
+
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
             sender_client_credential: self.key_store.signing_key.credential().clone(),
@@ -629,33 +654,36 @@ impl<T: Notifiable> SelfUser<T> {
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
             connection_group_credential_key: connection_group.credential_ear_key().clone(),
             connection_group_signature_ear_key: connection_group.signature_ear_key().clone(),
+            friendship_package_ear_key: friendship_package_ear_key.clone(),
             friendship_package,
         }
         .sign(&self.key_store.signing_key)
         .unwrap();
 
-        self.group_store.store_group(connection_group).unwrap();
-        let group = self.group_store.get_group_mut(&group_id).unwrap();
-        let sealed_reference = ClientConfig {
-            client_id: self.qs_client_id.clone(),
-            push_token_ear_key: Some(self.key_store.push_token_ear_key.clone()),
-        }
-        .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
-        let client_reference = QsClientReference {
-            client_homeserver_domain: Fqdn {},
-            sealed_reference,
+        let client_reference = self.create_own_client_reference();
+        let encrypted_client_credential = self
+            .key_store
+            .signing_key
+            .credential()
+            .encrypt(connection_group.credential_ear_key())
+            .unwrap();
+        let params = CreateGroupParamsOut {
+            group_id: partial_params.group_id,
+            ratchet_tree: partial_params.ratchet_tree,
+            encrypted_client_credential,
+            creator_client_reference: client_reference,
+            creator_user_auth_key: partial_params.user_auth_key,
+            group_info: partial_params.group_info,
         };
-        let params = group.prepare_group_creation(
-            &self.crypto_backend,
-            self.key_store.signing_key.credential(),
-            client_reference,
-        );
-
-        log::info!("Requesting creation of connection group on the DS.");
         self.api_client
-            .ds_create_group(params, group.group_state_ear_key(), group.user_auth_key())
+            .ds_create_group(
+                params,
+                connection_group.group_state_ear_key(),
+                connection_group.user_auth_key(),
+            )
             .await
             .unwrap();
+        self.group_store.store_group(connection_group).unwrap();
 
         // Create the connection conversation
         let conversation_id = self.conversation_store.create_connection_conversation(
@@ -669,6 +697,7 @@ impl<T: Notifiable> SelfUser<T> {
         let contact = PartialContact {
             user_name: user_name.clone(),
             conversation_id,
+            friendship_package_ear_key,
         };
         self.partial_contacts.insert(user_name, contact);
 
@@ -744,5 +773,17 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub fn partial_contacts(&self) -> Vec<PartialContact> {
         self.partial_contacts.values().cloned().collect()
+    }
+
+    fn create_own_client_reference(&self) -> QsClientReference {
+        let sealed_reference = ClientConfig {
+            client_id: self.qs_client_id.clone(),
+            push_token_ear_key: Some(self.key_store.push_token_ear_key.clone()),
+        }
+        .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
+        QsClientReference {
+            client_homeserver_domain: Fqdn {},
+            sealed_reference,
+        }
     }
 }

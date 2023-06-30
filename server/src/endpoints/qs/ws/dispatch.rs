@@ -36,7 +36,7 @@ impl Dispatch {
             socket_recipient.do_send(message);
             Ok(())
         } else {
-            tracing::info!("attempting to send message but couldn't find user id.");
+            tracing::warn!("attempting to send message but couldn't find user id.");
             Err(NotifyClientError::ClientNotFound)
         }
     }

@@ -30,7 +30,7 @@ use phnxbackend::{
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         signatures::{
-            keys::UserAuthSigningKey,
+            keys::{UserAuthSigningKey, UserAuthVerifyingKey},
             signable::{Signable, Verifiable},
         },
     },
@@ -44,12 +44,11 @@ use phnxbackend::{
             WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, CreateGroupParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
-            SendMessageParamsOut,
+            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut, SendMessageParamsOut,
         },
     },
-    qs::{KeyPackageBatch, QsClientReference, VERIFIED},
-    AssistedGroupInfo,
+    qs::{KeyPackageBatch, VERIFIED},
+    AssistedGroupInfo, AssistedMessageOut,
 };
 pub(crate) use store::*;
 use tls_codec::DeserializeBytes;
@@ -65,7 +64,7 @@ use std::{
     panic::panic_any,
 };
 
-use openmls::prelude::*;
+use openmls::{prelude::*, treesync::RatchetTree};
 
 use self::diff::GroupDiff;
 
@@ -87,6 +86,13 @@ pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
     [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
 pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];
 
+pub(crate) struct PartialCreateGroupParams {
+    pub group_id: GroupId,
+    pub ratchet_tree: RatchetTree,
+    pub group_info: MlsMessageOut,
+    pub user_auth_key: UserAuthVerifyingKey,
+}
+
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
@@ -101,30 +107,6 @@ pub(crate) struct Group {
 }
 
 impl Group {
-    pub(crate) fn prepare_group_creation(
-        &self,
-        backend: &impl OpenMlsCryptoProvider,
-        own_client_credential: &ClientCredential,
-        creator_client_reference: QsClientReference,
-    ) -> CreateGroupParamsOut {
-        let encrypted_client_credential = own_client_credential
-            .encrypt(&self.credential_ear_key)
-            .unwrap();
-        let group_info = self
-            .mls_group
-            .export_group_info(backend, &self.leaf_signer, true)
-            .unwrap();
-        let params = CreateGroupParamsOut {
-            group_id: self.group_id.clone(),
-            leaf_node: self.mls_group.export_ratchet_tree(),
-            encrypted_client_credential,
-            creator_client_reference,
-            creator_user_auth_key: self.user_auth_key().verifying_key().clone(),
-            group_info,
-        };
-        params
-    }
-
     fn default_mls_group_config() -> MlsGroupConfig {
         let required_capabilities = RequiredCapabilitiesExtension::new(
             &REQUIRED_EXTENSION_TYPES,
@@ -145,6 +127,7 @@ impl Group {
             ))
             .use_ratchet_tree_extension(true)
             .required_capabilities(required_capabilities)
+            .wire_format_policy(PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
             .build()
     }
 
@@ -153,7 +136,7 @@ impl Group {
         backend: &impl OpenMlsCryptoProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
-    ) -> Self {
+    ) -> Group {
         let credential_ear_key = ClientCredentialEarKey::random().unwrap();
         let user_auth_key = UserAuthSigningKey::generate().unwrap();
         let group_state_ear_key = GroupStateEarKey::random().unwrap();
@@ -176,17 +159,31 @@ impl Group {
             credential_with_key,
         )
         .unwrap();
-
         Group {
             group_id,
             leaf_signer,
             signature_ear_key,
             mls_group,
             credential_ear_key,
-            group_state_ear_key,
+            group_state_ear_key: group_state_ear_key.clone(),
             user_auth_key,
             client_credentials: vec![Some(signer.credential().clone())],
             pending_diff: None,
+        }
+    }
+
+    pub(crate) fn create_group_params(
+        &self,
+        backend: &impl OpenMlsCryptoProvider,
+    ) -> PartialCreateGroupParams {
+        PartialCreateGroupParams {
+            group_id: self.group_id.clone(),
+            ratchet_tree: self.mls_group.export_ratchet_tree(),
+            group_info: self
+                .mls_group
+                .export_group_info(backend, &self.leaf_signer, true)
+                .unwrap(),
+            user_auth_key: self.user_auth_key().verifying_key().clone(),
         }
     }
 
@@ -892,7 +889,10 @@ impl Group {
         let group_info = group_info_option.unwrap();
         // TODO: For now, we use the full group info, as OpenMLS does not yet allow splitting up a group info.
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
-        let commit = (mls_commit, assisted_group_info);
+        let commit = AssistedMessageOut {
+            mls_message: mls_commit,
+            group_info_option: Some(assisted_group_info),
+        };
 
         let encrypted_welcome_attribution_infos = wai_keys
             .iter()
@@ -962,7 +962,10 @@ impl Group {
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.unwrap();
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
-        let commit = (mls_message, assisted_group_info);
+        let commit = AssistedMessageOut {
+            mls_message: mls_message,
+            group_info_option: Some(assisted_group_info),
+        };
 
         let mut diff = GroupDiff::new(self);
         for index in remove_indices {

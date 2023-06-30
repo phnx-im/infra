@@ -5,7 +5,6 @@
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::AssistedMessage,
     openmls::prelude::{
         Extension, KeyPackage, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
     },
@@ -43,20 +42,16 @@ impl DsGroupState {
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), ClientAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message =
-            if matches!(params.commit.message, AssistedMessage::Commit(_)) {
-                self.group()
-                    .process_assisted_message(params.commit.message.clone())
-                    .map_err(|_| ClientAdditionError::ProcessingError)?
-            } else {
-                return Err(ClientAdditionError::InvalidMessage);
-            };
+        let processed_assisted_message_plus = self
+            .group()
+            .process_assisted_message(params.commit)
+            .map_err(|_| ClientAdditionError::ProcessingError)?;
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
         let processed_message =
             if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
-                processed_assisted_message
+                processed_assisted_message_plus.processed_assisted_message
             {
                 processed_message
             } else {
@@ -136,7 +131,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            processed_assisted_message,
+            processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
@@ -215,7 +210,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.commit.into();
+        let c2c_message = processed_assisted_message_plus
+            .serialized_mls_message
+            .into();
 
         Ok((c2c_message, fan_out_messages))
     }

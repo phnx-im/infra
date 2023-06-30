@@ -19,24 +19,10 @@ mod dart_api;
 use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
-use crate::{conversations::*, groups::*, types::*, users::*};
+use crate::{conversations::*, groups::*, types::*};
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
 pub(crate) use openmls_rust_crypto::OpenMlsRustCrypto;
 
 use uuid::Uuid;
-
-#[derive(Default)]
-pub struct Corelib<T>
-where
-    T: Notifiable,
-{
-    self_user: Option<SelfUser<T>>,
-}
-
-impl<T: Notifiable> Corelib<T> {
-    pub fn new() -> Self {
-        Self { self_user: None }
-    }
-}

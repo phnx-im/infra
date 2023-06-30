@@ -6,12 +6,13 @@ use openmls::prelude::KeyPackage;
 use phnxbackend::{
     auth_service::{credentials::ClientCredential, AsClientId, UserName},
     crypto::ear::keys::{
-        AddPackageEarKey, ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey,
+        AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, SignatureEarKey,
+        WelcomeAttributionInfoEarKey,
     },
     messages::{client_as::FriendshipPackage, FriendshipToken},
     qs::{KeyPackageBatch, VERIFIED},
 };
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -72,6 +73,7 @@ pub struct PartialContact {
     pub user_name: UserName,
     // ID of the connection conversation with this contact.
     pub conversation_id: Uuid,
+    pub friendship_package_ear_key: FriendshipPackageEarKey,
 }
 
 impl PartialContact {

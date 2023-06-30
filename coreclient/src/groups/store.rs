@@ -10,18 +10,6 @@ pub(crate) struct GroupStore {
 }
 
 impl GroupStore {
-    pub(crate) fn create_group(
-        &mut self,
-        backend: &impl OpenMlsCryptoProvider,
-        signer: &ClientSigningKey,
-        group_id: GroupId,
-    ) {
-        let group = Group::create_group(backend, signer, group_id.clone());
-        // TODO: For now we trust that the server won't serve us colliding group
-        // ids.
-        self.groups.insert(group_id, group);
-    }
-
     pub(crate) fn store_group(&mut self, group: Group) -> Result<(), GroupStoreError> {
         match self.groups.insert(group.group_id.clone(), group) {
             Some(_) => Err(GroupStoreError::DuplicateGroup),

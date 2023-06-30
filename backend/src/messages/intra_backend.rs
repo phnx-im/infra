@@ -5,11 +5,12 @@
 //! This module contains structs and enums that represent messages that are
 //! passed internally within the backend.
 
+use mls_assist::messages::SerializedMlsMessage;
 use tls_codec::{TlsDeserializeBytes, TlsSize};
 
 use crate::qs::QsClientReference;
 
-use super::client_ds::{AssistedMessagePlus, EventMessage, QsQueueMessagePayload};
+use super::client_ds::{EventMessage, QsQueueMessagePayload};
 
 // === DS to QS ===
 
@@ -26,8 +27,8 @@ pub enum DsFanOutPayload {
     EventMessage(EventMessage),
 }
 
-impl From<AssistedMessagePlus> for DsFanOutPayload {
-    fn from(value: AssistedMessagePlus) -> Self {
+impl From<SerializedMlsMessage> for DsFanOutPayload {
+    fn from(value: SerializedMlsMessage) -> Self {
         Self::QueueMessage(value.into())
     }
 }

@@ -226,11 +226,13 @@ impl DsApi {
                         creator_queue_config.clone(),
                     )
                 } else {
+                    tracing::warn!("Group reserved");
                     return Err(DsProcessingError::GroupNotFound);
                 }
             }
             LoadState::NotFound | LoadState::Expired => {
-                return Err(DsProcessingError::GroupNotFound)
+                tracing::warn!("Group not found or expired");
+                return Err(DsProcessingError::GroupNotFound);
             }
         };
 
@@ -331,7 +333,6 @@ impl DsApi {
                 )
             }
             DsRequestParams::ConnectionGroupInfo(_) => {
-                tracing::info!("Processing connection group info message.");
                 group_state_has_changed = false;
                 (
                     None,
@@ -396,7 +397,10 @@ impl DsApi {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = send_message_params.message.into();
+                let c2c_message = send_message_params
+                    .message
+                    .into_serialized_mls_message()
+                    .into();
                 (Some(c2c_message), None, None)
             }
             // ======= Events =======
@@ -425,7 +429,6 @@ impl DsApi {
                 })?;
 
             // ... and store the modified group state.
-            tracing::info!("Saving modified group state.");
             ds_storage_provider
                 .save_group_state(&group_id, encrypted_group_state)
                 .await

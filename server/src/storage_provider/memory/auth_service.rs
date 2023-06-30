@@ -286,7 +286,6 @@ impl AsStorageProvider for MemoryAsStorage {
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
     async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage> {
-        tracing::info!("Loading connection package for client {:?}.", client_id);
         let mut connection_package_store = self.connection_packages.write().ok()?;
 
         let connection_packages = connection_package_store.get_mut(client_id)?;
@@ -303,7 +302,6 @@ impl AsStorageProvider for MemoryAsStorage {
         &self,
         user_name: &UserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
-        tracing::info!("Loading connection packages for user {:?}.", user_name);
         let client_records: Vec<_> = self
             .client_records
             .read()
@@ -311,14 +309,9 @@ impl AsStorageProvider for MemoryAsStorage {
             .keys()
             .cloned()
             .collect();
-        tracing::info!(
-            "Loaded a total of {:?} client records",
-            client_records.len()
-        );
         let mut connection_packages = Vec::new();
         for client_id in &client_records {
             if &client_id.user_name() == user_name {
-                tracing::info!("Found client record with id {:?}.", client_id);
                 if let Some(connection_package) = self.client_connection_package(client_id).await {
                     connection_packages.push(connection_package);
                 } else {
@@ -358,7 +351,6 @@ impl AsStorageProvider for MemoryAsStorage {
         }
         queue.sequence_number += 1;
         queue.queue.push_back(message);
-        tracing::info!("Successfully enqueued an AS message.");
         Ok(())
     }
 
@@ -387,7 +379,6 @@ impl AsStorageProvider for MemoryAsStorage {
         }
 
         let messages_in_queue = queue.queue.len() as u64;
-        tracing::info!("The client requests {number_of_messages} messages and there are {messages_in_queue} messages in the queue.");
 
         // Client claims to have seen messages that are not even in the queue yet.
         let queue_sequence_number = queue.sequence_number;

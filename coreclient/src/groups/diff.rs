@@ -34,37 +34,6 @@ impl GroupDiff {
         }
     }
 
-    pub(crate) fn with_leaf_signer(mut self, leaf_signer: InfraCredentialSigningKey) -> Self {
-        self.leaf_signer = Some(leaf_signer);
-        self
-    }
-
-    pub(crate) fn with_signature_ear_key(mut self, signature_ear_key: SignatureEarKey) -> Self {
-        self.signature_ear_key = Some(signature_ear_key);
-        self
-    }
-
-    pub(crate) fn with_credential_ear_key(
-        mut self,
-        credential_ear_key: ClientCredentialEarKey,
-    ) -> Self {
-        self.credential_ear_key = Some(credential_ear_key);
-        self
-    }
-
-    pub(crate) fn with_group_state_ear_key(
-        mut self,
-        group_state_ear_key: GroupStateEarKey,
-    ) -> Self {
-        self.group_state_ear_key = Some(group_state_ear_key);
-        self
-    }
-
-    pub(crate) fn with_user_auth_key(mut self, user_auth_key: UserAuthSigningKey) -> Self {
-        self.user_auth_key = Some(user_auth_key);
-        self
-    }
-
     /// This overrides any previous changes to the client credentials.
     pub(crate) fn remove_client_credential(&mut self, removed_index: LeafNodeIndex) {
         self.client_credentials.insert(removed_index.usize(), None);

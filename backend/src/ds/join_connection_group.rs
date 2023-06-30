@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::Duration;
-use mls_assist::{
-    group::ProcessedAssistedMessage, messages::AssistedMessage,
-    openmls::prelude::ProcessedMessageContent,
-};
+use mls_assist::{group::ProcessedAssistedMessage, openmls::prelude::ProcessedMessageContent};
 use tls_codec::DeserializeBytes;
 
 use crate::messages::{
@@ -26,24 +23,16 @@ impl DsGroupState {
         params: JoinConnectionGroupParams,
     ) -> Result<DsFanOutPayload, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
-        let processed_assisted_message =
-            if matches!(params.external_commit.message, AssistedMessage::Commit(_)) {
-                self.group()
-                    .process_assisted_message(params.external_commit.message.clone())
-                    .map_err(|e| {
-                        tracing::warn!("Error processing assisted message: {:?}.", e);
-                        JoinConnectionGroupError::ProcessingError
-                    })?
-            } else {
-                tracing::warn!("Invalid message: Not an assisted commit.");
-                return Err(JoinConnectionGroupError::InvalidMessage);
-            };
+        let processed_assisted_message_plus = self
+            .group()
+            .process_assisted_message(params.external_commit)
+            .map_err(|_| JoinConnectionGroupError::ProcessingError)?;
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
         let processed_message =
             if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
-                processed_assisted_message
+                &processed_assisted_message_plus.processed_assisted_message
             {
                 processed_message
             } else {
@@ -92,7 +81,7 @@ impl DsGroupState {
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
-            processed_assisted_message,
+            processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
@@ -133,7 +122,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let payload = params.external_commit.into();
+        let payload = processed_assisted_message_plus
+            .serialized_mls_message
+            .into();
 
         Ok(payload)
     }
