@@ -36,6 +36,8 @@ impl Dispatch {
             socket_recipient.do_send(message);
             Ok(())
         } else {
+            // This is only rated "info", because not having a websocket open is
+            // not irregular.
             tracing::info!("attempting to send message but couldn't find user id.");
             Err(NotifyClientError::ClientNotFound)
         }

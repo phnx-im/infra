@@ -32,9 +32,3 @@ pub enum CorelibError {
     #[error(transparent)]
     DsError(#[from] DsRequestError),
 }
-
-#[derive(Error, Debug)]
-pub enum GrpcError {
-    #[error("Missing parameter in the request")]
-    MissingParameter,
-}

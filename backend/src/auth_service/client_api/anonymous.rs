@@ -28,13 +28,11 @@ impl AuthService {
     ) -> Result<UserConnectionPackagesResponse, UserKeyPackagesError> {
         let UserConnectionPackagesParams { user_name } = params;
 
-        tracing::info!("Loading connection packages from storage provider");
         let key_packages = storage_provider
             .load_user_connection_packages(&user_name)
             .await
             .map_err(|_| UserKeyPackagesError::StorageError)?;
 
-        tracing::info!("Loaded {} connection packages.", key_packages.len());
         let response = UserConnectionPackagesResponse { key_packages };
         Ok(response)
     }

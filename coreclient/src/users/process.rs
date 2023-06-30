@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxbackend::crypto::ear::EarDecryptable;
 use phnxbackend::crypto::hpke::HpkeDecryptable;
 use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
 use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
 use phnxbackend::messages::client_ds::{
-    ExtractedQsQueueMessagePayload, InfraAadPayload, JoinConnectionGroupParamsAad,
+    ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad,
 };
 use phnxbackend::messages::client_ds_out::ExternalCommitInfoIn;
 use phnxbackend::messages::QueueMessage;
@@ -23,7 +24,7 @@ impl<T: Notifiable> SelfUser<T> {
         message_ciphertexts: Vec<QueueMessage>,
     ) -> Result<(), CorelibError> {
         let number_of_messages = message_ciphertexts.len();
-        log::info!("Processing {number_of_messages} QS messages");
+        log::debug!("Processing {number_of_messages} QS messages");
         // Decrypt received message.
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
@@ -66,7 +67,6 @@ impl<T: Notifiable> SelfUser<T> {
                     self.notification_hub.dispatch_conversation_notification();
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
-                    log::info!("Processing MLS Message");
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
                         MlsMessageInBody::PublicMessage(handshake_message) => handshake_message.into(),
                         // Only application messages are private
@@ -82,172 +82,156 @@ impl<T: Notifiable> SelfUser<T> {
                         .conversation_by_group_id(group_id)
                         .unwrap()
                         .id;
-                    match self.group_store.get_group_mut(group_id) {
-                        Some(group) => {
-                            let processed_message = group.process_message(
-                                &self.crypto_backend,
-                                protocol_message,
-                                &self.key_store.as_intermediate_credentials,
-                            );
+                    let Some(group) = self.group_store.get_group_mut(group_id)
+                        else {
+                            return Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup))
+                        };
+                    let (processed_message, group_was_deleted, sender_credential) = group
+                        .process_message(
+                            &self.crypto_backend,
+                            protocol_message,
+                            &self.key_store.as_intermediate_credentials,
+                        )
+                        .unwrap();
 
-                            match processed_message {
-                                Ok((processed_message, group_was_deleted, sender_credential)) => {
-                                    let sender = processed_message.sender().clone();
-                                    let conversation_messages = match processed_message
-                                        .into_content()
-                                    {
-                                        ProcessedMessageContent::ApplicationMessage(
-                                            application_message,
-                                        ) => application_message_to_conversation_messages(
-                                            &sender_credential,
-                                            application_message,
-                                        ),
-                                        ProcessedMessageContent::ProposalMessage(_) => {
-                                            unimplemented!()
-                                        }
-                                        ProcessedMessageContent::StagedCommitMessage(
-                                            staged_commit,
-                                        ) => {
-                                            // If a client joined externally, we
-                                            // check if the group belongs to an
-                                            // unconfirmed conversation.
-                                            if let ConversationType::UnconfirmedConnection(
-                                                user_name,
-                                            ) = &self
-                                                .conversation_store
-                                                .conversation(&conversation_id)
+                    let sender = processed_message.sender().clone();
+                    let aad = processed_message.authenticated_data().to_vec();
+                    let conversation_messages = match processed_message.into_content() {
+                        ProcessedMessageContent::ApplicationMessage(application_message) => {
+                            application_message_to_conversation_messages(
+                                &sender_credential,
+                                application_message,
+                            )
+                        }
+                        ProcessedMessageContent::ProposalMessage(_) => {
+                            unimplemented!()
+                        }
+                        ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                            // If a client joined externally, we
+                            // check if the group belongs to an
+                            // unconfirmed conversation.
+                            if let ConversationType::UnconfirmedConnection(user_name) = &self
+                                .conversation_store
+                                .conversation(&conversation_id)
+                                .unwrap()
+                                .conversation_type
+                            {
+                                // Check if it was an external commit and if the user name matches
+                                if matches!(sender, Sender::NewMemberCommit)
+                                    && &sender_credential.identity().user_name().as_bytes()
+                                        == user_name
+                                {
+                                    // Load up the partial contact and decrypt the friendship package
+                                    let partial_contact = self
+                                        .partial_contacts
+                                        .remove(&(user_name.clone().into()))
+                                        .unwrap();
+
+                                    // This is a bit annoying,
+                                    // since we already
+                                    // de-serialized this in the
+                                    // group processing
+                                    // function, but we need the
+                                    // encrypted friendship
+                                    // package here.
+                                    let encrypted_friendship_package =
+                                        if let InfraAadPayload::JoinConnectionGroup(payload) =
+                                            InfraAadMessage::tls_deserialize_exact(&aad)
                                                 .unwrap()
-                                                .conversation_type
-                                            {
-                                                // Check if it was an external commit and if the user name matches
-                                                if matches!(sender, Sender::NewMemberCommit)
-                                                    && &sender_credential
-                                                        .identity()
-                                                        .user_name()
-                                                        .as_bytes()
-                                                        == user_name
-                                                {
-                                                    let proposal_payload: &[u8] = staged_commit
-                                                        .queued_proposals()
-                                                        .find_map(|qp| match qp.proposal() {
-                                                            Proposal::Unknown((
-                                                                FRIENDSHIP_PACKAGE_PROPOSAL_TYPE,
-                                                                unknown_proposal,
-                                                            )) => {
-                                                                Some(unknown_proposal.0.as_slice())
-                                                            }
-                                                            _ => None,
-                                                        })
-                                                        .unwrap();
-                                                    // If so, we deserialize the message into a friendship package
-                                                    let friendship_package =
-                                                        FriendshipPackage::tls_deserialize_exact(
-                                                            proposal_payload,
-                                                        )
-                                                        .unwrap();
-                                                    // We also need to get the add infos
-                                                    let mut add_infos = vec![];
-                                                    for _ in 0..5 {
-                                                        let key_package_batch_response = self
-                                                            .api_client
-                                                            .qs_key_package_batch(
-                                                                friendship_package
-                                                                    .friendship_token
-                                                                    .clone(),
-                                                                friendship_package
-                                                                    .add_package_ear_key
-                                                                    .clone(),
-                                                            )
-                                                            .await
-                                                            .unwrap();
-                                                        let key_packages: Vec<KeyPackage> = key_package_batch_response.add_packages.into_iter().map(|add_package| add_package.validate(self.crypto_backend.crypto(), ProtocolVersion::default()).unwrap().key_package().clone()).collect();
-                                                        let key_package_batch =
-                                                            key_package_batch_response
-                                                                .key_package_batch
-                                                                .verify(
-                                                                    &self
-                                                                        .key_store
-                                                                        .qs_verifying_key,
-                                                                )
-                                                                .unwrap();
-                                                        let add_info = ContactAddInfos {
-                                                            key_package_batch,
-                                                            key_packages,
-                                                        };
-                                                        add_infos.push(add_info);
-                                                    }
-                                                    // Now we can turn the partial contact into a full one.
-                                                    let partial_contact = self
-                                                        .partial_contacts
-                                                        .remove(&(user_name.clone().into()))
-                                                        .unwrap();
-                                                    let contact = partial_contact.into_contact(
-                                                        friendship_package,
-                                                        add_infos,
-                                                        sender_credential.clone(),
-                                                    );
-                                                    // And add it to our list of contacts
-                                                    self.contacts
-                                                        .insert(user_name.clone().into(), contact);
-                                                    // Finally, we can turn the conversation type to a full connection group
-                                                    self.conversation_store
-                                                        .confirm_connection_conversation(
-                                                            &conversation_id,
-                                                        );
-                                                }
-                                            }
-                                            // If the group was deleted, we set the group to inactive.
-                                            if group_was_deleted {
-                                                let past_members = group
-                                                    .members()
-                                                    .into_iter()
-                                                    .map(|user_name| user_name.to_string())
-                                                    .collect::<Vec<_>>();
-                                                self.conversation_store
-                                                    .set_inactive(&conversation_id, &past_members);
-                                            }
-                                            let messages = staged_commit_to_conversation_messages(
-                                                &sender_credential.identity().user_name(),
-                                                &staged_commit,
-                                            );
-                                            group
-                                                .merge_pending_commit(
-                                                    &self.crypto_backend,
-                                                    *staged_commit,
-                                                )
-                                                .unwrap();
-                                            messages
-                                        }
-                                        ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                                            unimplemented!()
-                                        }
-                                    };
-                                    // If we got until here, the message was deemed valid and we can apply the diff.
+                                                .into_payload()
+                                        {
+                                            payload.encrypted_friendship_package
+                                        } else {
+                                            panic!("Unexpected AAD payload")
+                                        };
 
-                                    for conversation_message in conversation_messages {
-                                        let dispatched_conversation_message =
-                                            DispatchedConversationMessage {
-                                                conversation_id,
-                                                conversation_message: conversation_message.clone(),
-                                            };
-                                        self.conversation_store.store_message(
-                                            &conversation_id,
-                                            conversation_message,
-                                        )?;
-                                        notification_messages.push(dispatched_conversation_message);
+                                    let friendship_package = FriendshipPackage::decrypt(
+                                        &partial_contact.friendship_package_ear_key,
+                                        &encrypted_friendship_package,
+                                    )
+                                    .unwrap();
+                                    // We also need to get the add infos
+                                    let mut add_infos = vec![];
+                                    for _ in 0..5 {
+                                        let key_package_batch_response = self
+                                            .api_client
+                                            .qs_key_package_batch(
+                                                friendship_package.friendship_token.clone(),
+                                                friendship_package.add_package_ear_key.clone(),
+                                            )
+                                            .await
+                                            .unwrap();
+                                        let key_packages: Vec<KeyPackage> =
+                                            key_package_batch_response
+                                                .add_packages
+                                                .into_iter()
+                                                .map(|add_package| {
+                                                    add_package
+                                                        .validate(
+                                                            self.crypto_backend.crypto(),
+                                                            ProtocolVersion::default(),
+                                                        )
+                                                        .unwrap()
+                                                        .key_package()
+                                                        .clone()
+                                                })
+                                                .collect();
+                                        let key_package_batch = key_package_batch_response
+                                            .key_package_batch
+                                            .verify(&self.key_store.qs_verifying_key)
+                                            .unwrap();
+                                        let add_info = ContactAddInfos {
+                                            key_package_batch,
+                                            key_packages,
+                                        };
+                                        add_infos.push(add_info);
                                     }
-                                }
-                                Err(e) => {
-                                    println!(
-                                        "Error occured while processing inbound messages: {:?}",
-                                        e
+                                    // Now we can turn the partial contact into a full one.
+                                    let contact = partial_contact.into_contact(
+                                        friendship_package,
+                                        add_infos,
+                                        sender_credential.clone(),
                                     );
+                                    // And add it to our list of contacts
+                                    self.contacts.insert(user_name.clone().into(), contact);
+                                    // Finally, we can turn the conversation type to a full connection group
+                                    self.conversation_store
+                                        .confirm_connection_conversation(&conversation_id);
                                 }
                             }
+                            // If the group was deleted, we set the group to inactive.
+                            if group_was_deleted {
+                                let past_members = group
+                                    .members()
+                                    .into_iter()
+                                    .map(|user_name| user_name.to_string())
+                                    .collect::<Vec<_>>();
+                                self.conversation_store
+                                    .set_inactive(&conversation_id, &past_members);
+                            }
+                            let messages = staged_commit_to_conversation_messages(
+                                &sender_credential.identity().user_name(),
+                                &staged_commit,
+                            );
+                            group
+                                .merge_pending_commit(&self.crypto_backend, *staged_commit)
+                                .unwrap();
+                            messages
                         }
-                        None => {
-                            return Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup))
+                        ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                            unimplemented!()
                         }
+                    };
+                    // If we got until here, the message was deemed valid and we can apply the diff.
+
+                    for conversation_message in conversation_messages {
+                        let dispatched_conversation_message = DispatchedConversationMessage {
+                            conversation_id,
+                            conversation_message: conversation_message.clone(),
+                        };
+                        self.conversation_store
+                            .store_message(&conversation_id, conversation_message)?;
+                        notification_messages.push(dispatched_conversation_message);
                     }
                 }
             }
@@ -311,6 +295,16 @@ impl<T: Notifiable> SelfUser<T> {
                         &cep_tbs.connection_group_signature_ear_key,
                     );
 
+                    let encrypted_friendship_package = FriendshipPackage {
+                        friendship_token: self.key_store.friendship_token.clone(),
+                        add_package_ear_key: self.key_store.add_package_ear_key.clone(),
+                        client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
+                        signature_ear_key: self.key_store.signature_ear_key.clone(),
+                        wai_ear_key: self.key_store.wai_ear_key.clone(),
+                    }
+                    .encrypt(&cep_tbs.friendship_package_ear_key)
+                    .unwrap();
+
                     let aad = InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
                         encrypted_credential_information: self
                             .key_store
@@ -318,6 +312,7 @@ impl<T: Notifiable> SelfUser<T> {
                             .credential()
                             .encrypt(&cep_tbs.connection_group_credential_key)
                             .unwrap(),
+                        encrypted_friendship_package,
                     })
                     .into();
 
@@ -377,6 +372,7 @@ impl<T: Notifiable> SelfUser<T> {
                     let contact = PartialContact {
                         user_name: user_name.clone(),
                         conversation_id,
+                        friendship_package_ear_key: cep_tbs.friendship_package_ear_key,
                     }
                     .into_contact(
                         cep_tbs.friendship_package,

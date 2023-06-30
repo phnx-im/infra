@@ -248,13 +248,6 @@ impl VerifiableClientToQsMessage {
             Err(())
         }
     }
-
-    pub(crate) fn create_user_verifying_key(&self) -> Option<QsUserVerifyingKey> {
-        match &self.message.payload.body {
-            QsRequestParams::CreateUser(params) => Some(params.user_record_auth_key.clone()),
-            _ => None,
-        }
-    }
 }
 
 impl Verifiable for VerifiableClientToQsMessage {

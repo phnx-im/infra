@@ -36,7 +36,7 @@ pub enum UserRemovalError {
 /// Potential errors when adding a user.
 #[derive(Debug, Error, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
-pub enum UserAdditionError {
+pub enum AddUsersError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
@@ -117,7 +117,7 @@ pub enum DsProcessingError {
     StorageError,
     /// Error adding users.
     #[error(transparent)]
-    AddUsersError(#[from] UserAdditionError),
+    AddUsersError(#[from] AddUsersError),
     /// Error removing users.
     #[error(transparent)]
     RemoveUsersError(#[from] UserRemovalError),

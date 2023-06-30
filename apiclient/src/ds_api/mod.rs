@@ -6,7 +6,7 @@
 
 use super::*;
 use mls_assist::{
-    messages::AssistedWelcome,
+    messages::{AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
         GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
@@ -28,12 +28,11 @@ use phnxbackend::{
             WelcomeInfoParams,
         },
         client_ds_out::{
-            AddClientsParamsOut, AddUsersParamsOut, AssistedMessagePlusOut, ClientToDsMessageOut,
-            ClientToDsMessageTbsOut, CreateGroupParamsOut, DeleteGroupParamsOut,
-            DsProcessResponseIn, DsRequestParamsOut, ExternalCommitInfoIn,
-            JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
-            RemoveUsersParamsOut, ResyncClientParamsOut, SelfRemoveClientParamsOut,
-            SendMessageParamsOut, UpdateClientParamsOut,
+            AddClientsParamsOut, AddUsersParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
+            CreateGroupParamsOut, DeleteGroupParamsOut, DsProcessResponseIn, DsRequestParamsOut,
+            ExternalCommitInfoIn, JoinConnectionGroupParamsOut, JoinGroupParamsOut,
+            RemoveClientsParamsOut, RemoveUsersParamsOut, ResyncClientParamsOut,
+            SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
     qs::QsClientReference,
@@ -126,19 +125,15 @@ impl ApiClient {
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
-                        log::info!("Got a response: OK!");
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
-                        log::info!("Found bytes");
                         let ds_proc_res =
                             DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
                                 .map_err(|_| DsRequestError::BadResponse)?;
-                        log::info!("Successfully deserialized");
                         Ok(ds_proc_res)
                     }
                     // DS Specific Error
                     418 => {
-                        log::info!("Got a response: Server error!");
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_err =
@@ -148,7 +143,6 @@ impl ApiClient {
                     }
                     // All other errors
                     _ => {
-                        log::info!("Got a response: Unknown error!");
                         let error_text =
                             res.text().await.map_err(|_| DsRequestError::BadResponse)?;
                         Err(DsRequestError::NetworkError(error_text))
@@ -312,7 +306,7 @@ impl ApiClient {
     /// have [`UpdateClientParamsAad`] in its AAD.
     pub async fn ds_update_client(
         &self,
-        commit: AssistedMessagePlusOut,
+        commit: AssistedMessageOut,
         group_state_ear_key: &GroupStateEarKey,
         own_index: LeafNodeIndex,
         signing_key: &InfraCredentialSigningKey,
@@ -342,7 +336,7 @@ impl ApiClient {
     /// Join the group with a new client.
     pub async fn ds_join_group(
         &self,
-        external_commit: AssistedMessagePlusOut,
+        external_commit: AssistedMessageOut,
         qs_client_reference: QsClientReference,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
@@ -377,9 +371,13 @@ impl ApiClient {
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
+        let external_commit = AssistedMessageOut {
+            mls_message: commit,
+            group_info_option: Some(AssistedGroupInfo::Full(group_info)),
+        };
         let payload = JoinConnectionGroupParamsOut {
             sender: signing_key.verifying_key().clone(),
-            external_commit: (commit, AssistedGroupInfo::Full(group_info)),
+            external_commit,
             qs_client_reference,
         };
         self.prepare_and_send_ds_message(
@@ -401,7 +399,7 @@ impl ApiClient {
     /// Add clients to a group.
     pub async fn ds_add_clients(
         &self,
-        commit: AssistedMessagePlusOut,
+        commit: AssistedMessageOut,
         welcome: AssistedWelcome,
         encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
         signing_key: &UserAuthSigningKey,
@@ -432,7 +430,7 @@ impl ApiClient {
     /// Remove clients from a group.
     pub async fn ds_remove_clients(
         &self,
-        commit: AssistedMessagePlusOut,
+        commit: AssistedMessageOut,
         new_auth_key: UserAuthVerifyingKey,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
@@ -461,7 +459,7 @@ impl ApiClient {
     /// Resync a client to rejoin a group.
     pub async fn ds_resync_client(
         &self,
-        external_commit: AssistedMessagePlusOut,
+        external_commit: AssistedMessageOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
@@ -488,7 +486,7 @@ impl ApiClient {
     /// Leave the given group with this client.
     pub async fn ds_self_remove_client(
         &self,
-        remove_proposal: AssistedMessagePlusOut,
+        remove_proposal: AssistedMessageOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
@@ -538,7 +536,7 @@ impl ApiClient {
     /// Delete the given group.
     pub async fn ds_delete_group(
         &self,
-        commit: AssistedMessagePlusOut,
+        commit: AssistedMessageOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {

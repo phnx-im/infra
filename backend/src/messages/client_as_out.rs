@@ -18,7 +18,9 @@ use crate::{
     },
     crypto::{
         ear::{
-            keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKey},
+            keys::{
+                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey, SignatureEarKey,
+            },
             GenericDeserializable,
         },
         hpke::HpkeDecryptable,
@@ -306,7 +308,6 @@ impl VerifiableClientToAsMessage {
                 // credential from the persistend storage, or the ephemeral
                 // storage.
                 if cca.is_finish_user_registration_request() {
-                    tracing::info!("Loading client credential from ephemeral storage.");
                     let client_credential = ephemeral_storage_provider
                         .load_credential(cca.client_id())
                         .await
@@ -314,7 +315,6 @@ impl VerifiableClientToAsMessage {
                     cca.verify(client_credential.verifying_key())
                         .map_err(|_| AsVerificationError::AuthenticationFailed)?
                 } else {
-                    tracing::info!("Loading client credential from persistent storage.");
                     let client_record = as_storage_provider
                         .load_client(cca.client_id())
                         .await
@@ -338,7 +338,6 @@ impl VerifiableClientToAsMessage {
             // really return it from here. For now, we just load it again from
             // the processing function.
             AsAuthMethod::Client2Fa(auth_info) => {
-                tracing::info!("Authenticating 2FA request");
                 // We authenticate opaque first.
                 let client_id = auth_info.client_credential_auth.client_id().clone();
                 let (_client_credential, opaque_state) = ephemeral_storage_provider
@@ -350,7 +349,7 @@ impl VerifiableClientToAsMessage {
                 opaque_state
                     .finish(auth_info.opaque_finish.client_message)
                     .map_err(|e| {
-                        tracing::error!("Error during OPAQUE login handshake: {e}");
+                        tracing::warn!("Error during OPAQUE login handshake: {e}");
                         AsVerificationError::AuthenticationFailed
                     })?;
 
@@ -406,6 +405,7 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     connection_group_ear_key: GroupStateEarKey,
     connection_group_credential_key: ClientCredentialEarKey,
     connection_group_signature_ear_key: SignatureEarKey,
+    pub friendship_package_ear_key: FriendshipPackageEarKey,
     friendship_package: FriendshipPackage,
 }
 
@@ -462,6 +462,7 @@ impl ConnectionEstablishmentPackageIn {
             connection_group_ear_key: self.payload.connection_group_ear_key,
             connection_group_credential_key: self.payload.connection_group_credential_key,
             connection_group_signature_ear_key: self.payload.connection_group_signature_ear_key,
+            friendship_package_ear_key: self.payload.friendship_package_ear_key,
             friendship_package: self.payload.friendship_package,
         }
     }

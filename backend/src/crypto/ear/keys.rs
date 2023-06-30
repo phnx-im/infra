@@ -33,10 +33,6 @@ pub struct GroupStateEarKey {
 }
 
 impl GroupStateEarKey {
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        self.key.secret.as_slice()
-    }
-
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
             key: GroupStateEarKeySecret::random()?,
@@ -249,6 +245,38 @@ impl AsRef<Secret<AEAD_KEY_SIZE>> for WelcomeAttributionInfoEarKey {
 }
 
 impl From<Secret<AEAD_KEY_SIZE>> for WelcomeAttributionInfoEarKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
+pub type FriendshipPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
+
+// EAR key used to encrypt [`WelcomeAttributionInfo`]s.
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, ToSchema, Serialize, Deserialize,
+)]
+pub struct FriendshipPackageEarKey {
+    key: FriendshipPackageEarKeySecret,
+}
+
+impl FriendshipPackageEarKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: FriendshipPackageEarKeySecret::random()?,
+        })
+    }
+}
+
+impl EarKey for FriendshipPackageEarKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }

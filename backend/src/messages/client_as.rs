@@ -19,10 +19,10 @@ use crate::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, GroupStateEarKey, RatchetKey,
-                SignatureEarKey, WelcomeAttributionInfoEarKey,
+                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey,
+                GroupStateEarKey, RatchetKey, SignatureEarKey, WelcomeAttributionInfoEarKey,
             },
-            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -484,6 +484,42 @@ pub struct FriendshipPackage {
     pub wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
+impl GenericSerializable for FriendshipPackage {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+impl GenericDeserializable for FriendshipPackage {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct EncryptedFriendshipPackage {
+    ciphertext: Ciphertext,
+}
+
+impl AsRef<Ciphertext> for EncryptedFriendshipPackage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
+    }
+}
+
+impl From<Ciphertext> for EncryptedFriendshipPackage {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
+impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
+
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {
     pub sender_client_credential: ClientCredential,
@@ -491,6 +527,7 @@ pub struct ConnectionEstablishmentPackageTbs {
     pub connection_group_ear_key: GroupStateEarKey,
     pub connection_group_credential_key: ClientCredentialEarKey,
     pub connection_group_signature_ear_key: SignatureEarKey,
+    pub friendship_package_ear_key: FriendshipPackageEarKey,
     pub friendship_package: FriendshipPackage,
 }
 

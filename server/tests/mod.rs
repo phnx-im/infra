@@ -62,7 +62,7 @@ async fn inexistant_endpoint() {
     assert!(client.inexistant_endpoint().await);
 }
 
-#[should_panic]
+//#[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Full cycle", skip_all)]
 async fn full_cycle() {
@@ -98,17 +98,16 @@ async fn full_cycle() {
     tracing::info!("Alice fetches her messages from the QS");
     let qs_messages = alice.qs_fetch_messages().await;
     alice.process_qs_messages(qs_messages).await.unwrap();
-    panic!()
 
-    //tracing::info!("Alice creates a conversation with Bob");
-    //let conversation_id = alice
-    //    .create_conversation("Conversation Alice/Bob")
-    //    .await
-    //    .unwrap();
+    tracing::info!("Alice creates a conversation with Bob");
+    let conversation_id = alice
+        .create_conversation("Conversation Alice/Bob")
+        .await
+        .unwrap();
 
-    //tracing::info!("Alice invites Bob");
-    //alice
-    //    .invite_users(&conversation_id, &["bob"])
-    //    .await
-    //    .unwrap();
+    tracing::info!("Alice invites Bob");
+    alice
+        .invite_users(&conversation_id, &["bob"])
+        .await
+        .unwrap();
 }

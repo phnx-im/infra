@@ -113,12 +113,11 @@ impl Qs {
 
         // TODO: The backend should have its own value for max_messages and use
         // that one if the client-given one exceeds it.
-        tracing::info!("Reading and deleting messages from storage provider");
         let (messages, remaining_messages_number) = storage_provider
             .read_and_delete(&sender, sequence_number_start, max_message_number)
             .await
             .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
+                tracing::warn!("Storage provider error: {:?}", e);
                 QsDequeueError::StorageError
             })?;
 

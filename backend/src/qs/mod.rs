@@ -88,10 +88,7 @@ use mls_assist::{
     openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{
-    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait,
-    TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use utoipa::ToSchema;
 
 use self::errors::SealError;

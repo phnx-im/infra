@@ -5,7 +5,6 @@
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::AssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
 };
 
@@ -23,27 +22,23 @@ impl DsGroupState {
         // Process message (but don't apply it yet). This performs
         // mls-assist-level validations and puts the proposal into mls-assist's
         // proposal store.
-        let processed_assisted_message = if matches!(
-            params.remove_proposal.message,
-            AssistedMessage::NonCommit(_)
-        ) {
-            self.group()
-                .process_assisted_message(params.remove_proposal.message.clone())
-                .map_err(|_| ClientSelfRemovalError::ProcessingError)?
-        } else {
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        };
+        // Process message (but don't apply it yet). This performs mls-assist-level validations.
+        let processed_assisted_message_plus = self
+            .group()
+            .process_assisted_message(params.remove_proposal)
+            .map_err(|_| ClientSelfRemovalError::ProcessingError)?;
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
-        let processed_message = if let ProcessedAssistedMessage::NonCommit(ref processed_message) =
-            processed_assisted_message
-        {
-            processed_message
-        } else {
-            // This should be a commit.
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        };
+        let processed_message =
+            if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
+                &processed_assisted_message_plus.processed_assisted_message
+            {
+                processed_message
+            } else {
+                // This should be a commit.
+                return Err(ClientSelfRemovalError::InvalidMessage);
+            };
 
         // Check if sender index and user profile match.
         let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
@@ -83,7 +78,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            processed_assisted_message,
+            processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
@@ -117,8 +112,10 @@ impl DsGroupState {
         debug_assert!(removed_client.is_some());
 
         // Finally, we create the message for distribution.
-        let c2c_message = params.remove_proposal.into();
+        let payload = processed_assisted_message_plus
+            .serialized_mls_message
+            .into();
 
-        Ok(c2c_message)
+        Ok(payload)
     }
 }
