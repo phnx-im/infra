@@ -346,7 +346,7 @@ impl AsStorageProvider for MemoryAsStorage {
 
         // Check if sequence numbers are consistent.
         if queue.sequence_number != message.sequence_number {
-            tracing::warn!("Inconsistent sequence numbers.");
+            tracing::warn!("Inconsistent sequence numbers: Queue sequence number: {}, message sequence number: {}", queue.sequence_number, message.sequence_number);
             return Err(AsQueueError::SequenceNumberMismatch);
         }
         queue.sequence_number += 1;

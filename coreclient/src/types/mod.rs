@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::GroupId;
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct UuidBytes {
     pub bytes: [u8; 16],
 }
@@ -41,56 +42,57 @@ impl UuidBytes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ConversationMessage {
     pub id: UuidBytes,
     pub timestamp: u64,
     pub message: Message,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Message {
     Content(ContentMessage),
     Display(DisplayMessage),
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ContentMessage {
     pub sender: Vec<u8>,
     pub content: MessageContentType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[repr(u16)]
 pub enum MessageContentType {
     Text(TextMessage),
-    Ping(Ping),
+    Knock(Knock),
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
 pub struct TextMessage {
-    pub message: String,
+    pub message: Vec<u8>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Ping {}
+#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+pub struct Knock {}
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct DisplayMessage {
     pub message: DisplayMessageType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum DisplayMessageType {
     System(SystemMessage),
     Error(ErrorMessage),
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct SystemMessage {
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ErrorMessage {
     pub message: String,
 }
@@ -106,21 +108,18 @@ pub struct Conversation {
     pub attributes: ConversationAttributes,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ConversationStatus {
     Inactive(InactiveConversation),
-    Active(ActiveConversation),
+    Active,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct InactiveConversation {
     pub past_members: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ActiveConversation {}
-
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(Vec<u8>),
@@ -135,7 +134,7 @@ pub struct ConversationAttributes {
     pub title: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct DispatchedConversationMessage {
     pub conversation_id: Uuid,
     pub conversation_message: ConversationMessage,

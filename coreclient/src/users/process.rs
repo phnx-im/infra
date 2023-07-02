@@ -406,6 +406,7 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await
                         .unwrap();
+                    self.group_store.store_group(group).unwrap();
                 }
             }
         }

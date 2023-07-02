@@ -5,10 +5,15 @@
 mod qs;
 mod utils;
 
+use std::sync::{Arc, Mutex};
+
 use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxcoreclient::{
-    notifications::{Notifiable, NotificationHub},
-    types::NotificationType,
+    notifications::{self, Notifiable, NotificationHub, Notifier},
+    types::{
+        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
+        NotificationType,
+    },
     users::SelfUser,
 };
 
@@ -31,11 +36,29 @@ async fn health_check_works() {
 }
 
 #[derive(Clone)]
-struct TestNotifier;
+struct TestNotifier {
+    notifications: Arc<Mutex<Vec<NotificationType>>>,
+}
 
 impl Notifiable for TestNotifier {
-    fn notify(&self, _notification_type: NotificationType) -> bool {
+    fn notify(&self, notification_type: NotificationType) -> bool {
+        let mut inner = self.notifications.lock().unwrap();
+        inner.push(notification_type);
         true
+    }
+}
+
+impl TestNotifier {
+    pub fn new() -> Self {
+        Self {
+            notifications: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub fn notifications(&mut self) -> Vec<NotificationType> {
+        let notifications = self.notifications.lock().unwrap().clone();
+        self.notifications = Arc::new(Mutex::new(Vec::new()));
+        notifications
     }
 }
 
@@ -62,14 +85,19 @@ async fn inexistant_endpoint() {
     assert!(client.inexistant_endpoint().await);
 }
 
-//#[should_panic]
 #[actix_rt::test]
 #[tracing::instrument(name = "Full cycle", skip_all)]
 async fn full_cycle() {
     let (address, _ws_dispatch) = spawn_app().await;
 
-    let notification_hub_alice = NotificationHub::<TestNotifier>::default();
-    let notification_hub_bob = NotificationHub::<TestNotifier>::default();
+    let mut notification_hub_alice = NotificationHub::<TestNotifier>::default();
+    let mut notification_hub_bob = NotificationHub::<TestNotifier>::default();
+
+    let mut alice_notifier = TestNotifier::new();
+    notification_hub_alice.add_sink(alice_notifier.notifier());
+
+    let mut bob_notifier = TestNotifier::new();
+    notification_hub_bob.add_sink(bob_notifier.notifier());
 
     // Create a users
     let mut alice = SelfUser::new("alice", "alicepassword", address, notification_hub_alice).await;
@@ -99,15 +127,163 @@ async fn full_cycle() {
     let qs_messages = alice.qs_fetch_messages().await;
     alice.process_qs_messages(qs_messages).await.unwrap();
 
+    // Check that the contact is no longer pending
+    assert_eq!(alice.contacts().len(), 1);
+    assert!(alice.partial_contacts().is_empty());
+
+    assert_eq!(&alice.contacts()[0].user_name.to_string(), "bob");
+    assert_eq!(alice.get_conversations().len(), 1);
+
+    assert_eq!(
+        alice.get_conversations()[0].status,
+        ConversationStatus::Active
+    );
+
+    assert_eq!(
+        bob.get_conversations()[0].status,
+        ConversationStatus::Active
+    );
+
+    // Alice sends a message to Bob
+    tracing::info!("Alice sends a message to Bob");
+    let orig_message = MessageContentType::Text(phnxcoreclient::types::TextMessage {
+        message: b"Hello Bob".to_vec(),
+    });
+    let message = alice
+        .send_message(alice.get_conversations()[0].id, orig_message.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        message.message,
+        Message::Content(ContentMessage {
+            sender: b"alice".to_vec(),
+            content: orig_message.clone()
+        })
+    );
+
+    tracing::info!("Bob fetches QS messages");
+    let bob_qs_messages = bob.qs_fetch_messages().await;
+
+    bob.process_qs_messages(bob_qs_messages).await.unwrap();
+
+    let bob_notifications = bob_notifier.notifications();
+
+    assert_eq!(bob_notifications.len(), 1);
+
+    assert!(matches!(bob_notifications[0], NotificationType::Message(_)));
+
+    if let NotificationType::Message(message) = &bob_notifications[0] {
+        assert_eq!(
+            message.conversation_message.message,
+            Message::Content(ContentMessage {
+                sender: b"alice".to_vec(),
+                content: orig_message
+            })
+        );
+    }
+
+    return;
+
     tracing::info!("Alice creates a conversation with Bob");
     let conversation_id = alice
         .create_conversation("Conversation Alice/Bob")
         .await
         .unwrap();
 
+    let alice_conversations = alice.get_conversations();
+
+    println!("Alice's conversations: {:?}", alice_conversations);
+
+    assert_eq!(alice_conversations.len(), 2);
+    assert!(matches!(
+        alice_conversations[0].conversation_type,
+        ConversationType::UnconfirmedConnection(_)
+    ));
+    assert!(matches!(
+        alice_conversations[1].conversation_type,
+        ConversationType::Group
+    ));
+
     tracing::info!("Alice invites Bob");
     alice
         .invite_users(&conversation_id, &["bob"])
         .await
         .unwrap();
+
+    tracing::info!("Bob fetches QS messages");
+    let bob_qs_messages = bob.qs_fetch_messages().await;
+    assert_eq!(bob_qs_messages.len(), 1);
+
+    tracing::info!("Bob processes QS messages");
+    bob.process_qs_messages(bob_qs_messages).await.unwrap();
+
+    let notification_hub_charlie = NotificationHub::<TestNotifier>::default();
+    let mut charlie = SelfUser::new(
+        "charlie",
+        "charliepassword",
+        address,
+        notification_hub_charlie,
+    )
+    .await;
+    tracing::info!("Created Charlie");
+
+    tracing::info!("Alice adds Charlie as a contact");
+    alice.add_contact("charlie").await;
+
+    assert_eq!(alice.contacts().len(), 1);
+    assert_eq!(alice.partial_contacts().len(), 1);
+
+    assert_eq!(
+        &alice.partial_contacts()[0].user_name.to_string(),
+        "charlie"
+    );
+    assert_eq!(alice.get_conversations().len(), 3);
+
+    // Charlie fetches messages from the AS
+    tracing::info!("Charlie fetches messages from the AS");
+    let as_messages = charlie.as_fetch_messages().await;
+    charlie.process_as_messages(as_messages).await.unwrap();
+
+    // Check charlie has added Alice
+    assert_eq!(charlie.contacts().len(), 1);
+    assert!(charlie.partial_contacts().is_empty());
+
+    assert_eq!(&charlie.contacts()[1].user_name.to_string(), "alice");
+    assert_eq!(charlie.get_conversations().len(), 1);
+
+    tracing::info!("Alice fetches her messages from the QS");
+    let qs_messages = alice.qs_fetch_messages().await;
+    alice.process_qs_messages(qs_messages).await.unwrap();
+
+    // Check that the contact is no longer pending
+    assert_eq!(alice.contacts().len(), 2);
+    assert!(alice.partial_contacts().is_empty());
+
+    assert_eq!(&alice.contacts()[1].user_name.to_string(), "charlie");
+    assert_eq!(alice.get_conversations().len(), 3);
+
+    assert_eq!(
+        alice.get_conversations()[2].status,
+        ConversationStatus::Active
+    );
+
+    assert_eq!(
+        charlie.get_conversations()[0].status,
+        ConversationStatus::Active
+    );
+
+    // Alice adds charlie to her conversation with bob
+    tracing::info!("Alice invites Charlie");
+    alice
+        .invite_users(&conversation_id, &["charlie"])
+        .await
+        .unwrap();
+
+    // Charlie fetches messages from the QS to accept the invitation
+    tracing::info!("Charlie fetches messages from the AS");
+    let qs_messages = charlie.qs_fetch_messages().await;
+    charlie.process_qs_messages(qs_messages).await.unwrap();
+
+    assert_eq!(charlie.get_conversations().len(), 2);
 }

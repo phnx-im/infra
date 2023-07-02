@@ -52,7 +52,7 @@ impl GroupStore {
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         group_id: &GroupId,
-        message: &str,
+        message: MessageContentType,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let group = self.groups.get_mut(group_id).unwrap();
         group.create_message(backend, message)
