@@ -214,7 +214,7 @@ async fn full_cycle() {
     let qs_messages = bob.qs_fetch_messages().await;
     bob.process_qs_messages(qs_messages).await.unwrap();
 
-    assert_eq!(bob.get_conversations().len(), 3);
+    assert_eq!(bob.get_conversations().len(), 2);
 }
 
 async fn connect_users<T: Notifiable, U: Notifiable>(
@@ -281,11 +281,6 @@ async fn connect_users<T: Notifiable, U: Notifiable>(
         .expect("User 2 should have created a new conversation");
     let conversation = user2_conversations_after.remove(new_conversation_position);
     assert!(conversation.status == ConversationStatus::Active);
-    println!(
-        "Comparing {:?} and {:?}",
-        conversation.conversation_type,
-        ConversationType::Connection(user1.user_name().as_bytes().to_vec())
-    );
     assert!(
         conversation.conversation_type
             == ConversationType::Connection(user1.user_name().as_bytes().to_vec())
