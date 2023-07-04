@@ -19,7 +19,8 @@ use crate::{
     crypto::{
         ear::{
             keys::{
-                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey, SignatureEarKey,
+                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey,
+                SignatureEarKeyWrapperKey,
             },
             GenericDeserializable,
         },
@@ -404,7 +405,7 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     connection_group_id: GroupId,
     connection_group_ear_key: GroupStateEarKey,
     connection_group_credential_key: ClientCredentialEarKey,
-    connection_group_signature_ear_key: SignatureEarKey,
+    connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
     friendship_package: FriendshipPackage,
 }
@@ -461,7 +462,9 @@ impl ConnectionEstablishmentPackageIn {
             connection_group_id: self.payload.connection_group_id,
             connection_group_ear_key: self.payload.connection_group_ear_key,
             connection_group_credential_key: self.payload.connection_group_credential_key,
-            connection_group_signature_ear_key: self.payload.connection_group_signature_ear_key,
+            connection_group_signature_ear_key_wrapper_key: self
+                .payload
+                .connection_group_signature_ear_key_wrapper_key,
             friendship_package_ear_key: self.payload.friendship_package_ear_key,
             friendship_package: self.payload.friendship_package,
         }

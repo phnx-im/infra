@@ -24,9 +24,13 @@ impl GroupStore {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        leaf_signers: &mut HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
+        leaf_signers: &mut HashMap<
+            SignaturePublicKey,
+            (InfraCredentialSigningKey, SignatureEarKey),
+        >,
         as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
+        own_client_credential: &ClientCredential,
     ) -> GroupId {
         let group = Group::join_group(
             backend,
@@ -35,6 +39,7 @@ impl GroupStore {
             leaf_signers,
             as_intermediate_credentials,
             contacts,
+            own_client_credential,
         )
         .unwrap();
         let group_id = group.group_id().clone();

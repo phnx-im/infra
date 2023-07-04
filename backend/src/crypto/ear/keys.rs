@@ -20,7 +20,7 @@ use crate::crypto::{
     RandomnessError,
 };
 
-use super::{traits::EarKey, AEAD_KEY_SIZE};
+use super::{traits::EarKey, Ciphertext, EarDecryptable, EarEncryptable, AEAD_KEY_SIZE};
 
 pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
@@ -277,6 +277,55 @@ impl AsRef<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
 }
 
 impl From<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
+    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key: secret }
+    }
+}
+
+impl EarEncryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
+impl EarDecryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+pub struct EncryptedSignatureEarKey {
+    ciphertext: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedSignatureEarKey {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedSignatureEarKey {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
+    }
+}
+
+pub type SignatureEarKeyWrapperKeySecret = Secret<AEAD_KEY_SIZE>;
+
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct SignatureEarKeyWrapperKey {
+    key: SignatureEarKeyWrapperKeySecret,
+}
+
+impl SignatureEarKeyWrapperKey {
+    pub fn random() -> Result<Self, RandomnessError> {
+        Ok(Self {
+            key: SignatureEarKeyWrapperKeySecret::random()?,
+        })
+    }
+}
+
+impl EarKey for SignatureEarKeyWrapperKey {}
+
+impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEarKeyWrapperKey {
+    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
+        &self.key
+    }
+}
+
+impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKeyWrapperKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }

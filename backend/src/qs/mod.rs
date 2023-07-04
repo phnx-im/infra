@@ -64,7 +64,7 @@
 use crate::{
     crypto::{
         ear::{
-            keys::{AddPackageEarKey, PushTokenEarKey},
+            keys::{AddPackageEarKey, EncryptedSignatureEarKey, PushTokenEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
         hpke::{HpkeDecryptable, HpkeDecryptionKey, HpkeEncryptable, HpkeEncryptionKey},
@@ -535,19 +535,22 @@ impl KeyPackageBatch<VERIFIED> {
     }
 }
 
-#[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsSize)]
+#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsSize)]
 pub struct AddPackage {
     key_package: KeyPackage,
+    encrypted_signature_ear_key: EncryptedSignatureEarKey,
     encrypted_client_credential: EncryptedClientCredential,
 }
 
 impl AddPackage {
     pub fn new(
         key_package: KeyPackage,
+        encrypted_signature_ear_key: EncryptedSignatureEarKey,
         encrypted_client_credential: EncryptedClientCredential,
     ) -> Self {
         Self {
             key_package,
+            encrypted_signature_ear_key,
             encrypted_client_credential,
         }
     }
@@ -555,11 +558,16 @@ impl AddPackage {
     pub fn key_package(&self) -> &KeyPackage {
         &self.key_package
     }
+
+    pub fn encrypted_signature_ear_key(&self) -> &EncryptedSignatureEarKey {
+        &self.encrypted_signature_ear_key
+    }
 }
 
 #[derive(Debug, ToSchema, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct AddPackageIn {
     key_package: KeyPackageIn,
+    encrypted_signature_ear_key: EncryptedSignatureEarKey,
     encrypted_client_credential: EncryptedClientCredential,
 }
 
@@ -572,6 +580,7 @@ impl AddPackageIn {
         let key_package = self.key_package.validate(crypto, protocol_version)?;
         Ok(AddPackage {
             key_package,
+            encrypted_signature_ear_key: self.encrypted_signature_ear_key,
             encrypted_client_credential: self.encrypted_client_credential,
         })
     }

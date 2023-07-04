@@ -127,12 +127,12 @@ impl DsGroupState {
             .credential()
             .clone();
         if new_sender_credential != old_sender_credential {
-            if let Some(ecc) = aad_payload.option_encrypted_credential_information {
+            if let Some(ecc) = aad_payload.option_encrypted_client_information {
                 let client_profile = self
                     .client_profiles
                     .get_mut(&sender)
                     .ok_or(ClientUpdateError::UnknownSender)?;
-                client_profile.encrypted_client_credential = ecc;
+                client_profile.encrypted_client_information = ecc;
             } else {
                 return Err(ClientUpdateError::InvalidMessage);
             }

@@ -159,7 +159,7 @@ use tls_codec::{TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::{EarDecryptable, EarEncryptable},
+        ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
@@ -204,6 +204,7 @@ impl DsApi {
                         group_id: _,
                         leaf_node,
                         encrypted_client_credential,
+                        encrypted_signature_ear_key,
                         creator_client_reference: creator_queue_config,
                         creator_user_auth_key,
                         group_info,
@@ -223,6 +224,7 @@ impl DsApi {
                         group_state,
                         creator_user_auth_key.clone(),
                         encrypted_client_credential.clone(),
+                        encrypted_signature_ear_key.clone(),
                         creator_queue_config.clone(),
                     )
                 } else {
@@ -276,14 +278,35 @@ impl DsApi {
 
         let sender = verified_message.mls_sender().cloned();
 
-        let sender_index_option = if let Some(Sender::Member(leaf_index)) = sender {
-            Some(leaf_index)
-        } else {
-            None
-        };
-
         // We always want to distribute to all members that are group members
         // before the message is processed (except the sender).
+        let sender_index_option = match verified_message.ds_sender() {
+            DsSender::LeafIndex(leaf_index) => Some(leaf_index),
+            DsSender::LeafSignatureKey(verifying_key) => {
+                let index = group_state
+                    .group
+                    .members()
+                    .find_map(|m| {
+                        if m.signature_key == verifying_key.as_slice() {
+                            Some(m.index)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or(DsProcessingError::UnknownSender)?;
+                Some(index)
+            }
+            DsSender::UserKeyHash(_) => {
+                if let Some(Sender::Member(leaf_index)) = sender {
+                    Some(leaf_index)
+                } else {
+                    None
+                }
+            }
+            // None is fine here, since all messages that are meant for
+            // distribution have some form of authentication.
+            DsSender::Anonymous => None,
+        };
         let destination_clients: Vec<_> = group_state
             .client_profiles
             .iter()
@@ -480,7 +503,7 @@ impl DsApi {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+    pub encrypted_client_info: Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]

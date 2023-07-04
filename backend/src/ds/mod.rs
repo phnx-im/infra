@@ -14,7 +14,9 @@ use crate::{
     auth_service::AsClientId,
     crypto::{
         ear::{
-            keys::{ClientCredentialEarKey, SignatureEarKey, WelcomeAttributionInfoEarKey},
+            keys::{
+                ClientCredentialEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+            },
             Ciphertext, EarDecryptable, EarEncryptable,
         },
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -58,19 +60,19 @@ pub enum LoadState {
 pub struct WelcomeAttributionInfoPayload {
     sender_client_id: AsClientId,
     client_credential_encryption_key: ClientCredentialEarKey,
-    signature_encryption_key: SignatureEarKey,
+    signature_encryption_key: SignatureEarKeyWrapperKey,
 }
 
 impl WelcomeAttributionInfoPayload {
     pub fn new(
         sender_client_id: AsClientId,
         client_credential_encryption_key: ClientCredentialEarKey,
-        signature_encryption_key: SignatureEarKey,
+        signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     ) -> Self {
         Self {
             sender_client_id,
             client_credential_encryption_key,
-            signature_encryption_key,
+            signature_encryption_key: signature_ear_key_wrapper_key,
         }
     }
 
@@ -78,7 +80,7 @@ impl WelcomeAttributionInfoPayload {
         &self.client_credential_encryption_key
     }
 
-    pub fn signature_encryption_key(&self) -> &SignatureEarKey {
+    pub fn signature_ear_key_wrapper_key(&self) -> &SignatureEarKeyWrapperKey {
         &self.signature_encryption_key
     }
 }

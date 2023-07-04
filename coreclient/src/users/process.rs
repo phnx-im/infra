@@ -53,6 +53,7 @@ impl<T: Notifiable> SelfUser<T> {
                         &mut self.key_store.leaf_signers,
                         &self.key_store.as_intermediate_credentials,
                         &self.contacts,
+                        &self.key_store.signing_key.credential(),
                     );
 
                     let conversation_id = Uuid::new_v4();
@@ -161,19 +162,27 @@ impl<T: Notifiable> SelfUser<T> {
                                             )
                                             .await
                                             .unwrap();
-                                        let key_packages: Vec<KeyPackage> =
+                                        let key_packages: Vec<(KeyPackage, SignatureEarKey)> =
                                             key_package_batch_response
                                                 .add_packages
                                                 .into_iter()
                                                 .map(|add_package| {
-                                                    add_package
+                                                    let verified_add_package = add_package
                                                         .validate(
                                                             self.crypto_backend.crypto(),
                                                             ProtocolVersion::default(),
                                                         )
-                                                        .unwrap()
-                                                        .key_package()
-                                                        .clone()
+                                                        .unwrap();
+                                                    let key_package =
+                                                        verified_add_package.key_package().clone();
+                                                    let sek = SignatureEarKey::decrypt(
+                                                        &friendship_package
+                                                            .signature_ear_key_wrapper_key,
+                                                        verified_add_package
+                                                            .encrypted_signature_ear_key(),
+                                                    )
+                                                    .unwrap();
+                                                    (key_package, sek)
                                                 })
                                                 .collect();
                                         let key_package_batch = key_package_batch_response
@@ -248,8 +257,6 @@ impl<T: Notifiable> SelfUser<T> {
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
     ) -> Result<(), CorelibError> {
-        let number_of_messages = message_ciphertexts.len();
-        log::info!("Processing {number_of_messages} AS messages.");
         // Decrypt received message.
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
             .into_iter()
@@ -267,7 +274,6 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
-                    log::info!("Found an encrypted connection establishment package.");
                     let cep_in = ConnectionEstablishmentPackageIn::decrypt(
                         ecep,
                         &self.key_store.connection_decryption_key,
@@ -290,28 +296,36 @@ impl<T: Notifiable> SelfUser<T> {
                         .await
                         .unwrap();
 
+                    let signature_ear_key = SignatureEarKey::random().unwrap();
                     let leaf_signer = InfraCredentialSigningKey::generate(
                         &self.key_store.signing_key,
-                        &cep_tbs.connection_group_signature_ear_key,
+                        &signature_ear_key,
                     );
+                    let esek = signature_ear_key
+                        .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)
+                        .unwrap();
 
                     let encrypted_friendship_package = FriendshipPackage {
                         friendship_token: self.key_store.friendship_token.clone(),
                         add_package_ear_key: self.key_store.add_package_ear_key.clone(),
                         client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
-                        signature_ear_key: self.key_store.signature_ear_key.clone(),
+                        signature_ear_key_wrapper_key: self
+                            .key_store
+                            .signature_ear_key_wrapper_key
+                            .clone(),
                         wai_ear_key: self.key_store.wai_ear_key.clone(),
                     }
                     .encrypt(&cep_tbs.friendship_package_ear_key)
                     .unwrap();
+                    let ecc = self
+                        .key_store
+                        .signing_key
+                        .credential()
+                        .encrypt(&cep_tbs.connection_group_credential_key)
+                        .unwrap();
 
                     let aad = InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
-                        encrypted_credential_information: self
-                            .key_store
-                            .signing_key
-                            .credential()
-                            .encrypt(&cep_tbs.connection_group_credential_key)
-                            .unwrap(),
+                        encrypted_client_information: (ecc, esek),
                         encrypted_friendship_package,
                     })
                     .into();
@@ -320,8 +334,9 @@ impl<T: Notifiable> SelfUser<T> {
                         &self.crypto_backend,
                         eci,
                         leaf_signer,
+                        signature_ear_key,
                         cep_tbs.connection_group_ear_key.clone(),
-                        cep_tbs.connection_group_signature_ear_key,
+                        cep_tbs.connection_group_signature_ear_key_wrapper_key,
                         cep_tbs.connection_group_credential_key,
                         &self.key_store.as_intermediate_credentials,
                         aad,
@@ -349,16 +364,20 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await
                         .unwrap();
-                    log::info!("Successfully sent response.");
-                    let key_packages: Vec<KeyPackage> = response
+                    let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
                         .add_packages
                         .into_iter()
                         .map(|add_package| {
-                            add_package
+                            let validated_add_package = add_package
                                 .validate(self.crypto_backend.crypto(), ProtocolVersion::default())
-                                .unwrap()
-                                .key_package()
-                                .clone()
+                                .unwrap();
+                            let key_package = validated_add_package.key_package().clone();
+                            let sek = SignatureEarKey::decrypt(
+                                &cep_tbs.friendship_package.signature_ear_key_wrapper_key,
+                                validated_add_package.encrypted_signature_ear_key(),
+                            )
+                            .unwrap();
+                            (key_package, sek)
                         })
                         .collect();
                     let add_info = ContactAddInfos {

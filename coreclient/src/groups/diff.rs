@@ -10,14 +10,14 @@ use super::*;
 #[derive(Debug)]
 pub(crate) struct GroupDiff {
     pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
-    pub(crate) signature_ear_key: Option<SignatureEarKey>,
+    pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
     pub(crate) credential_ear_key: Option<ClientCredentialEarKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
     pub(crate) user_auth_key: Option<UserAuthSigningKey>,
     // Changes to the client credentials. `None` denotes a deleted credential at
     // the given index, `Some` denotes an added or updated credential. The
     // vector must be sorted in ascending order of indices.
-    pub(crate) client_credentials: HashMap<usize, Option<ClientCredential>>,
+    pub(crate) client_information: HashMap<usize, Option<(ClientCredential, SignatureEarKey)>>,
     pub(crate) new_number_of_leaves: usize,
 }
 
@@ -29,22 +29,22 @@ impl GroupDiff {
             credential_ear_key: None,
             group_state_ear_key: None,
             user_auth_key: None,
-            client_credentials: HashMap::new(),
-            new_number_of_leaves: group.client_credentials.len(),
+            client_information: HashMap::new(),
+            new_number_of_leaves: group.client_information.len(),
         }
     }
 
     /// This overrides any previous changes to the client credentials.
     pub(crate) fn remove_client_credential(&mut self, removed_index: LeafNodeIndex) {
-        self.client_credentials.insert(removed_index.usize(), None);
+        self.client_information.insert(removed_index.usize(), None);
     }
 
-    pub(crate) fn credential<'a>(
+    pub(crate) fn client_information<'a>(
         &'a self,
         index: usize,
-        existing_client_credentials: &'a [Option<ClientCredential>],
-    ) -> Option<&'a ClientCredential> {
-        if let Some(Some(credential)) = self.client_credentials.get(&index) {
+        existing_client_credentials: &'a [Option<(ClientCredential, SignatureEarKey)>],
+    ) -> Option<&'a (ClientCredential, SignatureEarKey)> {
+        if let Some(Some(credential)) = self.client_information.get(&index) {
             Some(credential)
         } else {
             existing_client_credentials
@@ -55,25 +55,25 @@ impl GroupDiff {
 
     /// Add a client credential in the first free index, or extend the current
     /// list of credentials. This takes into account previous removes.
-    pub(crate) fn add_client_credentials(
+    pub(crate) fn add_client_information(
         &mut self,
-        existing_client_credentials: &[Option<ClientCredential>],
-        new_client_credential: ClientCredential,
+        existing_client_information: &[Option<(ClientCredential, SignatureEarKey)>],
+        new_client_information: (ClientCredential, SignatureEarKey),
     ) {
         for index in 0..self.new_number_of_leaves {
             if self
-                .credential(index, existing_client_credentials)
+                .client_information(index, existing_client_information)
                 .is_none()
             {
-                self.client_credentials
-                    .insert(index, Some(new_client_credential));
+                self.client_information
+                    .insert(index, Some(new_client_information));
                 return;
             }
         }
         // If we're still here, we have not found a free index yet and we have
         // to extend the vector of credentials.
-        self.client_credentials
-            .insert(self.new_number_of_leaves, Some(new_client_credential));
+        self.client_information
+            .insert(self.new_number_of_leaves, Some(new_client_information));
         self.new_number_of_leaves += 1;
     }
 }

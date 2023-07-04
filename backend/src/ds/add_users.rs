@@ -17,7 +17,7 @@ use tls_codec::DeserializeBytes;
 
 use crate::{
     crypto::{
-        ear::keys::GroupStateEarKey,
+        ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
         signatures::signable::Verifiable,
     },
@@ -110,23 +110,34 @@ impl DsGroupState {
         {
             return Err(AddUsersError::InvalidMessage);
         }
-        let mut added_clients: HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)> =
-            staged_commit
-                .add_proposals()
-                .zip(aad_payload.encrypted_credential_information.into_iter())
-                .map(|(add_proposal, ecc)| {
-                    let key_package_ref = add_proposal
-                        .add_proposal()
-                        .key_package()
-                        .hash_ref(OpenMlsRustCrypto::default().crypto())
-                        .map_err(|_| AddUsersError::LibraryError)?;
-                    let key_package = add_proposal.add_proposal().key_package().clone();
-                    Ok((key_package_ref, (key_package, ecc)))
-                })
-                .collect::<Result<
-                    HashMap<KeyPackageRef, (KeyPackage, EncryptedClientCredential)>,
-                    AddUsersError,
-                >>()?;
+        let mut added_clients: HashMap<
+            KeyPackageRef,
+            (
+                KeyPackage,
+                (EncryptedClientCredential, EncryptedSignatureEarKey),
+            ),
+        > = staged_commit
+            .add_proposals()
+            .zip(aad_payload.encrypted_credential_information.into_iter())
+            .map(|(add_proposal, (ecc, esek))| {
+                let key_package_ref = add_proposal
+                    .add_proposal()
+                    .key_package()
+                    .hash_ref(OpenMlsRustCrypto::default().crypto())
+                    .map_err(|_| AddUsersError::LibraryError)?;
+                let key_package = add_proposal.add_proposal().key_package().clone();
+                Ok((key_package_ref, (key_package, (ecc, esek))))
+            })
+            .collect::<Result<
+                HashMap<
+                    KeyPackageRef,
+                    (
+                        KeyPackage,
+                        (EncryptedClientCredential, EncryptedSignatureEarKey),
+                    ),
+                >,
+                AddUsersError,
+            >>()?;
 
         // Check if for each added member, there is a corresponding entry
         // in the Welcome.
@@ -204,7 +215,7 @@ impl DsGroupState {
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
         for (add_packages, attribution_info) in added_users.into_iter() {
             let mut client_profiles = vec![];
-            for (key_package, ecc) in add_packages {
+            for (key_package, encrypted_client_information) in add_packages {
                 let member = self
                     .group()
                     .members()
@@ -228,7 +239,7 @@ impl DsGroupState {
                 .map_err(|_| AddUsersError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    encrypted_client_credential: ecc,
+                    encrypted_client_information,
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
@@ -239,7 +250,7 @@ impl DsGroupState {
                     key_package.hpke_init_key().clone().into();
                 let encrypted_joiner_info = DsJoinerInformation {
                     group_state_ear_key: group_state_ear_key.clone(),
-                    encrypted_client_credentials: self.client_credentials(),
+                    encrypted_client_credentials: self.client_information(),
                     ratchet_tree: self.group().export_ratchet_tree(),
                 }
                 .encrypt(&encryption_key, info, aad);

@@ -20,7 +20,10 @@ use tls_codec::{
 
 use crate::{
     crypto::{
-        ear::{keys::GroupStateEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+        ear::{
+            keys::{EncryptedSignatureEarKey, GroupStateEarKey},
+            Ciphertext, EarDecryptable, EarEncryptable,
+        },
         signatures::keys::UserAuthVerifyingKey,
         EncryptedDsGroupState,
     },
@@ -144,7 +147,7 @@ impl AsRef<Ciphertext> for EncryptedClientCredential {
 #[derive(Serialize, Deserialize)]
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
-    pub(super) encrypted_client_credential: EncryptedClientCredential,
+    pub(super) encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
     pub(super) client_queue_config: QsClientReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
@@ -202,6 +205,7 @@ impl DsGroupState {
         group: Group,
         creator_user_auth_key: UserAuthVerifyingKey,
         creator_encrypted_client_credential: EncryptedClientCredential,
+        creator_encrypted_signature_ear_key: EncryptedSignatureEarKey,
         creator_queue_config: QsClientReference,
     ) -> Self {
         let creator_key_hash = creator_user_auth_key.hash();
@@ -212,7 +216,10 @@ impl DsGroupState {
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
         let creator_client_profile = ClientProfile {
-            encrypted_client_credential: creator_encrypted_client_credential,
+            encrypted_client_information: (
+                creator_encrypted_client_credential,
+                creator_encrypted_signature_ear_key,
+            ),
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
@@ -269,11 +276,11 @@ impl DsGroupState {
     pub(super) fn external_commit_info(&self) -> ExternalCommitInfo {
         let group_info = self.group().group_info().clone();
         let ratchet_tree = self.group().export_ratchet_tree();
-        let encrypted_client_credentials = self.client_credentials();
+        let encrypted_client_info = self.client_information();
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
-            encrypted_client_credentials,
+            encrypted_client_info,
         }
     }
 
@@ -342,16 +349,18 @@ impl DsGroupState {
 
     /// Create vector of encrypted client credentials options from the current
     /// list of client records.
-    pub(super) fn client_credentials(&self) -> Vec<Option<EncryptedClientCredential>> {
-        let mut client_credentials = vec![];
+    pub(super) fn client_information(
+        &self,
+    ) -> Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>> {
+        let mut client_information = vec![];
         for (client_index, client_profile) in self.client_profiles.iter() {
-            if client_index.u32() == client_credentials.len() as u32 {
-                client_credentials.push(Some(client_profile.encrypted_client_credential.clone()));
+            if client_index.u32() == client_information.len() as u32 {
+                client_information.push(Some(client_profile.encrypted_client_information.clone()));
             } else {
-                client_credentials.push(None);
+                client_information.push(None);
             }
         }
-        client_credentials
+        client_information
     }
 }
 

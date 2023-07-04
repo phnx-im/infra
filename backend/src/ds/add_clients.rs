@@ -101,7 +101,7 @@ impl DsGroupState {
         // A few general checks.
         let number_of_add_proposals = staged_commit.add_proposals().count();
         // Check if we have enough encrypted credential chains.
-        if number_of_add_proposals != aad_payload.encrypted_credential_information.len() {
+        if number_of_add_proposals != aad_payload.encrypted_client_information.len() {
             return Err(ClientAdditionError::InvalidMessage);
         }
         let added_clients: Vec<KeyPackage> = staged_commit
@@ -137,9 +137,10 @@ impl DsGroupState {
 
         // ... s.t. it's easier to update the user profile.
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
-        for (key_package, encrypted_client_credential) in added_clients
-            .into_iter()
-            .zip(aad_payload.encrypted_credential_information.into_iter())
+        for (key_package, (encrypted_client_credential, encrypted_signature_ear_key)) in
+            added_clients
+                .into_iter()
+                .zip(aad_payload.encrypted_client_information.into_iter())
         {
             let member = self
                 .group()
@@ -174,7 +175,10 @@ impl DsGroupState {
             .map_err(|_| ClientAdditionError::MissingQueueConfig)?;
             let client_profile = ClientProfile {
                 leaf_index,
-                encrypted_client_credential,
+                encrypted_client_information: (
+                    encrypted_client_credential,
+                    encrypted_signature_ear_key,
+                ),
                 client_queue_config: client_queue_config.clone(),
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -188,7 +192,7 @@ impl DsGroupState {
                 key_package.hpke_init_key().clone().into();
             let encrypted_joiner_info = DsJoinerInformation {
                 group_state_ear_key: group_state_ear_key.clone(),
-                encrypted_client_credentials: self.client_credentials(),
+                encrypted_client_credentials: self.client_information(),
                 ratchet_tree: self.group().export_ratchet_tree(),
             }
             .encrypt(&encryption_key, info, aad);

@@ -7,7 +7,7 @@ use phnxbackend::{
     auth_service::{credentials::ClientCredential, AsClientId, UserName},
     crypto::ear::keys::{
         AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, SignatureEarKey,
-        WelcomeAttributionInfoEarKey,
+        SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
     },
     messages::{client_as::FriendshipPackage, FriendshipToken},
     qs::{KeyPackageBatch, VERIFIED},
@@ -32,14 +32,14 @@ pub struct Contact {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) add_package_ear_key: AddPackageEarKey,
     pub(crate) client_credential_ear_key: ClientCredentialEarKey,
-    pub(crate) signature_ear_key: SignatureEarKey,
+    pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: Uuid,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct ContactAddInfos {
-    pub key_packages: Vec<KeyPackage>,
+    pub key_packages: Vec<(KeyPackage, SignatureEarKey)>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
@@ -92,7 +92,7 @@ impl PartialContact {
             friendship_token: friendship_package.friendship_token,
             add_package_ear_key: friendship_package.add_package_ear_key,
             client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key: friendship_package.signature_ear_key,
+            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id: self.conversation_id,
         }
     }
