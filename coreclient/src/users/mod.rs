@@ -22,7 +22,7 @@ use phnxbackend::{
         ear::{
             keys::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
-                SignatureEarKey, WelcomeAttributionInfoEarKey,
+                SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
             EarEncryptable,
         },
@@ -85,11 +85,11 @@ pub(crate) struct MemoryUserKeyStore {
     friendship_token: FriendshipToken,
     add_package_ear_key: AddPackageEarKey,
     client_credential_ear_key: ClientCredentialEarKey,
-    signature_ear_key: SignatureEarKey,
+    signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     // Leaf credentials in KeyPackages the active ones are stored in the group
     // that they belong to.
-    leaf_signers: HashMap<SignaturePublicKey, InfraCredentialSigningKey>,
+    leaf_signers: HashMap<SignaturePublicKey, (InfraCredentialSigningKey, SignatureEarKey)>,
 }
 
 pub struct SelfUser<T: Notifiable> {
@@ -203,7 +203,7 @@ impl<T: Notifiable> SelfUser<T> {
         let friendship_token = FriendshipToken::random().unwrap();
         let add_package_ear_key = AddPackageEarKey::random().unwrap();
         let client_credential_ear_key = ClientCredentialEarKey::random().unwrap();
-        let signature_ear_key = SignatureEarKey::random().unwrap();
+        let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random().unwrap();
         let wai_ear_key: WelcomeAttributionInfoEarKey =
             WelcomeAttributionInfoEarKey::random().unwrap();
         let push_token_ear_key = PushTokenEarKey::random().unwrap();
@@ -228,7 +228,7 @@ impl<T: Notifiable> SelfUser<T> {
             friendship_token,
             add_package_ear_key,
             client_credential_ear_key,
-            signature_ear_key,
+            signature_ear_key_wrapper_key,
             wai_ear_key,
             leaf_signers,
             qs_client_id_encryption_key: qs_encryption_key,
@@ -289,19 +289,22 @@ impl<T: Notifiable> SelfUser<T> {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
-            let (kp, leaf_signer) = SelfUser::<T>::generate_keypackage(
+            let (kp, signature_ear_key, leaf_signer) = SelfUser::<T>::generate_keypackage(
                 &crypto_backend,
                 &key_store.signing_key,
-                &key_store.signature_ear_key,
                 &create_user_record_response.client_id,
                 Some(&key_store.push_token_ear_key),
                 &key_store.qs_client_id_encryption_key,
             );
+            let esek = signature_ear_key
+                .encrypt(&key_store.signature_ear_key_wrapper_key)
+                .unwrap();
             key_store.leaf_signers.insert(
                 leaf_signer.credential().verifying_key().clone(),
-                leaf_signer,
+                (leaf_signer, signature_ear_key),
             );
-            let add_package = AddPackage::new(kp.clone(), encrypted_client_credential.clone());
+            let add_package =
+                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
             qs_add_packages.push(add_package);
         }
 
@@ -336,13 +339,12 @@ impl<T: Notifiable> SelfUser<T> {
     pub(crate) fn generate_keypackage(
         crypto_backend: &impl OpenMlsCryptoProvider,
         signing_key: &ClientSigningKey,
-        signature_encryption_key: &SignatureEarKey,
         qs_client_id: &QsClientId,
         push_token_ear_key_option: Option<&PushTokenEarKey>,
         qs_encryption_key: &ClientIdEncryptionKey,
-    ) -> (KeyPackage, InfraCredentialSigningKey) {
-        let leaf_signer =
-            InfraCredentialSigningKey::generate(signing_key, signature_encryption_key);
+    ) -> (KeyPackage, SignatureEarKey, InfraCredentialSigningKey) {
+        let signature_ear_key = SignatureEarKey::random().unwrap();
+        let leaf_signer = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
@@ -381,7 +383,7 @@ impl<T: Notifiable> SelfUser<T> {
                 credential_with_key,
             )
             .unwrap();
-        (kp, leaf_signer)
+        (kp, signature_ear_key, leaf_signer)
     }
 
     /// Create new group
@@ -404,6 +406,7 @@ impl<T: Notifiable> SelfUser<T> {
             group_id: partial_params.group_id,
             ratchet_tree: partial_params.ratchet_tree,
             encrypted_client_credential,
+            encrypted_signature_ear_key: partial_params.encrypted_signature_ear_key,
             creator_client_reference: client_reference,
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
@@ -596,7 +599,6 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
         let connection_packages = user_key_packages.connection_packages;
-        log::info!("Fetched {} connection packages", connection_packages.len());
         // Verify the connection key packages
         let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
             .into_iter()
@@ -640,7 +642,7 @@ impl<T: Notifiable> SelfUser<T> {
             friendship_token: self.key_store.friendship_token.clone(),
             add_package_ear_key: self.key_store.add_package_ear_key.clone(),
             client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
-            signature_ear_key: self.key_store.signature_ear_key.clone(),
+            signature_ear_key_wrapper_key: self.key_store.signature_ear_key_wrapper_key.clone(),
             wai_ear_key: self.key_store.wai_ear_key.clone(),
         };
 
@@ -652,7 +654,9 @@ impl<T: Notifiable> SelfUser<T> {
             connection_group_id: group_id.clone(),
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
             connection_group_credential_key: connection_group.credential_ear_key().clone(),
-            connection_group_signature_ear_key: connection_group.signature_ear_key().clone(),
+            connection_group_signature_ear_key_wrapper_key: connection_group
+                .signature_ear_key_wrapper_key()
+                .clone(),
             friendship_package_ear_key: friendship_package_ear_key.clone(),
             friendship_package,
         }
@@ -670,6 +674,7 @@ impl<T: Notifiable> SelfUser<T> {
             group_id: partial_params.group_id,
             ratchet_tree: partial_params.ratchet_tree,
             encrypted_client_credential,
+            encrypted_signature_ear_key: partial_params.encrypted_signature_ear_key,
             creator_client_reference: client_reference,
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
@@ -709,7 +714,6 @@ impl<T: Notifiable> SelfUser<T> {
             );
             let client_id = connection_package.client_credential().identity();
 
-            log::info!("Sending connection package");
             self.api_client
                 .as_enqueue_message(client_id, ciphertext)
                 .await
@@ -784,5 +788,9 @@ impl<T: Notifiable> SelfUser<T> {
             client_homeserver_domain: Fqdn {},
             sealed_reference,
         }
+    }
+
+    pub fn user_name(&self) -> &UserName {
+        &self.user_name
     }
 }

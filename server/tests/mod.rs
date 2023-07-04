@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxcoreclient::{
-    notifications::{self, Notifiable, NotificationHub, Notifier},
+    notifications::{Notifiable, NotificationHub},
     types::{
         ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
         NotificationType,
@@ -93,7 +93,7 @@ async fn full_cycle() {
     let mut notification_hub_alice = NotificationHub::<TestNotifier>::default();
     let mut notification_hub_bob = NotificationHub::<TestNotifier>::default();
 
-    let mut alice_notifier = TestNotifier::new();
+    let alice_notifier = TestNotifier::new();
     notification_hub_alice.add_sink(alice_notifier.notifier());
 
     let mut bob_notifier = TestNotifier::new();
@@ -108,41 +108,7 @@ async fn full_cycle() {
     assert!(alice.get_conversations().is_empty());
     assert!(bob.get_conversations().is_empty());
 
-    // Alice adds Bob as a contact
-    tracing::info!("Alice adds Bob as a contact");
-    alice.add_contact("bob").await;
-
-    assert!(alice.contacts().is_empty());
-    assert_eq!(alice.partial_contacts().len(), 1);
-
-    assert_eq!(&alice.partial_contacts()[0].user_name.to_string(), "bob");
-    assert_eq!(alice.get_conversations().len(), 1);
-
-    // Bob fetches messages from the AS
-    tracing::info!("Bob fetches messages from the AS");
-    let as_messages = bob.as_fetch_messages().await;
-    bob.process_as_messages(as_messages).await.unwrap();
-
-    tracing::info!("Alice fetches her messages from the QS");
-    let qs_messages = alice.qs_fetch_messages().await;
-    alice.process_qs_messages(qs_messages).await.unwrap();
-
-    // Check that the contact is no longer pending
-    assert_eq!(alice.contacts().len(), 1);
-    assert!(alice.partial_contacts().is_empty());
-
-    assert_eq!(&alice.contacts()[0].user_name.to_string(), "bob");
-    assert_eq!(alice.get_conversations().len(), 1);
-
-    assert_eq!(
-        alice.get_conversations()[0].status,
-        ConversationStatus::Active
-    );
-
-    assert_eq!(
-        bob.get_conversations()[0].status,
-        ConversationStatus::Active
-    );
+    connect_users(&mut alice, &mut bob).await;
 
     // Alice sends a message to Bob
     tracing::info!("Alice sends a message to Bob");
@@ -183,8 +149,6 @@ async fn full_cycle() {
         );
     }
 
-    return;
-
     tracing::info!("Alice creates a conversation with Bob");
     let conversation_id = alice
         .create_conversation("Conversation Alice/Bob")
@@ -193,12 +157,10 @@ async fn full_cycle() {
 
     let alice_conversations = alice.get_conversations();
 
-    println!("Alice's conversations: {:?}", alice_conversations);
-
     assert_eq!(alice_conversations.len(), 2);
     assert!(matches!(
         alice_conversations[0].conversation_type,
-        ConversationType::UnconfirmedConnection(_)
+        ConversationType::Connection(_)
     ));
     assert!(matches!(
         alice_conversations[1].conversation_type,
@@ -229,49 +191,8 @@ async fn full_cycle() {
     tracing::info!("Created Charlie");
 
     tracing::info!("Alice adds Charlie as a contact");
-    alice.add_contact("charlie").await;
 
-    assert_eq!(alice.contacts().len(), 1);
-    assert_eq!(alice.partial_contacts().len(), 1);
-
-    assert_eq!(
-        &alice.partial_contacts()[0].user_name.to_string(),
-        "charlie"
-    );
-    assert_eq!(alice.get_conversations().len(), 3);
-
-    // Charlie fetches messages from the AS
-    tracing::info!("Charlie fetches messages from the AS");
-    let as_messages = charlie.as_fetch_messages().await;
-    charlie.process_as_messages(as_messages).await.unwrap();
-
-    // Check charlie has added Alice
-    assert_eq!(charlie.contacts().len(), 1);
-    assert!(charlie.partial_contacts().is_empty());
-
-    assert_eq!(&charlie.contacts()[1].user_name.to_string(), "alice");
-    assert_eq!(charlie.get_conversations().len(), 1);
-
-    tracing::info!("Alice fetches her messages from the QS");
-    let qs_messages = alice.qs_fetch_messages().await;
-    alice.process_qs_messages(qs_messages).await.unwrap();
-
-    // Check that the contact is no longer pending
-    assert_eq!(alice.contacts().len(), 2);
-    assert!(alice.partial_contacts().is_empty());
-
-    assert_eq!(&alice.contacts()[1].user_name.to_string(), "charlie");
-    assert_eq!(alice.get_conversations().len(), 3);
-
-    assert_eq!(
-        alice.get_conversations()[2].status,
-        ConversationStatus::Active
-    );
-
-    assert_eq!(
-        charlie.get_conversations()[0].status,
-        ConversationStatus::Active
-    );
+    connect_users(&mut alice, &mut charlie).await;
 
     // Alice adds charlie to her conversation with bob
     tracing::info!("Alice invites Charlie");
@@ -281,9 +202,137 @@ async fn full_cycle() {
         .unwrap();
 
     // Charlie fetches messages from the QS to accept the invitation
-    tracing::info!("Charlie fetches messages from the AS");
+    tracing::info!("Charlie fetches messages from the QS");
     let qs_messages = charlie.qs_fetch_messages().await;
     charlie.process_qs_messages(qs_messages).await.unwrap();
 
     assert_eq!(charlie.get_conversations().len(), 2);
+
+    // Bob fetches messages from the QS to find that charlie has joined the
+    // conversation
+    tracing::info!("Bob fetches messages from the QS");
+    let qs_messages = bob.qs_fetch_messages().await;
+    bob.process_qs_messages(qs_messages).await.unwrap();
+
+    assert_eq!(bob.get_conversations().len(), 3);
+}
+
+async fn connect_users<T: Notifiable, U: Notifiable>(
+    user1: &mut SelfUser<T>,
+    user2: &mut SelfUser<U>,
+) {
+    let user1_partial_contacts_before = user1.partial_contacts();
+    let user1_conversations_before = user1.get_conversations();
+    user1.add_contact(&user2.user_name().to_string()).await;
+    let mut user1_partial_contacts_after = user1.partial_contacts();
+    let new_user_position = user1_partial_contacts_after
+        .iter()
+        .position(|c| &c.user_name == user2.user_name())
+        .expect("User 2 should be in the partial contacts list of user 1");
+    // If we remove the new user, the partial contact lists should be the same.
+    user1_partial_contacts_after.remove(new_user_position);
+    user1_partial_contacts_before
+        .into_iter()
+        .zip(user1_partial_contacts_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.user_name, after.user_name);
+        });
+    let mut user1_conversations_after = user1.get_conversations();
+    let new_conversation_position = user1_conversations_after
+        .iter()
+        .position(|c| &c.attributes.title == &user2.user_name().to_string())
+        .expect("User 1 should have created a new conversation");
+    let conversation = user1_conversations_after.remove(new_conversation_position);
+    assert!(conversation.status == ConversationStatus::Active);
+    assert!(
+        conversation.conversation_type
+            == ConversationType::UnconfirmedConnection(user2.user_name().as_bytes().to_vec())
+    );
+    user1_conversations_before
+        .into_iter()
+        .zip(user1_conversations_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.id, after.id);
+        });
+
+    let user2_contacts_before = user2.contacts();
+    let user2_conversations_before = user2.get_conversations();
+    let as_messages = user2.as_fetch_messages().await;
+    user2.process_as_messages(as_messages).await.unwrap();
+    // User 2 should have auto-accepted (for now at least) the connection request.
+    let mut user2_contacts_after = user2.contacts();
+    let new_contact_position = user2_contacts_after
+        .iter()
+        .position(|c| &c.user_name == user1.user_name())
+        .expect("User 1 should be in the partial contacts list of user 2");
+    // If we remove the new user, the partial contact lists should be the same.
+    user2_contacts_after.remove(new_contact_position);
+    user2_contacts_before
+        .into_iter()
+        .zip(user2_contacts_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.user_name, after.user_name);
+        });
+    // User 2 should have created a connection group.
+    let mut user2_conversations_after = user2.get_conversations();
+    let new_conversation_position = user2_conversations_after
+        .iter()
+        .position(|c| &c.attributes.title == &user1.user_name().to_string())
+        .expect("User 2 should have created a new conversation");
+    let conversation = user2_conversations_after.remove(new_conversation_position);
+    assert!(conversation.status == ConversationStatus::Active);
+    println!(
+        "Comparing {:?} and {:?}",
+        conversation.conversation_type,
+        ConversationType::Connection(user1.user_name().as_bytes().to_vec())
+    );
+    assert!(
+        conversation.conversation_type
+            == ConversationType::Connection(user1.user_name().as_bytes().to_vec())
+    );
+    user2_conversations_before
+        .into_iter()
+        .zip(user2_conversations_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.id, after.id);
+        });
+
+    let user1_contacts_before = user1.contacts();
+    let user1_conversations_before = user1.get_conversations();
+    let qs_messages = user1.qs_fetch_messages().await;
+    user1.process_qs_messages(qs_messages).await.unwrap();
+
+    // User 1 should have added user 2 to its contacts now and a connection
+    // group should have been created.
+    let mut user1_contacts_after = user1.contacts();
+    let new_user_position = user1_contacts_after
+        .iter()
+        .position(|c| &c.user_name == user2.user_name())
+        .expect("User 2 should be in the contact list of user 1");
+    // If we remove the new user, the partial contact lists should be the same.
+    user1_contacts_after.remove(new_user_position);
+    user1_contacts_before
+        .into_iter()
+        .zip(user1_contacts_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.user_name, after.user_name);
+        });
+    // User 2 should have created a connection group.
+    let mut user1_conversations_after = user1.get_conversations();
+    let new_conversation_position = user1_conversations_after
+        .iter()
+        .position(|c| &c.attributes.title == &user2.user_name().to_string())
+        .expect("User 1 should have created a new conversation");
+    let conversation = user1_conversations_after.remove(new_conversation_position);
+    assert!(conversation.status == ConversationStatus::Active);
+    assert!(
+        conversation.conversation_type
+            == ConversationType::Connection(user2.user_name().as_bytes().to_vec())
+    );
+    user1_conversations_before
+        .into_iter()
+        .zip(user1_conversations_after)
+        .for_each(|(before, after)| {
+            assert_eq!(before.id, after.id);
+        });
 }

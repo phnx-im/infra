@@ -472,12 +472,10 @@ impl ApiClient {
         let payload = AsCredentialsParams {};
         let params = AsRequestParams::AsCredentials(payload);
         let message = ClientToAsMessage::new(params);
-        log::info!("Sending AS credentials request to AS");
         self.prepare_and_send_as_message(message)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
-                log::info!("Received AS credentials response from AS");
                 if let AsProcessResponseIn::AsCredentials(response) = response {
                     Ok(response)
                 } else {

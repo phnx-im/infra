@@ -261,7 +261,7 @@ impl InfraCredentialPlaintext {
             Ciphertext::tls_deserialize_exact(credential.encrypted_signature().as_slice())
                 .unwrap()
                 .into();
-        let signature = Signature::decrypt(ear_key, &encrypted_signature).unwrap();
+        let signature = Signature::decrypt(&ear_key, &encrypted_signature).unwrap();
         let payload = InfraCredentialTbs {
             identity: credential.identity().to_vec(),
             lifetime: credential.expiration_data(),

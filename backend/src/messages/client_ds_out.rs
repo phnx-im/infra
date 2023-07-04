@@ -20,7 +20,7 @@ use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::keys::GroupStateEarKey,
+        ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},
         signatures::{
             keys::UserAuthVerifyingKey,
             signable::{Signable, Signature, SignedStruct},
@@ -45,7 +45,7 @@ use super::{
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
-    pub encrypted_client_credentials: Vec<Option<EncryptedClientCredential>>,
+    pub encrypted_client_info: Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]
@@ -61,6 +61,7 @@ pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
     pub encrypted_client_credential: EncryptedClientCredential,
+    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: MlsMessageOut,

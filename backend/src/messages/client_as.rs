@@ -20,7 +20,8 @@ use crate::{
         ear::{
             keys::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey,
-                GroupStateEarKey, RatchetKey, SignatureEarKey, WelcomeAttributionInfoEarKey,
+                GroupStateEarKey, RatchetKey, SignatureEarKeyWrapperKey,
+                WelcomeAttributionInfoEarKey,
             },
             Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
@@ -480,7 +481,7 @@ pub struct FriendshipPackage {
     pub friendship_token: FriendshipToken,
     pub add_package_ear_key: AddPackageEarKey,
     pub client_credential_ear_key: ClientCredentialEarKey,
-    pub signature_ear_key: SignatureEarKey,
+    pub signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     pub wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
@@ -526,7 +527,7 @@ pub struct ConnectionEstablishmentPackageTbs {
     pub connection_group_id: GroupId,
     pub connection_group_ear_key: GroupStateEarKey,
     pub connection_group_credential_key: ClientCredentialEarKey,
-    pub connection_group_signature_ear_key: SignatureEarKey,
+    pub connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
     pub friendship_package: FriendshipPackage,
 }
