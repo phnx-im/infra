@@ -721,6 +721,22 @@ impl<T: Notifiable> SelfUser<T> {
         }
     }
 
+    pub async fn update_user_key(&mut self, conversation_id: Uuid) {
+        let conversation = self
+            .conversation_store
+            .conversation(&conversation_id)
+            .unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&conversation.group_id.as_group_id())
+            .unwrap();
+        let params = group.update_user_key(&self.crypto_backend);
+        self.api_client
+            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+            .await
+            .unwrap()
+    }
+
     pub async fn as_fetch_messages(&mut self) -> Vec<QueueMessage> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();

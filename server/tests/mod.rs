@@ -215,6 +215,27 @@ async fn full_cycle() {
     bob.process_qs_messages(qs_messages).await.unwrap();
 
     assert_eq!(bob.get_conversations().len(), 2);
+
+    // Before bob can remove alice from the conversation, he needs to update his
+    // user key in the conversation
+    let alice_charlie_conversation = bob.get_conversations()[1].id.clone();
+
+    // Bob removes alice from the conversation
+    tracing::info!("Bob removes alice from the conversation");
+    bob.remove_users(&alice_charlie_conversation, vec!["alice"])
+        .await
+        .unwrap();
+
+    // Alice fetches messages from the QS to learn that she has been removed
+    tracing::info!("Alice fetches messages from the QS to learn that she has been removed");
+    let qs_messages = alice.qs_fetch_messages().await;
+    alice.process_qs_messages(qs_messages).await.unwrap();
+
+    // Charlie fetches messages from the QS to learn that alice has been removed
+    tracing::info!("Charlie fetches messages from the QS to learn that alice has been removed");
+    let qs_messages = charlie.qs_fetch_messages().await;
+    charlie.process_qs_messages(qs_messages).await.unwrap();
+    // Check if we have to merge commit after removal.
 }
 
 async fn connect_users<T: Notifiable, U: Notifiable>(

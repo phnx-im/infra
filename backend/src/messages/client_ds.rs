@@ -290,8 +290,8 @@ pub struct UpdateClientParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct UpdateClientParamsAad {
-    pub option_encrypted_client_information:
-        Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub option_encrypted_signature_ear_key: Option<EncryptedSignatureEarKey>,
+    pub option_encrypted_client_credential: Option<EncryptedClientCredential>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize, ToSchema)]
@@ -547,7 +547,7 @@ impl DsRequestParams {
     }
 }
 
-#[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsSender {
     LeafIndex(LeafNodeIndex),

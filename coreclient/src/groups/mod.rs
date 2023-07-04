@@ -41,10 +41,11 @@ use phnxbackend::{
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            WelcomeBundle,
+            UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut, SendMessageParamsOut,
+            UpdateClientParamsOut,
         },
     },
     qs::{KeyPackageBatch, VERIFIED},
@@ -101,7 +102,7 @@ pub(crate) struct Group {
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
     group_state_ear_key: GroupStateEarKey,
-    user_auth_key: UserAuthSigningKey,
+    user_auth_signing_key: UserAuthSigningKey,
     mls_group: MlsGroup,
     client_information: Vec<Option<(ClientCredential, SignatureEarKey)>>,
     pending_diff: Option<GroupDiff>,
@@ -168,7 +169,7 @@ impl Group {
             mls_group,
             credential_ear_key,
             group_state_ear_key: group_state_ear_key.clone(),
-            user_auth_key,
+            user_auth_signing_key: user_auth_key,
             client_information: vec![Some((signer.credential().clone(), signature_ear_key))],
             pending_diff: None,
         }
@@ -213,7 +214,7 @@ impl Group {
         as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
         own_client_credential: &ClientCredential,
-    ) -> Result<Self, GroupOperationError> {
+    ) -> Result<(Self, UpdateClientParamsOut), GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
@@ -347,7 +348,7 @@ impl Group {
         // across clients.
         let user_auth_key = UserAuthSigningKey::generate().unwrap();
 
-        let group = Group {
+        let mut group = Group {
             group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
@@ -359,12 +360,13 @@ impl Group {
                 .clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             // This one needs to be rolled fresh.
-            user_auth_key,
+            user_auth_signing_key: user_auth_key,
             client_information,
             pending_diff: None,
         };
+        let params = group.update_user_key_internal(backend, false);
 
-        Ok(group)
+        Ok((group, params))
     }
 
     /// Join a group using an external commit.
@@ -475,7 +477,7 @@ impl Group {
             signature_ear_key_wrapper_key,
             credential_ear_key,
             group_state_ear_key,
-            user_auth_key,
+            user_auth_signing_key: user_auth_key,
             client_information,
             pending_diff: None,
         };
@@ -630,35 +632,54 @@ impl Group {
                         } else {
                             panic!("Unsupported sender type.")
                         };
-                        // Decrypt and verify a potential included client credential.
-                        let (client_credential, sek) = if let Some((ecc, esek)) =
-                            update_client_payload.option_encrypted_client_information
-                        {
-                            let client_credential = ClientCredential::decrypt_and_verify(
-                                &self.credential_ear_key,
-                                &ecc,
-                                as_intermediate_credentials,
-                            )
-                            .unwrap();
-                            let sek = SignatureEarKey::decrypt(
-                                &self.signature_ear_key_wrapper_key,
-                                &esek,
-                            )
-                            .unwrap();
-                            // Insert the new client credential into the diff.
-                            diff.add_client_information(
-                                &self.client_information,
-                                (client_credential.clone(), sek.clone()),
-                            );
-                            (client_credential, sek)
-                        } else {
-                            self.client_information
-                                .get(sender_index)
-                                .unwrap()
-                                .as_ref()
-                                .unwrap()
-                                .clone()
-                        };
+                        // Check if the client has updated its leaf credential.
+                        let (client_credential, signature_ear_key) =
+                            if processed_message.new_credential_option().is_some() {
+                                // If so, then there has to be a new signature ear key.
+                                let Some(encrypted_signature_ear_key) = update_client_payload
+                                .option_encrypted_signature_ear_key else {
+                                    panic!("Invalid update client payload.")
+                                };
+                                let signature_ear_key = SignatureEarKey::decrypt(
+                                    &self.signature_ear_key_wrapper_key,
+                                    &encrypted_signature_ear_key,
+                                )
+                                .unwrap();
+                                // Optionally, the client could have updated its
+                                // client credential.
+                                let client_credential = if let Some(ecc) =
+                                    update_client_payload.option_encrypted_client_credential
+                                {
+                                    let client_credential = ClientCredential::decrypt_and_verify(
+                                        &self.credential_ear_key,
+                                        &ecc,
+                                        as_intermediate_credentials,
+                                    )
+                                    .unwrap();
+                                    client_credential
+                                } else {
+                                    self.client_information
+                                        .get(sender_index)
+                                        .unwrap()
+                                        .as_ref()
+                                        .unwrap()
+                                        .0
+                                        .clone()
+                                };
+                                diff.add_client_information(
+                                    &self.client_information,
+                                    (client_credential.clone(), signature_ear_key.clone()),
+                                );
+                                (client_credential, signature_ear_key)
+                            } else {
+                                // Otherwise, we just use the existing client credential.
+                                self.client_information
+                                    .get(sender_index)
+                                    .unwrap()
+                                    .as_ref()
+                                    .unwrap()
+                                    .clone()
+                            };
                         // TODO: Validation:
                         // * Check that the sender type fits.
                         // * Check that the client id is the same as before.
@@ -671,8 +692,11 @@ impl Group {
                             .map(|cred| cred.mls_credential_type())
                         {
                             // Verify the leaf credential
-                            let credential_plaintext =
-                                InfraCredentialPlaintext::decrypt(infra_credential, &sek).unwrap();
+                            let credential_plaintext = InfraCredentialPlaintext::decrypt(
+                                infra_credential,
+                                &signature_ear_key,
+                            )
+                            .unwrap();
                             credential_plaintext
                                 .verify::<InfraCredentialTbs>(client_credential.verifying_key())
                                 .unwrap();
@@ -988,7 +1012,7 @@ impl Group {
 
         let params = AddUsersParamsOut {
             commit,
-            sender: self.user_auth_key.verifying_key().hash(),
+            sender: self.user_auth_signing_key.verifying_key().hash(),
             welcome,
             encrypted_welcome_attribution_infos,
             key_package_batches,
@@ -1018,10 +1042,16 @@ impl Group {
             })
             .collect::<Vec<_>>();
         // There shouldn't be a welcome
+        let aad_payload = InfraAadPayload::RemoveUsers;
+        let aad = InfraAadMessage::from(aad_payload)
+            .tls_serialize_detached()
+            .unwrap();
+        self.mls_group.set_aad(aad.as_slice());
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
             .remove_members(backend, &self.leaf_signer, remove_indices.as_slice())
             .unwrap();
+        self.mls_group.set_aad(&[]);
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.unwrap();
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
@@ -1065,7 +1095,7 @@ impl Group {
                 self.group_state_ear_key = group_state_ear_key;
             }
             if let Some(user_auth_key) = diff.user_auth_key {
-                self.user_auth_key = user_auth_key;
+                self.user_auth_signing_key = user_auth_key;
             }
             for (index, credential) in diff.client_information {
                 if index == self.client_information.len() {
@@ -1131,7 +1161,11 @@ impl Group {
     }
 
     pub(crate) fn user_auth_key(&self) -> &UserAuthSigningKey {
-        &self.user_auth_key
+        &self.user_auth_signing_key
+    }
+
+    pub(crate) fn epoch(&self) -> GroupEpoch {
+        self.mls_group.epoch()
     }
 
     pub(crate) fn group_state_ear_key(&self) -> &GroupStateEarKey {
@@ -1179,6 +1213,58 @@ impl Group {
             .collect::<HashSet<UserName>>()
             .into_iter()
             .collect()
+    }
+
+    /// Update the user's auth key in this group.
+    pub(crate) fn update_user_key(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider,
+    ) -> UpdateClientParamsOut {
+        self.update_user_key_internal(backend, true)
+    }
+
+    fn update_user_key_internal(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider,
+        generate_fresh_key: bool,
+    ) -> UpdateClientParamsOut {
+        let aad_payload = UpdateClientParamsAad {
+            option_encrypted_signature_ear_key: None,
+            option_encrypted_client_credential: None,
+        };
+        let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
+            .tls_serialize_detached()
+            .unwrap();
+        self.mls_group.set_aad(&aad);
+        let (commit, _welcome_option, group_info_option) = self
+            .mls_group
+            .self_update(backend, &self.leaf_signer)
+            .unwrap();
+        self.mls_group.set_aad(&[]);
+        let group_info = group_info_option.unwrap();
+        let mut diff = GroupDiff::new(&self);
+        let new_user_auth_key = if generate_fresh_key {
+            let user_auth_signing_key = UserAuthSigningKey::generate().unwrap();
+            let verifying_key = user_auth_signing_key.verifying_key().clone();
+            diff.user_auth_key = Some(user_auth_signing_key);
+            verifying_key
+        } else {
+            self.user_auth_key().verifying_key().clone()
+        };
+        let params = UpdateClientParamsOut {
+            commit: AssistedMessageOut {
+                mls_message: commit,
+                group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
+            },
+            sender: self.mls_group.own_leaf_index(),
+            new_user_auth_key_option: Some(new_user_auth_key),
+        };
+        self.pending_diff = Some(diff);
+        params
+    }
+
+    pub(crate) fn leaf_signer(&self) -> &InfraCredentialSigningKey {
+        &self.leaf_signer
     }
 }
 

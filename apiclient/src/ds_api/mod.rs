@@ -306,19 +306,12 @@ impl ApiClient {
     /// have [`UpdateClientParamsAad`] in its AAD.
     pub async fn ds_update_client(
         &self,
-        commit: AssistedMessageOut,
+        params: UpdateClientParamsOut,
         group_state_ear_key: &GroupStateEarKey,
-        own_index: LeafNodeIndex,
         signing_key: &InfraCredentialSigningKey,
-        new_user_auth_key_option: Option<UserAuthVerifyingKey>,
     ) -> Result<(), DsRequestError> {
-        let payload = UpdateClientParamsOut {
-            commit,
-            sender: own_index,
-            new_user_auth_key_option,
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::UpdateClient(payload),
+            DsRequestParamsOut::UpdateClient(params),
             signing_key,
             group_state_ear_key,
         )
