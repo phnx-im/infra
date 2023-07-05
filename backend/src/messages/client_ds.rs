@@ -99,6 +99,7 @@ impl QsQueueMessagePayload {
     }
 }
 
+#[derive(Debug)]
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
     MlsMessage(MlsMessageIn),
@@ -687,7 +688,7 @@ impl GenericSerializable for DsJoinerInformation {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct EncryptedDsJoinerInformation {
     pub ciphertext: HpkeCiphertext,
 }
@@ -730,7 +731,7 @@ impl GenericDeserializable for DsJoinerInformationIn {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct WelcomeBundle {
     pub welcome: AssistedWelcome,
     // This is the part the DS shouldn't see.
