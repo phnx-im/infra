@@ -23,8 +23,6 @@ impl<T: Notifiable> SelfUser<T> {
         &mut self,
         message_ciphertexts: Vec<QueueMessage>,
     ) -> Result<(), CorelibError> {
-        let number_of_messages = message_ciphertexts.len();
-        log::debug!("Processing {number_of_messages} QS messages");
         // Decrypt received message.
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
@@ -46,7 +44,7 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let group_id = self.group_store.join_group(
+                    let (group_id, params) = self.group_store.join_group(
                         &self.crypto_backend,
                         welcome_bundle,
                         &self.key_store.wai_ear_key,
@@ -56,6 +54,15 @@ impl<T: Notifiable> SelfUser<T> {
                         &self.key_store.signing_key.credential(),
                     );
 
+                    // After joining, we need to set our user auth key.
+                    let group = self.group_store.get_group_mut(&group_id).unwrap();
+                    self.api_client
+                        .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+                        .await
+                        .unwrap();
+                    group
+                        .merge_pending_commit(&self.crypto_backend, None)
+                        .unwrap();
                     let conversation_id = Uuid::new_v4();
                     let attributes = ConversationAttributes {
                         title: "New conversation".to_string(),
@@ -69,7 +76,8 @@ impl<T: Notifiable> SelfUser<T> {
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
-                        MlsMessageInBody::PublicMessage(handshake_message) => handshake_message.into(),
+                        MlsMessageInBody::PublicMessage(handshake_message) =>
+                            handshake_message.into(),
                         // Only application messages are private
                         MlsMessageInBody::PrivateMessage(app_msg) => app_msg.into(),
                         // Welcomes always come as a WelcomeBundle, not as an MLSMessage.

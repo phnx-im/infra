@@ -38,7 +38,7 @@ impl Dispatch {
         } else {
             // This is only rated "info", because not having a websocket open is
             // not irregular.
-            tracing::info!("attempting to send message but couldn't find user id.");
+            tracing::info!("Failed to notify client via websocket.");
             Err(NotifyClientError::ClientNotFound)
         }
     }
