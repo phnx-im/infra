@@ -7,6 +7,7 @@ mod utils;
 
 use std::sync::{Arc, Mutex};
 
+use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
@@ -18,6 +19,7 @@ use phnxcoreclient::{
 };
 
 pub use utils::*;
+use uuid::Uuid;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
@@ -56,8 +58,8 @@ impl TestNotifier {
     }
 
     pub fn notifications(&mut self) -> Vec<NotificationType> {
-        let notifications = self.notifications.lock().unwrap().clone();
-        self.notifications = Arc::new(Mutex::new(Vec::new()));
+        let mut notifications_lock = self.notifications.lock().unwrap();
+        let notifications = notifications_lock.drain(..).collect();
         notifications
     }
 }
@@ -93,7 +95,7 @@ async fn full_cycle() {
     let mut notification_hub_alice = NotificationHub::<TestNotifier>::default();
     let mut notification_hub_bob = NotificationHub::<TestNotifier>::default();
 
-    let alice_notifier = TestNotifier::new();
+    let mut alice_notifier = TestNotifier::new();
     notification_hub_alice.add_sink(alice_notifier.notifier());
 
     let mut bob_notifier = TestNotifier::new();
@@ -111,43 +113,12 @@ async fn full_cycle() {
     connect_users(&mut alice, &mut bob).await;
 
     // Alice sends a message to Bob
-    tracing::info!("Alice sends a message to Bob");
-    let orig_message = MessageContentType::Text(phnxcoreclient::types::TextMessage {
-        message: b"Hello Bob".to_vec(),
-    });
-    let message = alice
-        .send_message(alice.get_conversations()[0].id, orig_message.clone())
-        .await
-        .unwrap();
-
-    assert_eq!(
-        message.message,
-        Message::Content(ContentMessage {
-            sender: b"alice".to_vec(),
-            content: orig_message.clone()
-        })
-    );
-
-    tracing::info!("Bob fetches QS messages");
-    let bob_qs_messages = bob.qs_fetch_messages().await;
-
-    bob.process_qs_messages(bob_qs_messages).await.unwrap();
-
-    let bob_notifications = bob_notifier.notifications();
-
-    assert_eq!(bob_notifications.len(), 1);
-
-    assert!(matches!(bob_notifications[0], NotificationType::Message(_)));
-
-    if let NotificationType::Message(message) = &bob_notifications[0] {
-        assert_eq!(
-            message.conversation_message.message,
-            Message::Content(ContentMessage {
-                sender: b"alice".to_vec(),
-                content: orig_message
-            })
-        );
-    }
+    send_message(
+        alice.get_conversations()[0].id.clone(),
+        &mut alice,
+        &mut [(&mut bob, &mut bob_notifier)],
+    )
+    .await;
 
     tracing::info!("Alice creates a conversation with Bob");
     let conversation_id = alice
@@ -180,7 +151,16 @@ async fn full_cycle() {
     tracing::info!("Bob processes QS messages");
     bob.process_qs_messages(bob_qs_messages).await.unwrap();
 
-    let notification_hub_charlie = NotificationHub::<TestNotifier>::default();
+    send_message(
+        bob.get_conversations()[1].id.clone(),
+        &mut bob,
+        &mut [(&mut alice, &mut alice_notifier)],
+    )
+    .await;
+
+    let mut charlie_notifier = TestNotifier::new();
+    let mut notification_hub_charlie = NotificationHub::<TestNotifier>::default();
+    notification_hub_charlie.add_sink(charlie_notifier.notifier());
     let mut charlie = SelfUser::new(
         "charlie",
         "charliepassword",
@@ -216,6 +196,18 @@ async fn full_cycle() {
 
     assert_eq!(bob.get_conversations().len(), 2);
 
+    // Charlie sends a message to the conversation
+    let charlie_conversation_id = charlie.get_conversations()[1].id.clone();
+    send_message(
+        charlie_conversation_id,
+        &mut charlie,
+        &mut [
+            (&mut alice, &mut alice_notifier),
+            (&mut bob, &mut bob_notifier),
+        ],
+    )
+    .await;
+
     // Before bob can remove alice from the conversation, he needs to update his
     // user key in the conversation
     let alice_charlie_conversation = bob.get_conversations()[1].id.clone();
@@ -236,6 +228,71 @@ async fn full_cycle() {
     let qs_messages = charlie.qs_fetch_messages().await;
     charlie.process_qs_messages(qs_messages).await.unwrap();
     // Check if we have to merge commit after removal.
+
+    send_message(
+        bob.get_conversations()[1].id.clone(),
+        &mut bob,
+        &mut [(&mut charlie, &mut charlie_notifier)],
+    )
+    .await;
+}
+
+async fn send_message<T: Notifiable, U: Notifiable>(
+    sender_conversation_id: Uuid,
+    sender: &mut SelfUser<T>,
+    recipients: &mut [(&mut SelfUser<U>, &mut TestNotifier)],
+) {
+    let recipient_names = recipients
+        .iter()
+        .map(|(recipient, _)| recipient.user_name().to_string())
+        .collect::<Vec<_>>();
+    tracing::info!(
+        "{} sends a message to {}",
+        sender.user_name().to_string(),
+        recipient_names.join(", ")
+    );
+    let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
+    let orig_message = MessageContentType::Text(phnxcoreclient::types::TextMessage { message });
+    let message = sender
+        .send_message(sender_conversation_id, orig_message.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        message.message,
+        Message::Content(ContentMessage {
+            sender: sender.user_name().as_bytes().to_vec(),
+            content: orig_message.clone()
+        })
+    );
+
+    for (recipient, recipient_notifier) in recipients {
+        // Flush notifications
+        let _recipient_notifications = recipient_notifier.notifications();
+        let recipient_qs_messages = recipient.qs_fetch_messages().await;
+
+        recipient
+            .process_qs_messages(recipient_qs_messages)
+            .await
+            .unwrap();
+
+        let recipient_notifications = recipient_notifier.notifications();
+
+        assert!(matches!(
+            recipient_notifications.last().unwrap(),
+            NotificationType::Message(_)
+        ));
+
+        if let NotificationType::Message(message) = &recipient_notifications.last().unwrap() {
+            assert_eq!(
+                message.conversation_message.message,
+                Message::Content(ContentMessage {
+                    sender: sender.user_name().as_bytes().to_vec(),
+                    content: orig_message.clone()
+                })
+            );
+        }
+    }
 }
 
 async fn connect_users<T: Notifiable, U: Notifiable>(
