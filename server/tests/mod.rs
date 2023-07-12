@@ -12,8 +12,8 @@ use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
-        NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, DisplayMessageType, Message,
+        MessageContentType, NotificationType,
     },
     users::SelfUser,
 };
@@ -235,6 +235,51 @@ async fn full_cycle() {
         &mut [(&mut charlie, &mut charlie_notifier)],
     )
     .await;
+
+    // Charlie leaves the group
+    charlie
+        .leave_group(&charlie.get_conversations()[1].id)
+        .await;
+
+    // Bob fetches and processes QS messages
+
+    tracing::info!("Bob fetches messages from the QS to learn that Charlie wants to leave.");
+    let qs_messages = bob.qs_fetch_messages().await;
+    bob.process_qs_messages(qs_messages).await.unwrap();
+
+    // Flush Bob's notifications
+    let _bob_notifications = bob_notifier.notifications();
+
+    // Bob has to commit to remove Charlie
+    bob.update(&bob.get_conversations()[1].id).await;
+
+    let bob_notifications = bob_notifier.notifications();
+
+    if let Some(ref message) = bob_notifications.first() {
+        match message {
+            NotificationType::ConversationChange => panic!("Conversation change"),
+            NotificationType::Message(message) => {
+                match &message.conversation_message.message {
+                    Message::Content(_content_message) => panic!("Invalid message"),
+                    Message::Display(display_message) => match &display_message.message {
+                        DisplayMessageType::System(system_message) => {
+                            assert_eq!(system_message.message, "charlie left the conversation")
+                        }
+                        DisplayMessageType::Error(_) => panic!("Invalid message"),
+                    },
+                };
+            }
+        }
+    } else {
+        panic!("Bob did not receive a message");
+    }
+
+    return;
+
+    // Charlie fetches and processes QS messages to learn he has been removed.
+    tracing::info!("Charlie fetches messages from the QS to learn that he has left.");
+    let qs_messages = charlie.qs_fetch_messages().await;
+    charlie.process_qs_messages(qs_messages).await.unwrap();
 }
 
 async fn send_message<T: Notifiable, U: Notifiable>(

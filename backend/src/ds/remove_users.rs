@@ -89,7 +89,7 @@ impl DsGroupState {
                     .remove_proposals()
                     .filter_map(|remove_proposal| {
                         if let Sender::Member(leaf_index) = remove_proposal.sender() {
-                            if leaf_index != sender_index {
+                            if leaf_index == sender_index {
                                 Some(remove_proposal.remove_proposal().removed())
                             } else {
                                 None
@@ -110,7 +110,7 @@ impl DsGroupState {
         let mut user_profiles_to_be_removed = Vec::<UserKeyHash>::new();
         for leaf_index in removed_clients.iter() {
             // Check if we've already marked the index as to be removed.
-            if client_profiles_to_be_removed.contains(leaf_index) {
+            if !client_profiles_to_be_removed.contains(leaf_index) {
                 // If we have not, search for a user that belongs to this index.
                 for (user_key_hash, user_profile) in self.user_profiles.iter() {
                     if user_profile.clients.contains(leaf_index) {
@@ -140,10 +140,12 @@ impl DsGroupState {
 
         // Update the group's user and client profiles.
         for user_key_hash in user_profiles_to_be_removed {
-            self.user_profiles.remove(&user_key_hash);
+            let removed_user_profile_option = self.user_profiles.remove(&user_key_hash);
+            debug_assert!(removed_user_profile_option.is_some());
         }
         for client_index in client_profiles_to_be_removed {
-            self.client_profiles.remove(&client_index);
+            let removed_client_profile_option = self.client_profiles.remove(&client_index);
+            debug_assert!(removed_client_profile_option.is_some());
         }
 
         // We first accept the message into the group state ...

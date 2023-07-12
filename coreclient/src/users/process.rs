@@ -40,7 +40,6 @@ impl<T: Notifiable> SelfUser<T> {
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
-        let mut notification_messages = vec![];
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
@@ -60,7 +59,9 @@ impl<T: Notifiable> SelfUser<T> {
                         .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
                         .await
                         .unwrap();
-                    group
+                    // Instead of using the conversation messages, we just
+                    // dispatch a conversation notification.
+                    let _conversation_messages = group
                         .merge_pending_commit(&self.crypto_backend, None)
                         .unwrap();
                     let conversation_id = Uuid::new_v4();
@@ -112,8 +113,12 @@ impl<T: Notifiable> SelfUser<T> {
                                 application_message,
                             )
                         }
-                        ProcessedMessageContent::ProposalMessage(_) => {
-                            unimplemented!()
+                        ProcessedMessageContent::ProposalMessage(proposal) => {
+                            // For now, we don't to anything here. The proposal
+                            // was processed by the MLS group and will be
+                            // committed with the next commit.
+                            group.store_proposal(*proposal);
+                            vec![]
                         }
                         ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                             // If a client joined externally, we
@@ -226,37 +231,18 @@ impl<T: Notifiable> SelfUser<T> {
                                 self.conversation_store
                                     .set_inactive(&conversation_id, &past_members);
                             }
-                            let messages = staged_commit_to_conversation_messages(
-                                &sender_credential.identity().user_name(),
-                                &staged_commit,
-                            );
                             group
                                 .merge_pending_commit(&self.crypto_backend, *staged_commit)
-                                .unwrap();
-                            messages
+                                .unwrap()
                         }
                         ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                             unimplemented!()
                         }
                     };
                     // If we got until here, the message was deemed valid and we can apply the diff.
-
-                    for conversation_message in conversation_messages {
-                        let dispatched_conversation_message = DispatchedConversationMessage {
-                            conversation_id,
-                            conversation_message: conversation_message.clone(),
-                        };
-                        self.conversation_store
-                            .store_message(&conversation_id, conversation_message)?;
-                        notification_messages.push(dispatched_conversation_message);
-                    }
+                    self.send_off_notifications(&conversation_id, conversation_messages)?;
                 }
             }
-        }
-        // TODO: We notify in bulk here. We might want to change this in the future.
-        for notification_message in notification_messages.clone() {
-            self.notification_hub
-                .dispatch_message_notification(notification_message);
         }
         Ok(())
     }
