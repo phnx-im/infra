@@ -460,7 +460,6 @@ impl<T: Notifiable> SelfUser<T> {
                 client_credentials,
             )
             .map_err(CorelibError::Group)?;
-        let staged_commit = group.pending_commit().unwrap();
         // We're not getting a response, but if it's not an error, the commit
         // must have gone through.
         self.api_client
@@ -469,22 +468,9 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages =
-            staged_commit_to_conversation_messages(&self.user_name, staged_commit);
-        // Merge the pending commit.
-        group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
         // Send off the notifications
-        for conversation_message in conversation_messages {
-            let dispatched_conversation_message = DispatchedConversationMessage {
-                conversation_id: conversation_id.to_owned(),
-                conversation_message: conversation_message.clone(),
-            };
-            self.conversation_store
-                .store_message(conversation_id, conversation_message)?;
-            self.notification_hub
-                .dispatch_message_notification(dispatched_conversation_message);
-        }
-        Ok(())
+        self.send_off_notifications(conversation_id, conversation_messages)
     }
 
     pub async fn remove_users(
@@ -517,14 +503,18 @@ impl<T: Notifiable> SelfUser<T> {
             .ds_remove_users(params, group.group_state_ear_key(), group.user_auth_key())
             .await
             .unwrap();
-        let staged_commit = group.pending_commit().unwrap();
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages =
-            staged_commit_to_conversation_messages(&self.user_name, staged_commit);
-        // Merge the pending commit.
-        group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
         // Send off the notifications
+        self.send_off_notifications(conversation_id, conversation_messages)
+    }
+
+    fn send_off_notifications(
+        &mut self,
+        conversation_id: &Uuid,
+        conversation_messages: Vec<ConversationMessage>,
+    ) -> Result<(), CorelibError> {
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
                 conversation_id: conversation_id.to_owned(),
@@ -721,7 +711,7 @@ impl<T: Notifiable> SelfUser<T> {
         }
     }
 
-    pub async fn update_user_key(&mut self, conversation_id: Uuid) {
+    pub async fn update_user_key(&mut self, conversation_id: &Uuid) {
         let conversation = self
             .conversation_store
             .conversation(&conversation_id)
@@ -734,7 +724,12 @@ impl<T: Notifiable> SelfUser<T> {
         self.api_client
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await
-            .unwrap()
+            .unwrap();
+        let conversation_messages = group
+            .merge_pending_commit(&self.crypto_backend, None)
+            .unwrap();
+        self.send_off_notifications(conversation_id, conversation_messages)
+            .unwrap();
     }
 
     pub async fn as_fetch_messages(&mut self) -> Vec<QueueMessage> {
@@ -784,6 +779,43 @@ impl<T: Notifiable> SelfUser<T> {
             messages.append(&mut response.messages);
         }
         messages
+    }
+
+    pub async fn leave_group(&mut self, conversation_id: &Uuid) {
+        let conversation = self
+            .conversation_store
+            .conversation(conversation_id)
+            .unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&conversation.group_id.as_group_id())
+            .unwrap();
+        let params = group.leave_group(&self.crypto_backend);
+        self.api_client
+            .ds_self_remove_client(params, group.user_auth_key(), group.group_state_ear_key())
+            .await
+            .unwrap();
+    }
+
+    pub async fn update(&mut self, conversation_id: &Uuid) {
+        let conversation = self
+            .conversation_store
+            .conversation(conversation_id)
+            .unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&conversation.group_id.as_group_id())
+            .unwrap();
+        let params = group.update(&self.crypto_backend);
+        self.api_client
+            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+            .await
+            .unwrap();
+        let conversation_messages = group
+            .merge_pending_commit(&self.crypto_backend, None)
+            .unwrap();
+        self.send_off_notifications(conversation_id, conversation_messages)
+            .unwrap();
     }
 
     pub fn contacts(&self) -> Vec<Contact> {

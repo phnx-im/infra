@@ -144,7 +144,7 @@ impl AsRef<Ciphertext> for EncryptedClientCredential {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
     pub(super) encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
@@ -335,14 +335,14 @@ impl DsGroupState {
             .map(|proposal| proposal.remove_proposal().removed())
             .collect();
         for removed_client in removed_clients {
-            let removed_client = self.client_profiles.remove(&removed_client);
-            debug_assert!(removed_client.is_some())
+            let removed_client_profile_option = self.client_profiles.remove(&removed_client);
+            debug_assert!(removed_client_profile_option.is_some())
         }
 
         // Finally, we remove the client and user profiles.
         for marked_user in marked_users {
-            let removed_user = self.user_profiles.remove(&marked_user);
-            debug_assert!(removed_user.is_some())
+            let removed_user_profile_option = self.user_profiles.remove(&marked_user);
+            debug_assert!(removed_user_profile_option.is_some())
         }
         Ok(())
     }

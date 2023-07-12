@@ -30,15 +30,14 @@ impl DsGroupState {
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
-        let processed_message =
-            if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
-                &processed_assisted_message_plus.processed_assisted_message
-            {
-                processed_message
-            } else {
-                // This should be a commit.
-                return Err(ClientSelfRemovalError::InvalidMessage);
-            };
+        let processed_message = if let ProcessedAssistedMessage::NonCommit(ref processed_message) =
+            &processed_assisted_message_plus.processed_assisted_message
+        {
+            processed_message
+        } else {
+            // This should be a commit.
+            return Err(ClientSelfRemovalError::InvalidMessage);
+        };
 
         // Check if sender index and user profile match.
         let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
@@ -101,15 +100,7 @@ impl DsGroupState {
             return Err(ClientSelfRemovalError::InvalidMessage);
         }
 
-        // If it's the user's last client, we remove the user.
-        if user_profile.clients.is_empty() {
-            self.user_profiles.remove(&params.sender);
-        }
-
-        // Remove the client profile
-        let removed_client = self.client_profiles.remove(&sender_index);
-        // Check that we're tracking clients correctly.
-        debug_assert!(removed_client.is_some());
+        // We remove the user and client profile only when the proposal is committed.
 
         // Finally, we create the message for distribution.
         let payload = processed_assisted_message_plus

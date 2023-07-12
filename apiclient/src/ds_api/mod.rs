@@ -479,16 +479,12 @@ impl ApiClient {
     /// Leave the given group with this client.
     pub async fn ds_self_remove_client(
         &self,
-        remove_proposal: AssistedMessageOut,
+        params: SelfRemoveClientParamsOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        let payload = SelfRemoveClientParamsOut {
-            remove_proposal,
-            sender: signing_key.verifying_key().hash(),
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::SelfRemoveClient(payload),
+            DsRequestParamsOut::SelfRemoveClient(params),
             signing_key,
             group_state_ear_key,
         )

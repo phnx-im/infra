@@ -271,8 +271,6 @@ impl DsGroupState {
                 client_profiles.push(client_profile);
             }
             let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
-            // TODO: Make sure that we check that users are put into the user
-            // profile map when they first add a user auth key.
             self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
                 self.client_profiles

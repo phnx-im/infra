@@ -44,8 +44,8 @@ use phnxbackend::{
             UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
+            SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
     qs::{KeyPackageBatch, VERIFIED},
@@ -519,13 +519,8 @@ impl Group {
                 return Ok((processed_message, false, sender_credential.clone()));
             }
             ProcessedMessageContent::ProposalMessage(_proposal) => {
-                // The only proposal messages we allow at this point are
-                // self-removes and for those, the MLS Group has already added
-                // it to its proposal store.
-                // TODO: It's not clear how we want to handle these proposals.
-                // They are going to be part of the next commit (except if it's
-                // an external one) and we need to make sure that the proposal
-                // is handled correctly.
+                // Proposals are just returned and can then be added to the
+                // proposal store after the caller has inspected them.
                 let sender_index = if let Sender::Member(index) = processed_message.sender() {
                     index.usize()
                 } else {
@@ -1080,7 +1075,72 @@ impl Group {
         &mut self,
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
-    ) -> Result<(), GroupOperationError> {
+    ) -> Result<Vec<ConversationMessage>, GroupOperationError> {
+        // Collect free indices s.t. we know where the added members will land
+        // and we can look up their identifies later.
+        let free_indices = self
+            .client_information
+            .iter()
+            .enumerate()
+            .filter_map(|(index, client_information)| {
+                if client_information.is_none() {
+                    Some(index)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let last_free_index = free_indices
+            .last()
+            .cloned()
+            // If there are no free indices, the first free index is the number
+            // of leaves. We subtract one here, because we add one one line
+            // below.
+            // Subtracting here is safe, because the group always has at least one member.
+            .unwrap_or(self.client_information.len() - 1);
+        let free_indices = free_indices.into_iter().chain((last_free_index + 1)..);
+        let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
+        // Now we figure out who was removed. We do that before the diff is
+        // applied s.t. we still have access to the user identities of the
+        // removed members.
+        let remover_removed: Vec<_> = if let Some(staged_commit) = self
+            .mls_group
+            .pending_commit()
+            .or_else(|| staged_commit_option.as_ref())
+        {
+            staged_commit
+                .remove_proposals()
+                .map(|remove_proposal| {
+                    if let Sender::Member(sender_index) = remove_proposal.sender() {
+                        let remover = get_user_name(&self.client_information, sender_index.usize());
+                        let removed_index = remove_proposal.remove_proposal().removed();
+                        let removed =
+                            get_user_name(&self.client_information, removed_index.usize());
+                        (remover, removed)
+                    } else {
+                        panic!("Only member proposals are supported for now")
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        let mut messages: Vec<ConversationMessage> = remover_removed
+            .into_iter()
+            .map(|(remover, removed)| {
+                let event_message = if remover == removed {
+                    format!("{} left the conversation", remover.to_string(),)
+                } else {
+                    format!(
+                        "{} removed {} from the conversation",
+                        remover.to_string(),
+                        removed.to_string()
+                    )
+                };
+                event_message_from_string(event_message)
+            })
+            .collect();
+        // We now apply the diff
         if let Some(diff) = self.pending_diff.take() {
             if let Some(leaf_signer) = diff.leaf_signer {
                 self.leaf_signer = leaf_signer;
@@ -1123,12 +1183,33 @@ impl Group {
             return Err(GroupOperationError::NoPendingGroupDiff);
         }
         self.pending_diff = None;
-        if let Some(staged_commit) = staged_commit_option.into() {
+        let mut staged_commit_messages = if let Some(staged_commit) = staged_commit_option {
+            let staged_commit_messages = staged_commit_to_conversation_messages(
+                free_indices,
+                &self.client_information,
+                &staged_commit,
+            );
             self.mls_group.merge_staged_commit(backend, staged_commit)?;
+            staged_commit_messages
         } else {
+            // If we're merging a pending commit, we need to check if we have
+            // committed a remove proposal by reference. If we have, we need to
+            // create a notification message.
+            let staged_commit_messages =
+                if let Some(staged_commit) = self.mls_group.pending_commit() {
+                    staged_commit_to_conversation_messages(
+                        free_indices,
+                        &self.client_information,
+                        staged_commit,
+                    )
+                } else {
+                    vec![]
+                };
             self.mls_group.merge_pending_commit(backend)?;
-        }
-        Ok(())
+            staged_commit_messages
+        };
+        messages.append(&mut staged_commit_messages);
+        Ok(messages)
     }
 
     /// Send an application message to the group.
@@ -1215,6 +1296,34 @@ impl Group {
             .collect()
     }
 
+    pub(crate) fn update(&mut self, backend: &impl OpenMlsCryptoProvider) -> UpdateClientParamsOut {
+        // We don't expect there to be a welcome.
+        let aad_payload = UpdateClientParamsAad {
+            option_encrypted_signature_ear_key: None,
+            option_encrypted_client_credential: None,
+        };
+        let pending_proposals: Vec<_> = self.mls_group.pending_proposals().collect();
+        let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
+            .tls_serialize_detached()
+            .unwrap();
+        self.mls_group.set_aad(&aad);
+        let (mls_message, _welcome_option, group_info_option) = self
+            .mls_group
+            .self_update(backend, &self.leaf_signer)
+            .unwrap();
+        self.mls_group.set_aad(&[]);
+        let group_info = group_info_option.unwrap();
+        let commit = AssistedMessageOut {
+            mls_message,
+            group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
+        };
+        UpdateClientParamsOut {
+            commit,
+            sender: self.mls_group.own_leaf_index(),
+            new_user_auth_key_option: None,
+        }
+    }
+
     /// Update the user's auth key in this group.
     pub(crate) fn update_user_key(
         &mut self,
@@ -1263,8 +1372,31 @@ impl Group {
         params
     }
 
+    pub(crate) fn leave_group(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider,
+    ) -> SelfRemoveClientParamsOut {
+        let proposal = self
+            .mls_group
+            .leave_group(backend, &self.leaf_signer)
+            .unwrap();
+        let assisted_message = AssistedMessageOut {
+            mls_message: proposal,
+            group_info_option: None,
+        };
+        let params = SelfRemoveClientParamsOut {
+            remove_proposal: assisted_message,
+            sender: self.user_auth_key().verifying_key().hash(),
+        };
+        params
+    }
+
     pub(crate) fn leaf_signer(&self) -> &InfraCredentialSigningKey {
         &self.leaf_signer
+    }
+
+    pub(crate) fn store_proposal(&mut self, proposal: QueuedProposal) {
+        self.mls_group.store_pending_proposal(proposal)
     }
 }
 
@@ -1281,35 +1413,40 @@ pub(crate) fn application_message_to_conversation_messages(
     }))]
 }
 
+fn get_user_name(
+    client_information: &[Option<(ClientCredential, SignatureEarKey)>],
+    index: usize,
+) -> UserName {
+    client_information
+        .get(index)
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .0
+        .identity()
+        .user_name()
+}
+
+/// For now, this doesn't cover removes.
 pub(crate) fn staged_commit_to_conversation_messages(
-    own_identity: &UserName,
+    free_indices: impl Iterator<Item = usize>,
+    client_information: &[Option<(ClientCredential, SignatureEarKey)>],
     staged_commit: &StagedCommit,
 ) -> Vec<ConversationMessage> {
     let adds: Vec<ConversationMessage> = staged_commit
         .add_proposals()
-        .map(|staged_add_proposal| {
-            let added_member = staged_add_proposal
-                .add_proposal()
-                .key_package()
-                .leaf_node()
-                .credential()
-                .identity();
+        .zip(free_indices)
+        .map(|(staged_add_proposal, free_index)| {
+            let sender = if let Sender::Member(sender_index) = staged_add_proposal.sender() {
+                sender_index.usize()
+            } else {
+                // We don't support non-member adds.
+                panic!("Non-member add proposal")
+            };
             let event_message = format!(
                 "{} added {} to the conversation",
-                String::from_utf8_lossy(own_identity.as_bytes()),
-                String::from_utf8_lossy(added_member)
-            );
-            event_message_from_string(event_message)
-        })
-        .collect();
-    let mut removes: Vec<ConversationMessage> = staged_commit
-        .remove_proposals()
-        .map(|staged_remove_proposal| {
-            let removed_member = staged_remove_proposal.remove_proposal().removed();
-            let event_message = format!(
-                "{} removed {:?} from the conversation",
-                String::from_utf8_lossy(own_identity.as_bytes()),
-                removed_member
+                String::from_utf8_lossy(get_user_name(client_information, sender).as_bytes()),
+                String::from_utf8_lossy(get_user_name(client_information, free_index).as_bytes())
             );
             event_message_from_string(event_message)
         })
@@ -1327,7 +1464,6 @@ pub(crate) fn staged_commit_to_conversation_messages(
         })
         .collect();
     let mut events = adds;
-    events.append(&mut removes);
     events.append(&mut updates);
 
     events
