@@ -141,11 +141,11 @@ impl DsGroupState {
         // Update the group's user and client profiles.
         for user_key_hash in user_profiles_to_be_removed {
             let removed_user_profile_option = self.user_profiles.remove(&user_key_hash);
-            assert!(removed_user_profile_option.is_some());
+            debug_assert!(removed_user_profile_option.is_some());
         }
         for client_index in client_profiles_to_be_removed {
             let removed_client_profile_option = self.client_profiles.remove(&client_index);
-            assert!(removed_client_profile_option.is_some());
+            debug_assert!(removed_client_profile_option.is_some());
         }
 
         // We first accept the message into the group state ...
