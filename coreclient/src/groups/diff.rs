@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::BTreeMap;
+
 use super::*;
 
 /// A struct that contains differences in group data when creating a commit.
@@ -17,7 +19,7 @@ pub(crate) struct GroupDiff {
     // Changes to the client credentials. `None` denotes a deleted credential at
     // the given index, `Some` denotes an added or updated credential. The
     // vector must be sorted in ascending order of indices.
-    pub(crate) client_information: HashMap<usize, Option<(ClientCredential, SignatureEarKey)>>,
+    pub(crate) client_information: BTreeMap<usize, Option<(ClientCredential, SignatureEarKey)>>,
     pub(crate) new_number_of_leaves: usize,
 }
 
@@ -29,7 +31,7 @@ impl GroupDiff {
             credential_ear_key: None,
             group_state_ear_key: None,
             user_auth_key: None,
-            client_information: HashMap::new(),
+            client_information: BTreeMap::new(),
             new_number_of_leaves: group.client_information.len(),
         }
     }
@@ -42,14 +44,12 @@ impl GroupDiff {
     pub(crate) fn client_information<'a>(
         &'a self,
         index: usize,
-        existing_client_credentials: &'a [Option<(ClientCredential, SignatureEarKey)>],
+        existing_client_information: &'a BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
     ) -> Option<&'a (ClientCredential, SignatureEarKey)> {
         if let Some(Some(credential)) = self.client_information.get(&index) {
             Some(credential)
         } else {
-            existing_client_credentials
-                .get(index)
-                .and_then(|c| c.as_ref())
+            existing_client_information.get(&index)
         }
     }
 
@@ -57,7 +57,7 @@ impl GroupDiff {
     /// list of credentials. This takes into account previous removes.
     pub(crate) fn add_client_information(
         &mut self,
-        existing_client_information: &[Option<(ClientCredential, SignatureEarKey)>],
+        existing_client_information: &BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
         new_client_information: (ClientCredential, SignatureEarKey),
     ) {
         for index in 0..self.new_number_of_leaves {

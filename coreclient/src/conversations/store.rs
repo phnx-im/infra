@@ -30,10 +30,13 @@ impl ConversationStore {
         user_name: UserName,
         attributes: ConversationAttributes,
     ) -> Uuid {
-        let conversation_id = Uuid::new_v4();
+        // To keep things simple and to make sure that conversation ids are the
+        // same across users, we derive the conversation id from the group id.
+        let uuid_bytes = UuidBytes::from_group_id(&group_id);
+        let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
-            id: conversation_id,
-            group_id: UuidBytes::from_group_id(&group_id),
+            id: conversation_id.clone(),
+            group_id: uuid_bytes,
             status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(
                 user_name.as_bytes().to_vec(),
@@ -41,25 +44,29 @@ impl ConversationStore {
             last_used: Timestamp::now().as_u64(),
             attributes,
         };
-        self.conversations.insert(conversation_id, conversation);
+        self.conversations
+            .insert(conversation_id.clone(), conversation);
         conversation_id
     }
 
     pub(crate) fn create_group_conversation(
         &mut self,
-        conversation_id: Uuid,
         group_id: GroupId,
         attributes: ConversationAttributes,
-    ) {
+    ) -> Uuid {
+        let uuid_bytes = UuidBytes::from_group_id(&group_id);
+        let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
             id: conversation_id,
-            group_id: UuidBytes::from_group_id(&group_id),
+            group_id: uuid_bytes,
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),
             attributes,
         };
-        self.conversations.insert(conversation_id, conversation);
+        self.conversations
+            .insert(conversation_id.clone(), conversation);
+        conversation_id
     }
 
     pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {

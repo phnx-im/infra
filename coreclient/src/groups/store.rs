@@ -31,8 +31,8 @@ impl GroupStore {
         as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
         own_client_credential: &ClientCredential,
-    ) -> (GroupId, UpdateClientParamsOut) {
-        let (group, params) = Group::join_group(
+    ) -> GroupId {
+        let group = Group::join_group(
             backend,
             welcome_bundle,
             welcome_attribution_info_ear_key,
@@ -45,7 +45,7 @@ impl GroupStore {
         let group_id = group.group_id().clone();
         self.groups.insert(group_id.clone(), group);
 
-        (group_id, params)
+        group_id
     }
 
     //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
@@ -78,5 +78,9 @@ impl GroupStore {
             .unwrap()
             .group_state_ear_key
             .clone()
+    }
+
+    pub fn group(&self, group_id: &GroupId) -> Option<&Group> {
+        self.groups.get(group_id)
     }
 }

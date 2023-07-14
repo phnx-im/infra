@@ -61,7 +61,7 @@ use crate::{
     types::*,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     panic::panic_any,
 };
 
@@ -102,13 +102,18 @@ pub(crate) struct Group {
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
     group_state_ear_key: GroupStateEarKey,
-    user_auth_signing_key: UserAuthSigningKey,
+    // This needs to be set after initially joining a group.
+    user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
-    client_information: Vec<Option<(ClientCredential, SignatureEarKey)>>,
+    client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
     pending_diff: Option<GroupDiff>,
 }
 
 impl Group {
+    pub(crate) fn mls_group(&self) -> &MlsGroup {
+        &self.mls_group
+    }
+
     fn default_mls_group_config() -> MlsGroupConfig {
         let required_capabilities = RequiredCapabilitiesExtension::new(
             &REQUIRED_EXTENSION_TYPES,
@@ -169,8 +174,8 @@ impl Group {
             mls_group,
             credential_ear_key,
             group_state_ear_key: group_state_ear_key.clone(),
-            user_auth_signing_key: user_auth_key,
-            client_information: vec![Some((signer.credential().clone(), signature_ear_key))],
+            user_auth_signing_key_option: Some(user_auth_key),
+            client_information: [(0, (signer.credential().clone(), signature_ear_key))].into(),
             pending_diff: None,
         }
     }
@@ -179,11 +184,12 @@ impl Group {
         &self,
         backend: &impl OpenMlsCryptoProvider,
     ) -> PartialCreateGroupParams {
+        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
+            panic!("User auth key not set")
+        };
         let (_own_credential, signature_ear_key) = self
             .client_information
-            .get(self.mls_group.own_leaf_index().usize())
-            .unwrap()
-            .as_ref()
+            .get(&self.mls_group.own_leaf_index().usize())
             .unwrap();
         let encrypted_signature_ear_key = signature_ear_key
             .encrypt(self.signature_ear_key_wrapper_key())
@@ -195,7 +201,7 @@ impl Group {
                 .mls_group
                 .export_group_info(backend, &self.leaf_signer, true)
                 .unwrap(),
-            user_auth_key: self.user_auth_key().verifying_key().clone(),
+            user_auth_key: user_auth_key.verifying_key().clone(),
             encrypted_signature_ear_key,
         }
     }
@@ -214,7 +220,7 @@ impl Group {
         as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
         own_client_credential: &ClientCredential,
-    ) -> Result<(Self, UpdateClientParamsOut), GroupOperationError> {
+    ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached().unwrap();
 
@@ -284,43 +290,44 @@ impl Group {
             .verify(sender_client_credential.verifying_key())
             .unwrap();
 
-        let mut client_information: Vec<Option<(ClientCredential, SignatureEarKey)>> = joiner_info
-            .encrypted_client_information
-            .into_iter()
-            .map(|ciphertext_option| {
-                ciphertext_option.map(|(ecc, esek)| {
-                    let verifiable_credential = VerifiableClientCredential::decrypt(
-                        welcome_attribution_info.client_credential_encryption_key(),
-                        &ecc,
-                    )
-                    .unwrap();
-                    let as_credential = as_intermediate_credentials
-                        .iter()
-                        .find(|as_cred| {
-                            &as_cred.fingerprint().unwrap()
-                                == verifiable_credential.signer_fingerprint()
-                        })
+        let mut client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> =
+            joiner_info
+                .encrypted_client_information
+                .into_iter()
+                .enumerate()
+                .filter_map(|(index, ciphertext_option)| {
+                    if let Some(client_information) = ciphertext_option.map(|(ecc, esek)| {
+                        let verifiable_credential = VerifiableClientCredential::decrypt(
+                            welcome_attribution_info.client_credential_encryption_key(),
+                            &ecc,
+                        )
                         .unwrap();
-                    let credential = verifiable_credential
-                        .verify(as_credential.verifying_key())
+                        let as_credential = as_intermediate_credentials
+                            .iter()
+                            .find(|as_cred| {
+                                &as_cred.fingerprint().unwrap()
+                                    == verifiable_credential.signer_fingerprint()
+                            })
+                            .unwrap();
+                        let credential = verifiable_credential
+                            .verify(as_credential.verifying_key())
+                            .unwrap();
+                        let sek = SignatureEarKey::decrypt(
+                            welcome_attribution_info.signature_ear_key_wrapper_key(),
+                            &esek,
+                        )
                         .unwrap();
-                    let sek = SignatureEarKey::decrypt(
-                        welcome_attribution_info.signature_ear_key_wrapper_key(),
-                        &esek,
-                    )
-                    .unwrap();
-                    (credential, sek)
+                        (credential, sek)
+                    }) {
+                        Some((index, client_information))
+                    } else {
+                        None
+                    }
                 })
-            })
-            .collect();
+                .collect();
 
         let verifying_key = mls_group.own_leaf_node().unwrap().signature_key();
-        let (leaf_signer, signature_ear_key) = leaf_signers.remove(verifying_key).unwrap();
-        // Add our own client information
-        client_information.insert(
-            mls_group.own_leaf_index().usize(),
-            Some((own_client_credential.clone(), signature_ear_key)),
-        );
+        let (leaf_signer, _signature_ear_key) = leaf_signers.remove(verifying_key).unwrap();
 
         // Decrypt and verify the infra credentials.
         // TODO: Right now, this just panics if the verification fails.
@@ -328,13 +335,8 @@ impl Group {
             .members()
             .for_each(|m| match m.credential.mls_credential_type() {
                 MlsCredentialType::Infra(credential) => {
-                    client_information.iter().filter(|c| c.is_some()).count();
-                    let (client_credential, signature_ear_key) = client_information
-                        .get(m.index.usize())
-                        .unwrap()
-                        .as_ref()
-                        .unwrap()
-                        .clone();
+                    let (client_credential, signature_ear_key) =
+                        client_information.get(&m.index.usize()).unwrap().clone();
                     let _verified_credential: InfraCredentialTbs =
                         InfraCredentialPlaintext::decrypt(credential, &signature_ear_key)
                             .unwrap()
@@ -344,11 +346,7 @@ impl Group {
                 _ => panic_any("We should only use infra credentials."),
             });
 
-        // TODO: Once we support multiple clients, this should be synchronized
-        // across clients.
-        let user_auth_key = UserAuthSigningKey::generate().unwrap();
-
-        let mut group = Group {
+        let group = Group {
             group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
@@ -360,13 +358,12 @@ impl Group {
                 .clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             // This one needs to be rolled fresh.
-            user_auth_signing_key: user_auth_key,
+            user_auth_signing_key_option: None,
             client_information,
             pending_diff: None,
         };
-        let params = group.update_user_key_internal(backend, false);
 
-        Ok((group, params))
+        Ok(group)
     }
 
     /// Join a group using an external commit.
@@ -412,11 +409,12 @@ impl Group {
 
         let group_info = group_info_option.unwrap();
 
-        let mut client_information: Vec<Option<(ClientCredential, SignatureEarKey)>> =
+        let mut client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> =
             encrypted_client_info
                 .into_iter()
-                .map(|ciphertext_option| {
-                    ciphertext_option.map(|(ecc, esek)| {
+                .enumerate()
+                .filter_map(|(index, ciphertext_option)| {
+                    if let Some(client_info) = ciphertext_option.map(|(ecc, esek)| {
                         let verifiable_credential =
                             VerifiableClientCredential::decrypt(&credential_ear_key, &ecc).unwrap();
                         let as_credential = as_intermediate_credentials
@@ -432,7 +430,11 @@ impl Group {
                         let sek = SignatureEarKey::decrypt(&signature_ear_key_wrapper_key, &esek)
                             .unwrap();
                         (client_credential, sek)
-                    })
+                    }) {
+                        Some((index, client_info))
+                    } else {
+                        None
+                    }
                 })
                 .collect();
 
@@ -440,11 +442,8 @@ impl Group {
         let own_client_credential = own_client_credential.clone();
         let own_signature_ear_key = signature_ear_key.clone();
         let own_index = mls_group.own_leaf_index().usize();
-        debug_assert!(client_information.get(own_index).is_none());
-        client_information.insert(
-            own_index,
-            Some((own_client_credential, own_signature_ear_key)),
-        );
+        debug_assert!(client_information.get(&own_index).is_none());
+        client_information.insert(own_index, (own_client_credential, own_signature_ear_key));
 
         // Decrypt and verify the infra credentials.
         // TODO: Right now, this just panics if the verification fails.
@@ -452,11 +451,8 @@ impl Group {
             .members()
             .for_each(|m| match m.credential.mls_credential_type() {
                 MlsCredentialType::Infra(credential) => {
-                    let (client_credential, signature_ear_key) = client_information
-                        .get(m.index.usize())
-                        .unwrap()
-                        .as_ref()
-                        .unwrap();
+                    let (client_credential, signature_ear_key) =
+                        client_information.get(&m.index.usize()).unwrap();
                     let _verified_credential: InfraCredentialTbs =
                         InfraCredentialPlaintext::decrypt(credential, &signature_ear_key)
                             .unwrap()
@@ -477,7 +473,7 @@ impl Group {
             signature_ear_key_wrapper_key,
             credential_ear_key,
             group_state_ear_key,
-            user_auth_signing_key: user_auth_key,
+            user_auth_signing_key_option: Some(user_auth_key),
             client_information,
             pending_diff: None,
         };
@@ -498,8 +494,8 @@ impl Group {
     ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
 
-        // Will be set to true if the group was deleted.
-        let mut was_deleted = false;
+        // Will be set to true if we were removed (or the group was deleted).
+        let mut we_were_removed = false;
         let (diff, sender_index) = match processed_message.content() {
             // For now, we only care about commits.
             ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
@@ -508,11 +504,7 @@ impl Group {
             ProcessedMessageContent::ApplicationMessage(_) => {
                 let (sender_credential, _) =
                     if let Sender::Member(index) = processed_message.sender() {
-                        self.client_information
-                            .get(index.usize())
-                            .unwrap()
-                            .as_ref()
-                            .unwrap()
+                        self.client_information.get(&index.usize()).unwrap()
                     } else {
                         panic!("Invalid sender type.")
                     };
@@ -654,9 +646,7 @@ impl Group {
                                     client_credential
                                 } else {
                                     self.client_information
-                                        .get(sender_index)
-                                        .unwrap()
-                                        .as_ref()
+                                        .get(&sender_index)
                                         .unwrap()
                                         .0
                                         .clone()
@@ -668,12 +658,7 @@ impl Group {
                                 (client_credential, signature_ear_key)
                             } else {
                                 // Otherwise, we just use the existing client credential.
-                                self.client_information
-                                    .get(sender_index)
-                                    .unwrap()
-                                    .as_ref()
-                                    .unwrap()
-                                    .clone()
+                                self.client_information.get(&sender_index).unwrap().clone()
                             };
                         // TODO: Validation:
                         // * Check that the sender type fits.
@@ -722,7 +707,7 @@ impl Group {
                                 .unwrap();
                         }
                         // Check that the existing user clients match up.
-                        if self.user_clients(client_credential.identity().user_name())
+                        if self.user_client_indices(client_credential.identity().user_name())
                             != join_group_payload
                                 .existing_user_clients
                                 .into_iter()
@@ -850,6 +835,10 @@ impl Group {
                         for proposal in staged_commit.remove_proposals() {
                             let removed_member = proposal.remove_proposal().removed();
                             diff.remove_client_credential(removed_member);
+                            if removed_member == self.mls_group().own_leaf_index() {
+                                log::info!("We were removed from the group.");
+                                we_were_removed = true;
+                            }
                         }
                         diff
                     }
@@ -864,12 +853,8 @@ impl Group {
                             .unwrap()
                             .remove_proposal()
                             .removed();
-                        let (client_credential, sek) = self
-                            .client_information
-                            .get(removed_index.usize())
-                            .unwrap()
-                            .as_ref()
-                            .unwrap();
+                        let (client_credential, sek) =
+                            self.client_information.get(&removed_index.usize()).unwrap();
                         // Let's verify the new leaf credential.
                         match processed_message.credential().mls_credential_type() {
                             MlsCredentialType::Basic(_) | MlsCredentialType::X509(_) => {
@@ -897,7 +882,7 @@ impl Group {
                     InfraAadPayload::DeleteGroup => {
                         // After processing the message, the MLS Group should already be marked as inactive.
                         debug_assert!(!self.mls_group.is_active());
-                        was_deleted = true;
+                        we_were_removed = true;
                         // There is nothing else to do at this point.
                         GroupDiff::new(self)
                     }
@@ -912,7 +897,7 @@ impl Group {
             .clone();
         self.pending_diff = Some(diff);
 
-        Ok((processed_message, was_deleted, sender_credential))
+        Ok((processed_message, we_were_removed, sender_credential))
     }
 
     /// Invite the given list of contacts to join the group.
@@ -928,6 +913,9 @@ impl Group {
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<Vec<ClientCredential>>,
     ) -> Result<AddUsersParamsOut, GroupOperationError> {
+        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
+            return Err(GroupOperationError::NoUserAuthKey);
+        };
         let client_credentials = client_credentials.into_iter().flatten().collect::<Vec<_>>();
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
@@ -954,6 +942,10 @@ impl Group {
             encrypted_credential_information: ecc,
         })
         .into();
+        let member_info = key_packages
+            .iter()
+            .map(|kp| kp.leaf_node().credential().identity())
+            .collect::<Vec<_>>();
         // Set Aad to contain the encrypted client credentials.
         self.mls_group
             .set_aad(&aad_message.tls_serialize_detached().unwrap());
@@ -1007,7 +999,7 @@ impl Group {
 
         let params = AddUsersParamsOut {
             commit,
-            sender: self.user_auth_signing_key.verifying_key().hash(),
+            sender: user_auth_key.verifying_key().hash(),
             welcome,
             encrypted_welcome_attribution_infos,
             key_package_batches,
@@ -1020,17 +1012,15 @@ impl Group {
         backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut, GroupOperationError> {
+        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
+            return Err(GroupOperationError::NoUserAuthKey);
+        };
         let remove_indices = self
             .client_information
             .iter()
-            .enumerate()
-            .filter_map(|(index, info_option)| {
-                if let Some((cred, _sek)) = info_option {
-                    if members.contains(&cred.identity()) {
-                        Some(LeafNodeIndex::new(index as u32))
-                    } else {
-                        None
-                    }
+            .filter_map(|(index, (cred, _sek))| {
+                if members.contains(&cred.identity()) {
+                    Some(LeafNodeIndex::new(*index as u32))
                 } else {
                     None
                 }
@@ -1063,7 +1053,7 @@ impl Group {
 
         let params = RemoveUsersParamsOut {
             commit,
-            sender: self.user_auth_key().verifying_key().hash(),
+            sender: user_auth_key.verifying_key().hash(),
         };
         Ok(params)
     }
@@ -1078,27 +1068,14 @@ impl Group {
     ) -> Result<Vec<ConversationMessage>, GroupOperationError> {
         // Collect free indices s.t. we know where the added members will land
         // and we can look up their identifies later.
-        let free_indices = self
+        let highest_index = self
             .client_information
-            .iter()
-            .enumerate()
-            .filter_map(|(index, client_information)| {
-                if client_information.is_none() {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        let last_free_index = free_indices
-            .last()
-            .cloned()
-            // If there are no free indices, the first free index is the number
-            // of leaves. We subtract one here, because we add one one line
-            // below.
-            // Subtracting here is safe, because the group always has at least one member.
-            .unwrap_or(self.client_information.len() - 1);
-        let free_indices = free_indices.into_iter().chain((last_free_index + 1)..);
+            .last_key_value()
+            .map(|(index, _)| *index)
+            .unwrap();
+        let free_indices: Vec<usize> = (0..2 * highest_index)
+            .filter(|index| self.client_information.get(index).is_none())
+            .collect();
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
         // Now we figure out who was removed. We do that before the diff is
         // applied s.t. we still have access to the user identities of the
@@ -1155,28 +1132,15 @@ impl Group {
                 self.group_state_ear_key = group_state_ear_key;
             }
             if let Some(user_auth_key) = diff.user_auth_key {
-                self.user_auth_signing_key = user_auth_key;
+                self.user_auth_signing_key_option = Some(user_auth_key);
             }
-            for (index, credential) in diff.client_information {
-                if index == self.client_information.len() {
-                    self.client_information.push(credential)
-                } else if index < self.client_information.len() {
-                    *self.client_information.get_mut(index).unwrap() = credential;
+            for (index, client_information_option) in diff.client_information {
+                if let Some(client_information) = client_information_option {
+                    let collision_entry = self.client_information.insert(index, client_information);
+                    debug_assert!(collision_entry.is_none());
                 } else {
-                    // This should not happen.
-                    // TODO: Guard the client credentials vector better s.t. it
-                    // can only be modified through this merge function.
-                    return Err(GroupOperationError::LibraryError);
-                }
-            }
-            // We might have inadvertendly extended the Credential vector with
-            // `None`s. Let's trim it down again.
-            // It shouldn't be empty, but we don't want to loop forever.
-            while let Some(last_entry) = self.client_information.last() {
-                if last_entry.is_none() {
-                    self.client_information.pop();
-                } else {
-                    break;
+                    let collision_entry = self.client_information.remove(&index);
+                    debug_assert!(collision_entry.is_some());
                 }
             }
         } else {
@@ -1185,7 +1149,7 @@ impl Group {
         self.pending_diff = None;
         let mut staged_commit_messages = if let Some(staged_commit) = staged_commit_option {
             let staged_commit_messages = staged_commit_to_conversation_messages(
-                free_indices,
+                free_indices.iter().copied(),
                 &self.client_information,
                 &staged_commit,
             );
@@ -1198,7 +1162,7 @@ impl Group {
             let staged_commit_messages =
                 if let Some(staged_commit) = self.mls_group.pending_commit() {
                     staged_commit_to_conversation_messages(
-                        free_indices,
+                        free_indices.iter().copied(),
                         &self.client_information,
                         staged_commit,
                     )
@@ -1208,6 +1172,18 @@ impl Group {
             self.mls_group.merge_pending_commit(backend)?;
             staged_commit_messages
         };
+        // Debug sanity checks after merging.
+        #[cfg(debug_assertions)]
+        {
+            let mls_group_members = self.mls_group.members().count();
+            let infra_group_members = self.client_information.len();
+            debug_assert_eq!(mls_group_members, infra_group_members);
+            self.mls_group.members().for_each(|m| {
+                let index = m.index.usize();
+                let client_information = self.client_information.get(&index);
+                debug_assert!(client_information.is_some())
+            });
+        }
         messages.append(&mut staged_commit_messages);
         Ok(messages)
     }
@@ -1241,8 +1217,8 @@ impl Group {
         self.group_id.clone()
     }
 
-    pub(crate) fn user_auth_key(&self) -> &UserAuthSigningKey {
-        &self.user_auth_signing_key
+    pub(crate) fn user_auth_key(&self) -> Option<&UserAuthSigningKey> {
+        self.user_auth_signing_key_option.as_ref()
     }
 
     pub(crate) fn epoch(&self) -> GroupEpoch {
@@ -1258,16 +1234,22 @@ impl Group {
     }
 
     /// Returns the leaf indices of the clients owned by the given user.
-    pub(crate) fn user_clients(&self, user_name: UserName) -> Vec<usize> {
+    pub(crate) fn user_client_indices(&self, user_name: UserName) -> Vec<usize> {
         let mut user_clients = vec![];
-        for (index, info_option) in self.client_information.iter().enumerate() {
-            if let Some(cred_user_name) = info_option
-                .as_ref()
-                .map(|(cred, _sek)| cred.identity().user_name())
-            {
-                if cred_user_name == user_name {
-                    user_clients.push(index)
-                }
+        for (index, (cred, _sek)) in self.client_information.iter() {
+            if cred.identity().user_name() == user_name {
+                user_clients.push(*index)
+            }
+        }
+        user_clients
+    }
+
+    /// Returns the [`AsClientId`] of the clients owned by the given user.
+    pub(crate) fn user_client_ids(&self, user_name: UserName) -> Vec<AsClientId> {
+        let mut user_clients = vec![];
+        for (_index, (cred, _sek)) in self.client_information.iter() {
+            if cred.identity().user_name() == user_name {
+                user_clients.push(cred.identity())
             }
         }
         user_clients
@@ -1284,13 +1266,7 @@ impl Group {
     pub(crate) fn members(&self) -> Vec<UserName> {
         self.client_information
             .iter()
-            .filter_map(|info_option| {
-                if let Some((cred, _sek)) = info_option {
-                    Some(cred.identity().user_name())
-                } else {
-                    None
-                }
-            })
+            .map(|(_index, (cred, _sek))| cred.identity().user_name())
             .collect::<HashSet<UserName>>()
             .into_iter()
             .collect()
@@ -1324,18 +1300,10 @@ impl Group {
         }
     }
 
-    /// Update the user's auth key in this group.
+    /// Update or set the user's auth key in this group.
     pub(crate) fn update_user_key(
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
-    ) -> UpdateClientParamsOut {
-        self.update_user_key_internal(backend, true)
-    }
-
-    fn update_user_key_internal(
-        &mut self,
-        backend: &impl OpenMlsCryptoProvider,
-        generate_fresh_key: bool,
     ) -> UpdateClientParamsOut {
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
@@ -1352,21 +1320,16 @@ impl Group {
         self.mls_group.set_aad(&[]);
         let group_info = group_info_option.unwrap();
         let mut diff = GroupDiff::new(&self);
-        let new_user_auth_key = if generate_fresh_key {
-            let user_auth_signing_key = UserAuthSigningKey::generate().unwrap();
-            let verifying_key = user_auth_signing_key.verifying_key().clone();
-            diff.user_auth_key = Some(user_auth_signing_key);
-            verifying_key
-        } else {
-            self.user_auth_key().verifying_key().clone()
-        };
+        let user_auth_signing_key = UserAuthSigningKey::generate().unwrap();
+        let verifying_key = user_auth_signing_key.verifying_key().clone();
+        diff.user_auth_key = Some(user_auth_signing_key);
         let params = UpdateClientParamsOut {
             commit: AssistedMessageOut {
                 mls_message: commit,
                 group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
             },
             sender: self.mls_group.own_leaf_index(),
-            new_user_auth_key_option: Some(new_user_auth_key),
+            new_user_auth_key_option: Some(verifying_key),
         };
         self.pending_diff = Some(diff);
         params
@@ -1376,6 +1339,9 @@ impl Group {
         &mut self,
         backend: &impl OpenMlsCryptoProvider,
     ) -> SelfRemoveClientParamsOut {
+        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
+            panic!("User auth key not set")
+        };
         let proposal = self
             .mls_group
             .leave_group(backend, &self.leaf_signer)
@@ -1386,7 +1352,7 @@ impl Group {
         };
         let params = SelfRemoveClientParamsOut {
             remove_proposal: assisted_message,
-            sender: self.user_auth_key().verifying_key().hash(),
+            sender: user_auth_key.verifying_key().hash(),
         };
         params
     }
@@ -1414,13 +1380,11 @@ pub(crate) fn application_message_to_conversation_messages(
 }
 
 fn get_user_name(
-    client_information: &[Option<(ClientCredential, SignatureEarKey)>],
+    client_information: &BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
     index: usize,
 ) -> UserName {
     client_information
-        .get(index)
-        .unwrap()
-        .as_ref()
+        .get(&index)
         .unwrap()
         .0
         .identity()
@@ -1430,7 +1394,7 @@ fn get_user_name(
 /// For now, this doesn't cover removes.
 pub(crate) fn staged_commit_to_conversation_messages(
     free_indices: impl Iterator<Item = usize>,
-    client_information: &[Option<(ClientCredential, SignatureEarKey)>],
+    client_information: &BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
     staged_commit: &StagedCommit,
 ) -> Vec<ConversationMessage> {
     let adds: Vec<ConversationMessage> = staged_commit

@@ -412,16 +412,20 @@ impl<T: Notifiable> SelfUser<T> {
             group_info: partial_params.group_info,
         };
         self.api_client
-            .ds_create_group(params, group.group_state_ear_key(), group.user_auth_key())
+            .ds_create_group(
+                params,
+                group.group_state_ear_key(),
+                group.user_auth_key().unwrap(),
+            )
             .await
             .unwrap();
         self.group_store.store_group(group).unwrap();
-        let conversation_id = Uuid::new_v4();
         let attributes = ConversationAttributes {
             title: title.to_string(),
         };
-        self.conversation_store
-            .create_group_conversation(conversation_id, group_id, attributes);
+        let conversation_id = self
+            .conversation_store
+            .create_group_conversation(group_id, attributes);
         Ok(conversation_id)
     }
 
@@ -462,10 +466,17 @@ impl<T: Notifiable> SelfUser<T> {
             .map_err(CorelibError::Group)?;
         // We're not getting a response, but if it's not an error, the commit
         // must have gone through.
+        // We unwrap here, because if the user auth key is not set, the invite
+        // would already have failed.
         self.api_client
-            .ds_add_users(params, group.group_state_ear_key(), group.user_auth_key())
+            .ds_add_users(
+                params,
+                group.group_state_ear_key(),
+                group.user_auth_key().unwrap(),
+            )
             .await
             .unwrap();
+
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
         let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
@@ -476,7 +487,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn remove_users(
         &mut self,
         conversation_id: &Uuid,
-        target_users: Vec<&str>,
+        target_users: &[&str],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -488,19 +499,19 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&group_id.as_group_id())
             .unwrap();
         let mut clients = vec![];
-        for user_name in target_users {
-            let user_name = user_name.to_string().into();
-            let contact = self.contacts.get(&user_name).unwrap();
-            let mut contact_clients = contact
-                .client_credentials()
-                .iter()
-                .map(|credential| credential.identity())
-                .collect();
-            clients.append(&mut contact_clients);
+        for &user_name in target_users {
+            let mut user_clients = group.user_client_ids(user_name.into());
+            clients.append(&mut user_clients);
         }
         let params = group.remove(&self.crypto_backend, clients).unwrap();
+        // We unwrap here, because if the user auth key is not set, the remove
+        // would already have failed.
         self.api_client
-            .ds_remove_users(params, group.group_state_ear_key(), group.user_auth_key())
+            .ds_remove_users(
+                params,
+                group.group_state_ear_key(),
+                group.user_auth_key().unwrap(),
+            )
             .await
             .unwrap();
         // Now that we know the commit went through, we can merge the commit and
@@ -669,11 +680,12 @@ impl<T: Notifiable> SelfUser<T> {
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
         };
+        // We unwrap here, because a freshly created group always has an auth key set.
         self.api_client
             .ds_create_group(
                 params,
                 connection_group.group_state_ear_key(),
-                connection_group.user_auth_key(),
+                connection_group.user_auth_key().unwrap(),
             )
             .await
             .unwrap();
@@ -791,8 +803,14 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&conversation.group_id.as_group_id())
             .unwrap();
         let params = group.leave_group(&self.crypto_backend);
+        // We unwrap here, because if there was no auth key, the leave group
+        // call would have failed already.
         self.api_client
-            .ds_self_remove_client(params, group.user_auth_key(), group.group_state_ear_key())
+            .ds_self_remove_client(
+                params,
+                group.user_auth_key().unwrap(),
+                group.group_state_ear_key(),
+            )
             .await
             .unwrap();
     }
@@ -840,5 +858,21 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub fn user_name(&self) -> &UserName {
         &self.user_name
+    }
+
+    fn group(&self, conversation_id: &Uuid) -> Option<&Group> {
+        self.conversation(conversation_id)
+            .and_then(|conversation| self.group_store.group(&conversation.group_id.as_group_id()))
+    }
+
+    /// Returns None if there is no conversation with the given id.
+    pub fn group_members(&self, conversation_id: &Uuid) -> Option<Vec<String>> {
+        self.group(conversation_id).map(|group| {
+            group
+                .members()
+                .iter()
+                .map(|member| member.to_string())
+                .collect()
+        })
     }
 }
