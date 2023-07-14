@@ -176,3 +176,101 @@ async fn full_cycle() {
         .remove_from_group(conversation_id, "dave", &["alice", "bob"])
         .await;
 }
+
+#[actix_rt::test]
+async fn benchmarks() {
+    let mut setup = TestBackend::new().await;
+
+    const NUM_USERS: usize = 10;
+    const NUM_MESSAGES: usize = 10;
+
+    // Create alice
+    setup.add_user("alice").await;
+
+    // Create bob
+    setup.add_user("bob").await;
+
+    // Create many different bobs
+    let bobs: Vec<String> = (0..NUM_USERS)
+        .map(|i| format!("bob{}", i))
+        .collect::<Vec<String>>();
+
+    // Measure the time it takes to create all the users
+    let start = std::time::Instant::now();
+    for bob in &bobs {
+        setup.add_user(&bob).await;
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "Creating {} users took {}ms on average",
+        NUM_USERS,
+        elapsed.as_millis() / NUM_USERS as u128
+    );
+
+    // Measure the time it takes to connect all bobs with alice
+    let start = std::time::Instant::now();
+    for bob in &bobs {
+        setup.connect_users("alice", &bob).await;
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "Connecting {} users took {}ms on average",
+        NUM_USERS,
+        elapsed.as_millis() / NUM_USERS as u128
+    );
+
+    // Connect them
+    let conversation_alice_bob = setup.connect_users("alice", "bob").await;
+
+    // Measure the time it takes to send a message
+    let start = std::time::Instant::now();
+    for _ in 0..NUM_MESSAGES {
+        setup
+            .send_message(conversation_alice_bob, "alice", &["bob"])
+            .await;
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "Sending {} messages in a connection group took {}ms on average",
+        NUM_MESSAGES,
+        elapsed.as_millis() / NUM_MESSAGES as u128
+    );
+
+    // Create an independent group
+    let conversation_id = setup.create_group("alice").await;
+
+    // Measure the time it takes to invite a user
+    let start = std::time::Instant::now();
+    for bob in &bobs {
+        setup
+            .invite_to_group(conversation_id, "alice", &[&bob])
+            .await;
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "Inviting {} users took {}ms on average",
+        NUM_USERS,
+        elapsed.as_millis() / NUM_USERS as u128
+    );
+
+    // Measure the time it takes to send a message
+    let start = std::time::Instant::now();
+    for _ in 0..NUM_MESSAGES {
+        setup
+            .send_message(
+                conversation_id,
+                "alice",
+                bobs.iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>()
+                    .as_slice(),
+            )
+            .await;
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "Sending {} messages in an independent group took {}ms on average",
+        NUM_MESSAGES,
+        elapsed.as_millis() / NUM_MESSAGES as u128
+    );
+}
