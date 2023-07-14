@@ -354,11 +354,10 @@ impl DsGroupState {
     ) -> Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>> {
         let mut client_information = vec![];
         for (client_index, client_profile) in self.client_profiles.iter() {
-            if client_index.u32() == client_information.len() as u32 {
-                client_information.push(Some(client_profile.encrypted_client_information.clone()));
-            } else {
+            while client_information.len() < client_index.usize() {
                 client_information.push(None);
             }
+            client_information.push(Some(client_profile.encrypted_client_information.clone()));
         }
         client_information
     }

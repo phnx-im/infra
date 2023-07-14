@@ -145,6 +145,6 @@ pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
-    ConversationChange,
+    ConversationChange(Uuid), // The id of the changed conversation.
     Message(DispatchedConversationMessage),
 }

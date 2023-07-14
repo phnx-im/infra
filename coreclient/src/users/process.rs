@@ -40,10 +40,12 @@ impl<T: Notifiable> SelfUser<T> {
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
+        // Keep track of freshly joined groups s.t. we can later update our user auth keys.
+        let mut freshly_joined_groups = vec![];
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let (group_id, params) = self.group_store.join_group(
+                    let group_id = self.group_store.join_group(
                         &self.crypto_backend,
                         welcome_bundle,
                         &self.key_store.wai_ear_key,
@@ -52,28 +54,16 @@ impl<T: Notifiable> SelfUser<T> {
                         &self.contacts,
                         &self.key_store.signing_key.credential(),
                     );
+                    freshly_joined_groups.push(group_id.clone());
 
-                    // After joining, we need to set our user auth key.
-                    let group = self.group_store.get_group_mut(&group_id).unwrap();
-                    self.api_client
-                        .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
-                        .await
-                        .unwrap();
-                    // Instead of using the conversation messages, we just
-                    // dispatch a conversation notification.
-                    let _conversation_messages = group
-                        .merge_pending_commit(&self.crypto_backend, None)
-                        .unwrap();
-                    let conversation_id = Uuid::new_v4();
                     let attributes = ConversationAttributes {
                         title: "New conversation".to_string(),
                     };
-                    self.conversation_store.create_group_conversation(
-                        conversation_id,
-                        group_id,
-                        attributes,
-                    );
-                    self.notification_hub.dispatch_conversation_notification();
+                    let conversation_id = self
+                        .conversation_store
+                        .create_group_conversation(group_id, attributes);
+                    self.notification_hub
+                        .dispatch_conversation_notification(&conversation_id);
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -96,7 +86,7 @@ impl<T: Notifiable> SelfUser<T> {
                         else {
                             return Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup))
                         };
-                    let (processed_message, group_was_deleted, sender_credential) = group
+                    let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
                             &self.crypto_backend,
                             protocol_message,
@@ -221,8 +211,8 @@ impl<T: Notifiable> SelfUser<T> {
                                         .confirm_connection_conversation(&conversation_id);
                                 }
                             }
-                            // If the group was deleted, we set the group to inactive.
-                            if group_was_deleted {
+                            // If we were removed, we set the group to inactive.
+                            if we_were_removed {
                                 let past_members = group
                                     .members()
                                     .into_iter()
@@ -243,6 +233,21 @@ impl<T: Notifiable> SelfUser<T> {
                     self.send_off_notifications(&conversation_id, conversation_messages)?;
                 }
             }
+        }
+
+        // After joining, we need to set our user auth keys.
+        for group_id in freshly_joined_groups {
+            let group = self.group_store.get_group_mut(&group_id).unwrap();
+            let params = group.update_user_key(&self.crypto_backend);
+            self.api_client
+                .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+                .await
+                .unwrap();
+            // Instead of using the conversation messages, we just
+            // dispatch a conversation notification.
+            let _conversation_messages = group
+                .merge_pending_commit(&self.crypto_backend, None)
+                .unwrap();
         }
         Ok(())
     }
@@ -414,7 +419,8 @@ impl<T: Notifiable> SelfUser<T> {
                             commit,
                             group_info,
                             qs_client_reference,
-                            group.user_auth_key(),
+                            // We unwrap here, because this is an external commit.
+                            group.user_auth_key().unwrap(),
                             &cep_tbs.connection_group_ear_key,
                         )
                         .await
@@ -434,6 +440,10 @@ impl<T: Notifiable> SelfUser<T> {
     /// Get existing conversations
     pub fn get_conversations(&self) -> Vec<Conversation> {
         self.conversation_store.conversations()
+    }
+
+    pub fn conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
+        self.conversation_store.conversation(conversation_id)
     }
 
     pub fn get_messages(&self, conversation_id: &Uuid, last_n: usize) -> Vec<ConversationMessage> {

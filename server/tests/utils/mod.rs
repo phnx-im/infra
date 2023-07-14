@@ -9,6 +9,8 @@ use std::{
     sync::Arc,
 };
 
+pub mod setup;
+
 use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxbackend::qs::Fqdn;

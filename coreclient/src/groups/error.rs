@@ -32,6 +32,8 @@ pub enum GroupOperationError {
     NoPendingGroupDiff,
     #[error("User already in group")]
     DuplicateUserAddition,
+    #[error("No user auth key has been set yet.")]
+    NoUserAuthKey,
     #[error("Client already in group")]
     DuplicateClientAddition,
     #[error(transparent)]

@@ -212,8 +212,11 @@ impl DsGroupState {
         );
 
         // ... s.t. it's easier to update the user and client profiles.
-        let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
-        for (add_packages, attribution_info) in added_users.into_iter() {
+
+        // We have to make two passes over the added users s.t. we can first
+        // update the client profiles and the compile the information for the
+        // joiner based on the updated client profiles.
+        for (add_packages, _) in added_users.iter() {
             let mut client_profiles = vec![];
             for (key_package, encrypted_client_information) in add_packages {
                 let member = self
@@ -239,11 +242,38 @@ impl DsGroupState {
                 .map_err(|_| AddUsersError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    encrypted_client_information,
+                    encrypted_client_information: encrypted_client_information.clone(),
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
                 };
+                client_profiles.push(client_profile);
+            }
+            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
+            self.unmerged_users.push(clients);
+            for client_profile in client_profiles.into_iter() {
+                self.client_profiles
+                    .insert(client_profile.leaf_index, client_profile);
+            }
+        }
+        let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
+        for (add_packages, attribution_info) in added_users.into_iter() {
+            for (key_package, _) in add_packages {
+                let client_queue_config = QsClientReference::tls_deserialize_exact(
+                    key_package
+                        .leaf_node()
+                        .extensions()
+                        .iter()
+                        .find_map(|e| match e {
+                            Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                                Some(&bytes.0)
+                            }
+                            _ => None,
+                        })
+                        .ok_or(AddUsersError::MissingQueueConfig)?
+                        .as_slice(),
+                )
+                .map_err(|_| AddUsersError::MissingQueueConfig)?;
                 let info = &[];
                 let aad = &[];
                 let encryption_key: JoinerInfoEncryptionKey =
@@ -268,13 +298,6 @@ impl DsGroupState {
                     client_reference: client_queue_config,
                 };
                 fan_out_messages.push(fan_out_message);
-                client_profiles.push(client_profile);
-            }
-            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
-            self.unmerged_users.push(clients);
-            for client_profile in client_profiles.into_iter() {
-                self.client_profiles
-                    .insert(client_profile.leaf_index, client_profile);
             }
         }
 
