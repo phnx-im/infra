@@ -176,9 +176,14 @@ impl TestBackend {
             });
         let user2_conversation_id = conversation.id.clone();
 
+        let user2_user_name = user2.user_name().clone();
         let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_contacts_before = user1.contacts();
+        let user1_contacts_before: HashSet<_> = user1
+            .contacts()
+            .into_iter()
+            .map(|contact| contact.user_name.clone())
+            .collect();
         let user1_conversations_before = user1.get_conversations();
         tracing::info!("{} fetches QS messages", user1_name);
         let qs_messages = user1.qs_fetch_messages().await;
@@ -187,19 +192,15 @@ impl TestBackend {
 
         // User 1 should have added user 2 to its contacts now and a connection
         // group should have been created.
-        let mut user1_contacts_after = user1.contacts();
-        let new_user_position = user1_contacts_after
-            .iter()
-            .position(|c| &c.user_name.to_string() == user2_name)
-            .expect("User 2 should be in the contact list of user 1");
-        // If we remove the new user, the partial contact lists should be the same.
-        user1_contacts_after.remove(new_user_position);
-        user1_contacts_before
+        let user1_contacts_after: HashSet<_> = user1
+            .contacts()
             .into_iter()
-            .zip(user1_contacts_after)
-            .for_each(|(before, after)| {
-                assert_eq!(before.user_name, after.user_name);
-            });
+            .map(|contact| contact.user_name.clone())
+            .collect();
+        let new_user_vec: Vec<_> = user1_contacts_after
+            .difference(&user1_contacts_before)
+            .collect();
+        assert_eq!(new_user_vec, vec![&user2_user_name]);
         // User 2 should have created a connection group.
         let mut user1_conversations_after = user1.get_conversations();
         let new_conversation_position = user1_conversations_after
