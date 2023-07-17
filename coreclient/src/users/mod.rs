@@ -528,7 +528,7 @@ impl<T: Notifiable> SelfUser<T> {
     ) -> Result<(), CorelibError> {
         for conversation_message in conversation_messages {
             let dispatched_conversation_message = DispatchedConversationMessage {
-                conversation_id: conversation_id.to_owned(),
+                conversation_id: UuidBytes::from_uuid(conversation_id),
                 conversation_message: conversation_message.clone(),
             };
             self.conversation_store

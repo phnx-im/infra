@@ -99,7 +99,7 @@ pub struct ErrorMessage {
 
 #[derive(Debug, Clone)]
 pub struct Conversation {
-    pub id: Uuid,
+    pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
     pub group_id: UuidBytes,
     pub status: ConversationStatus,
@@ -136,7 +136,7 @@ pub struct ConversationAttributes {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct DispatchedConversationMessage {
-    pub conversation_id: Uuid,
+    pub conversation_id: UuidBytes,
     pub conversation_message: ConversationMessage,
 }
 
@@ -145,6 +145,6 @@ pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
-    ConversationChange(Uuid), // The id of the changed conversation.
+    ConversationChange(UuidBytes), // The id of the changed conversation.
     Message(DispatchedConversationMessage),
 }

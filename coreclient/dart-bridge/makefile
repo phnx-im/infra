@@ -42,6 +42,10 @@ setup-linux:
 	flutter config --enable-linux-desktop
 	cargo install flutter_rust_bridge_codegen
 
+setup-ci:
+	make setup-flutter
+	cargo install flutter_rust_bridge_codegen
+
 setup-flutter:
 	flutter upgrade
 	flutter pub get

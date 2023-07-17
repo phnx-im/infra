@@ -12,8 +12,8 @@ use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, InactiveConversation, Message,
-        MessageContentType, NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
+        NotificationType,
     },
     users::SelfUser,
 };
@@ -223,12 +223,12 @@ impl TestBackend {
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
-        self.send_message(user1_conversation_id, user1_name, &[user2_name])
+        self.send_message(user1_conversation_id.as_uuid(), user1_name, &[user2_name])
             .await;
-        self.send_message(user1_conversation_id, user2_name, &[user1_name])
+        self.send_message(user1_conversation_id.as_uuid(), user2_name, &[user1_name])
             .await;
 
-        user1_conversation_id
+        user1_conversation_id.as_uuid()
     }
 
     /// Sends a message from the given sender to the given recipients. Before
@@ -319,7 +319,7 @@ impl TestBackend {
             .position(|c| c.attributes.title == group_name)
             .expect("User 1 should have created a new conversation");
         let conversation = user_conversations_after.remove(new_conversation_position);
-        assert!(conversation.id == conversation_id);
+        assert!(conversation.id.as_uuid() == conversation_id);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(conversation.conversation_type == ConversationType::Group);
         user_conversations_before
@@ -404,10 +404,10 @@ impl TestBackend {
             let mut invitee_conversations_after = invitee.get_conversations();
             let new_conversation_position = invitee_conversations_after
                 .iter()
-                .position(|c| c.id == conversation_id)
+                .position(|c| c.id.as_uuid() == conversation_id)
                 .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_id}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(conversation.id == conversation_id);
+            assert!(conversation.id.as_uuid() == conversation_id);
             assert!(conversation.status == ConversationStatus::Active);
             assert!(conversation.conversation_type == ConversationType::Group);
             invitee_conversations_before
@@ -510,11 +510,11 @@ impl TestBackend {
             let removed_conversations_after = removed.get_conversations();
             let conversation = removed_conversations_after
                 .iter()
-                .find(|c| c.id == conversation_id)
+                .find(|c| c.id.as_uuid() == conversation_id)
                 .expect(&format!(
                     "{removed_name} should have the conversation with id {conversation_id}"
                 ));
-            assert!(conversation.id == conversation_id);
+            assert!(conversation.id.as_uuid() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status {
                 let inactive_status_members: HashSet<_> =
                     inactive_status.past_members.clone().into_iter().collect();
@@ -563,7 +563,7 @@ impl TestBackend {
         let mut leaver_conversations_before = leaver.get_conversations();
         let leaver_conversation_position = leaver_conversations_before
             .iter()
-            .position(|c| c.id == conversation_id)
+            .position(|c| c.id.as_uuid() == conversation_id)
             .expect(&format!(
                 "{leaver_name} should have the conversation with id {conversation_id}"
             ));
@@ -581,7 +581,7 @@ impl TestBackend {
         let mut leaver_conversations_after = leaver.get_conversations();
         let leaver_conversation_position = leaver_conversations_after
             .iter()
-            .position(|c| c.id == conversation_id)
+            .position(|c| c.id.as_uuid() == conversation_id)
             .expect(&format!(
                 "{leaver_name} should have the conversation with id {conversation_id}"
             ));
