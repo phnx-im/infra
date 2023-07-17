@@ -43,7 +43,8 @@ setup-linux:
 	cargo install flutter_rust_bridge_codegen
 
 setup-ci:
-	make setup-flutter
+	flutter pub get
+	flutter doctor
 	cargo install flutter_rust_bridge_codegen
 
 setup-flutter:
