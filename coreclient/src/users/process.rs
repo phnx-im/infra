@@ -81,7 +81,8 @@ impl<T: Notifiable> SelfUser<T> {
                         .conversation_store
                         .conversation_by_group_id(group_id)
                         .unwrap()
-                        .id;
+                        .id
+                        .as_uuid();
                     let Some(group) = self.group_store.get_group_mut(group_id)
                         else {
                             return Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup))

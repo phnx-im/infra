@@ -33,10 +33,9 @@ impl ConversationStore {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
         let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
-            id: conversation_id.clone(),
-            group_id: uuid_bytes,
+            id: uuid_bytes.clone(),
+            group_id: uuid_bytes.clone(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(
                 user_name.as_bytes().to_vec(),
@@ -45,8 +44,8 @@ impl ConversationStore {
             attributes,
         };
         self.conversations
-            .insert(conversation_id.clone(), conversation);
-        conversation_id
+            .insert(uuid_bytes.as_uuid().clone(), conversation);
+        uuid_bytes.as_uuid()
     }
 
     pub(crate) fn create_group_conversation(
@@ -57,7 +56,7 @@ impl ConversationStore {
         let uuid_bytes = UuidBytes::from_group_id(&group_id);
         let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
-            id: conversation_id,
+            id: uuid_bytes.clone(),
             group_id: uuid_bytes,
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
