@@ -52,7 +52,6 @@ impl<T: Notifiable> SelfUser<T> {
                         &mut self.key_store.leaf_signers,
                         &self.key_store.as_intermediate_credentials,
                         &self.contacts,
-                        &self.key_store.signing_key.credential(),
                     );
                     freshly_joined_groups.push(group_id.clone());
 
@@ -63,7 +62,7 @@ impl<T: Notifiable> SelfUser<T> {
                         .conversation_store
                         .create_group_conversation(group_id, attributes);
                     self.notification_hub
-                        .dispatch_conversation_notification(&conversation_id);
+                        .dispatch_conversation_notification(conversation_id);
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -117,7 +116,7 @@ impl<T: Notifiable> SelfUser<T> {
                             // unconfirmed conversation.
                             if let ConversationType::UnconfirmedConnection(user_name) = &self
                                 .conversation_store
-                                .conversation(&conversation_id)
+                                .conversation(conversation_id)
                                 .unwrap()
                                 .conversation_type
                             {
@@ -231,7 +230,7 @@ impl<T: Notifiable> SelfUser<T> {
                         }
                     };
                     // If we got until here, the message was deemed valid and we can apply the diff.
-                    self.send_off_notifications(&conversation_id, conversation_messages)?;
+                    self.send_off_notifications(conversation_id, conversation_messages)?;
                 }
             }
         }
@@ -443,11 +442,11 @@ impl<T: Notifiable> SelfUser<T> {
         self.conversation_store.conversations()
     }
 
-    pub fn conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
+    pub fn conversation(&self, conversation_id: Uuid) -> Option<&Conversation> {
         self.conversation_store.conversation(conversation_id)
     }
 
-    pub fn get_messages(&self, conversation_id: &Uuid, last_n: usize) -> Vec<ConversationMessage> {
+    pub fn get_messages(&self, conversation_id: Uuid, last_n: usize) -> Vec<ConversationMessage> {
         self.conversation_store.messages(conversation_id, last_n)
     }
 }

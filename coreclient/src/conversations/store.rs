@@ -84,8 +84,8 @@ impl ConversationStore {
         conversations
     }
 
-    pub(crate) fn conversation(&self, conversation_id: &Uuid) -> Option<&Conversation> {
-        self.conversations.get(conversation_id)
+    pub(crate) fn conversation(&self, conversation_id: Uuid) -> Option<&Conversation> {
+        self.conversations.get(&conversation_id)
     }
 
     pub(crate) fn set_inactive(&mut self, conversation_id: &Uuid, past_members: &[String]) {
@@ -93,17 +93,17 @@ impl ConversationStore {
             .get_mut(conversation_id)
             .map(|conversation| {
                 conversation.status = ConversationStatus::Inactive(InactiveConversation {
-                    past_members: past_members.to_vec(),
+                    past_members: past_members.iter().map(|m| m.to_owned()).collect(),
                 })
             });
     }
 
     pub(crate) fn messages(
         &self,
-        conversation_id: &Uuid,
+        conversation_id: Uuid,
         last_n: usize,
     ) -> Vec<ConversationMessage> {
-        match self.messages.get(conversation_id) {
+        match self.messages.get(&conversation_id) {
             Some(messages) => {
                 let mut messages: Vec<ConversationMessage> = messages
                     .iter()
@@ -125,21 +125,20 @@ impl ConversationStore {
 
     pub(crate) fn store_message(
         &mut self,
-        conversation_id: &Uuid,
+        conversation_id: Uuid,
         message: ConversationMessage,
     ) -> Result<(), ConversationStoreError> {
         let message_id = message.id.clone();
-        match self.conversations.get(conversation_id) {
+        match self.conversations.get(&conversation_id) {
             Some(_conversation_data) => {
-                match self.messages.get_mut(conversation_id) {
+                match self.messages.get_mut(&conversation_id) {
                     Some(conversation_messages) => {
                         conversation_messages.insert(message_id.as_uuid(), message);
                     }
                     None => {
                         let mut conversation_messages = HashMap::new();
                         conversation_messages.insert(message_id.as_uuid(), message);
-                        self.messages
-                            .insert(*conversation_id, conversation_messages);
+                        self.messages.insert(conversation_id, conversation_messages);
                     }
                 }
                 Ok(())

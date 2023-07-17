@@ -12,8 +12,8 @@ use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
-        NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, InactiveConversation, Message,
+        MessageContentType, NotificationType,
     },
     users::SelfUser,
 };
@@ -70,6 +70,7 @@ impl TestUser {
 
 pub struct TestBackend {
     pub users: HashMap<String, TestUser>,
+    groups: HashMap<Uuid, HashSet<String>>,
     pub address: SocketAddr,
 }
 
@@ -79,6 +80,7 @@ impl TestBackend {
         Self {
             users: HashMap::new(),
             address,
+            groups: HashMap::new(),
         }
     }
 
@@ -92,6 +94,106 @@ impl TestBackend {
         self.users.values_mut().for_each(|u| {
             let _ = u.notifier.notifications();
         });
+    }
+
+    /// This has the updater commit an update, but without the checks ensuring
+    /// that the group state remains unchanged.
+    pub async fn commit_to_proposals(&mut self, conversation_id: Uuid, updater_name: &str) {
+        tracing::info!(
+            "{} performs an update in group {}",
+            updater_name,
+            conversation_id
+        );
+
+        let test_updater = self.users.get_mut(updater_name).unwrap();
+        let updater = &mut test_updater.user;
+
+        let pending_removes = updater.pending_removes(conversation_id).unwrap();
+        let group_members_before = updater.group_members(conversation_id).unwrap();
+
+        updater.update(conversation_id).await;
+
+        let group_members_after = updater.group_members(conversation_id).unwrap();
+        let difference: HashSet<String> = group_members_before
+            .difference(&group_members_after)
+            .map(|s| s.to_owned())
+            .collect();
+        assert_eq!(difference, pending_removes);
+
+        let group_members = self.groups.get(&conversation_id).unwrap();
+        // Have all group members fetch and process messages.
+        for group_member_name in group_members.iter() {
+            // skip the sender
+            if group_member_name == updater_name {
+                continue;
+            }
+            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let group_member = &mut test_group_member.user;
+            let qs_messages = group_member.qs_fetch_messages().await;
+
+            let pending_removes = group_member.pending_removes(conversation_id).unwrap();
+            let group_members_before = group_member.group_members(conversation_id).unwrap();
+
+            group_member
+                .process_qs_messages(qs_messages)
+                .await
+                .expect("Error processing qs messages.");
+
+            // If the group member in question is removed with this commit,
+            // it should turn its conversation inactive ...
+            if pending_removes.contains(group_member_name) {
+                let conversation_after = group_member.conversation(conversation_id).unwrap();
+                assert!(
+                    conversation_after.status
+                        == ConversationStatus::Inactive(InactiveConversation {
+                            past_members: group_members_before
+                        })
+                );
+            } else {
+                // ... if not, it should remove the members to be removed.
+                let group_members_after = group_member.group_members(conversation_id).unwrap();
+                let difference: HashSet<String> = group_members_before
+                    .difference(&group_members_after)
+                    .map(|s| s.to_owned())
+                    .collect();
+                assert_eq!(difference, pending_removes);
+            }
+        }
+    }
+
+    pub async fn update_group(&mut self, conversation_id: Uuid, updater_name: &str) {
+        tracing::info!(
+            "{} performs an update in group {}",
+            updater_name,
+            conversation_id
+        );
+
+        let test_updater = self.users.get_mut(updater_name).unwrap();
+        let updater = &mut test_updater.user;
+
+        updater.update(conversation_id).await;
+
+        let group_members = self.groups.get(&conversation_id).unwrap();
+        // Have all group members fetch and process messages.
+        for group_member_name in group_members.iter() {
+            // skip the sender
+            if group_member_name == updater_name {
+                continue;
+            }
+            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let group_member = &mut test_group_member.user;
+            let group_members_before = group_member.group_members(conversation_id).unwrap();
+
+            let qs_messages = group_member.qs_fetch_messages().await;
+
+            group_member
+                .process_qs_messages(qs_messages)
+                .await
+                .expect("Error processing qs messages.");
+
+            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            assert_eq!(group_members_after, group_members_before);
+        }
     }
 
     pub async fn connect_users(&mut self, user1_name: &str, user2_name: &str) -> Uuid {
@@ -132,7 +234,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id, after.id);
             });
-        let user1_conversation_id = conversation.id.clone();
+        let user1_conversation_id = conversation.id.clone().as_uuid();
 
         let test_user2 = self.users.get_mut(user2_name).unwrap();
         let user2 = &mut test_user2.user;
@@ -174,7 +276,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id, after.id);
             });
-        let user2_conversation_id = conversation.id.clone();
+        let user2_conversation_id = conversation.id.as_uuid();
 
         let user2_user_name = user2.user_name().clone();
         let test_user1 = self.users.get_mut(user1_name).unwrap();
@@ -223,12 +325,15 @@ impl TestBackend {
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
-        self.send_message(user1_conversation_id.as_uuid(), user1_name, &[user2_name])
+        self.send_message(user1_conversation_id, user1_name, &[user2_name])
             .await;
-        self.send_message(user1_conversation_id.as_uuid(), user2_name, &[user1_name])
+        self.send_message(user1_conversation_id, user2_name, &[user1_name])
             .await;
 
-        user1_conversation_id.as_uuid()
+        let member_set: HashSet<String> = [user1_name.to_string(), user2_name.to_string()].into();
+        assert_eq!(member_set.len(), 2);
+        self.groups.insert(user1_conversation_id, member_set);
+        user1_conversation_id
     }
 
     /// Sends a message from the given sender to the given recipients. Before
@@ -329,6 +434,10 @@ impl TestBackend {
                 assert_eq!(before.id, after.id);
             });
         self.flush_notifications();
+        let member_set: HashSet<String> = [user_name.to_string()].into();
+        assert_eq!(member_set.len(), 1);
+        self.groups.insert(conversation_id, member_set);
+
         conversation_id
     }
 
@@ -361,21 +470,17 @@ impl TestBackend {
 
         // Perform the invite operation and check that the invitees are now in the group.
         let inviter_group_members_before: HashSet<String> = inviter
-            .group_members(&conversation_id)
-            .expect("Error getting group members.")
-            .into_iter()
-            .collect();
+            .group_members(conversation_id)
+            .expect("Error getting group members.");
 
         inviter
-            .invite_users(&conversation_id, invitee_names)
+            .invite_users(conversation_id, invitee_names)
             .await
             .expect("Error inviting users.");
 
         let inviter_group_members_after: HashSet<String> = inviter
-            .group_members(&conversation_id)
-            .expect("Error getting group members.")
-            .into_iter()
-            .collect();
+            .group_members(conversation_id)
+            .expect("Error getting group members.");
         let new_members = inviter_group_members_after
             .difference(&inviter_group_members_before)
             .map(|name| name.to_owned())
@@ -386,15 +491,14 @@ impl TestBackend {
             .collect::<HashSet<_>>();
         assert_eq!(new_members, invitee_set);
 
+        // Now that the invitation is out, have the invitees and all other group
+        // members fetch and process QS messages.
         for &invitee_name in invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
             let invitee_conversations_before = invitee.get_conversations();
-            tracing::info!("Invitee {} is fetching messages.", invitee_name);
 
             let qs_messages = invitee.qs_fetch_messages().await;
-
-            tracing::info!("Invitee {} is processing messages.", invitee_name);
 
             invitee
                 .process_qs_messages(qs_messages)
@@ -416,6 +520,37 @@ impl TestBackend {
                 .for_each(|(before, after)| {
                     assert_eq!(before.id, after.id);
                 });
+        }
+        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        for group_member_name in group_members.iter() {
+            // Skip the sender
+            if group_member_name == inviter_name {
+                continue;
+            }
+            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let group_member = &mut test_group_member.user;
+            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let qs_messages = group_member.qs_fetch_messages().await;
+
+            group_member
+                .process_qs_messages(qs_messages)
+                .await
+                .expect("Error processing qs messages.");
+
+            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            let new_members = group_members_after
+                .difference(&group_members_before)
+                .map(|name| name.to_owned())
+                .collect::<HashSet<_>>();
+            let invitee_set = invitee_names
+                .iter()
+                .map(|&name| name.to_owned())
+                .collect::<HashSet<_>>();
+            assert_eq!(new_members, invitee_set)
+        }
+        for invitee_name in invitee_names {
+            let unique_member = group_members.insert(invitee_name.to_string());
+            assert!(unique_member == true);
         }
         self.flush_notifications();
         // Now send messages to check that the group works properly. This also
@@ -465,21 +600,17 @@ impl TestBackend {
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
         let remover_group_members_before: HashSet<String> = remover
-            .group_members(&conversation_id)
-            .expect("Error getting group members.")
-            .into_iter()
-            .collect();
+            .group_members(conversation_id)
+            .expect("Error getting group members.");
 
         remover
-            .remove_users(&conversation_id, removed_names)
+            .remove_users(conversation_id, removed_names)
             .await
             .expect("Error inviting users.");
 
         let remover_group_members_after: HashSet<String> = remover
-            .group_members(&conversation_id)
-            .expect("Error getting group members.")
-            .into_iter()
-            .collect();
+            .group_members(conversation_id)
+            .expect("Error getting group members.");
         let removed_members = remover_group_members_before
             .difference(&remover_group_members_after)
             .map(|name| name.to_owned())
@@ -494,11 +625,7 @@ impl TestBackend {
             let test_removed = self.users.get_mut(removed_name).unwrap();
             let removed = &mut test_removed.user;
             let removed_conversations_before = removed.get_conversations();
-            let past_members: HashSet<_> = removed
-                .group_members(&conversation_id)
-                .unwrap()
-                .into_iter()
-                .collect();
+            let past_members: HashSet<_> = removed.group_members(conversation_id).unwrap();
 
             let qs_messages = removed.qs_fetch_messages().await;
 
@@ -537,64 +664,83 @@ impl TestBackend {
             }
             assert!(!error)
         }
+        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        for &removed_name in removed_names {
+            let remove_successful = group_members.remove(removed_name);
+            assert!(remove_successful == true);
+        }
+        // Now have the rest of the group pick up and process their messages.
+        for group_member_name in group_members.iter() {
+            // Skip the remover
+            if group_member_name == remover_name {
+                continue;
+            }
+            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let group_member = &mut test_group_member.user;
+            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let qs_messages = group_member.qs_fetch_messages().await;
+
+            group_member
+                .process_qs_messages(qs_messages)
+                .await
+                .expect("Error processing qs messages.");
+
+            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            let removed_members = group_members_before
+                .difference(&group_members_after)
+                .map(|name| name.to_owned())
+                .collect::<HashSet<_>>();
+            let removed_set = removed_names
+                .iter()
+                .map(|&name| name.to_owned())
+                .collect::<HashSet<_>>();
+            assert_eq!(removed_members, removed_set)
+        }
+
         self.flush_notifications();
     }
 
-    /// Has the leaver leave to the given group.
+    /// Has the leaver leave the given group.
     pub async fn leave_group(&mut self, conversation_id: Uuid, leaver_name: &str) {
-        let test_leaver = self.users.get_mut(leaver_name).unwrap();
-        let leaver = &mut test_leaver.user;
-
-        // Before removing anyone from a group, the remover must first fetch and
-        // process its QS messages.
-        let qs_messages = leaver.qs_fetch_messages().await;
-
-        leaver
-            .process_qs_messages(qs_messages)
-            .await
-            .expect("Error processing qs messages.");
-
         tracing::info!(
             "{} leaves the group with id {}",
             leaver_name,
             conversation_id
         );
-
-        let mut leaver_conversations_before = leaver.get_conversations();
-        let leaver_conversation_position = leaver_conversations_before
-            .iter()
-            .position(|c| c.id.as_uuid() == conversation_id)
-            .expect(&format!(
-                "{leaver_name} should have the conversation with id {conversation_id}"
-            ));
-        let conversation_before = leaver_conversations_before.remove(leaver_conversation_position);
+        let test_leaver = self.users.get_mut(leaver_name).unwrap();
+        let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_group(&conversation_id).await;
+        leaver.leave_group(conversation_id).await;
 
-        // TODO: There's not much we can check just yet. In the future, I want
-        // to track the groups with the TestBackend and have another group
-        // member process the leave. Then we can check the group states of all
-        // other members. That would also allow us to do more checking in other
+        // Now have a random group member perform an update, thus committing the leave operation.
+        // TODO: This is not really random. We should do better here. But also,
+        // we probably want a way to track the randomness s.t. we can reproduce
         // tests.
+        let group_members = self.groups.get(&conversation_id).unwrap().clone();
+        let mut random_member_iter = group_members.iter();
+        let mut random_member_name = random_member_iter.next().unwrap();
+        // Ensure that the random member isn't the leaver.
+        if random_member_name == leaver_name {
+            random_member_name = random_member_iter.next().unwrap()
+        }
+        let test_random_member = self.users.get_mut(random_member_name).unwrap();
+        let random_member = &mut test_random_member.user;
 
-        let mut leaver_conversations_after = leaver.get_conversations();
-        let leaver_conversation_position = leaver_conversations_after
-            .iter()
-            .position(|c| c.id.as_uuid() == conversation_id)
-            .expect(&format!(
-                "{leaver_name} should have the conversation with id {conversation_id}"
-            ));
-        let conversation_after = leaver_conversations_after.remove(leaver_conversation_position);
-        assert!(conversation_before.id == conversation_after.id);
-        assert!(conversation_before.conversation_type == ConversationType::Group);
-        assert!(conversation_after.conversation_type == ConversationType::Group);
-        leaver_conversations_before
-            .into_iter()
-            .zip(leaver_conversations_after)
-            .for_each(|(before, after)| {
-                assert_eq!(before.id, after.id);
-            });
+        // First fetch and process the QS messages to make sure the member has the proposal.
+        let qs_messages = random_member.qs_fetch_messages().await;
+
+        random_member
+            .process_qs_messages(qs_messages)
+            .await
+            .expect("Error processing qs messages.");
+
+        // Now commit to the pending proposal. This also makes everyone else
+        // pick up and process their messages. This also tests that group
+        // members were removed correctly from the local group and that the
+        // leaver has turned its conversation inactive.
+        self.commit_to_proposals(conversation_id, random_member_name)
+            .await;
 
         self.flush_notifications();
     }

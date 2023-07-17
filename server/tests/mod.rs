@@ -71,6 +71,22 @@ async fn invite_to_group() {
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
+async fn update_group() {
+    let mut setup = TestBackend::new().await;
+    setup.add_user("alice").await;
+    setup.add_user("bob").await;
+    setup.add_user("charlie").await;
+    setup.connect_users("alice", "bob").await;
+    setup.connect_users("alice", "charlie").await;
+    let conversation_id = setup.create_group("alice").await;
+    setup
+        .invite_to_group(conversation_id, "alice", &["bob", "charlie"])
+        .await;
+    setup.update_group(conversation_id, "bob").await
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn remove_from_group() {
     let mut setup = TestBackend::new().await;
     setup.add_user("alice").await;
@@ -101,9 +117,6 @@ async fn leave_group() {
         .invite_to_group(conversation_id, "alice", &["bob"])
         .await;
     setup.leave_group(conversation_id, "alice").await;
-    // TODO: This needs to be improved by having the test setup track
-    // conversations and who is in them s.t. it can have other members process
-    // the leave request.
 }
 
 #[actix_rt::test]
@@ -175,6 +188,8 @@ async fn full_cycle() {
     setup
         .remove_from_group(conversation_id, "dave", &["alice", "bob"])
         .await;
+
+    setup.leave_group(conversation_id, "charlie").await
 }
 
 #[actix_rt::test]
