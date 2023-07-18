@@ -30,7 +30,6 @@ impl GroupStore {
         >,
         as_intermediate_credentials: &[AsIntermediateCredential],
         contacts: &HashMap<UserName, Contact>,
-        own_client_credential: &ClientCredential,
     ) -> GroupId {
         let group = Group::join_group(
             backend,
@@ -39,7 +38,6 @@ impl GroupStore {
             leaf_signers,
             as_intermediate_credentials,
             contacts,
-            own_client_credential,
         )
         .unwrap();
         let group_id = group.group_id().clone();

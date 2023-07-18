@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::net::SocketAddr;
+use std::{collections::HashSet, net::SocketAddr};
 
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -432,7 +432,7 @@ impl<T: Notifiable> SelfUser<T> {
     /// Invite users to an existing group
     pub async fn invite_users(
         &mut self,
-        conversation_id: &Uuid,
+        conversation_id: Uuid,
         invited_users: &[&str],
     ) -> Result<(), CorelibError> {
         let conversation = self
@@ -486,7 +486,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub async fn remove_users(
         &mut self,
-        conversation_id: &Uuid,
+        conversation_id: Uuid,
         target_users: &[&str],
     ) -> Result<(), CorelibError> {
         let conversation = self
@@ -523,7 +523,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     fn send_off_notifications(
         &mut self,
-        conversation_id: &Uuid,
+        conversation_id: Uuid,
         conversation_messages: Vec<ConversationMessage>,
     ) -> Result<(), CorelibError> {
         for conversation_message in conversation_messages {
@@ -548,7 +548,7 @@ impl<T: Notifiable> SelfUser<T> {
     ) -> Result<ConversationMessage, CorelibError> {
         let group_id = &self
             .conversation_store
-            .conversation(&conversation_id)
+            .conversation(conversation_id)
             .unwrap()
             .group_id
             .clone();
@@ -569,7 +569,7 @@ impl<T: Notifiable> SelfUser<T> {
         });
         let conversation_message = new_conversation_message(message);
         self.conversation_store
-            .store_message(&conversation_id, conversation_message.clone())
+            .store_message(conversation_id, conversation_message.clone())
             .map_err(CorelibError::ConversationStore)?;
 
         // Send message to DS
@@ -723,10 +723,10 @@ impl<T: Notifiable> SelfUser<T> {
         }
     }
 
-    pub async fn update_user_key(&mut self, conversation_id: &Uuid) {
+    pub async fn update_user_key(&mut self, conversation_id: Uuid) {
         let conversation = self
             .conversation_store
-            .conversation(&conversation_id)
+            .conversation(conversation_id)
             .unwrap();
         let group = self
             .group_store
@@ -793,7 +793,7 @@ impl<T: Notifiable> SelfUser<T> {
         messages
     }
 
-    pub async fn leave_group(&mut self, conversation_id: &Uuid) {
+    pub async fn leave_group(&mut self, conversation_id: Uuid) {
         let conversation = self
             .conversation_store
             .conversation(conversation_id)
@@ -815,7 +815,7 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
     }
 
-    pub async fn update(&mut self, conversation_id: &Uuid) {
+    pub async fn update(&mut self, conversation_id: Uuid) {
         let conversation = self
             .conversation_store
             .conversation(conversation_id)
@@ -860,18 +860,33 @@ impl<T: Notifiable> SelfUser<T> {
         &self.user_name
     }
 
-    fn group(&self, conversation_id: &Uuid) -> Option<&Group> {
+    fn group(&self, conversation_id: Uuid) -> Option<&Group> {
         self.conversation(conversation_id)
             .and_then(|conversation| self.group_store.group(&conversation.group_id.as_group_id()))
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: &Uuid) -> Option<Vec<String>> {
+    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
         self.group(conversation_id).map(|group| {
             group
                 .members()
                 .iter()
                 .map(|member| member.to_string())
+                .collect()
+        })
+    }
+
+    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
+        self.group(conversation_id).map(|group| {
+            group
+                .mls_group()
+                .pending_proposals()
+                .filter_map(|proposal| match proposal.proposal() {
+                    Proposal::Remove(rp) => group
+                        .client_by_index(rp.removed().usize())
+                        .map(|c| c.user_name().to_string()),
+                    _ => None,
+                })
                 .collect()
         })
     }

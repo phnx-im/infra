@@ -76,4 +76,10 @@ impl GroupDiff {
             .insert(self.new_number_of_leaves, Some(new_client_information));
         self.new_number_of_leaves += 1;
     }
+
+    pub(crate) fn apply_pending_removes(&mut self, staged_commit: &StagedCommit) {
+        for pending_remove in staged_commit.remove_proposals() {
+            self.remove_client_credential(pending_remove.remove_proposal().removed())
+        }
+    }
 }

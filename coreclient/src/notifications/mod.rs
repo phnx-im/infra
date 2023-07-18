@@ -53,7 +53,7 @@ impl<T: Notifiable> NotificationHub<T> {
         self.dispatch_notification(NotificationType::Message(dispatched_conversation_message));
     }
 
-    pub(crate) fn dispatch_conversation_notification(&mut self, conversation_id: &Uuid) {
+    pub(crate) fn dispatch_conversation_notification(&mut self, conversation_id: Uuid) {
         self.dispatch_notification(NotificationType::ConversationChange(UuidBytes::from_uuid(
             conversation_id,
         )));

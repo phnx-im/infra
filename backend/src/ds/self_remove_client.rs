@@ -81,25 +81,6 @@ impl DsGroupState {
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
-        // ... then we update the client profiles and the user profile.
-        let user_profile = self
-            .user_profiles
-            .get_mut(&params.sender)
-            // This should have been caught by message validation.
-            .ok_or(ClientSelfRemovalError::LibraryError)?;
-
-        // If it's not the user's last client, we just remove the client.
-        if let Some(position) = user_profile
-            .clients
-            .iter()
-            .position(|&leaf_index| leaf_index == sender_index)
-        {
-            user_profile.clients.remove(position);
-        } else {
-            // The removed client does not seem to belong to this user...
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        }
-
         // We remove the user and client profile only when the proposal is committed.
 
         // Finally, we create the message for distribution.

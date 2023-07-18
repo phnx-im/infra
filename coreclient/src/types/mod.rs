@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashSet;
+
 use openmls::prelude::GroupId;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
@@ -27,7 +29,7 @@ impl UuidBytes {
         &self.bytes
     }
 
-    pub fn from_uuid(uuid: &Uuid) -> Self {
+    pub fn from_uuid(uuid: Uuid) -> Self {
         Self {
             bytes: *uuid.as_bytes(),
         }
@@ -116,7 +118,7 @@ pub enum ConversationStatus {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct InactiveConversation {
-    pub past_members: Vec<String>,
+    pub past_members: HashSet<String>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
