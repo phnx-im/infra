@@ -88,9 +88,9 @@ impl ConversationStore {
         self.conversations.get(&conversation_id)
     }
 
-    pub(crate) fn set_inactive(&mut self, conversation_id: &Uuid, past_members: &[String]) {
+    pub(crate) fn set_inactive(&mut self, conversation_id: Uuid, past_members: &[String]) {
         self.conversations
-            .get_mut(conversation_id)
+            .get_mut(&conversation_id)
             .map(|conversation| {
                 conversation.status = ConversationStatus::Inactive(InactiveConversation {
                     past_members: past_members.iter().map(|m| m.to_owned()).collect(),

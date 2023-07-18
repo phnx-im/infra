@@ -744,6 +744,38 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
     }
 
+    pub async fn delete_group(&mut self, conversation_id: Uuid) {
+        let conversation = self
+            .conversation_store
+            .conversation(conversation_id)
+            .unwrap();
+        let group = self
+            .group_store
+            .get_group_mut(&conversation.group_id.as_group_id())
+            .unwrap();
+        let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
+        // No need to send a message to the server if we are the only member.
+        // TODO: Make sure this is what we want.
+        if past_members.len() != 1 {
+            let params = group.delete(&self.crypto_backend).unwrap();
+            self.api_client
+                .ds_delete_group(
+                    params,
+                    group.user_auth_key().unwrap(),
+                    group.group_state_ear_key(),
+                )
+                .await
+                .unwrap();
+            let conversation_messages = group
+                .merge_pending_commit(&self.crypto_backend, None)
+                .unwrap();
+            self.send_off_notifications(conversation_id, conversation_messages)
+                .unwrap();
+        }
+        self.conversation_store
+            .set_inactive(conversation_id, &past_members);
+    }
+
     pub async fn as_fetch_messages(&mut self) -> Vec<QueueMessage> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();

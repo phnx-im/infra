@@ -525,16 +525,12 @@ impl ApiClient {
     /// Delete the given group.
     pub async fn ds_delete_group(
         &self,
-        commit: AssistedMessageOut,
+        params: DeleteGroupParamsOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        let payload = DeleteGroupParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-        };
         self.prepare_and_send_ds_message(
-            DsRequestParamsOut::DeleteGroup(payload),
+            DsRequestParamsOut::DeleteGroup(params),
             signing_key,
             group_state_ear_key,
         )

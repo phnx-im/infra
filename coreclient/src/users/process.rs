@@ -219,7 +219,7 @@ impl<T: Notifiable> SelfUser<T> {
                                     .map(|user_name| user_name.to_string())
                                     .collect::<Vec<_>>();
                                 self.conversation_store
-                                    .set_inactive(&conversation_id, &past_members);
+                                    .set_inactive(conversation_id, &past_members);
                             }
                             group
                                 .merge_pending_commit(&self.crypto_backend, *staged_commit)

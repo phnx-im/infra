@@ -70,7 +70,7 @@ impl TestUser {
 
 pub struct TestBackend {
     pub users: HashMap<String, TestUser>,
-    groups: HashMap<Uuid, HashSet<String>>,
+    pub groups: HashMap<Uuid, HashSet<String>>,
     pub address: SocketAddr,
 }
 
@@ -570,7 +570,7 @@ impl TestBackend {
         }
     }
 
-    /// Has the inviter invite the invitees to the given group and has everyone
+    /// Has the remover remove the removed from the given group and has everyone
     /// send and process their messages.
     pub async fn remove_from_group(
         &mut self,
@@ -606,7 +606,7 @@ impl TestBackend {
         remover
             .remove_users(conversation_id, removed_names)
             .await
-            .expect("Error inviting users.");
+            .expect("Error removing users.");
 
         let remover_group_members_after: HashSet<String> = remover
             .group_members(conversation_id)
@@ -741,6 +741,87 @@ impl TestBackend {
         // leaver has turned its conversation inactive.
         self.commit_to_proposals(conversation_id, random_member_name)
             .await;
+
+        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        group_members.remove(leaver_name);
+
+        self.flush_notifications();
+    }
+
+    pub async fn delete_group(&mut self, conversation_id: Uuid, deleter_name: &str) {
+        tracing::info!(
+            "{} deletes the group with id {}",
+            deleter_name,
+            conversation_id
+        );
+        let test_deleter = self.users.get_mut(deleter_name).unwrap();
+        let deleter = &mut test_deleter.user;
+
+        // Before removing anyone from a group, the remover must first fetch and
+        // process its QS messages.
+        let qs_messages = deleter.qs_fetch_messages().await;
+
+        deleter
+            .process_qs_messages(qs_messages)
+            .await
+            .expect("Error processing qs messages.");
+
+        // Perform the remove operation and check that the removed are not in
+        // the group anymore.
+        let deleter_conversation_before = deleter.conversation(conversation_id).unwrap().clone();
+        assert_eq!(
+            deleter_conversation_before.status,
+            ConversationStatus::Active
+        );
+        let past_members = deleter.group_members(conversation_id).unwrap();
+
+        deleter.delete_group(conversation_id).await;
+
+        let deleter_conversation_after = deleter.conversation(conversation_id).unwrap();
+        if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status {
+            let inactive_status_members: HashSet<_> =
+                inactive_status.past_members.clone().into_iter().collect();
+            assert_eq!(inactive_status_members, past_members);
+        } else {
+            panic!("Conversation should be inactive.")
+        }
+
+        for group_member_name in self.groups.get(&conversation_id).unwrap().iter() {
+            // Skip the deleter
+            if group_member_name == deleter_name {
+                continue;
+            }
+            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let group_member = &mut test_group_member.user;
+
+            let group_member_conversation_before =
+                group_member.conversation(conversation_id).unwrap();
+            assert_eq!(
+                group_member_conversation_before.status,
+                ConversationStatus::Active
+            );
+            let past_members: HashSet<_> = group_member.group_members(conversation_id).unwrap();
+
+            let qs_messages = group_member.qs_fetch_messages().await;
+
+            group_member
+                .process_qs_messages(qs_messages)
+                .await
+                .expect("Error processing qs messages.");
+
+            let group_member_conversation_after =
+                group_member.conversation(conversation_id).unwrap();
+            if let ConversationStatus::Inactive(inactive_status) =
+                &group_member_conversation_after.status
+            {
+                let inactive_status_members: HashSet<_> =
+                    inactive_status.past_members.clone().into_iter().collect();
+                assert_eq!(inactive_status_members, past_members);
+            } else {
+                panic!("Conversation should be inactive.")
+            }
+        }
+        self.groups.remove(&conversation_id);
 
         self.flush_notifications();
     }
