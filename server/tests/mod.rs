@@ -120,6 +120,20 @@ async fn leave_group() {
 }
 
 #[actix_rt::test]
+#[tracing::instrument(name = "Invite to group test", skip_all)]
+async fn delete_group() {
+    let mut setup = TestBackend::new().await;
+    setup.add_user("alice").await;
+    setup.add_user("bob").await;
+    setup.connect_users("alice", "bob").await;
+    let conversation_id = setup.create_group("alice").await;
+    setup
+        .invite_to_group(conversation_id, "alice", &["bob"])
+        .await;
+    setup.delete_group(conversation_id, "bob").await;
+}
+
+#[actix_rt::test]
 #[tracing::instrument(name = "Create user", skip_all)]
 async fn create_user() {
     let mut setup = TestBackend::new().await;
@@ -189,7 +203,9 @@ async fn full_cycle() {
         .remove_from_group(conversation_id, "dave", &["alice", "bob"])
         .await;
 
-    setup.leave_group(conversation_id, "charlie").await
+    setup.leave_group(conversation_id, "charlie").await;
+
+    setup.delete_group(conversation_id, "dave").await
 }
 
 #[actix_rt::test]

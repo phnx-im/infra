@@ -33,11 +33,12 @@ impl DsGroupState {
                 processed_message
             } else {
                 // This should be a commit.
+                tracing::warn!("Received non-commit message for delete_group operation");
                 return Err(GroupDeletionError::InvalidMessage);
             };
 
         // Check if sender index and user profile match.
-        if let Sender::Member(leaf_index) = processed_message.sender() {
+        let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
             // There should be a user profile. If there wasn't, verification should have failed.
             if !self
                 .user_profiles
@@ -46,12 +47,15 @@ impl DsGroupState {
                 .clients
                 .contains(leaf_index)
             {
+                tracing::warn!("Missing user profile");
                 return Err(GroupDeletionError::InvalidMessage);
             };
+            leaf_index
         } else {
             // Remove users should be a regular commit
+            tracing::warn!("Invalid sender");
             return Err(GroupDeletionError::InvalidMessage);
-        }
+        };
 
         if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
@@ -60,6 +64,7 @@ impl DsGroupState {
             if staged_commit.add_proposals().count() > 0
                 || staged_commit.update_proposals().count() > 0
             {
+                tracing::warn!("Found add or update proposals in delete group commit");
                 return Err(GroupDeletionError::InvalidMessage);
             }
             // Process remove proposals, but only non-inline ones.
@@ -67,12 +72,19 @@ impl DsGroupState {
                 .remove_proposals()
                 .map(|remove_proposal| remove_proposal.remove_proposal().removed())
                 .collect();
-            let existing_clients: Vec<_> = self.client_profiles.keys().copied().collect();
+            let existing_clients: Vec<_> = self
+                .client_profiles
+                .keys()
+                .filter(|index| index != &sender_index)
+                .copied()
+                .collect();
             // Check that we're indeed removing all the clients.
             if removed_clients != existing_clients {
+                tracing::warn!("Incomplete remove proposals in delete group commit");
                 return Err(GroupDeletionError::InvalidMessage);
             }
         } else {
+            tracing::warn!("Invalid message content");
             return Err(GroupDeletionError::InvalidMessage);
         }
 

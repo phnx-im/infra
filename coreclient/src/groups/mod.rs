@@ -44,7 +44,7 @@ use phnxbackend::{
             UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
+            AddUsersParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
@@ -872,8 +872,6 @@ impl Group {
                         );
                     }
                     InfraAadPayload::DeleteGroup => {
-                        // After processing the message, the MLS Group should already be marked as inactive.
-                        debug_assert!(!self.mls_group.is_active());
                         we_were_removed = true;
                         // There is nothing else to do at this point.
                     }
@@ -1029,7 +1027,7 @@ impl Group {
         let group_info = group_info_option.unwrap();
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
         let commit = AssistedMessageOut {
-            mls_message: mls_message,
+            mls_message,
             group_info_option: Some(assisted_group_info),
         };
 
@@ -1041,6 +1039,57 @@ impl Group {
         self.pending_diff = Some(diff);
 
         let params = RemoveUsersParamsOut {
+            commit,
+            sender: user_auth_key.verifying_key().hash(),
+        };
+        Ok(params)
+    }
+
+    pub(crate) fn delete(
+        &mut self,
+        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+    ) -> Result<DeleteGroupParamsOut, GroupOperationError> {
+        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
+            return Err(GroupOperationError::NoUserAuthKey);
+        };
+        let remove_indices = self
+            .client_information
+            .keys()
+            .filter_map(|&index| {
+                if index != self.mls_group.own_leaf_index().usize() {
+                    Some(LeafNodeIndex::new(index as u32))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        // There shouldn't be a welcome
+        let aad_payload = InfraAadPayload::DeleteGroup;
+        let aad = InfraAadMessage::from(aad_payload)
+            .tls_serialize_detached()
+            .unwrap();
+        self.mls_group.set_aad(aad.as_slice());
+        let (mls_message, _welcome_option, group_info_option) = self
+            .mls_group
+            .remove_members(backend, &self.leaf_signer, remove_indices.as_slice())
+            .unwrap();
+        self.mls_group.set_aad(&[]);
+        debug_assert!(_welcome_option.is_none());
+        let group_info = group_info_option.unwrap();
+        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
+        let commit = AssistedMessageOut {
+            mls_message,
+            group_info_option: Some(assisted_group_info),
+        };
+
+        let mut diff = GroupDiff::new(&self);
+        diff.apply_pending_removes(self.mls_group().pending_commit().unwrap());
+        for index in remove_indices {
+            diff.remove_client_credential(index);
+        }
+        self.pending_diff = Some(diff);
+
+        let params = DeleteGroupParamsOut {
             commit,
             sender: user_auth_key.verifying_key().hash(),
         };
