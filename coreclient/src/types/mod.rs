@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 
 use openmls::prelude::GroupId;
+use phnxbackend::auth_service::UserName;
 use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
@@ -119,6 +120,24 @@ pub enum ConversationStatus {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InactiveConversation {
     pub past_members: HashSet<String>,
+}
+
+impl InactiveConversation {
+    pub fn new(past_members: HashSet<UserName>) -> Self {
+        Self {
+            past_members: past_members
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<String>>(),
+        }
+    }
+
+    pub fn past_members(&self) -> HashSet<UserName> {
+        self.past_members
+            .iter()
+            .map(|s| UserName::from(s.clone()))
+            .collect()
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]

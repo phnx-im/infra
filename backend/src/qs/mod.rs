@@ -61,6 +61,8 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
+use std::fmt::{Display, Formatter};
+
 use crate::{
     crypto::{
         ear::{
@@ -95,8 +97,10 @@ use self::errors::SealError;
 
 pub mod client_api;
 pub mod client_record;
+pub mod dns_provider_trait;
 pub mod ds_api;
 pub mod errors;
+pub mod network_provider_trait;
 pub mod storage_provider_trait;
 pub mod user_record;
 
@@ -360,7 +364,7 @@ impl VerifyingKey for QsVerifyingKey {}
 
 #[derive(Debug, Clone)]
 pub struct QsConfig {
-    pub fqdn: Fqdn,
+    pub domain: Fqdn,
 }
 
 #[derive(Debug)]
@@ -379,7 +383,36 @@ pub struct Qs {}
     Hash,
     Debug,
 )]
-pub struct Fqdn {}
+pub struct Fqdn {
+    // TODO: We should probably use a more restrictive type here.
+    domain: Vec<u8>,
+}
+
+impl Display for Fqdn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.domain))
+    }
+}
+
+impl Fqdn {
+    pub fn new(domain: String) -> Self {
+        Self {
+            domain: domain.into_bytes(),
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.domain
+    }
+}
+
+impl From<&str> for Fqdn {
+    fn from(domain: &str) -> Self {
+        Self {
+            domain: domain.as_bytes().to_vec(),
+        }
+    }
+}
 
 #[derive(
     Clone,

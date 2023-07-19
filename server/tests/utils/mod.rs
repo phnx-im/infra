@@ -17,6 +17,7 @@ use phnxbackend::qs::Fqdn;
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
+    network_provider::MockNetworkProvider,
     run,
     storage_provider::memory::{
         auth_service::{EphemeralAsStorage, MemoryAsStorage},
@@ -45,7 +46,10 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 /// Start the server and initialize the database connection. Returns the
 /// address and a DispatchWebsocketNotifier to dispatch notofication over the
 /// websocket.
-pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
+pub async fn spawn_app(
+    domain: Fqdn,
+    network_provider: Arc<MockNetworkProvider>,
+) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
 
@@ -62,14 +66,16 @@ pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
     let ds_storage_provider = MemoryDsStorage::new();
-    let qs_storage_provider = Arc::new(MemStorageProvider::default());
+    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
 
-    let as_storage_provider = MemoryAsStorage::new(Fqdn {}, SignatureScheme::ED25519).unwrap();
+    let as_storage_provider =
+        MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519).unwrap();
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
 
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
+        network: network_provider.clone(),
     };
 
     // Start the server
@@ -88,5 +94,6 @@ pub async fn spawn_app() -> (SocketAddr, DispatchWebsocketNotifier) {
     tokio::spawn(server);
 
     // Return the address
+    network_provider.add_port(domain, address.port());
     (address, ws_dispatch_notifier)
 }

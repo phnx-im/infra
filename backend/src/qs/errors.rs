@@ -4,7 +4,7 @@
 
 use crate::crypto::DecryptionError;
 
-use super::storage_provider_trait::QsStorageProvider;
+use super::{network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -12,7 +12,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone)]
-pub enum QsEnqueueError<S: QsStorageProvider> {
+pub enum QsEnqueueError<S: QsStorageProvider, N: NetworkProvider> {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]
     QueueNotFound,
@@ -22,9 +22,15 @@ pub enum QsEnqueueError<S: QsStorageProvider> {
     /// An error ocurred enqueueing in a fan out queue
     #[error(transparent)]
     EnqueueError(#[from] EnqueueError<S>),
+    /// An error ocurred while sending a message to the network
+    #[error("An error ocurred while sending a message to the network")]
+    NetworkError(N::NetworkError),
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
 }
 
 /// Error enqueuing a fanned-out message.

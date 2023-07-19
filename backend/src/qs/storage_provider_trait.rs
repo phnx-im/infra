@@ -10,8 +10,8 @@ use tls_codec::{DeserializeBytes, Serialize, Size};
 use crate::messages::{FriendshipToken, QueueMessage};
 
 use super::{
-    client_record::QsClientRecord, user_record::QsUserRecord, ClientIdDecryptionKey, QsClientId,
-    QsConfig, QsEncryptedAddPackage, QsSigningKey, QsUserId,
+    client_record::QsClientRecord, user_record::QsUserRecord, ClientIdDecryptionKey, Fqdn,
+    QsClientId, QsConfig, QsEncryptedAddPackage, QsSigningKey, QsUserId,
 };
 
 /// Storage provider trait for the QS.
@@ -34,6 +34,8 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     type LoadDecryptionKeyError: Error + Debug + Clone;
 
     type LoadConfigError: Error + Debug + Clone;
+
+    async fn own_domain(&self) -> Fqdn;
 
     // === USERS ===
 

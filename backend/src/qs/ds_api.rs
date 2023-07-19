@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use tls_codec::Serialize;
+
 use crate::{crypto::hpke::HpkeDecryptable, messages::intra_backend::DsFanOutMessage};
 
 use super::{
-    errors::QsEnqueueError, storage_provider_trait::QsStorageProvider, ClientConfig, Qs,
-    WebsocketNotifier,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    storage_provider_trait::QsStorageProvider, ClientConfig, Qs, WebsocketNotifier,
 };
 
 impl Qs {
@@ -15,15 +17,33 @@ impl Qs {
     /// quickly. It can attempt to do the full fanout and return potential
     /// failed transmissions to the DS.
     ///
-    /// This endpoint is used for enqueining
-    /// messages in both local and remote queues, depending on the FQDN of the
-    /// client. For now, only local queues are supported.
+    /// This endpoint is used for enqueining messages in both local and remote
+    /// queues, depending on the FQDN of the client.
     #[tracing::instrument(skip_all, err)]
-    pub async fn enqueue_message<S: QsStorageProvider, W: WebsocketNotifier>(
+    pub async fn enqueue_message<S: QsStorageProvider, W: WebsocketNotifier, N: NetworkProvider>(
         storage_provider: &S,
         websocket_notifier: &W,
+        network_provider: &N,
         message: DsFanOutMessage,
-    ) -> Result<(), QsEnqueueError<S>> {
+    ) -> Result<(), QsEnqueueError<S, N>> {
+        if message.client_reference.client_homeserver_domain != storage_provider.own_domain().await
+        {
+            tracing::info!(
+                "Domains differ. Destination domain: {:?}, own domain: {:?}",
+                message.client_reference.client_homeserver_domain,
+                storage_provider.own_domain().await
+            );
+            let serialized_message = message
+                .tls_serialize_detached()
+                .map_err(|_| QsEnqueueError::LibraryError)?;
+            network_provider
+                .deliver(
+                    serialized_message,
+                    message.client_reference.client_homeserver_domain,
+                )
+                .await
+                .map_err(QsEnqueueError::NetworkError)?;
+        }
         let decryption_key = storage_provider
             .load_decryption_key()
             .await

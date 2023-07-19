@@ -37,9 +37,7 @@ impl ConversationStore {
             id: uuid_bytes.clone(),
             group_id: uuid_bytes.clone(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(
-                user_name.as_bytes().to_vec(),
-            ),
+            conversation_type: ConversationType::UnconfirmedConnection(user_name.to_bytes()),
             last_used: Timestamp::now().as_u64(),
             attributes,
         };

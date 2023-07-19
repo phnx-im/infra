@@ -9,6 +9,7 @@ use std::{
 };
 
 use opaque_ke::rand::{rngs::OsRng, Rng};
+use phnxbackend::{auth_service::UserName, qs::Fqdn};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -17,6 +18,7 @@ use phnxcoreclient::{
     },
     users::SelfUser,
 };
+use phnxserver::network_provider::MockNetworkProvider;
 use uuid::Uuid;
 
 use crate::spawn_app;
@@ -54,12 +56,18 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &str, address: SocketAddr) -> Self {
+    pub async fn new(user_name: &UserName, address: SocketAddr) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
-        let user = SelfUser::new(user_name, user_name, address, notification_hub).await;
+        let user = SelfUser::new(
+            user_name.clone(),
+            &user_name.to_string(),
+            address,
+            notification_hub,
+        )
+        .await;
         Self { user, notifier }
     }
 
@@ -69,25 +77,35 @@ impl TestUser {
 }
 
 pub struct TestBackend {
-    pub users: HashMap<String, TestUser>,
-    pub groups: HashMap<Uuid, HashSet<String>>,
+    pub users: HashMap<UserName, TestUser>,
+    pub groups: HashMap<Uuid, HashSet<UserName>>,
     pub address: SocketAddr,
+    pub domain: Fqdn,
 }
 
 impl TestBackend {
-    pub async fn new() -> Self {
-        let (address, _ws_dispatch) = spawn_app().await;
+    pub async fn single() -> Self {
+        let network_provider = Arc::new(MockNetworkProvider::new());
+        let domain = "example.com".into();
+        TestBackend::new(domain, network_provider).await
+    }
+
+    async fn new(domain: Fqdn, network_provider: Arc<MockNetworkProvider>) -> Self {
+        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
         Self {
             users: HashMap::new(),
             address,
             groups: HashMap::new(),
+            domain,
         }
     }
 
-    pub async fn add_user(&mut self, user_name: &str) {
+    pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
+        tracing::info!("Turning string into user name");
+        let user_name = user_name.into();
         tracing::info!("Creating {user_name}");
-        let user = TestUser::new(user_name, self.address).await;
-        self.users.insert(user_name.to_owned(), user);
+        let user = TestUser::new(&user_name, self.address).await;
+        self.users.insert(user_name, user);
     }
 
     pub fn flush_notifications(&mut self) {
@@ -98,14 +116,19 @@ impl TestBackend {
 
     /// This has the updater commit an update, but without the checks ensuring
     /// that the group state remains unchanged.
-    pub async fn commit_to_proposals(&mut self, conversation_id: Uuid, updater_name: &str) {
+    pub async fn commit_to_proposals(
+        &mut self,
+        conversation_id: Uuid,
+        updater_name: impl Into<UserName>,
+    ) {
+        let updater_name = &updater_name.into();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
             conversation_id
         );
 
-        let test_updater = self.users.get_mut(updater_name).unwrap();
+        let test_updater = self.users.get_mut(&updater_name).unwrap();
         let updater = &mut test_updater.user;
 
         let pending_removes = updater.pending_removes(conversation_id).unwrap();
@@ -114,7 +137,7 @@ impl TestBackend {
         updater.update(conversation_id).await;
 
         let group_members_after = updater.group_members(conversation_id).unwrap();
-        let difference: HashSet<String> = group_members_before
+        let difference: HashSet<UserName> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
             .collect();
@@ -145,14 +168,14 @@ impl TestBackend {
                 let conversation_after = group_member.conversation(conversation_id).unwrap();
                 assert!(
                     conversation_after.status
-                        == ConversationStatus::Inactive(InactiveConversation {
-                            past_members: group_members_before
-                        })
+                        == ConversationStatus::Inactive(InactiveConversation::new(
+                            group_members_before
+                        ))
                 );
             } else {
                 // ... if not, it should remove the members to be removed.
                 let group_members_after = group_member.group_members(conversation_id).unwrap();
-                let difference: HashSet<String> = group_members_before
+                let difference: HashSet<UserName> = group_members_before
                     .difference(&group_members_after)
                     .map(|s| s.to_owned())
                     .collect();
@@ -161,7 +184,8 @@ impl TestBackend {
         }
     }
 
-    pub async fn update_group(&mut self, conversation_id: Uuid, updater_name: &str) {
+    pub async fn update_group(&mut self, conversation_id: Uuid, updater_name: impl Into<UserName>) {
+        let updater_name = &updater_name.into();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
@@ -196,18 +220,23 @@ impl TestBackend {
         }
     }
 
-    pub async fn connect_users(&mut self, user1_name: &str, user2_name: &str) -> Uuid {
+    pub async fn connect_users(
+        &mut self,
+        user1_name: impl Into<UserName>,
+        user2_name: impl Into<UserName>,
+    ) -> Uuid {
+        let user1_name = user1_name.into();
+        let user2_name = user2_name.into();
         tracing::info!("Connecting users {} and {}", user1_name, user2_name);
-        let test_user1 = self.users.get_mut(user1_name).unwrap();
+        let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts();
         let user1_conversations_before = user1.get_conversations();
-        tracing::info!("{} adds {} as a contact", user1_name, user2_name);
         user1.add_contact(&user2_name).await;
         let mut user1_partial_contacts_after = user1.partial_contacts();
         let new_user_position = user1_partial_contacts_after
             .iter()
-            .position(|c| &c.user_name.to_string() == user2_name)
+            .position(|c| c.user_name == user2_name)
             .expect("User 2 should be in the partial contacts list of user 1");
         // If we remove the new user, the partial contact lists should be the same.
         user1_partial_contacts_after.remove(new_user_position);
@@ -220,13 +249,13 @@ impl TestBackend {
         let mut user1_conversations_after = user1.get_conversations();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes.title == user2_name)
+            .position(|c| c.attributes.title == user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
             conversation.conversation_type
-                == ConversationType::UnconfirmedConnection(user2_name.as_bytes().to_vec())
+                == ConversationType::UnconfirmedConnection(user2_name.to_bytes())
         );
         user1_conversations_before
             .into_iter()
@@ -236,7 +265,7 @@ impl TestBackend {
             });
         let user1_conversation_id = conversation.id.clone().as_uuid();
 
-        let test_user2 = self.users.get_mut(user2_name).unwrap();
+        let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts();
         let user2_conversations_before = user2.get_conversations();
@@ -248,7 +277,7 @@ impl TestBackend {
         let mut user2_contacts_after = user2.contacts();
         let new_contact_position = user2_contacts_after
             .iter()
-            .position(|c| &c.user_name.to_string() == user1_name)
+            .position(|c| c.user_name == user1_name)
             .expect("User 1 should be in the partial contacts list of user 2");
         // If we remove the new user, the partial contact lists should be the same.
         user2_contacts_after.remove(new_contact_position);
@@ -262,13 +291,12 @@ impl TestBackend {
         let mut user2_conversations_after = user2.get_conversations();
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| &c.attributes.title == user1_name)
+            .position(|c| c.attributes.title == user1_name.to_string())
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
-            conversation.conversation_type
-                == ConversationType::Connection(user1_name.as_bytes().to_vec())
+            conversation.conversation_type == ConversationType::Connection(user1_name.to_bytes())
         );
         user2_conversations_before
             .into_iter()
@@ -279,7 +307,7 @@ impl TestBackend {
         let user2_conversation_id = conversation.id.as_uuid();
 
         let user2_user_name = user2.user_name().clone();
-        let test_user1 = self.users.get_mut(user1_name).unwrap();
+        let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_contacts_before: HashSet<_> = user1
             .contacts()
@@ -307,13 +335,12 @@ impl TestBackend {
         let mut user1_conversations_after = user1.get_conversations();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes.title == &user2_name)
+            .position(|c| &c.attributes.title == &user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
-            conversation.conversation_type
-                == ConversationType::Connection(user2_name.as_bytes().to_vec())
+            conversation.conversation_type == ConversationType::Connection(user2_name.to_bytes())
         );
         user1_conversations_before
             .into_iter()
@@ -325,12 +352,20 @@ impl TestBackend {
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
-        self.send_message(user1_conversation_id, user1_name, &[user2_name])
-            .await;
-        self.send_message(user1_conversation_id, user2_name, &[user1_name])
-            .await;
+        self.send_message(
+            user1_conversation_id,
+            user1_name.clone(),
+            vec![user2_name.clone()],
+        )
+        .await;
+        self.send_message(
+            user1_conversation_id,
+            user2_name.clone(),
+            vec![user1_name.clone()],
+        )
+        .await;
 
-        let member_set: HashSet<String> = [user1_name.to_string(), user2_name.to_string()].into();
+        let member_set: HashSet<UserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);
         self.groups.insert(user1_conversation_id, member_set);
         user1_conversation_id
@@ -342,17 +377,26 @@ impl TestBackend {
     pub async fn send_message(
         &mut self,
         conversation_id: Uuid,
-        sender_name: &str,
-        recipient_names: &[&str],
+        sender_name: impl Into<UserName>,
+        recipient_names: Vec<impl Into<UserName>>,
     ) {
+        let sender_name = sender_name.into();
+        let recipient_names: Vec<UserName> = recipient_names
+            .into_iter()
+            .map(|name| name.into())
+            .collect::<Vec<_>>();
+        let recipient_strings = recipient_names
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
         tracing::info!(
             "{} sends a message to {}",
             sender_name,
-            recipient_names.join(", ")
+            recipient_strings.join(", ")
         );
         let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
         let orig_message = MessageContentType::Text(phnxcoreclient::types::TextMessage { message });
-        let test_sender = self.users.get_mut(sender_name).unwrap();
+        let test_sender = self.users.get_mut(&sender_name).unwrap();
         let sender = &mut test_sender.user;
 
         // Before sending a message, the sender must first fetch and process its QS messages.
@@ -374,13 +418,13 @@ impl TestBackend {
         assert_eq!(
             message.message,
             Message::Content(ContentMessage {
-                sender: test_sender.user.user_name().as_bytes().to_vec(),
+                sender: test_sender.user.user_name().to_bytes(),
                 content: orig_message.clone()
             })
         );
 
-        for recipient_name in recipient_names {
-            let recipient = self.users.get_mut(recipient_name.to_owned()).unwrap();
+        for recipient_name in &recipient_names {
+            let recipient = self.users.get_mut(recipient_name).unwrap();
             let recipient_user = &mut recipient.user;
             // Flush notifications
             //let _recipient_notifications = recipient.notifier.notifications();
@@ -402,7 +446,7 @@ impl TestBackend {
                 assert_eq!(
                     message.conversation_message.message,
                     Message::Content(ContentMessage {
-                        sender: sender_user_name.as_bytes().to_vec(),
+                        sender: sender_user_name.to_bytes(),
                         content: orig_message.clone()
                     })
                 );
@@ -411,8 +455,9 @@ impl TestBackend {
         self.flush_notifications();
     }
 
-    pub async fn create_group(&mut self, user_name: &str) -> Uuid {
-        let test_user = self.users.get_mut(user_name).unwrap();
+    pub async fn create_group(&mut self, user_name: impl Into<UserName>) -> Uuid {
+        let user_name = user_name.into();
+        let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
         let user_conversations_before = user.get_conversations();
 
@@ -434,7 +479,7 @@ impl TestBackend {
                 assert_eq!(before.id, after.id);
             });
         self.flush_notifications();
-        let member_set: HashSet<String> = [user_name.to_string()].into();
+        let member_set: HashSet<UserName> = [user_name].into();
         assert_eq!(member_set.len(), 1);
         self.groups.insert(conversation_id, member_set);
 
@@ -446,10 +491,19 @@ impl TestBackend {
     pub async fn invite_to_group(
         &mut self,
         conversation_id: Uuid,
-        inviter_name: &str,
-        invitee_names: &[&str],
+        inviter_name: impl Into<UserName>,
+        invitee_names: Vec<impl Into<UserName>>,
     ) {
-        let test_inviter = self.users.get_mut(inviter_name).unwrap();
+        let inviter_name = inviter_name.into();
+        let invitee_names: Vec<UserName> = invitee_names
+            .into_iter()
+            .map(|name| name.into())
+            .collect::<Vec<_>>();
+        let invitee_strings = invitee_names
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
+        let test_inviter = self.users.get_mut(&inviter_name).unwrap();
         let inviter = &mut test_inviter.user;
 
         // Before inviting anyone to a group, the inviter must first fetch and
@@ -464,36 +518,32 @@ impl TestBackend {
         tracing::info!(
             "{} invites {} to the group with id {}",
             inviter_name,
-            invitee_names.join(", "),
+            invitee_strings.join(", "),
             conversation_id
         );
 
         // Perform the invite operation and check that the invitees are now in the group.
-        let inviter_group_members_before: HashSet<String> = inviter
+        let inviter_group_members_before: HashSet<UserName> = inviter
             .group_members(conversation_id)
             .expect("Error getting group members.");
 
         inviter
-            .invite_users(conversation_id, invitee_names)
+            .invite_users(conversation_id, &invitee_names)
             .await
             .expect("Error inviting users.");
 
-        let inviter_group_members_after: HashSet<String> = inviter
+        let inviter_group_members_after = inviter
             .group_members(conversation_id)
             .expect("Error getting group members.");
         let new_members = inviter_group_members_after
             .difference(&inviter_group_members_before)
-            .map(|name| name.to_owned())
             .collect::<HashSet<_>>();
-        let invitee_set = invitee_names
-            .iter()
-            .map(|&name| name.to_owned())
-            .collect::<HashSet<_>>();
+        let invitee_set = invitee_names.iter().collect::<HashSet<_>>();
         assert_eq!(new_members, invitee_set);
 
         // Now that the invitation is out, have the invitees and all other group
         // members fetch and process QS messages.
-        for &invitee_name in invitee_names {
+        for invitee_name in &invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
             let invitee_conversations_before = invitee.get_conversations();
@@ -524,7 +574,7 @@ impl TestBackend {
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for group_member_name in group_members.iter() {
             // Skip the sender
-            if group_member_name == inviter_name {
+            if group_member_name == &inviter_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -540,32 +590,28 @@ impl TestBackend {
             let group_members_after = group_member.group_members(conversation_id).unwrap();
             let new_members = group_members_after
                 .difference(&group_members_before)
-                .map(|name| name.to_owned())
                 .collect::<HashSet<_>>();
-            let invitee_set = invitee_names
-                .iter()
-                .map(|&name| name.to_owned())
-                .collect::<HashSet<_>>();
+            let invitee_set = invitee_names.iter().collect::<HashSet<_>>();
             assert_eq!(new_members, invitee_set)
         }
-        for invitee_name in invitee_names {
-            let unique_member = group_members.insert(invitee_name.to_string());
+        for invitee_name in &invitee_names {
+            let unique_member = group_members.insert(invitee_name.clone());
             assert!(unique_member == true);
         }
         self.flush_notifications();
         // Now send messages to check that the group works properly. This also
         // ensures that everyone involved has picked up their messages from the
         // QS and that notifications are flushed.
-        self.send_message(conversation_id, inviter_name, invitee_names)
+        self.send_message(conversation_id, inviter_name.clone(), invitee_names.clone())
             .await;
-        for &invitee_name in invitee_names {
+        for invitee_name in &invitee_names {
             let recipients: Vec<_> = invitee_names
                 .iter()
-                .filter(|&&name| name != invitee_name)
+                .filter(|&name| name != invitee_name)
                 .chain([&inviter_name].into_iter())
                 .map(|name| name.to_owned())
                 .collect();
-            self.send_message(conversation_id, invitee_name, recipients.as_slice())
+            self.send_message(conversation_id, invitee_name.clone(), recipients)
                 .await;
         }
     }
@@ -575,10 +621,19 @@ impl TestBackend {
     pub async fn remove_from_group(
         &mut self,
         conversation_id: Uuid,
-        remover_name: &str,
-        removed_names: &[&str],
+        remover_name: impl Into<UserName>,
+        removed_names: Vec<impl Into<UserName>>,
     ) {
-        let test_remover = self.users.get_mut(remover_name).unwrap();
+        let remover_name = remover_name.into();
+        let removed_names: Vec<UserName> = removed_names
+            .into_iter()
+            .map(|name| name.into())
+            .collect::<Vec<_>>();
+        let removed_strings = removed_names
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
+        let test_remover = self.users.get_mut(&remover_name).unwrap();
         let remover = &mut test_remover.user;
 
         // Before removing anyone from a group, the remover must first fetch and
@@ -593,22 +648,22 @@ impl TestBackend {
         tracing::info!(
             "{} removes {} from the group with id {}",
             remover_name,
-            removed_names.join(", "),
+            removed_strings.join(", "),
             conversation_id
         );
 
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
-        let remover_group_members_before: HashSet<String> = remover
+        let remover_group_members_before = remover
             .group_members(conversation_id)
             .expect("Error getting group members.");
 
         remover
-            .remove_users(conversation_id, removed_names)
+            .remove_users(conversation_id, &removed_names)
             .await
             .expect("Error removing users.");
 
-        let remover_group_members_after: HashSet<String> = remover
+        let remover_group_members_after = remover
             .group_members(conversation_id)
             .expect("Error getting group members.");
         let removed_members = remover_group_members_before
@@ -617,11 +672,11 @@ impl TestBackend {
             .collect::<HashSet<_>>();
         let removed_set = removed_names
             .iter()
-            .map(|&name| name.to_owned())
+            .map(|name| name.to_owned())
             .collect::<HashSet<_>>();
         assert_eq!(removed_members, removed_set);
 
-        for &removed_name in removed_names {
+        for removed_name in &removed_names {
             let test_removed = self.users.get_mut(removed_name).unwrap();
             let removed = &mut test_removed.user;
             let removed_conversations_before = removed.get_conversations();
@@ -643,8 +698,7 @@ impl TestBackend {
                 ));
             assert!(conversation.id.as_uuid() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status {
-                let inactive_status_members: HashSet<_> =
-                    inactive_status.past_members.clone().into_iter().collect();
+                let inactive_status_members: HashSet<UserName> = inactive_status.past_members();
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -665,14 +719,14 @@ impl TestBackend {
             assert!(!error)
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
-        for &removed_name in removed_names {
+        for removed_name in &removed_names {
             let remove_successful = group_members.remove(removed_name);
             assert!(remove_successful == true);
         }
         // Now have the rest of the group pick up and process their messages.
         for group_member_name in group_members.iter() {
             // Skip the remover
-            if group_member_name == remover_name {
+            if group_member_name == &remover_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -692,7 +746,7 @@ impl TestBackend {
                 .collect::<HashSet<_>>();
             let removed_set = removed_names
                 .iter()
-                .map(|&name| name.to_owned())
+                .map(|name| name.to_owned())
                 .collect::<HashSet<_>>();
             assert_eq!(removed_members, removed_set)
         }
@@ -701,13 +755,14 @@ impl TestBackend {
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(&mut self, conversation_id: Uuid, leaver_name: &str) {
+    pub async fn leave_group(&mut self, conversation_id: Uuid, leaver_name: impl Into<UserName>) {
+        let leaver_name = leaver_name.into();
         tracing::info!(
             "{} leaves the group with id {}",
             leaver_name,
             conversation_id
         );
-        let test_leaver = self.users.get_mut(leaver_name).unwrap();
+        let test_leaver = self.users.get_mut(&leaver_name).unwrap();
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
@@ -721,7 +776,7 @@ impl TestBackend {
         let mut random_member_iter = group_members.iter();
         let mut random_member_name = random_member_iter.next().unwrap();
         // Ensure that the random member isn't the leaver.
-        if random_member_name == leaver_name {
+        if random_member_name == &leaver_name {
             random_member_name = random_member_iter.next().unwrap()
         }
         let test_random_member = self.users.get_mut(random_member_name).unwrap();
@@ -739,22 +794,23 @@ impl TestBackend {
         // pick up and process their messages. This also tests that group
         // members were removed correctly from the local group and that the
         // leaver has turned its conversation inactive.
-        self.commit_to_proposals(conversation_id, random_member_name)
+        self.commit_to_proposals(conversation_id, random_member_name.clone())
             .await;
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
-        group_members.remove(leaver_name);
+        group_members.remove(&leaver_name);
 
         self.flush_notifications();
     }
 
-    pub async fn delete_group(&mut self, conversation_id: Uuid, deleter_name: &str) {
+    pub async fn delete_group(&mut self, conversation_id: Uuid, deleter_name: impl Into<UserName>) {
+        let deleter_name = deleter_name.into();
         tracing::info!(
             "{} deletes the group with id {}",
             deleter_name,
             conversation_id
         );
-        let test_deleter = self.users.get_mut(deleter_name).unwrap();
+        let test_deleter = self.users.get_mut(&deleter_name).unwrap();
         let deleter = &mut test_deleter.user;
 
         // Before removing anyone from a group, the remover must first fetch and
@@ -779,8 +835,7 @@ impl TestBackend {
 
         let deleter_conversation_after = deleter.conversation(conversation_id).unwrap();
         if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status {
-            let inactive_status_members: HashSet<_> =
-                inactive_status.past_members.clone().into_iter().collect();
+            let inactive_status_members: HashSet<_> = inactive_status.past_members();
             assert_eq!(inactive_status_members, past_members);
         } else {
             panic!("Conversation should be inactive.")
@@ -788,7 +843,7 @@ impl TestBackend {
 
         for group_member_name in self.groups.get(&conversation_id).unwrap().iter() {
             // Skip the deleter
-            if group_member_name == deleter_name {
+            if group_member_name == &deleter_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -814,8 +869,7 @@ impl TestBackend {
             if let ConversationStatus::Inactive(inactive_status) =
                 &group_member_conversation_after.status
             {
-                let inactive_status_members: HashSet<_> =
-                    inactive_status.past_members.clone().into_iter().collect();
+                let inactive_status_members: HashSet<_> = inactive_status.past_members();
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -824,5 +878,95 @@ impl TestBackend {
         self.groups.remove(&conversation_id);
 
         self.flush_notifications();
+    }
+}
+
+pub struct TestBed {
+    pub network_provider: Arc<MockNetworkProvider>,
+    pub backends: HashMap<Fqdn, TestBackend>,
+}
+
+impl TestBed {
+    pub fn new() -> Self {
+        Self {
+            network_provider: Arc::new(MockNetworkProvider::new()),
+            backends: HashMap::new(),
+        }
+    }
+
+    pub async fn new_backend(&mut self, domain: Fqdn) {
+        let backend = TestBackend::new(domain.clone(), self.network_provider.clone()).await;
+        self.backends.insert(domain, backend);
+    }
+
+    pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
+        let user_name = user_name.into();
+        let domain = user_name.domain();
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend.add_user(user_name).await;
+    }
+
+    pub async fn connect_users(
+        &mut self,
+        domain: Fqdn,
+        user1_name: impl Into<UserName>,
+        user2_name: impl Into<UserName>,
+    ) {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend.connect_users(user1_name, user2_name).await;
+    }
+
+    pub async fn send_message(
+        &mut self,
+        domain: Fqdn,
+        conversation_id: Uuid,
+        sender_name: impl Into<UserName>,
+        recipient_names: Vec<impl Into<UserName>>,
+    ) {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend
+            .send_message(conversation_id, sender_name, recipient_names)
+            .await;
+    }
+
+    pub async fn create_group(&mut self, domain: Fqdn, user_name: impl Into<UserName>) -> Uuid {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend.create_group(user_name).await
+    }
+
+    pub async fn invite_to_group(
+        &mut self,
+        domain: Fqdn,
+        conversation_id: Uuid,
+        inviter_name: impl Into<UserName>,
+        invitee_names: Vec<impl Into<UserName>>,
+    ) {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend
+            .invite_to_group(conversation_id, inviter_name, invitee_names)
+            .await;
+    }
+
+    pub async fn remove_from_group(
+        &mut self,
+        domain: Fqdn,
+        conversation_id: Uuid,
+        remover_name: impl Into<UserName>,
+        removed_names: Vec<impl Into<UserName>>,
+    ) {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend
+            .remove_from_group(conversation_id, remover_name, removed_names)
+            .await;
+    }
+
+    pub async fn leave_group(
+        &mut self,
+        domain: Fqdn,
+        conversation_id: Uuid,
+        leaver_name: impl Into<UserName>,
+    ) {
+        let backend = self.backends.get_mut(&domain).unwrap();
+        backend.leave_group(conversation_id, leaver_name).await;
     }
 }

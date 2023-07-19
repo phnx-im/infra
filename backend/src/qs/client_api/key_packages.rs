@@ -129,7 +129,7 @@ impl Qs {
             .map_err(|_| QsKeyPackageBatchError::StorageError)?;
 
         let key_package_batch_tbs = KeyPackageBatchTbs {
-            homeserver_domain: config.fqdn.clone(),
+            homeserver_domain: config.domain.clone(),
             key_package_refs,
             time_of_signature: TimeStamp::now(),
         };

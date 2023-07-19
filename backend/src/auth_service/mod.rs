@@ -10,7 +10,10 @@ use opaque_ke::{
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserializeBytes,
+    TlsSerialize, TlsSize,
+};
 
 use crate::{
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RandomnessError, RatchetEncryptionKey},
@@ -25,6 +28,7 @@ use crate::{
         client_as_out::VerifiableClientToAsMessage,
         EncryptedAsQueueMessage,
     },
+    qs::Fqdn,
 };
 
 use self::{
@@ -42,7 +46,6 @@ pub mod invitations;
 pub mod key_packages;
 pub mod registration;
 pub mod storage_provider_trait;
-pub mod username;
 
 /*
 Actions:
@@ -146,39 +149,53 @@ impl AsUserRecord {
 )]
 pub struct UserName {
     pub(crate) user_name: Vec<u8>,
+    pub(crate) domain: Fqdn,
 }
 
 impl From<Vec<u8>> for UserName {
     fn from(value: Vec<u8>) -> Self {
-        Self { user_name: value }
+        Self::tls_deserialize_exact(&value).unwrap()
     }
 }
 
+// TODO: This string processing is way too simplistic, but it should do for now.
 impl From<&str> for UserName {
     fn from(value: &str) -> Self {
-        Self {
-            user_name: value.as_bytes().to_vec(),
-        }
+        let mut split_name = value.split('@');
+        let name = split_name.next().unwrap();
+        // UserNames MUST be qualified
+        let domain = split_name.next().unwrap();
+        assert!(split_name.next().is_none());
+        let domain = domain.into();
+        let user_name = name.as_bytes().to_vec();
+        Self { user_name, domain }
     }
 }
 
 impl UserName {
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.user_name
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.tls_serialize_detached().unwrap()
+    }
+
+    pub fn domain(&self) -> Fqdn {
+        self.domain.clone()
     }
 }
 
 impl From<String> for UserName {
     fn from(value: String) -> Self {
-        Self {
-            user_name: value.into_bytes(),
-        }
+        value.as_str().into()
     }
 }
 
-impl ToString for UserName {
-    fn to_string(&self) -> String {
-        String::from_utf8(self.user_name.clone()).unwrap()
+impl std::fmt::Display for UserName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}@{}",
+            String::from_utf8_lossy(&self.user_name),
+            self.domain
+        )
     }
 }
 

@@ -1282,10 +1282,10 @@ impl Group {
     }
 
     /// Returns the [`AsClientId`] of the clients owned by the given user.
-    pub(crate) fn user_client_ids(&self, user_name: UserName) -> Vec<AsClientId> {
+    pub(crate) fn user_client_ids(&self, user_name: &UserName) -> Vec<AsClientId> {
         let mut user_clients = vec![];
         for (_index, (cred, _sek)) in self.client_information.iter() {
-            if cred.identity().user_name() == user_name {
+            if &cred.identity().user_name() == user_name {
                 user_clients.push(cred.identity())
             }
         }
@@ -1418,7 +1418,7 @@ pub(crate) fn application_message_to_conversation_messages(
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().user_name().as_bytes().to_vec(),
+        sender: sender.identity().user_name().to_bytes(),
         content: MessageContentType::tls_deserialize(
             &mut application_message.into_bytes().as_slice(),
         )
@@ -1456,8 +1456,8 @@ pub(crate) fn staged_commit_to_conversation_messages(
             };
             let event_message = format!(
                 "{} added {} to the conversation",
-                String::from_utf8_lossy(get_user_name(client_information, sender).as_bytes()),
-                String::from_utf8_lossy(get_user_name(client_information, free_index).as_bytes())
+                get_user_name(client_information, sender),
+                get_user_name(client_information, free_index)
             );
             event_message_from_string(event_message)
         })

@@ -11,7 +11,6 @@ use phnxbackend::messages::client_ds::{
 };
 use phnxbackend::messages::client_ds_out::ExternalCommitInfoIn;
 use phnxbackend::messages::QueueMessage;
-use phnxbackend::qs::{ClientConfig, Fqdn, QsClientReference};
 use tls_codec::DeserializeBytes;
 
 use super::*;
@@ -122,7 +121,7 @@ impl<T: Notifiable> SelfUser<T> {
                             {
                                 // Check if it was an external commit and if the user name matches
                                 if matches!(sender, Sender::NewMemberCommit)
-                                    && &sender_credential.identity().user_name().as_bytes()
+                                    && &sender_credential.identity().user_name().to_bytes()
                                         == user_name
                                 {
                                     // Load up the partial contact and decrypt the friendship package
@@ -400,19 +399,8 @@ impl<T: Notifiable> SelfUser<T> {
                     self.contacts.insert(user_name, contact);
                     // TODO: Send conversation message to UI.
 
-                    let sealed_reference = ClientConfig {
-                        client_id: self.qs_client_id.clone(),
-                        push_token_ear_key: Some(self.key_store.push_token_ear_key.clone()),
-                    }
-                    .encrypt(
-                        &self.key_store.qs_client_id_encryption_key,
-                        &[],
-                        &[],
-                    );
-                    let qs_client_reference = QsClientReference {
-                        client_homeserver_domain: Fqdn {},
-                        sealed_reference,
-                    };
+                    let qs_client_reference = self.create_own_client_reference();
+
                     // Send the confirmation by way of commit and group info to the DS.
                     self.api_client
                         .ds_join_connection_group(

@@ -45,8 +45,8 @@ use phnxbackend::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
     qs::{
-        AddPackage, ClientConfig, ClientIdEncryptionKey, Fqdn, QsClientId, QsClientReference,
-        QsUserId, QsVerifyingKey,
+        AddPackage, ClientConfig, ClientIdEncryptionKey, QsClientId, QsClientReference, QsUserId,
+        QsVerifyingKey,
     },
 };
 use rand::rngs::OsRng;
@@ -111,13 +111,12 @@ pub struct SelfUser<T: Notifiable> {
 impl<T: Notifiable> SelfUser<T> {
     /// Create a new user with the given name and a fresh set of credentials.
     pub async fn new(
-        user_name: &str,
+        user_name: UserName,
         password: &str,
         address: SocketAddr,
         notification_hub: NotificationHub<T>,
     ) -> Self {
         log::debug!("Creating new user {}", user_name);
-        let user_name: UserName = UserName::from(user_name.to_string());
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
         let api_client = ApiClient::initialize(address, TransportEncryption::Off).unwrap();
@@ -167,8 +166,9 @@ impl<T: Notifiable> SelfUser<T> {
 
         // Complete the OPAQUE registration.
         let address = api_client.address().clone().to_string();
+        let user_name_bytes = user_name.to_bytes();
         let identifiers = Identifiers {
-            client: Some(user_name.as_bytes()),
+            client: Some(&user_name_bytes),
             server: Some(address.as_bytes()),
         };
         let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
@@ -212,7 +212,7 @@ impl<T: Notifiable> SelfUser<T> {
         let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
         // Mutable, because we need to access the leaf signers later.
-        let mut key_store = MemoryUserKeyStore {
+        let key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
             as_queue_ratchet: as_initial_ratchet_secret.clone().try_into().unwrap(),
@@ -284,42 +284,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
 
-        let mut qs_add_packages = vec![];
-        for _ in 0..ADD_PACKAGES {
-            // TODO: Which key do we need to use for encryption here? Probably
-            // the client credential ear key, since friends need to be able to
-            // decrypt it. We might want to use a separate key, though.
-            let (kp, signature_ear_key, leaf_signer) = SelfUser::<T>::generate_keypackage(
-                &crypto_backend,
-                &key_store.signing_key,
-                &create_user_record_response.client_id,
-                Some(&key_store.push_token_ear_key),
-                &key_store.qs_client_id_encryption_key,
-            );
-            let esek = signature_ear_key
-                .encrypt(&key_store.signature_ear_key_wrapper_key)
-                .unwrap();
-            key_store.leaf_signers.insert(
-                leaf_signer.credential().verifying_key().clone(),
-                (leaf_signer, signature_ear_key),
-            );
-            let add_package =
-                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
-            qs_add_packages.push(add_package);
-        }
-
-        // Upload add packages
-        api_client
-            .qs_publish_key_packages(
-                create_user_record_response.client_id.clone(),
-                qs_add_packages,
-                key_store.add_package_ear_key.clone(),
-                &key_store.qs_client_signing_key,
-            )
-            .await
-            .unwrap();
-
-        Self {
+        let mut user = Self {
             crypto_backend,
             api_client,
             user_name,
@@ -333,18 +298,46 @@ impl<T: Notifiable> SelfUser<T> {
             contacts: HashMap::default(),
             partial_contacts: HashMap::default(),
             notification_hub,
+        };
+
+        let mut qs_add_packages = vec![];
+        for _ in 0..ADD_PACKAGES {
+            // TODO: Which key do we need to use for encryption here? Probably
+            // the client credential ear key, since friends need to be able to
+            // decrypt it. We might want to use a separate key, though.
+            let (kp, signature_ear_key, leaf_signer) = user.generate_keypackage();
+            let esek = signature_ear_key
+                .encrypt(&user.key_store.signature_ear_key_wrapper_key)
+                .unwrap();
+            user.key_store.leaf_signers.insert(
+                leaf_signer.credential().verifying_key().clone(),
+                (leaf_signer, signature_ear_key),
+            );
+            let add_package =
+                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+            qs_add_packages.push(add_package);
         }
+
+        // Upload add packages
+        user.api_client
+            .qs_publish_key_packages(
+                user.qs_client_id.clone(),
+                qs_add_packages,
+                user.key_store.add_package_ear_key.clone(),
+                &user.key_store.qs_client_signing_key,
+            )
+            .await
+            .unwrap();
+
+        user
     }
 
     pub(crate) fn generate_keypackage(
-        crypto_backend: &impl OpenMlsCryptoProvider,
-        signing_key: &ClientSigningKey,
-        qs_client_id: &QsClientId,
-        push_token_ear_key_option: Option<&PushTokenEarKey>,
-        qs_encryption_key: &ClientIdEncryptionKey,
+        &self,
     ) -> (KeyPackage, SignatureEarKey, InfraCredentialSigningKey) {
         let signature_ear_key = SignatureEarKey::random().unwrap();
-        let leaf_signer = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+        let leaf_signer =
+            InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
@@ -357,12 +350,18 @@ impl<T: Notifiable> SelfUser<T> {
             Some(&SUPPORTED_CREDENTIALS),
         );
         let sealed_reference = ClientConfig {
-            client_id: qs_client_id.clone(),
-            push_token_ear_key: push_token_ear_key_option.cloned(),
+            client_id: self.qs_client_id.clone(),
+            push_token_ear_key: Some(self.key_store.push_token_ear_key.clone()),
         }
-        .encrypt(qs_encryption_key, &[], &[]);
+        .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
         let client_reference = QsClientReference {
-            client_homeserver_domain: Fqdn {},
+            client_homeserver_domain: self
+                .key_store
+                .signing_key
+                .credential()
+                .identity()
+                .user_name()
+                .domain(),
             sealed_reference,
         };
         let extension = Extension::Unknown(
@@ -378,7 +377,7 @@ impl<T: Notifiable> SelfUser<T> {
                     ciphersuite: CIPHERSUITE,
                     version: ProtocolVersion::Mls10,
                 },
-                crypto_backend,
+                &self.crypto_backend,
                 &leaf_signer,
                 credential_with_key,
             )
@@ -433,7 +432,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn invite_users(
         &mut self,
         conversation_id: Uuid,
-        invited_users: &[&str],
+        invited_users: &[UserName],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -487,7 +486,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn remove_users(
         &mut self,
         conversation_id: Uuid,
-        target_users: &[&str],
+        target_users: &[UserName],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -499,8 +498,8 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&group_id.as_group_id())
             .unwrap();
         let mut clients = vec![];
-        for &user_name in target_users {
-            let mut user_clients = group.user_client_ids(user_name.into());
+        for user_name in target_users {
+            let mut user_clients = group.user_client_ids(user_name);
             clients.append(&mut user_clients);
         }
         let params = group.remove(&self.crypto_backend, clients).unwrap();
@@ -565,7 +564,7 @@ impl<T: Notifiable> SelfUser<T> {
         // Store message locally
         let message = Message::Content(ContentMessage {
             content: message,
-            sender: self.user_name.as_bytes().to_vec(),
+            sender: self.user_name.to_bytes(),
         });
         let conversation_message = new_conversation_message(message);
         self.conversation_store
@@ -586,8 +585,7 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(conversation_message)
     }
 
-    pub async fn add_contact(&mut self, user_name: &str) {
-        let user_name: UserName = user_name.to_string().into();
+    pub async fn add_contact(&mut self, user_name: &UserName) {
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
@@ -705,7 +703,7 @@ impl<T: Notifiable> SelfUser<T> {
             conversation_id,
             friendship_package_ear_key,
         };
-        self.partial_contacts.insert(user_name, contact);
+        self.partial_contacts.insert(user_name.clone(), contact);
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -883,7 +881,7 @@ impl<T: Notifiable> SelfUser<T> {
         }
         .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
         QsClientReference {
-            client_homeserver_domain: Fqdn {},
+            client_homeserver_domain: self.user_name().domain(),
             sealed_reference,
         }
     }
@@ -898,17 +896,17 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
+    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .members()
                 .iter()
-                .map(|member| member.to_string())
+                .map(|member| member.clone())
                 .collect()
         })
     }
 
-    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
+    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .mls_group()
@@ -916,7 +914,7 @@ impl<T: Notifiable> SelfUser<T> {
                 .filter_map(|proposal| match proposal.proposal() {
                     Proposal::Remove(rp) => group
                         .client_by_index(rp.removed().usize())
-                        .map(|c| c.user_name().to_string()),
+                        .map(|c| c.user_name()),
                     _ => None,
                 })
                 .collect()

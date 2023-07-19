@@ -6,6 +6,7 @@
 
 pub mod configurations;
 pub mod endpoints;
+pub mod network_provider;
 pub mod storage_provider;
 pub mod telemetry;
 
