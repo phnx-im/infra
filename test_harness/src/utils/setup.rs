@@ -17,7 +17,6 @@ use phnxcoreclient::{
     },
     users::SelfUser,
 };
-use phnxserver::network_provider::MockNetworkProvider;
 use rand::{rngs::OsRng, Rng};
 use uuid::Uuid;
 

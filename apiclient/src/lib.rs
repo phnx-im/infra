@@ -4,7 +4,7 @@
 
 //! API client for the phnx server.
 
-use std::{fmt::format, net::SocketAddr};
+use std::net::SocketAddr;
 
 use http::StatusCode;
 use phnxbackend::qs::Fqdn;
@@ -37,7 +37,7 @@ pub enum ApiClientInitError {
     ReqwestError(#[from] reqwest::Error),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DomainOrAddress {
     Domain(Fqdn),
     Address(SocketAddr),

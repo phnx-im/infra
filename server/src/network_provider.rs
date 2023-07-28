@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::endpoints::{ENDPOINT_QS, ENDPOINT_QS_FEDERATION};
+use crate::endpoints::ENDPOINT_QS_FEDERATION;
 use async_trait::async_trait;
 use phnxbackend::qs::{network_provider_trait::NetworkProvider, Fqdn};
 use reqwest::Client;

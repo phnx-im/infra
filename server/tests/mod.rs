@@ -10,7 +10,7 @@ use std::sync::Arc;
 use phnxapiclient::{ApiClient, TransportEncryption};
 
 use phnxserver::network_provider::MockNetworkProvider;
-use utils::setup::{TestBackend, TestBed};
+use utils::setup::TestBackend;
 pub use utils::*;
 
 #[actix_rt::test]
@@ -150,20 +150,6 @@ async fn delete_group() {
 async fn create_user() {
     let mut setup = TestBackend::single().await;
     setup.add_user(ALICE).await;
-}
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Invite to group test", skip_all)]
-async fn federated_delivery() {
-    let mut test_bed = TestBed::new();
-    test_bed.new_backend("example.com".into()).await;
-    test_bed.add_user("alice@example.com").await;
-    // TODO: Change APIClient to allow sending to remote backends
-    // TODO: Continue test
-    // * Create new backend
-    // * Create user on backend
-    // * Connect user with alice
-    // * Send message
 }
 
 #[actix_rt::test]

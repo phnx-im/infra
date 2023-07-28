@@ -93,27 +93,39 @@ pub(crate) struct MemoryUserKeyStore {
 }
 
 struct ApiClients {
+    // We store our own domain such that we can manually map our own domain to
+    // an API client that uses an IP address instead of the actual domain. This
+    // is a temporary workaround and should probably be replaced by a more
+    // thought-out mechanism.
     own_domain: Fqdn,
-    clients: HashMap<Fqdn, ApiClient>,
+    own_domain_or_address: DomainOrAddress,
+    clients: HashMap<DomainOrAddress, ApiClient>,
 }
 
 impl ApiClients {
-    fn new(own_domain: Fqdn) -> Self {
+    fn new(own_domain: Fqdn, own_domain_or_address: impl Into<DomainOrAddress>) -> Self {
+        let own_domain_or_address = own_domain_or_address.into();
         Self {
             own_domain,
+            own_domain_or_address,
             clients: HashMap::new(),
         }
     }
 
     fn get(&mut self, domain: &Fqdn) -> &ApiClient {
+        let lookup_domain = if domain == &self.own_domain {
+            self.own_domain_or_address.clone()
+        } else {
+            domain.clone().into()
+        };
         self.clients
-            .entry(domain.clone())
-            .or_insert(ApiClient::initialize(domain.clone(), TransportEncryption::Off).unwrap())
+            .entry(lookup_domain.clone())
+            .or_insert(ApiClient::initialize(lookup_domain, TransportEncryption::Off).unwrap())
     }
 
     fn default_client(&mut self) -> &ApiClient {
-        let domain = self.own_domain.clone();
-        self.get(&domain)
+        let own_domain = self.own_domain.clone();
+        self.get(&own_domain)
     }
 }
 
@@ -144,8 +156,9 @@ impl<T: Notifiable> SelfUser<T> {
         log::debug!("Creating new user {}", user_name);
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
+        let domain_or_address = domain_or_address.into();
         let api_client =
-            ApiClient::initialize(domain_or_address, TransportEncryption::Off).unwrap();
+            ApiClient::initialize(domain_or_address.clone(), TransportEncryption::Off).unwrap();
 
         let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone()).unwrap();
         let (client_credential_csr, prelim_signing_key) =
@@ -315,7 +328,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         let mut user = Self {
             crypto_backend,
-            api_clients: ApiClients::new(user_name.domain()),
+            api_clients: ApiClients::new(user_name.domain(), domain_or_address),
             user_name,
             conversation_store: ConversationStore::default(),
             group_store: GroupStore::default(),
@@ -489,7 +502,7 @@ impl<T: Notifiable> SelfUser<T> {
         // must have gone through.
         // We unwrap here, because if the user auth key is not set, the invite
         // would already have failed.
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_add_users(
@@ -529,7 +542,7 @@ impl<T: Notifiable> SelfUser<T> {
         let params = group.remove(&self.crypto_backend, clients).unwrap();
         // We unwrap here, because if the user auth key is not set, the remove
         // would already have failed.
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_remove_users(
@@ -593,7 +606,7 @@ impl<T: Notifiable> SelfUser<T> {
         });
 
         // Send message to DS
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_send_message(
@@ -803,7 +816,7 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&conversation.group_id.as_group_id())
             .unwrap();
         let params = group.update_user_key(&self.crypto_backend);
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
@@ -830,7 +843,7 @@ impl<T: Notifiable> SelfUser<T> {
         // TODO: Make sure this is what we want.
         if past_members.len() != 1 {
             let params = group.delete(&self.crypto_backend).unwrap();
-            let owner_domain = conversation.owner_domain().into();
+            let owner_domain = conversation.owner_domain();
             self.api_clients
                 .get(&owner_domain)
                 .ds_delete_group(
@@ -913,7 +926,7 @@ impl<T: Notifiable> SelfUser<T> {
         let params = group.leave_group(&self.crypto_backend);
         // We unwrap here, because if there was no auth key, the leave group
         // call would have failed already.
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_self_remove_client(
@@ -935,7 +948,7 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&conversation.group_id.as_group_id())
             .unwrap();
         let params = group.update(&self.crypto_backend);
-        let owner_domain = conversation.owner_domain().into();
+        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())

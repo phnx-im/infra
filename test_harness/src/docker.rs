@@ -4,7 +4,6 @@
 
 use tokio::process::{Child, Command};
 
-use phnxapiclient::{ApiClient, TransportEncryption};
 use phnxbackend::qs::Fqdn;
 
 async fn build_docker_image(path_to_docker_file: &str, image_name: &str) {

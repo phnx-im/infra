@@ -22,7 +22,7 @@ use phnxcoreclient::{
 use phnxserver::network_provider::MockNetworkProvider;
 use uuid::Uuid;
 
-use super::spawn_app;
+use crate::spawn_app;
 
 #[derive(Clone)]
 pub struct TestNotifier {
