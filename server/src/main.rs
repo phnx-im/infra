@@ -35,10 +35,14 @@ async fn main() -> std::io::Result<()> {
         configuration.application.host, configuration.application.port
     );
     let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
-    let domain: Fqdn = configuration.application.host.as_str().into();
+    let domain: Fqdn = std::env::var("PHNX_SERVER_DOMAIN")
+        .expect("PHNX_SERVER_DOMAIN must be set.")
+        .as_str()
+        .into();
+    tracing::info!("Starting server with domain {}.", domain);
     let network_provider = Arc::new(MockNetworkProvider::new());
 
-    let ds_storage_provider = MemoryDsStorage::new();
+    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
     let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
     let as_storage_provider = MemoryAsStorage::new(domain, SignatureScheme::ED25519).unwrap();
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();

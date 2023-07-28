@@ -4,11 +4,9 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    net::SocketAddr,
     sync::{Arc, Mutex},
 };
 
-use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxapiclient::DomainOrAddress;
 use phnxbackend::{auth_service::UserName, qs::Fqdn};
 use phnxcoreclient::{
@@ -20,9 +18,8 @@ use phnxcoreclient::{
     users::SelfUser,
 };
 use phnxserver::network_provider::MockNetworkProvider;
+use rand::{rngs::OsRng, Rng};
 use uuid::Uuid;
-
-use super::spawn_app;
 
 #[derive(Clone)]
 pub struct TestNotifier {
@@ -57,13 +54,8 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &UserName, address_option: Option<SocketAddr>) -> Self {
+    pub async fn new(user_name: &UserName, domain_or_address: impl Into<DomainOrAddress>) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
-        let domain_or_address = if let Some(address) = address_option {
-            DomainOrAddress::Address(address)
-        } else {
-            DomainOrAddress::Domain(user_name.domain())
-        };
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
@@ -82,41 +74,27 @@ impl TestUser {
     }
 }
 
-pub struct TestBackend {
+pub struct TestBed {
     pub users: HashMap<UserName, TestUser>,
     pub groups: HashMap<Uuid, HashSet<UserName>>,
-    // This is what we feed to the test clients.
-    pub domain_or_address: DomainOrAddress,
-    pub domain: Fqdn,
+    pub backends: HashSet<Fqdn>,
 }
 
-impl TestBackend {
-    pub async fn single() -> Self {
-        let network_provider = Arc::new(MockNetworkProvider::new());
-        let domain = "example.com".into();
-        TestBackend::new(domain, network_provider).await
-    }
-
-    async fn new(domain: Fqdn, network_provider: Arc<MockNetworkProvider>) -> Self {
-        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
+impl TestBed {
+    pub async fn new(backends: impl Into<HashSet<Fqdn>>) -> Self {
+        let backends = backends.into();
         Self {
             users: HashMap::new(),
-            domain_or_address: DomainOrAddress::Address(address),
             groups: HashMap::new(),
-            domain,
+            backends,
         }
     }
 
+    /// All user names have to be qualified.
     pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
         let user_name = user_name.into();
         tracing::info!("Creating {user_name}");
-        let address_option =
-            if let DomainOrAddress::Address(address) = self.domain_or_address.clone() {
-                Some(address)
-            } else {
-                None
-            };
-        let user = TestUser::new(&user_name, address_option).await;
+        let user = TestUser::new(&user_name, user_name.domain()).await;
         self.users.insert(user_name, user);
     }
 
@@ -890,95 +868,5 @@ impl TestBackend {
         self.groups.remove(&conversation_id);
 
         self.flush_notifications();
-    }
-}
-
-pub struct TestBed {
-    pub network_provider: Arc<MockNetworkProvider>,
-    pub backends: HashMap<Fqdn, TestBackend>,
-}
-
-impl TestBed {
-    pub fn new() -> Self {
-        Self {
-            network_provider: Arc::new(MockNetworkProvider::new()),
-            backends: HashMap::new(),
-        }
-    }
-
-    pub async fn new_backend(&mut self, domain: Fqdn) {
-        let backend = TestBackend::new(domain.clone(), self.network_provider.clone()).await;
-        self.backends.insert(domain, backend);
-    }
-
-    pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
-        let user_name = user_name.into();
-        let domain = user_name.domain();
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.add_user(user_name).await;
-    }
-
-    pub async fn connect_users(
-        &mut self,
-        domain: Fqdn,
-        user1_name: impl Into<UserName>,
-        user2_name: impl Into<UserName>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.connect_users(user1_name, user2_name).await;
-    }
-
-    pub async fn send_message(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        sender_name: impl Into<UserName>,
-        recipient_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .send_message(conversation_id, sender_name, recipient_names)
-            .await;
-    }
-
-    pub async fn create_group(&mut self, domain: Fqdn, user_name: impl Into<UserName>) -> Uuid {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.create_group(user_name).await
-    }
-
-    pub async fn invite_to_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        inviter_name: impl Into<UserName>,
-        invitee_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .invite_to_group(conversation_id, inviter_name, invitee_names)
-            .await;
-    }
-
-    pub async fn remove_from_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        remover_name: impl Into<UserName>,
-        removed_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .remove_from_group(conversation_id, remover_name, removed_names)
-            .await;
-    }
-
-    pub async fn leave_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        leaver_name: impl Into<UserName>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.leave_group(conversation_id, leaver_name).await;
     }
 }

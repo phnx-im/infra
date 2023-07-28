@@ -15,7 +15,7 @@ use super::*;
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
 async fn test_ws_reconnect() {
     let network_provider = Arc::new(MockNetworkProvider::new());
-    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider).await;
+    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     let client_id = QsClientId::random();
 
@@ -52,7 +52,7 @@ async fn test_ws_reconnect() {
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
 async fn test_ws_sending() {
     let network_provider = Arc::new(MockNetworkProvider::new());
-    let (address, ws_dispatch) = spawn_app("example.com".into(), network_provider).await;
+    let (address, ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     let client_id = QsClientId::random();
 

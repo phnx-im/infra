@@ -4,9 +4,10 @@
 
 //! API client for the phnx server.
 
-use std::net::SocketAddr;
+use std::{fmt::format, net::SocketAddr};
 
 use http::StatusCode;
+use phnxbackend::qs::Fqdn;
 use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
 use reqwest::{Client, ClientBuilder};
 use thiserror::Error;
@@ -36,11 +37,38 @@ pub enum ApiClientInitError {
     ReqwestError(#[from] reqwest::Error),
 }
 
+#[derive(Debug, Clone)]
+pub enum DomainOrAddress {
+    Domain(Fqdn),
+    Address(SocketAddr),
+}
+
+impl From<Fqdn> for DomainOrAddress {
+    fn from(domain: Fqdn) -> Self {
+        Self::Domain(domain)
+    }
+}
+
+impl From<SocketAddr> for DomainOrAddress {
+    fn from(address: SocketAddr) -> Self {
+        Self::Address(address)
+    }
+}
+
+impl std::fmt::Display for DomainOrAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DomainOrAddress::Domain(domain) => write!(f, "{}", domain),
+            DomainOrAddress::Address(address) => write!(f, "{}", address),
+        }
+    }
+}
+
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
 pub struct ApiClient {
     client: Client,
-    address: SocketAddr,
+    domain_or_address: DomainOrAddress,
     transport_encryption: TransportEncryption,
 }
 
@@ -54,13 +82,13 @@ impl ApiClient {
     /// # Returns
     /// A new [`ApiClient`].
     pub fn initialize(
-        address: SocketAddr,
+        domain: impl Into<DomainOrAddress>,
         transport_encryption: TransportEncryption,
     ) -> Result<Self, ApiClientInitError> {
         let client = ClientBuilder::new().user_agent("PhnxClient/0.1").build()?;
         Ok(Self {
             client,
-            address,
+            domain_or_address: domain.into(),
             transport_encryption,
         })
     }
@@ -75,23 +103,25 @@ impl ApiClient {
             TransportEncryption::On => "s",
             TransportEncryption::Off => "",
         };
+        let address_and_port = match &self.domain_or_address {
+            DomainOrAddress::Domain(domain) => format!("{}:{}", domain, 8000),
+            DomainOrAddress::Address(address) => address.to_string(),
+        };
         format!(
             "{}{}://{}{}",
-            protocol, transport_encryption, self.address, endpoint
+            protocol, transport_encryption, address_and_port, endpoint
         )
-    }
-
-    pub fn address(&self) -> SocketAddr {
-        self.address
     }
 
     /// Call the health check endpoint
     pub async fn health_check(&self) -> bool {
-        self.client
+        let result = self
+            .client
             .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
             .send()
-            .await
-            .is_ok()
+            .await;
+        log::info!("Health check result: {:?}", result);
+        result.is_ok()
     }
 
     /// Call an inexistant endpoint
@@ -111,5 +141,9 @@ impl ApiClient {
         } else {
             false
         }
+    }
+
+    pub fn domain_or_address(&self) -> &DomainOrAddress {
+        &self.domain_or_address
     }
 }

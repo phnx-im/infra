@@ -14,7 +14,7 @@ use super::client_ds::{EventMessage, QsQueueMessagePayload};
 
 // === DS to QS ===
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: DsFanOutPayload,
     pub client_reference: QsClientReference,

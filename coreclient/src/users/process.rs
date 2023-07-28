@@ -4,6 +4,7 @@
 
 use phnxbackend::crypto::ear::EarDecryptable;
 use phnxbackend::crypto::hpke::HpkeDecryptable;
+use phnxbackend::ds::api::QualifiedGroupId;
 use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
 use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
 use phnxbackend::messages::client_ds::{
@@ -44,6 +45,11 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
+                    // TODO: Right now, we require that the user has already
+                    // loaded the as credentials for the group. We can't check
+                    // if we have done so, because we know the domain of the
+                    // owning server only from the group id. This will likely
+                    // change if we revisit the framing structure.
                     let group_id = self.group_store.join_group(
                         &self.crypto_backend,
                         welcome_bundle,
@@ -110,105 +116,122 @@ impl<T: Notifiable> SelfUser<T> {
                             vec![]
                         }
                         ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                            // If a client joined externally, we
-                            // check if the group belongs to an
-                            // unconfirmed conversation.
+                            // If a client joined externally, we check if the
+                            // group belongs to an unconfirmed conversation.
                             if let ConversationType::UnconfirmedConnection(user_name) = &self
                                 .conversation_store
                                 .conversation(conversation_id)
                                 .unwrap()
                                 .conversation_type
                             {
+                                let user_name = user_name.clone().into();
                                 // Check if it was an external commit and if the user name matches
-                                if matches!(sender, Sender::NewMemberCommit)
-                                    && &sender_credential.identity().user_name().to_bytes()
-                                        == user_name
+                                if !matches!(sender, Sender::NewMemberCommit)
+                                    && sender_credential.identity().user_name() == user_name
                                 {
-                                    // Load up the partial contact and decrypt the friendship package
-                                    let partial_contact = self
-                                        .partial_contacts
-                                        .remove(&(user_name.clone().into()))
+                                    // TODO: Handle the fact that an unexpected user joined the connection group.
+                                }
+                                // Load up the partial contact and decrypt the
+                                // friendship package
+                                let partial_contact =
+                                    self.partial_contacts.remove(&user_name).unwrap();
+
+                                // This is a bit annoying, since we already
+                                // de-serialized this in the group processing
+                                // function, but we need the encrypted
+                                // friendship package here.
+                                let encrypted_friendship_package =
+                                    if let InfraAadPayload::JoinConnectionGroup(payload) =
+                                        InfraAadMessage::tls_deserialize_exact(&aad)
+                                            .unwrap()
+                                            .into_payload()
+                                    {
+                                        payload.encrypted_friendship_package
+                                    } else {
+                                        panic!("Unexpected AAD payload")
+                                    };
+
+                                let friendship_package = FriendshipPackage::decrypt(
+                                    &partial_contact.friendship_package_ear_key,
+                                    &encrypted_friendship_package,
+                                )
+                                .unwrap();
+                                // We also need to get the add infos
+                                let mut add_infos = vec![];
+                                for _ in 0..5 {
+                                    let key_package_batch_response = self
+                                        .api_clients
+                                        .get(&user_name.domain())
+                                        .qs_key_package_batch(
+                                            friendship_package.friendship_token.clone(),
+                                            friendship_package.add_package_ear_key.clone(),
+                                        )
+                                        .await
                                         .unwrap();
-
-                                    // This is a bit annoying,
-                                    // since we already
-                                    // de-serialized this in the
-                                    // group processing
-                                    // function, but we need the
-                                    // encrypted friendship
-                                    // package here.
-                                    let encrypted_friendship_package =
-                                        if let InfraAadPayload::JoinConnectionGroup(payload) =
-                                            InfraAadMessage::tls_deserialize_exact(&aad)
-                                                .unwrap()
-                                                .into_payload()
-                                        {
-                                            payload.encrypted_friendship_package
-                                        } else {
-                                            panic!("Unexpected AAD payload")
-                                        };
-
-                                    let friendship_package = FriendshipPackage::decrypt(
-                                        &partial_contact.friendship_package_ear_key,
-                                        &encrypted_friendship_package,
-                                    )
-                                    .unwrap();
-                                    // We also need to get the add infos
-                                    let mut add_infos = vec![];
-                                    for _ in 0..5 {
-                                        let key_package_batch_response = self
-                                            .api_client
-                                            .qs_key_package_batch(
-                                                friendship_package.friendship_token.clone(),
-                                                friendship_package.add_package_ear_key.clone(),
-                                            )
-                                            .await
-                                            .unwrap();
-                                        let key_packages: Vec<(KeyPackage, SignatureEarKey)> =
-                                            key_package_batch_response
-                                                .add_packages
-                                                .into_iter()
-                                                .map(|add_package| {
-                                                    let verified_add_package = add_package
-                                                        .validate(
-                                                            self.crypto_backend.crypto(),
-                                                            ProtocolVersion::default(),
-                                                        )
-                                                        .unwrap();
-                                                    let key_package =
-                                                        verified_add_package.key_package().clone();
-                                                    let sek = SignatureEarKey::decrypt(
-                                                        &friendship_package
-                                                            .signature_ear_key_wrapper_key,
-                                                        verified_add_package
-                                                            .encrypted_signature_ear_key(),
+                                    let key_packages: Vec<(KeyPackage, SignatureEarKey)> =
+                                        key_package_batch_response
+                                            .add_packages
+                                            .into_iter()
+                                            .map(|add_package| {
+                                                let verified_add_package = add_package
+                                                    .validate(
+                                                        self.crypto_backend.crypto(),
+                                                        ProtocolVersion::default(),
                                                     )
                                                     .unwrap();
-                                                    (key_package, sek)
-                                                })
-                                                .collect();
-                                        let key_package_batch = key_package_batch_response
-                                            .key_package_batch
-                                            .verify(&self.key_store.qs_verifying_key)
+                                                let key_package =
+                                                    verified_add_package.key_package().clone();
+                                                let sek = SignatureEarKey::decrypt(
+                                                    &friendship_package
+                                                        .signature_ear_key_wrapper_key,
+                                                    verified_add_package
+                                                        .encrypted_signature_ear_key(),
+                                                )
+                                                .unwrap();
+                                                (key_package, sek)
+                                            })
+                                            .collect();
+                                    let qs_verifying_key = if let Some(qs_verifying_key) =
+                                        self.key_store.qs_verifying_keys.get(&user_name.domain())
+                                    {
+                                        qs_verifying_key
+                                    } else {
+                                        let qs_verifying_key = self
+                                            .api_clients
+                                            .get(&user_name.domain())
+                                            .qs_verifying_key()
+                                            .await
                                             .unwrap();
-                                        let add_info = ContactAddInfos {
-                                            key_package_batch,
-                                            key_packages,
-                                        };
-                                        add_infos.push(add_info);
-                                    }
-                                    // Now we can turn the partial contact into a full one.
-                                    let contact = partial_contact.into_contact(
-                                        friendship_package,
-                                        add_infos,
-                                        sender_credential.clone(),
-                                    );
-                                    // And add it to our list of contacts
-                                    self.contacts.insert(user_name.clone().into(), contact);
-                                    // Finally, we can turn the conversation type to a full connection group
-                                    self.conversation_store
-                                        .confirm_connection_conversation(&conversation_id);
+                                        self.key_store.qs_verifying_keys.insert(
+                                            user_name.domain().clone(),
+                                            qs_verifying_key.verifying_key,
+                                        );
+                                        self.key_store
+                                            .qs_verifying_keys
+                                            .get(&user_name.domain())
+                                            .unwrap()
+                                    };
+                                    let key_package_batch = key_package_batch_response
+                                        .key_package_batch
+                                        .verify(qs_verifying_key)
+                                        .unwrap();
+                                    let add_info = ContactAddInfos {
+                                        key_package_batch,
+                                        key_packages,
+                                    };
+                                    add_infos.push(add_info);
                                 }
+                                // Now we can turn the partial contact into a full one.
+                                let contact = partial_contact.into_contact(
+                                    friendship_package,
+                                    add_infos,
+                                    sender_credential.clone(),
+                                );
+                                // And add it to our list of contacts
+                                self.contacts.insert(user_name.clone().into(), contact);
+                                // Finally, we can turn the conversation type to a full connection group
+                                self.conversation_store
+                                    .confirm_connection_conversation(&conversation_id);
                             }
                             // If we were removed, we set the group to inactive.
                             if we_were_removed {
@@ -238,7 +261,9 @@ impl<T: Notifiable> SelfUser<T> {
         for group_id in freshly_joined_groups {
             let group = self.group_store.get_group_mut(&group_id).unwrap();
             let params = group.update_user_key(&self.crypto_backend);
-            self.api_client
+            let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
+            self.api_clients
+                .get(&qgid.owning_domain)
                 .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
                 .await
                 .unwrap();
@@ -279,20 +304,48 @@ impl<T: Notifiable> SelfUser<T> {
                         &[],
                     )
                     .unwrap();
+                    // Fetch authentication AS credentials of the sender if we
+                    // don't have them already.
+                    let sender_domain = cep_in.sender_credential().domain();
+                    if !self
+                        .key_store
+                        .as_intermediate_credentials
+                        .contains_key(&sender_domain)
+                    {
+                        let credential_response = self
+                            .api_clients
+                            .get(&sender_domain)
+                            .as_as_credentials()
+                            .await
+                            .unwrap();
+                        let as_intermediate_credentials: Vec<AsIntermediateCredential> =
+                            credential_response
+                                .as_intermediate_credentials
+                                .into_iter()
+                                .map(|as_inter_cred| {
+                                    let as_credential = credential_response
+                                        .as_credentials
+                                        .iter()
+                                        .find(|as_cred| {
+                                            &as_cred.fingerprint().unwrap()
+                                                == as_inter_cred.fingerprint()
+                                        })
+                                        .unwrap();
+                                    as_inter_cred.verify(as_credential.verifying_key()).unwrap()
+                                })
+                                .collect();
+                        self.key_store
+                            .as_credentials
+                            .insert(sender_domain.clone(), credential_response.as_credentials);
+                        self.key_store
+                            .as_intermediate_credentials
+                            .insert(sender_domain.clone(), as_intermediate_credentials);
+                    }
+
                     let cep_tbs = cep_in.verify_all(&self.key_store.as_intermediate_credentials);
                     // We create a new group and signal that fact to the user,
                     // so the user can decide if they want to accept the
                     // connection.
-
-                    // Fetch external commit information.
-                    let eci: ExternalCommitInfoIn = self
-                        .api_client
-                        .ds_connection_group_info(
-                            cep_tbs.connection_group_id.clone(),
-                            &cep_tbs.connection_group_ear_key,
-                        )
-                        .await
-                        .unwrap();
 
                     let signature_ear_key = SignatureEarKey::random().unwrap();
                     let leaf_signer = InfraCredentialSigningKey::generate(
@@ -328,6 +381,21 @@ impl<T: Notifiable> SelfUser<T> {
                     })
                     .into();
 
+                    // Fetch external commit information.
+                    let qgid = QualifiedGroupId::tls_deserialize_exact(
+                        cep_tbs.connection_group_id.as_slice(),
+                    )
+                    .unwrap();
+                    let eci: ExternalCommitInfoIn = self
+                        .api_clients
+                        .get(&qgid.owning_domain)
+                        .ds_connection_group_info(
+                            cep_tbs.connection_group_id.clone(),
+                            &cep_tbs.connection_group_ear_key,
+                        )
+                        .await
+                        .unwrap();
+
                     let (group, commit, group_info) = Group::join_group_externally(
                         &self.crypto_backend,
                         eci,
@@ -355,7 +423,8 @@ impl<T: Notifiable> SelfUser<T> {
                     // Fetch a keypackage for our new contact.
                     // TODO: For now, one is enough.
                     let response = self
-                        .api_client
+                        .api_clients
+                        .get(&user_name.domain())
                         .qs_key_package_batch(
                             cep_tbs.friendship_package.friendship_token.clone(),
                             cep_tbs.friendship_package.add_package_ear_key.clone(),
@@ -378,11 +447,12 @@ impl<T: Notifiable> SelfUser<T> {
                             (key_package, sek)
                         })
                         .collect();
+                    let qs_verifying_key = self.qs_verifying_key(&user_name.domain()).await;
                     let add_info = ContactAddInfos {
                         key_packages,
                         key_package_batch: response
                             .key_package_batch
-                            .verify(&self.key_store.qs_verifying_key)
+                            .verify(qs_verifying_key)
                             .unwrap(),
                     };
 
@@ -402,7 +472,8 @@ impl<T: Notifiable> SelfUser<T> {
                     let qs_client_reference = self.create_own_client_reference();
 
                     // Send the confirmation by way of commit and group info to the DS.
-                    self.api_client
+                    self.api_clients
+                        .get(&qgid.owning_domain)
                         .ds_join_connection_group(
                             commit,
                             group_info,
@@ -436,5 +507,20 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub fn get_messages(&self, conversation_id: Uuid, last_n: usize) -> Vec<ConversationMessage> {
         self.conversation_store.messages(conversation_id, last_n)
+    }
+
+    async fn qs_verifying_key(&mut self, domain: &Fqdn) -> &QsVerifyingKey {
+        if !self.key_store.qs_verifying_keys.contains_key(domain) {
+            let qs_verifying_key = self
+                .api_clients
+                .get(domain)
+                .qs_verifying_key()
+                .await
+                .unwrap();
+            self.key_store
+                .qs_verifying_keys
+                .insert(domain.clone(), qs_verifying_key.verifying_key);
+        }
+        self.key_store.qs_verifying_keys.get(domain).unwrap()
     }
 }

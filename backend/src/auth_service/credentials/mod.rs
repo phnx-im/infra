@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashMap;
+
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -410,11 +412,13 @@ impl ClientCredential {
     pub fn decrypt_and_verify(
         ear_key: &ClientCredentialEarKey,
         ciphertext: &EncryptedClientCredential,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     ) -> Result<Self, ClientCredentialProcessingError> {
         let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)
             .map_err(|_| ClientCredentialProcessingError::DecryptionError)?;
         let as_credential = as_intermediate_credentials
+            .get(&verifiable_credential.domain())
+            .expect("Could not find AS credentials for domain")
             .iter()
             .find(|as_cred| {
                 &as_cred.fingerprint().unwrap() == verifiable_credential.signer_fingerprint()
@@ -482,6 +486,10 @@ pub struct VerifiableClientCredential {
 }
 
 impl VerifiableClientCredential {
+    pub fn domain(&self) -> Fqdn {
+        self.payload.csr.client_id.user_name.domain()
+    }
+
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
         &self.payload.signer_fingerprint
     }

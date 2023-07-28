@@ -35,7 +35,7 @@ impl ConversationStore {
         let uuid_bytes = UuidBytes::from_group_id(&group_id);
         let conversation = Conversation {
             id: uuid_bytes.clone(),
-            group_id: uuid_bytes.clone(),
+            group_id: group_id.into(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(user_name.to_bytes()),
             last_used: Timestamp::now().as_u64(),
@@ -55,7 +55,7 @@ impl ConversationStore {
         let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
             id: uuid_bytes.clone(),
-            group_id: uuid_bytes,
+            group_id: group_id.into(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
             last_used: Timestamp::now().as_u64(),

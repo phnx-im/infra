@@ -101,6 +101,7 @@ pub mod dns_provider_trait;
 pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;
+pub mod qs_api;
 pub mod storage_provider_trait;
 pub mod user_record;
 
@@ -304,17 +305,6 @@ pub struct ClientConfig {
 
 impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientConfig {}
 impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
-
-impl ClientConfig {
-    pub fn dummy_config() -> Self {
-        Self {
-            client_id: QsClientId {
-                client_id: Vec::new(),
-            },
-            push_token_ear_key: None,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct QsSigningKey {

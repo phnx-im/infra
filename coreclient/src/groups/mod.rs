@@ -35,8 +35,8 @@ use phnxbackend::{
         },
     },
     ds::{
-        api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, WelcomeAttributionInfo,
-        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+        api::{QualifiedGroupId, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+        WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
     },
     messages::{
         client_ds::{
@@ -48,7 +48,7 @@ use phnxbackend::{
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
-    qs::{KeyPackageBatch, VERIFIED},
+    qs::{Fqdn, KeyPackageBatch, VERIFIED},
     AssistedGroupInfo, AssistedMessageOut,
 };
 pub(crate) use store::*;
@@ -217,7 +217,7 @@ impl Group {
             SignaturePublicKey,
             (InfraCredentialSigningKey, SignatureEarKey),
         >,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
         contacts: &HashMap<UserName, Contact>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
@@ -289,6 +289,11 @@ impl Group {
             .verify(sender_client_credential.verifying_key())
             .unwrap();
 
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact(mls_group.group_id().as_slice()).unwrap();
+        let as_intermediate_credentials = as_intermediate_credentials
+            .get(&qgid.owning_domain)
+            .unwrap();
         let client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> = joiner_info
             .encrypted_client_information
             .into_iter()
@@ -373,7 +378,7 @@ impl Group {
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
@@ -415,6 +420,9 @@ impl Group {
                     if let Some(client_info) = ciphertext_option.map(|(ecc, esek)| {
                         let verifiable_credential =
                             VerifiableClientCredential::decrypt(&credential_ear_key, &ecc).unwrap();
+                        let as_intermediate_credentials = as_intermediate_credentials
+                            .get(&verifiable_credential.domain())
+                            .unwrap();
                         let as_credential = as_intermediate_credentials
                             .iter()
                             .find(|as_cred| {
@@ -488,7 +496,7 @@ impl Group {
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
 

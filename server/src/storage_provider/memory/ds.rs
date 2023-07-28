@@ -14,6 +14,7 @@ use mls_assist::openmls::prelude::GroupId;
 use phnxbackend::{
     crypto::EncryptedDsGroupState,
     ds::{group_state::TimeStamp, DsStorageProvider, LoadState},
+    qs::Fqdn,
 };
 use uuid::Uuid;
 
@@ -35,15 +36,16 @@ enum StorageState {
 }
 
 /// A storage provider for the DS using PostgreSQL.
-#[derive(Default)]
 pub struct MemoryDsStorage {
     groups: Mutex<HashMap<GroupId, StorageState>>,
+    own_domain: Fqdn,
 }
 
 impl MemoryDsStorage {
-    pub fn new() -> Self {
+    pub fn new(own_domain: Fqdn) -> Self {
         Self {
             groups: Mutex::new(HashMap::new()),
+            own_domain,
         }
     }
 }
@@ -113,5 +115,9 @@ impl DsStorageProvider for MemoryDsStorage {
         } else {
             Err(MemoryDsStorageError::MemoryStoreError)
         }
+    }
+
+    async fn own_domain(&self) -> Fqdn {
+        self.own_domain.clone()
     }
 }

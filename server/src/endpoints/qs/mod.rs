@@ -9,14 +9,13 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use phnxbackend::{
-    messages::client_qs::VerifiableClientToQsMessage,
-    qs::{storage_provider_trait::QsStorageProvider, Qs},
+    messages::{client_qs::VerifiableClientToQsMessage, qs_qs::QsToQsMessage},
+    qs::{storage_provider_trait::QsStorageProvider, Qs, QsConnector},
 };
 use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod ws;
 
-/// QS endpoint to fetch queue config encryption key
 #[utoipa::path(
     get,
     path = "{QS_ENDPOINT}",
@@ -52,6 +51,46 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
         // If the message could not be processed, return an error.
         Err(e) => {
             tracing::warn!("QS failed to process message: {:?}", e);
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "{QS_ENDPOINT_FEDERATION}",
+    tag = "QS",
+    responses(
+        (status = 200, description = "Processed federated QS request."),
+    )
+)]
+#[tracing::instrument(name = "Process federated QS message", skip_all)]
+pub(crate) async fn qs_process_federated_message<Qep: QsConnector>(
+    qs_connector: Data<Qep>,
+    message: web::Bytes,
+) -> impl Responder {
+    // Extract the storage provider.
+    let connector = qs_connector.get_ref();
+
+    // Deserialize the message.
+    let message = match QsToQsMessage::tls_deserialize_exact(message.as_ref()) {
+        Ok(message) => message,
+        Err(e) => {
+            tracing::warn!("QS received invalid federated message: {:?}", e);
+            return HttpResponse::BadRequest().body(e.to_string());
+        }
+    };
+
+    // Process the message.
+    match Qs::enqueue_remote_message(connector, message).await {
+        // If the message was processed successfully, return the response.
+        Ok(response) => {
+            tracing::trace!("Processed federated message successfully");
+            HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
+        }
+        // If the message could not be processed, return an error.
+        Err(e) => {
+            tracing::warn!("QS failed to process federated message: {:?}", e);
             HttpResponse::InternalServerError().body(e.to_string())
         }
     }

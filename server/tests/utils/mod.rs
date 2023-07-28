@@ -49,6 +49,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 pub async fn spawn_app(
     domain: Fqdn,
     network_provider: Arc<MockNetworkProvider>,
+    random_port: bool,
 ) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
@@ -58,14 +59,14 @@ pub async fn spawn_app(
 
     // Port binding
     let localhost = "127.0.0.1";
-
+    let port = if random_port { 0 } else { 8000 };
     let listener =
-        TcpListener::bind(format!("{localhost}:0")).expect("Failed to bind to random port.");
+        TcpListener::bind(format!("{localhost}:{port}")).expect("Failed to bind to random port.");
     let address = listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
-    let ds_storage_provider = MemoryDsStorage::new();
+    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
     let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
 
     let as_storage_provider =
@@ -94,6 +95,5 @@ pub async fn spawn_app(
     tokio::spawn(server);
 
     // Return the address
-    network_provider.add_port(domain, address.port());
     (address, ws_dispatch_notifier)
 }

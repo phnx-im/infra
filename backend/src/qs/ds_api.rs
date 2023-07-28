@@ -4,7 +4,10 @@
 
 use tls_codec::Serialize;
 
-use crate::{crypto::hpke::HpkeDecryptable, messages::intra_backend::DsFanOutMessage};
+use crate::{
+    crypto::hpke::HpkeDecryptable,
+    messages::{intra_backend::DsFanOutMessage, qs_qs::QsToQsMessage, MlsInfraVersion},
+};
 
 use super::{
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
@@ -26,14 +29,20 @@ impl Qs {
         network_provider: &N,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<S, N>> {
-        if message.client_reference.client_homeserver_domain != storage_provider.own_domain().await
-        {
+        let own_domain = storage_provider.own_domain().await;
+        if message.client_reference.client_homeserver_domain != own_domain {
             tracing::info!(
                 "Domains differ. Destination domain: {:?}, own domain: {:?}",
                 message.client_reference.client_homeserver_domain,
                 storage_provider.own_domain().await
             );
-            let serialized_message = message
+            let qs_to_qs_message = QsToQsMessage {
+                protocol_version: MlsInfraVersion::Alpha,
+                sender: own_domain.clone(),
+                recipient: message.client_reference.client_homeserver_domain.clone(),
+                fan_out_message: message.clone(),
+            };
+            let serialized_message = qs_to_qs_message
                 .tls_serialize_detached()
                 .map_err(|_| QsEnqueueError::LibraryError)?;
             network_provider
@@ -42,34 +51,36 @@ impl Qs {
                     message.client_reference.client_homeserver_domain,
                 )
                 .await
-                .map_err(QsEnqueueError::NetworkError)?;
+                .map_err(QsEnqueueError::NetworkError)?
+        } else {
+            let decryption_key = storage_provider
+                .load_decryption_key()
+                .await
+                .map_err(|_| QsEnqueueError::StorageError)?;
+            let client_config = ClientConfig::decrypt(
+                message.client_reference.sealed_reference,
+                &decryption_key,
+                &[],
+                &[],
+            )?;
+
+            // Fetch the client record.
+            let mut client_record = storage_provider
+                .load_client(&client_config.client_id)
+                .await
+                .ok_or(QsEnqueueError::QueueNotFound)?;
+
+            client_record
+                .enqueue(
+                    &client_config.client_id,
+                    storage_provider,
+                    websocket_notifier,
+                    message.payload,
+                    client_config.push_token_ear_key,
+                )
+                .await?
         }
-        let decryption_key = storage_provider
-            .load_decryption_key()
-            .await
-            .map_err(|_| QsEnqueueError::StorageError)?;
-        let client_config = ClientConfig::decrypt(
-            message.client_reference.sealed_reference,
-            &decryption_key,
-            &[],
-            &[],
-        )?;
-
-        // Fetch the client record.
-        let mut client_record = storage_provider
-            .load_client(&client_config.client_id)
-            .await
-            .ok_or(QsEnqueueError::QueueNotFound)?;
-
-        Ok(client_record
-            .enqueue(
-                &client_config.client_id,
-                storage_provider,
-                websocket_notifier,
-                message.payload,
-                client_config.push_token_ear_key,
-            )
-            .await?)
+        Ok(())
 
         // TODO: client now has new ratchet key, store it in the storage
         // provider.

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use phnxapiclient::{ApiClient, TransportEncryption};
 
 use phnxserver::network_provider::MockNetworkProvider;
-use utils::setup::TestBackend;
+use utils::setup::{TestBackend, TestBed};
 pub use utils::*;
 
 #[actix_rt::test]
@@ -18,7 +18,7 @@ pub use utils::*;
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = Arc::new(MockNetworkProvider::new());
-    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider).await;
+    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     tracing::info!("Server started: {}", address.to_string());
 
@@ -153,10 +153,24 @@ async fn create_user() {
 }
 
 #[actix_rt::test]
+#[tracing::instrument(name = "Invite to group test", skip_all)]
+async fn federated_delivery() {
+    let mut test_bed = TestBed::new();
+    test_bed.new_backend("example.com".into()).await;
+    test_bed.add_user("alice@example.com").await;
+    // TODO: Change APIClient to allow sending to remote backends
+    // TODO: Continue test
+    // * Create new backend
+    // * Create user on backend
+    // * Connect user with alice
+    // * Send message
+}
+
+#[actix_rt::test]
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = Arc::new(MockNetworkProvider::new());
-    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider).await;
+    let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, false).await;
 
     // Initialize the client
     let client = ApiClient::initialize(address, TransportEncryption::Off)

@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashMap, sync::Mutex};
-
-use crate::endpoints::ENDPOINT_QS;
+use crate::endpoints::{ENDPOINT_QS, ENDPOINT_QS_FEDERATION};
 use async_trait::async_trait;
 use phnxbackend::qs::{network_provider_trait::NetworkProvider, Fqdn};
 use reqwest::Client;
@@ -21,7 +19,6 @@ pub enum TransportEncryption {
 
 #[derive(Debug)]
 pub struct MockNetworkProvider {
-    backend_ports: Mutex<HashMap<Fqdn, u16>>,
     client: Client,
     transport_encryption: TransportEncryption,
 }
@@ -29,14 +26,9 @@ pub struct MockNetworkProvider {
 impl MockNetworkProvider {
     pub fn new() -> Self {
         Self {
-            backend_ports: Mutex::new(HashMap::new()),
             client: Client::new(),
             transport_encryption: TransportEncryption::Off,
         }
-    }
-
-    pub fn add_port(&self, fqdn: Fqdn, port: u16) {
-        self.backend_ports.lock().unwrap().insert(fqdn, port);
     }
 }
 
@@ -49,22 +41,12 @@ impl NetworkProvider for MockNetworkProvider {
             TransportEncryption::On => "s",
             TransportEncryption::Off => "",
         };
-        tracing::info!("Currently registered {:?}", self.backend_ports);
         tracing::info!("Sending to {:?}", destination);
-        let port = self
-            .backend_ports
-            .lock()
-            .unwrap()
-            .get(&destination)
-            .unwrap()
-            .to_owned();
-        // For now, we don't resolve the actual hostname and just send to
-        // localhost.
-        let destination = "localhost";
         let url = format!(
-            "http{}://{}:{}{}",
-            transport_encryption, destination, port, ENDPOINT_QS
+            "http{}://{}:8000{}",
+            transport_encryption, destination, ENDPOINT_QS_FEDERATION
         );
+        // Reqwest should resolve the hostname on its own.
         match self.client.post(url).body(bytes).send().await {
             // For now we don't care about the response.
             Ok(_response) => (),

@@ -153,9 +153,8 @@ use mls_assist::{
         prelude::{group_info::GroupInfo, GroupId, MlsMessageInBody, Sender},
         treesync::RatchetTree,
     },
-    openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -166,7 +165,7 @@ use crate::{
         client_ds::{CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage},
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
-    qs::QsConnector,
+    qs::{Fqdn, QsConnector},
 };
 
 use super::{
@@ -178,6 +177,12 @@ use super::{
 pub const USER_EXPIRATION_DAYS: i64 = 90;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
+
+#[derive(Debug, Clone, PartialEq, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+pub struct QualifiedGroupId {
+    pub group_id: [u8; 16],
+    pub owning_domain: Fqdn,
+}
 
 pub struct DsApi {}
 
@@ -486,14 +491,24 @@ impl DsApi {
         Ok(response_option.unwrap_or(DsProcessResponse::Ok))
     }
 
+    async fn generate_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
+        let id = rand::random::<[u8; 16]>();
+        let owning_domain = ds_storage_provider.own_domain().await;
+        let qgid = QualifiedGroupId {
+            group_id: id,
+            owning_domain,
+        };
+        GroupId::from_slice(&qgid.tls_serialize_detached().unwrap())
+    }
+
     pub async fn request_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
-        let mut group_id = GroupId::random(&OpenMlsRustCrypto::default());
+        let mut group_id = Self::generate_group_id(ds_storage_provider).await;
         while ds_storage_provider
             .reserve_group_id(&group_id)
             .await
             .is_err()
         {
-            group_id = GroupId::random(&OpenMlsRustCrypto::default());
+            group_id = Self::generate_group_id(ds_storage_provider).await;
         }
         group_id
     }
