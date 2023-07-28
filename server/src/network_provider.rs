@@ -41,7 +41,6 @@ impl NetworkProvider for MockNetworkProvider {
             TransportEncryption::On => "s",
             TransportEncryption::Off => "",
         };
-        tracing::info!("Sending to {:?}", destination);
         let url = format!(
             "http{}://{}:8000{}",
             transport_encryption, destination, ENDPOINT_QS_FEDERATION

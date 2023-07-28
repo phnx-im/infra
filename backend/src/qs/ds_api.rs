@@ -31,11 +31,6 @@ impl Qs {
     ) -> Result<(), QsEnqueueError<S, N>> {
         let own_domain = storage_provider.own_domain().await;
         if message.client_reference.client_homeserver_domain != own_domain {
-            tracing::info!(
-                "Domains differ. Destination domain: {:?}, own domain: {:?}",
-                message.client_reference.client_homeserver_domain,
-                storage_provider.own_domain().await
-            );
             let qs_to_qs_message = QsToQsMessage {
                 protocol_version: MlsInfraVersion::Alpha,
                 sender: own_domain.clone(),
