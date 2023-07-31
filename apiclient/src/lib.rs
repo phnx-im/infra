@@ -4,7 +4,7 @@
 
 //! API client for the phnx server.
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use http::StatusCode;
 use phnxbackend::qs::Fqdn;
@@ -85,7 +85,10 @@ impl ApiClient {
         domain: impl Into<DomainOrAddress>,
         transport_encryption: TransportEncryption,
     ) -> Result<Self, ApiClientInitError> {
-        let client = ClientBuilder::new().user_agent("PhnxClient/0.1").build()?;
+        let client = ClientBuilder::new()
+            .pool_idle_timeout(Duration::from_secs(4))
+            .user_agent("PhnxClient/0.1")
+            .build()?;
         Ok(Self {
             client,
             domain_or_address: domain.into(),
