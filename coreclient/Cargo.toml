@@ -14,28 +14,32 @@ crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 thiserror = "1.0"
-openmls = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
-openmls_traits = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls",branch="konrad/pgi_2" }
-openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
-openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch="konrad/pgi_2" }
+openmls = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
+openmls_traits = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
+openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
+openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
 tls_codec = { workspace = true }
 log = "^0.4.14"
 url = "2.2"
-reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls-webpki-roots"] }
+reqwest = { version = "0.11", features = [
+    "blocking",
+    "json",
+    "rustls-tls-webpki-roots",
+] }
 base64 = "0.13"
 pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4"] }
 phnxapiclient = { path = "../apiclient" }
 phnxbackend = { path = "../backend" }
-opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"]}
+opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
 futures = { version = "0.3.28", features = ["executor"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
 
 # Feature dart-bridge
 tokio = { version = "1.29.0", features = ["rt", "macros"], optional = true }
-flutter_rust_bridge = { version="1", optional = true }
+flutter_rust_bridge = { version = "=1.78", optional = true }
 anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 
 [features]
