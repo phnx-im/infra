@@ -6,6 +6,7 @@
 
 pub mod configurations;
 pub mod endpoints;
+pub mod network_provider;
 pub mod storage_provider;
 pub mod telemetry;
 
@@ -28,7 +29,7 @@ use crate::endpoints::{
     auth_service::as_process_message,
     health_check,
     qs::{
-        qs_process_message,
+        qs_process_federated_message, qs_process_message,
         ws::{upgrade_connection, DispatchWebsocketNotifier},
     },
 };
@@ -90,6 +91,11 @@ pub fn run<
             )
             // QS endpoint
             .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
+            // QS federationendpoint
+            .route(
+                ENDPOINT_QS_FEDERATION,
+                web::post().to(qs_process_federated_message::<Qep>),
+            )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))
             // WS endpoint

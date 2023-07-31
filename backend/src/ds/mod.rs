@@ -22,6 +22,7 @@ use crate::{
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         *,
     },
+    qs::Fqdn,
 };
 
 mod private_mod {
@@ -230,6 +231,9 @@ pub trait DsStorageProvider: Sync + Send + 'static {
     ///
     /// Returns an error if the group ID is already taken.
     async fn reserve_group_id(&self, group_id: &GroupId) -> Result<(), Self::StorageError>;
+
+    /// Returns the domain of this DS.
+    async fn own_domain(&self) -> Fqdn;
 }
 
 #[derive(Default)]

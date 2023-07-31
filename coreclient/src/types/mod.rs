@@ -5,9 +5,29 @@
 use std::collections::HashSet;
 
 use openmls::prelude::GroupId;
-use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
+use phnxbackend::{auth_service::UserName, ds::api::QualifiedGroupId, qs::Fqdn};
+use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct GroupIdBytes {
+    pub bytes: Vec<u8>,
+}
+
+impl From<GroupId> for GroupIdBytes {
+    fn from(group_id: GroupId) -> Self {
+        Self {
+            bytes: group_id.as_slice().to_vec(),
+        }
+    }
+}
+
+impl GroupIdBytes {
+    pub fn as_group_id(&self) -> GroupId {
+        GroupId::from_slice(&self.bytes)
+    }
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UuidBytes {
@@ -22,7 +42,10 @@ impl UuidBytes {
     }
 
     pub fn from_group_id(group_id: &GroupId) -> Self {
-        Self::from_bytes(group_id.as_slice())
+        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
+        Self {
+            bytes: qgid.group_id,
+        }
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -36,11 +59,7 @@ impl UuidBytes {
     }
 
     pub fn as_uuid(&self) -> Uuid {
-        Uuid::from_bytes(self.bytes)
-    }
-
-    pub fn as_group_id(&self) -> GroupId {
-        GroupId::from_slice(&self.bytes)
+        Uuid::from_bytes(self.bytes.clone().try_into().unwrap())
     }
 }
 
@@ -103,11 +122,18 @@ pub struct ErrorMessage {
 pub struct Conversation {
     pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
-    pub group_id: UuidBytes,
+    pub group_id: GroupIdBytes,
     pub status: ConversationStatus,
     pub conversation_type: ConversationType,
     pub last_used: u64,
     pub attributes: ConversationAttributes,
+}
+
+impl Conversation {
+    pub(crate) fn owner_domain(&self) -> Fqdn {
+        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.bytes).unwrap();
+        qgid.owning_domain
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -119,6 +145,24 @@ pub enum ConversationStatus {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InactiveConversation {
     pub past_members: HashSet<String>,
+}
+
+impl InactiveConversation {
+    pub fn new(past_members: HashSet<UserName>) -> Self {
+        Self {
+            past_members: past_members
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<String>>(),
+        }
+    }
+
+    pub fn past_members(&self) -> HashSet<UserName> {
+        self.past_members
+            .iter()
+            .map(|s| UserName::from(s.clone()))
+            .collect()
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxbackend::qs::Fqdn;
+
 use super::*;
 
 #[derive(Default)]
@@ -28,7 +30,7 @@ impl GroupStore {
             SignaturePublicKey,
             (InfraCredentialSigningKey, SignatureEarKey),
         >,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
         contacts: &HashMap<UserName, Contact>,
     ) -> GroupId {
         let group = Group::join_group(
@@ -50,6 +52,9 @@ impl GroupStore {
 
     pub(crate) fn get_group_mut(&mut self, group_id: &GroupId) -> Option<&mut Group> {
         self.groups.get_mut(group_id)
+    }
+    pub(crate) fn get_group(&self, group_id: &GroupId) -> Option<&Group> {
+        self.groups.get(group_id)
     }
 
     pub(crate) fn create_message(

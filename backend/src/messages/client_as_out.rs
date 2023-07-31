@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashMap;
+
 use mls_assist::openmls::prelude::GroupId;
 use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -32,6 +34,7 @@ use crate::{
         },
         ConnectionDecryptionKey, ConnectionEncryptionKey, RatchetEncryptionKey,
     },
+    qs::Fqdn,
 };
 
 use super::{
@@ -443,8 +446,11 @@ impl ConnectionEstablishmentPackageIn {
 
     pub fn verify_all(
         self,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     ) -> ConnectionEstablishmentPackageTbs {
+        let as_intermediate_credentials = as_intermediate_credentials
+            .get(&self.payload.sender_client_credential.domain())
+            .unwrap();
         let as_credential = as_intermediate_credentials
             .iter()
             .find(|as_cred| {

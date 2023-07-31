@@ -45,7 +45,7 @@ setup-linux:
 setup-ci:
 	flutter pub get
 	flutter doctor
-	cargo install flutter_rust_bridge_codegen
+	cargo install flutter_rust_bridge_codegen --version="=1.78" --force
 
 setup-flutter:
 	flutter upgrade
@@ -126,7 +126,7 @@ linux-debug:
 	cp $(RUST_TARGET_DIR)/debug/libcoreclient.so linux/libcoreclient.so
 
 dart-bridge:
-	dart pub get
+	flutter pub get
 	flutter_rust_bridge_codegen \
 	 	--rust-input ../src/dart_api.rs \
         --dart-output $(DART_BASE_DIR)/bridge_generated.dart \

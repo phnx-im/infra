@@ -61,6 +61,8 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
+use std::fmt::{Display, Formatter};
+
 use crate::{
     crypto::{
         ear::{
@@ -97,6 +99,8 @@ pub mod client_api;
 pub mod client_record;
 pub mod ds_api;
 pub mod errors;
+pub mod network_provider_trait;
+pub mod qs_api;
 pub mod storage_provider_trait;
 pub mod user_record;
 
@@ -301,17 +305,6 @@ pub struct ClientConfig {
 impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientConfig {}
 impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
 
-impl ClientConfig {
-    pub fn dummy_config() -> Self {
-        Self {
-            client_id: QsClientId {
-                client_id: Vec::new(),
-            },
-            push_token_ear_key: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct QsSigningKey {
     signing_key: Vec<u8>,
@@ -360,7 +353,7 @@ impl VerifyingKey for QsVerifyingKey {}
 
 #[derive(Debug, Clone)]
 pub struct QsConfig {
-    pub fqdn: Fqdn,
+    pub domain: Fqdn,
 }
 
 #[derive(Debug)]
@@ -379,7 +372,36 @@ pub struct Qs {}
     Hash,
     Debug,
 )]
-pub struct Fqdn {}
+pub struct Fqdn {
+    // TODO: We should probably use a more restrictive type here.
+    domain: Vec<u8>,
+}
+
+impl Display for Fqdn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.domain))
+    }
+}
+
+impl Fqdn {
+    pub fn new(domain: String) -> Self {
+        Self {
+            domain: domain.into_bytes(),
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.domain
+    }
+}
+
+impl From<&str> for Fqdn {
+    fn from(domain: &str) -> Self {
+        Self {
+            domain: domain.as_bytes().to_vec(),
+        }
+    }
+}
 
 #[derive(
     Clone,

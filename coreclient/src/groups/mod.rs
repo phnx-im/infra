@@ -35,8 +35,8 @@ use phnxbackend::{
         },
     },
     ds::{
-        api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, WelcomeAttributionInfo,
-        WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+        api::{QualifiedGroupId, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+        WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
     },
     messages::{
         client_ds::{
@@ -48,7 +48,7 @@ use phnxbackend::{
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
-    qs::{KeyPackageBatch, VERIFIED},
+    qs::{Fqdn, KeyPackageBatch, VERIFIED},
     AssistedGroupInfo, AssistedMessageOut,
 };
 pub(crate) use store::*;
@@ -217,7 +217,7 @@ impl Group {
             SignaturePublicKey,
             (InfraCredentialSigningKey, SignatureEarKey),
         >,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
         contacts: &HashMap<UserName, Contact>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
@@ -289,6 +289,11 @@ impl Group {
             .verify(sender_client_credential.verifying_key())
             .unwrap();
 
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact(mls_group.group_id().as_slice()).unwrap();
+        let as_intermediate_credentials = as_intermediate_credentials
+            .get(&qgid.owning_domain)
+            .unwrap();
         let client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> = joiner_info
             .encrypted_client_information
             .into_iter()
@@ -373,7 +378,7 @@ impl Group {
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
@@ -415,6 +420,9 @@ impl Group {
                     if let Some(client_info) = ciphertext_option.map(|(ecc, esek)| {
                         let verifiable_credential =
                             VerifiableClientCredential::decrypt(&credential_ear_key, &ecc).unwrap();
+                        let as_intermediate_credentials = as_intermediate_credentials
+                            .get(&verifiable_credential.domain())
+                            .unwrap();
                         let as_credential = as_intermediate_credentials
                             .iter()
                             .find(|as_cred| {
@@ -488,7 +496,7 @@ impl Group {
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
-        as_intermediate_credentials: &[AsIntermediateCredential],
+        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(backend, message)?;
 
@@ -1282,10 +1290,10 @@ impl Group {
     }
 
     /// Returns the [`AsClientId`] of the clients owned by the given user.
-    pub(crate) fn user_client_ids(&self, user_name: UserName) -> Vec<AsClientId> {
+    pub(crate) fn user_client_ids(&self, user_name: &UserName) -> Vec<AsClientId> {
         let mut user_clients = vec![];
         for (_index, (cred, _sek)) in self.client_information.iter() {
-            if cred.identity().user_name() == user_name {
+            if &cred.identity().user_name() == user_name {
                 user_clients.push(cred.identity())
             }
         }
@@ -1418,7 +1426,7 @@ pub(crate) fn application_message_to_conversation_messages(
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().user_name().as_bytes().to_vec(),
+        sender: sender.identity().user_name().to_bytes(),
         content: MessageContentType::tls_deserialize(
             &mut application_message.into_bytes().as_slice(),
         )
@@ -1456,8 +1464,8 @@ pub(crate) fn staged_commit_to_conversation_messages(
             };
             let event_message = format!(
                 "{} added {} to the conversation",
-                String::from_utf8_lossy(get_user_name(client_information, sender).as_bytes()),
-                String::from_utf8_lossy(get_user_name(client_information, free_index).as_bytes())
+                get_user_name(client_information, sender),
+                get_user_name(client_information, free_index)
             );
             event_message_from_string(event_message)
         })

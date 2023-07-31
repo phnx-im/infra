@@ -8,7 +8,8 @@ members = [
     "backend",
     "server",
     "apiclient",
-    "coreclient"
+    "coreclient",
+    "test_harness"
 ]
 
 [workspace.dependencies]

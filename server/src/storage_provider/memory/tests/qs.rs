@@ -23,7 +23,7 @@ use crate::storage_provider::memory::qs::MemStorageProvider;
 // Unit tests for MemStorageProvider
 #[actix_rt::test]
 async fn qs_mem_provider() {
-    let provider = MemStorageProvider::default();
+    let provider = MemStorageProvider::new("example.com".into());
 
     // Set up a user record
     let user_record = QsUserRecord::new(

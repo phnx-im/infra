@@ -9,6 +9,7 @@ use phnxbackend::qs::Fqdn;
 use phnxserver::{
     configurations::*,
     endpoints::qs::ws::DispatchWebsocketNotifier,
+    network_provider::MockNetworkProvider,
     run,
     storage_provider::memory::{
         auth_service::{EphemeralAsStorage, MemoryAsStorage},
@@ -34,15 +35,22 @@ async fn main() -> std::io::Result<()> {
         configuration.application.host, configuration.application.port
     );
     let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
+    let domain: Fqdn = std::env::var("PHNX_SERVER_DOMAIN")
+        .expect("PHNX_SERVER_DOMAIN must be set.")
+        .as_str()
+        .into();
+    tracing::info!("Starting server with domain {}.", domain);
+    let network_provider = Arc::new(MockNetworkProvider::new());
 
-    let ds_storage_provider = MemoryDsStorage::new();
-    let qs_storage_provider = Arc::new(MemStorageProvider::default());
-    let as_storage_provider = MemoryAsStorage::new(Fqdn {}, SignatureScheme::ED25519).unwrap();
+    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
+    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+    let as_storage_provider = MemoryAsStorage::new(domain, SignatureScheme::ED25519).unwrap();
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
+        network: network_provider,
     };
 
     // Start the server

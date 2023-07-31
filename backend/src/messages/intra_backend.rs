@@ -6,7 +6,7 @@
 //! passed internally within the backend.
 
 use mls_assist::messages::SerializedMlsMessage;
-use tls_codec::{TlsDeserializeBytes, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::qs::QsClientReference;
 
@@ -14,13 +14,13 @@ use super::client_ds::{EventMessage, QsQueueMessagePayload};
 
 // === DS to QS ===
 
-#[derive(TlsDeserializeBytes, TlsSize)]
+#[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: DsFanOutPayload,
     pub client_reference: QsClientReference,
 }
 
-#[derive(Clone, TlsDeserializeBytes, TlsSize)]
+#[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsFanOutPayload {
     QueueMessage(QsQueueMessagePayload),

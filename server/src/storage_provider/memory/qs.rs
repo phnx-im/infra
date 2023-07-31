@@ -14,7 +14,7 @@ use phnxbackend::{
     messages::{FriendshipToken, QueueMessage},
     qs::{
         client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
-        user_record::QsUserRecord, ClientIdDecryptionKey, QsClientId, QsConfig,
+        user_record::QsUserRecord, ClientIdDecryptionKey, Fqdn, QsClientId, QsConfig,
         QsEncryptedAddPackage, QsSigningKey, QsUserId,
     },
 };
@@ -48,11 +48,9 @@ pub struct MemStorageProvider {
     config: QsConfig,
 }
 
-impl Default for MemStorageProvider {
-    fn default() -> Self {
-        let config = QsConfig {
-            fqdn: phnxbackend::qs::Fqdn {},
-        };
+impl MemStorageProvider {
+    pub fn new(domain: Fqdn) -> Self {
+        let config = QsConfig { domain };
         let client_id_decryption_key = ClientIdDecryptionKey::generate().unwrap();
         let signing_key = QsSigningKey::generate().unwrap();
         let users = RwLock::new(HashMap::new());
@@ -87,6 +85,10 @@ impl QsStorageProvider for MemStorageProvider {
     type LoadDecryptionKeyError = LoadDecryptionKeyError;
 
     type LoadConfigError = LoadConfigError;
+
+    async fn own_domain(&self) -> Fqdn {
+        self.config.domain.clone()
+    }
 
     async fn create_user(
         &self,

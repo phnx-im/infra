@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, net::SocketAddr};
+use std::collections::HashSet;
 
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{ApiClient, TransportEncryption};
+use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -71,14 +71,14 @@ pub(crate) struct MemoryUserKeyStore {
     as_queue_decryption_key: RatchetDecryptionKey,
     as_queue_ratchet: AsQueueRatchet,
     connection_decryption_key: ConnectionDecryptionKey,
-    as_credentials: Vec<AsCredential>,
-    as_intermediate_credentials: Vec<AsIntermediateCredential>,
+    as_credentials: HashMap<Fqdn, Vec<AsCredential>>,
+    as_intermediate_credentials: HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     // QS-specific key material
     qs_client_signing_key: QsClientSigningKey,
     qs_user_signing_key: QsUserSigningKey,
     qs_queue_decryption_key: RatchetDecryptionKey,
     qs_queue_ratchet: QsQueueRatchet,
-    qs_verifying_key: QsVerifyingKey,
+    qs_verifying_keys: HashMap<Fqdn, QsVerifyingKey>,
     qs_client_id_encryption_key: ClientIdEncryptionKey,
     push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
@@ -92,10 +92,47 @@ pub(crate) struct MemoryUserKeyStore {
     leaf_signers: HashMap<SignaturePublicKey, (InfraCredentialSigningKey, SignatureEarKey)>,
 }
 
+struct ApiClients {
+    // We store our own domain such that we can manually map our own domain to
+    // an API client that uses an IP address instead of the actual domain. This
+    // is a temporary workaround and should probably be replaced by a more
+    // thought-out mechanism.
+    own_domain: Fqdn,
+    own_domain_or_address: DomainOrAddress,
+    clients: HashMap<DomainOrAddress, ApiClient>,
+}
+
+impl ApiClients {
+    fn new(own_domain: Fqdn, own_domain_or_address: impl Into<DomainOrAddress>) -> Self {
+        let own_domain_or_address = own_domain_or_address.into();
+        Self {
+            own_domain,
+            own_domain_or_address,
+            clients: HashMap::new(),
+        }
+    }
+
+    fn get(&mut self, domain: &Fqdn) -> &ApiClient {
+        let lookup_domain = if domain == &self.own_domain {
+            self.own_domain_or_address.clone()
+        } else {
+            domain.clone().into()
+        };
+        self.clients
+            .entry(lookup_domain.clone())
+            .or_insert(ApiClient::initialize(lookup_domain, TransportEncryption::Off).unwrap())
+    }
+
+    fn default_client(&mut self) -> &ApiClient {
+        let own_domain = self.own_domain.clone();
+        self.get(&own_domain)
+    }
+}
+
 pub struct SelfUser<T: Notifiable> {
     pub(crate) crypto_backend: OpenMlsRustCrypto,
     pub(crate) notification_hub: NotificationHub<T>,
-    pub(crate) api_client: ApiClient,
+    api_clients: ApiClients,
     pub(crate) user_name: UserName,
     pub(crate) qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
@@ -111,16 +148,18 @@ pub struct SelfUser<T: Notifiable> {
 impl<T: Notifiable> SelfUser<T> {
     /// Create a new user with the given name and a fresh set of credentials.
     pub async fn new(
-        user_name: &str,
+        user_name: impl Into<UserName>,
         password: &str,
-        address: SocketAddr,
+        domain_or_address: impl Into<DomainOrAddress>,
         notification_hub: NotificationHub<T>,
     ) -> Self {
+        let user_name = user_name.into();
         log::debug!("Creating new user {}", user_name);
-        let user_name: UserName = UserName::from(user_name.to_string());
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
-        let api_client = ApiClient::initialize(address, TransportEncryption::Off).unwrap();
+        let domain_or_address = domain_or_address.into();
+        let api_client =
+            ApiClient::initialize(domain_or_address.clone(), TransportEncryption::Off).unwrap();
 
         let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone()).unwrap();
         let (client_credential_csr, prelim_signing_key) =
@@ -166,10 +205,11 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
 
         // Complete the OPAQUE registration.
-        let address = api_client.address().clone().to_string();
+        let domain = user_name.domain();
+        let user_name_bytes = user_name.to_bytes();
         let identifiers = Identifiers {
-            client: Some(user_name.as_bytes()),
-            server: Some(address.as_bytes()),
+            client: Some(&user_name_bytes),
+            server: Some(domain.as_bytes()),
         };
         let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
         let client_registration_finish_result: ClientRegistrationFinishResult<OpaqueCiphersuite> =
@@ -211,19 +251,22 @@ impl<T: Notifiable> SelfUser<T> {
         let qs_encryption_key = api_client.qs_encryption_key().await.unwrap().encryption_key;
         let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
-        // Mutable, because we need to access the leaf signers later.
-        let mut key_store = MemoryUserKeyStore {
+        let as_credentials = [(user_name.domain(), as_credentials_response.as_credentials)].into();
+        let as_intermediate_credentials =
+            [(user_name.domain(), as_intermediate_credentials)].into();
+
+        let key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
             as_queue_ratchet: as_initial_ratchet_secret.clone().try_into().unwrap(),
             connection_decryption_key,
-            as_credentials: as_credentials_response.as_credentials,
+            as_credentials,
             as_intermediate_credentials,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
             qs_queue_ratchet: qs_initial_ratchet_secret.clone().try_into().unwrap(),
-            qs_verifying_key,
+            qs_verifying_keys: [(user_name.domain(), qs_verifying_key)].into(),
             push_token_ear_key,
             friendship_token,
             add_package_ear_key,
@@ -284,44 +327,9 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
 
-        let mut qs_add_packages = vec![];
-        for _ in 0..ADD_PACKAGES {
-            // TODO: Which key do we need to use for encryption here? Probably
-            // the client credential ear key, since friends need to be able to
-            // decrypt it. We might want to use a separate key, though.
-            let (kp, signature_ear_key, leaf_signer) = SelfUser::<T>::generate_keypackage(
-                &crypto_backend,
-                &key_store.signing_key,
-                &create_user_record_response.client_id,
-                Some(&key_store.push_token_ear_key),
-                &key_store.qs_client_id_encryption_key,
-            );
-            let esek = signature_ear_key
-                .encrypt(&key_store.signature_ear_key_wrapper_key)
-                .unwrap();
-            key_store.leaf_signers.insert(
-                leaf_signer.credential().verifying_key().clone(),
-                (leaf_signer, signature_ear_key),
-            );
-            let add_package =
-                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
-            qs_add_packages.push(add_package);
-        }
-
-        // Upload add packages
-        api_client
-            .qs_publish_key_packages(
-                create_user_record_response.client_id.clone(),
-                qs_add_packages,
-                key_store.add_package_ear_key.clone(),
-                &key_store.qs_client_signing_key,
-            )
-            .await
-            .unwrap();
-
-        Self {
+        let mut user = Self {
             crypto_backend,
-            api_client,
+            api_clients: ApiClients::new(user_name.domain(), domain_or_address),
             user_name,
             conversation_store: ConversationStore::default(),
             group_store: GroupStore::default(),
@@ -333,18 +341,47 @@ impl<T: Notifiable> SelfUser<T> {
             contacts: HashMap::default(),
             partial_contacts: HashMap::default(),
             notification_hub,
+        };
+
+        let mut qs_add_packages = vec![];
+        for _ in 0..ADD_PACKAGES {
+            // TODO: Which key do we need to use for encryption here? Probably
+            // the client credential ear key, since friends need to be able to
+            // decrypt it. We might want to use a separate key, though.
+            let (kp, signature_ear_key, leaf_signer) = user.generate_keypackage();
+            let esek = signature_ear_key
+                .encrypt(&user.key_store.signature_ear_key_wrapper_key)
+                .unwrap();
+            user.key_store.leaf_signers.insert(
+                leaf_signer.credential().verifying_key().clone(),
+                (leaf_signer, signature_ear_key),
+            );
+            let add_package =
+                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+            qs_add_packages.push(add_package);
         }
+
+        // Upload add packages
+        let api_client = user.api_clients.get(&user.user_name().domain());
+        api_client
+            .qs_publish_key_packages(
+                user.qs_client_id.clone(),
+                qs_add_packages,
+                user.key_store.add_package_ear_key.clone(),
+                &user.key_store.qs_client_signing_key,
+            )
+            .await
+            .unwrap();
+
+        user
     }
 
     pub(crate) fn generate_keypackage(
-        crypto_backend: &impl OpenMlsCryptoProvider,
-        signing_key: &ClientSigningKey,
-        qs_client_id: &QsClientId,
-        push_token_ear_key_option: Option<&PushTokenEarKey>,
-        qs_encryption_key: &ClientIdEncryptionKey,
+        &self,
     ) -> (KeyPackage, SignatureEarKey, InfraCredentialSigningKey) {
         let signature_ear_key = SignatureEarKey::random().unwrap();
-        let leaf_signer = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+        let leaf_signer =
+            InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
             credential: leaf_signer.credential().clone().into(),
             signature_key: leaf_signer.credential().verifying_key().clone(),
@@ -356,15 +393,7 @@ impl<T: Notifiable> SelfUser<T> {
             Some(&SUPPORTED_PROPOSALS),
             Some(&SUPPORTED_CREDENTIALS),
         );
-        let sealed_reference = ClientConfig {
-            client_id: qs_client_id.clone(),
-            push_token_ear_key: push_token_ear_key_option.cloned(),
-        }
-        .encrypt(qs_encryption_key, &[], &[]);
-        let client_reference = QsClientReference {
-            client_homeserver_domain: Fqdn {},
-            sealed_reference,
-        };
+        let client_reference = self.create_own_client_reference();
         let extension = Extension::Unknown(
             QS_CLIENT_REFERENCE_EXTENSION_TYPE,
             UnknownExtension(client_reference.tls_serialize_detached().unwrap()),
@@ -378,7 +407,7 @@ impl<T: Notifiable> SelfUser<T> {
                     ciphersuite: CIPHERSUITE,
                     version: ProtocolVersion::Mls10,
                 },
-                crypto_backend,
+                &self.crypto_backend,
                 &leaf_signer,
                 credential_with_key,
             )
@@ -388,7 +417,12 @@ impl<T: Notifiable> SelfUser<T> {
 
     /// Create new group
     pub async fn create_conversation(&mut self, title: &str) -> Result<Uuid, CorelibError> {
-        let group_id = self.api_client.ds_request_group_id().await.unwrap();
+        let group_id = self
+            .api_clients
+            .default_client()
+            .ds_request_group_id()
+            .await
+            .unwrap();
         let client_reference = self.create_own_client_reference();
         let group = Group::create_group(
             &self.crypto_backend,
@@ -411,7 +445,8 @@ impl<T: Notifiable> SelfUser<T> {
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
         };
-        self.api_client
+        self.api_clients
+            .default_client()
             .ds_create_group(
                 params,
                 group.group_state_ear_key(),
@@ -433,7 +468,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn invite_users(
         &mut self,
         conversation_id: Uuid,
-        invited_users: &[&str],
+        invited_users: &[UserName],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -468,7 +503,9 @@ impl<T: Notifiable> SelfUser<T> {
         // must have gone through.
         // We unwrap here, because if the user auth key is not set, the invite
         // would already have failed.
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_add_users(
                 params,
                 group.group_state_ear_key(),
@@ -487,7 +524,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn remove_users(
         &mut self,
         conversation_id: Uuid,
-        target_users: &[&str],
+        target_users: &[UserName],
     ) -> Result<(), CorelibError> {
         let conversation = self
             .conversation_store
@@ -499,14 +536,16 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&group_id.as_group_id())
             .unwrap();
         let mut clients = vec![];
-        for &user_name in target_users {
-            let mut user_clients = group.user_client_ids(user_name.into());
+        for user_name in target_users {
+            let mut user_clients = group.user_client_ids(user_name);
             clients.append(&mut user_clients);
         }
         let params = group.remove(&self.crypto_backend, clients).unwrap();
         // We unwrap here, because if the user auth key is not set, the remove
         // would already have failed.
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_remove_users(
                 params,
                 group.group_state_ear_key(),
@@ -546,12 +585,11 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         message: MessageContentType,
     ) -> Result<ConversationMessage, CorelibError> {
-        let group_id = &self
+        let conversation = self
             .conversation_store
             .conversation(conversation_id)
-            .unwrap()
-            .group_id
-            .clone();
+            .unwrap();
+        let group_id = conversation.group_id.clone();
         // Generate ciphertext
         let params = self
             .group_store
@@ -565,15 +603,13 @@ impl<T: Notifiable> SelfUser<T> {
         // Store message locally
         let message = Message::Content(ContentMessage {
             content: message,
-            sender: self.user_name.as_bytes().to_vec(),
+            sender: self.user_name.to_bytes(),
         });
-        let conversation_message = new_conversation_message(message);
-        self.conversation_store
-            .store_message(conversation_id, conversation_message.clone())
-            .map_err(CorelibError::ConversationStore)?;
 
         // Send message to DS
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_send_message(
                 params,
                 &self.group_store.leaf_signing_key(&group_id.as_group_id()),
@@ -583,19 +619,63 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await
             .unwrap();
+
+        let conversation_message = new_conversation_message(message);
+        self.conversation_store
+            .store_message(conversation_id, conversation_message.clone())
+            .map_err(CorelibError::ConversationStore)?;
         Ok(conversation_message)
     }
 
-    pub async fn add_contact(&mut self, user_name: &str) {
-        let user_name: UserName = user_name.to_string().into();
+    pub async fn add_contact(&mut self, user_name: impl Into<UserName>) {
+        let user_name = user_name.into();
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
+        let user_domain = user_name.domain();
+
+        // Get the AS authentication key material if we don't have it already.
+        let as_intermediate_credentials =
+            match self.key_store.as_intermediate_credentials.get(&user_domain) {
+                Some(as_intermediate_credentials) => as_intermediate_credentials,
+                None => {
+                    let credential_response = self
+                        .api_clients
+                        .get(&user_domain)
+                        .as_as_credentials()
+                        .await
+                        .unwrap();
+                    let as_intermediate_credentials: Vec<AsIntermediateCredential> =
+                        credential_response
+                            .as_intermediate_credentials
+                            .into_iter()
+                            .map(|as_inter_cred| {
+                                let as_credential = credential_response
+                                    .as_credentials
+                                    .iter()
+                                    .find(|as_cred| {
+                                        &as_cred.fingerprint().unwrap()
+                                            == as_inter_cred.fingerprint()
+                                    })
+                                    .unwrap();
+                                as_inter_cred.verify(as_credential.verifying_key()).unwrap()
+                            })
+                            .collect();
+                    self.key_store
+                        .as_credentials
+                        .insert(user_domain.clone(), credential_response.as_credentials);
+                    self.key_store
+                        .as_intermediate_credentials
+                        .entry(user_domain.clone())
+                        .or_insert(as_intermediate_credentials)
+                }
+            };
 
         let user_key_packages = self
-            .api_client
+            .api_clients
+            .get(&user_domain)
             .as_user_connection_packages(params)
             .await
             .unwrap();
@@ -604,9 +684,7 @@ impl<T: Notifiable> SelfUser<T> {
         let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
             .into_iter()
             .map(|cp| {
-                let verifying_key = self
-                    .key_store
-                    .as_intermediate_credentials
+                let verifying_key = as_intermediate_credentials
                     .iter()
                     .find_map(|as_intermediate_credential| {
                         if &as_intermediate_credential.fingerprint().unwrap()
@@ -627,7 +705,12 @@ impl<T: Notifiable> SelfUser<T> {
         // * Lifetime
 
         // Get a group id for the connection group
-        let group_id = self.api_client.ds_request_group_id().await.unwrap();
+        let group_id = self
+            .api_clients
+            .default_client()
+            .ds_request_group_id()
+            .await
+            .unwrap();
         // Create the connection group
         let connection_group = Group::create_group(
             &self.crypto_backend,
@@ -681,7 +764,8 @@ impl<T: Notifiable> SelfUser<T> {
             group_info: partial_params.group_info,
         };
         // We unwrap here, because a freshly created group always has an auth key set.
-        self.api_client
+        self.api_clients
+            .default_client()
             .ds_create_group(
                 params,
                 connection_group.group_state_ear_key(),
@@ -705,7 +789,7 @@ impl<T: Notifiable> SelfUser<T> {
             conversation_id,
             friendship_package_ear_key,
         };
-        self.partial_contacts.insert(user_name, contact);
+        self.partial_contacts.insert(user_name.clone(), contact);
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -716,7 +800,8 @@ impl<T: Notifiable> SelfUser<T> {
             );
             let client_id = connection_package.client_credential().identity();
 
-            self.api_client
+            self.api_clients
+                .get(&user_domain)
                 .as_enqueue_message(client_id, ciphertext)
                 .await
                 .unwrap();
@@ -733,7 +818,9 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&conversation.group_id.as_group_id())
             .unwrap();
         let params = group.update_user_key(&self.crypto_backend);
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await
             .unwrap();
@@ -758,7 +845,9 @@ impl<T: Notifiable> SelfUser<T> {
         // TODO: Make sure this is what we want.
         if past_members.len() != 1 {
             let params = group.delete(&self.crypto_backend).unwrap();
-            self.api_client
+            let owner_domain = conversation.owner_domain();
+            self.api_clients
+                .get(&owner_domain)
                 .ds_delete_group(
                     params,
                     group.user_auth_key().unwrap(),
@@ -781,7 +870,8 @@ impl<T: Notifiable> SelfUser<T> {
         let mut messages: Vec<QueueMessage> = Vec::new();
         while remaining_messages > 0 {
             let mut response = self
-                .api_client
+                .api_clients
+                .default_client()
                 .as_dequeue_messages(
                     self.as_client_sequence_number_start,
                     1_000_000,
@@ -805,7 +895,8 @@ impl<T: Notifiable> SelfUser<T> {
         let mut messages: Vec<QueueMessage> = Vec::new();
         while remaining_messages > 0 {
             let mut response = self
-                .api_client
+                .api_clients
+                .default_client()
                 .qs_dequeue_messages(
                     &self.qs_client_id,
                     self.qs_client_sequence_number_start,
@@ -837,7 +928,9 @@ impl<T: Notifiable> SelfUser<T> {
         let params = group.leave_group(&self.crypto_backend);
         // We unwrap here, because if there was no auth key, the leave group
         // call would have failed already.
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_self_remove_client(
                 params,
                 group.user_auth_key().unwrap(),
@@ -857,7 +950,9 @@ impl<T: Notifiable> SelfUser<T> {
             .get_group_mut(&conversation.group_id.as_group_id())
             .unwrap();
         let params = group.update(&self.crypto_backend);
-        self.api_client
+        let owner_domain = conversation.owner_domain();
+        self.api_clients
+            .get(&owner_domain)
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await
             .unwrap();
@@ -883,7 +978,7 @@ impl<T: Notifiable> SelfUser<T> {
         }
         .encrypt(&self.key_store.qs_client_id_encryption_key, &[], &[]);
         QsClientReference {
-            client_homeserver_domain: Fqdn {},
+            client_homeserver_domain: self.user_name().domain(),
             sealed_reference,
         }
     }
@@ -898,17 +993,17 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
+    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .members()
                 .iter()
-                .map(|member| member.to_string())
+                .map(|member| member.clone())
                 .collect()
         })
     }
 
-    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<String>> {
+    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .mls_group()
@@ -916,7 +1011,7 @@ impl<T: Notifiable> SelfUser<T> {
                 .filter_map(|proposal| match proposal.proposal() {
                     Proposal::Remove(rp) => group
                         .client_by_index(rp.removed().usize())
-                        .map(|c| c.user_name().to_string()),
+                        .map(|c| c.user_name()),
                     _ => None,
                 })
                 .collect()
