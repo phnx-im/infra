@@ -221,7 +221,7 @@ impl TestBed {
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts();
         let user1_conversations_before = user1.get_conversations();
-        user1.add_contact(&user2_name).await;
+        user1.add_contact(user2_name.clone()).await;
         let mut user1_partial_contacts_after = user1.partial_contacts();
         let new_user_position = user1_partial_contacts_after
             .iter()

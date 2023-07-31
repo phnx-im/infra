@@ -97,7 +97,6 @@ use self::errors::SealError;
 
 pub mod client_api;
 pub mod client_record;
-pub mod dns_provider_trait;
 pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;

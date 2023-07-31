@@ -26,7 +26,7 @@ static QUEUE_ID_VALUE: &[u8; 3] = &[1, 2, 3];
 async fn test_ws_lifecycle() {
     let _ = env_logger::try_init();
     // Ask for a random port and create a listener
-    let listener = TcpListener::bind("127.0.0.1:8000").expect("Failed to bind to random port.");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port.");
     let address = listener.local_addr().expect("Failed to get local address.");
     let server = run_server(listener).expect("Could not initialize server.");
 

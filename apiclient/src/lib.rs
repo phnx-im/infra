@@ -115,13 +115,11 @@ impl ApiClient {
 
     /// Call the health check endpoint
     pub async fn health_check(&self) -> bool {
-        let result = self
-            .client
+        self.client
             .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
             .send()
-            .await;
-        log::info!("Health check result: {:?}", result);
-        result.is_ok()
+            .await
+            .is_ok()
     }
 
     /// Call an inexistant endpoint

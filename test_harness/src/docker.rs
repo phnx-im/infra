@@ -31,7 +31,6 @@ async fn run_docker_container(
     hostname_option: Option<&str>,
     network_name_option: Option<&str>,
 ) -> Child {
-    tracing::info!("Passing in env variables: {:?}", env_variables);
     let mut command = Command::new("docker");
     command.arg("run");
     for env_variable in env_variables {
@@ -91,11 +90,6 @@ pub(crate) async fn create_and_start_test_container(
         network_name_option,
     )
     .await;
-
-    // TODO: The above works. The next steps are as follows:
-    // * Run a test involving just the harness and the server
-    // * Figure out a network and a DNS configuration to make it work
-    // * Run a test involving two servers and the harness.
 }
 
 pub(crate) async fn create_network(network_name: &str) {
