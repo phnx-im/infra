@@ -148,11 +148,12 @@ pub struct SelfUser<T: Notifiable> {
 impl<T: Notifiable> SelfUser<T> {
     /// Create a new user with the given name and a fresh set of credentials.
     pub async fn new(
-        user_name: UserName,
+        user_name: impl Into<UserName>,
         password: &str,
         domain_or_address: impl Into<DomainOrAddress>,
         notification_hub: NotificationHub<T>,
     ) -> Self {
+        let user_name = user_name.into();
         log::debug!("Creating new user {}", user_name);
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
@@ -626,7 +627,8 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(conversation_message)
     }
 
-    pub async fn add_contact(&mut self, user_name: &UserName) {
+    pub async fn add_contact(&mut self, user_name: impl Into<UserName>) {
+        let user_name = user_name.into();
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };

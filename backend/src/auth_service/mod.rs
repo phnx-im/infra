@@ -188,6 +188,12 @@ impl From<String> for UserName {
     }
 }
 
+impl From<&String> for UserName {
+    fn from(value: &String) -> Self {
+        value.as_str().into()
+    }
+}
+
 impl std::fmt::Display for UserName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
