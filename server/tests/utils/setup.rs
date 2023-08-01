@@ -182,12 +182,11 @@ impl TestBackend {
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_name) {
                 let conversation_after = group_member.conversation(conversation_id).unwrap();
-                assert!(
-                    conversation_after.status
-                        == ConversationStatus::Inactive(InactiveConversation::new(
-                            group_members_before
-                        ))
-                );
+                assert!(matches!(&conversation_after.status,
+                ConversationStatus::Inactive(ic)
+                if HashSet::<UserName>::from_iter(ic.past_members()) ==
+                    HashSet::<UserName>::from_iter(group_members_before)
+                ));
             } else {
                 // ... if not, it should remove the members to be removed.
                 let group_members_after = HashSet::<UserName>::from_iter(
@@ -225,7 +224,9 @@ impl TestBackend {
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let group_members_before = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
 
             let qs_messages = group_member.qs_fetch_messages().await;
 
@@ -234,7 +235,9 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            let group_members_after = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
             assert_eq!(group_members_after, group_members_before);
         }
     }
