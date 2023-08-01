@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
-
 use openmls::prelude::GroupId;
 use phnxbackend::{auth_service::UserName, ds::api::QualifiedGroupId, qs::Fqdn};
 use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
@@ -144,20 +142,20 @@ pub enum ConversationStatus {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct InactiveConversation {
-    pub past_members: HashSet<String>,
+    pub past_members: Vec<String>,
 }
 
 impl InactiveConversation {
-    pub fn new(past_members: HashSet<UserName>) -> Self {
+    pub fn new(past_members: Vec<UserName>) -> Self {
         Self {
             past_members: past_members
                 .iter()
                 .map(|s| s.to_string())
-                .collect::<HashSet<String>>(),
+                .collect::<Vec<String>>(),
         }
     }
 
-    pub fn past_members(&self) -> HashSet<UserName> {
+    pub fn past_members(&self) -> Vec<UserName> {
         self.past_members
             .iter()
             .map(|s| UserName::from(s.clone()))
