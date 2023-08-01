@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 use flutter_rust_bridge::{RustOpaque, StreamSink};
 
+pub use crate::types::Conversation;
 pub use crate::types::*;
 use crate::{
     notifications::{Notifiable, NotificationHub},
@@ -20,6 +21,9 @@ mod bridge_generated;
 /// used in the parameters
 pub fn _expose_rust_state(rust_state: RustState) -> RustState {
     rust_state
+}
+pub fn _expose_conversation(conversation: Conversation) -> Conversation {
+    conversation
 }
 
 #[derive(Clone)]
@@ -70,5 +74,29 @@ impl RustState {
     pub async fn create_connection(&self, user_name: String) {
         let mut user = self.user.lock().unwrap();
         user.add_contact(&user_name).await;
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn fetch_messages(&self) {
+        let mut user = self.user.lock().unwrap();
+        let messages = user.qs_fetch_messages().await;
+        user.process_qs_messages(messages).await.unwrap();
+    }
+
+    pub fn get_conversations(&self) -> Vec<Conversation> {
+        let user = self.user.lock().unwrap();
+        user.get_conversations()
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn send_message(
+        &self,
+        conversation_id: UuidBytes,
+        message: MessageContentType,
+    ) -> ConversationMessage {
+        let mut user = self.user.lock().unwrap();
+        user.send_message(conversation_id.as_uuid(), message)
+            .await
+            .unwrap()
     }
 }

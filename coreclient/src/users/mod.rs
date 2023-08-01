@@ -993,7 +993,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
+    pub fn group_members(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .members()
@@ -1003,7 +1003,7 @@ impl<T: Notifiable> SelfUser<T> {
         })
     }
 
-    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<HashSet<UserName>> {
+    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
         self.group(conversation_id).map(|group| {
             group
                 .mls_group()

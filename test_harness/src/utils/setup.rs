@@ -120,12 +120,15 @@ impl TestBed {
         let test_updater = self.users.get_mut(&updater_name).unwrap();
         let updater = &mut test_updater.user;
 
-        let pending_removes = updater.pending_removes(conversation_id).unwrap();
-        let group_members_before = updater.group_members(conversation_id).unwrap();
+        let pending_removes =
+            HashSet::<UserName>::from_iter(updater.pending_removes(conversation_id).unwrap());
+        let group_members_before =
+            HashSet::from_iter(updater.group_members(conversation_id).unwrap());
 
         updater.update(conversation_id).await;
 
-        let group_members_after = updater.group_members(conversation_id).unwrap();
+        let group_members_after =
+            HashSet::<UserName>::from_iter(updater.group_members(conversation_id).unwrap());
         let difference: HashSet<UserName> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
@@ -143,7 +146,8 @@ impl TestBed {
             let group_member = &mut test_group_member.user;
             let qs_messages = group_member.qs_fetch_messages().await;
 
-            let pending_removes = group_member.pending_removes(conversation_id).unwrap();
+            let pending_removes =
+                HashSet::from_iter(group_member.pending_removes(conversation_id).unwrap());
             let group_members_before = group_member.group_members(conversation_id).unwrap();
 
             group_member
@@ -163,8 +167,10 @@ impl TestBed {
                 );
             } else {
                 // ... if not, it should remove the members to be removed.
-                let group_members_after = group_member.group_members(conversation_id).unwrap();
-                let difference: HashSet<UserName> = group_members_before
+                let group_members_after = HashSet::<UserName>::from_iter(
+                    group_member.group_members(conversation_id).unwrap(),
+                );
+                let difference: HashSet<UserName> = HashSet::from_iter(group_members_before)
                     .difference(&group_members_after)
                     .map(|s| s.to_owned())
                     .collect();
@@ -512,18 +518,22 @@ impl TestBed {
         );
 
         // Perform the invite operation and check that the invitees are now in the group.
-        let inviter_group_members_before: HashSet<UserName> = inviter
-            .group_members(conversation_id)
-            .expect("Error getting group members.");
+        let inviter_group_members_before = HashSet::<UserName>::from_iter(
+            inviter
+                .group_members(conversation_id)
+                .expect("Error getting group members."),
+        );
 
         inviter
             .invite_users(conversation_id, &invitee_names)
             .await
             .expect("Error inviting users.");
 
-        let inviter_group_members_after = inviter
-            .group_members(conversation_id)
-            .expect("Error getting group members.");
+        let inviter_group_members_after = HashSet::<UserName>::from_iter(
+            inviter
+                .group_members(conversation_id)
+                .expect("Error getting group members."),
+        );
         let new_members = inviter_group_members_after
             .difference(&inviter_group_members_before)
             .collect::<HashSet<_>>();
@@ -568,7 +578,9 @@ impl TestBed {
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let group_members_before = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
             let qs_messages = group_member.qs_fetch_messages().await;
 
             group_member
@@ -576,7 +588,9 @@ impl TestBed {
                 .await
                 .expect("Error processing qs messages.");
 
-            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            let group_members_after = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
             let new_members = group_members_after
                 .difference(&group_members_before)
                 .collect::<HashSet<_>>();
@@ -643,18 +657,22 @@ impl TestBed {
 
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
-        let remover_group_members_before = remover
-            .group_members(conversation_id)
-            .expect("Error getting group members.");
+        let remover_group_members_before = HashSet::<UserName>::from_iter(
+            remover
+                .group_members(conversation_id)
+                .expect("Error getting group members."),
+        );
 
         remover
             .remove_users(conversation_id, &removed_names)
             .await
             .expect("Error removing users.");
 
-        let remover_group_members_after = remover
-            .group_members(conversation_id)
-            .expect("Error getting group members.");
+        let remover_group_members_after = HashSet::<UserName>::from_iter(
+            remover
+                .group_members(conversation_id)
+                .expect("Error getting group members."),
+        );
         let removed_members = remover_group_members_before
             .difference(&remover_group_members_after)
             .map(|name| name.to_owned())
@@ -669,7 +687,8 @@ impl TestBed {
             let test_removed = self.users.get_mut(removed_name).unwrap();
             let removed = &mut test_removed.user;
             let removed_conversations_before = removed.get_conversations();
-            let past_members: HashSet<_> = removed.group_members(conversation_id).unwrap();
+            let past_members =
+                HashSet::<UserName>::from_iter(removed.group_members(conversation_id).unwrap());
 
             let qs_messages = removed.qs_fetch_messages().await;
 
@@ -687,7 +706,8 @@ impl TestBed {
                 ));
             assert!(conversation.id.as_uuid() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status {
-                let inactive_status_members: HashSet<UserName> = inactive_status.past_members();
+                let inactive_status_members =
+                    HashSet::<UserName>::from_iter(inactive_status.past_members());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -720,7 +740,9 @@ impl TestBed {
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let group_members_before = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
             let qs_messages = group_member.qs_fetch_messages().await;
 
             group_member
@@ -728,7 +750,9 @@ impl TestBed {
                 .await
                 .expect("Error processing qs messages.");
 
-            let group_members_after = group_member.group_members(conversation_id).unwrap();
+            let group_members_after = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
             let removed_members = group_members_before
                 .difference(&group_members_after)
                 .map(|name| name.to_owned())
@@ -818,13 +842,15 @@ impl TestBed {
             deleter_conversation_before.status,
             ConversationStatus::Active
         );
-        let past_members = deleter.group_members(conversation_id).unwrap();
+        let past_members =
+            HashSet::<UserName>::from_iter(deleter.group_members(conversation_id).unwrap());
 
         deleter.delete_group(conversation_id).await;
 
         let deleter_conversation_after = deleter.conversation(conversation_id).unwrap();
         if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status {
-            let inactive_status_members: HashSet<_> = inactive_status.past_members();
+            let inactive_status_members =
+                HashSet::<UserName>::from_iter(inactive_status.past_members());
             assert_eq!(inactive_status_members, past_members);
         } else {
             panic!("Conversation should be inactive.")
@@ -844,7 +870,9 @@ impl TestBed {
                 group_member_conversation_before.status,
                 ConversationStatus::Active
             );
-            let past_members: HashSet<_> = group_member.group_members(conversation_id).unwrap();
+            let past_members = HashSet::<UserName>::from_iter(
+                group_member.group_members(conversation_id).unwrap(),
+            );
 
             let qs_messages = group_member.qs_fetch_messages().await;
 
@@ -858,7 +886,8 @@ impl TestBed {
             if let ConversationStatus::Inactive(inactive_status) =
                 &group_member_conversation_after.status
             {
-                let inactive_status_members: HashSet<_> = inactive_status.past_members();
+                let inactive_status_members =
+                    HashSet::<UserName>::from_iter(inactive_status.past_members());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
