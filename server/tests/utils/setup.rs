@@ -14,8 +14,8 @@ use phnxbackend::{auth_service::UserName, qs::Fqdn};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, InactiveConversation, Message,
-        MessageContentType, NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
+        NotificationType,
     },
     users::SelfUser,
 };

@@ -4,46 +4,49 @@
 
 use std::collections::HashSet;
 
-use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
+use once_cell::sync::Lazy;
 use phnxbackend::qs::Fqdn;
 
-use crate::{utils::setup::TestBed, FEDERATION_TEST_GUEST_DOMAIN, FEDERATION_TEST_OWNER_DOMAIN};
+use crate::{
+    docker::{wait_until_servers_are_up, DockerTestBed},
+    utils::setup::TestBed,
+    TRACING,
+};
 
-pub async fn run_federation_scenario() {
-    // Wait until the health check succeeds before running the test container.
-    let mut domains: HashSet<Fqdn> = [
-        FEDERATION_TEST_OWNER_DOMAIN.into(),
-        FEDERATION_TEST_GUEST_DOMAIN.into(),
-    ]
-    .into();
-    let clients: Vec<ApiClient> = domains
-        .iter()
-        .map(|domain| ApiClient::initialize(domain.clone(), TransportEncryption::Off).unwrap())
-        .collect::<Vec<ApiClient>>();
+pub(crate) const TEST_DOMAIN_ONE: &str = "testdomainone.com";
+pub(crate) const TEST_DOMAIN_TWO: &str = "testdomaintwo.com";
 
-    // Do the health check
-    while !domains.is_empty() {
-        for client in &clients {
-            if client.health_check().await {
-                if let DomainOrAddress::Domain(domain) = client.domain_or_address() {
-                    domains.remove(domain);
-                } else {
-                    panic!("Expected domain")
-                }
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_secs(2))
-    }
+pub(crate) const TEST_DOMAINS: [&str; 2] = [TEST_DOMAIN_ONE, TEST_DOMAIN_TWO];
+pub const CONNECT_FEDERATED_USERS_SCENARIO_NAME: &str = "connect_federated_users";
 
+/// This function spawns the containers required to test a connection between
+/// two federated users.
+pub async fn connect_federated_users_scenario() {
+    Lazy::force(&TRACING);
     tracing::info!("Running federation test scenario");
-    let mut test_bed = TestBed::new([
-        FEDERATION_TEST_OWNER_DOMAIN.into(),
-        FEDERATION_TEST_GUEST_DOMAIN.into(),
-    ])
-    .await;
-    let alice_name = "alice".to_owned() + "@" + FEDERATION_TEST_OWNER_DOMAIN;
+
+    let mut docker = DockerTestBed::new(&[TEST_DOMAIN_ONE, TEST_DOMAIN_TWO]).await;
+
+    docker.start_test(CONNECT_FEDERATED_USERS_SCENARIO_NAME)
+}
+
+/// This function is meant to be called from the test container. It registers
+/// two clients, one on each test server and makes them perform the requests
+/// required to connect the two. Before running the test, it waits for the
+/// health check to succeed on both servers.
+pub async fn connect_federated_users() {
+    // Wait until the health check succeeds before running the test container.
+    let domains = TEST_DOMAINS
+        .iter()
+        .map(|&d| d.into())
+        .collect::<HashSet<Fqdn>>();
+    wait_until_servers_are_up(domains).await;
+
+    tracing::info!("Running federation test client");
+    let mut test_bed = TestBed::new().await;
+    let alice_name = "alice".to_owned() + "@" + TEST_DOMAIN_ONE;
     test_bed.add_user(alice_name.clone()).await;
-    let bob_name = "bob".to_owned() + "@" + FEDERATION_TEST_GUEST_DOMAIN;
+    let bob_name = "bob".to_owned() + "@" + TEST_DOMAIN_TWO;
     test_bed.add_user(bob_name.clone()).await;
     test_bed.connect_users(alice_name, bob_name).await;
     tracing::info!("Done");

@@ -8,7 +8,7 @@ use std::{
 };
 
 use phnxapiclient::DomainOrAddress;
-use phnxbackend::{auth_service::UserName, qs::Fqdn};
+use phnxbackend::auth_service::UserName;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -76,16 +76,13 @@ impl TestUser {
 pub struct TestBed {
     pub users: HashMap<UserName, TestUser>,
     pub groups: HashMap<Uuid, HashSet<UserName>>,
-    pub backends: HashSet<Fqdn>,
 }
 
 impl TestBed {
-    pub async fn new(backends: impl Into<HashSet<Fqdn>>) -> Self {
-        let backends = backends.into();
+    pub async fn new() -> Self {
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),
-            backends,
         }
     }
 
