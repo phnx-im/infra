@@ -5,18 +5,14 @@
 use std::collections::HashSet;
 
 use once_cell::sync::Lazy;
-use phnxbackend::qs::Fqdn;
 
 use crate::{
     docker::{wait_until_servers_are_up, DockerTestBed},
+    test_scenarios::{TEST_DOMAIN_ONE, TEST_DOMAIN_TWO},
     utils::setup::TestBed,
     TRACING,
 };
 
-pub(crate) const TEST_DOMAIN_ONE: &str = "testdomainone.com";
-pub(crate) const TEST_DOMAIN_TWO: &str = "testdomaintwo.com";
-
-pub(crate) const TEST_DOMAINS: [&str; 2] = [TEST_DOMAIN_ONE, TEST_DOMAIN_TWO];
 pub const CONNECT_FEDERATED_USERS_SCENARIO_NAME: &str = "connect_federated_users";
 
 /// This function spawns the containers required to test a connection between
@@ -34,12 +30,12 @@ pub async fn connect_federated_users_scenario() {
 /// two clients, one on each test server and makes them perform the requests
 /// required to connect the two. Before running the test, it waits for the
 /// health check to succeed on both servers.
-pub async fn connect_federated_users() {
+pub async fn connect_federated_users_runner() {
     // Wait until the health check succeeds before running the test container.
-    let domains = TEST_DOMAINS
+    let domains = [TEST_DOMAIN_ONE, TEST_DOMAIN_TWO]
         .iter()
         .map(|&d| d.into())
-        .collect::<HashSet<Fqdn>>();
+        .collect::<HashSet<_>>();
     wait_until_servers_are_up(domains).await;
 
     tracing::info!("Running federation test client");

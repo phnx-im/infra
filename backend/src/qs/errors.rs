@@ -31,6 +31,9 @@ pub enum QsEnqueueError<S: QsStorageProvider, N: NetworkProvider> {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
+    /// Invalid response
+    #[error("Invalid response")]
+    InvalidResponse,
 }
 
 /// Error enqueuing a fanned-out message.
@@ -197,6 +200,7 @@ pub enum QsClientKeyPackageError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsKeyPackageBatchError {
+    /// Library error
     #[error("Library Error")]
     LibraryError,
     /// Decryption error
@@ -213,16 +217,22 @@ pub enum QsKeyPackageBatchError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsVerifyingKeyError {
-    /// Error retrieving user key packages
-    #[error("Error retrieving user key packages")]
+    /// Library error
+    #[error("Library Error")]
+    LibraryError,
+    /// Error retrieving verifying key
+    #[error("Error retrieving verifying key")]
     StorageError,
+    /// Invalid response from remote QS
+    #[error("Invalid response from remote QS")]
+    InvalidResponse,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsEncryptionKeyError {
-    /// Error retrieving user key packages
-    #[error("Error retrieving user key packages")]
+    /// Error retrieving encryption key
+    #[error("Error retrieving encryption key")]
     StorageError,
 }
 

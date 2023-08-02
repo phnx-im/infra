@@ -6,12 +6,19 @@ use tls_codec::Serialize;
 
 use crate::{
     crypto::hpke::HpkeDecryptable,
-    messages::{intra_backend::DsFanOutMessage, qs_qs::QsToQsMessage, MlsInfraVersion},
+    messages::{
+        intra_backend::DsFanOutMessage,
+        qs_qs::{QsToQsMessage, QsToQsPayload},
+        MlsInfraVersion,
+    },
 };
 
 use super::{
-    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    storage_provider_trait::QsStorageProvider, ClientConfig, Qs, WebsocketNotifier,
+    errors::{QsEnqueueError, QsVerifyingKeyError},
+    network_provider_trait::NetworkProvider,
+    qs_api::FederatedProcessingResult,
+    storage_provider_trait::QsStorageProvider,
+    ClientConfig, Fqdn, Qs, QsVerifyingKey, WebsocketNotifier,
 };
 
 impl Qs {
@@ -35,7 +42,7 @@ impl Qs {
                 protocol_version: MlsInfraVersion::Alpha,
                 sender: own_domain.clone(),
                 recipient: message.client_reference.client_homeserver_domain.clone(),
-                fan_out_message: message.clone(),
+                payload: QsToQsPayload::FanOutMessageRequest(message.clone()),
             };
             let serialized_message = qs_to_qs_message
                 .tls_serialize_detached()
@@ -46,7 +53,14 @@ impl Qs {
                     message.client_reference.client_homeserver_domain,
                 )
                 .await
-                .map_err(QsEnqueueError::NetworkError)?
+                .map_err(QsEnqueueError::NetworkError)
+                .and_then(|result| {
+                    if matches!(result, FederatedProcessingResult::Ok) {
+                        Ok(())
+                    } else {
+                        Err(QsEnqueueError::InvalidResponse)
+                    }
+                })?
         } else {
             let decryption_key = storage_provider
                 .load_decryption_key()
@@ -79,5 +93,43 @@ impl Qs {
 
         // TODO: client now has new ratchet key, store it in the storage
         // provider.
+    }
+
+    /// Fetch the verifying key of the server with the given domain
+    #[tracing::instrument(skip_all, err)]
+    pub async fn verifying_key<S: QsStorageProvider, N: NetworkProvider>(
+        storage_provider: &S,
+        network_provider: &N,
+        domain: Fqdn,
+    ) -> Result<QsVerifyingKey, QsVerifyingKeyError> {
+        let own_domain = storage_provider.own_domain().await;
+        let verifying_key = if domain != own_domain {
+            let qs_to_qs_message = QsToQsMessage {
+                protocol_version: MlsInfraVersion::Alpha,
+                sender: own_domain.clone(),
+                recipient: domain.clone(),
+                payload: QsToQsPayload::VerificationKeyRequest,
+            };
+            let serialized_message = qs_to_qs_message
+                .tls_serialize_detached()
+                .map_err(|_| QsVerifyingKeyError::LibraryError)?;
+            let result = network_provider
+                .deliver(serialized_message, domain)
+                .await
+                .map_err(|_| QsVerifyingKeyError::InvalidResponse)?;
+            if let FederatedProcessingResult::VerifyingKey(verifying_key) = result {
+                verifying_key
+            } else {
+                return Err(QsVerifyingKeyError::InvalidResponse);
+            }
+        } else {
+            storage_provider
+                .load_signing_key()
+                .await
+                .map_err(|_| QsVerifyingKeyError::StorageError)?
+                .verifying_key()
+                .clone()
+        };
+        Ok(verifying_key)
     }
 }

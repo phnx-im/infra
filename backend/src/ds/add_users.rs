@@ -163,25 +163,39 @@ impl DsGroupState {
             .zip(params.encrypted_welcome_attribution_infos.into_iter())
         {
             let fqdn = key_package_batch.homeserver_domain().clone();
+
+            tracing::info!(
+                "Verifying key package batch with key from domain {:?}",
+                fqdn
+            );
             let key_package_batch: KeyPackageBatch<VERIFIED> =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
-                    key_package_batch
-                        .verify(verifying_key)
-                        .map_err(|_| AddUsersError::InvalidKeyPackageBatch)?
+                    key_package_batch.verify(verifying_key).map_err(|e| {
+                        tracing::warn!(
+                            "Error verifying key package batch with pre-fetched key: {:?}",
+                            e
+                        );
+                        AddUsersError::InvalidKeyPackageBatch
+                    })?
                 } else {
                     let verifying_key = qs_provider
-                        .verifying_key(&fqdn)
+                        .verifying_key(fqdn.clone())
                         .await
                         .map_err(|_| AddUsersError::FailedToObtainVerifyingKey)?;
-                    let kpb = key_package_batch
-                        .verify(&verifying_key)
-                        .map_err(|_| AddUsersError::InvalidKeyPackageBatch)?;
+                    let kpb = key_package_batch.verify(&verifying_key).map_err(|e| {
+                        tracing::warn!(
+                            "Error verifying key package batch with freshly fetched key: {:?}",
+                            e
+                        );
+                        AddUsersError::InvalidKeyPackageBatch
+                    })?;
                     verifying_keys.insert(fqdn, verifying_key);
                     kpb
                 };
 
             // Validate freshness of the batch.
             if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION_DAYS) {
+                tracing::warn!("Key package batch has expired");
                 return Err(AddUsersError::InvalidKeyPackageBatch);
             }
 
@@ -193,6 +207,7 @@ impl DsGroupState {
                     // KeyPackages belonging to one user in the tree.
                     key_packages.push(added_client);
                 } else {
+                    tracing::warn!("Incomplete KeyPackageBatch");
                     return Err(AddUsersError::InvalidKeyPackageBatch);
                 }
             }

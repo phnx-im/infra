@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
-
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
@@ -14,7 +12,7 @@ use phnxbackend::{
         credentials::{
             keys::{ClientSigningKey, InfraCredentialSigningKey},
             AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialCsr,
-            ClientCredentialPayload, ExpirationData,
+            ClientCredentialPayload, CredentialFingerprint, ExpirationData,
         },
         AsClientId, OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
     },
@@ -37,8 +35,8 @@ use phnxbackend::{
     ds::api::QS_CLIENT_REFERENCE_EXTENSION_TYPE,
     messages::{
         client_as::{
-            AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackage,
-            ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams,
+            AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackageTbs,
+            FriendshipPackage, UserConnectionPackagesParams,
         },
         client_ds::QsQueueRatchet,
         client_ds_out::CreateGroupParamsOut,
@@ -51,10 +49,16 @@ use phnxbackend::{
 };
 use rand::rngs::OsRng;
 
-use crate::contacts::{Contact, ContactAddInfos, PartialContact};
+use crate::{
+    contacts::{Contact, ContactAddInfos, PartialContact},
+    users::key_store::AsCredentials,
+};
+
+use self::key_store::MemoryUserKeyStore;
 
 use super::*;
 
+pub mod key_store;
 pub mod process;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
@@ -64,35 +68,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-pub(crate) struct MemoryUserKeyStore {
-    // Client credential secret key
-    signing_key: ClientSigningKey,
-    // AS-specific key material
-    as_queue_decryption_key: RatchetDecryptionKey,
-    as_queue_ratchet: AsQueueRatchet,
-    connection_decryption_key: ConnectionDecryptionKey,
-    as_credentials: HashMap<Fqdn, Vec<AsCredential>>,
-    as_intermediate_credentials: HashMap<Fqdn, Vec<AsIntermediateCredential>>,
-    // QS-specific key material
-    qs_client_signing_key: QsClientSigningKey,
-    qs_user_signing_key: QsUserSigningKey,
-    qs_queue_decryption_key: RatchetDecryptionKey,
-    qs_queue_ratchet: QsQueueRatchet,
-    qs_verifying_keys: HashMap<Fqdn, QsVerifyingKey>,
-    qs_client_id_encryption_key: ClientIdEncryptionKey,
-    push_token_ear_key: PushTokenEarKey,
-    // These are keys that we send to our contacts
-    friendship_token: FriendshipToken,
-    add_package_ear_key: AddPackageEarKey,
-    client_credential_ear_key: ClientCredentialEarKey,
-    signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    wai_ear_key: WelcomeAttributionInfoEarKey,
-    // Leaf credentials in KeyPackages the active ones are stored in the group
-    // that they belong to.
-    leaf_signers: HashMap<SignaturePublicKey, (InfraCredentialSigningKey, SignatureEarKey)>,
-}
-
-struct ApiClients {
+pub(crate) struct ApiClients {
     // We store our own domain such that we can manually map our own domain to
     // an API client that uses an IP address instead of the actual domain. This
     // is a temporary workaround and should probably be replaced by a more
@@ -157,9 +133,13 @@ impl<T: Notifiable> SelfUser<T> {
         log::debug!("Creating new user {}", user_name);
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
+        let domain = user_name.domain();
         let domain_or_address = domain_or_address.into();
-        let api_client =
-            ApiClient::initialize(domain_or_address.clone(), TransportEncryption::Off).unwrap();
+        let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
+
+        let as_credentials = AsCredentials::new(&mut api_clients, &domain).await;
+
+        let api_client = api_clients.default_client();
 
         let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone()).unwrap();
         let (client_credential_csr, prelim_signing_key) =
@@ -173,7 +153,9 @@ impl<T: Notifiable> SelfUser<T> {
                 let as_credential = as_credentials_response
                     .as_credentials
                     .iter()
-                    .find(|as_cred| &as_cred.fingerprint().unwrap() == as_inter_cred.fingerprint())
+                    .find(|as_cred| {
+                        &as_cred.fingerprint().unwrap() == as_inter_cred.signer_fingerprint()
+                    })
                     .unwrap();
                 as_inter_cred.verify(as_credential.verifying_key()).unwrap()
             })
@@ -205,7 +187,6 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
 
         // Complete the OPAQUE registration.
-        let domain = user_name.domain();
         let user_name_bytes = user_name.to_bytes();
         let identifiers = Identifiers {
             client: Some(&user_name_bytes),
@@ -251,17 +232,12 @@ impl<T: Notifiable> SelfUser<T> {
         let qs_encryption_key = api_client.qs_encryption_key().await.unwrap().encryption_key;
         let connection_decryption_key = ConnectionDecryptionKey::generate().unwrap();
 
-        let as_credentials = [(user_name.domain(), as_credentials_response.as_credentials)].into();
-        let as_intermediate_credentials =
-            [(user_name.domain(), as_intermediate_credentials)].into();
-
         let key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
             as_queue_ratchet: as_initial_ratchet_secret.clone().try_into().unwrap(),
             connection_decryption_key,
             as_credentials,
-            as_intermediate_credentials,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
@@ -329,7 +305,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         let mut user = Self {
             crypto_backend,
-            api_clients: ApiClients::new(user_name.domain(), domain_or_address),
+            api_clients,
             user_name,
             conversation_store: ConversationStore::default(),
             group_store: GroupStore::default(),
@@ -635,44 +611,6 @@ impl<T: Notifiable> SelfUser<T> {
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_domain = user_name.domain();
-
-        // Get the AS authentication key material if we don't have it already.
-        let as_intermediate_credentials =
-            match self.key_store.as_intermediate_credentials.get(&user_domain) {
-                Some(as_intermediate_credentials) => as_intermediate_credentials,
-                None => {
-                    let credential_response = self
-                        .api_clients
-                        .get(&user_domain)
-                        .as_as_credentials()
-                        .await
-                        .unwrap();
-                    let as_intermediate_credentials: Vec<AsIntermediateCredential> =
-                        credential_response
-                            .as_intermediate_credentials
-                            .into_iter()
-                            .map(|as_inter_cred| {
-                                let as_credential = credential_response
-                                    .as_credentials
-                                    .iter()
-                                    .find(|as_cred| {
-                                        &as_cred.fingerprint().unwrap()
-                                            == as_inter_cred.fingerprint()
-                                    })
-                                    .unwrap();
-                                as_inter_cred.verify(as_credential.verifying_key()).unwrap()
-                            })
-                            .collect();
-                    self.key_store
-                        .as_credentials
-                        .insert(user_domain.clone(), credential_response.as_credentials);
-                    self.key_store
-                        .as_intermediate_credentials
-                        .entry(user_domain.clone())
-                        .or_insert(as_intermediate_credentials)
-                }
-            };
-
         let user_key_packages = self
             .api_clients
             .get(&user_domain)
@@ -681,24 +619,20 @@ impl<T: Notifiable> SelfUser<T> {
             .unwrap();
         let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
-        let verified_connection_packages: Vec<ConnectionPackage> = connection_packages
-            .into_iter()
-            .map(|cp| {
-                let verifying_key = as_intermediate_credentials
-                    .iter()
-                    .find_map(|as_intermediate_credential| {
-                        if &as_intermediate_credential.fingerprint().unwrap()
-                            == cp.client_credential_signer_fingerprint()
-                        {
-                            Some(as_intermediate_credential.verifying_key())
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap();
-                cp.verify(verifying_key).unwrap()
-            })
-            .collect();
+        let mut verified_connection_packages = vec![];
+        for connection_package in connection_packages.into_iter() {
+            let as_intermediate_credential = self
+                .key_store
+                .as_credentials
+                .get(
+                    &mut self.api_clients,
+                    &user_domain,
+                    connection_package.client_credential_signer_fingerprint(),
+                )
+                .await;
+            let verifying_key = as_intermediate_credential.verifying_key();
+            verified_connection_packages.push(connection_package.verify(verifying_key).unwrap())
+        }
 
         // TODO: Connection Package Validation
         // * Version

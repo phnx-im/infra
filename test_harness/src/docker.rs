@@ -31,6 +31,7 @@ impl DockerTestBed {
             stop_docker_container(&server_container_name);
         }
     }
+
     pub async fn new(domains: &[&str]) -> Self {
         // Make sure that Docker is actually running
         assert_docker_is_running();
