@@ -258,12 +258,6 @@ impl TestBed {
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
-        tracing::info!(
-            "Conversation type of {} should be {:?}, but is actually {:?}",
-            user1_name,
-            ConversationType::UnconfirmedConnection(user2_name.to_bytes()),
-            conversation.conversation_type,
-        );
         assert!(
             conversation.conversation_type
                 == ConversationType::UnconfirmedConnection(user2_name.to_bytes())

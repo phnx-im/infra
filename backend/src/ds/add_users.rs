@@ -164,10 +164,6 @@ impl DsGroupState {
         {
             let fqdn = key_package_batch.homeserver_domain().clone();
 
-            tracing::info!(
-                "Verifying key package batch with key from domain {:?}",
-                fqdn
-            );
             let key_package_batch: KeyPackageBatch<VERIFIED> =
                 if let Some(verifying_key) = verifying_keys.get(&fqdn) {
                     key_package_batch.verify(verifying_key).map_err(|e| {

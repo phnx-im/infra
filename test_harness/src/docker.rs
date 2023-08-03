@@ -70,14 +70,11 @@ impl DockerTestBed {
         let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_scenario_name);
 
         let mut env_variables = vec![test_scenario_env_variable, "TEST_LOG=true".to_owned()];
+
         for (index, server) in self.servers.keys().enumerate() {
             env_variables.push(format!("PHNX_SERVER_{}={}", index, server));
         }
 
-        tracing::info!(
-            "Running docker image with env variables: {:?}",
-            env_variables
-        );
         let test_runner_result = run_docker_container(
             &image_name,
             &container_name,
