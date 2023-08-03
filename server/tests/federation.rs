@@ -15,3 +15,21 @@ async fn connect_federated_users() {
 async fn federated_group_operations() {
     run_test_scenario(FederationTestScenario::GroupOperations).await;
 }
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Federated group invitations test", skip_all)]
+async fn invite_federated_users() {
+    run_test_scenario(FederationTestScenario::InviteToGroup).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Federated group removal test", skip_all)]
+async fn remove_federated_users() {
+    run_test_scenario(FederationTestScenario::RemoveFromGroup).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Leave federated group test", skip_all)]
+async fn leave_federated_group() {
+    run_test_scenario(FederationTestScenario::LeaveGroup).await;
+}

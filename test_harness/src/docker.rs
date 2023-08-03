@@ -33,7 +33,7 @@ impl DockerTestBed {
         }
     }
 
-    pub async fn new(scenario: FederationTestScenario) -> Self {
+    pub async fn new(scenario: &FederationTestScenario) -> Self {
         // Make sure that Docker is actually running
         assert_docker_is_running();
 
@@ -163,7 +163,7 @@ fn create_and_start_server_container(
 }
 
 /// This function has to be called from the container that runs the tests.
-pub(crate) async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
+pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
     let mut domains = domains.into();
     let clients: Vec<ApiClient> = domains
         .iter()

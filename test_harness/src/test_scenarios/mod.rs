@@ -6,20 +6,26 @@ use once_cell::sync::Lazy;
 
 use crate::{docker::DockerTestBed, TRACING};
 
-pub mod connect_federated_users;
+pub mod basic_group_operations;
 pub mod federated_group_operations;
 
 #[derive(Debug, Clone)]
 pub enum FederationTestScenario {
     ConnectUsers,
+    InviteToGroup,
+    RemoveFromGroup,
+    LeaveGroup,
     GroupOperations,
 }
 
 impl FederationTestScenario {
     pub(crate) fn number_of_servers(&self) -> usize {
         match self {
-            Self::ConnectUsers => connect_federated_users::NUMBER_OF_SERVERS,
+            Self::ConnectUsers => basic_group_operations::NUMBER_OF_SERVERS,
+            Self::InviteToGroup => basic_group_operations::NUMBER_OF_SERVERS,
             Self::GroupOperations => federated_group_operations::NUMBER_OF_SERVERS,
+            Self::RemoveFromGroup => basic_group_operations::NUMBER_OF_SERVERS,
+            Self::LeaveGroup => basic_group_operations::NUMBER_OF_SERVERS,
         }
     }
 }
@@ -31,6 +37,9 @@ impl From<String> for FederationTestScenario {
         match value.as_str() {
             "connectusers" => Self::ConnectUsers,
             "groupoperations" => Self::GroupOperations,
+            "removefromgroup" => Self::RemoveFromGroup,
+            "leavegroup" => Self::LeaveGroup,
+            "invitetogroup" => Self::InviteToGroup,
             other => panic!("Unknown federation test scenario: {}", other),
         }
     }
@@ -45,10 +54,11 @@ impl std::fmt::Display for FederationTestScenario {
 
 pub async fn run_test_scenario(scenario: FederationTestScenario) {
     Lazy::force(&TRACING);
-    let scenario_string = scenario.to_string();
-    tracing::info!("Running federation test scenario: {}", scenario_string);
+    tracing::info!("Running federation test scenario: {}", scenario);
 
-    let mut docker = DockerTestBed::new(scenario).await;
+    let mut docker = DockerTestBed::new(&scenario).await;
 
-    docker.start_test(&scenario_string)
+    docker.start_test(&scenario.clone().to_string());
+
+    tracing::info!("Done running federation test scenario: {}", scenario);
 }
