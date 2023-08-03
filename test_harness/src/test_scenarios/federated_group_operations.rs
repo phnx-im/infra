@@ -2,47 +2,32 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
+use phnxbackend::qs::Fqdn;
 
-use once_cell::sync::Lazy;
+use crate::{docker::wait_until_servers_are_up, utils::setup::TestBed};
 
-use crate::{
-    docker::{wait_until_servers_are_up, DockerTestBed},
-    test_scenarios::{TEST_DOMAIN_ONE, TEST_DOMAIN_THREE, TEST_DOMAIN_TWO},
-    utils::setup::TestBed,
-    TRACING,
-};
-
-pub const FEDERATED_GROUP_OPERATIONS_SCENARIO_NAME: &str = "federated_group_operations";
-
-/// This function spawns the containers required to test a connection between
-/// two federated users.
-pub async fn federated_group_operations_scenario() {
-    Lazy::force(&TRACING);
-    tracing::info!("Running federation test scenario");
-
-    let mut docker =
-        DockerTestBed::new(&[TEST_DOMAIN_ONE, TEST_DOMAIN_TWO, TEST_DOMAIN_THREE]).await;
-
-    docker.start_test(FEDERATED_GROUP_OPERATIONS_SCENARIO_NAME)
-}
+pub(super) const NUMBER_OF_SERVERS: usize = 3;
 
 pub async fn federated_group_operations_runner() {
     // Wait until the health check succeeds before running the test container.
-    let domains = [TEST_DOMAIN_ONE, TEST_DOMAIN_TWO, TEST_DOMAIN_THREE]
-        .iter()
-        .map(|&d| d.into())
-        .collect::<HashSet<_>>();
-    wait_until_servers_are_up(domains).await;
+    let domains: [Fqdn; NUMBER_OF_SERVERS] = (0..NUMBER_OF_SERVERS)
+        .map(|index| {
+            let env_var_name = format!("PHNX_SERVER_{}", index);
+            std::env::var(env_var_name).unwrap().into()
+        })
+        .collect::<Vec<Fqdn>>()
+        .try_into()
+        .unwrap();
+    wait_until_servers_are_up(domains.clone()).await;
 
     tracing::info!("Running federation test client");
     // Create three users.
     let mut test_bed = TestBed::new().await;
-    let alice_name = "alice".to_owned() + "@" + TEST_DOMAIN_ONE;
+    let alice_name = format!("alice@{}", domains[0]);
     test_bed.add_user(alice_name.clone()).await;
-    let bob_name = "bob".to_owned() + "@" + TEST_DOMAIN_TWO;
+    let bob_name = format!("bob@{}", domains[1]);
     test_bed.add_user(bob_name.clone()).await;
-    let charlie_name = "charlie".to_owned() + "@" + TEST_DOMAIN_THREE;
+    let charlie_name = format!("charlie@{}", domains[2]);
     test_bed.add_user(charlie_name.clone()).await;
 
     // Connect alice and bob.

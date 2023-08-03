@@ -5,12 +5,8 @@
 use once_cell::sync::Lazy;
 use phnxserver::telemetry::{get_subscriber, init_subscriber};
 use phnxserver_test_harness::test_scenarios::{
-    connect_federated_users::{
-        connect_federated_users_runner, CONNECT_FEDERATED_USERS_SCENARIO_NAME,
-    },
-    federated_group_operations::{
-        federated_group_operations_runner, FEDERATED_GROUP_OPERATIONS_SCENARIO_NAME,
-    },
+    connect_federated_users::connect_federated_users_runner,
+    federated_group_operations::federated_group_operations_runner, FederationTestScenario,
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -31,13 +27,10 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 #[tokio::main]
 async fn main() {
     Lazy::force(&TRACING);
-    let scenario_name = std::env::var("PHNX_TEST_SCENARIO").unwrap();
+    let scenario_name = std::env::var("PHNX_TEST_SCENARIO").unwrap().into();
 
-    match scenario_name.as_str() {
-        CONNECT_FEDERATED_USERS_SCENARIO_NAME => connect_federated_users_runner().await,
-        FEDERATED_GROUP_OPERATIONS_SCENARIO_NAME => federated_group_operations_runner().await,
-        _ => {
-            panic!("Unknown test scenario: {}", scenario_name);
-        }
+    match scenario_name {
+        FederationTestScenario::ConnectUsers => connect_federated_users_runner().await,
+        FederationTestScenario::GroupOperations => federated_group_operations_runner().await,
     }
 }

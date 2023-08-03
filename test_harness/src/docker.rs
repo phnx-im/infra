@@ -10,16 +10,17 @@ use std::{
 use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
 use phnxbackend::qs::Fqdn;
 
-const DOCKER_NETWORK_NAME: &str = "phnx_test_network";
+use crate::test_scenarios::FederationTestScenario;
 
 pub(crate) struct DockerTestBed {
     servers: HashMap<Fqdn, Child>,
+    network_name: String,
 }
 
 impl Drop for DockerTestBed {
     fn drop(&mut self) {
         self.stop_all_servers();
-        remove_network(DOCKER_NETWORK_NAME);
+        remove_network(&self.network_name);
     }
 }
 
@@ -32,22 +33,26 @@ impl DockerTestBed {
         }
     }
 
-    pub async fn new(domains: &[&str]) -> Self {
+    pub async fn new(scenario: FederationTestScenario) -> Self {
         // Make sure that Docker is actually running
         assert_docker_is_running();
 
+        let network_name = format!("{scenario}_network");
         // Create docker network
-        create_network(DOCKER_NETWORK_NAME);
+        create_network(&network_name);
+        let servers = (0..scenario.number_of_servers())
+            .into_iter()
+            .map(|index| {
+                let domain = format!("{}{}.com", scenario, index).into();
+                let server = create_and_start_server_container(&domain, Some(&network_name));
+                (domain.clone(), server)
+            })
+            .collect::<HashMap<_, _>>();
 
-        let domains: HashSet<Fqdn> = domains.iter().map(|&domain| domain.into()).collect();
-
-        let mut servers = HashMap::new();
-        for domain in domains.iter() {
-            let server = create_and_start_server_container(&domain, Some(DOCKER_NETWORK_NAME));
-            servers.insert(domain.clone(), server);
+        Self {
+            servers,
+            network_name,
         }
-
-        Self { servers }
     }
 
     pub fn start_test(&mut self, test_scenario_name: &str) {
@@ -64,14 +69,22 @@ impl DockerTestBed {
 
         let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_scenario_name);
 
-        tracing::info!("Running docker image");
+        let mut env_variables = vec![test_scenario_env_variable, "TEST_LOG=true".to_owned()];
+        for (index, server) in self.servers.keys().enumerate() {
+            env_variables.push(format!("PHNX_SERVER_{}={}", index, server));
+        }
+
+        tracing::info!(
+            "Running docker image with env variables: {:?}",
+            env_variables
+        );
         let test_runner_result = run_docker_container(
             &image_name,
             &container_name,
-            &[&test_scenario_env_variable, "TEST_LOG=true"],
+            &env_variables,
             // No hostname required for the test container
             None,
-            Some(DOCKER_NETWORK_NAME),
+            Some(&self.network_name),
         )
         .wait()
         .unwrap();
@@ -98,7 +111,7 @@ fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
 fn run_docker_container(
     image_name: &str,
     container_name: &str,
-    env_variables: &[&str],
+    env_variables: &[String],
     hostname_option: Option<&str>,
     network_name_option: Option<&str>,
 ) -> Child {
@@ -143,7 +156,7 @@ fn create_and_start_server_container(
     run_docker_container(
         &image_name,
         &container_name,
-        &[&server_domain_env_variable],
+        &[server_domain_env_variable],
         Some(&server_domain.to_string()),
         network_name_option,
     )

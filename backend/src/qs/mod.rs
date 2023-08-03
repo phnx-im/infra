@@ -403,6 +403,12 @@ impl From<&str> for Fqdn {
     }
 }
 
+impl From<String> for Fqdn {
+    fn from(domain: String) -> Self {
+        domain.as_str().into()
+    }
+}
+
 #[derive(
     Clone,
     Debug,
