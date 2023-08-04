@@ -33,3 +33,9 @@ async fn remove_federated_users() {
 async fn leave_federated_group() {
     run_test_scenario(FederationTestScenario::LeaveGroup).await;
 }
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Randomized operations test", skip_all)]
+async fn randomized_federated_operations() {
+    run_test_scenario(FederationTestScenario::RandomizedOperations).await;
+}

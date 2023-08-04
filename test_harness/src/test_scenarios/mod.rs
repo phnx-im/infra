@@ -8,7 +8,10 @@ use crate::{docker::DockerTestBed, TRACING};
 
 pub mod basic_group_operations;
 pub mod federated_group_operations;
+pub mod randomized_operations;
 
+// When adding a test scenario, don't forget to add it to the `From<String>`
+// implementation.
 #[derive(Debug, Clone)]
 pub enum FederationTestScenario {
     ConnectUsers,
@@ -16,6 +19,7 @@ pub enum FederationTestScenario {
     RemoveFromGroup,
     LeaveGroup,
     GroupOperations,
+    RandomizedOperations,
 }
 
 impl FederationTestScenario {
@@ -26,6 +30,7 @@ impl FederationTestScenario {
             Self::GroupOperations => federated_group_operations::NUMBER_OF_SERVERS,
             Self::RemoveFromGroup => basic_group_operations::NUMBER_OF_SERVERS,
             Self::LeaveGroup => basic_group_operations::NUMBER_OF_SERVERS,
+            Self::RandomizedOperations => randomized_operations::NUMBER_OF_SERVERS,
         }
     }
 }
@@ -40,6 +45,7 @@ impl From<String> for FederationTestScenario {
             "removefromgroup" => Self::RemoveFromGroup,
             "leavegroup" => Self::LeaveGroup,
             "invitetogroup" => Self::InviteToGroup,
+            "randomizedoperations" => Self::RandomizedOperations,
             other => panic!("Unknown federation test scenario: {}", other),
         }
     }

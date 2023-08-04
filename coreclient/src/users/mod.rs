@@ -951,4 +951,8 @@ impl<T: Notifiable> SelfUser<T> {
                 .collect()
         })
     }
+
+    pub fn conversations(&self) -> Vec<Conversation> {
+        self.conversation_store.conversations()
+    }
 }

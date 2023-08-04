@@ -17,7 +17,7 @@ use phnxcoreclient::{
     },
     users::SelfUser,
 };
-use rand::{rngs::OsRng, Rng};
+use rand::{rngs::OsRng, seq::IteratorRandom, Rng, RngCore};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -79,6 +79,145 @@ pub struct TestBed {
 }
 
 impl TestBed {
+    pub fn random_user(&self, rng: &mut impl RngCore) -> UserName {
+        self.users
+            .keys()
+            .choose(rng)
+            .expect("There should be at least one user")
+            .clone()
+    }
+
+    pub async fn perform_random_operation(&mut self, rng: &mut impl RngCore) {
+        // Get a user to perform the operation
+        let random_user = self.random_user(rng);
+        // Possible actions:
+        // 0: Establish a connection
+        // 1: Create a group and invite one or more users
+        // 2: Invite up to 5 users to a group
+        // 3: Remove up to 5 users from a group
+        // 4: Leave a group
+        // Message sending is covered, as it's done as part of all of those
+        // actions. If one of the actions is not possible, it is skipped.
+        // TODO: Breaking up of connections
+        let action = rng.gen_range(0..=3);
+        match action {
+            // Establish a connection
+            0 => {
+                if let Some(other_user) = self
+                    .users
+                    .keys()
+                    .filter(|&other_user| {
+                        let is_contact = self
+                            .users
+                            .get(other_user)
+                            .unwrap()
+                            .user()
+                            .contacts()
+                            .into_iter()
+                            .any(|contact| &contact.user_name == other_user);
+                        // The other user can't be the same user and the other
+                        //  user can't already be connected
+                        other_user != &random_user && !is_contact
+                    })
+                    .choose(rng)
+                {
+                    self.connect_users(random_user, other_user.clone()).await;
+                }
+            }
+            1 => {
+                self.create_group(random_user).await;
+                // TODO: Invite user(s)
+            }
+            2 => {
+                // Pick a group
+                let user = self.users.get(&random_user).unwrap();
+                // Let's exclude connection groups for now.
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                    })
+                    .choose(rng)
+                {
+                    let number_of_invitees = rng.gen_range(1..=5);
+                    let invitee_names = self
+                        .users
+                        .keys()
+                        .filter(|&invitee| {
+                            // The invitee user can't be already in the group, can't
+                            // be the random user and must be connected
+                            let is_group_member = self
+                                .groups
+                                .get(&conversation.id.as_uuid())
+                                .unwrap()
+                                .contains(invitee);
+                            let is_connected = user
+                                .user()
+                                .contacts()
+                                .into_iter()
+                                .any(|contact| &contact.user_name == invitee);
+                            !is_group_member && is_connected && invitee != &random_user
+                        })
+                        .cloned()
+                        .choose_multiple(rng, number_of_invitees);
+                    // It can happen that there are no suitable users to invite
+                    if invitee_names.len() > 0 {
+                        self.invite_to_group(conversation.id.as_uuid(), random_user, invitee_names)
+                            .await;
+                    }
+                }
+            }
+            3 => {
+                let user = self.users.get(&random_user).unwrap();
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                    })
+                    .choose(rng)
+                {
+                    let number_of_removals = rng.gen_range(1..=5);
+                    let members_to_remove = self
+                        .groups
+                        .get(&conversation.id.as_uuid())
+                        .unwrap()
+                        .iter()
+                        .filter(|&member| member != &random_user)
+                        .cloned()
+                        .choose_multiple(rng, number_of_removals);
+                    if members_to_remove.len() > 0 {
+                        self.remove_from_group(
+                            conversation.id.as_uuid(),
+                            random_user,
+                            members_to_remove,
+                        )
+                        .await;
+                    }
+                }
+            }
+            4 => {
+                let user = self.users.get(&random_user).unwrap();
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                    })
+                    .choose(rng)
+                {
+                    self.leave_group(conversation.id.as_uuid(), random_user)
+                        .await;
+                }
+            }
+            _ => panic!("Invalid action"),
+        }
+    }
+
     pub async fn new() -> Self {
         Self {
             users: HashMap::new(),
