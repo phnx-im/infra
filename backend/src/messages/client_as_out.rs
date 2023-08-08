@@ -2,17 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashMap;
-
 use mls_assist::openmls::prelude::GroupId;
 use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     auth_service::{
         credentials::{
-            keys::AsIntermediateVerifyingKey, AsCredential, AsIntermediateCredential,
-            ClientCredential, CredentialFingerprint, ExpirationData,
-            VerifiableAsIntermediateCredential, VerifiableClientCredential,
+            keys::AsIntermediateVerifyingKey, AsCredential, ClientCredential,
+            CredentialFingerprint, ExpirationData, VerifiableAsIntermediateCredential,
+            VerifiableClientCredential,
         },
         errors::AsVerificationError,
         storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
@@ -34,7 +32,6 @@ use crate::{
         },
         ConnectionDecryptionKey, ConnectionEncryptionKey, RatchetEncryptionKey,
     },
-    qs::Fqdn,
 };
 
 use super::{
@@ -444,24 +441,14 @@ impl ConnectionEstablishmentPackageIn {
         &self.payload.sender_client_credential
     }
 
-    pub fn verify_all(
+    pub fn verify(
         self,
-        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
+        verifying_key: &AsIntermediateVerifyingKey,
     ) -> ConnectionEstablishmentPackageTbs {
-        let as_intermediate_credentials = as_intermediate_credentials
-            .get(&self.payload.sender_client_credential.domain())
-            .unwrap();
-        let as_credential = as_intermediate_credentials
-            .iter()
-            .find(|as_cred| {
-                &as_cred.fingerprint().unwrap()
-                    == self.payload.sender_client_credential.signer_fingerprint()
-            })
-            .unwrap();
         let sender_client_credential: ClientCredential = self
             .payload
             .sender_client_credential
-            .verify(as_credential.verifying_key())
+            .verify(verifying_key)
             .unwrap();
         ConnectionEstablishmentPackageTbs {
             sender_client_credential,

@@ -6,11 +6,15 @@ use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::Debug;
 
-use super::Fqdn;
+use super::{qs_api::FederatedProcessingResult, Fqdn};
 
 #[async_trait]
 pub trait NetworkProvider: Sync + Send + Debug + 'static {
     type NetworkError: Error + Debug + Clone;
 
-    async fn deliver(&self, bytes: Vec<u8>, destination: Fqdn) -> Result<(), Self::NetworkError>;
+    async fn deliver(
+        &self,
+        bytes: Vec<u8>,
+        destination: Fqdn,
+    ) -> Result<FederatedProcessingResult, Self::NetworkError>;
 }

@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
         .as_str()
         .into();
     tracing::info!("Starting server with domain {}.", domain);
-    let network_provider = Arc::new(MockNetworkProvider::new());
+    let network_provider = MockNetworkProvider::new();
 
     let ds_storage_provider = MemoryDsStorage::new(domain.clone());
     let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
@@ -50,7 +50,7 @@ async fn main() -> std::io::Result<()> {
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
-        network: network_provider,
+        network: network_provider.clone(),
     };
 
     // Start the server
@@ -62,6 +62,7 @@ async fn main() -> std::io::Result<()> {
         as_storage_provider,
         as_ephemeral_storage_provider,
         qs_connector,
+        network_provider,
     )?
     .await
 }

@@ -2,11 +2,95 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tokio::process::{Child, Command};
+use std::{
+    collections::{HashMap, HashSet},
+    process::{Child, Command, Stdio},
+};
 
+use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
 use phnxbackend::qs::Fqdn;
 
-async fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
+use crate::test_scenarios::FederationTestScenario;
+
+pub(crate) struct DockerTestBed {
+    servers: HashMap<Fqdn, Child>,
+    network_name: String,
+}
+
+impl Drop for DockerTestBed {
+    fn drop(&mut self) {
+        self.stop_all_servers();
+        remove_network(&self.network_name);
+    }
+}
+
+impl DockerTestBed {
+    fn stop_all_servers(&mut self) {
+        for (domain, _server) in self.servers.iter_mut() {
+            tracing::info!("Stopping docker container of server {domain}");
+            let server_container_name = format!("{}_server_container", domain);
+            stop_docker_container(&server_container_name);
+        }
+    }
+
+    pub async fn new(scenario: &FederationTestScenario) -> Self {
+        // Make sure that Docker is actually running
+        assert_docker_is_running();
+
+        let network_name = format!("{scenario}_network");
+        // Create docker network
+        create_network(&network_name);
+        let servers = (0..scenario.number_of_servers())
+            .into_iter()
+            .map(|index| {
+                let domain = format!("{}{}.com", scenario, index).into();
+                let server = create_and_start_server_container(&domain, Some(&network_name));
+                (domain.clone(), server)
+            })
+            .collect::<HashMap<_, _>>();
+
+        Self {
+            servers,
+            network_name,
+        }
+    }
+
+    pub fn start_test(&mut self, test_scenario_name: &str) {
+        // This function builds the test image and starts the container.
+
+        // First go into the workspace dir s.t. we can build the docker image.
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
+
+        let image_name = format!("{}_image", test_scenario_name);
+        let container_name = format!("{}_container", test_scenario_name);
+
+        build_docker_image("test_harness/Dockerfile", &image_name);
+
+        let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_scenario_name);
+
+        let mut env_variables = vec![test_scenario_env_variable, "TEST_LOG=true".to_owned()];
+
+        for (index, server) in self.servers.keys().enumerate() {
+            env_variables.push(format!("PHNX_SERVER_{}={}", index, server));
+        }
+
+        let test_runner_result = run_docker_container(
+            &image_name,
+            &container_name,
+            &env_variables,
+            // No hostname required for the test container
+            None,
+            Some(&self.network_name),
+        )
+        .wait()
+        .unwrap();
+
+        assert!(test_runner_result.success());
+    }
+}
+
+fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
     tracing::info!("Building docker image: {}", image_name);
     let build_output = Command::new("docker")
         .arg("build")
@@ -15,19 +99,16 @@ async fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
         .arg("-f")
         .arg(path_to_docker_file)
         .arg(".")
-        .output()
-        .await
+        .status()
         .expect("failed to execute process");
 
-    let command_stdout = String::from_utf8(build_output.stdout).unwrap();
-    let command_stderr = String::from_utf8(build_output.stderr).unwrap();
-
-    tracing::info!("Run output: {:?}, {:?}", command_stdout, command_stderr);
+    debug_assert!(build_output.success());
 }
 
-async fn run_docker_container(
+fn run_docker_container(
     image_name: &str,
-    env_variables: &[&str],
+    container_name: &str,
+    env_variables: &[String],
     hostname_option: Option<&str>,
     network_name_option: Option<&str>,
 ) -> Child {
@@ -42,12 +123,21 @@ async fn run_docker_container(
     if let Some(hostname) = hostname_option {
         command.args(["--hostname", hostname]);
     }
+    command.args(["--name", container_name]);
     command.args(["--rm", image_name]);
     command.spawn().unwrap()
 }
 
-pub(crate) async fn create_and_start_server_container(
-    server_domain: Fqdn,
+fn stop_docker_container(container_name: &str) {
+    let status = Command::new("docker")
+        .args(["stop", container_name])
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+fn create_and_start_server_container(
+    server_domain: &Fqdn,
     network_name_option: Option<&str>,
 ) -> Child {
     // First go into the workspace dir s.t. we can build the docker image.
@@ -55,55 +145,81 @@ pub(crate) async fn create_and_start_server_container(
     std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
 
     let image_name = "phnxserver_image";
+    let container_name = format!("{server_domain}_server_container");
 
-    build_docker_image("server/Dockerfile", &image_name).await;
+    build_docker_image("server/Dockerfile", &image_name);
 
     let server_domain_env_variable = format!("PHNX_SERVER_DOMAIN={}", server_domain);
     run_docker_container(
         &image_name,
-        &[&server_domain_env_variable],
+        &container_name,
+        &[server_domain_env_variable],
         Some(&server_domain.to_string()),
         network_name_option,
     )
-    .await
 }
 
-pub(crate) async fn create_and_start_test_container(
-    test_name: &str,
-    network_name_option: Option<&str>,
-) {
-    // First go into the workspace dir s.t. we can build the docker image.
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
+/// This function has to be called from the container that runs the tests.
+pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
+    let mut domains = domains.into();
+    let clients: Vec<ApiClient> = domains
+        .iter()
+        .map(|domain| ApiClient::initialize(domain.clone(), TransportEncryption::Off).unwrap())
+        .collect::<Vec<ApiClient>>();
 
-    let image_name = format!("{}_test_image", test_name);
-
-    build_docker_image("test_harness/Dockerfile", &image_name).await;
-
-    let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_name);
-
-    run_docker_container(
-        &image_name,
-        &[&test_scenario_env_variable, "TEST_LOG=true"],
-        // No hostname required for the test container
-        None,
-        network_name_option,
-    )
-    .await;
+    // Do the health check
+    while !domains.is_empty() {
+        for client in &clients {
+            if client.health_check().await {
+                if let DomainOrAddress::Domain(domain) = client.domain_or_address() {
+                    domains.remove(domain);
+                } else {
+                    panic!("Expected domain")
+                }
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2))
+    }
 }
 
-pub(crate) async fn create_network(network_name: &str) {
+fn create_network(network_name: &str) {
     tracing::info!("Creating network: {}", network_name);
     let command_output = Command::new("docker")
         .arg("network")
         .arg("create")
         .arg(network_name)
         .output()
-        .await
         .expect("failed to execute process");
 
-    let command_stdout = String::from_utf8(command_output.stdout).unwrap();
-    let command_stderr = String::from_utf8(command_output.stderr).unwrap();
+    if !command_output.status.success()
+        && command_output.stderr
+            != b"Error response from daemon: network with name phnx_test_network already exists\n"
+    {
+        panic!("Failed to create network: {:?}", command_output);
+    }
+}
 
-    tracing::info!("Run output: {:?}, {:?}", command_stdout, command_stderr);
+fn remove_network(network_name: &str) {
+    tracing::info!("Remove network: {}", network_name);
+    let command_output = Command::new("docker")
+        .arg("network")
+        .arg("rm")
+        .arg(network_name)
+        .status()
+        .expect("failed to execute process");
+
+    assert!(command_output.success());
+}
+
+fn assert_docker_is_running() {
+    if !Command::new("docker")
+        .arg("version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .unwrap()
+        .success()
+    {
+        panic!("Docker is not running. Please start docker and try again.");
+    }
 }

@@ -14,8 +14,8 @@ use phnxbackend::{auth_service::UserName, qs::Fqdn};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, InactiveConversation, Message,
-        MessageContentType, NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
+        NotificationType,
     },
     users::SelfUser,
 };
@@ -92,12 +92,12 @@ pub struct TestBackend {
 
 impl TestBackend {
     pub async fn single() -> Self {
-        let network_provider = Arc::new(MockNetworkProvider::new());
+        let network_provider = MockNetworkProvider::new();
         let domain = "example.com".into();
         TestBackend::new(domain, network_provider).await
     }
 
-    async fn new(domain: Fqdn, network_provider: Arc<MockNetworkProvider>) -> Self {
+    async fn new(domain: Fqdn, network_provider: MockNetworkProvider) -> Self {
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
         Self {
             users: HashMap::new(),
@@ -923,14 +923,14 @@ impl TestBackend {
 }
 
 pub struct TestBed {
-    pub network_provider: Arc<MockNetworkProvider>,
+    pub network_provider: MockNetworkProvider,
     pub backends: HashMap<Fqdn, TestBackend>,
 }
 
 impl TestBed {
     pub fn new() -> Self {
         Self {
-            network_provider: Arc::new(MockNetworkProvider::new()),
+            network_provider: MockNetworkProvider::new(),
             backends: HashMap::new(),
         }
     }

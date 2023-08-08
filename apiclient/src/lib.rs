@@ -20,6 +20,7 @@ pub mod qs_api;
 /// encryption should be enabled when used in production and there is no load
 /// balancer or reverse proxy in front of the server that terminates TLS
 /// connections.
+#[derive(Clone)]
 pub enum TransportEncryption {
     On,
     Off,
@@ -66,6 +67,7 @@ impl std::fmt::Display for DomainOrAddress {
 
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
+#[derive(Clone)]
 pub struct ApiClient {
     client: Client,
     domain_or_address: DomainOrAddress,

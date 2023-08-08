@@ -176,7 +176,7 @@ impl Handler<QsWsMessage> for QsWsConnection {
 pub(crate) async fn upgrade_connection(
     req: HttpRequest,
     stream: web::Payload,
-    dispatch_data: Data<Addr<Dispatch>>,
+    dispatch_data: Data<DispatchWebsocketNotifier>,
 ) -> impl Responder {
     // Read parameter from the request
     let header_value = match req.headers().get("QsOpenWsParams") {
@@ -212,8 +212,10 @@ pub(crate) async fn upgrade_connection(
     };
 
     // Extract the queue ID
-    let qs_ws_connection =
-        QsWsConnection::new(qs_open_ws_params.queue_id, dispatch_data.get_ref().clone());
+    let qs_ws_connection = QsWsConnection::new(
+        qs_open_ws_params.queue_id,
+        dispatch_data.get_ref().dispatch_addr.clone(),
+    );
 
     // Upgrade the connection to a websocket connection
     tracing::trace!("Upgrading HTTP connection to websocket connection...");

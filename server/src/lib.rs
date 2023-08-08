@@ -20,7 +20,10 @@ use actix_web::{
 use phnxbackend::{
     auth_service::storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
     ds::DsStorageProvider,
-    qs::{storage_provider_trait::QsStorageProvider, QsConnector},
+    qs::{
+        network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider,
+        QsConnector,
+    },
 };
 use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;
@@ -38,7 +41,8 @@ use crate::endpoints::{
 pub fn run<
     Dsp: DsStorageProvider,
     Qsp: QsStorageProvider,
-    Qep: QsConnector,
+    Qc: QsConnector,
+    Np: NetworkProvider,
     Asp: AsStorageProvider,
     Aesp: AsEphemeralStorageProvider,
 >(
@@ -48,7 +52,8 @@ pub fn run<
     qs_storage_provider: Arc<Qsp>,
     as_storage_provider: Asp,
     as_ephemeral_storage_provider: Aesp,
-    qs_connector: Qep,
+    qs_connector: Qc,
+    network_provider: Np,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
     let ds_storage_provider_data = Data::new(ds_storage_provider);
@@ -56,7 +61,8 @@ pub fn run<
     let as_storage_provider_data = Data::new(as_storage_provider);
     let as_ephemeral_storage_provider_data = Data::new(as_ephemeral_storage_provider);
     let qs_connector_data = Data::new(qs_connector);
-    let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier.dispatch_addr);
+    let network_provider_data = Data::new(network_provider);
+    let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
 
     tracing::info!(
         "Starting server, listening on {}:{}",
@@ -80,10 +86,12 @@ pub fn run<
             .app_data(as_storage_provider_data.clone())
             .app_data(as_ephemeral_storage_provider_data.clone())
             .app_data(qs_connector_data.clone())
+            .app_data(network_provider_data.clone())
+            .app_data(ws_dispatch_notifier_data.clone())
             // DS enpoint
             .route(
                 ENDPOINT_DS_GROUPS,
-                web::post().to(ds_process_message::<Dsp, Qep>),
+                web::post().to(ds_process_message::<Dsp, Qc>),
             )
             .route(
                 ENDPOINT_DS_GROUP_IDS,
@@ -94,12 +102,11 @@ pub fn run<
             // QS federationendpoint
             .route(
                 ENDPOINT_QS_FEDERATION,
-                web::post().to(qs_process_federated_message::<Qep>),
+                web::post().to(qs_process_federated_message::<Qsp, DispatchWebsocketNotifier, Np>),
             )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))
             // WS endpoint
-            .app_data(ws_dispatch_notifier_data.clone())
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection));
         app
     })
