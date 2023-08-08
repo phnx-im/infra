@@ -154,7 +154,7 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, false).await;
+    let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, true).await;
 
     // Initialize the client
     let client = ApiClient::initialize(address, TransportEncryption::Off)

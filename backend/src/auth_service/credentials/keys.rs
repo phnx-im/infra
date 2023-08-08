@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::{
-    InfraCredential, Lifetime, OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey,
-    SignatureScheme,
+    InfraCredential, Lifetime, OpenMlsCrypto, OpenMlsProvider, SignaturePublicKey, SignatureScheme,
 };
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;

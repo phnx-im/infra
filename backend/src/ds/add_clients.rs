@@ -5,9 +5,7 @@
 use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    openmls::prelude::{
-        Extension, KeyPackage, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
-    },
+    openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use tls_codec::{DeserializeBytes, Serialize};

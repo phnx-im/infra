@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{OpenMlsCryptoProvider, ProtocolVersion},
+    openmls::prelude::{OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 

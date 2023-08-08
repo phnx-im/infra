@@ -277,7 +277,7 @@ impl TestBackend {
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
             conversation.conversation_type
-                == ConversationType::UnconfirmedConnection(user2_name.to_bytes())
+                == ConversationType::UnconfirmedConnection(user2_name.to_string())
         );
         user1_conversations_before
             .into_iter()
@@ -318,7 +318,7 @@ impl TestBackend {
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
-            conversation.conversation_type == ConversationType::Connection(user1_name.to_bytes())
+            conversation.conversation_type == ConversationType::Connection(user1_name.to_string())
         );
         user2_conversations_before
             .into_iter()
@@ -362,7 +362,7 @@ impl TestBackend {
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status == ConversationStatus::Active);
         assert!(
-            conversation.conversation_type == ConversationType::Connection(user2_name.to_bytes())
+            conversation.conversation_type == ConversationType::Connection(user2_name.to_string())
         );
         user1_conversations_before
             .into_iter()
@@ -440,7 +440,7 @@ impl TestBackend {
         assert_eq!(
             message.message,
             Message::Content(ContentMessage {
-                sender: test_sender.user.user_name().to_bytes(),
+                sender: test_sender.user.user_name().to_string(),
                 content: orig_message.clone()
             })
         );
@@ -468,7 +468,7 @@ impl TestBackend {
                 assert_eq!(
                     message.conversation_message.message,
                     Message::Content(ContentMessage {
-                        sender: sender_user_name.to_bytes(),
+                        sender: sender_user_name.to_string(),
                         content: orig_message.clone()
                     })
                 );
