@@ -4,7 +4,7 @@
 
 use mls_assist::{
     openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::OpenMlsCryptoProvider,
+    openmls_traits::OpenMlsProvider,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};

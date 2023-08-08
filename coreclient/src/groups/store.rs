@@ -21,7 +21,7 @@ impl GroupStore {
 
     pub(crate) fn join_group(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -34,7 +34,7 @@ impl GroupStore {
         contacts: &HashMap<UserName, Contact>,
     ) -> GroupId {
         let group = Group::join_group(
-            backend,
+            provider,
             welcome_bundle,
             welcome_attribution_info_ear_key,
             leaf_signers,
@@ -59,12 +59,12 @@ impl GroupStore {
 
     pub(crate) fn create_message(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         group_id: &GroupId,
         message: MessageContentType,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let group = self.groups.get_mut(group_id).unwrap();
-        group.create_message(backend, message)
+        group.create_message(provider, message)
     }
 
     /// Returns the leaf signing key for the given group.

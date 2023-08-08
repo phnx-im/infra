@@ -234,11 +234,8 @@ impl AsRef<[u8]> for AsClientId {
 }
 
 impl AsClientId {
-    pub fn random(
-        backend: &impl OpenMlsRand,
-        user_name: UserName,
-    ) -> Result<Self, RandomnessError> {
-        let client_id = backend
+    pub fn random(rand: &impl OpenMlsRand, user_name: UserName) -> Result<Self, RandomnessError> {
+        let client_id = rand
             .random_vec(32)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {

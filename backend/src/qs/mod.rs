@@ -84,7 +84,7 @@ use async_trait::*;
 use mls_assist::{
     openmls::prelude::{
         KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError, OpenMlsCrypto,
-        OpenMlsCryptoProvider, OpenMlsRand, ProtocolVersion,
+        OpenMlsProvider, OpenMlsRand, ProtocolVersion,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::types::HpkeCiphertext,
@@ -313,8 +313,8 @@ pub struct QsSigningKey {
 
 impl QsSigningKey {
     pub fn generate() -> Result<Self, RandomnessError> {
-        let backend = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let (signing_key, verifying_key) = rust_crypto
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;

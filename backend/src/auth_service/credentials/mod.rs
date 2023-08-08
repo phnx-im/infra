@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use mls_assist::{
-    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignatureScheme},
+    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use privacypass::Serialize;
@@ -77,12 +77,12 @@ fn fingerprint_with_label(
     credential: &impl Serialize,
     label: &str,
 ) -> Result<CredentialFingerprint, LibraryError> {
-    let backend = OpenMlsRustCrypto::default();
+    let rust_crypto = OpenMlsRustCrypto::default();
     let payload = credential
         .tls_serialize_detached()
         .map_err(LibraryError::missing_bound_check)?;
     let input = [label.as_bytes().to_vec(), payload].concat();
-    let value = backend
+    let value = rust_crypto
         .crypto()
         .hash(HashType::Sha2_256, &input)
         .map_err(|e| LibraryError::unexpected_crypto_error(&e.to_string()))?;

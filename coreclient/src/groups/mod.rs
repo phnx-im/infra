@@ -140,7 +140,7 @@ impl Group {
 
     /// Create a group.
     pub fn create_group(
-        backend: &impl OpenMlsCryptoProvider,
+        provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
     ) -> Group {
@@ -160,7 +160,7 @@ impl Group {
         };
 
         let mls_group = MlsGroup::new_with_group_id(
-            backend,
+            provider,
             &leaf_signer,
             &mls_group_config,
             group_id.clone(),
@@ -182,7 +182,7 @@ impl Group {
 
     pub(crate) fn create_group_params(
         &self,
-        backend: &impl OpenMlsCryptoProvider,
+        provider: &impl OpenMlsProvider,
     ) -> PartialCreateGroupParams {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             panic!("User auth key not set")
@@ -199,7 +199,7 @@ impl Group {
             ratchet_tree: self.mls_group.export_ratchet_tree(),
             group_info: self
                 .mls_group
-                .export_group_info(backend, &self.leaf_signer, true)
+                .export_group_info(provider.crypto(), &self.leaf_signer, true)
                 .unwrap(),
             user_auth_key: user_auth_key.verifying_key().clone(),
             encrypted_signature_ear_key,
@@ -208,7 +208,7 @@ impl Group {
 
     /// Join a group with the provided welcome message. Returns the group name.
     pub(crate) fn join_group(
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -233,14 +233,14 @@ impl Group {
             .iter()
             .find_map(|egs| {
                 let hash_ref = egs.new_member().as_slice().to_vec();
-                backend
+                provider
                     .key_store()
                     .read(&hash_ref)
                     .map(|kp: KeyPackage| (kp, hash_ref))
             })
             .unwrap();
 
-        let private_key = backend
+        let private_key = provider
             .key_store()
             .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
             .unwrap();
@@ -257,7 +257,7 @@ impl Group {
         .unwrap();
 
         let mls_group = match MlsGroup::new_from_welcome(
-            backend,
+            provider,
             &mls_group_config,
             welcome_bundle.welcome.welcome,
             None, /* no public tree here, has to be in the extension */
@@ -371,7 +371,7 @@ impl Group {
 
     /// Join a group using an external commit.
     pub(crate) fn join_group_externally(
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
@@ -398,7 +398,7 @@ impl Group {
 
         // Let's create the group first so that we can access the GroupId.
         let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
-            backend,
+            provider,
             &leaf_signer,
             Some(ratchet_tree_in),
             verifiable_group_info,
@@ -408,7 +408,7 @@ impl Group {
         )
         .unwrap();
         mls_group.set_aad(&[]);
-        mls_group.merge_pending_commit(backend).unwrap();
+        mls_group.merge_pending_commit(provider).unwrap();
 
         let group_info = group_info_option.unwrap();
 
@@ -492,13 +492,13 @@ impl Group {
     /// Returns the processed message and whether the group was deleted.
     pub(crate) fn process_message(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
         as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
-        let processed_message = self.mls_group.process_message(backend, message)?;
+        let processed_message = self.mls_group.process_message(provider, message)?;
 
         // Will be set to true if we were removed (or the group was deleted).
         let mut we_were_removed = false;
@@ -902,7 +902,7 @@ impl Group {
     /// Returns the [`AddUserParamsOut`] as input for the API client.
     pub(crate) fn invite(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
@@ -944,7 +944,7 @@ impl Group {
             .set_aad(&aad_message.tls_serialize_detached().unwrap());
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
-                .add_members(backend, &self.leaf_signer, key_packages.as_slice())?;
+                .add_members(provider, &self.leaf_signer, key_packages.as_slice())?;
         // Reset Aad to empty.
         self.mls_group.set_aad(&[]);
 
@@ -1003,7 +1003,7 @@ impl Group {
 
     pub(crate) fn remove(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut, GroupOperationError> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
@@ -1028,7 +1028,7 @@ impl Group {
         self.mls_group.set_aad(aad.as_slice());
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
-            .remove_members(backend, &self.leaf_signer, remove_indices.as_slice())
+            .remove_members(provider, &self.leaf_signer, remove_indices.as_slice())
             .unwrap();
         self.mls_group.set_aad(&[]);
         debug_assert!(_welcome_option.is_none());
@@ -1055,7 +1055,7 @@ impl Group {
 
     pub(crate) fn delete(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
     ) -> Result<DeleteGroupParamsOut, GroupOperationError> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             return Err(GroupOperationError::NoUserAuthKey);
@@ -1079,7 +1079,7 @@ impl Group {
         self.mls_group.set_aad(aad.as_slice());
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
-            .remove_members(backend, &self.leaf_signer, remove_indices.as_slice())
+            .remove_members(provider, &self.leaf_signer, remove_indices.as_slice())
             .unwrap();
         self.mls_group.set_aad(&[]);
         debug_assert!(_welcome_option.is_none());
@@ -1109,7 +1109,7 @@ impl Group {
     /// apply the pending group diff.
     pub(crate) fn merge_pending_commit(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
     ) -> Result<Vec<ConversationMessage>, GroupOperationError> {
         // Collect free indices s.t. we know where the added members will land
@@ -1198,7 +1198,8 @@ impl Group {
                 &self.client_information,
                 &staged_commit,
             );
-            self.mls_group.merge_staged_commit(backend, staged_commit)?;
+            self.mls_group
+                .merge_staged_commit(provider, staged_commit)?;
             staged_commit_messages
         } else {
             // If we're merging a pending commit, we need to check if we have
@@ -1214,7 +1215,7 @@ impl Group {
                 } else {
                     vec![]
                 };
-            self.mls_group.merge_pending_commit(backend)?;
+            self.mls_group.merge_pending_commit(provider)?;
             staged_commit_messages
         };
         // Debug sanity checks after merging.
@@ -1236,11 +1237,11 @@ impl Group {
     /// Send an application message to the group.
     pub fn create_message(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider<KeyStoreProvider = MemoryKeyStore>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         msg: MessageContentType,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let mls_message = self.mls_group.create_message(
-            backend,
+            provider,
             &self.leaf_signer,
             &msg.tls_serialize_detached()?,
         )?;
@@ -1323,7 +1324,7 @@ impl Group {
             .collect()
     }
 
-    pub(crate) fn update(&mut self, backend: &impl OpenMlsCryptoProvider) -> UpdateClientParamsOut {
+    pub(crate) fn update(&mut self, provider: &impl OpenMlsProvider) -> UpdateClientParamsOut {
         // We don't expect there to be a welcome.
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
@@ -1335,7 +1336,7 @@ impl Group {
         self.mls_group.set_aad(&aad);
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
-            .self_update(backend, &self.leaf_signer)
+            .self_update(provider, &self.leaf_signer)
             .unwrap();
         self.mls_group.set_aad(&[]);
         let group_info = group_info_option.unwrap();
@@ -1357,7 +1358,7 @@ impl Group {
     /// Update or set the user's auth key in this group.
     pub(crate) fn update_user_key(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider,
+        provider: &impl OpenMlsProvider,
     ) -> UpdateClientParamsOut {
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
@@ -1369,7 +1370,7 @@ impl Group {
         self.mls_group.set_aad(&aad);
         let (commit, _welcome_option, group_info_option) = self
             .mls_group
-            .self_update(backend, &self.leaf_signer)
+            .self_update(provider, &self.leaf_signer)
             .unwrap();
         self.mls_group.set_aad(&[]);
         let group_info = group_info_option.unwrap();
@@ -1392,14 +1393,14 @@ impl Group {
 
     pub(crate) fn leave_group(
         &mut self,
-        backend: &impl OpenMlsCryptoProvider,
+        provider: &impl OpenMlsProvider,
     ) -> SelfRemoveClientParamsOut {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             panic!("User auth key not set")
         };
         let proposal = self
             .mls_group
-            .leave_group(backend, &self.leaf_signer)
+            .leave_group(provider, &self.leaf_signer)
             .unwrap();
         let assisted_message = AssistedMessageOut {
             mls_message: proposal,
