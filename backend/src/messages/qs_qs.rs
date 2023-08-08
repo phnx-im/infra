@@ -9,10 +9,17 @@ use crate::qs::Fqdn;
 use super::{intra_backend::DsFanOutMessage, MlsInfraVersion};
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum QsToQsPayload {
+    FanOutMessageRequest(DsFanOutMessage),
+    VerificationKeyRequest,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QsToQsMessage {
     pub protocol_version: MlsInfraVersion,
     pub sender: Fqdn,
     pub recipient: Fqdn,
-    pub fan_out_message: DsFanOutMessage,
+    pub payload: QsToQsPayload,
     // TODO: Signature
 }

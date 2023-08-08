@@ -45,19 +45,23 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    // TODO: Right now, we require that the user has already
-                    // loaded the as credentials for the group. We can't check
-                    // if we have done so, because we know the domain of the
-                    // owning server only from the group id. This will likely
-                    // change if we revisit the framing structure.
-                    let group_id = self.group_store.join_group(
-                        &self.crypto_backend,
-                        welcome_bundle,
-                        &self.key_store.wai_ear_key,
-                        &mut self.key_store.leaf_signers,
-                        &self.key_store.as_intermediate_credentials,
-                        &self.contacts,
-                    );
+                    let group_id = self
+                        .group_store
+                        .join_group(
+                            &self.crypto_backend,
+                            welcome_bundle,
+                            &self.key_store.wai_ear_key,
+                            &mut self.key_store.leaf_signers,
+                            // TODO: For now, I'm passing the ApiClients in here
+                            // s.t. the group can fetch AS Credentials if it needs
+                            // to. In the future, it would be great if we could have
+                            // multiple references to the API clients flying around,
+                            // for example one in the ASCredentials store itself.
+                            &mut self.api_clients,
+                            &mut self.key_store.as_credentials,
+                            &self.contacts,
+                        )
+                        .await;
                     freshly_joined_groups.push(group_id.clone());
 
                     let attributes = ConversationAttributes {
@@ -95,8 +99,10 @@ impl<T: Notifiable> SelfUser<T> {
                         .process_message(
                             &self.crypto_backend,
                             protocol_message,
-                            &self.key_store.as_intermediate_credentials,
+                            &mut self.api_clients,
+                            &mut self.key_store.as_credentials,
                         )
+                        .await
                         .unwrap();
 
                     let sender = processed_message.sender().clone();
@@ -307,42 +313,17 @@ impl<T: Notifiable> SelfUser<T> {
                     // Fetch authentication AS credentials of the sender if we
                     // don't have them already.
                     let sender_domain = cep_in.sender_credential().domain();
-                    if !self
-                        .key_store
-                        .as_intermediate_credentials
-                        .contains_key(&sender_domain)
-                    {
-                        let credential_response = self
-                            .api_clients
-                            .get(&sender_domain)
-                            .as_as_credentials()
-                            .await
-                            .unwrap();
-                        let as_intermediate_credentials: Vec<AsIntermediateCredential> =
-                            credential_response
-                                .as_intermediate_credentials
-                                .into_iter()
-                                .map(|as_inter_cred| {
-                                    let as_credential = credential_response
-                                        .as_credentials
-                                        .iter()
-                                        .find(|as_cred| {
-                                            &as_cred.fingerprint().unwrap()
-                                                == as_inter_cred.fingerprint()
-                                        })
-                                        .unwrap();
-                                    as_inter_cred.verify(as_credential.verifying_key()).unwrap()
-                                })
-                                .collect();
-                        self.key_store
-                            .as_credentials
-                            .insert(sender_domain.clone(), credential_response.as_credentials);
-                        self.key_store
-                            .as_intermediate_credentials
-                            .insert(sender_domain.clone(), as_intermediate_credentials);
-                    }
 
-                    let cep_tbs = cep_in.verify_all(&self.key_store.as_intermediate_credentials);
+                    let as_intermediate_credential = self
+                        .key_store
+                        .as_credentials
+                        .get(
+                            &mut self.api_clients,
+                            &sender_domain,
+                            cep_in.sender_credential().signer_fingerprint(),
+                        )
+                        .await;
+                    let cep_tbs = cep_in.verify(as_intermediate_credential.verifying_key());
                     // We create a new group and signal that fact to the user,
                     // so the user can decide if they want to accept the
                     // connection.
@@ -404,10 +385,12 @@ impl<T: Notifiable> SelfUser<T> {
                         cep_tbs.connection_group_ear_key.clone(),
                         cep_tbs.connection_group_signature_ear_key_wrapper_key,
                         cep_tbs.connection_group_credential_key,
-                        &self.key_store.as_intermediate_credentials,
+                        &mut self.key_store.as_credentials,
+                        &mut self.api_clients,
                         aad,
                         self.key_store.signing_key.credential(),
                     )
+                    .await
                     .unwrap();
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
                     let conversation_id = self.conversation_store.create_connection_conversation(

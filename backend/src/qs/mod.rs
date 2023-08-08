@@ -167,7 +167,7 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError: std::fmt::Debug;
     type VerifyingKeyError;
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
-    async fn verifying_key(&self, fqdn: &Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
+    async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
 
 #[derive(Debug, Clone)]
@@ -400,6 +400,12 @@ impl From<&str> for Fqdn {
         Self {
             domain: domain.as_bytes().to_vec(),
         }
+    }
+}
+
+impl From<String> for Fqdn {
+    fn from(domain: String) -> Self {
+        domain.as_str().into()
     }
 }
 

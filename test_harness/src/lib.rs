@@ -4,17 +4,11 @@
 
 use once_cell::sync::Lazy;
 
-use crate::docker::{
-    create_and_start_server_container, create_and_start_test_container, create_network,
-};
 use phnxserver::telemetry::{get_subscriber, init_subscriber};
 
 pub mod docker;
 pub mod test_scenarios;
 pub mod utils;
-
-pub(crate) const FEDERATION_TEST_OWNER_DOMAIN: &str = "phnxowningserver.com";
-pub(crate) const FEDERATION_TEST_GUEST_DOMAIN: &str = "phnxguestserver.com";
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -30,20 +24,3 @@ static TRACING: Lazy<()> = Lazy::new(|| {
         init_subscriber(subscriber);
     }
 });
-
-pub async fn run_federation_scenario() {
-    tracing::info!("Running federation test scenario");
-    Lazy::force(&TRACING);
-    let network_name = "federation_test_network";
-    create_network(network_name).await;
-    // This spawns a child process that runs the server container.
-    // Alternatively, we could use docker detach.
-    let _owning_child =
-        create_and_start_server_container(FEDERATION_TEST_OWNER_DOMAIN.into(), Some(network_name))
-            .await;
-    let _guest_child =
-        create_and_start_server_container(FEDERATION_TEST_GUEST_DOMAIN.into(), Some(network_name))
-            .await;
-
-    create_and_start_test_container("federation", Some(network_name)).await;
-}

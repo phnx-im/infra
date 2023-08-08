@@ -3,39 +3,71 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use thiserror::Error;
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::messages::qs_qs::QsToQsMessage;
+use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
-use super::{Qs, QsConnector};
+use super::{
+    errors::{QsEnqueueError, QsVerifyingKeyError},
+    network_provider_trait::NetworkProvider,
+    storage_provider_trait::QsStorageProvider,
+    Qs, QsVerifyingKey, WebsocketNotifier,
+};
 
 #[derive(Error, Debug, Clone)]
-pub enum FederatedEnqueueError<C: QsConnector> {
+pub enum FederatedProcessingError<S: QsStorageProvider, N: NetworkProvider> {
     /// Error enqueueing message
-    #[error("Error enqueueing message")]
-    EnqueueError(C::EnqueueError),
+    #[error(transparent)]
+    EnqueueError(#[from] QsEnqueueError<S, N>),
+    /// Error getting verifying key
+    #[error(transparent)]
+    VerifyingKeyError(#[from] QsVerifyingKeyError),
+}
+
+#[derive(Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[repr(u8)]
+pub enum FederatedProcessingResult {
+    Ok,
+    VerifyingKey(QsVerifyingKey),
 }
 
 impl Qs {
-    /// Enqueue the given message. This endpoint is called by a remote QS
-    /// during a fanout operation. This endpoint does not necessairly return
-    /// quickly. It can attempt to do the full fanout and return potential
-    /// failed transmissions to the remote QS.
-    #[tracing::instrument(skip_all, err)]
-    pub async fn enqueue_remote_message<C: QsConnector>(
-        qs_connector: &C,
+    /// Process the QsToQsMessage.
+    pub async fn process_federated_message<
+        S: QsStorageProvider,
+        W: WebsocketNotifier,
+        N: NetworkProvider,
+    >(
+        storage_provider: &S,
+        websocket_notifier: &W,
+        network_provider: &N,
         message: QsToQsMessage,
-    ) -> Result<(), FederatedEnqueueError<C>> {
+    ) -> Result<FederatedProcessingResult, FederatedProcessingError<S, N>> {
         let QsToQsMessage {
             protocol_version: _,
             sender: _,
             recipient: _,
-            fan_out_message,
+            payload,
         } = message;
-        // TODO: validation
-        qs_connector
-            .dispatch(fan_out_message)
-            .await
-            .map_err(FederatedEnqueueError::EnqueueError)?;
-        Ok(())
+        // TODO: validation. Also: Signatures. In particular, we need to check
+        // that the fqdn in the client references is actually ours otherwise,
+        // other QSs can route messages through us.
+        let result = match payload {
+            QsToQsPayload::FanOutMessageRequest(fan_out_message) => {
+                Self::enqueue_message(
+                    storage_provider,
+                    websocket_notifier,
+                    network_provider,
+                    fan_out_message,
+                )
+                .await?;
+                FederatedProcessingResult::Ok
+            }
+            QsToQsPayload::VerificationKeyRequest => {
+                let verifying_key_response = Self::qs_verifying_key(storage_provider).await?;
+                FederatedProcessingResult::VerifyingKey(verifying_key_response.verifying_key)
+            }
+        };
+        Ok(result)
     }
 }
