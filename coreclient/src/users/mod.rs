@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
-
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
@@ -603,7 +601,7 @@ impl<T: Notifiable> SelfUser<T> {
         // Store message locally
         let message = Message::Content(ContentMessage {
             content: message,
-            sender: self.user_name.to_bytes(),
+            sender: self.user_name.to_string(),
         });
 
         // Send message to DS

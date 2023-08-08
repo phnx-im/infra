@@ -76,7 +76,7 @@ pub enum Message {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContentMessage {
-    pub sender: Vec<u8>,
+    pub sender: String,
     pub content: MessageContentType,
 }
 
@@ -166,10 +166,10 @@ impl InactiveConversation {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(Vec<u8>),
+    UnconfirmedConnection(String),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(Vec<u8>),
+    Connection(String),
     Group,
 }
 

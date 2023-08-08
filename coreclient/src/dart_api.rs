@@ -162,7 +162,7 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         user.contacts()
             .into_iter()
-            .map(|c| String::from_utf8_lossy(&c.user_name.to_bytes()).into_owned())
+            .map(|c| c.user_name.to_string())
             .collect()
     }
 

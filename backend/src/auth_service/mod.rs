@@ -11,7 +11,8 @@ use opaque_ke::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    DeserializeBytes as TlsDeserializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
+    DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerialize, TlsDeserializeBytes,
+    TlsSerialize, TlsSize,
 };
 
 use crate::{
@@ -173,11 +174,7 @@ impl From<&str> for UserName {
 
 impl UserName {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut v = Vec::new();
-        v.extend(&self.user_name);
-        v.extend(b"@");
-        v.extend(self.domain.as_bytes());
-        v
+        self.tls_serialize_detached().unwrap()
     }
 
     pub fn domain(&self) -> Fqdn {

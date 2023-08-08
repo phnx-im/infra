@@ -1427,7 +1427,7 @@ pub(crate) fn application_message_to_conversation_messages(
     application_message: ApplicationMessage,
 ) -> Vec<ConversationMessage> {
     vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().user_name().to_bytes(),
+        sender: sender.identity().user_name().to_string(),
         content: MessageContentType::tls_deserialize(
             &mut application_message.into_bytes().as_slice(),
         )
