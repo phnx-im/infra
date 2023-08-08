@@ -16,7 +16,7 @@ use phnxbackend::{
                 ClientSigningKey, InfraCredentialPlaintext, InfraCredentialSigningKey,
                 InfraCredentialTbs,
             },
-            AsIntermediateCredential, ClientCredential, VerifiableClientCredential,
+            ClientCredential, ClientCredentialProcessingError, VerifiableClientCredential,
         },
         AsClientId, UserName,
     },
@@ -36,6 +36,7 @@ use phnxbackend::{
     },
     ds::{
         api::{QualifiedGroupId, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+        group_state::EncryptedClientCredential,
         WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
     },
     messages::{
@@ -48,7 +49,7 @@ use phnxbackend::{
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
     },
-    qs::{Fqdn, KeyPackageBatch, VERIFIED},
+    qs::{KeyPackageBatch, VERIFIED},
     AssistedGroupInfo, AssistedMessageOut,
 };
 pub(crate) use store::*;
@@ -59,6 +60,7 @@ use crate::{
     conversations::*,
     types::MessageContentType,
     types::*,
+    users::{key_store::AsCredentials, ApiClients},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -207,7 +209,7 @@ impl Group {
     }
 
     /// Join a group with the provided welcome message. Returns the group name.
-    pub(crate) fn join_group(
+    pub(crate) async fn join_group(
         provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
@@ -217,7 +219,8 @@ impl Group {
             SignaturePublicKey,
             (InfraCredentialSigningKey, SignatureEarKey),
         >,
-        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
+        api_clients: &mut ApiClients,
+        as_credentials: &mut AsCredentials,
         contacts: &HashMap<UserName, Contact>,
     ) -> Result<Self, GroupOperationError> {
         //log::debug!("{} joining group ...", self_user.username);
@@ -291,43 +294,14 @@ impl Group {
 
         let qgid =
             QualifiedGroupId::tls_deserialize_exact(mls_group.group_id().as_slice()).unwrap();
-        let as_intermediate_credentials = as_intermediate_credentials
-            .get(&qgid.owning_domain)
-            .unwrap();
-        let client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> = joiner_info
-            .encrypted_client_information
-            .into_iter()
-            .enumerate()
-            .filter_map(|(index, ciphertext_option)| {
-                if let Some(client_information) = ciphertext_option.map(|(ecc, esek)| {
-                    let verifiable_credential = VerifiableClientCredential::decrypt(
-                        welcome_attribution_info.client_credential_encryption_key(),
-                        &ecc,
-                    )
-                    .unwrap();
-                    let as_credential = as_intermediate_credentials
-                        .iter()
-                        .find(|as_cred| {
-                            &as_cred.fingerprint().unwrap()
-                                == verifiable_credential.signer_fingerprint()
-                        })
-                        .unwrap();
-                    let credential = verifiable_credential
-                        .verify(as_credential.verifying_key())
-                        .unwrap();
-                    let sek = SignatureEarKey::decrypt(
-                        welcome_attribution_info.signature_ear_key_wrapper_key(),
-                        &esek,
-                    )
-                    .unwrap();
-                    (credential, sek)
-                }) {
-                    Some((index, client_information))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let client_information = decrypt_and_verify_client_info(
+            welcome_attribution_info.client_credential_encryption_key(),
+            welcome_attribution_info.signature_ear_key_wrapper_key(),
+            api_clients,
+            as_credentials,
+            joiner_info.encrypted_client_information,
+        )
+        .await;
 
         let verifying_key = mls_group.own_leaf_node().unwrap().signature_key();
         let (leaf_signer, _signature_ear_key) = leaf_signers.remove(verifying_key).unwrap();
@@ -370,7 +344,7 @@ impl Group {
     }
 
     /// Join a group using an external commit.
-    pub(crate) fn join_group_externally(
+    pub(crate) async fn join_group_externally(
         provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
@@ -378,7 +352,8 @@ impl Group {
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
+        as_credentials: &mut AsCredentials,
+        api_clients: &mut ApiClients,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
@@ -412,37 +387,14 @@ impl Group {
 
         let group_info = group_info_option.unwrap();
 
-        let mut client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)> =
-            encrypted_client_info
-                .into_iter()
-                .enumerate()
-                .filter_map(|(index, ciphertext_option)| {
-                    if let Some(client_info) = ciphertext_option.map(|(ecc, esek)| {
-                        let verifiable_credential =
-                            VerifiableClientCredential::decrypt(&credential_ear_key, &ecc).unwrap();
-                        let as_intermediate_credentials = as_intermediate_credentials
-                            .get(&verifiable_credential.domain())
-                            .unwrap();
-                        let as_credential = as_intermediate_credentials
-                            .iter()
-                            .find(|as_cred| {
-                                &as_cred.fingerprint().unwrap()
-                                    == verifiable_credential.signer_fingerprint()
-                            })
-                            .unwrap();
-                        let client_credential = verifiable_credential
-                            .verify(as_credential.verifying_key())
-                            .unwrap();
-                        let sek = SignatureEarKey::decrypt(&signature_ear_key_wrapper_key, &esek)
-                            .unwrap();
-                        (client_credential, sek)
-                    }) {
-                        Some((index, client_info))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+        let mut client_information = decrypt_and_verify_client_info(
+            &credential_ear_key,
+            &signature_ear_key_wrapper_key,
+            api_clients,
+            as_credentials,
+            encrypted_client_info,
+        )
+        .await;
 
         // We still have to add ourselves to the encrypted client credentials.
         let own_client_credential = own_client_credential.clone();
@@ -490,13 +442,14 @@ impl Group {
     /// Process inbound message
     ///
     /// Returns the processed message and whether the group was deleted.
-    pub(crate) fn process_message(
+    pub(crate) async fn process_message(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         message: impl Into<ProtocolMessage>,
         // Required in case there are new joiners.
         // TODO: In the federated case, we might have to fetch them first.
-        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
+        api_clients: &mut ApiClients,
+        as_credentials: &mut AsCredentials,
     ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
         let processed_message = self.mls_group.process_message(provider, message)?;
 
@@ -555,25 +508,17 @@ impl Group {
                 .usize();
                 match aad_payload {
                     InfraAadPayload::AddUsers(add_users_payload) => {
-                        let client_credentials: Vec<(ClientCredential, SignatureEarKey)> =
+                        let client_information = decrypt_and_verify_client_info(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            api_clients,
+                            as_credentials,
                             add_users_payload
                                 .encrypted_credential_information
                                 .into_iter()
-                                .map(|(ciphertext, esek)| {
-                                    let client_credential = ClientCredential::decrypt_and_verify(
-                                        &self.credential_ear_key,
-                                        &ciphertext,
-                                        as_intermediate_credentials,
-                                    )
-                                    .unwrap();
-                                    let sek = SignatureEarKey::decrypt(
-                                        &self.signature_ear_key_wrapper_key,
-                                        &esek,
-                                    )
-                                    .unwrap();
-                                    (client_credential, sek)
-                                })
-                                .collect();
+                                .map(|i| Some(i)),
+                        )
+                        .await;
 
                         // TODO: Validation:
                         // * Check that this commit only contains (inline) add proposals
@@ -593,7 +538,7 @@ impl Group {
                         // credentials.
                         for (index, proposal) in staged_commit.add_proposals().enumerate() {
                             let (client_credential, signature_ear_key) =
-                                client_credentials.get(index).unwrap();
+                                client_information.get(&index).unwrap();
                             match proposal
                                 .add_proposal()
                                 .key_package()
@@ -621,8 +566,8 @@ impl Group {
                         }
 
                         // Add the client credentials to the group.
-                        for client_credential in client_credentials {
-                            diff.add_client_information(&self.client_information, client_credential)
+                        for client_info in client_information.into_values() {
+                            diff.add_client_information(&self.client_information, client_info)
                         }
                     }
                     InfraAadPayload::UpdateClient(update_client_payload) => {
@@ -650,11 +595,13 @@ impl Group {
                                 let client_credential = if let Some(ecc) =
                                     update_client_payload.option_encrypted_client_credential
                                 {
-                                    let client_credential = ClientCredential::decrypt_and_verify(
+                                    let client_credential = decrypt_and_verify_client_credential(
+                                        api_clients,
                                         &self.credential_ear_key,
                                         &ecc,
-                                        as_intermediate_credentials,
+                                        as_credentials,
                                     )
+                                    .await
                                     .unwrap();
                                     client_credential
                                 } else {
@@ -698,11 +645,13 @@ impl Group {
                     InfraAadPayload::JoinGroup(join_group_payload) => {
                         // Decrypt and verify the client credential.
                         let (ecc, esek) = join_group_payload.encrypted_client_information;
-                        let client_credential = ClientCredential::decrypt_and_verify(
+                        let client_credential = decrypt_and_verify_client_credential(
+                            api_clients,
                             &self.credential_ear_key,
                             &ecc,
-                            as_intermediate_credentials,
+                            as_credentials,
                         )
+                        .await
                         .unwrap();
                         let sek =
                             SignatureEarKey::decrypt(&self.signature_ear_key_wrapper_key, &esek)
@@ -741,11 +690,13 @@ impl Group {
                         let (ecc, esek) =
                             join_connection_group_payload.encrypted_client_information;
                         // Decrypt and verify the client credential.
-                        let client_credential = ClientCredential::decrypt_and_verify(
+                        let client_credential = decrypt_and_verify_client_credential(
+                            api_clients,
                             &self.credential_ear_key,
                             &ecc,
-                            as_intermediate_credentials,
+                            as_credentials,
                         )
+                        .await
                         .unwrap();
                         let sek =
                             SignatureEarKey::decrypt(&self.signature_ear_key_wrapper_key, &esek)
@@ -774,25 +725,17 @@ impl Group {
                         );
                     }
                     InfraAadPayload::AddClients(add_clients_payload) => {
-                        let client_credentials: Vec<(ClientCredential, SignatureEarKey)> =
+                        let client_credentials = decrypt_and_verify_client_info(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            api_clients,
+                            as_credentials,
                             add_clients_payload
                                 .encrypted_client_information
                                 .into_iter()
-                                .map(|(ecc, esek)| {
-                                    let client_credential = ClientCredential::decrypt_and_verify(
-                                        &self.credential_ear_key,
-                                        &ecc,
-                                        as_intermediate_credentials,
-                                    )
-                                    .unwrap();
-                                    let sek = SignatureEarKey::decrypt(
-                                        &self.signature_ear_key_wrapper_key,
-                                        &esek,
-                                    )
-                                    .unwrap();
-                                    (client_credential, sek)
-                                })
-                                .collect();
+                                .map(|i| Some(i)),
+                        )
+                        .await;
 
                         // TODO: Validation:
                         // * Check that this commit only contains (inline) add proposals
@@ -805,7 +748,7 @@ impl Group {
                         // that leaf credentials are in the same order as client
                         // credentials.
                         for (index, proposal) in staged_commit.add_proposals().enumerate() {
-                            let (client_credential, sek) = client_credentials.get(index).unwrap();
+                            let (client_credential, sek) = client_credentials.get(&index).unwrap();
                             match proposal
                                 .add_proposal()
                                 .key_package()
@@ -831,7 +774,7 @@ impl Group {
                         }
 
                         // Add the client credentials to the group.
-                        for client_credential in client_credentials {
+                        for client_credential in client_credentials.into_values() {
                             diff.add_client_information(&self.client_information, client_credential)
                         }
                     }
@@ -1563,3 +1506,41 @@ impl From<GroupEvent> for ConversationMessage {
     }
 }
 */
+
+/// Helper function to decrypt and verify an encrypted client credential
+async fn decrypt_and_verify_client_credential(
+    api_clients: &mut ApiClients,
+    ear_key: &ClientCredentialEarKey,
+    ciphertext: &EncryptedClientCredential,
+    as_credentials: &mut AsCredentials,
+) -> Result<ClientCredential, ClientCredentialProcessingError> {
+    let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)
+        .map_err(|_| ClientCredentialProcessingError::DecryptionError)?;
+    let client_credential = as_credentials
+        .verify_client_credential(api_clients, verifiable_credential)
+        .await;
+    Ok(client_credential)
+}
+
+async fn decrypt_and_verify_client_info(
+    ear_key: &ClientCredentialEarKey,
+    wrapper_key: &SignatureEarKeyWrapperKey,
+    api_clients: &mut ApiClients,
+    as_credentials: &mut AsCredentials,
+    encrypted_client_information: impl IntoIterator<
+        Item = Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    >,
+) -> BTreeMap<usize, (ClientCredential, SignatureEarKey)> {
+    let mut client_information = BTreeMap::new();
+    for (index, client_info) in encrypted_client_information.into_iter().enumerate() {
+        if let Some((ecc, esek)) = client_info {
+            let credential =
+                decrypt_and_verify_client_credential(api_clients, ear_key, &ecc, as_credentials)
+                    .await
+                    .unwrap();
+            let sek = SignatureEarKey::decrypt(wrapper_key, &esek).unwrap();
+            client_information.insert(index, (credential, sek));
+        }
+    }
+    client_information
+}

@@ -5,8 +5,6 @@
 mod qs;
 mod utils;
 
-use std::sync::Arc;
-
 use phnxapiclient::{ApiClient, TransportEncryption};
 
 use phnxserver::network_provider::MockNetworkProvider;
@@ -17,7 +15,7 @@ pub use utils::*;
 #[tracing::instrument(name = "Test WS", skip_all)]
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
-    let network_provider = Arc::new(MockNetworkProvider::new());
+    let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     tracing::info!("Server started: {}", address.to_string());
@@ -155,7 +153,7 @@ async fn create_user() {
 #[actix_rt::test]
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
-    let network_provider = Arc::new(MockNetworkProvider::new());
+    let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, true).await;
 
     // Initialize the client

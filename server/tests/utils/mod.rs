@@ -48,7 +48,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 /// websocket.
 pub async fn spawn_app(
     domain: Fqdn,
-    network_provider: Arc<MockNetworkProvider>,
+    network_provider: MockNetworkProvider,
     random_port: bool,
 ) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
@@ -88,6 +88,7 @@ pub async fn spawn_app(
         as_storage_provider,
         as_ephemeral_storage_provider,
         qs_connector,
+        network_provider,
     )
     .expect("Failed to bind to address.");
 

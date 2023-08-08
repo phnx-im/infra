@@ -2,11 +2,34 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxserver_test_harness::run_federation_scenario;
+use phnxserver_test_harness::test_scenarios::{run_test_scenario, FederationTestScenario};
 
 #[actix_rt::test]
-#[ignore]
 #[tracing::instrument(name = "Connect federated users test", skip_all)]
 async fn connect_federated_users() {
-    run_federation_scenario().await;
+    run_test_scenario(FederationTestScenario::ConnectUsers).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Federated group operations test", skip_all)]
+async fn federated_group_operations() {
+    run_test_scenario(FederationTestScenario::GroupOperations).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Federated group invitations test", skip_all)]
+async fn invite_federated_users() {
+    run_test_scenario(FederationTestScenario::InviteToGroup).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Federated group removal test", skip_all)]
+async fn remove_federated_users() {
+    run_test_scenario(FederationTestScenario::RemoveFromGroup).await;
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Leave federated group test", skip_all)]
+async fn leave_federated_group() {
+    run_test_scenario(FederationTestScenario::LeaveGroup).await;
 }

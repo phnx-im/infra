@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
 use phnxbackend::qs::{QsClientId, WebsocketNotifier, WsNotification};
 use phnxserver::{endpoints::qs::ws::QsWsMessage, network_provider::MockNetworkProvider};
@@ -14,7 +12,7 @@ use super::*;
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
 async fn test_ws_reconnect() {
-    let network_provider = Arc::new(MockNetworkProvider::new());
+    let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     let client_id = QsClientId::random();
@@ -51,7 +49,7 @@ async fn test_ws_reconnect() {
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
 async fn test_ws_sending() {
-    let network_provider = Arc::new(MockNetworkProvider::new());
+    let network_provider = MockNetworkProvider::new();
     let (address, ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
     let client_id = QsClientId::random();

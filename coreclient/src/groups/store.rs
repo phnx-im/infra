@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::qs::Fqdn;
+use crate::users::ApiClients;
 
 use super::*;
 
@@ -19,7 +19,7 @@ impl GroupStore {
         }
     }
 
-    pub(crate) fn join_group(
+    pub(crate) async fn join_group(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         welcome_bundle: WelcomeBundle,
@@ -30,7 +30,8 @@ impl GroupStore {
             SignaturePublicKey,
             (InfraCredentialSigningKey, SignatureEarKey),
         >,
-        as_intermediate_credentials: &HashMap<Fqdn, Vec<AsIntermediateCredential>>,
+        api_clients: &mut ApiClients,
+        as_credentials: &mut AsCredentials,
         contacts: &HashMap<UserName, Contact>,
     ) -> GroupId {
         let group = Group::join_group(
@@ -38,9 +39,11 @@ impl GroupStore {
             welcome_bundle,
             welcome_attribution_info_ear_key,
             leaf_signers,
-            as_intermediate_credentials,
+            api_clients,
+            as_credentials,
             contacts,
         )
+        .await
         .unwrap();
         let group_id = group.group_id().clone();
         self.groups.insert(group_id.clone(), group);

@@ -8,12 +8,12 @@ use std::{
 };
 
 use phnxapiclient::DomainOrAddress;
-use phnxbackend::{auth_service::UserName, qs::Fqdn};
+use phnxbackend::auth_service::UserName;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
-        ContentMessage, ConversationStatus, ConversationType, InactiveConversation, Message,
-        MessageContentType, NotificationType,
+        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
+        NotificationType,
     },
     users::SelfUser,
 };
@@ -76,16 +76,13 @@ impl TestUser {
 pub struct TestBed {
     pub users: HashMap<UserName, TestUser>,
     pub groups: HashMap<Uuid, HashSet<UserName>>,
-    pub backends: HashSet<Fqdn>,
 }
 
 impl TestBed {
-    pub async fn new(backends: impl Into<HashSet<Fqdn>>) -> Self {
-        let backends = backends.into();
+    pub async fn new() -> Self {
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),
-            backends,
         }
     }
 
@@ -148,7 +145,11 @@ impl TestBed {
 
             let pending_removes =
                 HashSet::from_iter(group_member.pending_removes(conversation_id).unwrap());
-            let group_members_before = group_member.group_members(conversation_id).unwrap();
+            let group_members_before = group_member
+                .group_members(conversation_id)
+                .unwrap()
+                .into_iter()
+                .collect::<HashSet<_>>();
 
             group_member
                 .process_qs_messages(qs_messages)
@@ -159,12 +160,21 @@ impl TestBed {
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_name) {
                 let conversation_after = group_member.conversation(conversation_id).unwrap();
-                assert!(
-                    conversation_after.status
-                        == ConversationStatus::Inactive(InactiveConversation::new(
-                            group_members_before
-                        ))
-                );
+                if let ConversationStatus::Inactive(inactive_conversation) =
+                    &conversation_after.status
+                {
+                    let inactive_group_members = inactive_conversation
+                        .past_members
+                        .iter()
+                        .map(|m| m.clone().into())
+                        .collect::<HashSet<_>>();
+                    assert_eq!(inactive_group_members, group_members_before);
+                } else {
+                    panic!(
+                        "Group member {} should have turned its conversation status inactive.",
+                        group_member_name
+                    );
+                }
             } else {
                 // ... if not, it should remove the members to be removed.
                 let group_members_after = HashSet::<UserName>::from_iter(
@@ -560,14 +570,26 @@ impl TestBed {
                 .position(|c| c.id.as_uuid() == conversation_id)
                 .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_id}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(conversation.id.as_uuid() == conversation_id);
-            assert!(conversation.status == ConversationStatus::Active);
-            assert!(conversation.conversation_type == ConversationType::Group);
+            assert!(
+                conversation.id.as_uuid() == conversation_id,
+                "Conversation id mismatch"
+            );
+            assert!(
+                conversation.status == ConversationStatus::Active,
+                "Conversation status mismatch"
+            );
+            assert!(
+                conversation.conversation_type == ConversationType::Group,
+                "Conversation type mismatch"
+            );
             invitee_conversations_before
                 .into_iter()
                 .zip(invitee_conversations_after)
                 .for_each(|(before, after)| {
-                    assert_eq!(before.id, after.id);
+                    assert_eq!(
+                        before.id, after.id,
+                        "Conversation id mismatch in existing conversation"
+                    );
                 });
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();

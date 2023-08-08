@@ -10,7 +10,10 @@ use actix_web::{
 };
 use phnxbackend::{
     messages::{client_qs::VerifiableClientToQsMessage, qs_qs::QsToQsMessage},
-    qs::{storage_provider_trait::QsStorageProvider, Qs, QsConnector},
+    qs::{
+        network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider, Qs,
+        WebsocketNotifier,
+    },
 };
 use tls_codec::{DeserializeBytes, Serialize};
 
@@ -65,13 +68,16 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     )
 )]
 #[tracing::instrument(name = "Process federated QS message", skip_all)]
-pub(crate) async fn qs_process_federated_message<Qep: QsConnector>(
-    qs_connector: Data<Qep>,
+pub(crate) async fn qs_process_federated_message<
+    S: QsStorageProvider,
+    W: WebsocketNotifier,
+    N: NetworkProvider,
+>(
+    storage_provider: Data<Arc<S>>,
+    websocket_notifier: Data<W>,
+    network_provider: Data<N>,
     message: web::Bytes,
 ) -> impl Responder {
-    // Extract the storage provider.
-    let connector = qs_connector.get_ref();
-
     // Deserialize the message.
     let message = match QsToQsMessage::tls_deserialize_exact(message.as_ref()) {
         Ok(message) => message,
@@ -82,7 +88,14 @@ pub(crate) async fn qs_process_federated_message<Qep: QsConnector>(
     };
 
     // Process the message.
-    match Qs::enqueue_remote_message(connector, message).await {
+    match Qs::process_federated_message(
+        storage_provider.get_ref().as_ref(),
+        websocket_notifier.get_ref(),
+        network_provider.get_ref(),
+        message,
+    )
+    .await
+    {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed federated message successfully");
