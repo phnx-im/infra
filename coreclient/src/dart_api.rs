@@ -5,6 +5,7 @@
 use std::net::ToSocketAddrs;
 use std::sync::Mutex;
 
+use anyhow::Result;
 use flutter_rust_bridge::{RustOpaque, StreamSink};
 
 pub use crate::types::Conversation;
@@ -19,9 +20,6 @@ mod bridge_generated;
 
 /// This is only to tell flutter_rust_bridge that it should expose the types
 /// used in the parameters
-pub fn _expose_rust_state(rust_state: RustState) -> RustState {
-    rust_state
-}
 pub fn _expose_conversation(conversation: Conversation) -> Conversation {
     conversation
 }
@@ -43,18 +41,63 @@ impl From<StreamSink<NotificationType>> for DartNotifier {
     }
 }
 
-pub struct RustState {
-    user: RustOpaque<Mutex<SelfUser<DartNotifier>>>,
+pub struct UserBuilder {
+    pub user: RustOpaque<Mutex<Option<RustUser>>>,
 }
 
-impl RustState {
-    #[tokio::main(flavor = "current_thread")]
-    pub async fn new(
+impl UserBuilder {
+    pub fn new() -> UserBuilder {
+        Self {
+            user: RustOpaque::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn create_user(
+        &self,
         user_name: String,
         password: String,
         address: String,
         stream_sink: StreamSink<NotificationType>,
-    ) -> RustState {
+    ) -> Result<()> {
+        let user = RustUser::new(user_name, password, address, stream_sink.clone());
+        if let Ok(mut inner_user) = self.user.try_lock() {
+            let _ = inner_user.insert(user);
+            // Send an initial notification to the flutter side, since this
+            // function cannot be async
+            stream_sink.add(NotificationType::ConversationChange(UuidBytes {
+                bytes: [0; 16],
+            }));
+            Ok(())
+        } else {
+            return Err(anyhow::anyhow!("Could not acquire lock"));
+        }
+    }
+
+    pub fn into_user(&self) -> Result<RustUser> {
+        if let Ok(mut inner_user) = self.user.try_lock() {
+            if let Some(user) = inner_user.take() {
+                return Ok(user);
+            } else {
+                return Err(anyhow::anyhow!("User not created"));
+            }
+        } else {
+            Err(anyhow::anyhow!("Could not acquire lock"))
+        }
+    }
+}
+
+pub struct RustUser {
+    user: RustOpaque<Mutex<SelfUser<DartNotifier>>>,
+}
+
+impl RustUser {
+    #[tokio::main(flavor = "current_thread")]
+    async fn new(
+        user_name: String,
+        password: String,
+        address: String,
+        stream_sink: StreamSink<NotificationType>,
+    ) -> RustUser {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
@@ -79,8 +122,12 @@ impl RustState {
     #[tokio::main(flavor = "current_thread")]
     pub async fn fetch_messages(&self) {
         let mut user = self.user.lock().unwrap();
-        let messages = user.qs_fetch_messages().await;
-        user.process_qs_messages(messages).await.unwrap();
+
+        let as_messages = user.as_fetch_messages().await;
+        user.process_as_messages(as_messages).await.unwrap();
+
+        let qs_messages = user.qs_fetch_messages().await;
+        user.process_qs_messages(qs_messages).await.unwrap();
     }
 
     pub fn get_conversations(&self) -> Vec<Conversation> {
@@ -98,5 +145,30 @@ impl RustState {
         user.send_message(conversation_id.as_uuid(), message)
             .await
             .unwrap()
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn get_messages(
+        &self,
+        conversation_id: UuidBytes,
+        last_n: usize,
+    ) -> Vec<ConversationMessage> {
+        let user = self.user.lock().unwrap();
+        let messages = user.get_messages(conversation_id.as_uuid(), last_n);
+        messages
+    }
+
+    pub fn get_contacts(&self) -> Vec<String> {
+        let user = self.user.lock().unwrap();
+        user.contacts()
+            .into_iter()
+            .map(|c| String::from_utf8_lossy(&c.user_name.to_bytes()).into_owned())
+            .collect()
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn create_conversation(&self, name: String) -> UuidBytes {
+        let mut user = self.user.lock().unwrap();
+        UuidBytes::from_uuid(user.create_conversation(&name).await.unwrap())
     }
 }
