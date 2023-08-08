@@ -11,7 +11,7 @@ use opaque_ke::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{
-    DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerializeTrait, TlsDeserializeBytes,
+    DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerialize, TlsDeserializeBytes,
     TlsSerialize, TlsSize,
 };
 
@@ -231,11 +231,8 @@ impl AsRef<[u8]> for AsClientId {
 }
 
 impl AsClientId {
-    pub fn random(
-        backend: &impl OpenMlsRand,
-        user_name: UserName,
-    ) -> Result<Self, RandomnessError> {
-        let client_id = backend
+    pub fn random(rand: &impl OpenMlsRand, user_name: UserName) -> Result<Self, RandomnessError> {
+        let client_id = rand
             .random_vec(32)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {

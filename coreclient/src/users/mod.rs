@@ -579,7 +579,7 @@ impl<T: Notifiable> SelfUser<T> {
         // Store message locally
         let message = Message::Content(ContentMessage {
             content: message,
-            sender: self.user_name.to_bytes(),
+            sender: self.user_name.to_string(),
         });
 
         // Send message to DS
