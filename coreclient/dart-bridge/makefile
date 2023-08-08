@@ -45,7 +45,7 @@ setup-linux:
 setup-ci:
 	flutter pub get
 	flutter doctor
-	cargo install flutter_rust_bridge_codegen --version="=1.78" --force
+	cargo install flutter_rust_bridge_codegen --force
 
 setup-flutter:
 	flutter upgrade
