@@ -7,6 +7,9 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use flutter_rust_bridge::{RustOpaque, StreamSink};
+use phnxapiclient::qs_api::ws::WsEvent;
+use phnxbackend::auth_service::UserName;
+use phnxserver::endpoints::qs::ws::QsWsMessage;
 
 pub use crate::types::Conversation;
 pub use crate::types::*;
@@ -22,6 +25,12 @@ mod bridge_generated;
 /// used in the parameters
 pub fn _expose_conversation(conversation: Conversation) -> Conversation {
     conversation
+}
+
+pub enum WsNotification {
+    Connected,
+    Disconnected,
+    QueueUpdate,
 }
 
 #[derive(Clone)]
@@ -114,6 +123,42 @@ impl RustUser {
     }
 
     #[tokio::main(flavor = "current_thread")]
+    pub async fn websocket(
+        &self,
+        timeout: u64,
+        retry_interval: u64,
+        stream_sink: StreamSink<WsNotification>,
+    ) -> Result<()> {
+        let mut user = self.user.lock().unwrap();
+        let mut qs_websocket = user.websocket(timeout, retry_interval).await;
+        drop(user);
+
+        loop {
+            match qs_websocket.next().await {
+                Some(event) => match event {
+                    WsEvent::ConnectedEvent => {
+                        stream_sink.add(WsNotification::Connected);
+                    }
+                    WsEvent::DisconnectedEvent => {
+                        stream_sink.add(WsNotification::Disconnected);
+                    }
+                    WsEvent::MessageEvent(e) => match e {
+                        QsWsMessage::QueueUpdate => {
+                            stream_sink.add(WsNotification::QueueUpdate);
+                        }
+                        _ => {}
+                    },
+                },
+                None => {
+                    stream_sink.add(WsNotification::Disconnected);
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[tokio::main(flavor = "current_thread")]
     pub async fn create_connection(&self, user_name: String) {
         let mut user = self.user.lock().unwrap();
         user.add_contact(&user_name).await;
@@ -170,5 +215,43 @@ impl RustUser {
     pub async fn create_conversation(&self, name: String) -> UuidBytes {
         let mut user = self.user.lock().unwrap();
         UuidBytes::from_uuid(user.create_conversation(&name).await.unwrap())
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn add_users_to_conversation(
+        &self,
+        conversation_id: UuidBytes,
+        user_names: Vec<String>,
+    ) -> Result<()> {
+        let mut user = self.user.lock().unwrap();
+        user.invite_users(
+            conversation_id.as_uuid(),
+            &user_names
+                .into_iter()
+                .map(UserName::from)
+                .collect::<Vec<_>>(),
+        )
+        .await
+        .unwrap();
+        Ok(())
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn remove_users_from_conversation(
+        &self,
+        conversation_id: UuidBytes,
+        user_names: Vec<String>,
+    ) -> Result<()> {
+        let mut user = self.user.lock().unwrap();
+        user.remove_users(
+            conversation_id.as_uuid(),
+            &user_names
+                .into_iter()
+                .map(UserName::from)
+                .collect::<Vec<_>>(),
+        )
+        .await
+        .unwrap();
+        Ok(())
     }
 }

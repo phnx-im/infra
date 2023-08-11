@@ -6,7 +6,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress, TransportEncryption};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -437,6 +437,8 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation_id = self
             .conversation_store
             .create_group_conversation(group_id, attributes);
+        self.notification_hub
+            .dispatch_conversation_notification(conversation_id);
         Ok(conversation_id)
     }
 
@@ -740,6 +742,9 @@ impl<T: Notifiable> SelfUser<T> {
                 .await
                 .unwrap();
         }
+
+        self.notification_hub
+            .dispatch_conversation_notification(conversation_id);
     }
 
     pub async fn update_user_key(&mut self, conversation_id: Uuid) {
@@ -950,5 +955,13 @@ impl<T: Notifiable> SelfUser<T> {
                 })
                 .collect()
         })
+    }
+
+    pub async fn websocket(&mut self, timeout: u64, retry_interval: u64) -> QsWebSocket {
+        let api_client = self.api_clients.default_client();
+        api_client
+            .spawn_websocket(self.qs_client_id.clone(), timeout, retry_interval)
+            .await
+            .unwrap()
     }
 }
