@@ -114,7 +114,7 @@ impl TestBed {
                             .user()
                             .contacts()
                             .into_iter()
-                            .any(|contact| &contact.user_name == other_user);
+                            .any(|contact| contact.user_name == random_user);
                         // The other user can't be the same user and the other
                         //  user can't already be connected
                         other_user != &random_user && !is_contact
@@ -374,6 +374,16 @@ impl TestBed {
         tracing::info!("Connecting users {} and {}", user1_name, user2_name);
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
+        // Make sure that the users aren't already connected.
+        let is_already_connected = user1
+            .contacts()
+            .into_iter()
+            .any(|c| c.user_name == user2_name);
+        assert!(
+            !is_already_connected,
+            "Users {} and {} are already connected.",
+            user1_name, user2_name
+        );
         let user1_partial_contacts_before = user1.partial_contacts();
         let user1_conversations_before = user1.get_conversations();
         user1.add_contact(user2_name.clone()).await;
@@ -418,19 +428,15 @@ impl TestBed {
         tracing::info!("{} processes AS messages", user2_name);
         user2.process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
-        let mut user2_contacts_after = user2.contacts();
-        let new_contact_position = user2_contacts_after
-            .iter()
-            .position(|c| c.user_name == user1_name)
-            .expect("User 1 should be in the partial contacts list of user 2");
+        let mut user2_contacts_after: HashSet<UserName> =
+            user2.contacts().into_iter().map(|c| c.user_name).collect();
         // If we remove the new user, the partial contact lists should be the same.
-        user2_contacts_after.remove(new_contact_position);
-        user2_contacts_before
+        user2_contacts_after.remove(&user1_name);
+        let user2_contacts_before: HashSet<UserName> = user2_contacts_before
             .into_iter()
-            .zip(user2_contacts_after)
-            .for_each(|(before, after)| {
-                assert_eq!(before.user_name, after.user_name);
-            });
+            .map(|c| c.user_name)
+            .collect();
+        assert_eq!(user2_contacts_after, user2_contacts_before);
         // User 2 should have created a connection group.
         let mut user2_conversations_after = user2.get_conversations();
         let new_conversation_position = user2_conversations_after

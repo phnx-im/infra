@@ -32,7 +32,7 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    ds::api::QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+    ds::{api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, group_state::EncryptedClientCredential},
     messages::{
         client_as::{
             AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackageTbs,
@@ -324,18 +324,12 @@ impl<T: Notifiable> SelfUser<T> {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
-            let (kp, signature_ear_key, leaf_signer) = user.generate_keypackage();
-            let esek = signature_ear_key
-                .encrypt(&user.key_store.signature_ear_key_wrapper_key)
-                .unwrap();
-            user.key_store.leaf_signers.insert(
-                leaf_signer.credential().verifying_key().clone(),
-                (leaf_signer, signature_ear_key),
-            );
-            let add_package =
-                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+            let add_package = user.generate_add_package(&encrypted_client_credential, false);
             qs_add_packages.push(add_package);
         }
+        let last_resort_add_package =
+            user.generate_add_package(&encrypted_client_credential, false);
+        qs_add_packages.push(last_resort_add_package);
 
         // Upload add packages
         let api_client = user.api_clients.get(&user.user_name().domain());
@@ -352,9 +346,11 @@ impl<T: Notifiable> SelfUser<T> {
         user
     }
 
-    pub(crate) fn generate_keypackage(
-        &self,
-    ) -> (KeyPackage, SignatureEarKey, InfraCredentialSigningKey) {
+    pub(crate) fn generate_add_package(
+        &mut self,
+        encrypted_client_credential: &EncryptedClientCredential,
+        last_resort: bool,
+    ) -> AddPackage {
         let signature_ear_key = SignatureEarKey::random().unwrap();
         let leaf_signer =
             InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
@@ -370,11 +366,15 @@ impl<T: Notifiable> SelfUser<T> {
             Some(&SUPPORTED_CREDENTIALS),
         );
         let client_reference = self.create_own_client_reference();
-        let extension = Extension::Unknown(
+        let client_ref_extension = Extension::Unknown(
             QS_CLIENT_REFERENCE_EXTENSION_TYPE,
             UnknownExtension(client_reference.tls_serialize_detached().unwrap()),
         );
-        let extensions = Extensions::single(extension);
+        let mut extensions = Extensions::single(client_ref_extension);
+        if last_resort {
+            let last_resort_extension = Extension::LastResort(LastResortExtension::new());
+            extensions.add(last_resort_extension).unwrap();
+        }
         let kp = KeyPackage::builder()
             .leaf_node_capabilities(capabilities)
             .leaf_node_extensions(extensions)
@@ -388,7 +388,15 @@ impl<T: Notifiable> SelfUser<T> {
                 credential_with_key,
             )
             .unwrap();
-        (kp, signature_ear_key, leaf_signer)
+        let esek = signature_ear_key
+            .encrypt(&self.key_store.signature_ear_key_wrapper_key)
+            .unwrap();
+        self.key_store.leaf_signers.insert(
+            leaf_signer.credential().verifying_key().clone(),
+            (leaf_signer, signature_ear_key),
+        );
+
+        AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone())
     }
 
     /// Create new group

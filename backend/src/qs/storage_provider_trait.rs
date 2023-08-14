@@ -108,6 +108,13 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
         encrypted_key_packages: Vec<QsEncryptedAddPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError>;
 
+    /// Store a last resort key package for a specific client.
+    async fn store_last_resort_key_package(
+        &self,
+        client_id: &QsClientId,
+        encrypted_key_package: QsEncryptedAddPackage,
+    ) -> Result<(), Self::StoreKeyPackagesError>;
+
     /// Return a key package for a specific client. The user ID is used to check if
     /// the client belongs to the user.
     /// TODO: Last resort key package
