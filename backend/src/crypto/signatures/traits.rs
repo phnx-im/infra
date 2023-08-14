@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{OpenMlsCrypto, OpenMlsCryptoProvider, SignatureScheme},
+    openmls::prelude::{OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use thiserror::Error;
@@ -15,8 +15,8 @@ use super::signable::Signature;
 pub trait SigningKey: AsRef<[u8]> {
     /// Sign the given payload with this signing key.
     fn sign(&self, payload: &[u8]) -> Result<Signature, LibraryError> {
-        let backend = OpenMlsRustCrypto::default();
-        backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
             .crypto()
             .sign(SignatureScheme::ED25519, payload, self.as_ref())
             .map_err(|_| LibraryError)
@@ -45,8 +45,8 @@ pub trait VerifyingKey: AsRef<[u8]> + std::fmt::Debug {
         payload: &[u8],
         signature: &Signature,
     ) -> Result<(), SignatureVerificationError> {
-        let backend = OpenMlsRustCrypto::default();
-        backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
             .crypto()
             .verify_signature(
                 SignatureScheme::ED25519,

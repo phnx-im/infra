@@ -9,7 +9,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::Extension,
     openmls::prelude::{
-        KeyPackage, KeyPackageRef, OpenMlsCryptoProvider, ProcessedMessageContent, Sender,
+        KeyPackage, KeyPackageRef, OpenMlsProvider, ProcessedMessageContent, Sender,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };

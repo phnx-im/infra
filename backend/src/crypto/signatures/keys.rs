@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsCryptoProvider, SignaturePublicKey},
+    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignaturePublicKey},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
@@ -131,8 +131,8 @@ pub struct RandomnessError {}
 
 impl QsClientSigningKey {
     pub fn random() -> Result<Self, RandomnessError> {
-        let backend = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let (signing_key, verifying_key) = rust_crypto
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError {})?;
@@ -185,8 +185,8 @@ pub struct QsUserSigningKey {
 
 impl QsUserSigningKey {
     pub fn random() -> Result<Self, RandomnessError> {
-        let backend = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let (signing_key, verifying_key) = rust_crypto
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
             .map_err(|_| RandomnessError {})?;

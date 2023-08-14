@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 use argon2::Argon2;
 use chrono::{DateTime, Utc};
 use mls_assist::{
-    openmls::prelude::{OpenMlsCryptoProvider, OpenMlsRand},
+    openmls::prelude::{OpenMlsProvider, OpenMlsRand},
     openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::{
         crypto::OpenMlsCrypto,
@@ -164,8 +164,8 @@ pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
 impl EncryptionPublicKey {
     /// Encrypt the given plaintext using this key.
     pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
-        let backend = OpenMlsRustCrypto::default();
-        backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
             .crypto()
             .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
     }
@@ -201,8 +201,8 @@ impl DecryptionPrivateKey {
         aad: &[u8],
         ct: &HpkeCiphertext,
     ) -> Result<Vec<u8>, DecryptionError> {
-        let backend = OpenMlsRustCrypto::default();
-        backend
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
             .crypto()
             .hpke_open(HPKE_CONFIG, ct, &self.private_key, info, aad)
             .map_err(|_| DecryptionError::DecryptionError)
