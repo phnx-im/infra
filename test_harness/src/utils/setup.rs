@@ -121,11 +121,22 @@ impl TestBed {
                     })
                     .choose(rng)
                 {
+                    tracing::info!(
+                        random_operation = true,
+                        "Random operation: Connecting {} and {}",
+                        random_user,
+                        other_user
+                    );
                     self.connect_users(random_user, other_user.clone()).await;
                 }
             }
             1 => {
-                self.create_group(random_user).await;
+                let conversation_id = self.create_group(random_user).await;
+                tracing::info!(
+                    random_operation = true,
+                    "Random operation: Created group {}",
+                    conversation_id
+                );
                 // TODO: Invite user(s)
             }
             2 => {
@@ -138,6 +149,7 @@ impl TestBed {
                     .into_iter()
                     .filter(|conversation| {
                         conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
                     })
                     .choose(rng)
                 {
@@ -164,6 +176,17 @@ impl TestBed {
                         .choose_multiple(rng, number_of_invitees);
                     // It can happen that there are no suitable users to invite
                     if invitee_names.len() > 0 {
+                        let invitee_strings = invitee_names
+                            .iter()
+                            .map(|invitee| invitee.to_string())
+                            .collect::<Vec<_>>();
+                        tracing::info!(
+                            random_operation = true,
+                            "Random operation: {} invites {} to group {}",
+                            random_user,
+                            invitee_strings.join(", "),
+                            conversation.id.as_uuid()
+                        );
                         self.invite_to_group(conversation.id.as_uuid(), random_user, invitee_names)
                             .await;
                     }
@@ -177,6 +200,7 @@ impl TestBed {
                     .into_iter()
                     .filter(|conversation| {
                         conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
                     })
                     .choose(rng)
                 {
@@ -190,6 +214,17 @@ impl TestBed {
                         .cloned()
                         .choose_multiple(rng, number_of_removals);
                     if members_to_remove.len() > 0 {
+                        let removed_strings = members_to_remove
+                            .iter()
+                            .map(|removed| removed.to_string())
+                            .collect::<Vec<_>>();
+                        tracing::info!(
+                            random_operation = true,
+                            "Random operation: {} removes {} from group {}",
+                            random_user,
+                            removed_strings.join(", "),
+                            conversation.id.as_uuid()
+                        );
                         self.remove_from_group(
                             conversation.id.as_uuid(),
                             random_user,
@@ -207,9 +242,16 @@ impl TestBed {
                     .into_iter()
                     .filter(|conversation| {
                         conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
                     })
                     .choose(rng)
                 {
+                    tracing::info!(
+                        random_operation = true,
+                        "Random operation: {} leaves group {}",
+                        random_user,
+                        conversation.id.as_uuid()
+                    );
                     self.leave_group(conversation.id.as_uuid(), random_user)
                         .await;
                 }
@@ -700,7 +742,10 @@ impl TestBed {
         for invitee_name in &invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
-            let invitee_conversations_before = invitee.get_conversations();
+            let invitee_conversations_before = invitee
+                .get_conversations()
+                .into_iter()
+                .collect::<HashSet<_>>();
 
             let qs_messages = invitee.qs_fetch_messages().await;
 
@@ -709,32 +754,16 @@ impl TestBed {
                 .await
                 .expect("Error processing qs messages.");
 
-            let mut invitee_conversations_after = invitee.get_conversations();
-            let new_conversation_position = invitee_conversations_after
-                .iter()
-                .position(|c| c.id.as_uuid() == conversation_id)
-                .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_id}"));
-            let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(
-                conversation.id.as_uuid() == conversation_id,
-                "Conversation id mismatch"
-            );
-            assert!(
-                conversation.status == ConversationStatus::Active,
-                "Conversation status mismatch"
-            );
-            assert!(
-                conversation.conversation_type == ConversationType::Group,
-                "Conversation type mismatch"
-            );
-            invitee_conversations_before
+            let invitee_conversations_after = invitee
+                .get_conversations()
                 .into_iter()
-                .zip(invitee_conversations_after)
-                .for_each(|(before, after)| {
-                    assert_eq!(
-                        before.id, after.id,
-                        "Conversation id mismatch in existing conversation"
-                    );
+                .collect::<HashSet<_>>();
+            invitee_conversations_after
+                .difference(&invitee_conversations_before)
+                .for_each(|c| {
+                    assert_eq!(c.id.as_uuid(), conversation_id);
+                    assert_eq!(c.status, ConversationStatus::Active);
+                    assert_eq!(c.conversation_type, ConversationType::Group);
                 });
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();

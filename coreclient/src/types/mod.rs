@@ -8,7 +8,7 @@ use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct GroupIdBytes {
     pub bytes: Vec<u8>,
 }
@@ -27,7 +27,7 @@ impl GroupIdBytes {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UuidBytes {
     pub bytes: [u8; 16],
 }
@@ -116,7 +116,7 @@ pub struct ErrorMessage {
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Conversation {
     pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
@@ -134,13 +134,13 @@ impl Conversation {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum ConversationStatus {
     Inactive(InactiveConversation),
     Active,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct InactiveConversation {
     pub past_members: Vec<String>,
 }
@@ -163,7 +163,7 @@ impl InactiveConversation {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(String),
@@ -173,7 +173,7 @@ pub enum ConversationType {
     Group,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct ConversationAttributes {
     pub title: String,
 }

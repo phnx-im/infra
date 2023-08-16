@@ -33,7 +33,7 @@ impl GroupStore {
         api_clients: &mut ApiClients,
         as_credentials: &mut AsCredentials,
         contacts: &HashMap<UserName, Contact>,
-    ) -> GroupId {
+    ) -> Result<GroupId, GroupOperationError> {
         let group = Group::join_group(
             provider,
             welcome_bundle,
@@ -43,12 +43,11 @@ impl GroupStore {
             as_credentials,
             contacts,
         )
-        .await
-        .unwrap();
+        .await?;
         let group_id = group.group_id().clone();
         self.groups.insert(group_id.clone(), group);
 
-        group_id
+        Ok(group_id)
     }
 
     //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
