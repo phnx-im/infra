@@ -83,8 +83,10 @@ pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infr
 pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [ProtocolVersion::Mls10];
 pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] =
     [Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519];
-pub const SUPPORTED_EXTENSIONS: [ExtensionType; 1] =
-    [ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE)];
+pub const SUPPORTED_EXTENSIONS: [ExtensionType; 2] = [
+    ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE),
+    ExtensionType::LastResort,
+];
 pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
     [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
 pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];

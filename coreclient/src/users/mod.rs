@@ -327,8 +327,7 @@ impl<T: Notifiable> SelfUser<T> {
             let add_package = user.generate_add_package(&encrypted_client_credential, false);
             qs_add_packages.push(add_package);
         }
-        let last_resort_add_package =
-            user.generate_add_package(&encrypted_client_credential, false);
+        let last_resort_add_package = user.generate_add_package(&encrypted_client_credential, true);
         qs_add_packages.push(last_resort_add_package);
 
         // Upload add packages
@@ -370,14 +369,17 @@ impl<T: Notifiable> SelfUser<T> {
             QS_CLIENT_REFERENCE_EXTENSION_TYPE,
             UnknownExtension(client_reference.tls_serialize_detached().unwrap()),
         );
-        let mut extensions = Extensions::single(client_ref_extension);
-        if last_resort {
+        let leaf_node_extensions = Extensions::single(client_ref_extension);
+        let key_package_extensions = if last_resort {
             let last_resort_extension = Extension::LastResort(LastResortExtension::new());
-            extensions.add(last_resort_extension).unwrap();
-        }
+            Extensions::single(last_resort_extension)
+        } else {
+            Extensions::default()
+        };
         let kp = KeyPackage::builder()
+            .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)
-            .leaf_node_extensions(extensions)
+            .leaf_node_extensions(leaf_node_extensions)
             .build(
                 CryptoConfig {
                     ciphersuite: CIPHERSUITE,
