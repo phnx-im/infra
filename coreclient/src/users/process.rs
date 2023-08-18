@@ -45,24 +45,22 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let group_id = self
-                        .group_store
-                        .join_group(
-                            &self.crypto_backend,
-                            welcome_bundle,
-                            &self.key_store.wai_ear_key,
-                            &mut self.key_store.leaf_signers,
-                            // TODO: For now, I'm passing the ApiClients in here
-                            // s.t. the group can fetch AS Credentials if it needs
-                            // to. In the future, it would be great if we could have
-                            // multiple references to the API clients flying around,
-                            // for example one in the ASCredentials store itself.
-                            &mut self.api_clients,
-                            &mut self.key_store.as_credentials,
-                            &self.contacts,
-                        )
-                        .await
-                        .unwrap();
+                    let group = ClientGroup::join_group(
+                        &self.crypto_backend,
+                        welcome_bundle,
+                        &self.key_store.wai_ear_key,
+                        &mut self.key_store.leaf_signers,
+                        // TODO: For now, I'm passing the ApiClients in here
+                        // s.t. the group can fetch AS Credentials if it needs
+                        // to. In the future, it would be great if we could have
+                        // multiple references to the API clients flying around,
+                        // for example one in the ASCredentials store itself.
+                        &mut self.api_clients,
+                        &mut self.key_store.as_credentials,
+                        &self.contacts,
+                    )
+                    .await?;
+                    let group_id = group.group_id().clone();
                     freshly_joined_groups.push(group_id.clone());
 
                     let attributes = ConversationAttributes {
@@ -71,8 +69,9 @@ impl<T: Notifiable> SelfUser<T> {
                     let conversation_id = self
                         .conversation_store
                         .create_group_conversation(group_id, attributes);
-                    self.notification_hub
-                        .dispatch_conversation_notification(conversation_id);
+                    if let Some(ref mut notification_hub) = &mut self.notification_hub_option {
+                        notification_hub.dispatch_conversation_notification(conversation_id);
+                    }
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -92,10 +91,8 @@ impl<T: Notifiable> SelfUser<T> {
                         .unwrap()
                         .id
                         .as_uuid();
-                    let Some(group) = self.group_store.get_group_mut(group_id)
-                        else {
-                            return Err(CorelibError::GroupStore(GroupStoreError::UnknownGroup))
-                        };
+
+                    let mut group = ClientGroup::load(group_id, &self.as_client_id())?;
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
                             &self.crypto_backend,
@@ -266,8 +263,8 @@ impl<T: Notifiable> SelfUser<T> {
 
         // After joining, we need to set our user auth keys.
         for group_id in freshly_joined_groups {
-            let group = self.group_store.get_group_mut(&group_id).unwrap();
-            let params = group.update_user_key(&self.crypto_backend);
+            let mut group = ClientGroup::load(&group_id, &self.as_client_id())?;
+            let params = group.update_user_key(&self.crypto_backend)?;
             let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)
@@ -378,7 +375,7 @@ impl<T: Notifiable> SelfUser<T> {
                         .await
                         .unwrap();
 
-                    let (group, commit, group_info) = Group::join_group_externally(
+                    let (group, commit, group_info) = ClientGroup::join_group_externally(
                         &self.crypto_backend,
                         eci,
                         leaf_signer,
@@ -395,7 +392,7 @@ impl<T: Notifiable> SelfUser<T> {
                     .unwrap();
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
                     let conversation_id = self.conversation_store.create_connection_conversation(
-                        group.group_id(),
+                        group.group_id().clone(),
                         user_name.clone(),
                         ConversationAttributes {
                             title: user_name.to_string(),
@@ -436,14 +433,15 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await
                         .unwrap();
-                    self.group_store.store_group(group).unwrap();
                 }
             }
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
-        for notification_message in notification_messages.clone() {
-            self.notification_hub
-                .dispatch_message_notification(notification_message);
+
+        if let Some(ref mut notification_hub) = &mut self.notification_hub_option {
+            for notification_message in notification_messages.clone() {
+                notification_hub.dispatch_message_notification(notification_message);
+            }
         }
         Ok(())
     }

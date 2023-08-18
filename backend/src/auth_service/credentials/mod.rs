@@ -6,8 +6,8 @@ use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use privacypass::Serialize;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use serde::{Deserialize, Serialize};
+use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{
     generate_signature_keypair, AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey,
@@ -16,10 +16,7 @@ use keys::{
 
 use crate::{
     crypto::{
-        ear::{
-            keys::ClientCredentialEarKey, EarDecryptable, EarEncryptable, GenericDeserializable,
-            GenericSerializable,
-        },
+        ear::{keys::ClientCredentialEarKey, EarDecryptable, EarEncryptable},
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
     ds::group_state::{EncryptedClientCredential, TimeStamp},
@@ -42,12 +39,23 @@ use self::keys::ClientVerifyingKey;
 
 use super::AsClientId;
 
-#[derive(Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Hash)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub struct CredentialFingerprint {
     value: Vec<u8>,
 }
 
-#[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ExpirationData {
     not_before: TimeStamp,
     not_after: TimeStamp,
@@ -72,7 +80,7 @@ impl ExpirationData {
 }
 
 fn fingerprint_with_label(
-    credential: &impl Serialize,
+    credential: &impl TlsSerialize,
     label: &str,
 ) -> Result<CredentialFingerprint, LibraryError> {
     let rust_crypto = OpenMlsRustCrypto::default();
@@ -90,7 +98,7 @@ fn fingerprint_with_label(
 const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredential {
     version: MlsInfraVersion,
     as_domain: Fqdn,
@@ -149,7 +157,7 @@ impl PreliminaryAsSigningKey {
     }
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
     signature_scheme: SignatureScheme,
@@ -208,7 +216,7 @@ impl AsIntermediateCredentialCsr {
     }
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 struct AsIntermediateCredentialPayload {
     csr: AsIntermediateCredentialCsr,
     expiration_data: ExpirationData,
@@ -229,7 +237,7 @@ impl Signable for AsIntermediateCredentialPayload {
     }
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
@@ -297,7 +305,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
 const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
 const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: i64 = 90;
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialCsr {
     version: MlsInfraVersion,
     client_id: AsClientId,
@@ -335,7 +343,7 @@ impl ClientCredentialCsr {
     }
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialPayload {
     csr: ClientCredentialCsr,
     expiration_data: ExpirationData,
@@ -392,7 +400,7 @@ impl PreliminaryClientSigningKey {
     }
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -432,31 +440,14 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-impl GenericSerializable for ClientCredential {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
 impl EarEncryptable<ClientCredentialEarKey, EncryptedClientCredential> for ClientCredential {}
-
-impl GenericDeserializable for VerifiableClientCredential {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use tls_codec::DeserializeBytes;
-        Self::tls_deserialize_exact(bytes)
-    }
-}
 
 impl EarDecryptable<ClientCredentialEarKey, EncryptedClientCredential>
     for VerifiableClientCredential
 {
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Deserialize)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,

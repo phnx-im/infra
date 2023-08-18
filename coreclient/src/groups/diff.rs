@@ -9,7 +9,7 @@ use super::*;
 /// A struct that contains differences in group data when creating a commit.
 /// The diff of a group should be merged when the pending commit of the
 /// underlying MLS group is merged.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct GroupDiff {
     pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
     pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
@@ -19,12 +19,16 @@ pub(crate) struct GroupDiff {
     // Changes to the client credentials. `None` denotes a deleted credential at
     // the given index, `Some` denotes an added or updated credential. The
     // vector must be sorted in ascending order of indices.
+    #[serde(
+        serialize_with = "serialize_hashmap",
+        deserialize_with = "deserialize_btreemap"
+    )]
     pub(crate) client_information: BTreeMap<usize, Option<(ClientCredential, SignatureEarKey)>>,
     pub(crate) new_number_of_leaves: usize,
 }
 
 impl GroupDiff {
-    pub(crate) fn new(group: &Group) -> Self {
+    pub(crate) fn new(group: &InnerClientGroup) -> Self {
         Self {
             leaf_signer: None,
             signature_ear_key: None,

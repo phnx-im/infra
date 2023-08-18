@@ -181,7 +181,7 @@ pub enum DecryptionError {
     DeserializationError,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecryptionPrivateKey {
     private_key: HpkePrivateKey,
     public_key: EncryptionPublicKey,
@@ -245,6 +245,7 @@ pub struct RatchetEncryptionKey {
     encryption_key: EncryptionPublicKey,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RatchetDecryptionKey {
     decryption_key: DecryptionPrivateKey,
 }
@@ -278,6 +279,7 @@ impl AsRef<EncryptionPublicKey> for ConnectionEncryptionKey {
 
 impl HpkeEncryptionKey for ConnectionEncryptionKey {}
 
+#[derive(Serialize, Deserialize)]
 pub struct ConnectionDecryptionKey {
     decryption_key: DecryptionPrivateKey,
 }

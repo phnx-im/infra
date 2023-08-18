@@ -6,13 +6,18 @@ use std::collections::HashMap;
 
 use openmls::prelude::GroupId;
 use phnxbackend::auth_service::UserName;
+use serde::{Deserialize, Serialize};
 
 use crate::types::*;
 
 use super::*;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub(crate) struct ConversationStore {
+    #[serde(
+        serialize_with = "crate::utils::serialize_hashmap",
+        deserialize_with = "crate::utils::deserialize_hashmap"
+    )]
     conversations: HashMap<Uuid, Conversation>,
     messages: HashMap<Uuid, HashMap<Uuid, ConversationMessage>>,
 }

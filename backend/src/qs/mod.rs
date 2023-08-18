@@ -212,7 +212,7 @@ impl ClientIdDecryptionKey {
     }
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientIdEncryptionKey {
     public_key: EncryptionPublicKey,
 }
@@ -338,7 +338,7 @@ impl AsRef<[u8]> for QsSigningKey {
 
 impl SigningKey for QsSigningKey {}
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct QsVerifyingKey {
     verifying_key: Vec<u8>,
 }
@@ -547,7 +547,9 @@ impl VerifiedStruct<KeyPackageBatch<UNVERIFIED>> for KeyPackageBatch<VERIFIED> {
     }
 }
 
-#[derive(Clone, Debug, ToSchema, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(
+    Clone, Debug, ToSchema, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
     payload: KeyPackageBatchTbs,
     signature: Signature,

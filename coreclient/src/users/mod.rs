@@ -48,6 +48,7 @@ use phnxbackend::{
     },
 };
 use rand::rngs::OsRng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -68,6 +69,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
+#[derive(Serialize, Deserialize)]
 pub(crate) struct ApiClients {
     // We store our own domain such that we can manually map our own domain to
     // an API client that uses an IP address instead of the actual domain. This
@@ -75,6 +77,7 @@ pub(crate) struct ApiClients {
     // thought-out mechanism.
     own_domain: Fqdn,
     own_domain_or_address: DomainOrAddress,
+    #[serde(skip)]
     clients: HashMap<DomainOrAddress, ApiClient>,
 }
 
@@ -107,15 +110,14 @@ impl ApiClients {
 
 pub struct SelfUser<T: Notifiable> {
     pub(crate) crypto_backend: OpenMlsRustCrypto,
-    pub(crate) notification_hub: NotificationHub<T>,
+    pub(crate) notification_hub_option: Option<NotificationHub<T>>,
     api_clients: ApiClients,
     pub(crate) user_name: UserName,
-    pub(crate) qs_user_id: QsUserId,
+    pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) qs_client_sequence_number_start: u64,
     pub(crate) as_client_sequence_number_start: u64,
     pub(crate) conversation_store: ConversationStore,
-    pub(crate) group_store: GroupStore,
     pub(crate) key_store: MemoryUserKeyStore,
     pub(crate) contacts: HashMap<UserName, Contact>,
     pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
@@ -308,15 +310,14 @@ impl<T: Notifiable> SelfUser<T> {
             api_clients,
             user_name,
             conversation_store: ConversationStore::default(),
-            group_store: GroupStore::default(),
             key_store,
-            qs_user_id: create_user_record_response.user_id,
+            _qs_user_id: create_user_record_response.user_id,
             qs_client_id: create_user_record_response.client_id,
             qs_client_sequence_number_start: 0,
             as_client_sequence_number_start: 0,
             contacts: HashMap::default(),
             partial_contacts: HashMap::default(),
-            notification_hub,
+            notification_hub_option: Some(notification_hub),
         };
 
         let mut qs_add_packages = vec![];
@@ -410,12 +411,12 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
         let client_reference = self.create_own_client_reference();
-        let group = Group::create_group(
+        let (group, partial_params) = ClientGroup::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
             group_id.clone(),
-        );
-        let partial_params = group.create_group_params(&self.crypto_backend);
+        )
+        .unwrap();
         let encrypted_client_credential = self
             .key_store
             .signing_key
@@ -440,7 +441,6 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await
             .unwrap();
-        self.group_store.store_group(group).unwrap();
         let attributes = ConversationAttributes {
             title: title.to_string(),
         };
@@ -480,10 +480,7 @@ impl<T: Notifiable> SelfUser<T> {
             contact_add_infos.push(add_info);
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
-        let group = self
-            .group_store
-            .get_group_mut(&group_id.as_group_id())
-            .unwrap();
+        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
         // Adds new member and staged commit
         let params = group
             .invite(
@@ -525,16 +522,8 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let group_id = &conversation.group_id;
-        let group = self
-            .group_store
-            .get_group_mut(&group_id.as_group_id())
-            .unwrap();
-        let mut clients = vec![];
-        for user_name in target_users {
-            let mut user_clients = group.user_client_ids(user_name);
-            clients.append(&mut user_clients);
-        }
-        let params = group.remove(&self.crypto_backend, clients).unwrap();
+        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let params = group.remove(&self.crypto_backend, target_users).unwrap();
         // We unwrap here, because if the user auth key is not set, the remove
         // would already have failed.
         let owner_domain = conversation.owner_domain();
@@ -566,8 +555,9 @@ impl<T: Notifiable> SelfUser<T> {
             };
             self.conversation_store
                 .store_message(conversation_id, conversation_message)?;
-            self.notification_hub
-                .dispatch_message_notification(dispatched_conversation_message);
+            if let Some(ref mut notification_hub) = self.notification_hub_option {
+                notification_hub.dispatch_message_notification(dispatched_conversation_message);
+            }
         }
         Ok(())
     }
@@ -583,15 +573,11 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .unwrap();
-        let group_id = conversation.group_id.clone();
+        let group_id = &conversation.group_id;
+        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
         // Generate ciphertext
-        let params = self
-            .group_store
-            .create_message(
-                &self.crypto_backend,
-                &group_id.as_group_id(),
-                message.clone(),
-            )
+        let params = group
+            .create_message(&self.crypto_backend, message.clone())
             .map_err(CorelibError::Group)?;
 
         // Store message locally
@@ -602,15 +588,10 @@ impl<T: Notifiable> SelfUser<T> {
 
         // Send message to DS
         let owner_domain = conversation.owner_domain();
+
         self.api_clients
             .get(&owner_domain)
-            .ds_send_message(
-                params,
-                &self.group_store.leaf_signing_key(&group_id.as_group_id()),
-                &self
-                    .group_store
-                    .group_state_ear_key(&group_id.as_group_id()),
-            )
+            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await
             .unwrap();
 
@@ -664,12 +645,12 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
         // Create the connection group
-        let connection_group = Group::create_group(
+        let (connection_group, partial_params) = ClientGroup::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
             group_id.clone(),
-        );
-        let partial_params = connection_group.create_group_params(&self.crypto_backend);
+        )
+        .unwrap();
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -725,7 +706,6 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await
             .unwrap();
-        self.group_store.store_group(connection_group).unwrap();
 
         // Create the connection conversation
         let conversation_id = self.conversation_store.create_connection_conversation(
@@ -765,11 +745,9 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .unwrap();
-        let group = self
-            .group_store
-            .get_group_mut(&conversation.group_id.as_group_id())
-            .unwrap();
-        let params = group.update_user_key(&self.crypto_backend);
+        let mut group =
+            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let params = group.update_user_key(&self.crypto_backend).unwrap();
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
@@ -788,10 +766,8 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .unwrap();
-        let group = self
-            .group_store
-            .get_group_mut(&conversation.group_id.as_group_id())
-            .unwrap();
+        let mut group =
+            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
         let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
@@ -873,11 +849,9 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .unwrap();
-        let group = self
-            .group_store
-            .get_group_mut(&conversation.group_id.as_group_id())
-            .unwrap();
-        let params = group.leave_group(&self.crypto_backend);
+        let mut group =
+            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let params = group.leave_group(&self.crypto_backend).unwrap();
         // We unwrap here, because if there was no auth key, the leave group
         // call would have failed already.
         let owner_domain = conversation.owner_domain();
@@ -897,11 +871,9 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .unwrap();
-        let group = self
-            .group_store
-            .get_group_mut(&conversation.group_id.as_group_id())
-            .unwrap();
-        let params = group.update(&self.crypto_backend);
+        let mut group =
+            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let params = group.update(&self.crypto_backend).unwrap();
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)
@@ -939,9 +911,10 @@ impl<T: Notifiable> SelfUser<T> {
         &self.user_name
     }
 
-    fn group(&self, conversation_id: Uuid) -> Option<&Group> {
-        self.conversation(conversation_id)
-            .and_then(|conversation| self.group_store.group(&conversation.group_id.as_group_id()))
+    fn group(&self, conversation_id: Uuid) -> Option<ClientGroup> {
+        self.conversation(conversation_id).and_then(|conversation| {
+            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).ok()
+        })
     }
 
     /// Returns None if there is no conversation with the given id.
@@ -956,18 +929,8 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub fn pending_removes(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
-        self.group(conversation_id).map(|group| {
-            group
-                .mls_group()
-                .pending_proposals()
-                .filter_map(|proposal| match proposal.proposal() {
-                    Proposal::Remove(rp) => group
-                        .client_by_index(rp.removed().usize())
-                        .map(|c| c.user_name()),
-                    _ => None,
-                })
-                .collect()
-        })
+        self.group(conversation_id)
+            .map(|group| group.pending_removes())
     }
 
     pub fn conversations(&self) -> Vec<Conversation> {
@@ -1014,5 +977,9 @@ impl<T: Notifiable> SelfUser<T> {
             add_infos.push(add_info);
         }
         contact.add_infos.append(&mut add_infos);
+    }
+
+    fn as_client_id(&self) -> AsClientId {
+        self.key_store.signing_key.credential().identity()
     }
 }

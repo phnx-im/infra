@@ -8,7 +8,10 @@ use mls_assist::openmls::prelude::{
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
 use mls_assist::openmls_traits::{signatures::Signer, types::Error};
-use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use serde::{Deserialize, Serialize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 
 use crate::auth_service::credentials::{
     AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey,
@@ -93,7 +96,7 @@ impl AsSigningKey {
 
 impl SigningKey for AsSigningKey {}
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct AsVerifyingKey {
     verifying_key_bytes: SignaturePublicKey,
 }
@@ -122,7 +125,9 @@ pub fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGenerationE
         .map_err(|_| KeyGenerationError::KeypairGeneration)
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
+)]
 pub struct AsIntermediateVerifyingKey {
     pub(super) verifying_key_bytes: SignaturePublicKey,
 }
@@ -142,7 +147,7 @@ pub enum KeyGenerationError {
     KeypairGeneration,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: ClientCredential,
@@ -175,7 +180,9 @@ impl ClientSigningKey {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
+)]
 pub struct ClientVerifyingKey {
     pub(super) verifying_key_bytes: SignaturePublicKey,
 }
@@ -188,7 +195,7 @@ impl AsRef<[u8]> for ClientVerifyingKey {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InfraCredentialSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: InfraCredential,

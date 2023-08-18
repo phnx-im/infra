@@ -40,15 +40,6 @@ pub enum GroupOperationError {
     DuplicateClientAddition,
     #[error(transparent)]
     TlsCodecError(#[from] tls_codec::Error),
-}
-
-implement_error! {
-    pub enum GroupStoreError {
-        Simple {
-            InsertionError = "Could not insert new group into store",
-            DuplicateGroup = "This group already exists",
-            UnknownGroup = "This group does not exist",
-        }
-        Complex {}
-    }
+    #[error(transparent)]
+    GroupStoreError(#[from] turbosql::Error),
 }

@@ -4,11 +4,12 @@
 
 use openmls::prelude::GroupId;
 use phnxbackend::{auth_service::UserName, ds::api::QualifiedGroupId, qs::Fqdn};
+use serde::{Deserialize, Serialize};
 use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 //use phnxbackend::auth_service::UserName;
 use uuid::Uuid;
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GroupIdBytes {
     pub bytes: Vec<u8>,
 }
@@ -27,7 +28,7 @@ impl GroupIdBytes {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct UuidBytes {
     pub bytes: [u8; 16],
 }
@@ -61,62 +62,68 @@ impl UuidBytes {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
     pub id: UuidBytes,
     pub timestamp: u64,
     pub message: Message,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(ContentMessage),
     Display(DisplayMessage),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
     pub sender: String,
     pub content: MessageContentType,
 }
 
-#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
+)]
 #[repr(u16)]
 pub enum MessageContentType {
     Text(TextMessage),
     Knock(Knock),
 }
 
-#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct TextMessage {
     pub message: Vec<u8>,
 }
 
-#[derive(PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize)]
+#[derive(
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct Knock {}
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayMessage {
     pub message: DisplayMessageType,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum DisplayMessageType {
     System(SystemMessage),
     Error(ErrorMessage),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMessage {
     pub message: String,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorMessage {
     pub message: String,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
@@ -134,13 +141,13 @@ impl Conversation {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationStatus {
     Inactive(InactiveConversation),
     Active,
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
     pub past_members: Vec<String>,
 }
@@ -163,7 +170,7 @@ impl InactiveConversation {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(String),
@@ -173,7 +180,7 @@ pub enum ConversationType {
     Group,
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ConversationAttributes {
     pub title: String,
 }

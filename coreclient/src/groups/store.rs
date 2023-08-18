@@ -2,90 +2,57 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::users::ApiClients;
+use turbosql::{execute, select, Turbosql};
 
 use super::*;
 
-#[derive(Default)]
-pub(crate) struct GroupStore {
-    groups: HashMap<GroupId, Group>,
-}
-
-impl GroupStore {
-    pub(crate) fn store_group(&mut self, group: Group) -> Result<(), GroupStoreError> {
-        match self.groups.insert(group.group_id.clone(), group) {
-            Some(_) => Err(GroupStoreError::DuplicateGroup),
-            None => Ok(()),
-        }
-    }
-
-    pub(crate) async fn join_group(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        welcome_bundle: WelcomeBundle,
-        // This is our own key that the sender uses to encrypt to us. We should
-        // be able to retrieve it from the client's key store.
-        welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        leaf_signers: &mut HashMap<
-            SignaturePublicKey,
-            (InfraCredentialSigningKey, SignatureEarKey),
-        >,
-        api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
-        contacts: &HashMap<UserName, Contact>,
-    ) -> Result<GroupId, GroupOperationError> {
-        let group = Group::join_group(
-            provider,
-            welcome_bundle,
-            welcome_attribution_info_ear_key,
-            leaf_signers,
-            api_clients,
-            as_credentials,
-            contacts,
-        )
-        .await?;
-        let group_id = group.group_id().clone();
-        self.groups.insert(group_id.clone(), group);
-
-        Ok(group_id)
-    }
-
-    //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
-
-    pub(crate) fn get_group_mut(&mut self, group_id: &GroupId) -> Option<&mut Group> {
-        self.groups.get_mut(group_id)
-    }
-    pub(crate) fn get_group(&self, group_id: &GroupId) -> Option<&Group> {
-        self.groups.get(group_id)
-    }
-
-    pub(crate) fn create_message(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        group_id: &GroupId,
-        message: MessageContentType,
-    ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let group = self.groups.get_mut(group_id).unwrap();
-        group.create_message(provider, message)
-    }
-
-    /// Returns the leaf signing key for the given group.
-    /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn leaf_signing_key(&self, group_id: &GroupId) -> InfraCredentialSigningKey {
-        self.groups.get(group_id).unwrap().leaf_signer.clone()
-    }
-
-    /// Returns the group state EAR key for the given group.
-    /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> GroupStateEarKey {
-        self.groups
-            .get(group_id)
+impl ClientGroup {
+    /// Writes the new group to the database. If a group with the same group id
+    /// already exists, it deletes the old group.
+    pub(crate) fn new(inner_group: InnerClientGroup) -> Result<Self, turbosql::Error> {
+        let client_id_bytes = inner_group
+            .client_by_index(inner_group.mls_group().own_leaf_index().usize())
             .unwrap()
-            .group_state_ear_key
-            .clone()
+            .tls_serialize_detached()
+            .unwrap();
+        let group_id_bytes = inner_group.group_id().as_slice().to_vec();
+        // Check if a group with this ID already exists.
+        if let Ok(old_group) = select!(ClientGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)
+        {
+            // If it exists, delete it from the DB.
+            execute!("DELETE FROM clientgroup WHERE rowid = " old_group.rowid.unwrap())?;
+        }
+        // Insert the new group into the DB.
+        let group = Self {
+            rowid: None,
+            client_id: Some(client_id_bytes),
+            group_id: Some(group_id_bytes),
+            inner_client_group: Some(inner_group),
+        };
+        group.insert()?;
+        Ok(group)
     }
 
-    pub fn group(&self, group_id: &GroupId) -> Option<&Group> {
-        self.groups.get(group_id)
+    pub(crate) fn load(
+        group_id: &GroupId,
+        client_id: &AsClientId,
+    ) -> Result<Self, turbosql::Error> {
+        let client_id_bytes = client_id.tls_serialize_detached().unwrap();
+        let group_id_bytes = group_id.as_slice();
+        let group = select!(ClientGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)?;
+        if group.inner_client_group.is_none() {
+            return Err(turbosql::Error::OtherError("Corrupted group in DB."));
+        }
+        Ok(group)
+    }
+
+    pub(crate) fn persist(&self) -> Result<(), turbosql::Error> {
+        <Self as Turbosql>::update(self)?;
+        Ok(())
+    }
+
+    pub(crate) fn _purge(&self) -> Result<(), turbosql::Error> {
+        execute!("DELETE FROM clientgroup WHERE rowid = " self.rowid.unwrap())?;
+        Ok(())
     }
 }

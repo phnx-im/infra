@@ -10,6 +10,7 @@ use http::StatusCode;
 use phnxbackend::qs::Fqdn;
 use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
 use reqwest::{Client, ClientBuilder};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod as_api;
@@ -38,7 +39,7 @@ pub enum ApiClientInitError {
     ReqwestError(#[from] reqwest::Error),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum DomainOrAddress {
     Domain(Fqdn),
     Address(SocketAddr),

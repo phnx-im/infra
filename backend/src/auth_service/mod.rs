@@ -122,14 +122,14 @@ pub struct AsUserId {
 
 #[derive(Debug, Clone)]
 pub struct AsUserRecord {
-    user_name: UserName,
+    _user_name: UserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
 impl AsUserRecord {
     pub fn new(user_name: UserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
         Self {
-            user_name,
+            _user_name: user_name,
             password_file,
         }
     }

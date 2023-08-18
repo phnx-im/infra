@@ -5,10 +5,7 @@
 #[macro_use]
 pub(crate) mod error_macros;
 
-use crate::{
-    conversations::ConversationStoreError,
-    groups::{GroupOperationError, GroupStoreError},
-};
+use crate::{conversations::ConversationStoreError, groups::GroupOperationError};
 
 use phnxapiclient::ds_api::DsRequestError;
 use thiserror::Error;
@@ -26,7 +23,7 @@ pub enum CorelibError {
     #[error(transparent)]
     Group(#[from] GroupOperationError),
     #[error(transparent)]
-    GroupStore(#[from] GroupStoreError),
+    GroupStore(#[from] turbosql::Error),
     #[error(transparent)]
     ConversationStore(#[from] ConversationStoreError),
     #[error(transparent)]

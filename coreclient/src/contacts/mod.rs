@@ -13,9 +13,10 @@ use phnxbackend::{
     qs::{KeyPackageBatch, VERIFIED},
 };
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub user_name: UserName,
     pub(crate) add_infos: Vec<ContactAddInfos>,
@@ -36,7 +37,7 @@ pub struct Contact {
     pub(crate) conversation_id: Uuid,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ContactAddInfos {
     pub key_packages: Vec<(KeyPackage, SignatureEarKey)>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
@@ -65,7 +66,7 @@ impl Contact {
 }
 
 /// Contact which has not yet accepted our connection request.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PartialContact {
     pub user_name: UserName,
     // ID of the connection conversation with this contact.

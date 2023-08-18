@@ -8,7 +8,6 @@ version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2021"
 
-
 [lib]
 crate-type = ["cdylib", "staticlib", "lib"]
 
@@ -29,13 +28,17 @@ reqwest = { version = "0.11", features = [
 ] }
 base64 = "0.13"
 pretty_env_logger = "0.5"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxbackend = { path = "../backend" }
 opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
 futures = { version = "0.3.28", features = ["executor"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
+
+# Persistence
+serde = { version = "1", features = ["derive"] }
+turbosql = "0.8"
 
 # Feature dart-bridge
 tokio = { version = "1.29.0", features = ["rt", "macros"], optional = true }
