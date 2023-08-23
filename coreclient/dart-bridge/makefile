@@ -33,19 +33,19 @@ setup-macos:
 	brew install gawk
 	make setup-flutter
 	flutter config --enable-macos-desktop
-	cargo install flutter_rust_bridge_codegen
+	cargo install flutter_rust_bridge_codegen cargo-expand
 
 setup-linux:
 	sudo snap install flutter --classic
 	sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev gawk
 	make setup-flutter
 	flutter config --enable-linux-desktop
-	cargo install flutter_rust_bridge_codegen
+	cargo install flutter_rust_bridge_codegen cargo-expand
 
 setup-ci:
 	flutter pub get
 	flutter doctor
-	cargo install flutter_rust_bridge_codegen --force
+	cargo install flutter_rust_bridge_codegen cargo-expand --force
 
 setup-flutter:
 	flutter upgrade
