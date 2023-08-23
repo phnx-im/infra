@@ -73,7 +73,8 @@ impl TestUser {
             domain_or_address,
             notification_hub,
         )
-        .await;
+        .await
+        .unwrap();
         Self { user, notifier }
     }
 
@@ -147,7 +148,7 @@ impl TestBackend {
             HashSet::<UserName>::from_iter(updater.pending_removes(conversation_id).unwrap());
         let group_members_before = updater.group_members(conversation_id).unwrap();
 
-        updater.update(conversation_id).await;
+        updater.update(conversation_id).await.unwrap();
 
         let group_members_after =
             HashSet::<UserName>::from_iter(updater.group_members(conversation_id).unwrap());
@@ -166,7 +167,7 @@ impl TestBackend {
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
             let group_member = &mut test_group_member.user;
-            let qs_messages = group_member.qs_fetch_messages().await;
+            let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             let pending_removes = HashSet::<UserName>::from_iter(
                 group_member.pending_removes(conversation_id).unwrap(),
@@ -213,7 +214,7 @@ impl TestBackend {
         let test_updater = self.users.get_mut(updater_name).unwrap();
         let updater = &mut test_updater.user;
 
-        updater.update(conversation_id).await;
+        updater.update(conversation_id).await.unwrap();
 
         let group_members = self.groups.get(&conversation_id).unwrap();
         // Have all group members fetch and process messages.
@@ -228,7 +229,7 @@ impl TestBackend {
                 group_member.group_members(conversation_id).unwrap(),
             );
 
-            let qs_messages = group_member.qs_fetch_messages().await;
+            let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
                 .process_qs_messages(qs_messages)
@@ -254,7 +255,7 @@ impl TestBackend {
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts();
         let user1_conversations_before = user1.get_conversations();
-        user1.add_contact(user2_name.clone()).await;
+        user1.add_contact(user2_name.clone()).await.unwrap();
         let mut user1_partial_contacts_after = user1.partial_contacts();
         let new_user_position = user1_partial_contacts_after
             .iter()
@@ -292,7 +293,7 @@ impl TestBackend {
         let user2_contacts_before = user2.contacts();
         let user2_conversations_before = user2.get_conversations();
         tracing::info!("{} fetches AS messages", user2_name);
-        let as_messages = user2.as_fetch_messages().await;
+        let as_messages = user2.as_fetch_messages().await.unwrap();
         tracing::info!("{} processes AS messages", user2_name);
         user2.process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
@@ -338,7 +339,7 @@ impl TestBackend {
             .collect();
         let user1_conversations_before = user1.get_conversations();
         tracing::info!("{} fetches QS messages", user1_name);
-        let qs_messages = user1.qs_fetch_messages().await;
+        let qs_messages = user1.qs_fetch_messages().await.unwrap();
         tracing::info!("{} processes QS messages", user1_name);
         user1.process_qs_messages(qs_messages).await.unwrap();
 
@@ -423,7 +424,7 @@ impl TestBackend {
 
         // Before sending a message, the sender must first fetch and process its QS messages.
 
-        let sender_qs_messages = sender.qs_fetch_messages().await;
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
 
         sender
             .process_qs_messages(sender_qs_messages)
@@ -450,7 +451,7 @@ impl TestBackend {
             let recipient_user = &mut recipient.user;
             // Flush notifications
             //let _recipient_notifications = recipient.notifier.notifications();
-            let recipient_qs_messages = recipient_user.qs_fetch_messages().await;
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
 
             recipient_user
                 .process_qs_messages(recipient_qs_messages)
@@ -530,7 +531,7 @@ impl TestBackend {
 
         // Before inviting anyone to a group, the inviter must first fetch and
         // process its QS messages.
-        let qs_messages = inviter.qs_fetch_messages().await;
+        let qs_messages = inviter.qs_fetch_messages().await.unwrap();
 
         inviter
             .process_qs_messages(qs_messages)
@@ -574,7 +575,7 @@ impl TestBackend {
             let invitee = &mut test_invitee.user;
             let invitee_conversations_before = invitee.get_conversations();
 
-            let qs_messages = invitee.qs_fetch_messages().await;
+            let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
             invitee
                 .process_qs_messages(qs_messages)
@@ -608,7 +609,7 @@ impl TestBackend {
             let group_members_before = HashSet::<UserName>::from_iter(
                 group_member.group_members(conversation_id).unwrap(),
             );
-            let qs_messages = group_member.qs_fetch_messages().await;
+            let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
                 .process_qs_messages(qs_messages)
@@ -668,7 +669,7 @@ impl TestBackend {
 
         // Before removing anyone from a group, the remover must first fetch and
         // process its QS messages.
-        let qs_messages = remover.qs_fetch_messages().await;
+        let qs_messages = remover.qs_fetch_messages().await.unwrap();
 
         remover
             .process_qs_messages(qs_messages)
@@ -715,7 +716,7 @@ impl TestBackend {
             let past_members =
                 HashSet::<UserName>::from_iter(removed.group_members(conversation_id).unwrap());
 
-            let qs_messages = removed.qs_fetch_messages().await;
+            let qs_messages = removed.qs_fetch_messages().await.unwrap();
 
             removed
                 .process_qs_messages(qs_messages)
@@ -766,7 +767,7 @@ impl TestBackend {
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
             let group_member = &mut test_group_member.user;
             let group_members_before = group_member.group_members(conversation_id).unwrap();
-            let qs_messages = group_member.qs_fetch_messages().await;
+            let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
                 .process_qs_messages(qs_messages)
@@ -802,7 +803,7 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_group(conversation_id).await;
+        leaver.leave_group(conversation_id).await.unwrap();
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
@@ -819,7 +820,7 @@ impl TestBackend {
         let random_member = &mut test_random_member.user;
 
         // First fetch and process the QS messages to make sure the member has the proposal.
-        let qs_messages = random_member.qs_fetch_messages().await;
+        let qs_messages = random_member.qs_fetch_messages().await.unwrap();
 
         random_member
             .process_qs_messages(qs_messages)
@@ -851,7 +852,7 @@ impl TestBackend {
 
         // Before removing anyone from a group, the remover must first fetch and
         // process its QS messages.
-        let qs_messages = deleter.qs_fetch_messages().await;
+        let qs_messages = deleter.qs_fetch_messages().await.unwrap();
 
         deleter
             .process_qs_messages(qs_messages)
@@ -868,7 +869,7 @@ impl TestBackend {
         let past_members =
             HashSet::<UserName>::from_iter(deleter.group_members(conversation_id).unwrap());
 
-        deleter.delete_group(conversation_id).await;
+        deleter.delete_group(conversation_id).await.unwrap();
 
         let deleter_conversation_after = deleter.conversation(conversation_id).unwrap();
         if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status {
@@ -897,7 +898,7 @@ impl TestBackend {
                 group_member.group_members(conversation_id).unwrap(),
             );
 
-            let qs_messages = group_member.qs_fetch_messages().await;
+            let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
                 .process_qs_messages(qs_messages)
