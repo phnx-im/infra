@@ -6,11 +6,6 @@ use phnxbackend::auth_service::credentials::VerifiableClientCredential;
 
 use super::*;
 
-use crate::utils::{
-    deserialize_hashmap, deserialize_nested_hashmap, serialize_hashmap, serialize_nested_hashmap,
-};
-
-#[derive(Serialize, Deserialize)]
 pub(crate) struct MemoryUserKeyStore {
     // Client credential secret key
     pub(super) signing_key: ClientSigningKey,
@@ -35,25 +30,13 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
     // Leaf credentials in KeyPackages the active ones are stored in the group
     // that they belong to.
-    #[serde(
-        serialize_with = "serialize_hashmap",
-        deserialize_with = "deserialize_hashmap"
-    )]
     pub(super) leaf_signers:
         HashMap<SignaturePublicKey, (InfraCredentialSigningKey, SignatureEarKey)>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AsCredentials {
-    #[serde(
-        serialize_with = "serialize_nested_hashmap",
-        deserialize_with = "deserialize_nested_hashmap"
-    )]
     pub(super) credentials: HashMap<Fqdn, HashMap<CredentialFingerprint, AsCredential>>,
-    #[serde(
-        serialize_with = "serialize_nested_hashmap",
-        deserialize_with = "deserialize_nested_hashmap"
-    )]
     pub(super) intermediate_credentials:
         HashMap<Fqdn, HashMap<CredentialFingerprint, AsIntermediateCredential>>,
 }

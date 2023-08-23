@@ -4,6 +4,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::utils::{deserialize_btreemap, serialize_hashmap};
+
 use super::*;
 
 /// A struct that contains differences in group data when creating a commit.

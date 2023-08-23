@@ -61,7 +61,6 @@ use crate::{
     types::MessageContentType,
     types::*,
     users::{key_store::AsCredentials, ApiClients},
-    utils::{deserialize_btreemap, serialize_hashmap},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -111,10 +110,6 @@ pub(crate) struct InnerClientGroup {
     // This needs to be set after initially joining a group.
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
-    #[serde(
-        serialize_with = "serialize_hashmap",
-        deserialize_with = "deserialize_btreemap"
-    )]
     client_information: BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
     pending_diff: Option<GroupDiff>,
 }

@@ -43,26 +43,6 @@ where
     vec.serialize(serializer)
 }
 
-pub(crate) fn serialize_nested_hashmap<T, U, V, S>(
-    v: &HashMap<T, HashMap<U, V>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    T: Serialize,
-    U: Serialize,
-    V: Serialize,
-    S: Serializer,
-{
-    let vec = v
-        .iter()
-        .map(|(index, inner_map)| {
-            let inner_vec = inner_map.iter().collect::<Vec<_>>();
-            (index, inner_vec)
-        })
-        .collect::<Vec<_>>();
-    vec.serialize(serializer)
-}
-
 pub(crate) fn deserialize_hashmap<'de, T, U, D>(deserializer: D) -> Result<HashMap<T, U>, D::Error>
 where
     T: Eq + std::hash::Hash + Deserialize<'de>,
@@ -72,25 +52,6 @@ where
     Ok(Vec::<(T, U)>::deserialize(deserializer)?
         .into_iter()
         .collect::<HashMap<T, U>>())
-}
-
-pub(crate) fn deserialize_nested_hashmap<'de, T, U, V, D>(
-    deserializer: D,
-) -> Result<HashMap<T, HashMap<U, V>>, D::Error>
-where
-    T: Eq + std::hash::Hash + Deserialize<'de>,
-    U: Eq + std::hash::Hash + Deserialize<'de>,
-    V: Deserialize<'de>,
-    D: Deserializer<'de>,
-{
-    let map = Vec::<(T, Vec<(U, V)>)>::deserialize(deserializer)?
-        .into_iter()
-        .map(|(index, inner_vec)| {
-            let inner_map = inner_vec.into_iter().collect::<HashMap<U, V>>();
-            (index, inner_map)
-        })
-        .collect();
-    Ok(map)
 }
 
 pub(crate) fn deserialize_btreemap<'de, T, U, D>(
