@@ -14,6 +14,7 @@ use phnxserver_test_harness::{
             remove_from_group_runner,
         },
         federated_group_operations::group_operations_runner,
+        randomized_operations::randomized_operations_runner,
         FederationTestScenario,
     },
 };
@@ -53,5 +54,8 @@ async fn main() {
         FederationTestScenario::InviteToGroup => invite_to_group_runner(&domains_vec).await,
         FederationTestScenario::RemoveFromGroup => remove_from_group_runner(&domains_vec).await,
         FederationTestScenario::LeaveGroup => leave_group_runner(&domains_vec).await,
+        FederationTestScenario::RandomizedOperations => {
+            randomized_operations_runner(&domains_vec).await
+        }
     }
 }

@@ -32,7 +32,11 @@ impl GroupDiff {
             group_state_ear_key: None,
             user_auth_key: None,
             client_information: BTreeMap::new(),
-            new_number_of_leaves: group.client_information.len(),
+            new_number_of_leaves: group
+                .client_information
+                .last_key_value()
+                .map(|(index, _)| index + 1)
+                .unwrap_or(0),
         }
     }
 

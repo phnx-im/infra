@@ -129,22 +129,33 @@ impl ApiClient {
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =
                             DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
-                                .map_err(|_| DsRequestError::BadResponse)?;
+                                .map_err(|e| {
+                                    log::warn!("Couldn't deserialize OK response body: {:?}", e);
+                                    DsRequestError::BadResponse
+                                })?;
                         Ok(ds_proc_res)
                     }
                     // DS Specific Error
                     418 => {
-                        let ds_proc_err_bytes =
-                            res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
-                        let ds_proc_err =
-                            DsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
-                                .map_err(|_| DsRequestError::BadResponse)?;
+                        let ds_proc_err_bytes = res.bytes().await.map_err(|_| {
+                            log::warn!("No body in DS-error response.");
+                            DsRequestError::BadResponse
+                        })?;
+                        let ds_proc_err = DsProcessingError::tls_deserialize_exact(
+                            &ds_proc_err_bytes,
+                        )
+                        .map_err(|_| {
+                            log::warn!("Couldn't deserialize DS-error response body.");
+                            DsRequestError::BadResponse
+                        })?;
                         Err(DsRequestError::DsError(ds_proc_err))
                     }
                     // All other errors
                     _ => {
-                        let error_text =
-                            res.text().await.map_err(|_| DsRequestError::BadResponse)?;
+                        let error_text = res.text().await.map_err(|_| {
+                            log::warn!("Other network error without body");
+                            DsRequestError::BadResponse
+                        })?;
                         Err(DsRequestError::NetworkError(error_text))
                     }
                 }
