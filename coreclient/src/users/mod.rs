@@ -23,7 +23,7 @@ use phnxbackend::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
                 SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
-            EarEncryptable,
+            EarDecryptable, EarEncryptable,
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -33,7 +33,7 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    ds::api::QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+    ds::{api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, group_state::EncryptedClientCredential},
     messages::{
         client_as::{
             AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackageTbs,
@@ -89,7 +89,7 @@ impl ApiClients {
         }
     }
 
-    fn get(&mut self, domain: &Fqdn) -> Result<&ApiClient> {
+    pub(crate) fn get(&mut self, domain: &Fqdn) -> Result<&ApiClient> {
         let lookup_domain = if domain == &self.own_domain {
             self.own_domain_or_address.clone()
         } else {
@@ -333,16 +333,12 @@ impl<T: Notifiable> SelfUser<T> {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
-            let (kp, signature_ear_key, leaf_signer) = user.generate_keypackage()?;
-            let esek = signature_ear_key.encrypt(&user.key_store.signature_ear_key_wrapper_key)?;
-            user.key_store.leaf_signers.insert(
-                leaf_signer.credential().verifying_key().clone(),
-                (leaf_signer, signature_ear_key),
-            );
-            let add_package =
-                AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+            let add_package = user.generate_add_package(&encrypted_client_credential, false)?;
             qs_add_packages.push(add_package);
         }
+        let last_resort_add_package =
+            user.generate_add_package(&encrypted_client_credential, true)?;
+        qs_add_packages.push(last_resort_add_package);
 
         // Upload add packages
         let api_client = user.api_clients.get(&user.user_name().domain())?;
@@ -358,10 +354,12 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(user)
     }
 
-    pub(crate) fn generate_keypackage(
-        &self,
-    ) -> Result<(KeyPackage, SignatureEarKey, InfraCredentialSigningKey)> {
-        let signature_ear_key = SignatureEarKey::random()?;
+    pub(crate) fn generate_add_package(
+        &mut self,
+        encrypted_client_credential: &EncryptedClientCredential,
+        last_resort: bool,
+    ) -> Result<AddPackage> {
+        let signature_ear_key = SignatureEarKey::random().unwrap();
         let leaf_signer =
             InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
@@ -376,14 +374,21 @@ impl<T: Notifiable> SelfUser<T> {
             Some(&SUPPORTED_CREDENTIALS),
         );
         let client_reference = self.create_own_client_reference();
-        let extension = Extension::Unknown(
+        let client_ref_extension = Extension::Unknown(
             QS_CLIENT_REFERENCE_EXTENSION_TYPE,
             UnknownExtension(client_reference.tls_serialize_detached()?),
         );
-        let extensions = Extensions::single(extension);
+        let leaf_node_extensions = Extensions::single(client_ref_extension);
+        let key_package_extensions = if last_resort {
+            let last_resort_extension = Extension::LastResort(LastResortExtension::new());
+            Extensions::single(last_resort_extension)
+        } else {
+            Extensions::default()
+        };
         let kp = KeyPackage::builder()
+            .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)
-            .leaf_node_extensions(extensions)
+            .leaf_node_extensions(leaf_node_extensions)
             .build(
                 CryptoConfig {
                     ciphersuite: CIPHERSUITE,
@@ -393,7 +398,14 @@ impl<T: Notifiable> SelfUser<T> {
                 &leaf_signer,
                 credential_with_key,
             )?;
-        Ok((kp, signature_ear_key, leaf_signer))
+        let esek = signature_ear_key.encrypt(&self.key_store.signature_ear_key_wrapper_key)?;
+        self.key_store.leaf_signers.insert(
+            leaf_signer.credential().verifying_key().clone(),
+            (leaf_signer, signature_ear_key),
+        );
+
+        let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+        Ok(add_package)
     }
 
     /// Create new group
@@ -451,12 +463,9 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = self
             .conversation_store
             .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation ID"))?;
-        let group_id = &conversation.group_id;
-        let group = self
-            .group_store
-            .get_group_mut(&group_id.as_group_id())
-            .ok_or(anyhow!("Couldn't find group matching the conversation"))?;
+            .unwrap();
+        let group_id = conversation.group_id.clone();
+        let owner_domain = conversation.owner_domain();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
@@ -466,10 +475,22 @@ impl<T: Notifiable> SelfUser<T> {
                 .contacts
                 .get_mut(&user_name)
                 .ok_or(anyhow!("Couldn't find contact"))?;
-            contact_add_infos.push(contact.add_infos());
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
+            let add_info = if let Some(add_info) = contact.add_infos() {
+                add_info
+            } else {
+                self.get_key_packages(&user_name).await;
+                let contact = self.contacts.get_mut(&user_name).unwrap();
+                contact.add_infos().unwrap()
+            };
+            contact_add_infos.push(add_info);
         }
+        debug_assert!(contact_add_infos.len() == invited_users.len());
+        let group = self
+            .group_store
+            .get_group_mut(&group_id.as_group_id())
+            .unwrap();
         // Adds new member and staged commit
         let params = group.invite(
             &self.crypto_backend,
@@ -480,7 +501,6 @@ impl<T: Notifiable> SelfUser<T> {
         )?;
         // We're not getting a response, but if it's not an error, the commit
         // must have gone through.
-        let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
             .ds_add_users(
@@ -932,5 +952,52 @@ impl<T: Notifiable> SelfUser<T> {
                 })
                 .collect()
         })
+    }
+
+    pub fn conversations(&self) -> Vec<Conversation> {
+        self.conversation_store.conversations()
+    }
+
+    pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
+        let qs_verifying_key = self.qs_verifying_key(&contact_name.domain()).await?.clone();
+        let contact = self.contacts.get_mut(contact_name).unwrap();
+        let mut add_infos = Vec::new();
+        for _ in 0..5 {
+            let response = self
+                .api_clients
+                .get(&contact_name.domain())?
+                .qs_key_package_batch(
+                    contact.friendship_token.clone(),
+                    contact.add_package_ear_key.clone(),
+                )
+                .await
+                .unwrap();
+            let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
+                .add_packages
+                .into_iter()
+                .map(|add_package| {
+                    let validated_add_package = add_package
+                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())
+                        .unwrap();
+                    let key_package = validated_add_package.key_package().clone();
+                    let sek = SignatureEarKey::decrypt(
+                        &contact.signature_ear_key_wrapper_key,
+                        validated_add_package.encrypted_signature_ear_key(),
+                    )
+                    .unwrap();
+                    (key_package, sek)
+                })
+                .collect();
+            let add_info = ContactAddInfos {
+                key_packages,
+                key_package_batch: response
+                    .key_package_batch
+                    .verify(&qs_verifying_key)
+                    .unwrap(),
+            };
+            add_infos.push(add_info);
+        }
+        contact.add_infos.append(&mut add_infos);
+        Ok(())
     }
 }

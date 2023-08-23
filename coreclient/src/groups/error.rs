@@ -39,6 +39,8 @@ pub enum GroupOperationError {
     DuplicateUserAddition,
     #[error("No user auth key has been set yet.")]
     NoUserAuthKey,
+    #[error("Could not find KeyPackage")]
+    KeyPackageNotFound,
     #[error("Client already in group")]
     DuplicateClientAddition,
     #[error(transparent)]

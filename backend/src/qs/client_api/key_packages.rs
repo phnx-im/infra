@@ -24,7 +24,7 @@ use crate::{
             QsPublishKeyPackagesError, QsVerifyingKeyError,
         },
         storage_provider_trait::QsStorageProvider,
-        AddPackageIn, KeyPackageBatchTbs, Qs,
+        AddPackage, AddPackageIn, KeyPackageBatchTbs, Qs,
     },
 };
 
@@ -41,26 +41,44 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        let encrypted_key_packages = add_packages
+        let mut verified_add_packages = vec![];
+        let mut last_resort_add_package = None;
+        for add_package in add_packages {
+            let verified_add_package: AddPackage = add_package
+                .validate(
+                    OpenMlsRustCrypto::default().crypto(),
+                    ProtocolVersion::default(),
+                )
+                .map_err(|_| QsPublishKeyPackagesError::InvalidKeyPackage)?;
+            if verified_add_package.key_package().last_resort() {
+                // For now, we only allow the upload of one last resort add
+                // package at a time and ignore all following add packages.
+                last_resort_add_package = Some(
+                    verified_add_package
+                        .encrypt(&friendship_ear_key)
+                        .map_err(|_| QsPublishKeyPackagesError::LibraryError)?,
+                );
+            } else {
+                verified_add_packages.push(verified_add_package);
+            }
+        }
+
+        let encrypted_add_packages = verified_add_packages
             .into_iter()
-            .map(|add_package_in| {
-                add_package_in
-                    .validate(
-                        OpenMlsRustCrypto::default().crypto(),
-                        ProtocolVersion::default(),
-                    )
-                    .map_err(|_| QsPublishKeyPackagesError::InvalidKeyPackage)
-                    .and_then(|ap| {
-                        ap.encrypt(&friendship_ear_key)
-                            .map_err(|_| QsPublishKeyPackagesError::LibraryError)
-                    })
+            .map(|ap| {
+                ap.encrypt(&friendship_ear_key)
+                    .map_err(|_| QsPublishKeyPackagesError::LibraryError)
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        // TODO: Last resort key package
-
+        if let Some(last_resort_add_package) = last_resort_add_package {
+            storage_provider
+                .store_last_resort_key_package(&sender, last_resort_add_package)
+                .await
+                .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
+        }
         storage_provider
-            .store_key_packages(&sender, encrypted_key_packages)
+            .store_key_packages(&sender, encrypted_add_packages)
             .await
             .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
         Ok(())

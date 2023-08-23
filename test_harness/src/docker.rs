@@ -75,6 +75,11 @@ impl DockerTestBed {
             env_variables.push(format!("PHNX_SERVER_{}={}", index, server));
         }
 
+        // Forward the random seed env variable
+        if let Ok(seed) = std::env::var("PHNX_TEST_RANDOM_SEED") {
+            env_variables.push(format!("PHNX_TEST_RANDOM_SEED={}", seed))
+        };
+
         let test_runner_result = run_docker_container(
             &image_name,
             &container_name,

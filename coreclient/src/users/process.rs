@@ -384,37 +384,6 @@ impl<T: Notifiable> SelfUser<T> {
                     // TODO: For now, we automatically confirm conversations.
                     self.conversation_store
                         .confirm_connection_conversation(&conversation_id);
-                    // Fetch a keypackage for our new contact.
-                    // TODO: For now, one is enough.
-                    let response = self
-                        .api_clients
-                        .get(&user_name.domain())?
-                        .qs_key_package_batch(
-                            cep_tbs.friendship_package.friendship_token.clone(),
-                            cep_tbs.friendship_package.add_package_ear_key.clone(),
-                        )
-                        .await?;
-                    let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
-                        .add_packages
-                        .into_iter()
-                        .map(|add_package| {
-                            let validated_add_package = add_package.validate(
-                                self.crypto_backend.crypto(),
-                                ProtocolVersion::default(),
-                            )?;
-                            let key_package = validated_add_package.key_package().clone();
-                            let sek = SignatureEarKey::decrypt(
-                                &cep_tbs.friendship_package.signature_ear_key_wrapper_key,
-                                validated_add_package.encrypted_signature_ear_key(),
-                            )?;
-                            Ok((key_package, sek))
-                        })
-                        .collect::<Result<Vec<_>>>()?;
-                    let qs_verifying_key = self.qs_verifying_key(&user_name.domain()).await?;
-                    let add_info = ContactAddInfos {
-                        key_packages,
-                        key_package_batch: response.key_package_batch.verify(qs_verifying_key)?,
-                    };
 
                     let contact = PartialContact {
                         user_name: user_name.clone(),
@@ -423,10 +392,13 @@ impl<T: Notifiable> SelfUser<T> {
                     }
                     .into_contact(
                         cep_tbs.friendship_package,
-                        vec![add_info],
+                        vec![],
                         cep_tbs.sender_client_credential,
                     );
-                    self.contacts.insert(user_name, contact);
+
+                    self.contacts.insert(user_name.clone(), contact);
+                    // Fetch a few KeyPackages for our new contact.
+                    self.get_key_packages(&user_name).await;
                     // TODO: Send conversation message to UI.
 
                     let qs_client_reference = self.create_own_client_reference();
@@ -467,7 +439,7 @@ impl<T: Notifiable> SelfUser<T> {
         self.conversation_store.messages(conversation_id, last_n)
     }
 
-    async fn qs_verifying_key(&mut self, domain: &Fqdn) -> Result<&QsVerifyingKey> {
+    pub(super) async fn qs_verifying_key(&mut self, domain: &Fqdn) -> Result<&QsVerifyingKey> {
         if !self.key_store.qs_verifying_keys.contains_key(domain) {
             let qs_verifying_key = self.api_clients.get(domain)?.qs_verifying_key().await?;
             self.key_store

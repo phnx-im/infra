@@ -80,8 +80,10 @@ pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infr
 pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [ProtocolVersion::Mls10];
 pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] =
     [Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519];
-pub const SUPPORTED_EXTENSIONS: [ExtensionType; 1] =
-    [ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE)];
+pub const SUPPORTED_EXTENSIONS: [ExtensionType; 2] = [
+    ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE),
+    ExtensionType::LastResort,
+];
 pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
     [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
 pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];
@@ -229,17 +231,14 @@ impl Group {
         let mls_group_config = Self::default_mls_group_config();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
-        let (key_package, _) = welcome_bundle
+        let key_package: KeyPackage = welcome_bundle
             .welcome
             .welcome
             .secrets()
             .iter()
             .find_map(|egs| {
                 let hash_ref = egs.new_member().as_slice().to_vec();
-                provider
-                    .key_store()
-                    .read(&hash_ref)
-                    .map(|kp: KeyPackage| (kp, hash_ref))
+                provider.key_store().read(&hash_ref)
             })
             .ok_or(GroupOperationError::MissingKeyPackage)?;
 
@@ -850,6 +849,7 @@ impl Group {
             bail!("No user auth key");
         };
         let client_credentials = client_credentials.into_iter().flatten().collect::<Vec<_>>();
+        debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
             Vec<Vec<(KeyPackage, SignatureEarKey)>>,
@@ -959,7 +959,6 @@ impl Group {
                 }
             })
             .collect::<Vec<_>>();
-        // There shouldn't be a welcome
         let aad_payload = InfraAadPayload::RemoveUsers;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad.as_slice());
@@ -969,6 +968,7 @@ impl Group {
             remove_indices.as_slice(),
         )?;
         self.mls_group.set_aad(&[]);
+        // There shouldn't be a welcome
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
         let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
@@ -1060,19 +1060,29 @@ impl Group {
     ) -> Result<Vec<ConversationMessage>> {
         // Collect free indices s.t. we know where the added members will land
         // and we can look up their identifies later.
+        let Some(diff) = self.pending_diff.take() else {
+            bail!("No pending group diff");
+        };
         let highest_index = self
             .client_information
             .last_key_value()
             .map(|(index, _)| *index)
             .ok_or(anyhow!("Client information vector is empty"))?;
         let free_indices: Vec<usize> = (0..2 * highest_index)
-            .filter(|index| self.client_information.get(index).is_none())
+            .filter(|index| {
+                self.client_information.get(index).is_none()
+                    // We also check the diff to take removed members into account
+                    || match diff.client_information.get(index) {
+                        Some(entry) => entry.is_none(),
+                        None => false,
+                    }
+            })
             .collect();
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
         // Now we figure out who was removed. We do that before the diff is
         // applied s.t. we still have access to the user identities of the
         // removed members.
-        let remover_removed: Vec<_> = if let Some(staged_commit) = self
+        let mut messages: Vec<_> = if let Some(staged_commit) = self
             .mls_group
             .pending_commit()
             .or_else(|| staged_commit_option.as_ref())
@@ -1080,40 +1090,30 @@ impl Group {
             staged_commit
                 .remove_proposals()
                 .map(|remove_proposal| {
-                    if let Sender::Member(sender_index) = remove_proposal.sender() {
-                        let remover =
-                            get_user_name(&self.client_information, sender_index.usize())?;
-                        let removed_index = remove_proposal.remove_proposal().removed();
-                        let removed =
-                            get_user_name(&self.client_information, removed_index.usize())?;
-                        Ok((remover, removed))
-                    } else {
+                    let Sender::Member(sender_index) =
+                        remove_proposal.sender()
+                     else {
                         bail!("Only member proposals are supported for now")
-                    }
+                    };
+                    let remover = get_user_name(&self.client_information, sender_index.usize())?;
+                    let removed_index = remove_proposal.remove_proposal().removed();
+                    let removed = get_user_name(&self.client_information, removed_index.usize())?;
+                    let event_message = if remover == removed {
+                        format!("{} left the conversation", remover.to_string(),)
+                    } else {
+                        format!(
+                            "{} removed {} from the conversation",
+                            remover.to_string(),
+                            removed.to_string()
+                        )
+                    };
+                    Ok(event_message_from_string(event_message))
                 })
                 .collect::<Result<Vec<_>>>()?
         } else {
             vec![]
         };
-        let mut messages: Vec<ConversationMessage> = remover_removed
-            .into_iter()
-            .map(|(remover, removed)| {
-                let event_message = if remover == removed {
-                    format!("{} left the conversation", remover.to_string(),)
-                } else {
-                    format!(
-                        "{} removed {} from the conversation",
-                        remover.to_string(),
-                        removed.to_string()
-                    )
-                };
-                event_message_from_string(event_message)
-            })
-            .collect();
         // We now apply the diff
-        let Some(diff) = self.pending_diff.take() else {
-            bail!("No pending diff")
-        };
         if let Some(leaf_signer) = diff.leaf_signer {
             self.leaf_signer = leaf_signer;
         }
@@ -1266,6 +1266,7 @@ impl Group {
         self.client_information
             .iter()
             .map(|(_index, (cred, _sek))| cred.identity().user_name())
+            // Collecting to a HashSet first to deduplicate.
             .collect::<HashSet<UserName>>()
             .into_iter()
             .collect()
