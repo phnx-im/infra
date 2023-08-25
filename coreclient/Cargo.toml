@@ -41,10 +41,10 @@ rand = "0.8.4"
 # Feature dart-bridge
 tokio = { version = "1.29.0", features = ["rt", "macros"], optional = true }
 flutter_rust_bridge = { version = "1", optional = true }
-anyhow = { version = "1.0", features = ["backtrace"], optional = true }
+anyhow = { version = "1.0", features = ["backtrace"] }
 
 [features]
-dart-bridge = ["anyhow", "flutter_rust_bridge", "tokio"]
+dart-bridge = ["flutter_rust_bridge", "tokio"]
 
 
 [build-dependencies]

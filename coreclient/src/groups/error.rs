@@ -5,6 +5,7 @@
 use super::*;
 
 use openmls_memory_keystore::MemoryKeyStoreError;
+use phnxbackend::crypto::DecryptionError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,10 +31,16 @@ pub enum GroupOperationError {
     MergePendingCommitError(#[from] MergePendingCommitError<MemoryKeyStoreError>),
     #[error("No pending group diff")]
     NoPendingGroupDiff,
+    #[error("Missing key package in key store")]
+    MissingKeyPackage,
+    #[error(transparent)]
+    JoinerInfoDecryptionError(#[from] DecryptionError),
     #[error("User already in group")]
     DuplicateUserAddition,
     #[error("No user auth key has been set yet.")]
     NoUserAuthKey,
+    #[error("Could not find KeyPackage")]
+    KeyPackageNotFound,
     #[error("Client already in group")]
     DuplicateClientAddition,
     #[error(transparent)]

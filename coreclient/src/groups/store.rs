@@ -33,7 +33,7 @@ impl GroupStore {
         api_clients: &mut ApiClients,
         as_credentials: &mut AsCredentials,
         contacts: &HashMap<UserName, Contact>,
-    ) -> GroupId {
+    ) -> Result<GroupId> {
         let group = Group::join_group(
             provider,
             welcome_bundle,
@@ -43,12 +43,11 @@ impl GroupStore {
             as_credentials,
             contacts,
         )
-        .await
-        .unwrap();
+        .await?;
         let group_id = group.group_id().clone();
         self.groups.insert(group_id.clone(), group);
 
-        group_id
+        Ok(group_id)
     }
 
     //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
@@ -65,25 +64,28 @@ impl GroupStore {
         provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
         group_id: &GroupId,
         message: MessageContentType,
-    ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let group = self.groups.get_mut(group_id).unwrap();
-        group.create_message(provider, message)
+    ) -> Result<SendMessageParamsOut> {
+        let group = self
+            .groups
+            .get_mut(group_id)
+            .ok_or(anyhow!("Unknown group"))?;
+        let message = group.create_message(provider, message)?;
+        Ok(message)
     }
 
     /// Returns the leaf signing key for the given group.
     /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn leaf_signing_key(&self, group_id: &GroupId) -> InfraCredentialSigningKey {
-        self.groups.get(group_id).unwrap().leaf_signer.clone()
+    pub(crate) fn leaf_signing_key(
+        &self,
+        group_id: &GroupId,
+    ) -> Option<&InfraCredentialSigningKey> {
+        self.groups.get(group_id).map(|g| &g.leaf_signer)
     }
 
     /// Returns the group state EAR key for the given group.
     /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> GroupStateEarKey {
-        self.groups
-            .get(group_id)
-            .unwrap()
-            .group_state_ear_key
-            .clone()
+    pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> Option<&GroupStateEarKey> {
+        self.groups.get(group_id).map(|g| &g.group_state_ear_key)
     }
 
     pub fn group(&self, group_id: &GroupId) -> Option<&Group> {

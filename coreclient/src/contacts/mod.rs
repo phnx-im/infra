@@ -18,7 +18,6 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Contact {
     pub user_name: UserName,
-    pub(crate) last_resort_add_info: ContactAddInfos,
     pub(crate) add_infos: Vec<ContactAddInfos>,
     // These should be in the same order as the KeyPackages in the ContactInfos.
     // TODO: This is a bit brittle, but as far as I can see, there is no way to
@@ -56,10 +55,8 @@ impl Contact {
 
     // TODO: This might be a bit wasteful, since it always removes an add_info,
     // even though the resulting commit might not succeed.
-    pub(crate) fn add_infos(&mut self) -> ContactAddInfos {
-        self.add_infos
-            .pop()
-            .unwrap_or(self.last_resort_add_info.clone())
+    pub(crate) fn add_infos(&mut self) -> Option<ContactAddInfos> {
+        self.add_infos.pop()
     }
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
@@ -80,12 +77,11 @@ impl PartialContact {
     pub(crate) fn into_contact(
         self,
         friendship_package: FriendshipPackage,
-        mut add_infos: Vec<ContactAddInfos>,
+        add_infos: Vec<ContactAddInfos>,
         client_credential: ClientCredential,
     ) -> Contact {
         Contact {
             user_name: self.user_name,
-            last_resort_add_info: add_infos.pop().unwrap(),
             add_infos,
             client_credentials: vec![client_credential],
             wai_ear_key: friendship_package.wai_ear_key,

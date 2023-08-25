@@ -35,13 +35,44 @@ impl QueueData {
     }
 }
 
+#[derive(Debug)]
+struct KeyPackages {
+    key_packages: Vec<QsEncryptedAddPackage>,
+    last_resort_key_package: Option<QsEncryptedAddPackage>,
+}
+
+impl KeyPackages {
+    fn new() -> Self {
+        Self {
+            key_packages: Vec::new(),
+            last_resort_key_package: None,
+        }
+    }
+
+    fn load_key_package(&mut self) -> Option<QsEncryptedAddPackage> {
+        if let Some(key_package) = self.key_packages.pop() {
+            Some(key_package)
+        } else {
+            self.last_resort_key_package.clone()
+        }
+    }
+
+    fn add_key_packages(&mut self, key_packages: Vec<QsEncryptedAddPackage>) {
+        self.key_packages = key_packages;
+    }
+
+    fn add_last_resort_key_package(&mut self, key_package: QsEncryptedAddPackage) {
+        self.last_resort_key_package = Some(key_package);
+    }
+}
+
 /// An thread-safe, in-memory implementation of an [`QsStorageProvider`] based
 /// on [`HashMap`]s.
 #[derive(Debug)]
 pub struct MemStorageProvider {
     users: RwLock<HashMap<QsUserId, QsUserRecord>>,
     clients: RwLock<HashMap<QsClientId, QsClientRecord>>,
-    key_packages: RwLock<HashMap<QsClientId, Vec<QsEncryptedAddPackage>>>,
+    key_packages: RwLock<HashMap<QsClientId, KeyPackages>>,
     queues: RwLock<HashMap<QsClientId, QueueData>>,
     signing_key: QsSigningKey,
     client_id_decryption_key: ClientIdDecryptionKey,
@@ -179,7 +210,7 @@ impl QsStorageProvider for MemStorageProvider {
             .ok_or(CreateClientError::UnknownUser)?;
         let client_id = QsClientId::random();
         user_record.clients_mut().push(client_id.clone());
-        key_packages.insert(client_id.clone(), vec![]);
+        key_packages.insert(client_id.clone(), KeyPackages::new());
         clients.insert(client_id.clone(), client_record);
         queues.insert(client_id.clone(), QueueData::new());
 
@@ -255,7 +286,7 @@ impl QsStorageProvider for MemStorageProvider {
     async fn store_key_packages(
         &self,
         client_id: &QsClientId,
-        mut encrypted_key_packages: Vec<QsEncryptedAddPackage>,
+        encrypted_key_packages: Vec<QsEncryptedAddPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError> {
         let mut key_packages = self
             .key_packages
@@ -264,7 +295,23 @@ impl QsStorageProvider for MemStorageProvider {
         let client_kps = key_packages
             .get_mut(client_id)
             .ok_or(StoreKeyPackagesError::UnknownClient)?;
-        client_kps.append(&mut encrypted_key_packages);
+        client_kps.add_key_packages(encrypted_key_packages);
+        Ok(())
+    }
+
+    async fn store_last_resort_key_package(
+        &self,
+        client_id: &QsClientId,
+        encrypted_key_package: QsEncryptedAddPackage,
+    ) -> Result<(), Self::StoreKeyPackagesError> {
+        let mut key_packages = self
+            .key_packages
+            .write()
+            .map_err(|_| StoreKeyPackagesError::StorageError)?;
+        let client_kps = key_packages
+            .get_mut(client_id)
+            .ok_or(StoreKeyPackagesError::UnknownClient)?;
+        client_kps.add_last_resort_key_package(encrypted_key_package);
         Ok(())
     }
 
@@ -280,13 +327,7 @@ impl QsStorageProvider for MemStorageProvider {
         }
         let mut key_packages = self.key_packages.write().ok()?;
         let client_key_packages = key_packages.get_mut(client_id)?;
-        // Workaround for last-resort key packages. If there's only one left,
-        // clone it, otherwise pop it.
-        if client_key_packages.len() == 1 {
-            client_key_packages.first().cloned()
-        } else {
-            client_key_packages.pop()
-        }
+        client_key_packages.load_key_package()
     }
 
     async fn load_user_key_packages(
@@ -314,13 +355,10 @@ impl QsStorageProvider for MemStorageProvider {
         };
         for client in user.clients() {
             if let Some(client_key_packages) = key_packages.get_mut(client) {
-                let client_key_package = if client_key_packages.len() == 1 {
-                    client_key_packages.first().cloned()
-                } else {
-                    client_key_packages.pop()
-                }
-                // We unwrap here for now, because there should always be one key package.
-                .unwrap();
+                let client_key_package = client_key_packages
+                    .load_key_package()
+                    // We unwrap here for now, because there should always be one key package.
+                    .unwrap();
                 user_key_packages.push(client_key_package);
             } else {
                 // If there is an inconsistency between client and user

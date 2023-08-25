@@ -26,6 +26,9 @@ mod bridge_generated;
 pub fn _expose_conversation(conversation: Conversation) -> Conversation {
     conversation
 }
+pub fn _expose_notification_type(notification_type: NotificationType) -> NotificationType {
+    notification_type
+}
 
 pub enum WsNotification {
     Connected,
@@ -68,7 +71,7 @@ impl UserBuilder {
         address: String,
         stream_sink: StreamSink<NotificationType>,
     ) -> Result<()> {
-        let user = RustUser::new(user_name, password, address, stream_sink.clone());
+        let user = RustUser::new(user_name, password, address, stream_sink.clone())?;
         if let Ok(mut inner_user) = self.user.try_lock() {
             let _ = inner_user.insert(user);
             // Send an initial notification to the flutter side, since this
@@ -106,7 +109,7 @@ impl RustUser {
         password: String,
         address: String,
         stream_sink: StreamSink<NotificationType>,
-    ) -> RustUser {
+    ) -> Result<RustUser> {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
@@ -116,10 +119,10 @@ impl RustUser {
             address.to_socket_addrs().unwrap().next().unwrap(),
             notification_hub,
         )
-        .await;
-        Self {
+        .await?;
+        Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
-        }
+        })
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -130,7 +133,7 @@ impl RustUser {
         stream_sink: StreamSink<WsNotification>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        let mut qs_websocket = user.websocket(timeout, retry_interval).await;
+        let mut qs_websocket = user.websocket(timeout, retry_interval).await?;
         drop(user);
 
         loop {
@@ -159,20 +162,23 @@ impl RustUser {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    pub async fn create_connection(&self, user_name: String) {
+    pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.add_contact(&user_name).await;
+        user.add_contact(&user_name).await?;
+        Ok(())
     }
 
     #[tokio::main(flavor = "current_thread")]
-    pub async fn fetch_messages(&self) {
+    pub async fn fetch_messages(&self) -> Result<()> {
         let mut user = self.user.lock().unwrap();
 
-        let as_messages = user.as_fetch_messages().await;
+        let as_messages = user.as_fetch_messages().await?;
         user.process_as_messages(as_messages).await.unwrap();
 
-        let qs_messages = user.qs_fetch_messages().await;
+        let qs_messages = user.qs_fetch_messages().await?;
         user.process_qs_messages(qs_messages).await.unwrap();
+
+        Ok(())
     }
 
     pub fn get_conversations(&self) -> Vec<Conversation> {
