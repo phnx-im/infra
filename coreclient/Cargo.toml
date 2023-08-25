@@ -32,6 +32,7 @@ pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4"] }
 phnxapiclient = { path = "../apiclient" }
 phnxbackend = { path = "../backend" }
+phnxserver = { path = "../server" }
 opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
 futures = { version = "0.3.28", features = ["executor"] }
 # TODO: Replace this with a CSPRNG

@@ -228,6 +228,9 @@ impl<T: Notifiable> SelfUser<T> {
                                 // Finally, we can turn the conversation type to a full connection group
                                 self.conversation_store
                                     .confirm_connection_conversation(&conversation_id);
+                                // And notify the application
+                                self.notification_hub
+                                    .dispatch_conversation_notification(conversation_id);
                             }
                             // If we were removed, we set the group to inactive.
                             if we_were_removed {
@@ -287,7 +290,7 @@ impl<T: Notifiable> SelfUser<T> {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let notification_messages = vec![];
+        let mut notification_messages = vec![];
         for message in messages {
             match message {
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
@@ -385,6 +388,8 @@ impl<T: Notifiable> SelfUser<T> {
                     self.conversation_store
                         .confirm_connection_conversation(&conversation_id);
 
+                    notification_messages.push(conversation_id);
+
                     let contact = PartialContact {
                         user_name: user_name.clone(),
                         conversation_id,
@@ -419,9 +424,9 @@ impl<T: Notifiable> SelfUser<T> {
             }
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
-        for notification_message in notification_messages.clone() {
+        for notification_message in notification_messages {
             self.notification_hub
-                .dispatch_message_notification(notification_message);
+                .dispatch_conversation_notification(notification_message);
         }
         Ok(())
     }
