@@ -39,6 +39,7 @@ rand = "0.8.4"
 # Persistence
 serde = { version = "1", features = ["derive"] }
 turbosql = "0.8"
+serde_json = "1"
 
 # Feature dart-bridge
 tokio = { version = "1.29.0", features = ["rt", "macros"], optional = true }

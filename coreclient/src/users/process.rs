@@ -45,7 +45,7 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let group = ClientGroup::join_group(
+                    let group = TurboGroup::join_group(
                         &self.crypto_backend,
                         welcome_bundle,
                         &self.key_store.wai_ear_key,
@@ -92,7 +92,7 @@ impl<T: Notifiable> SelfUser<T> {
                         .id
                         .as_uuid();
 
-                    let mut group = ClientGroup::load(group_id, &self.as_client_id())?;
+                    let mut group = TurboGroup::load(group_id, &self.as_client_id())?;
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
                             &self.crypto_backend,
@@ -263,7 +263,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         // After joining, we need to set our user auth keys.
         for group_id in freshly_joined_groups {
-            let mut group = ClientGroup::load(&group_id, &self.as_client_id())?;
+            let mut group = TurboGroup::load(&group_id, &self.as_client_id())?;
             let params = group.update_user_key(&self.crypto_backend)?;
             let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
@@ -375,7 +375,7 @@ impl<T: Notifiable> SelfUser<T> {
                         .await
                         .unwrap();
 
-                    let (group, commit, group_info) = ClientGroup::join_group_externally(
+                    let (group, commit, group_info) = TurboGroup::join_group_externally(
                         &self.crypto_backend,
                         eci,
                         leaf_signer,

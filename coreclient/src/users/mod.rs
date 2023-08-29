@@ -52,6 +52,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     contacts::{Contact, ContactAddInfos, PartialContact},
+    groups::store::TurboGroup,
     users::key_store::AsCredentials,
 };
 
@@ -411,7 +412,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
         let client_reference = self.create_own_client_reference();
-        let (group, partial_params) = ClientGroup::create_group(
+        let (group, partial_params) = TurboGroup::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
             group_id.clone(),
@@ -480,7 +481,7 @@ impl<T: Notifiable> SelfUser<T> {
             contact_add_infos.push(add_info);
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
-        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let mut group = TurboGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
         // Adds new member and staged commit
         let params = group
             .invite(
@@ -522,7 +523,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let group_id = &conversation.group_id;
-        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let mut group = TurboGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
         let params = group.remove(&self.crypto_backend, target_users).unwrap();
         // We unwrap here, because if the user auth key is not set, the remove
         // would already have failed.
@@ -574,7 +575,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let group_id = &conversation.group_id;
-        let mut group = ClientGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
+        let mut group = TurboGroup::load(&group_id.as_group_id(), &self.as_client_id()).unwrap();
         // Generate ciphertext
         let params = group
             .create_message(&self.crypto_backend, message.clone())
@@ -645,7 +646,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await
             .unwrap();
         // Create the connection group
-        let (connection_group, partial_params) = ClientGroup::create_group(
+        let (connection_group, partial_params) = TurboGroup::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
             group_id.clone(),
@@ -746,7 +747,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let mut group =
-            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+            TurboGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
         let params = group.update_user_key(&self.crypto_backend).unwrap();
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -767,7 +768,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let mut group =
-            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+            TurboGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
         let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
@@ -850,7 +851,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let mut group =
-            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+            TurboGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
         let params = group.leave_group(&self.crypto_backend).unwrap();
         // We unwrap here, because if there was no auth key, the leave group
         // call would have failed already.
@@ -872,7 +873,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .unwrap();
         let mut group =
-            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
+            TurboGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).unwrap();
         let params = group.update(&self.crypto_backend).unwrap();
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -911,9 +912,9 @@ impl<T: Notifiable> SelfUser<T> {
         &self.user_name
     }
 
-    fn group(&self, conversation_id: Uuid) -> Option<ClientGroup> {
+    fn group(&self, conversation_id: Uuid) -> Option<TurboGroup> {
         self.conversation(conversation_id).and_then(|conversation| {
-            ClientGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).ok()
+            TurboGroup::load(&conversation.group_id.as_group_id(), &self.as_client_id()).ok()
         })
     }
 

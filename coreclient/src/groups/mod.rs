@@ -64,7 +64,6 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    ops::Deref,
     panic::panic_any,
 };
 
@@ -101,7 +100,9 @@ pub(crate) struct PartialCreateGroupParams {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct InnerClientGroup {
+pub(crate) struct Group {
+    #[serde(skip)]
+    rowid: Option<i64>,
     group_id: GroupId,
     leaf_signer: InfraCredentialSigningKey,
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
@@ -114,226 +115,7 @@ pub(crate) struct InnerClientGroup {
     pending_diff: Option<GroupDiff>,
 }
 
-#[derive(Turbosql)]
-pub(crate) struct ClientGroup {
-    rowid: Option<i64>,
-    // We store the group and client id as a byte vector to be able to use it as
-    // a SQL key.
-    client_id: Option<Vec<u8>>,
-    group_id: Option<Vec<u8>>,
-    inner_client_group: Option<InnerClientGroup>,
-}
-
-impl Deref for ClientGroup {
-    type Target = InnerClientGroup;
-
-    fn deref(&self) -> &Self::Target {
-        // We ensure in the constructors that there is always an inner_client_group.
-        self.inner_client_group.as_ref().unwrap()
-    }
-}
-
-impl ClientGroup {
-    fn inner_group_mut(&mut self) -> &mut InnerClientGroup {
-        // We ensure in the constructors that there is always an inner_client_group.
-        self.inner_client_group.as_mut().unwrap()
-    }
-
-    /// Creates and persists a new group.
-    pub(crate) fn create_group(
-        provider: &impl OpenMlsProvider,
-        signer: &ClientSigningKey,
-        group_id: GroupId,
-    ) -> Result<(Self, PartialCreateGroupParams), turbosql::Error> {
-        let (inner_group, params) = InnerClientGroup::create_group(provider, signer, group_id);
-        let group = Self::new(inner_group)?;
-        Ok((group, params))
-    }
-
-    pub(crate) async fn join_group(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        welcome_bundle: WelcomeBundle,
-        // This is our own key that the sender uses to encrypt to us. We should
-        // be able to retrieve it from the client's key store.
-        welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        leaf_signers: &mut HashMap<
-            SignaturePublicKey,
-            (InfraCredentialSigningKey, SignatureEarKey),
-        >,
-        api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
-        contacts: &HashMap<UserName, Contact>,
-    ) -> Result<Self, GroupOperationError> {
-        let inner_group = InnerClientGroup::join_group(
-            provider,
-            welcome_bundle,
-            welcome_attribution_info_ear_key,
-            leaf_signers,
-            api_clients,
-            as_credentials,
-            contacts,
-        )
-        .await?;
-        Ok(Self::new(inner_group)?)
-    }
-
-    pub(crate) async fn join_group_externally(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        external_commit_info: ExternalCommitInfoIn,
-        leaf_signer: InfraCredentialSigningKey,
-        signature_ear_key: SignatureEarKey,
-        group_state_ear_key: GroupStateEarKey,
-        signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-        credential_ear_key: ClientCredentialEarKey,
-        as_credentials: &mut AsCredentials,
-        api_clients: &mut ApiClients,
-        aad: InfraAadMessage,
-        own_client_credential: &ClientCredential,
-    ) -> Result<(Self, MlsMessageOut, MlsMessageOut), GroupOperationError> {
-        let (inner_group, commit, group_info) = InnerClientGroup::join_group_externally(
-            provider,
-            external_commit_info,
-            leaf_signer,
-            signature_ear_key,
-            group_state_ear_key,
-            signature_ear_key_wrapper_key,
-            credential_ear_key,
-            as_credentials,
-            api_clients,
-            aad,
-            own_client_credential,
-        )
-        .await?;
-        let group = Self::new(inner_group)?;
-        Ok((group, commit, group_info))
-    }
-
-    pub(crate) fn invite(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        signer: &ClientSigningKey,
-        // The following three vectors have to be in sync, i.e. of the same length
-        // and refer to the same contacts in order.
-        add_infos: Vec<ContactAddInfos>,
-        wai_keys: Vec<WelcomeAttributionInfoEarKey>,
-        client_credentials: Vec<Vec<ClientCredential>>,
-    ) -> Result<AddUsersParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().invite(
-            provider,
-            signer,
-            add_infos,
-            wai_keys,
-            client_credentials,
-        )?;
-        self.persist()?;
-        Ok(params)
-    }
-
-    pub(crate) fn remove(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        members: &[UserName],
-    ) -> Result<RemoveUsersParamsOut, GroupOperationError> {
-        let mut clients = Vec::new();
-        for user_name in members {
-            let mut user_clients = self.user_client_ids(&user_name);
-            clients.append(&mut user_clients);
-        }
-        let params = self.inner_group_mut().remove(provider, clients)?;
-        self.persist()?;
-        Ok(params)
-    }
-
-    pub(crate) fn merge_pending_commit(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        staged_commit_option: impl Into<Option<StagedCommit>>,
-    ) -> Result<Vec<ConversationMessage>, GroupOperationError> {
-        let messages = self
-            .inner_group_mut()
-            .merge_pending_commit(provider, staged_commit_option)?;
-        self.persist()?;
-        Ok(messages)
-    }
-
-    pub fn create_message(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        msg: MessageContentType,
-    ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().create_message(provider, msg)?;
-        self.persist()?;
-        Ok(params)
-    }
-
-    pub(crate) fn update_user_key(
-        &mut self,
-        provider: &impl OpenMlsProvider,
-    ) -> Result<UpdateClientParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().update_user_key(provider);
-        self.persist().unwrap();
-        Ok(params)
-    }
-
-    /// Mark the group as deleted and return the parameters to request deletion
-    /// on the DS. This does not delete the group from local storage.
-    ///
-    /// TODO: If we actually want to delete the group from local storage, we
-    /// should do so as part of a commit merging action.
-    pub(crate) fn delete(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-    ) -> Result<DeleteGroupParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().delete(provider)?;
-        self.persist()?;
-        Ok(params)
-    }
-
-    /// Leave the group and return the parameters to request deletion on the DS.
-    /// This marks the group as inactive, but does not delete it from local
-    /// storage.
-    pub(crate) fn leave_group(
-        &mut self,
-        provider: &impl OpenMlsProvider,
-    ) -> Result<SelfRemoveClientParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().leave_group(provider);
-        self.persist()?;
-        Ok(params)
-    }
-
-    pub(crate) fn update(
-        &mut self,
-        provider: &impl OpenMlsProvider,
-    ) -> Result<UpdateClientParamsOut, GroupOperationError> {
-        let params = self.inner_group_mut().update(provider);
-        self.persist()?;
-        Ok(params)
-    }
-
-    pub(crate) async fn process_message(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        message: impl Into<ProtocolMessage>,
-        // Required in case there are new joiners.
-        // TODO: In the federated case, we might have to fetch them first.
-        api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
-    ) -> Result<(ProcessedMessage, bool, ClientCredential), GroupOperationError> {
-        let (processed_message, we_were_removed, credential) = self
-            .inner_group_mut()
-            .process_message(provider, message, api_clients, as_credentials)
-            .await?;
-        self.persist()?;
-        Ok((processed_message, we_were_removed, credential))
-    }
-
-    pub(crate) fn store_proposal(&mut self, proposal: QueuedProposal) {
-        self.inner_group_mut().store_proposal(proposal);
-        self.persist().unwrap();
-    }
-}
-
-impl InnerClientGroup {
+impl Group {
     fn mls_group(&self) -> &MlsGroup {
         &self.mls_group
     }
@@ -406,6 +188,7 @@ impl InnerClientGroup {
         };
 
         let group = Self {
+            rowid: None,
             group_id,
             leaf_signer,
             signature_ear_key_wrapper_key,
@@ -416,6 +199,9 @@ impl InnerClientGroup {
             client_information: [(0, (signer.credential().clone(), signature_ear_key))].into(),
             pending_diff: None,
         };
+
+        // Persist the new group
+        group.persist()?;
 
         (group, params)
     }
@@ -547,6 +333,12 @@ impl InnerClientGroup {
             pending_diff: None,
         };
 
+        // Write to DB and read the group back.
+        let group_id = group.group_id.clone();
+        let client_id = group.own_client_id();
+        group.persist_new_group().unwrap();
+        let group = Self::load(&group_id, &client_id).unwrap();
+
         Ok(group)
     }
 
@@ -642,6 +434,12 @@ impl InnerClientGroup {
             client_information,
             pending_diff: None,
         };
+
+        // Write to DB and read the group back.
+        let group_id = group.group_id.clone();
+        let client_id = group.own_client_id();
+        group.persist_new_group().unwrap();
+        let group = Self::load(&group_id, &client_id).unwrap();
 
         Ok((group, commit, group_info.into()))
     }
@@ -1043,6 +841,7 @@ impl InnerClientGroup {
             .unwrap()
             .clone();
         self.pending_diff = Some(diff);
+        self.persist()?;
 
         Ok((processed_message, we_were_removed, sender_credential))
     }
@@ -1142,6 +941,8 @@ impl InnerClientGroup {
 
         self.pending_diff = Some(diff);
 
+        self.persist()?;
+
         let params = AddUsersParamsOut {
             commit,
             sender: user_auth_key.verifying_key().hash(),
@@ -1196,6 +997,7 @@ impl InnerClientGroup {
             diff.remove_client_credential(index);
         }
         self.pending_diff = Some(diff);
+        self.persist()?;
 
         let params = RemoveUsersParamsOut {
             commit,
@@ -1247,6 +1049,7 @@ impl InnerClientGroup {
             diff.remove_client_credential(index);
         }
         self.pending_diff = Some(diff);
+        self.persist()?;
 
         let params = DeleteGroupParamsOut {
             commit,
@@ -1370,6 +1173,7 @@ impl InnerClientGroup {
             self.mls_group.merge_pending_commit(provider)?;
             staged_commit_messages
         };
+        self.persist()?;
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
         {
@@ -1397,6 +1201,7 @@ impl InnerClientGroup {
             &self.leaf_signer,
             &msg.tls_serialize_detached()?,
         )?;
+        self.persist()?;
 
         let message = AssistedMessageOut {
             mls_message,
@@ -1489,6 +1294,7 @@ impl InnerClientGroup {
         let mut diff = GroupDiff::new(&self);
         diff.apply_pending_removes(self.mls_group().pending_commit().unwrap());
         self.pending_diff = Some(diff);
+        self.persist()?;
         let commit = AssistedMessageOut {
             mls_message,
             group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
@@ -1524,6 +1330,8 @@ impl InnerClientGroup {
         let user_auth_signing_key = UserAuthSigningKey::generate().unwrap();
         let verifying_key = user_auth_signing_key.verifying_key().clone();
         diff.user_auth_key = Some(user_auth_signing_key);
+        self.pending_diff = Some(diff);
+        self.persist()?;
         let params = UpdateClientParamsOut {
             commit: AssistedMessageOut {
                 mls_message: commit,
@@ -1532,7 +1340,6 @@ impl InnerClientGroup {
             sender: self.mls_group.own_leaf_index(),
             new_user_auth_key_option: Some(verifying_key),
         };
-        self.pending_diff = Some(diff);
         params
     }
 
@@ -1547,6 +1354,7 @@ impl InnerClientGroup {
             .mls_group
             .leave_group(provider, &self.leaf_signer)
             .unwrap();
+        self.persist()?;
         let assisted_message = AssistedMessageOut {
             mls_message: proposal,
             group_info_option: None,
@@ -1564,6 +1372,7 @@ impl InnerClientGroup {
 
     pub(crate) fn store_proposal(&mut self, proposal: QueuedProposal) {
         self.mls_group.store_pending_proposal(proposal)
+        self.persist()?;
     }
 
     pub(crate) fn pending_removes(&self) -> Vec<UserName> {
@@ -1576,6 +1385,11 @@ impl InnerClientGroup {
                 _ => None,
             })
             .collect()
+    }
+
+    pub(crate) fn own_client_id(&self) -> AsClientId {
+        self.client_by_index(self.mls_group.own_leaf_index().usize())
+            .unwrap()
     }
 }
 

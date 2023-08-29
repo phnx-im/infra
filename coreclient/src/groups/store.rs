@@ -6,31 +6,65 @@ use turbosql::{execute, select, Turbosql};
 
 use super::*;
 
-impl ClientGroup {
+#[derive(Turbosql)]
+pub(crate) struct TurboGroup {
+    rowid: Option<i64>,
+    // We store the group and client id as a byte vector to be able to use it as
+    // a SQL key.
+    client_id: Option<Vec<u8>>,
+    group_id: Option<Vec<u8>>,
+    group_bytes: Option<Vec<u8>>,
+}
+
+impl TryFrom<TurboGroup> for Group {
+    type Error = turbosql::Error;
+
+    fn try_from(value: TurboGroup) -> Result<Self, Self::Error> {
+        if let Some(group_bytes) = value.group_bytes {
+            let mut group: Group = serde_json::from_slice(&group_bytes)?;
+            group.rowid = value.rowid;
+            Ok(group)
+        } else {
+            Err(turbosql::Error::OtherError("Corrupted group in DB."))
+        }
+    }
+}
+
+impl TryFrom<&Group> for TurboGroup {
+    type Error = turbosql::Error;
+
+    fn try_from(value: &Group) -> Result<Self, Self::Error> {
+        let group = Self {
+            rowid: value.rowid,
+            client_id: Some(
+                value
+                    .own_client_id()
+                    .tls_serialize_detached()
+                    .map_err(|_| turbosql::Error::OtherError("Could not serialize client id."))?,
+            ),
+            group_id: Some(value.group_id.as_slice().to_vec()),
+            group_bytes: Some(serde_json::to_vec(value)?),
+        };
+        Ok(group)
+    }
+}
+
+impl Group {
     /// Writes the new group to the database. If a group with the same group id
     /// already exists, it deletes the old group.
-    pub(crate) fn new(inner_group: InnerClientGroup) -> Result<Self, turbosql::Error> {
-        let client_id_bytes = inner_group
-            .client_by_index(inner_group.mls_group().own_leaf_index().usize())
-            .unwrap()
-            .tls_serialize_detached()
-            .unwrap();
-        let group_id_bytes = inner_group.group_id().as_slice().to_vec();
+    pub(crate) fn persist_new_group(&self) -> Result<(), turbosql::Error> {
+        let turbo_group: TurboGroup = self.try_into()?;
+        let client_id_bytes = turbo_group.client_id.unwrap();
+        let group_id_bytes = turbo_group.group_id.unwrap();
         // Check if a group with this ID already exists.
-        if let Ok(old_group) = select!(ClientGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)
+        if let Ok(old_group) = select!(TurboGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)
         {
             // If it exists, delete it from the DB.
             execute!("DELETE FROM clientgroup WHERE rowid = " old_group.rowid.unwrap())?;
         }
         // Insert the new group into the DB.
-        let group = Self {
-            rowid: None,
-            client_id: Some(client_id_bytes),
-            group_id: Some(group_id_bytes),
-            inner_client_group: Some(inner_group),
-        };
-        group.insert()?;
-        Ok(group)
+        turbo_group.insert()?;
+        Ok(())
     }
 
     pub(crate) fn load(
@@ -39,20 +73,22 @@ impl ClientGroup {
     ) -> Result<Self, turbosql::Error> {
         let client_id_bytes = client_id.tls_serialize_detached().unwrap();
         let group_id_bytes = group_id.as_slice();
-        let group = select!(ClientGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)?;
-        if group.inner_client_group.is_none() {
-            return Err(turbosql::Error::OtherError("Corrupted group in DB."));
-        }
-        Ok(group)
+        let turbo_group = select!(TurboGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)?;
+        turbo_group.try_into()
     }
 
     pub(crate) fn persist(&self) -> Result<(), turbosql::Error> {
-        <Self as Turbosql>::update(self)?;
+        let turbo_group: TurboGroup = self.try_into()?;
+        turbo_group.update()?;
         Ok(())
     }
 
     pub(crate) fn _purge(&self) -> Result<(), turbosql::Error> {
-        execute!("DELETE FROM clientgroup WHERE rowid = " self.rowid.unwrap())?;
+        let turbo_group: TurboGroup = self.try_into()?;
+        let rowid = turbo_group.rowid.ok_or(turbosql::Error::OtherError(
+            "Cannot purge group without rowid.",
+        ))?;
+        execute!("DELETE FROM clientgroup WHERE rowid = " rowid)?;
         Ok(())
     }
 }

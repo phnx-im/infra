@@ -30,7 +30,7 @@ pub(crate) struct GroupDiff {
 }
 
 impl GroupDiff {
-    pub(crate) fn new(group: &InnerClientGroup) -> Self {
+    pub(crate) fn new(group: &Group) -> Self {
         Self {
             leaf_signer: None,
             signature_ear_key: None,
