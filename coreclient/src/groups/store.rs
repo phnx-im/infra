@@ -75,7 +75,7 @@ impl Group {
                 // If it exists, delete it from the DB. (We could probably just
                 // read out the rowid of the existing group and set it for the
                 // new group, but this does the trick.)
-                execute!("DELETE FROM clientgroup WHERE rowid = " old_group.rowid.unwrap())?;
+                execute!("DELETE FROM turbogroup WHERE rowid = " old_group.rowid.unwrap())?;
             }
             // Insert the new group into the DB.
             turbo_group.insert()?;
@@ -88,7 +88,7 @@ impl Group {
         let rowid = turbo_group.rowid.ok_or(turbosql::Error::OtherError(
             "Cannot purge group without rowid.",
         ))?;
-        execute!("DELETE FROM clientgroup WHERE rowid = " rowid)?;
+        execute!("DELETE FROM turbogroup WHERE rowid = " rowid)?;
         Ok(())
     }
 }
