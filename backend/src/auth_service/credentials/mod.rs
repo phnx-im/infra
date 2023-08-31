@@ -416,13 +416,6 @@ impl ClientCredential {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ClientCredentialProcessingError {
-    DecryptionError,
-    VerificationError,
-    NoMatchingAsCredential,
-}
-
 impl VerifiedStruct<VerifiableClientCredential> for ClientCredential {
     type SealingType = private_mod::Seal;
 

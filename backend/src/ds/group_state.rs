@@ -67,7 +67,7 @@ impl TlsDeserializeBytesTrait for TimeStamp {
             .try_into()
             .map_err(|_| tls_codec::Error::EndOfStream)?;
         let millis = i64::from_be_bytes(millis_bytes);
-        let time = DateTime::<Utc>::from_utc(
+        let time = DateTime::<Utc>::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_millis(millis).ok_or(tls_codec::Error::InvalidInput)?,
             Utc,
         );

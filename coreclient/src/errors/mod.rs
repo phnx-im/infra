@@ -12,14 +12,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CorelibError {
-    #[error("The backend is not initialized.")]
-    BackendNotInitialized,
-    #[error("A network error occurred")]
-    NetworkError,
-    #[error("KeyPackage received from backend is invalid")]
-    InvalidKeyPackage,
-    #[error("User not initialized")]
-    UserNotInitialized,
     #[error(transparent)]
     Group(#[from] GroupOperationError),
     #[error(transparent)]

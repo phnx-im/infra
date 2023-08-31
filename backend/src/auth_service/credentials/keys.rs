@@ -61,8 +61,9 @@ impl AsIntermediateSigningKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SigningKeyCreationError {
+    #[error("Public key mismatch")]
     PublicKeyMismatch,
 }
 
@@ -262,12 +263,14 @@ pub struct InfraCredentialPlaintext {
 }
 
 impl InfraCredentialPlaintext {
-    pub fn decrypt(credential: &InfraCredential, ear_key: &SignatureEarKey) -> Result<Self, Error> {
+    pub fn decrypt(
+        credential: &InfraCredential,
+        ear_key: &SignatureEarKey,
+    ) -> Result<Self, InfraCredentialDecryptionError> {
         let encrypted_signature =
-            Ciphertext::tls_deserialize_exact(credential.encrypted_signature().as_slice())
-                .unwrap()
-                .into();
-        let signature = Signature::decrypt(&ear_key, &encrypted_signature).unwrap();
+            Ciphertext::tls_deserialize_exact(credential.encrypted_signature().as_slice())?.into();
+        let signature = Signature::decrypt(&ear_key, &encrypted_signature)
+            .map_err(|_| InfraCredentialDecryptionError::SignatureDecryptionError)?;
         let payload = InfraCredentialTbs {
             identity: credential.identity().to_vec(),
             lifetime: credential.expiration_data(),
@@ -276,6 +279,14 @@ impl InfraCredentialPlaintext {
         };
         Ok(Self { payload, signature })
     }
+}
+
+#[derive(Debug, Error)]
+pub enum InfraCredentialDecryptionError {
+    #[error(transparent)]
+    DeserializationError(#[from] tls_codec::Error),
+    #[error("Error decrypting signature")]
+    SignatureDecryptionError,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]

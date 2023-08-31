@@ -7,7 +7,7 @@ use turbosql::{execute, select, Turbosql};
 use super::*;
 
 #[derive(Turbosql)]
-pub(crate) struct TurboGroup {
+struct TurboGroup {
     rowid: Option<i64>,
     // We store the group and client id as a byte vector to be able to use it as
     // a SQL key.
@@ -50,23 +50,6 @@ impl TryFrom<&Group> for TurboGroup {
 }
 
 impl Group {
-    /// Writes the new group to the database. If a group with the same group id
-    /// already exists, it deletes the old group.
-    pub(crate) fn persist_new_group(&self) -> Result<(), turbosql::Error> {
-        let turbo_group: TurboGroup = self.try_into()?;
-        let client_id_bytes = turbo_group.client_id.unwrap();
-        let group_id_bytes = turbo_group.group_id.unwrap();
-        // Check if a group with this ID already exists.
-        if let Ok(old_group) = select!(TurboGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)
-        {
-            // If it exists, delete it from the DB.
-            execute!("DELETE FROM clientgroup WHERE rowid = " old_group.rowid.unwrap())?;
-        }
-        // Insert the new group into the DB.
-        turbo_group.insert()?;
-        Ok(())
-    }
-
     pub(crate) fn load(
         group_id: &GroupId,
         client_id: &AsClientId,
@@ -78,8 +61,25 @@ impl Group {
     }
 
     pub(crate) fn persist(&self) -> Result<(), turbosql::Error> {
-        let turbo_group: TurboGroup = self.try_into()?;
-        turbo_group.update()?;
+        if self.rowid.is_some() {
+            let turbo_group: TurboGroup = self.try_into()?;
+            turbo_group.update()?;
+        } else {
+            let turbo_group: TurboGroup = self.try_into()?;
+            // We can unwrap these, as they are both set in the constructor.
+            let client_id_bytes = turbo_group.client_id.as_ref().unwrap();
+            let group_id_bytes = turbo_group.group_id.as_ref().unwrap();
+            // Check if a group with this ID already exists.
+            if let Ok(old_group) = select!(TurboGroup "WHERE client_id = " client_id_bytes " AND group_id = " group_id_bytes)
+            {
+                // If it exists, delete it from the DB. (We could probably just
+                // read out the rowid of the existing group and set it for the
+                // new group, but this does the trick.)
+                execute!("DELETE FROM clientgroup WHERE rowid = " old_group.rowid.unwrap())?;
+            }
+            // Insert the new group into the DB.
+            turbo_group.insert()?;
+        }
         Ok(())
     }
 

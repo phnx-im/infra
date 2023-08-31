@@ -12,6 +12,7 @@ use utoipa::ToSchema;
 
 use crate::{
     auth_service::credentials::keys::{generate_signature_keypair, KeyGenerationError},
+    crypto::RandomnessError,
     ds::group_state::UserKeyHash,
 };
 
@@ -127,16 +128,13 @@ pub struct QsClientSigningKey {
     verifying_key: QsClientVerifyingKey,
 }
 
-#[derive(Debug)]
-pub struct RandomnessError {}
-
 impl QsClientSigningKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let rust_crypto = OpenMlsRustCrypto::default();
         let (signing_key, verifying_key) = rust_crypto
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
-            .map_err(|_| RandomnessError {})?;
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             signing_key,
             verifying_key: QsClientVerifyingKey { verifying_key },
@@ -191,7 +189,7 @@ impl QsUserSigningKey {
         let (signing_key, verifying_key) = rust_crypto
             .crypto()
             .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
-            .map_err(|_| RandomnessError {})?;
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             signing_key,
             verifying_key: QsUserVerifyingKey { verifying_key },

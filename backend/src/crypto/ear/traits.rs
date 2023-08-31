@@ -11,6 +11,7 @@ use aes_gcm::{
     NewAead,
 };
 use serde::de::DeserializeOwned;
+use thiserror::Error;
 use tracing::instrument;
 
 use crate::crypto::{secrets::Secret, DecryptionError, RandomnessError};
@@ -18,10 +19,12 @@ use crate::crypto::{secrets::Secret, DecryptionError, RandomnessError};
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
 
 /// Errors that can occur during an encryption operation.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EncryptionError {
+    #[error("Not enough randomness to generate Nonce")]
     RandomnessError, // Not enough randomness to generate Nonce
-    LibraryError,    // Error encrypting the plaintext
+    #[error("Error encrypting the plaintext")]
+    LibraryError, // Error encrypting the plaintext
 }
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].

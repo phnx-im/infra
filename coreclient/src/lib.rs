@@ -23,6 +23,5 @@ use crate::{conversations::*, groups::*, types::*};
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
-pub(crate) use openmls_rust_crypto::OpenMlsRustCrypto;
 
 use uuid::Uuid;

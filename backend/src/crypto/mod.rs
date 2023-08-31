@@ -104,8 +104,9 @@ pub mod secrets;
 pub(super) mod serde_arrays;
 pub mod signatures;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RandomnessError {
+    #[error("Insufficient randomness")]
     InsufficientRandomness,
 }
 
