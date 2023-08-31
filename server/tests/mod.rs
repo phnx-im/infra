@@ -5,7 +5,7 @@
 mod qs;
 mod utils;
 
-use phnxapiclient::{ApiClient, TransportEncryption};
+use phnxapiclient::ApiClient;
 
 use phnxserver::network_provider::MockNetworkProvider;
 use utils::setup::TestBackend;
@@ -21,8 +21,7 @@ async fn health_check_works() {
     tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
-    let client = ApiClient::initialize(address, TransportEncryption::Off)
-        .expect("Failed to initialize client");
+    let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     // Do the health check
     assert!(client.health_check().await);
@@ -157,8 +156,7 @@ async fn inexistant_endpoint() {
     let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, true).await;
 
     // Initialize the client
-    let client = ApiClient::initialize(address, TransportEncryption::Off)
-        .expect("Failed to initialize client");
+    let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);

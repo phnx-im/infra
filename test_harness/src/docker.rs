@@ -7,7 +7,7 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use phnxapiclient::{ApiClient, DomainOrAddress, TransportEncryption};
+use phnxapiclient::ApiClient;
 use phnxbackend::qs::Fqdn;
 
 use crate::test_scenarios::FederationTestScenario;
@@ -169,18 +169,15 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
     let mut domains = domains.into();
     let clients: Vec<ApiClient> = domains
         .iter()
-        .map(|domain| ApiClient::initialize(domain.clone(), TransportEncryption::Off).unwrap())
+        .map(|domain| ApiClient::initialize(domain.clone()).unwrap())
         .collect::<Vec<ApiClient>>();
 
     // Do the health check
     while !domains.is_empty() {
         for client in &clients {
             if client.health_check().await {
-                if let DomainOrAddress::Domain(domain) = client.domain_or_address() {
-                    domains.remove(domain);
-                } else {
-                    panic!("Expected domain")
-                }
+                let domain: Fqdn = client.url().into();
+                domains.remove(&domain);
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(2))

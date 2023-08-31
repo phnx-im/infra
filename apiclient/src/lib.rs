@@ -16,16 +16,6 @@ pub mod as_api;
 pub mod ds_api;
 pub mod qs_api;
 
-/// Defines whether transport encryption is enabled or not. Transport
-/// encryption should be enabled when used in production and there is no load
-/// balancer or reverse proxy in front of the server that terminates TLS
-/// connections.
-#[derive(Clone)]
-pub enum TransportEncryption {
-    On,
-    Off,
-}
-
 /// Defines the type of protocol used for a specific endpoint.
 pub enum Protocol {
     Http,
@@ -70,8 +60,7 @@ impl std::fmt::Display for DomainOrAddress {
 #[derive(Clone)]
 pub struct ApiClient {
     client: Client,
-    domain_or_address: DomainOrAddress,
-    transport_encryption: TransportEncryption,
+    url: String,
 }
 
 impl ApiClient {
@@ -83,18 +72,14 @@ impl ApiClient {
     ///
     /// # Returns
     /// A new [`ApiClient`].
-    pub fn initialize(
-        domain: impl Into<DomainOrAddress>,
-        transport_encryption: TransportEncryption,
-    ) -> Result<Self, ApiClientInitError> {
+    pub fn initialize(domain: impl ToString) -> Result<Self, ApiClientInitError> {
         let client = ClientBuilder::new()
             .pool_idle_timeout(Duration::from_secs(4))
             .user_agent("PhnxClient/0.1")
             .build()?;
         Ok(Self {
             client,
-            domain_or_address: domain.into(),
-            transport_encryption,
+            url: domain.to_string(),
         })
     }
 
@@ -104,18 +89,18 @@ impl ApiClient {
             Protocol::Http => "http",
             Protocol::Ws => "ws",
         };
-        let transport_encryption = match self.transport_encryption {
-            TransportEncryption::On => "s",
-            TransportEncryption::Off => "",
+        let url = if !self.url.starts_with("http") {
+            format!("{}://{}", protocol, self.url)
+        } else {
+            self.url.clone()
         };
-        let address_and_port = match &self.domain_or_address {
-            DomainOrAddress::Domain(domain) => format!("{}:{}", domain, 8000),
-            DomainOrAddress::Address(address) => address.to_string(),
+        let final_url = if !url.contains(":") {
+            format!("{}:{}{}", url, 8000, endpoint)
+        } else {
+            format!("{}{}", url, endpoint)
         };
-        format!(
-            "{}{}://{}{}",
-            protocol, transport_encryption, address_and_port, endpoint
-        )
+        log::info!("Built URL: {}", final_url);
+        final_url
     }
 
     /// Call the health check endpoint
@@ -146,7 +131,7 @@ impl ApiClient {
         }
     }
 
-    pub fn domain_or_address(&self) -> &DomainOrAddress {
-        &self.domain_or_address
+    pub fn url(&self) -> &str {
+        &self.url
     }
 }

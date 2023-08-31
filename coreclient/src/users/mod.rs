@@ -7,7 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress, TransportEncryption};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -98,10 +98,7 @@ impl ApiClients {
         let client = self
             .clients
             .entry(lookup_domain.clone())
-            .or_insert(ApiClient::initialize(
-                lookup_domain,
-                TransportEncryption::Off,
-            )?);
+            .or_insert(ApiClient::initialize(lookup_domain)?);
         Ok(client)
     }
 
