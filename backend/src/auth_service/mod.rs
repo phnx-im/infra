@@ -9,6 +9,7 @@ use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
+use rand::{RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerialize, TlsDeserializeBytes,
@@ -232,12 +233,14 @@ impl AsRef<[u8]> for AsClientId {
 
 impl AsClientId {
     pub fn random(rand: &impl OpenMlsRand, user_name: UserName) -> Result<Self, RandomnessError> {
-        let client_id = rand
-            .random_vec(32)
+        let mut client_id = [0; 32];
+        // TODO: Use a proper rng provider.
+        rand_chacha::ChaCha20Rng::from_entropy()
+            .try_fill_bytes(client_id.as_mut_slice())
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             user_name,
-            client_id,
+            client_id: client_id.to_vec(),
         })
     }
 

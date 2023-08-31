@@ -7,6 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
+use openmls_rust_crypto::RustCrypto;
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress, TransportEncryption};
 use phnxbackend::{
     auth_service::{
@@ -140,7 +141,7 @@ impl<T: Notifiable> SelfUser<T> {
     ) -> Result<Self> {
         let user_name = user_name.into();
         log::debug!("Creating new user {}", user_name);
-        let crypto_backend = PhnxOpenMlsProvider::default();
+        let rand_provider = RustCrypto::default();
         // Let's turn TLS off for now.
         let domain = user_name.domain();
         let domain_or_address = domain_or_address.into();
@@ -150,7 +151,8 @@ impl<T: Notifiable> SelfUser<T> {
 
         let api_client = api_clients.default_client()?;
 
-        let as_client_id = AsClientId::random(crypto_backend.rand(), user_name.clone())?;
+        let as_client_id = AsClientId::random(&rand_provider, user_name.clone())?;
+        let crypto_backend = PhnxOpenMlsProvider::new(&as_client_id)?;
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519)?;
 
