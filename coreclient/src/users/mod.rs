@@ -359,7 +359,7 @@ impl<T: Notifiable> SelfUser<T> {
         encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
     ) -> Result<AddPackage> {
-        let signature_ear_key = SignatureEarKey::random().unwrap();
+        let signature_ear_key = SignatureEarKey::random()?;
         let leaf_signer =
             InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
@@ -465,7 +465,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = self
             .conversation_store
             .conversation(conversation_id)
-            .unwrap();
+            .ok_or(anyhow!("Can't find conversation"))?;
         let group_id = conversation.group_id.clone();
         let owner_domain = conversation.owner_domain();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
@@ -482,9 +482,14 @@ impl<T: Notifiable> SelfUser<T> {
             let add_info = if let Some(add_info) = contact.add_infos() {
                 add_info
             } else {
-                self.get_key_packages(&user_name).await;
-                let contact = self.contacts.get_mut(&user_name).unwrap();
-                contact.add_infos().unwrap()
+                self.get_key_packages(&user_name).await?;
+                let contact = self
+                    .contacts
+                    .get_mut(&user_name)
+                    .ok_or(anyhow!("Can't find contact"))?;
+                contact
+                    .add_infos()
+                    .ok_or(anyhow!("No add infos available for this contact"))?
             };
             contact_add_infos.push(add_info);
         }
@@ -492,7 +497,7 @@ impl<T: Notifiable> SelfUser<T> {
         let group = self
             .group_store
             .get_group_mut(&group_id.as_group_id())
-            .unwrap();
+            .ok_or(anyhow!("Can't find group"))?;
         // Adds new member and staged commit
         let params = group.invite(
             &self.crypto_backend,
@@ -973,7 +978,10 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
         let qs_verifying_key = self.qs_verifying_key(&contact_name.domain()).await?.clone();
-        let contact = self.contacts.get_mut(contact_name).unwrap();
+        let contact = self
+            .contacts
+            .get_mut(contact_name)
+            .ok_or(anyhow!("Can't find contact"))?;
         let mut add_infos = Vec::new();
         for _ in 0..5 {
             let response = self
@@ -983,30 +991,24 @@ impl<T: Notifiable> SelfUser<T> {
                     contact.friendship_token.clone(),
                     contact.add_package_ear_key.clone(),
                 )
-                .await
-                .unwrap();
+                .await?;
             let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
                 .add_packages
                 .into_iter()
                 .map(|add_package| {
                     let validated_add_package = add_package
-                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())
-                        .unwrap();
+                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())?;
                     let key_package = validated_add_package.key_package().clone();
                     let sek = SignatureEarKey::decrypt(
                         &contact.signature_ear_key_wrapper_key,
                         validated_add_package.encrypted_signature_ear_key(),
-                    )
-                    .unwrap();
-                    (key_package, sek)
+                    )?;
+                    Ok((key_package, sek))
                 })
-                .collect();
+                .collect::<Result<Vec<_>>>()?;
             let add_info = ContactAddInfos {
                 key_packages,
-                key_package_batch: response
-                    .key_package_batch
-                    .verify(&qs_verifying_key)
-                    .unwrap(),
+                key_package_batch: response.key_package_batch.verify(&qs_verifying_key)?,
             };
             add_infos.push(add_info);
         }
