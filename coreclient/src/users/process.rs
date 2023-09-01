@@ -403,7 +403,7 @@ impl<T: Notifiable> SelfUser<T> {
 
                     self.contacts.insert(user_name.clone(), contact);
                     // Fetch a few KeyPackages for our new contact.
-                    self.get_key_packages(&user_name).await;
+                    self.get_key_packages(&user_name).await?;
                     // TODO: Send conversation message to UI.
 
                     let qs_client_reference = self.create_own_client_reference();

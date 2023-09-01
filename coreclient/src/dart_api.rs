@@ -59,6 +59,7 @@ pub struct UserBuilder {
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
+        let _ = simple_logger::init_with_level(log::Level::Debug);
         Self {
             user: RustOpaque::new(Mutex::new(None)),
         }
@@ -218,9 +219,9 @@ impl RustUser {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    pub async fn create_conversation(&self, name: String) -> UuidBytes {
+    pub async fn create_conversation(&self, name: String) -> Result<UuidBytes> {
         let mut user = self.user.lock().unwrap();
-        UuidBytes::from_uuid(user.create_conversation(&name).await.unwrap())
+        Ok(UuidBytes::from_uuid(user.create_conversation(&name).await?))
     }
 
     #[tokio::main(flavor = "current_thread")]

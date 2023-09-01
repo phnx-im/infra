@@ -49,7 +49,7 @@ pub enum DsRequestError {
     BadResponse,
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("Network error")]
+    #[error("Network error: {0}")]
     NetworkError(String),
     #[error(transparent)]
     DsError(#[from] DsProcessingError),
