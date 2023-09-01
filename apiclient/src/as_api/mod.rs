@@ -49,7 +49,7 @@ pub enum AsRequestError {
     BadResponse,
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("Network error")]
+    #[error("Network error: {0}")]
     NetworkError(String),
     #[error(transparent)]
     AsError(#[from] AsProcessingError),
@@ -91,9 +91,10 @@ impl ApiClient {
                         Err(AsRequestError::AsError(ds_proc_err))
                     }
                     // All other errors
-                    _ => {
+                    other_status => {
                         let error_text =
-                            res.text().await.map_err(|_| AsRequestError::BadResponse)?;
+                            res.text().await.map_err(|_| AsRequestError::BadResponse)?
+                                + &format!(" (status code {})", other_status);
                         Err(AsRequestError::NetworkError(error_text))
                     }
                 }
