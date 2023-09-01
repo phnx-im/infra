@@ -125,6 +125,8 @@ pub struct ErrorMessage {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Conversation {
+    pub rowid: Option<i64>,
+    pub own_client_id: Vec<u8>,
     pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
     pub group_id: GroupIdBytes,

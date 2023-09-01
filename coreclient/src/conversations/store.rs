@@ -4,9 +4,11 @@
 
 use std::collections::HashMap;
 
+use anyhow::Result;
 use openmls::prelude::GroupId;
-use phnxbackend::auth_service::UserName;
+use phnxbackend::auth_service::{AsClientId, UserName};
 use serde::{Deserialize, Serialize};
+use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::types::*;
 
@@ -31,14 +33,17 @@ impl ConversationStore {
 
     pub(crate) fn create_connection_conversation(
         &mut self,
+        own_client_id: &AsClientId,
         group_id: GroupId,
         user_name: UserName,
         attributes: ConversationAttributes,
-    ) -> Uuid {
+    ) -> Result<Uuid> {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
         let uuid_bytes = UuidBytes::from_group_id(&group_id);
         let conversation = Conversation {
+            rowid: None,
+            own_client_id: own_client_id.tls_serialize_detached()?,
             id: uuid_bytes.clone(),
             group_id: group_id.into(),
             status: ConversationStatus::Active,
@@ -48,17 +53,20 @@ impl ConversationStore {
         };
         self.conversations
             .insert(uuid_bytes.as_uuid().clone(), conversation);
-        uuid_bytes.as_uuid()
+        Ok(uuid_bytes.as_uuid())
     }
 
     pub(crate) fn create_group_conversation(
         &mut self,
+        own_client_id: &AsClientId,
         group_id: GroupId,
         attributes: ConversationAttributes,
-    ) -> Uuid {
+    ) -> Result<Uuid> {
         let uuid_bytes = UuidBytes::from_group_id(&group_id);
         let conversation_id = uuid_bytes.as_uuid();
         let conversation = Conversation {
+            rowid: None,
+            own_client_id: own_client_id.tls_serialize_detached()?,
             id: uuid_bytes.clone(),
             group_id: group_id.into(),
             status: ConversationStatus::Active,
@@ -68,7 +76,7 @@ impl ConversationStore {
         };
         self.conversations
             .insert(conversation_id.clone(), conversation);
-        conversation_id
+        Ok(conversation_id)
     }
 
     pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {

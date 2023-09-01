@@ -16,8 +16,13 @@ use phnxbackend::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub(crate) mod store;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
+    // The following two fields are only used for the database.
+    pub(crate) rowid: Option<i64>,
+    pub(crate) own_client_id: AsClientId,
     pub user_name: UserName,
     pub(crate) add_infos: Vec<ContactAddInfos>,
     // These should be in the same order as the KeyPackages in the ContactInfos.
@@ -77,11 +82,14 @@ pub struct PartialContact {
 impl PartialContact {
     pub(crate) fn into_contact(
         self,
+        own_client_id: &AsClientId,
         friendship_package: FriendshipPackage,
         add_infos: Vec<ContactAddInfos>,
         client_credential: ClientCredential,
     ) -> Contact {
         Contact {
+            rowid: None,
+            own_client_id: own_client_id.clone(),
             user_name: self.user_name,
             add_infos,
             client_credentials: vec![client_credential],

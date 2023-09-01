@@ -114,6 +114,7 @@ impl TestBed {
                             .unwrap()
                             .user()
                             .contacts()
+                            .unwrap()
                             .into_iter()
                             .any(|contact| contact.user_name == random_user);
                         // The other user can't be the same user and the other
@@ -169,6 +170,7 @@ impl TestBed {
                             let is_connected = user
                                 .user()
                                 .contacts()
+                                .unwrap()
                                 .into_iter()
                                 .any(|contact| &contact.user_name == invitee);
                             !is_group_member && is_connected && invitee != &random_user
@@ -420,6 +422,7 @@ impl TestBed {
         // Make sure that the users aren't already connected.
         let is_already_connected = user1
             .contacts()
+            .unwrap()
             .into_iter()
             .any(|c| c.user_name == user2_name);
         assert!(
@@ -464,15 +467,19 @@ impl TestBed {
 
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
-        let user2_contacts_before = user2.contacts();
+        let user2_contacts_before = user2.contacts().unwrap();
         let user2_conversations_before = user2.get_conversations();
         tracing::info!("{} fetches AS messages", user2_name);
         let as_messages = user2.as_fetch_messages().await.unwrap();
         tracing::info!("{} processes AS messages", user2_name);
         user2.process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
-        let mut user2_contacts_after: HashSet<UserName> =
-            user2.contacts().into_iter().map(|c| c.user_name).collect();
+        let mut user2_contacts_after: HashSet<UserName> = user2
+            .contacts()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.user_name)
+            .collect();
         // If we remove the new user, the partial contact lists should be the same.
         user2_contacts_after.remove(&user1_name);
         let user2_contacts_before: HashSet<UserName> = user2_contacts_before
@@ -504,6 +511,7 @@ impl TestBed {
         let user1 = &mut test_user1.user;
         let user1_contacts_before: HashSet<_> = user1
             .contacts()
+            .unwrap()
             .into_iter()
             .map(|contact| contact.user_name.clone())
             .collect();
@@ -517,6 +525,7 @@ impl TestBed {
         // group should have been created.
         let user1_contacts_after: HashSet<_> = user1
             .contacts()
+            .unwrap()
             .into_iter()
             .map(|contact| contact.user_name.clone())
             .collect();

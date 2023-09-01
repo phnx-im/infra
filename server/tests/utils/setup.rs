@@ -290,14 +290,14 @@ impl TestBackend {
 
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
-        let user2_contacts_before = user2.contacts();
+        let user2_contacts_before = user2.contacts().unwrap();
         let user2_conversations_before = user2.get_conversations();
         tracing::info!("{} fetches AS messages", user2_name);
         let as_messages = user2.as_fetch_messages().await.unwrap();
         tracing::info!("{} processes AS messages", user2_name);
         user2.process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
-        let mut user2_contacts_after = user2.contacts();
+        let mut user2_contacts_after = user2.contacts().unwrap();
         let new_contact_position = user2_contacts_after
             .iter()
             .position(|c| c.user_name == user1_name)
@@ -334,6 +334,7 @@ impl TestBackend {
         let user1 = &mut test_user1.user;
         let user1_contacts_before: HashSet<_> = user1
             .contacts()
+            .unwrap()
             .into_iter()
             .map(|contact| contact.user_name.clone())
             .collect();
@@ -347,6 +348,7 @@ impl TestBackend {
         // group should have been created.
         let user1_contacts_after: HashSet<_> = user1
             .contacts()
+            .unwrap()
             .into_iter()
             .map(|contact| contact.user_name.clone())
             .collect();

@@ -6,9 +6,9 @@ use crate::utils::persistance::{DataType, Persistable};
 
 use super::*;
 
-impl Persistable for Group {
-    type Key = GroupId;
-    const DATA_TYPE: DataType = DataType::Group;
+impl Persistable for Contact {
+    type Key = UserName;
+    const DATA_TYPE: DataType = DataType::Contact;
 
     fn own_client_id(&self) -> &AsClientId {
         &self.own_client_id
@@ -19,6 +19,6 @@ impl Persistable for Group {
     }
 
     fn key(&self) -> &Self::Key {
-        self.group_id()
+        &self.user_name
     }
 }

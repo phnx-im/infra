@@ -58,7 +58,7 @@ impl<T: Notifiable> SelfUser<T> {
                         // for example one in the ASCredentials store itself.
                         &mut self.api_clients,
                         &mut self.key_store.as_credentials,
-                        &self.contacts,
+                        &self.key_store.signing_key.credential().identity(),
                     )
                     .await?;
                     let group_id = group.group_id();
@@ -67,9 +67,11 @@ impl<T: Notifiable> SelfUser<T> {
                     let attributes = ConversationAttributes {
                         title: "New conversation".to_string(),
                     };
-                    let conversation_id = self
-                        .conversation_store
-                        .create_group_conversation(group_id.clone(), attributes);
+                    let conversation_id = self.conversation_store.create_group_conversation(
+                        &self.as_client_id(),
+                        group_id.clone(),
+                        attributes,
+                    )?;
                     self.dispatch_conversation_notification(conversation_id);
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
@@ -91,7 +93,7 @@ impl<T: Notifiable> SelfUser<T> {
                         .id
                         .as_uuid();
 
-                    let mut group = Group::load(group_id, &self.as_client_id())?;
+                    let mut group = Group::load(&self.as_client_id(), protocol_message.group_id())?;
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
                             &self.crypto_backend,
@@ -215,12 +217,13 @@ impl<T: Notifiable> SelfUser<T> {
                                 }
                                 // Now we can turn the partial contact into a full one.
                                 let contact = partial_contact.into_contact(
+                                    &self.as_client_id(),
                                     friendship_package,
                                     add_infos,
                                     sender_credential.clone(),
                                 );
                                 // And add it to our list of contacts
-                                self.contacts.insert(user_name.clone().into(), contact);
+                                contact.persist()?;
                                 // Finally, we can turn the conversation type to a full connection group
                                 self.conversation_store
                                     .confirm_connection_conversation(&conversation_id);
@@ -251,7 +254,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         // After joining, we need to set our user auth keys.
         for group_id in freshly_joined_groups {
-            let mut group = Group::load(&group_id, &self.as_client_id())?;
+            let mut group = Group::load(&self.as_client_id(), &group_id)?;
             let params = group.update_user_key(&self.crypto_backend)?;
             let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
@@ -370,12 +373,13 @@ impl<T: Notifiable> SelfUser<T> {
                     .await?;
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
                     let conversation_id = self.conversation_store.create_connection_conversation(
+                        &self.as_client_id(),
                         group.group_id().clone(),
                         user_name.clone(),
                         ConversationAttributes {
                             title: user_name.to_string(),
                         },
-                    );
+                    )?;
                     // TODO: For now, we automatically confirm conversations.
                     self.conversation_store
                         .confirm_connection_conversation(&conversation_id);
@@ -388,12 +392,13 @@ impl<T: Notifiable> SelfUser<T> {
                         friendship_package_ear_key: cep_tbs.friendship_package_ear_key,
                     }
                     .into_contact(
+                        &self.as_client_id(),
                         cep_tbs.friendship_package,
                         vec![],
                         cep_tbs.sender_client_credential,
                     );
 
-                    self.contacts.insert(user_name.clone(), contact);
+                    contact.persist()?;
                     // Fetch a few KeyPackages for our new contact.
                     self.get_key_packages(&user_name).await?;
                     // TODO: Send conversation message to UI.

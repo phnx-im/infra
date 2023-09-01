@@ -9,6 +9,8 @@ use std::{
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub(crate) mod persistance;
+
 #[derive(Debug, Clone)]
 pub(crate) struct Timestamp(u64);
 

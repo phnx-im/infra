@@ -60,6 +60,7 @@ use crate::{
     types::MessageContentType,
     types::*,
     users::{key_store::AsCredentials, openmls_provider::PhnxOpenMlsProvider, ApiClients},
+    utils::persistance::Persistable,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -214,7 +215,7 @@ impl Group {
         >,
         api_clients: &mut ApiClients,
         as_credentials: &mut AsCredentials,
-        contacts: &HashMap<UserName, Contact>,
+        own_client_id: &AsClientId,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
@@ -263,9 +264,12 @@ impl Group {
         let verifiable_attribution_info = welcome_attribution_info
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
-        let sender_client_credential = contacts
-            .get(&verifiable_attribution_info.sender().user_name())
-            .and_then(|c| c.client_credential(&verifiable_attribution_info.sender()))
+        let contact = Contact::load(
+            own_client_id,
+            &verifiable_attribution_info.sender().user_name(),
+        )?;
+        let sender_client_credential = contact
+            .client_credential(&verifiable_attribution_info.sender())
             .ok_or(anyhow!("Sender is not a contact."))?;
 
         let welcome_attribution_info: WelcomeAttributionInfoPayload =
@@ -1394,10 +1398,6 @@ impl Group {
                 _ => None,
             })
             .collect()
-    }
-
-    pub(crate) fn own_client_id(&self) -> AsClientId {
-        self.own_client_id.clone()
     }
 }
 

@@ -55,6 +55,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     contacts::{Contact, ContactAddInfos, PartialContact},
     users::key_store::AsCredentials,
+    utils::persistance::Persistable,
 };
 
 use self::{key_store::MemoryUserKeyStore, openmls_provider::PhnxOpenMlsProvider};
@@ -127,7 +128,6 @@ pub struct SelfUser<T: Notifiable> {
     pub(crate) as_client_sequence_number_start: u64,
     pub(crate) conversation_store: ConversationStore,
     pub(crate) key_store: MemoryUserKeyStore,
-    pub(crate) contacts: HashMap<UserName, Contact>,
     pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
 }
 
@@ -327,7 +327,6 @@ impl<T: Notifiable> SelfUser<T> {
             qs_client_id: create_user_record_response.client_id,
             qs_client_sequence_number_start: 0,
             as_client_sequence_number_start: 0,
-            contacts: HashMap::default(),
             partial_contacts: HashMap::default(),
             notification_hub_option: Some(notification_hub),
         };
@@ -450,9 +449,11 @@ impl<T: Notifiable> SelfUser<T> {
         let attributes = ConversationAttributes {
             title: title.to_string(),
         };
-        let conversation_id = self
-            .conversation_store
-            .create_group_conversation(group_id, attributes);
+        let conversation_id = self.conversation_store.create_group_conversation(
+            &self.as_client_id(),
+            group_id,
+            attributes,
+        )?;
         self.dispatch_conversation_notification(conversation_id);
         Ok(conversation_id)
     }
@@ -474,20 +475,14 @@ impl<T: Notifiable> SelfUser<T> {
         let mut client_credentials = vec![];
         for invited_user in invited_users {
             let user_name = invited_user.to_string().into();
-            let contact = self
-                .contacts
-                .get_mut(&user_name)
-                .ok_or(anyhow!("Couldn't find contact"))?;
+            let mut contact = Contact::load(&self.as_client_id(), &user_name)?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
             let add_info = if let Some(add_info) = contact.add_infos() {
                 add_info
             } else {
                 self.get_key_packages(&user_name).await?;
-                let contact = self
-                    .contacts
-                    .get_mut(&user_name)
-                    .ok_or(anyhow!("Can't find contact with the name {}", user_name))?;
+                let mut contact = Contact::load(&self.as_client_id(), &user_name)?;
                 contact.add_infos().ok_or(anyhow!(
                     "No add infos available for the user with the name {}",
                     user_name
@@ -496,7 +491,7 @@ impl<T: Notifiable> SelfUser<T> {
             contact_add_infos.push(add_info);
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
-        let mut group = Group::load(&group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
         // Adds new member and staged commit
         let params = group.invite(
             &self.crypto_backend,
@@ -534,7 +529,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation(conversation_id)
             .ok_or(anyhow!("Unknown conversation"))?;
         let group_id = &conversation.group_id;
-        let mut group = Group::load(&group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
         let mut clients = vec![];
         for user_name in target_users {
             let mut user_clients = group.user_client_ids(user_name);
@@ -596,7 +591,7 @@ impl<T: Notifiable> SelfUser<T> {
             .ok_or(anyhow!("Unknown conversation"))?;
         let group_id = &conversation.group_id;
         // Generate ciphertext
-        let mut group = Group::load(&group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
         // Generate ciphertext
         let params = group
             .create_message(&self.crypto_backend, message.clone())
@@ -725,12 +720,13 @@ impl<T: Notifiable> SelfUser<T> {
 
         // Create the connection conversation
         let conversation_id = self.conversation_store.create_connection_conversation(
+            &self.as_client_id(),
             group_id,
             user_name.clone(),
             ConversationAttributes {
                 title: user_name.to_string(),
             },
-        );
+        )?;
 
         let contact = PartialContact {
             user_name: user_name.clone(),
@@ -764,7 +760,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .ok_or(anyhow!("Unknown conversation"))?;
-        let mut group = Group::load(&conversation.group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.update_user_key(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -781,7 +777,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .ok_or(anyhow!("Unknown conversation"))?;
-        let mut group = Group::load(&conversation.group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
@@ -858,7 +854,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .ok_or(anyhow!("Unknown conversation"))?;
-        let mut group = Group::load(&conversation.group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.leave_group(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -877,7 +873,7 @@ impl<T: Notifiable> SelfUser<T> {
             .conversation_store
             .conversation(conversation_id)
             .ok_or(anyhow!("Unknown conversation"))?;
-        let mut group = Group::load(&conversation.group_id.as_group_id(), &self.as_client_id())?;
+        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.update(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -889,8 +885,8 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-    pub fn contacts(&self) -> Vec<Contact> {
-        self.contacts.values().cloned().collect()
+    pub fn contacts(&self) -> Result<Vec<Contact>> {
+        Ok(Contact::load_all(&self.as_client_id())?)
     }
 
     pub fn partial_contacts(&self) -> Vec<PartialContact> {
@@ -915,7 +911,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     fn group(&self, conversation_id: Uuid) -> Option<Group> {
         self.conversation(conversation_id).and_then(|conversation| {
-            Group::load(&conversation.group_id.as_group_id(), &self.as_client_id()).ok()
+            Group::load(&self.as_client_id(), &conversation.group_id.as_group_id()).ok()
         })
     }
 
@@ -952,10 +948,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
         let qs_verifying_key = self.qs_verifying_key(&contact_name.domain()).await?.clone();
-        let contact = self
-            .contacts
-            .get_mut(contact_name)
-            .ok_or(anyhow!("Can't find contact with the name {}", contact_name))?;
+        let mut contact = Contact::load(&self.as_client_id(), contact_name)?;
         let mut add_infos = Vec::new();
         for _ in 0..5 {
             let response = self
