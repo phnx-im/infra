@@ -101,7 +101,8 @@ impl ApiClient {
             }
             // A network error occurred.
             Err(err) => {
-                log::error!("POST message error: {:?}", err);
+                let error_message = format!("POST message error: {:?}", err);
+                log::error!("{}", error_message);
                 Err(AsRequestError::NetworkError(err.to_string()))
             }
         }
