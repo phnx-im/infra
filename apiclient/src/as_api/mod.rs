@@ -63,9 +63,10 @@ impl ApiClient {
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| AsRequestError::LibraryError)?;
+        let url = self.build_url(Protocol::Http, ENDPOINT_AS);
         let res = self
             .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_AS))
+            .post(url.clone())
             .body(message_bytes)
             .send()
             .await;
@@ -101,7 +102,10 @@ impl ApiClient {
             }
             // A network error occurred.
             Err(err) => {
-                let error_message = format!("POST message error: {:?}", err);
+                let error_message = format!(
+                    "Got a POST message error while contacting the URL {}: {:?}",
+                    url, err
+                );
                 log::error!("{}", error_message);
                 Err(AsRequestError::NetworkError(err.to_string()))
             }
