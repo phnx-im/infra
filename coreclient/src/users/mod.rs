@@ -7,7 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress, TransportEncryption};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -75,13 +75,13 @@ pub(crate) struct ApiClients {
     // is a temporary workaround and should probably be replaced by a more
     // thought-out mechanism.
     own_domain: Fqdn,
-    own_domain_or_address: DomainOrAddress,
-    clients: HashMap<DomainOrAddress, ApiClient>,
+    own_domain_or_address: String,
+    clients: HashMap<String, ApiClient>,
 }
 
 impl ApiClients {
-    fn new(own_domain: Fqdn, own_domain_or_address: impl Into<DomainOrAddress>) -> Self {
-        let own_domain_or_address = own_domain_or_address.into();
+    fn new(own_domain: Fqdn, own_domain_or_address: impl ToString) -> Self {
+        let own_domain_or_address = own_domain_or_address.to_string();
         Self {
             own_domain,
             own_domain_or_address,
@@ -93,15 +93,12 @@ impl ApiClients {
         let lookup_domain = if domain == &self.own_domain {
             self.own_domain_or_address.clone()
         } else {
-            domain.clone().into()
+            domain.clone().to_string()
         };
         let client = self
             .clients
             .entry(lookup_domain.clone())
-            .or_insert(ApiClient::initialize(
-                lookup_domain,
-                TransportEncryption::Off,
-            )?);
+            .or_insert(ApiClient::initialize(lookup_domain)?);
         Ok(client)
     }
 
@@ -132,7 +129,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn new(
         user_name: impl Into<UserName>,
         password: &str,
-        domain_or_address: impl Into<DomainOrAddress>,
+        domain_or_address: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.into();
@@ -140,7 +137,7 @@ impl<T: Notifiable> SelfUser<T> {
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
         let domain = user_name.domain();
-        let domain_or_address = domain_or_address.into();
+        let domain_or_address = domain_or_address.to_string();
         let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
 
         let as_credentials = AsCredentials::new(&mut api_clients, &domain).await?;
@@ -359,7 +356,7 @@ impl<T: Notifiable> SelfUser<T> {
         encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
     ) -> Result<AddPackage> {
-        let signature_ear_key = SignatureEarKey::random().unwrap();
+        let signature_ear_key = SignatureEarKey::random()?;
         let leaf_signer =
             InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
         let credential_with_key = CredentialWithKey {
@@ -465,7 +462,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = self
             .conversation_store
             .conversation(conversation_id)
-            .unwrap();
+            .ok_or(anyhow!("Can't find conversation"))?;
         let group_id = conversation.group_id.clone();
         let owner_domain = conversation.owner_domain();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
@@ -482,9 +479,14 @@ impl<T: Notifiable> SelfUser<T> {
             let add_info = if let Some(add_info) = contact.add_infos() {
                 add_info
             } else {
-                self.get_key_packages(&user_name).await;
-                let contact = self.contacts.get_mut(&user_name).unwrap();
-                contact.add_infos().unwrap()
+                self.get_key_packages(&user_name).await?;
+                let contact = self
+                    .contacts
+                    .get_mut(&user_name)
+                    .ok_or(anyhow!("Can't find contact"))?;
+                contact
+                    .add_infos()
+                    .ok_or(anyhow!("No add infos available for this contact"))?
             };
             contact_add_infos.push(add_info);
         }
@@ -492,7 +494,7 @@ impl<T: Notifiable> SelfUser<T> {
         let group = self
             .group_store
             .get_group_mut(&group_id.as_group_id())
-            .unwrap();
+            .ok_or(anyhow!("Can't find group"))?;
         // Adds new member and staged commit
         let params = group.invite(
             &self.crypto_backend,
@@ -632,6 +634,7 @@ impl<T: Notifiable> SelfUser<T> {
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_domain = user_name.domain();
+        log::info!("Adding contact {}", user_name);
         let user_key_packages = self
             .api_clients
             .get(&user_domain)?
@@ -639,6 +642,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
+        log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in connection_packages.into_iter() {
             let as_intermediate_credential = self
@@ -659,12 +663,14 @@ impl<T: Notifiable> SelfUser<T> {
         // * Lifetime
 
         // Get a group id for the connection group
+        log::info!("Requesting group id");
         let group_id = self
             .api_clients
             .default_client()?
             .ds_request_group_id()
             .await?;
         // Create the connection group
+        log::info!("Creating local connection group");
         let connection_group = Group::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
@@ -714,6 +720,7 @@ impl<T: Notifiable> SelfUser<T> {
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
         };
+        log::info!("Creating connection group on DS");
         self.api_clients
             .default_client()?
             .ds_create_group(
@@ -973,7 +980,10 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
         let qs_verifying_key = self.qs_verifying_key(&contact_name.domain()).await?.clone();
-        let contact = self.contacts.get_mut(contact_name).unwrap();
+        let contact = self
+            .contacts
+            .get_mut(contact_name)
+            .ok_or(anyhow!("Can't find contact"))?;
         let mut add_infos = Vec::new();
         for _ in 0..5 {
             let response = self
@@ -983,30 +993,24 @@ impl<T: Notifiable> SelfUser<T> {
                     contact.friendship_token.clone(),
                     contact.add_package_ear_key.clone(),
                 )
-                .await
-                .unwrap();
+                .await?;
             let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
                 .add_packages
                 .into_iter()
                 .map(|add_package| {
                     let validated_add_package = add_package
-                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())
-                        .unwrap();
+                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())?;
                     let key_package = validated_add_package.key_package().clone();
                     let sek = SignatureEarKey::decrypt(
                         &contact.signature_ear_key_wrapper_key,
                         validated_add_package.encrypted_signature_ear_key(),
-                    )
-                    .unwrap();
-                    (key_package, sek)
+                    )?;
+                    Ok((key_package, sek))
                 })
-                .collect();
+                .collect::<Result<Vec<_>>>()?;
             let add_info = ContactAddInfos {
                 key_packages,
-                key_package_batch: response
-                    .key_package_batch
-                    .verify(&qs_verifying_key)
-                    .unwrap(),
+                key_package_batch: response.key_package_batch.verify(&qs_verifying_key)?,
             };
             add_infos.push(add_info);
         }

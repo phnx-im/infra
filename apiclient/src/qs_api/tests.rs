@@ -18,7 +18,7 @@ use phnxserver::endpoints::{
     ENDPOINT_QS_WS,
 };
 
-use crate::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
+use crate::{qs_api::ws::WsEvent, ApiClient};
 
 static QUEUE_ID_VALUE: &[u8; 3] = &[1, 2, 3];
 
@@ -40,8 +40,7 @@ async fn test_ws_lifecycle() {
     let retry_interval = 1;
 
     // Initialize the client
-    let client = ApiClient::initialize(address, TransportEncryption::Off)
-        .expect("Failed to initialize client");
+    let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     // Spawn the websocket connection task
     let mut ws = client
