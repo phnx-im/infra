@@ -7,7 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -634,6 +634,7 @@ impl<T: Notifiable> SelfUser<T> {
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_domain = user_name.domain();
+        log::info!("Adding contact {}", user_name);
         let user_key_packages = self
             .api_clients
             .get(&user_domain)?
@@ -641,6 +642,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
+        log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in connection_packages.into_iter() {
             let as_intermediate_credential = self
@@ -661,12 +663,14 @@ impl<T: Notifiable> SelfUser<T> {
         // * Lifetime
 
         // Get a group id for the connection group
+        log::info!("Requesting group id");
         let group_id = self
             .api_clients
             .default_client()?
             .ds_request_group_id()
             .await?;
         // Create the connection group
+        log::info!("Creating local connection group");
         let connection_group = Group::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
@@ -716,6 +720,7 @@ impl<T: Notifiable> SelfUser<T> {
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
         };
+        log::info!("Creating connection group on DS");
         self.api_clients
             .default_client()?
             .ds_create_group(

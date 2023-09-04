@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::net::ToSocketAddrs;
 use std::sync::Mutex;
 
 use anyhow::Result;
@@ -59,7 +58,7 @@ pub struct UserBuilder {
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
-        let _ = simple_logger::init_with_level(log::Level::Debug);
+        let _ = simple_logger::init_with_level(log::Level::Info);
         Self {
             user: RustOpaque::new(Mutex::new(None)),
         }
@@ -114,13 +113,7 @@ impl RustUser {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
-        let user = SelfUser::new(
-            &user_name,
-            &password,
-            address.to_socket_addrs().unwrap().next().unwrap(),
-            notification_hub,
-        )
-        .await?;
+        let user = SelfUser::new(&user_name, &password, address, notification_hub).await?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
         })

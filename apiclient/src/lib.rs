@@ -85,22 +85,20 @@ impl ApiClient {
 
     /// Builds a URL for a given endpoint.
     fn build_url(&self, protocol: Protocol, endpoint: &str) -> String {
+        let tls = self.url.starts_with("https");
         let protocol = match protocol {
             Protocol::Http => "http",
             Protocol::Ws => "ws",
         };
-        let url = if !self.url.starts_with("http") {
-            format!("{}://{}", protocol, self.url)
+        let protocol = if tls {
+            format!("{}s", protocol)
         } else {
-            self.url.clone()
+            protocol.to_string()
         };
-        let final_url = if !url.contains(":") {
-            format!("{}:{}{}", url, 8000, endpoint)
-        } else {
-            format!("{}{}", url, endpoint)
-        };
-        log::info!("Built URL: {}", final_url);
-        final_url
+        let domain_and_port = self.url.split("://").last().unwrap_or("");
+        let url = format!("{}://{}{}", protocol, domain_and_port, endpoint);
+        log::info!("Built URL: {}", url);
+        url
     }
 
     /// Call the health check endpoint

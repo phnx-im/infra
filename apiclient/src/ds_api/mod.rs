@@ -69,13 +69,12 @@ impl<'a, T: SigningKey + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
 impl ApiClient {
     // Single purpose function since this is the only endpoint that doesn't require authentication.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
-        match self
-            .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUP_IDS))
-            .send()
-            .await
-        {
+        let url = self.build_url(Protocol::Http, ENDPOINT_DS_GROUP_IDS);
+        log::info!("Requesting group ID from DS at {}", url);
+
+        match self.client.post(url).send().await {
             Ok(res) => {
+                log::info!("Got response from DS: {:?}", res);
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
@@ -94,7 +93,10 @@ impl ApiClient {
                 }
             }
             // A network error occurred.
-            Err(err) => Err(DsRequestError::NetworkError(err.to_string())),
+            Err(err) => {
+                log::error!("Network error: {:?}", err);
+                Err(DsRequestError::NetworkError(err.to_string()))
+            }
         }
     }
 
