@@ -10,7 +10,6 @@ pub mod qs;
 
 /// DS endpoints
 pub const ENDPOINT_DS_GROUPS: &str = "/ds_groups";
-pub const ENDPOINT_DS_GROUP_IDS: &str = "/ds_group_ids";
 
 /// QS endpoints
 pub const ENDPOINT_QS: &str = "/qs";

@@ -54,6 +54,7 @@ pub enum DsProcessResponseIn {
     Ok,
     WelcomeInfo(RatchetTreeIn),
     ExternalCommitInfo(ExternalCommitInfoIn),
+    GroupId(GroupId),
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -193,6 +194,13 @@ impl ClientToDsMessageTbsOut {
             body,
         }
     }
+}
+
+#[derive(Debug, TlsSerialize, TlsSize)]
+#[repr(u8)]
+pub enum DsMessageTypeOut {
+    Group(ClientToDsMessageOut),
+    NonGroup,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
