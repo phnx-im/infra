@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxapiclient::{qs_api::ws::WsEvent, ApiClient, TransportEncryption};
+use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{QsClientId, WebsocketNotifier, WsNotification};
 use phnxserver::{endpoints::qs::ws::QsWsMessage, network_provider::MockNetworkProvider};
 
@@ -24,8 +24,7 @@ async fn test_ws_reconnect() {
     tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
-    let client = ApiClient::initialize(address, TransportEncryption::Off)
-        .expect("Failed to initialize client");
+    let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id, timeout, retry_interval)
@@ -61,8 +60,7 @@ async fn test_ws_sending() {
     tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
-    let client = ApiClient::initialize(address, TransportEncryption::Off)
-        .expect("Failed to initialize client");
+    let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id.clone(), timeout, retry_interval)

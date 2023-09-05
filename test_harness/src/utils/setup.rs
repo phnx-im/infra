@@ -53,7 +53,7 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &UserName, domain_or_address: impl Into<DomainOrAddress>) -> Self {
+    pub async fn new(user_name: &UserName, domain_or_address: impl ToString) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
 
         let notifier = TestNotifier::new();

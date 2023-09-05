@@ -7,8 +7,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use openmls_rust_crypto::RustCrypto;
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, DomainOrAddress, TransportEncryption};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -80,14 +79,14 @@ pub(crate) struct ApiClients {
     // is a temporary workaround and should probably be replaced by a more
     // thought-out mechanism.
     own_domain: Fqdn,
-    own_domain_or_address: DomainOrAddress,
+    own_domain_or_address: String,
     #[serde(skip)]
-    clients: HashMap<DomainOrAddress, ApiClient>,
+    clients: HashMap<String, ApiClient>,
 }
 
 impl ApiClients {
-    fn new(own_domain: Fqdn, own_domain_or_address: impl Into<DomainOrAddress>) -> Self {
-        let own_domain_or_address = own_domain_or_address.into();
+    fn new(own_domain: Fqdn, own_domain_or_address: impl ToString) -> Self {
+        let own_domain_or_address = own_domain_or_address.to_string();
         Self {
             own_domain,
             own_domain_or_address,
@@ -99,15 +98,12 @@ impl ApiClients {
         let lookup_domain = if domain == &self.own_domain {
             self.own_domain_or_address.clone()
         } else {
-            domain.clone().into()
+            domain.clone().to_string()
         };
         let client = self
             .clients
             .entry(lookup_domain.clone())
-            .or_insert(ApiClient::initialize(
-                lookup_domain,
-                TransportEncryption::Off,
-            )?);
+            .or_insert(ApiClient::initialize(lookup_domain)?);
         Ok(client)
     }
 
@@ -135,18 +131,17 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn new(
         user_name: impl Into<UserName>,
         password: &str,
-        domain_or_address: impl Into<DomainOrAddress>,
+        domain_or_address: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.into();
         log::debug!("Creating new user {}", user_name);
-        let rand_provider = RustCrypto::default();
         // Let's turn TLS off for now.
         let domain = user_name.domain();
-        let domain_or_address = domain_or_address.into();
+        let domain_or_address = domain_or_address.to_string();
         let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
 
-        let as_client_id = AsClientId::random(&rand_provider, user_name.clone())?;
+        let as_client_id = AsClientId::random(user_name.clone())?;
         let as_credentials = AsCredentials::new(&mut api_clients, &as_client_id).await?;
 
         let api_client = api_clients.default_client()?;
@@ -611,6 +606,7 @@ impl<T: Notifiable> SelfUser<T> {
         // First we fetch connection key packages from the AS, then we establish
         // a connection group. Finally, we fully add the user as a contact.
         let user_domain = user_name.domain();
+        log::info!("Adding contact {}", user_name);
         let user_key_packages = self
             .api_clients
             .get(&user_domain)?
@@ -618,6 +614,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
+        log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in connection_packages.into_iter() {
             let as_intermediate_credential = self
@@ -638,12 +635,14 @@ impl<T: Notifiable> SelfUser<T> {
         // * Lifetime
 
         // Get a group id for the connection group
+        log::info!("Requesting group id");
         let group_id = self
             .api_clients
             .default_client()?
             .ds_request_group_id()
             .await?;
         // Create the connection group
+        log::info!("Creating local connection group");
         let (connection_group, partial_params) = Group::create_group(
             &self.crypto_backend,
             &self.key_store.signing_key,
@@ -692,6 +691,7 @@ impl<T: Notifiable> SelfUser<T> {
             creator_user_auth_key: partial_params.user_auth_key,
             group_info: partial_params.group_info,
         };
+        log::info!("Creating connection group on DS");
         self.api_clients
             .default_client()?
             .ds_create_group(

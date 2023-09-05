@@ -4,6 +4,8 @@
 
 [workspace]
 
+resolver = "2"
+
 members = ["backend", "server", "apiclient", "coreclient", "test_harness"]
 
 [workspace.dependencies]

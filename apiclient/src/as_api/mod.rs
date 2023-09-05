@@ -49,7 +49,7 @@ pub enum AsRequestError {
     BadResponse,
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("Network error")]
+    #[error("Network error: {0}")]
     NetworkError(String),
     #[error(transparent)]
     AsError(#[from] AsProcessingError),
@@ -63,9 +63,10 @@ impl ApiClient {
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| AsRequestError::LibraryError)?;
+        let url = self.build_url(Protocol::Http, ENDPOINT_AS);
         let res = self
             .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_AS))
+            .post(url.clone())
             .body(message_bytes)
             .send()
             .await;
@@ -91,16 +92,21 @@ impl ApiClient {
                         Err(AsRequestError::AsError(ds_proc_err))
                     }
                     // All other errors
-                    _ => {
+                    other_status => {
                         let error_text =
-                            res.text().await.map_err(|_| AsRequestError::BadResponse)?;
+                            res.text().await.map_err(|_| AsRequestError::BadResponse)?
+                                + &format!(" (status code {})", other_status);
                         Err(AsRequestError::NetworkError(error_text))
                     }
                 }
             }
             // A network error occurred.
             Err(err) => {
-                log::error!("POST message error: {:?}", err);
+                let error_message = format!(
+                    "Got a POST message error while contacting the URL {}: {:?}",
+                    url, err
+                );
+                log::error!("{}", error_message);
                 Err(AsRequestError::NetworkError(err.to_string()))
             }
         }

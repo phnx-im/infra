@@ -232,7 +232,7 @@ impl AsRef<[u8]> for AsClientId {
 }
 
 impl AsClientId {
-    pub fn random(rand: &impl OpenMlsRand, user_name: UserName) -> Result<Self, RandomnessError> {
+    pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
         let mut client_id = [0; 32];
         // TODO: Use a proper rng provider.
         rand_chacha::ChaCha20Rng::from_entropy()
