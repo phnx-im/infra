@@ -2,8 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::ops::Deref;
+
 use anyhow::Result;
 use phnxbackend::auth_service::credentials::VerifiableClientCredential;
+
+use crate::utils::persistance::DataType;
 
 use super::*;
 
@@ -37,17 +41,21 @@ pub(crate) struct MemoryUserKeyStore {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AsCredentials {
-    pub(super) credentials: HashMap<Fqdn, HashMap<CredentialFingerprint, AsCredential>>,
+    own_client_id: AsClientId,
     pub(super) intermediate_credentials:
         HashMap<Fqdn, HashMap<CredentialFingerprint, AsIntermediateCredential>>,
 }
 
 impl AsCredentials {
-    pub(crate) async fn new(api_clients: &mut ApiClients, domain: &Fqdn) -> Result<Self> {
+    pub(crate) async fn new(
+        api_clients: &mut ApiClients,
+        own_client_id: &AsClientId,
+    ) -> Result<Self> {
         let mut as_credentials = Self {
-            credentials: HashMap::new(),
+            own_client_id: own_client_id.clone(),
             intermediate_credentials: HashMap::new(),
         };
+        let domain = own_client_id.user_name().domain();
         as_credentials
             .fetch_credentials(api_clients, &domain)
             .await?;
@@ -82,7 +90,13 @@ impl AsCredentials {
                     Ok((verified_credential.fingerprint()?, verified_credential))
                 })
                 .collect::<Result<HashMap<_, _>>>()?;
-        self.credentials.insert(domain.clone(), as_credentials);
+        for as_credential in as_credentials.values() {
+            let p_credential = PersistableAsCredential::from_as_credential(
+                self.own_client_id.tls_serialize_detached()?,
+                as_credential.clone(),
+            )?;
+            p_credential.persist()?;
+        }
         self.intermediate_credentials
             .insert(domain.clone(), as_intermediate_credentials);
         Ok(())
@@ -94,7 +108,7 @@ impl AsCredentials {
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<&AsIntermediateCredential> {
-        if !self.credentials.contains_key(domain) {
+        if !self.intermediate_credentials.contains_key(domain) {
             self.fetch_credentials(api_clients, domain).await?
         }
         self.intermediate_credentials
@@ -121,5 +135,60 @@ impl AsCredentials {
         let client_credential =
             verifiable_client_credential.verify(as_intermediate_credential.verifying_key())?;
         Ok(client_credential)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct PersistableAsCredential {
+    rowid: Option<i64>,
+    own_client_id: Vec<u8>,
+    credential: AsCredential,
+    fingerprint: CredentialFingerprint,
+}
+
+impl PersistableAsCredential {
+    pub(crate) fn from_as_credential(
+        own_client_id: Vec<u8>,
+        credential: AsCredential,
+    ) -> Result<Self> {
+        let fingerprint = credential.fingerprint()?;
+        Ok(Self {
+            rowid: None,
+            own_client_id,
+            credential,
+            fingerprint,
+        })
+    }
+}
+
+impl Persistable for PersistableAsCredential {
+    type Key = CredentialFingerprint;
+
+    type SecondaryKey = Fqdn;
+
+    const DATA_TYPE: DataType = DataType::AsCredential;
+
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.clone()
+    }
+
+    fn rowid(&self) -> Option<i64> {
+        self.rowid
+    }
+
+    fn key(&self) -> &Self::Key {
+        &self.fingerprint
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        self.credential.domain()
+    }
+}
+
+impl Deref for PersistableAsCredential {
+    type Target = AsCredential;
+
+    fn deref(&self) -> &Self::Target {
+        &self.credential
     }
 }

@@ -23,14 +23,17 @@ RUN cargo build --release --bin test_runner
 
 FROM debian:bullseye-slim AS runtime
 
-#RUN apt-get update -y \
-#    && apt-get install -y --no-install-recommends openssl ca-certificates \
-#    # Clean up
-#    && apt-get autoremove -y \
-#    && apt-get clean -y \
-#    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y \
+    #    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get install -y --no-install-recommends sqlite3 \
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/test_runner test_runner
+
+RUN mkdir -p .local/share
 
 ENV PHNX_TEST_SCENARIO $test_scenario
 ENV TEST_LOG true

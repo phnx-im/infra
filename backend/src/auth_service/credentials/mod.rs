@@ -142,6 +142,10 @@ impl AsCredential {
     pub fn verifying_key(&self) -> &AsVerifyingKey {
         &self.verifying_key
     }
+
+    pub fn domain(&self) -> &Fqdn {
+        &self.as_domain
+    }
 }
 
 const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: i64 = 365;

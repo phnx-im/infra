@@ -254,7 +254,7 @@ impl TestBackend {
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts();
-        let user1_conversations_before = user1.get_conversations();
+        let user1_conversations_before = user1.conversations().unwrap();
         user1.add_contact(user2_name.clone()).await.unwrap();
         let mut user1_partial_contacts_after = user1.partial_contacts();
         let new_user_position = user1_partial_contacts_after
@@ -269,7 +269,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.user_name, after.user_name);
             });
-        let mut user1_conversations_after = user1.get_conversations();
+        let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
             .position(|c| c.attributes.title == user2_name.to_string())
@@ -291,7 +291,7 @@ impl TestBackend {
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().unwrap();
-        let user2_conversations_before = user2.get_conversations();
+        let user2_conversations_before = user2.conversations().unwrap();
         tracing::info!("{} fetches AS messages", user2_name);
         let as_messages = user2.as_fetch_messages().await.unwrap();
         tracing::info!("{} processes AS messages", user2_name);
@@ -311,7 +311,7 @@ impl TestBackend {
                 assert_eq!(before.user_name, after.user_name);
             });
         // User 2 should have created a connection group.
-        let mut user2_conversations_after = user2.get_conversations();
+        let mut user2_conversations_after = user2.conversations().unwrap();
         let new_conversation_position = user2_conversations_after
             .iter()
             .position(|c| c.attributes.title == user1_name.to_string())
@@ -338,7 +338,7 @@ impl TestBackend {
             .into_iter()
             .map(|contact| contact.user_name.clone())
             .collect();
-        let user1_conversations_before = user1.get_conversations();
+        let user1_conversations_before = user1.conversations().unwrap();
         tracing::info!("{} fetches QS messages", user1_name);
         let qs_messages = user1.qs_fetch_messages().await.unwrap();
         tracing::info!("{} processes QS messages", user1_name);
@@ -357,7 +357,7 @@ impl TestBackend {
             .collect();
         assert_eq!(new_user_vec, vec![&user2_user_name]);
         // User 2 should have created a connection group.
-        let mut user1_conversations_after = user1.get_conversations();
+        let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
             .position(|c| &c.attributes.title == &user2_name.to_string())
@@ -484,11 +484,11 @@ impl TestBackend {
         let user_name = user_name.into();
         let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
-        let user_conversations_before = user.get_conversations();
+        let user_conversations_before = user.conversations().unwrap();
 
         let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
         let conversation_id = user.create_conversation(&group_name).await.unwrap();
-        let mut user_conversations_after = user.get_conversations();
+        let mut user_conversations_after = user.conversations().unwrap();
         let new_conversation_position = user_conversations_after
             .iter()
             .position(|c| c.attributes.title == group_name)
@@ -575,7 +575,7 @@ impl TestBackend {
         for invitee_name in &invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
-            let invitee_conversations_before = invitee.get_conversations();
+            let invitee_conversations_before = invitee.conversations().unwrap();
 
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
@@ -584,7 +584,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let mut invitee_conversations_after = invitee.get_conversations();
+            let mut invitee_conversations_after = invitee.conversations().unwrap();
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id.as_uuid() == conversation_id)
@@ -714,7 +714,7 @@ impl TestBackend {
         for removed_name in &removed_names {
             let test_removed = self.users.get_mut(removed_name).unwrap();
             let removed = &mut test_removed.user;
-            let removed_conversations_before = removed.get_conversations();
+            let removed_conversations_before = removed.conversations().unwrap();
             let past_members =
                 HashSet::<UserName>::from_iter(removed.group_members(conversation_id).unwrap());
 
@@ -725,7 +725,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let removed_conversations_after = removed.get_conversations();
+            let removed_conversations_after = removed.conversations().unwrap();
             let conversation = removed_conversations_after
                 .iter()
                 .find(|c| c.id.as_uuid() == conversation_id)

@@ -126,7 +126,6 @@ pub struct SelfUser<T: Notifiable> {
     pub(crate) qs_client_id: QsClientId,
     pub(crate) qs_client_sequence_number_start: u64,
     pub(crate) as_client_sequence_number_start: u64,
-    pub(crate) conversation_store: ConversationStore,
     pub(crate) key_store: MemoryUserKeyStore,
     pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
 }
@@ -147,11 +146,11 @@ impl<T: Notifiable> SelfUser<T> {
         let domain_or_address = domain_or_address.into();
         let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
 
-        let as_credentials = AsCredentials::new(&mut api_clients, &domain).await?;
+        let as_client_id = AsClientId::random(&rand_provider, user_name.clone())?;
+        let as_credentials = AsCredentials::new(&mut api_clients, &as_client_id).await?;
 
         let api_client = api_clients.default_client()?;
 
-        let as_client_id = AsClientId::random(&rand_provider, user_name.clone())?;
         let crypto_backend = PhnxOpenMlsProvider::new(&as_client_id)?;
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519)?;
@@ -321,7 +320,6 @@ impl<T: Notifiable> SelfUser<T> {
             crypto_backend,
             api_clients,
             user_name,
-            conversation_store: ConversationStore::default(),
             key_store,
             _qs_user_id: create_user_record_response.user_id,
             qs_client_id: create_user_record_response.client_id,
@@ -449,13 +447,10 @@ impl<T: Notifiable> SelfUser<T> {
         let attributes = ConversationAttributes {
             title: title.to_string(),
         };
-        let conversation_id = self.conversation_store.create_group_conversation(
-            &self.as_client_id(),
-            group_id,
-            attributes,
-        )?;
-        self.dispatch_conversation_notification(conversation_id);
-        Ok(conversation_id)
+        let conversation =
+            Conversation::create_group_conversation(&self.as_client_id(), group_id, attributes)?;
+        self.dispatch_conversation_notification(conversation.id());
+        Ok(conversation.id())
     }
 
     /// Invite users to an existing group
@@ -464,10 +459,7 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         invited_users: &[UserName],
     ) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let group_id = conversation.group_id.clone();
         let owner_domain = conversation.owner_domain();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
@@ -524,10 +516,7 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         target_users: &[UserName],
     ) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let group_id = &conversation.group_id;
         let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
         let mut clients = vec![];
@@ -556,15 +545,19 @@ impl<T: Notifiable> SelfUser<T> {
     fn dispatch_message_notifications(
         &mut self,
         conversation_id: Uuid,
-        conversation_messages: Vec<ConversationMessage>,
+        group_messages: Vec<GroupMessage>,
     ) -> Result<(), CorelibError> {
-        for conversation_message in conversation_messages {
+        for group_message in group_messages.into_iter() {
+            let conversation_message = ConversationMessage::new(
+                self.as_client_id(),
+                conversation_id.into(),
+                group_message,
+            );
             let dispatched_conversation_message = DispatchedConversationMessage {
                 conversation_id: UuidBytes::from_uuid(conversation_id),
                 conversation_message: conversation_message.clone(),
             };
-            self.conversation_store
-                .store_message(conversation_id, conversation_message)?;
+            conversation_message.persist()?;
             if let Some(ref mut notification_hub) = self.notification_hub_option {
                 notification_hub.dispatch_message_notification(dispatched_conversation_message);
             }
@@ -585,23 +578,14 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         message: MessageContentType,
     ) -> Result<ConversationMessage> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let group_id = &conversation.group_id;
         // Generate ciphertext
         let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
         // Generate ciphertext
-        let params = group
+        let (params, message) = group
             .create_message(&self.crypto_backend, message.clone())
             .map_err(CorelibError::Group)?;
-
-        // Store message locally
-        let message = Message::Content(ContentMessage {
-            content: message,
-            sender: self.user_name.to_string(),
-        });
 
         // Send message to DS
         let owner_domain = conversation.owner_domain();
@@ -611,10 +595,11 @@ impl<T: Notifiable> SelfUser<T> {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        let conversation_message = new_conversation_message(message);
-        self.conversation_store
-            .store_message(conversation_id, conversation_message.clone())
-            .map_err(CorelibError::ConversationStore)?;
+        let conversation_message =
+            ConversationMessage::new(self.as_client_id(), conversation.id(), message);
+
+        // Store message locally
+        conversation_message.persist()?;
         Ok(conversation_message)
     }
 
@@ -719,7 +704,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
 
         // Create the connection conversation
-        let conversation_id = self.conversation_store.create_connection_conversation(
+        let conversation = Conversation::create_connection_conversation(
             &self.as_client_id(),
             group_id,
             user_name.clone(),
@@ -730,7 +715,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         let contact = PartialContact {
             user_name: user_name.clone(),
-            conversation_id,
+            conversation_id: conversation.id(),
             friendship_package_ear_key,
         };
         self.partial_contacts.insert(user_name.clone(), contact);
@@ -750,16 +735,13 @@ impl<T: Notifiable> SelfUser<T> {
                 .await?;
         }
 
-        self.dispatch_conversation_notification(conversation_id);
+        self.dispatch_conversation_notification(conversation.id());
 
         Ok(())
     }
 
     pub async fn update_user_key(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.update_user_key(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
@@ -773,10 +755,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub async fn delete_group(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let mut conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
         // No need to send a message to the server if we are the only member.
@@ -795,8 +774,7 @@ impl<T: Notifiable> SelfUser<T> {
             let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
             self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         }
-        self.conversation_store
-            .set_inactive(conversation_id, &past_members);
+        conversation.set_inactive(&past_members)?;
         Ok(())
     }
 
@@ -850,10 +828,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub async fn leave_group(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.leave_group(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
@@ -869,10 +844,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub async fn update(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = self
-            .conversation_store
-            .conversation(conversation_id)
-            .ok_or(anyhow!("Unknown conversation"))?;
+        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
         let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
         let params = group.update(&self.crypto_backend)?;
         let owner_domain = conversation.owner_domain();
@@ -931,8 +903,10 @@ impl<T: Notifiable> SelfUser<T> {
             .map(|group| group.pending_removes())
     }
 
-    pub fn conversations(&self) -> Vec<Conversation> {
-        self.conversation_store.conversations()
+    pub fn conversations(&self) -> Result<Vec<Conversation>> {
+        let mut conversations = Conversation::load_all(&self.as_client_id())?;
+        conversations.sort_by(|a, b| a.last_used.cmp(&b.last_used));
+        Ok(conversations)
     }
 
     fn as_client_id(&self) -> AsClientId {

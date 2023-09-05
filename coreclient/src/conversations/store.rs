@@ -2,159 +2,54 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashMap;
+use crate::{
+    types::*,
+    utils::persistance::{DataType, Persistable},
+};
 
-use anyhow::Result;
-use openmls::prelude::GroupId;
-use phnxbackend::auth_service::{AsClientId, UserName};
-use serde::{Deserialize, Serialize};
-use tls_codec::Serialize as TlsSerializeTrait;
+impl Persistable for Conversation {
+    type Key = UuidBytes;
+    type SecondaryKey = GroupIdBytes;
 
-use crate::types::*;
+    const DATA_TYPE: DataType = DataType::Conversation;
 
-use super::*;
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.clone()
+    }
 
-#[derive(Default, Serialize, Deserialize)]
-pub(crate) struct ConversationStore {
-    #[serde(
-        serialize_with = "crate::utils::serialize_hashmap",
-        deserialize_with = "crate::utils::deserialize_hashmap"
-    )]
-    conversations: HashMap<Uuid, Conversation>,
-    messages: HashMap<Uuid, HashMap<Uuid, ConversationMessage>>,
+    fn rowid(&self) -> Option<i64> {
+        self.rowid
+    }
+
+    fn key(&self) -> &Self::Key {
+        &self.id
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.group_id
+    }
 }
 
-impl ConversationStore {
-    pub(crate) fn conversation_by_group_id(&self, group_id: &GroupId) -> Option<&Conversation> {
-        self.conversations
-            .values()
-            .find(|conversation| conversation.group_id.as_group_id() == *group_id)
+impl Persistable for ConversationMessage {
+    type Key = UuidBytes;
+
+    type SecondaryKey = UuidBytes;
+
+    const DATA_TYPE: DataType = DataType::Message;
+
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.clone()
     }
 
-    pub(crate) fn create_connection_conversation(
-        &mut self,
-        own_client_id: &AsClientId,
-        group_id: GroupId,
-        user_name: UserName,
-        attributes: ConversationAttributes,
-    ) -> Result<Uuid> {
-        // To keep things simple and to make sure that conversation ids are the
-        // same across users, we derive the conversation id from the group id.
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation = Conversation {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            id: uuid_bytes.clone(),
-            group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name.to_string()),
-            last_used: Timestamp::now().as_u64(),
-            attributes,
-        };
-        self.conversations
-            .insert(uuid_bytes.as_uuid().clone(), conversation);
-        Ok(uuid_bytes.as_uuid())
+    fn rowid(&self) -> Option<i64> {
+        self.rowid
     }
 
-    pub(crate) fn create_group_conversation(
-        &mut self,
-        own_client_id: &AsClientId,
-        group_id: GroupId,
-        attributes: ConversationAttributes,
-    ) -> Result<Uuid> {
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation_id = uuid_bytes.as_uuid();
-        let conversation = Conversation {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            id: uuid_bytes.clone(),
-            group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Group,
-            last_used: Timestamp::now().as_u64(),
-            attributes,
-        };
-        self.conversations
-            .insert(conversation_id.clone(), conversation);
-        Ok(conversation_id)
+    fn key(&self) -> &Self::Key {
+        &self.id
     }
 
-    pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {
-        if let Some(conversation) = self.conversations.get_mut(conversation_id) {
-            if let ConversationType::UnconfirmedConnection(user_name) =
-                conversation.conversation_type.clone()
-            {
-                conversation.conversation_type = ConversationType::Connection(user_name);
-            }
-        }
-    }
-
-    pub(crate) fn conversations(&self) -> Vec<Conversation> {
-        let mut conversations: Vec<Conversation> = self.conversations.values().cloned().collect();
-        conversations.sort_by(|a, b| a.last_used.cmp(&b.last_used));
-        conversations
-    }
-
-    pub(crate) fn conversation(&self, conversation_id: Uuid) -> Option<&Conversation> {
-        self.conversations.get(&conversation_id)
-    }
-
-    pub(crate) fn set_inactive(&mut self, conversation_id: Uuid, past_members: &[String]) {
-        self.conversations
-            .get_mut(&conversation_id)
-            .map(|conversation| {
-                conversation.status = ConversationStatus::Inactive(InactiveConversation {
-                    past_members: past_members.iter().map(|m| m.to_owned()).collect(),
-                })
-            });
-    }
-
-    pub(crate) fn messages(
-        &self,
-        conversation_id: Uuid,
-        last_n: usize,
-    ) -> Vec<ConversationMessage> {
-        match self.messages.get(&conversation_id) {
-            Some(messages) => {
-                let mut messages: Vec<ConversationMessage> = messages
-                    .iter()
-                    .map(|(_uuid, message)| message.clone())
-                    .collect();
-                messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-                if last_n >= messages.len() {
-                    messages
-                } else {
-                    let (_left, right) = messages.split_at(messages.len() - last_n);
-                    right.to_vec()
-                }
-            }
-            None => {
-                vec![]
-            }
-        }
-    }
-
-    pub(crate) fn store_message(
-        &mut self,
-        conversation_id: Uuid,
-        message: ConversationMessage,
-    ) -> Result<(), ConversationStoreError> {
-        let message_id = message.id.clone();
-        match self.conversations.get(&conversation_id) {
-            Some(_conversation_data) => {
-                match self.messages.get_mut(&conversation_id) {
-                    Some(conversation_messages) => {
-                        conversation_messages.insert(message_id.as_uuid(), message);
-                    }
-                    None => {
-                        let mut conversation_messages = HashMap::new();
-                        conversation_messages.insert(message_id.as_uuid(), message);
-                        self.messages.insert(conversation_id, conversation_messages);
-                    }
-                }
-                Ok(())
-            }
-            None => Err(ConversationStoreError::UnknownConversation),
-        }
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.id
     }
 }

@@ -53,14 +53,14 @@ use phnxbackend::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
+use uuid::Uuid;
 
 use crate::{
     contacts::{Contact, ContactAddInfos},
-    conversations::*,
     types::MessageContentType,
     types::*,
     users::{key_store::AsCredentials, openmls_provider::PhnxOpenMlsProvider, ApiClients},
-    utils::persistance::Persistable,
+    utils::{persistance::Persistable, Timestamp},
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -1071,7 +1071,7 @@ impl Group {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<Vec<GroupMessage>> {
         // Collect free indices s.t. we know where the added members will land
         // and we can look up their identifies later.
         let Some(diff) = self.pending_diff.take() else {
@@ -1121,7 +1121,7 @@ impl Group {
                             removed.to_string()
                         )
                     };
-                    Ok(event_message_from_string(event_message))
+                    Ok(GroupMessage::event_message(event_message))
                 })
                 .collect::<Result<Vec<_>>>()?
         } else {
@@ -1154,7 +1154,7 @@ impl Group {
         }
         self.pending_diff = None;
         let mut staged_commit_messages = if let Some(staged_commit) = staged_commit_option {
-            let staged_commit_messages = staged_commit_to_conversation_messages(
+            let staged_commit_messages = GroupMessage::from_staged_commit(
                 free_indices.iter().copied(),
                 &self.client_information,
                 &staged_commit,
@@ -1168,7 +1168,7 @@ impl Group {
             // create a notification message.
             let staged_commit_messages =
                 if let Some(staged_commit) = self.mls_group.pending_commit() {
-                    staged_commit_to_conversation_messages(
+                    GroupMessage::from_staged_commit(
                         free_indices.iter().copied(),
                         &self.client_information,
                         staged_commit,
@@ -1201,7 +1201,7 @@ impl Group {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         msg: MessageContentType,
-    ) -> Result<SendMessageParamsOut, GroupOperationError> {
+    ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
         let mls_message = self.mls_group.create_message(
             provider,
             &self.leaf_signer,
@@ -1218,7 +1218,9 @@ impl Group {
             sender: self.mls_group.own_leaf_index(),
             message,
         };
-        Ok(send_message_params)
+
+        let group_message = GroupMessage::content_message(&self.own_client_id.user_name(), msg);
+        Ok((send_message_params, group_message))
     }
 
     /// Get a reference to the group's group id.
@@ -1401,17 +1403,97 @@ impl Group {
     }
 }
 
-pub(crate) fn application_message_to_conversation_messages(
-    sender: &ClientCredential,
-    application_message: ApplicationMessage,
-) -> Result<Vec<ConversationMessage>> {
-    let messages = vec![new_conversation_message(Message::Content(ContentMessage {
-        sender: sender.identity().user_name().to_string(),
-        content: MessageContentType::tls_deserialize(
-            &mut application_message.into_bytes().as_slice(),
-        )?,
-    }))];
-    Ok(messages)
+pub(crate) struct GroupMessage {
+    id: Uuid,
+    timestamp: u64,
+    message: Message,
+}
+
+impl GroupMessage {
+    pub(crate) fn new(message: Message) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            timestamp: Timestamp::now().as_u64(),
+            message,
+        }
+    }
+
+    pub(crate) fn content_message(sender: &UserName, content: MessageContentType) -> Self {
+        let message = Message::Content(ContentMessage {
+            sender: sender.to_string(),
+            content,
+        });
+        Self::new(message)
+    }
+
+    pub(crate) fn from_application_message(
+        sender: &ClientCredential,
+        application_message: ApplicationMessage,
+    ) -> Result<Self> {
+        let content =
+            MessageContentType::tls_deserialize(&mut application_message.into_bytes().as_slice())?;
+        let message = Message::Content(ContentMessage {
+            sender: sender.identity().user_name().to_string(),
+            content,
+        });
+        Ok(GroupMessage::new(message))
+    }
+
+    fn event_message(event_message: String) -> Self {
+        let message = Message::Display(DisplayMessage {
+            message: DisplayMessageType::System(SystemMessage {
+                message: event_message,
+            }),
+        });
+        Self::new(message)
+    }
+
+    /// For now, this doesn't cover removes.
+    pub(crate) fn from_staged_commit(
+        free_indices: impl Iterator<Item = usize>,
+        client_information: &BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
+        staged_commit: &StagedCommit,
+    ) -> Result<Vec<Self>> {
+        let adds: Vec<GroupMessage> = staged_commit
+            .add_proposals()
+            .zip(free_indices)
+            .map(|(staged_add_proposal, free_index)| {
+                let sender = if let Sender::Member(sender_index) = staged_add_proposal.sender() {
+                    sender_index.usize()
+                } else {
+                    // We don't support non-member adds.
+                    panic!("Non-member add proposal")
+                };
+                let event_message = format!(
+                    "{} added {} to the conversation",
+                    get_user_name(client_information, sender)?,
+                    get_user_name(client_information, free_index)?
+                );
+                let message = GroupMessage::event_message(event_message);
+                Ok(message)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut updates: Vec<GroupMessage> = staged_commit
+            .update_proposals()
+            .map(|staged_update_proposal| {
+                let updated_member = staged_update_proposal
+                    .update_proposal()
+                    .leaf_node()
+                    .credential()
+                    .identity();
+                let event_message = format!("{} updated", String::from_utf8_lossy(updated_member),);
+                GroupMessage::event_message(event_message)
+            })
+            .collect();
+        let mut events = adds;
+        events.append(&mut updates);
+
+        Ok(events)
+    }
+
+    pub(crate) fn into_parts(self) -> (Uuid, u64, Message) {
+        (self.id, self.timestamp, self.message)
+    }
 }
 
 fn get_user_name(
@@ -1425,57 +1507,6 @@ fn get_user_name(
         .identity()
         .user_name();
     Ok(user_name)
-}
-
-/// For now, this doesn't cover removes.
-pub(crate) fn staged_commit_to_conversation_messages(
-    free_indices: impl Iterator<Item = usize>,
-    client_information: &BTreeMap<usize, (ClientCredential, SignatureEarKey)>,
-    staged_commit: &StagedCommit,
-) -> Result<Vec<ConversationMessage>> {
-    let adds: Vec<ConversationMessage> = staged_commit
-        .add_proposals()
-        .zip(free_indices)
-        .map(|(staged_add_proposal, free_index)| {
-            let sender = if let Sender::Member(sender_index) = staged_add_proposal.sender() {
-                sender_index.usize()
-            } else {
-                // We don't support non-member adds.
-                panic!("Non-member add proposal")
-            };
-            let event_message = format!(
-                "{} added {} to the conversation",
-                get_user_name(client_information, sender)?,
-                get_user_name(client_information, free_index)?
-            );
-            let message = event_message_from_string(event_message);
-            Ok(message)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let mut updates: Vec<ConversationMessage> = staged_commit
-        .update_proposals()
-        .map(|staged_update_proposal| {
-            let updated_member = staged_update_proposal
-                .update_proposal()
-                .leaf_node()
-                .credential()
-                .identity();
-            let event_message = format!("{} updated", String::from_utf8_lossy(updated_member),);
-            event_message_from_string(event_message)
-        })
-        .collect();
-    let mut events = adds;
-    events.append(&mut updates);
-
-    Ok(events)
-}
-
-fn event_message_from_string(event_message: String) -> ConversationMessage {
-    new_conversation_message(Message::Display(DisplayMessage {
-        message: DisplayMessageType::System(SystemMessage {
-            message: event_message,
-        }),
-    }))
 }
 
 /// Helper function to decrypt and verify an encrypted client credential

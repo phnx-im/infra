@@ -8,10 +8,12 @@ use super::*;
 
 impl Persistable for Group {
     type Key = GroupId;
+    type SecondaryKey = GroupId;
+
     const DATA_TYPE: DataType = DataType::Group;
 
-    fn own_client_id(&self) -> &AsClientId {
-        &self.own_client_id
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.tls_serialize_detached().unwrap()
     }
 
     fn rowid(&self) -> Option<i64> {
@@ -19,6 +21,10 @@ impl Persistable for Group {
     }
 
     fn key(&self) -> &Self::Key {
+        self.group_id()
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
         self.group_id()
     }
 }

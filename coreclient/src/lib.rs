@@ -19,7 +19,7 @@ mod dart_api;
 use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
-use crate::{conversations::*, groups::*, types::*};
+use crate::{groups::*, types::*};
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;

@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#[macro_use]
-pub(crate) mod error_macros;
-
-use crate::{conversations::ConversationStoreError, groups::GroupOperationError};
+use crate::groups::GroupOperationError;
 
 use phnxapiclient::ds_api::DsRequestError;
 use thiserror::Error;
@@ -16,8 +13,6 @@ pub enum CorelibError {
     Group(#[from] GroupOperationError),
     #[error(transparent)]
     GroupStore(#[from] turbosql::Error),
-    #[error(transparent)]
-    ConversationStore(#[from] ConversationStoreError),
     #[error(transparent)]
     DsError(#[from] DsRequestError),
 }
