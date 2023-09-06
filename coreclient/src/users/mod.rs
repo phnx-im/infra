@@ -122,10 +122,9 @@ impl ApiClients {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct SelfUser<T: Notifiable> {
+    rowid: Option<i64>,
     pub(crate) crypto_backend: PhnxOpenMlsProvider,
-    #[serde(skip)]
     pub(crate) notification_hub_option: Option<NotificationHub<T>>,
     api_clients: ApiClients,
     pub(crate) user_name: UserName,
@@ -337,6 +336,7 @@ impl<T: Notifiable> SelfUser<T> {
         as_sequence_number.persist()?;
 
         let mut user = Self {
+            rowid: None,
             crypto_backend,
             api_clients,
             user_name,
@@ -369,6 +369,7 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await?;
 
+        user.persist()?;
         Ok(user)
     }
 
@@ -1049,5 +1050,87 @@ impl Persistable for PersistableSequenceNumber {
 
     fn set_rowid(&mut self, rowid: i64) {
         self.rowid = Some(rowid);
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct PersistableSelfUser {
+    rowid: Option<i64>,
+    own_client_id: Vec<u8>,
+    pub(crate) crypto_backend: Vec<u8>,
+    api_clients: Vec<u8>,
+    pub(crate) user_name: UserName,
+    pub(crate) _qs_user_id: QsUserId,
+    pub(crate) qs_client_id: QsClientId,
+    pub(crate) key_store: Vec<u8>,
+}
+
+impl<T: Notifiable> SelfUser<T> {
+    pub(crate) fn persist(&self) -> Result<()> {
+        let persistable = PersistableSelfUser {
+            rowid: self.rowid,
+            own_client_id: self.as_client_id().tls_serialize_detached()?,
+            crypto_backend: serde_json::to_vec(&self.crypto_backend)?,
+            api_clients: serde_json::to_vec(&self.api_clients)?,
+            user_name: self.user_name.clone(),
+            _qs_user_id: self._qs_user_id.clone(),
+            qs_client_id: self.qs_client_id.clone(),
+            key_store: serde_json::to_vec(&self.key_store)?,
+        };
+        persistable.persist()?;
+        Ok(())
+    }
+
+    pub fn load(own_client_id: &AsClientId, notification_hub: NotificationHub<T>) -> Result<Self> {
+        let persistable = PersistableSelfUser::load(own_client_id, &own_client_id.user_name())?;
+        let crypto_backend: PhnxOpenMlsProvider =
+            serde_json::from_slice(&persistable.crypto_backend)?;
+        let api_clients: ApiClients = serde_json::from_slice(&persistable.api_clients)?;
+        let key_store: MemoryUserKeyStore = serde_json::from_slice(&persistable.key_store)?;
+        Ok(SelfUser {
+            rowid: persistable.rowid,
+            crypto_backend,
+            api_clients,
+            user_name: persistable.user_name,
+            _qs_user_id: persistable._qs_user_id,
+            qs_client_id: persistable.qs_client_id,
+            key_store,
+            notification_hub_option: Some(notification_hub),
+        })
+    }
+
+    pub fn purge(&self) -> Result<()> {
+        if let Some(rowid) = self.rowid {
+            PersistableSelfUser::purge_row_id(rowid)?;
+        }
+        Ok(())
+    }
+}
+
+impl Persistable for PersistableSelfUser {
+    type Key = UserName;
+
+    type SecondaryKey = UserName;
+
+    const DATA_TYPE: DataType = DataType::SelfUser;
+
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.clone()
+    }
+
+    fn rowid(&self) -> Option<i64> {
+        self.rowid
+    }
+
+    fn set_rowid(&mut self, rowid: i64) {
+        self.rowid = Some(rowid);
+    }
+
+    fn key(&self) -> &Self::Key {
+        &self.user_name
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.user_name
     }
 }

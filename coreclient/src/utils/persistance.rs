@@ -46,9 +46,9 @@ pub(crate) enum DataType {
     AsIntermediateCredential,
     LeafKeys,
     QsVerifyingKey,
-    UserKeyStore,
     QueueRatchet,
     SequenceNumber,
+    SelfUser,
 }
 
 pub(crate) trait Persistable: Serialize + DeserializeOwned {
