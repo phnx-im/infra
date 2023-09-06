@@ -649,12 +649,6 @@ impl EarEncryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePaylo
 impl EarDecryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsDequeueMessagesResponse {
-    pub messages: Vec<QueueMessage>,
-    pub remaining_messages_number: u64,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsPublishConnectionPackagesParamsTbs {
     pub client_id: AsClientId,
     pub connection_packages: Vec<ConnectionPackageIn>,

@@ -28,6 +28,10 @@ impl Persistable for Conversation {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.group_id
     }
+
+    fn set_rowid(&mut self, rowid: i64) {
+        self.rowid = Some(rowid);
+    }
 }
 
 impl Persistable for ConversationMessage {
@@ -51,5 +55,9 @@ impl Persistable for ConversationMessage {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.id
+    }
+
+    fn set_rowid(&mut self, rowid: i64) {
+        self.rowid = Some(rowid);
     }
 }

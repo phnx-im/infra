@@ -253,14 +253,18 @@ impl TestBackend {
         tracing::info!("Connecting users {} and {}", user1_name, user2_name);
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_partial_contacts_before = user1.partial_contacts();
+        let user1_partial_contacts_before = user1.partial_contacts().unwrap();
         let user1_conversations_before = user1.conversations().unwrap();
         user1.add_contact(user2_name.clone()).await.unwrap();
-        let mut user1_partial_contacts_after = user1.partial_contacts();
+        let mut user1_partial_contacts_after = user1.partial_contacts().unwrap();
+        let error_msg = format!(
+            "User 2 should be in the partial contacts list of user 1. List: {:?}",
+            user1_partial_contacts_after,
+        );
         let new_user_position = user1_partial_contacts_after
             .iter()
             .position(|c| c.user_name == user2_name)
-            .expect("User 2 should be in the partial contacts list of user 1");
+            .expect(&error_msg);
         // If we remove the new user, the partial contact lists should be the same.
         user1_partial_contacts_after.remove(new_user_position);
         user1_partial_contacts_before

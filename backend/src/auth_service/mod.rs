@@ -4,7 +4,6 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::openmls_traits::random::OpenMlsRand;
 use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
@@ -21,12 +20,13 @@ use crate::{
     ds::group_state::TimeStamp,
     messages::{
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-            AsQueueMessagePayload, Init2FactorAuthResponse, InitClientAdditionResponse,
-            InitUserRegistrationResponse, IssueTokensResponse, UserClientsResponse,
-            UserConnectionPackagesResponse, VerifiedAsRequestParams,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
+            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
+            IssueTokensResponse, UserClientsResponse, UserConnectionPackagesResponse,
+            VerifiedAsRequestParams,
         },
         client_as_out::VerifiableClientToAsMessage,
+        client_qs::DequeueMessagesResponse,
         EncryptedAsQueueMessage,
     },
     qs::Fqdn,
@@ -373,7 +373,7 @@ impl AuthService {
 pub enum AsProcessResponse {
     Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
-    DequeueMessages(AsDequeueMessagesResponse),
+    DequeueMessages(DequeueMessagesResponse),
     ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),
     UserKeyPackages(UserConnectionPackagesResponse),

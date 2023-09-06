@@ -38,10 +38,17 @@ impl TurboData {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum DataType {
     Contact,
+    PartialContact,
     Conversation,
     Group,
     Message,
     AsCredential,
+    AsIntermediateCredential,
+    LeafKeys,
+    QsVerifyingKey,
+    UserKeyStore,
+    QueueRatchet,
+    SequenceNumber,
 }
 
 pub(crate) trait Persistable: Serialize + DeserializeOwned {
@@ -54,6 +61,8 @@ pub(crate) trait Persistable: Serialize + DeserializeOwned {
 
     fn rowid(&self) -> Option<i64>;
 
+    fn set_rowid(&mut self, rowid: i64);
+
     fn key(&self) -> &Self::Key;
 
     fn secondary_key(&self) -> &Self::SecondaryKey;
@@ -63,10 +72,15 @@ pub(crate) trait Persistable: Serialize + DeserializeOwned {
         let key_bytes = serde_json::to_vec(key)?;
         let data_type_bytes = serde_json::to_vec(&Self::DATA_TYPE)?;
         let turbo_data = select!(TurboData "WHERE client_id = " client_id_bytes " AND key = " key_bytes " AND data_type = " data_type_bytes)?;
-        let value = turbo_data
+        let value_bytes = turbo_data
             .value
             .ok_or(turbosql::Error::OtherError("Could not load value from DB."))?;
-        Ok(serde_json::from_slice(&value)?)
+        let mut value: Self = serde_json::from_slice(&value_bytes)?;
+        let turbo_data_rowid = turbo_data.rowid.ok_or(turbosql::Error::OtherError(
+            "Freshly loaded value has no rowid",
+        ))?;
+        value.set_rowid(turbo_data_rowid);
+        Ok(value)
     }
 
     fn load_secondary(
@@ -142,11 +156,16 @@ pub(crate) trait Persistable: Serialize + DeserializeOwned {
         Ok(())
     }
 
-    fn _purge(&self) -> Result<(), turbosql::Error> {
+    fn purge(&self) -> Result<(), turbosql::Error> {
         let turbo_data = TurboData::from_persistable(self)?;
         let rowid = turbo_data.rowid.ok_or(turbosql::Error::OtherError(
             "Cannot purge data without rowid.",
         ))?;
+        execute!("DELETE FROM turbodata WHERE rowid = " rowid)?;
+        Ok(())
+    }
+
+    fn purge_row_id(rowid: i64) -> Result<(), turbosql::Error> {
         execute!("DELETE FROM turbodata WHERE rowid = " rowid)?;
         Ok(())
     }

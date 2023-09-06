@@ -59,10 +59,14 @@ use crate::{
     contacts::{Contact, ContactAddInfos},
     types::MessageContentType,
     types::*,
-    users::{key_store::AsCredentials, openmls_provider::PhnxOpenMlsProvider, ApiClients},
+    users::{
+        key_store::{PersistableAsIntermediateCredential, PersistableLeafKeys},
+        openmls_provider::PhnxOpenMlsProvider,
+        ApiClients,
+    },
     utils::{persistance::Persistable, Timestamp},
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use openmls::{prelude::*, treesync::RatchetTree};
 
@@ -209,12 +213,7 @@ impl Group {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        leaf_signers: &mut HashMap<
-            SignaturePublicKey,
-            (InfraCredentialSigningKey, SignatureEarKey),
-        >,
         api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
         own_client_id: &AsClientId,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
@@ -276,10 +275,10 @@ impl Group {
             verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
 
         let client_information = decrypt_and_verify_client_info(
+            own_client_id,
             welcome_attribution_info.client_credential_encryption_key(),
             welcome_attribution_info.signature_ear_key_wrapper_key(),
             api_clients,
-            as_credentials,
             joiner_info.encrypted_client_information,
         )
         .await?;
@@ -288,9 +287,6 @@ impl Group {
             .own_leaf_node()
             .ok_or(anyhow!("Group has no own leaf node"))?
             .signature_key();
-        let (leaf_signer, _signature_ear_key) = leaf_signers
-            .remove(verifying_key)
-            .ok_or(anyhow!("Missing leaf signer for own leaf node"))?;
 
         // Decrypt and verify the infra credentials.
         // TODO: Right now, this just panics if the verification fails.
@@ -310,6 +306,10 @@ impl Group {
                 _ => bail!("We should only use infra credentials."),
             }
         }
+
+        let leaf_keys = PersistableLeafKeys::load(own_client_id, verifying_key)?;
+        log::info!("Loaded leaf keys: {:?}", leaf_keys);
+        let leaf_signer = leaf_keys.leaf_signing_key().clone();
 
         let group = Self {
             rowid: None,
@@ -336,6 +336,8 @@ impl Group {
 
         // Write to DB
         group.persist()?;
+        // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
+        leaf_keys.purge()?;
 
         Ok(group)
     }
@@ -349,7 +351,6 @@ impl Group {
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        as_credentials: &mut AsCredentials,
         api_clients: &mut ApiClients,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
@@ -384,10 +385,10 @@ impl Group {
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
 
         let mut client_information = decrypt_and_verify_client_info(
+            &own_client_credential.identity(),
             &credential_ear_key,
             &signature_ear_key_wrapper_key,
             api_clients,
-            as_credentials,
             encrypted_client_info,
         )
         .await?;
@@ -448,10 +449,7 @@ impl Group {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         message: impl Into<ProtocolMessage>,
-        // Required in case there are new joiners.
-        // TODO: In the federated case, we might have to fetch them first.
         api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
         let processed_message = self.mls_group.process_message(provider, message)?;
 
@@ -511,10 +509,10 @@ impl Group {
                 match aad_payload {
                     InfraAadPayload::AddUsers(add_users_payload) => {
                         let client_information = decrypt_and_verify_client_info(
+                            &self.own_client_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
                             api_clients,
-                            as_credentials,
                             add_users_payload
                                 .encrypted_credential_information
                                 .into_iter()
@@ -595,10 +593,10 @@ impl Group {
                                     update_client_payload.option_encrypted_client_credential
                                 {
                                     let client_credential = decrypt_and_verify_client_credential(
+                                        &self.own_client_id,
                                         api_clients,
                                         &self.credential_ear_key,
                                         &ecc,
-                                        as_credentials,
                                     )
                                     .await?;
                                     client_credential
@@ -649,10 +647,10 @@ impl Group {
                         // Decrypt and verify the client credential.
                         let (ecc, esek) = join_group_payload.encrypted_client_information;
                         let client_credential = decrypt_and_verify_client_credential(
+                            &self.own_client_id,
                             api_clients,
                             &self.credential_ear_key,
                             &ecc,
-                            as_credentials,
                         )
                         .await?;
                         let sek =
@@ -691,10 +689,10 @@ impl Group {
                             join_connection_group_payload.encrypted_client_information;
                         // Decrypt and verify the client credential.
                         let client_credential = decrypt_and_verify_client_credential(
+                            &self.own_client_id,
                             api_clients,
                             &self.credential_ear_key,
                             &ecc,
-                            as_credentials,
                         )
                         .await?;
                         let sek =
@@ -723,10 +721,10 @@ impl Group {
                     }
                     InfraAadPayload::AddClients(add_clients_payload) => {
                         let client_credentials = decrypt_and_verify_client_info(
+                            &self.own_client_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
                             api_clients,
-                            as_credentials,
                             add_clients_payload
                                 .encrypted_client_information
                                 .into_iter()
@@ -1511,23 +1509,27 @@ fn get_user_name(
 
 /// Helper function to decrypt and verify an encrypted client credential
 async fn decrypt_and_verify_client_credential(
+    own_client_id: &AsClientId,
     api_clients: &mut ApiClients,
     ear_key: &ClientCredentialEarKey,
     ciphertext: &EncryptedClientCredential,
-    as_credentials: &mut AsCredentials,
 ) -> Result<ClientCredential> {
     let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)?;
-    let client_credential = as_credentials
-        .verify_client_credential(api_clients, verifiable_credential)
-        .await?;
+
+    let client_credential = PersistableAsIntermediateCredential::verify_client_credential(
+        own_client_id,
+        api_clients,
+        verifiable_credential,
+    )
+    .await?;
     Ok(client_credential)
 }
 
 async fn decrypt_and_verify_client_info(
+    own_client_id: &AsClientId,
     ear_key: &ClientCredentialEarKey,
     wrapper_key: &SignatureEarKeyWrapperKey,
     api_clients: &mut ApiClients,
-    as_credentials: &mut AsCredentials,
     encrypted_client_information: impl IntoIterator<
         Item = Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
     >,
@@ -1536,7 +1538,7 @@ async fn decrypt_and_verify_client_info(
     for (index, client_info) in encrypted_client_information.into_iter().enumerate() {
         if let Some((ecc, esek)) = client_info {
             let credential =
-                decrypt_and_verify_client_credential(api_clients, ear_key, &ecc, as_credentials)
+                decrypt_and_verify_client_credential(own_client_id, api_clients, ear_key, &ecc)
                     .await?;
             let sek = SignatureEarKey::decrypt(wrapper_key, &esek)?;
             client_information.insert(index, (credential, sek));

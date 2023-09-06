@@ -3,18 +3,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{bail, Result};
-use phnxbackend::crypto::ear::EarDecryptable;
-use phnxbackend::crypto::hpke::HpkeDecryptable;
-use phnxbackend::ds::api::QualifiedGroupId;
-use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
-use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
-use phnxbackend::messages::client_ds::{
-    ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad,
+use phnxbackend::{
+    crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
+    ds::api::QualifiedGroupId,
+    messages::{
+        client_as::ExtractedAsQueueMessagePayload,
+        client_as_out::ConnectionEstablishmentPackageIn,
+        client_ds::{
+            ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload,
+            JoinConnectionGroupParamsAad,
+        },
+        client_ds_out::ExternalCommitInfoIn,
+        QueueMessage,
+    },
 };
-use phnxbackend::messages::client_ds_out::ExternalCommitInfoIn;
-use phnxbackend::messages::QueueMessage;
 use tls_codec::DeserializeBytes;
 
+use super::key_store::{PersistableAsQueueRatchet, QueueRatchetType};
 use super::*;
 
 impl<T: Notifiable> SelfUser<T> {
@@ -28,12 +33,10 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let message = self
-                    .key_store
-                    .qs_queue_ratchet
-                    .decrypt(message_ciphertext)?
-                    .extract()?;
-                Ok(message)
+                let mut qs_queue_ratchet =
+                    PersistableQsQueueRatchet::load(&self.as_client_id(), &QueueRatchetType::Qs)?;
+                let payload = qs_queue_ratchet.decrypt(message_ciphertext)?;
+                Ok(payload.extract()?)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -50,14 +53,12 @@ impl<T: Notifiable> SelfUser<T> {
                         &self.crypto_backend,
                         welcome_bundle,
                         &self.key_store.wai_ear_key,
-                        &mut self.key_store.leaf_signers,
                         // TODO: For now, I'm passing the ApiClients in here
                         // s.t. the group can fetch AS Credentials if it needs
                         // to. In the future, it would be great if we could have
                         // multiple references to the API clients flying around,
                         // for example one in the ASCredentials store itself.
                         &mut self.api_clients,
-                        &mut self.key_store.as_credentials,
                         &self.key_store.signing_key.credential().identity(),
                     )
                     .await?;
@@ -98,7 +99,6 @@ impl<T: Notifiable> SelfUser<T> {
                             &self.crypto_backend,
                             protocol_message,
                             &mut self.api_clients,
-                            &mut self.key_store.as_credentials,
                         )
                         .await?;
 
@@ -135,7 +135,8 @@ impl<T: Notifiable> SelfUser<T> {
                                 }
                                 // Load up the partial contact and decrypt the
                                 // friendship package
-                                let partial_contact = self.partial_contacts.remove(&user_name).ok_or(anyhow!("Unknown sender: Can't find partial contact while processing connection request"))?;
+                                let partial_contact =
+                                    PartialContact::load(&self.as_client_id(), &user_name)?;
 
                                 // This is a bit annoying, since we already
                                 // de-serialized this in the group processing
@@ -185,28 +186,15 @@ impl<T: Notifiable> SelfUser<T> {
                                                 Ok((key_package, sek))
                                             })
                                             .collect::<Result<Vec<_>>>()?;
-                                    let qs_verifying_key = if let Some(qs_verifying_key) =
-                                        self.key_store.qs_verifying_keys.get(&user_name.domain())
-                                    {
-                                        qs_verifying_key
-                                    } else {
-                                        let qs_verifying_key = self
-                                            .api_clients
-                                            .get(&user_name.domain())?
-                                            .qs_verifying_key()
-                                            .await?;
-                                        self.key_store.qs_verifying_keys.insert(
-                                            user_name.domain().clone(),
-                                            qs_verifying_key.verifying_key,
-                                        );
-                                        self.key_store
-                                            .qs_verifying_keys
-                                            .get(&user_name.domain())
-                                            .ok_or(anyhow!("Error fetching QS veryfing key"))?
-                                    };
+                                    let qs_verifying_key = PersistableQsVerifyingKey::get(
+                                        &self.as_client_id(),
+                                        &mut self.api_clients,
+                                        &user_name.domain(),
+                                    )
+                                    .await?;
                                     let key_package_batch = key_package_batch_response
                                         .key_package_batch
-                                        .verify(qs_verifying_key)?;
+                                        .verify(&qs_verifying_key)?;
                                     let add_info = ContactAddInfos {
                                         key_package_batch,
                                         key_packages,
@@ -214,14 +202,12 @@ impl<T: Notifiable> SelfUser<T> {
                                     add_infos.push(add_info);
                                 }
                                 // Now we can turn the partial contact into a full one.
-                                let contact = partial_contact.into_contact(
+                                partial_contact.into_contact_and_persist(
                                     &self.as_client_id(),
                                     friendship_package,
                                     add_infos,
                                     sender_credential.clone(),
-                                );
-                                // And add it to our list of contacts
-                                contact.persist()?;
+                                )?;
                                 // Finally, we can turn the conversation type to a full connection group
                                 conversation.confirm()?;
                                 // And notify the application
@@ -272,12 +258,10 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let message = self
-                    .key_store
-                    .as_queue_ratchet
-                    .decrypt(message_ciphertext)?
-                    .extract()?;
-                Ok(message)
+                let mut as_queue_ratchet =
+                    PersistableAsQueueRatchet::load(&self.as_client_id(), &QueueRatchetType::As)?;
+                let payload = as_queue_ratchet.decrypt(message_ciphertext)?;
+                Ok(payload.extract()?)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -295,15 +279,13 @@ impl<T: Notifiable> SelfUser<T> {
                     // don't have them already.
                     let sender_domain = cep_in.sender_credential().domain();
 
-                    let as_intermediate_credential = self
-                        .key_store
-                        .as_credentials
-                        .get(
-                            &mut self.api_clients,
-                            &sender_domain,
-                            cep_in.sender_credential().signer_fingerprint(),
-                        )
-                        .await?;
+                    let as_intermediate_credential = PersistableAsIntermediateCredential::get(
+                        &self.as_client_id(),
+                        &mut self.api_clients,
+                        &sender_domain,
+                        cep_in.sender_credential().signer_fingerprint(),
+                    )
+                    .await?;
                     let cep_tbs = cep_in.verify(as_intermediate_credential.verifying_key());
                     // We create a new group and signal that fact to the user,
                     // so the user can decide if they want to accept the
@@ -361,7 +343,6 @@ impl<T: Notifiable> SelfUser<T> {
                         cep_tbs.connection_group_ear_key.clone(),
                         cep_tbs.connection_group_signature_ear_key_wrapper_key,
                         cep_tbs.connection_group_credential_key,
-                        &mut self.key_store.as_credentials,
                         &mut self.api_clients,
                         aad,
                         self.key_store.signing_key.credential(),
@@ -380,19 +361,19 @@ impl<T: Notifiable> SelfUser<T> {
                     conversation.confirm()?;
                     conversations_with_messages.push(conversation.id());
 
-                    let contact = PartialContact {
-                        user_name: user_name.clone(),
-                        conversation_id: conversation.id(),
-                        friendship_package_ear_key: cep_tbs.friendship_package_ear_key,
-                    }
-                    .into_contact(
+                    PartialContact::new(
+                        &self.as_client_id(),
+                        user_name.clone(),
+                        conversation.id(),
+                        cep_tbs.friendship_package_ear_key,
+                    )?
+                    .into_contact_and_persist(
                         &self.as_client_id(),
                         cep_tbs.friendship_package,
                         vec![],
                         cep_tbs.sender_client_credential,
-                    );
+                    )?;
 
-                    contact.persist()?;
                     // Fetch a few KeyPackages for our new contact.
                     self.get_key_packages(&user_name).await?;
                     // TODO: Send conversation message to UI.
@@ -440,18 +421,5 @@ impl<T: Notifiable> SelfUser<T> {
             let (_left, right) = messages.split_at(messages.len() - last_n);
             Ok(right.to_vec())
         }
-    }
-
-    pub(super) async fn qs_verifying_key(&mut self, domain: &Fqdn) -> Result<&QsVerifyingKey> {
-        if !self.key_store.qs_verifying_keys.contains_key(domain) {
-            let qs_verifying_key = self.api_clients.get(domain)?.qs_verifying_key().await?;
-            self.key_store
-                .qs_verifying_keys
-                .insert(domain.clone(), qs_verifying_key.verifying_key);
-        }
-        self.key_store
-            .qs_verifying_keys
-            .get(domain)
-            .ok_or(anyhow!("Can't find QS verifying key for the given domain"))
     }
 }

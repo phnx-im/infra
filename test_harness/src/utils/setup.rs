@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phnxapiclient::DomainOrAddress;
 use phnxbackend::auth_service::UserName;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
@@ -433,10 +432,10 @@ impl TestBed {
             "Users {} and {} are already connected.",
             user1_name, user2_name
         );
-        let user1_partial_contacts_before = user1.partial_contacts();
+        let user1_partial_contacts_before = user1.partial_contacts().unwrap();
         let user1_conversations_before = user1.conversations().unwrap();
         user1.add_contact(user2_name.clone()).await.unwrap();
-        let mut user1_partial_contacts_after = user1.partial_contacts();
+        let mut user1_partial_contacts_after = user1.partial_contacts().unwrap();
         let new_user_position = user1_partial_contacts_after
             .iter()
             .position(|c| c.user_name == user2_name)

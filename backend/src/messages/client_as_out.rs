@@ -37,15 +37,16 @@ use crate::{
 use super::{
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
-        AsDequeueMessagesParams, AsDequeueMessagesResponse, AsPublishConnectionPackagesParams,
-        ClientCredentialAuthenticator, ConnectionEstablishmentPackageTbs, ConnectionPackage,
-        ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
-        EncryptedConnectionEstablishmentPackage, EnqueueMessageParams, FinishClientAdditionParams,
-        FriendshipPackage, Init2FactorAuthResponse, InitUserRegistrationParams,
-        Initiate2FaAuthenticationParams, InitiateClientAdditionParams, IssueTokensParams,
-        IssueTokensResponse, NoAuth, TwoFactorAuthenticator, UserClientsParams,
-        UserConnectionPackagesParams, VerifiedAsRequestParams,
+        AsDequeueMessagesParams, AsPublishConnectionPackagesParams, ClientCredentialAuthenticator,
+        ConnectionEstablishmentPackageTbs, ConnectionPackage, ConnectionPackageTbs,
+        DeleteClientParams, DeleteUserParams, EncryptedConnectionEstablishmentPackage,
+        EnqueueMessageParams, FinishClientAdditionParams, FriendshipPackage,
+        Init2FactorAuthResponse, InitUserRegistrationParams, Initiate2FaAuthenticationParams,
+        InitiateClientAdditionParams, IssueTokensParams, IssueTokensResponse, NoAuth,
+        TwoFactorAuthenticator, UserClientsParams, UserConnectionPackagesParams,
+        VerifiedAsRequestParams,
     },
+    client_qs::DequeueMessagesResponse,
     MlsInfraVersion,
 };
 
@@ -90,7 +91,7 @@ pub struct InitUserRegistrationResponseIn {
 pub enum AsProcessResponseIn {
     Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
-    DequeueMessages(AsDequeueMessagesResponse),
+    DequeueMessages(DequeueMessagesResponse),
     ClientConnectionPackage(AsClientConnectionPackageResponseIn),
     IssueTokens(IssueTokensResponse),
     UserConnectionPackages(UserConnectionPackagesResponseIn),

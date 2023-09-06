@@ -8,8 +8,11 @@ use turbosql::{execute, select, Turbosql};
 
 use super::*;
 
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PhnxOpenMlsProvider {
     client_id_bytes: Vec<u8>,
+    // TODO: Instead of skipping, we probably want to store the randomness here.
+    #[serde(skip)]
     crypto: RustCrypto,
 }
 

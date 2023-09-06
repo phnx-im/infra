@@ -28,4 +28,8 @@ impl Persistable for Contact {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.user_name
     }
+
+    fn set_rowid(&mut self, rowid: i64) {
+        self.rowid = Some(rowid);
+    }
 }

@@ -13,12 +13,13 @@ use phnxbackend::{
     crypto::{kdf::keys::RatchetSecret, signatures::signable::Signable, RatchetEncryptionKey},
     messages::{
         client_as::{
-            AsCredentialsParams, AsDequeueMessagesResponse, AsPublishConnectionPackagesParamsTbs,
-            AsRequestParams, ClientConnectionPackageParamsTbs, ClientToAsMessage,
-            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
-            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+            AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
+            ClientConnectionPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
+            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EncryptedConnectionEstablishmentPackage,
         },
         client_as_out::ConnectionPackageIn,
+        client_qs::DequeueMessagesResponse,
     },
     messages::{
         client_as::{
@@ -310,7 +311,7 @@ impl ApiClient {
         sequence_number_start: u64,
         max_message_number: u64,
         signing_key: &ClientSigningKey,
-    ) -> Result<AsDequeueMessagesResponse, AsRequestError> {
+    ) -> Result<DequeueMessagesResponse, AsRequestError> {
         let tbs = DequeueMessagesParamsTbs {
             sender: signing_key.credential().identity(),
             sequence_number_start,

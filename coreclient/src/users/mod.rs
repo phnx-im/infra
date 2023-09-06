@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::ops::Deref;
+
 use anyhow::{anyhow, Result};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -53,11 +55,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     contacts::{Contact, ContactAddInfos, PartialContact},
-    users::key_store::AsCredentials,
-    utils::persistance::Persistable,
+    users::key_store::{
+        PersistableAsIntermediateCredential, PersistableAsQueueRatchet, PersistableQsQueueRatchet,
+    },
+    utils::persistance::{DataType, Persistable},
 };
 
-use self::{key_store::MemoryUserKeyStore, openmls_provider::PhnxOpenMlsProvider};
+use self::{
+    key_store::{
+        MemoryUserKeyStore, PersistableLeafKeys, PersistableQsVerifyingKey, QueueRatchetType,
+    },
+    openmls_provider::PhnxOpenMlsProvider,
+};
 
 use super::*;
 
@@ -113,17 +122,16 @@ impl ApiClients {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SelfUser<T: Notifiable> {
     pub(crate) crypto_backend: PhnxOpenMlsProvider,
+    #[serde(skip)]
     pub(crate) notification_hub_option: Option<NotificationHub<T>>,
     api_clients: ApiClients,
     pub(crate) user_name: UserName,
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
-    pub(crate) qs_client_sequence_number_start: u64,
-    pub(crate) as_client_sequence_number_start: u64,
     pub(crate) key_store: MemoryUserKeyStore,
-    pub(crate) partial_contacts: HashMap<UserName, PartialContact>,
 }
 
 impl<T: Notifiable> SelfUser<T> {
@@ -142,13 +150,12 @@ impl<T: Notifiable> SelfUser<T> {
         let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
 
         let as_client_id = AsClientId::random(user_name.clone())?;
-        let as_credentials = AsCredentials::new(&mut api_clients, &as_client_id).await?;
 
         let api_client = api_clients.default_client()?;
 
         let crypto_backend = PhnxOpenMlsProvider::new(&as_client_id)?;
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(as_client_id, SignatureScheme::ED25519)?;
+            ClientCredentialCsr::new(as_client_id.clone(), SignatureScheme::ED25519)?;
 
         let as_credentials_response = api_client.as_as_credentials().await?;
         let as_intermediate_credentials: Vec<AsIntermediateCredential> = as_credentials_response
@@ -225,12 +232,19 @@ impl<T: Notifiable> SelfUser<T> {
         let signing_key = ClientSigningKey::from_prelim_key(prelim_signing_key, credential)?;
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
+        let as_queue_ratchet: AsQueueRatchet = as_initial_ratchet_secret.clone().try_into()?;
+        let persistable_as_queue_ratchet =
+            PersistableAsQueueRatchet::from_ratchet(as_client_id.clone(), as_queue_ratchet)?;
+        persistable_as_queue_ratchet.persist()?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
+        let qs_queue_ratchet: QsQueueRatchet = qs_initial_ratchet_secret.clone().try_into()?;
+        let persistable_qs_queue_ratchet =
+            PersistableQsQueueRatchet::from_ratchet(as_client_id.clone(), qs_queue_ratchet)?;
+        persistable_qs_queue_ratchet.persist()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::random()?;
 
-        let leaf_signers = HashMap::new();
         // TODO: The following five keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
@@ -239,28 +253,31 @@ impl<T: Notifiable> SelfUser<T> {
         let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
-        let qs_verifying_key = api_client.qs_verifying_key().await?.verifying_key;
+
+        // Fetch and store the local QS verifying key
+        let qs_verifying_key = PersistableQsVerifyingKey::from_verifying_key(
+            as_client_id.clone(),
+            user_name.domain(),
+            api_client.qs_verifying_key().await?.verifying_key,
+        )?;
+        qs_verifying_key.persist()?;
+
         let qs_encryption_key = api_client.qs_encryption_key().await?.encryption_key;
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
 
         let key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
-            as_queue_ratchet: as_initial_ratchet_secret.clone().try_into()?,
             connection_decryption_key,
-            as_credentials,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
-            qs_queue_ratchet: qs_initial_ratchet_secret.clone().try_into()?,
-            qs_verifying_keys: [(user_name.domain(), qs_verifying_key)].into(),
             push_token_ear_key,
             friendship_token,
             add_package_ear_key,
             client_credential_ear_key,
             signature_ear_key_wrapper_key,
             wai_ear_key,
-            leaf_signers,
             qs_client_id_encryption_key: qs_encryption_key,
         };
 
@@ -311,6 +328,14 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await?;
 
+        // Initialize and persist sequence numbers.
+        let qs_sequence_number =
+            PersistableSequenceNumber::new(&as_client_id, QueueRatchetType::Qs)?;
+        qs_sequence_number.persist()?;
+        let as_sequence_number =
+            PersistableSequenceNumber::new(&as_client_id, QueueRatchetType::As)?;
+        as_sequence_number.persist()?;
+
         let mut user = Self {
             crypto_backend,
             api_clients,
@@ -318,9 +343,6 @@ impl<T: Notifiable> SelfUser<T> {
             key_store,
             _qs_user_id: create_user_record_response.user_id,
             qs_client_id: create_user_record_response.client_id,
-            qs_client_sequence_number_start: 0,
-            as_client_sequence_number_start: 0,
-            partial_contacts: HashMap::default(),
             notification_hub_option: Some(notification_hub),
         };
 
@@ -395,10 +417,9 @@ impl<T: Notifiable> SelfUser<T> {
                 credential_with_key,
             )?;
         let esek = signature_ear_key.encrypt(&self.key_store.signature_ear_key_wrapper_key)?;
-        self.key_store.leaf_signers.insert(
-            leaf_signer.credential().verifying_key().clone(),
-            (leaf_signer, signature_ear_key),
-        );
+        let leaf_keys =
+            PersistableLeafKeys::from_keys(self.as_client_id(), leaf_signer, signature_ear_key)?;
+        leaf_keys.persist()?;
 
         let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
         Ok(add_package)
@@ -617,15 +638,13 @@ impl<T: Notifiable> SelfUser<T> {
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in connection_packages.into_iter() {
-            let as_intermediate_credential = self
-                .key_store
-                .as_credentials
-                .get(
-                    &mut self.api_clients,
-                    &user_domain,
-                    connection_package.client_credential_signer_fingerprint(),
-                )
-                .await?;
+            let as_intermediate_credential = PersistableAsIntermediateCredential::get(
+                &self.as_client_id(),
+                &mut self.api_clients,
+                &user_domain,
+                connection_package.client_credential_signer_fingerprint(),
+            )
+            .await?;
             let verifying_key = as_intermediate_credential.verifying_key();
             verified_connection_packages.push(connection_package.verify(verifying_key)?)
         }
@@ -713,12 +732,18 @@ impl<T: Notifiable> SelfUser<T> {
             },
         )?;
 
-        let contact = PartialContact {
-            user_name: user_name.clone(),
-            conversation_id: conversation.id(),
+        let contact = PartialContact::new(
+            &self.as_client_id(),
+            user_name.clone(),
+            conversation.id(),
             friendship_package_ear_key,
-        };
-        self.partial_contacts.insert(user_name.clone(), contact);
+        )?;
+        contact.persist()?;
+        let partial_contacts = PartialContact::load_all(&self.as_client_id())?;
+        log::info!(
+            "Just persisted partial contact. Reading back: {:?}",
+            partial_contacts
+        );
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -778,22 +803,40 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-    pub async fn as_fetch_messages(&mut self) -> Result<Vec<QueueMessage>> {
+    async fn fetch_messages_from_queue(
+        &mut self,
+        queue_type: QueueRatchetType,
+    ) -> Result<Vec<QueueMessage>> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
+        let mut sequence_number =
+            PersistableSequenceNumber::load(&self.as_client_id(), &queue_type)?;
         while remaining_messages > 0 {
-            let mut response = self
-                .api_clients
-                .default_client()?
-                .as_dequeue_messages(
-                    self.as_client_sequence_number_start,
-                    1_000_000,
-                    &self.key_store.signing_key,
-                )
-                .await?;
+            let api_client = self.api_clients.default_client()?;
+            let mut response = match queue_type {
+                QueueRatchetType::As => {
+                    api_client
+                        .as_dequeue_messages(
+                            *sequence_number,
+                            1_000_000,
+                            &self.key_store.signing_key,
+                        )
+                        .await?
+                }
+                QueueRatchetType::Qs => {
+                    api_client
+                        .qs_dequeue_messages(
+                            &self.qs_client_id,
+                            *sequence_number,
+                            1_000_000,
+                            &self.key_store.qs_client_signing_key,
+                        )
+                        .await?
+                }
+            };
 
             if let Some(message) = messages.last() {
-                self.as_client_sequence_number_start = message.sequence_number;
+                sequence_number.set_and_persist(message.sequence_number)?;
             }
 
             remaining_messages = response.remaining_messages_number;
@@ -802,29 +845,12 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(messages)
     }
 
+    pub async fn as_fetch_messages(&mut self) -> Result<Vec<QueueMessage>> {
+        self.fetch_messages_from_queue(QueueRatchetType::As).await
+    }
+
     pub async fn qs_fetch_messages(&mut self) -> Result<Vec<QueueMessage>> {
-        let mut remaining_messages = 1;
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        while remaining_messages > 0 {
-            let mut response = self
-                .api_clients
-                .default_client()?
-                .qs_dequeue_messages(
-                    &self.qs_client_id,
-                    self.qs_client_sequence_number_start,
-                    1_000_000,
-                    &self.key_store.qs_client_signing_key,
-                )
-                .await?;
-
-            if let Some(message) = messages.last() {
-                self.as_client_sequence_number_start = message.sequence_number;
-            }
-
-            remaining_messages = response.remaining_messages_number;
-            messages.append(&mut response.messages);
-        }
-        Ok(messages)
+        self.fetch_messages_from_queue(QueueRatchetType::Qs).await
     }
 
     pub async fn leave_group(&mut self, conversation_id: Uuid) -> Result<()> {
@@ -861,8 +887,8 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(Contact::load_all(&self.as_client_id())?)
     }
 
-    pub fn partial_contacts(&self) -> Vec<PartialContact> {
-        self.partial_contacts.values().cloned().collect()
+    pub fn partial_contacts(&self) -> Result<Vec<PartialContact>> {
+        Ok(PartialContact::load_all(&self.as_client_id())?)
     }
 
     fn create_own_client_reference(&self) -> QsClientReference {
@@ -921,7 +947,12 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
-        let qs_verifying_key = self.qs_verifying_key(&contact_name.domain()).await?.clone();
+        let qs_verifying_key = PersistableQsVerifyingKey::get(
+            &self.as_client_id(),
+            &mut self.api_clients,
+            &contact_name.domain(),
+        )
+        .await?;
         let mut contact = Contact::load(&self.as_client_id(), contact_name)?;
         let mut add_infos = Vec::new();
         for _ in 0..5 {
@@ -955,5 +986,68 @@ impl<T: Notifiable> SelfUser<T> {
         }
         contact.add_infos.append(&mut add_infos);
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct PersistableSequenceNumber {
+    rowid: Option<i64>,
+    own_client_id: Vec<u8>,
+    queue_ratchet_type: QueueRatchetType,
+    sequence_number: u64,
+}
+
+impl PersistableSequenceNumber {
+    pub(crate) fn new(
+        own_client_id: &AsClientId,
+        queue_ratchet_type: QueueRatchetType,
+    ) -> Result<Self> {
+        Ok(Self {
+            rowid: None,
+            own_client_id: own_client_id.tls_serialize_detached()?,
+            queue_ratchet_type,
+            sequence_number: 0,
+        })
+    }
+
+    pub(crate) fn set_and_persist(&mut self, new_sequence_number: u64) -> Result<()> {
+        self.sequence_number = new_sequence_number;
+        Ok(self.persist()?)
+    }
+}
+
+impl Deref for PersistableSequenceNumber {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sequence_number
+    }
+}
+
+impl Persistable for PersistableSequenceNumber {
+    type Key = QueueRatchetType;
+
+    type SecondaryKey = QueueRatchetType;
+
+    const DATA_TYPE: DataType = DataType::SequenceNumber;
+
+    fn own_client_id_bytes(&self) -> Vec<u8> {
+        self.own_client_id.clone()
+    }
+
+    fn rowid(&self) -> Option<i64> {
+        self.rowid
+    }
+
+    fn key(&self) -> &Self::Key {
+        &self.queue_ratchet_type
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.queue_ratchet_type
+    }
+
+    fn set_rowid(&mut self, rowid: i64) {
+        self.rowid = Some(rowid);
     }
 }
