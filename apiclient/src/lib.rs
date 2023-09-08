@@ -9,7 +9,7 @@ use std::{net::SocketAddr, time::Duration};
 use http::StatusCode;
 use phnxbackend::qs::Fqdn;
 use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
-use reqwest::{Client, ClientBuilder};
+use reqwest::{Client, ClientBuilder, Url};
 use thiserror::Error;
 
 pub mod as_api;
@@ -26,6 +26,10 @@ pub enum Protocol {
 pub enum ApiClientInitError {
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
+    #[error("Failed to parse URL {0}")]
+    UrlParsingError(String),
+    #[error("Could not find hostname in URL")]
+    NoHostname,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -60,43 +64,62 @@ impl std::fmt::Display for DomainOrAddress {
 #[derive(Clone)]
 pub struct ApiClient {
     client: Client,
-    url: String,
+    port: u16,
+    hostname: String,
+    tls_enabled: bool,
 }
 
 impl ApiClient {
     /// Creates a new API client that connects to the given base URL.
     ///
     /// # Arguments
-    /// base_url - The base URL of the server.
-    /// transport_encryption - Whether transport encryption is enabled or not.
+    /// url - The base URL or hostname:port tuple of the server. If the URL
+    /// starts with `https`, TLS will be used. If the URL or hostname:port tuple
+    /// includes a port, that port will be used, otherwise, if TLS is enabled,
+    /// the default port is 443, if TLS is disabled, the default port is 8000.
     ///
     /// # Returns
     /// A new [`ApiClient`].
     pub fn initialize(domain: impl ToString) -> Result<Self, ApiClientInitError> {
+        let mut domain_string = domain.to_string();
+        // If the url doesn't start with http, we assume it's a hostname/port
+        // combination and we prefix it with "http://"
+        if !domain_string.starts_with("http") {
+            domain_string.insert_str(0, "http://");
+        }
+        let url = Url::parse(domain_string.as_str())
+            .map_err(|_| ApiClientInitError::UrlParsingError(domain_string.clone()))?;
+        let tls_enabled = url.scheme() == "https";
+        let port = url
+            .port()
+            .unwrap_or_else(|| if tls_enabled { 443 } else { 8000 });
+        let hostname = url
+            .host()
+            .ok_or(ApiClientInitError::NoHostname)?
+            .to_string();
         let client = ClientBuilder::new()
             .pool_idle_timeout(Duration::from_secs(4))
             .user_agent("PhnxClient/0.1")
             .build()?;
         Ok(Self {
             client,
-            url: domain.to_string(),
+            port,
+            hostname,
+            tls_enabled,
         })
     }
 
     /// Builds a URL for a given endpoint.
     fn build_url(&self, protocol: Protocol, endpoint: &str) -> String {
-        let tls = self.url.starts_with("https");
-        let protocol = match protocol {
+        let mut protocol = match protocol {
             Protocol::Http => "http",
             Protocol::Ws => "ws",
+        }
+        .to_string();
+        if self.tls_enabled {
+            protocol.push_str("s")
         };
-        let protocol = if tls {
-            format!("{}s", protocol)
-        } else {
-            protocol.to_string()
-        };
-        let domain_and_port = self.url.split("://").last().unwrap_or("");
-        let url = format!("{}://{}{}", protocol, domain_and_port, endpoint);
+        let url = format!("{}://{}:{}{}", protocol, self.hostname, self.port, endpoint);
         log::info!("Built URL: {}", url);
         url
     }
@@ -127,9 +150,5 @@ impl ApiClient {
         } else {
             false
         }
-    }
-
-    pub fn url(&self) -> &str {
-        &self.url
     }
 }

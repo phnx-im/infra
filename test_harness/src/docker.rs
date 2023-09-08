@@ -44,6 +44,7 @@ impl DockerTestBed {
             .into_iter()
             .map(|index| {
                 let domain = format!("{}{}.com", scenario, index).into();
+                tracing::info!("Starting server {domain}");
                 let server = create_and_start_server_container(&domain, Some(&network_name));
                 (domain.clone(), server)
             })
@@ -167,20 +168,30 @@ fn create_and_start_server_container(
 /// This function has to be called from the container that runs the tests.
 pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
     let mut domains = domains.into();
-    let clients: Vec<ApiClient> = domains
+    let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
-        .map(|domain| ApiClient::initialize(domain.clone()).unwrap())
-        .collect::<Vec<ApiClient>>();
+        .map(|domain| {
+            let domain_and_port = format!("{}:8000", domain);
+            (
+                domain.clone(),
+                ApiClient::initialize(domain_and_port).unwrap(),
+            )
+        })
+        .collect();
 
     // Do the health check
-    while !domains.is_empty() {
-        for client in &clients {
+    let mut counter = 0;
+    while !domains.is_empty() && counter < 10 {
+        for (domain, client) in &clients {
             if client.health_check().await {
-                let domain: Fqdn = client.url().into();
                 domains.remove(&domain);
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs(2))
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        counter += 1;
+    }
+    if counter == 10 {
+        panic!("Servers did not come up in time");
     }
 }
 

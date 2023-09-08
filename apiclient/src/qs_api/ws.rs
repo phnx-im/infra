@@ -323,6 +323,7 @@ impl ApiClient {
                     // The connection was not established, wait and try again
                     Err(e) => {
                         log::error!("Error connecting to QS WebSocket: {}", e);
+                        panic!("Error connecting to QS WebSocket: {}", address)
                     }
                 }
                 log::info!(
