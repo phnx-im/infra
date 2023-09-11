@@ -7,7 +7,7 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use phnxapiclient::ApiClient;
+use phnxapiclient::{ApiClient, DEFAULT_PORT_HTTP};
 use phnxbackend::qs::Fqdn;
 
 use crate::test_scenarios::FederationTestScenario;
@@ -171,7 +171,7 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
     let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
         .map(|domain| {
-            let domain_and_port = format!("{}:8000", domain);
+            let domain_and_port = format!("http://{}:{}", domain, DEFAULT_PORT_HTTP);
             (
                 domain.clone(),
                 ApiClient::initialize(domain_and_port).unwrap(),

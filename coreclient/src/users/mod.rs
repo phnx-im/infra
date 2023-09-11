@@ -75,23 +75,23 @@ pub(crate) struct ApiClients {
     // is a temporary workaround and should probably be replaced by a more
     // thought-out mechanism.
     own_domain: Fqdn,
-    own_domain_or_address: String,
+    own_hostname: String,
     clients: HashMap<String, ApiClient>,
 }
 
 impl ApiClients {
-    fn new(own_domain: Fqdn, own_domain_or_address: impl ToString) -> Self {
-        let own_domain_or_address = own_domain_or_address.to_string();
+    fn new(own_domain: Fqdn, own_server_url: impl ToString) -> Self {
+        let own_server_url = own_server_url.to_string();
         Self {
             own_domain,
-            own_domain_or_address,
+            own_hostname: own_server_url,
             clients: HashMap::new(),
         }
     }
 
     pub(crate) fn get(&mut self, domain: &Fqdn) -> Result<&ApiClient> {
         let lookup_domain = if domain == &self.own_domain {
-            self.own_domain_or_address.clone()
+            self.own_hostname.clone()
         } else {
             domain.clone().to_string()
         };
@@ -129,7 +129,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn new(
         user_name: impl Into<UserName>,
         password: &str,
-        domain_or_address: impl ToString,
+        server_url: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.into();
@@ -137,8 +137,7 @@ impl<T: Notifiable> SelfUser<T> {
         let crypto_backend = OpenMlsRustCrypto::default();
         // Let's turn TLS off for now.
         let domain = user_name.domain();
-        let domain_or_address = domain_or_address.to_string();
-        let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
+        let mut api_clients = ApiClients::new(user_name.domain(), server_url);
 
         let as_credentials = AsCredentials::new(&mut api_clients, &domain).await?;
 

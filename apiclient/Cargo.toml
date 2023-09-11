@@ -30,6 +30,7 @@ base64 = "0.13.0"
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 tls_codec = { workspace = true }
+url = "2"
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }
