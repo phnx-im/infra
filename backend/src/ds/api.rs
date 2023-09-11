@@ -170,7 +170,7 @@ use crate::{
 
 use super::{
     errors::DsProcessingError,
-    group_state::{DsGroupState, EncryptedClientCredential, SerializableDsGroupState},
+    group_state::{DsGroupState, EncryptedClientCredential},
     DsStorageProvider, LoadState,
 };
 
@@ -199,7 +199,7 @@ impl DsApi {
         // create a new one.
         let mut group_state = match ds_storage_provider.load_group_state(&group_id).await {
             LoadState::Success(encrypted_group_state) => {
-                SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
+                DsGroupState::decrypt(&ear_key, &encrypted_group_state)
                     .map_err(|_| DsProcessingError::CouldNotDecrypt)?
                     .into()
             }
@@ -449,12 +449,10 @@ impl DsApi {
                 .group_id()
                 .clone();
             // ... before we distribute the message, we encrypt ...
-            let encrypted_group_state = Into::<SerializableDsGroupState>::into(group_state)
-                .encrypt(&ear_key)
-                .map_err(|e| {
-                    tracing::error!("Could not encrypt group state: {:?}", e);
-                    DsProcessingError::CouldNotEncrypt
-                })?;
+            let encrypted_group_state = group_state.encrypt(&ear_key).map_err(|e| {
+                tracing::error!("Could not encrypt group state: {:?}", e);
+                DsProcessingError::CouldNotEncrypt
+            })?;
 
             // ... and store the modified group state.
             ds_storage_provider

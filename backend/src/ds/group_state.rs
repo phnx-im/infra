@@ -12,7 +12,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tls_codec::{
     DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait, Size,
     TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes,
@@ -156,47 +156,32 @@ pub(super) struct ClientProfile {
 #[derive(Serialize, Deserialize)]
 pub(super) struct ProposalStore {}
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct SerializableDsGroupState {
-    pub(super) group: Group,
-    pub(super) user_profiles: Vec<(UserKeyHash, UserProfile)>,
-    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
-    pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
-}
-
-impl From<SerializableDsGroupState> for DsGroupState {
-    fn from(value: SerializableDsGroupState) -> Self {
-        Self {
-            group: value.group,
-            user_profiles: value.user_profiles.into_iter().collect(),
-            unmerged_users: value.unmerged_users,
-            client_profiles: value.client_profiles.into_iter().collect(),
-        }
-    }
-}
-
-impl From<DsGroupState> for SerializableDsGroupState {
-    fn from(value: DsGroupState) -> Self {
-        Self {
-            group: value.group,
-            user_profiles: value.user_profiles.into_iter().collect(),
-            unmerged_users: value.unmerged_users,
-            client_profiles: value.client_profiles.into_iter().collect(),
-        }
-    }
-}
-
 /// The `DsGroupState` is the per-group state that the DS persists.
 /// It is encrypted-at-rest with a roster key.
 ///
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
+    #[serde(serialize_with = "vec_serialize", deserialize_with = "vec_deserialize")]
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
     // Here we keep users that haven't set their user key yet.
     pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
+    #[serde(serialize_with = "vec_serialize", deserialize_with = "vec_deserialize")]
     pub(super) client_profiles: BTreeMap<LeafNodeIndex, ClientProfile>,
+}
+
+#[cfg(debug_assertions)]
+impl Drop for DsGroupState {
+    fn drop(&mut self) {
+        debug_assert_eq!(self.group.members().count(), self.client_profiles.len());
+        let members = self.group.members();
+        let client_profiles = self.client_profiles.keys();
+        for (m, index) in members.zip(client_profiles) {
+            debug_assert_eq!(m.index, *index);
+        }
+    }
 }
 
 impl DsGroupState {
@@ -363,5 +348,28 @@ impl DsGroupState {
     }
 }
 
-impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}
-impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}
+impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for DsGroupState {}
+
+pub(crate) fn vec_serialize<'a, T, U, V, S>(v: &'a V, serializer: S) -> Result<S::Ok, S::Error>
+where
+    T: Serialize,
+    U: Serialize,
+    &'a V: IntoIterator<Item = (T, U)> + 'a,
+    S: Serializer,
+{
+    let vec = v.into_iter().collect::<Vec<_>>();
+    vec.serialize(serializer)
+}
+
+pub(crate) fn vec_deserialize<'de, T, U, V, D>(deserializer: D) -> Result<V, D::Error>
+where
+    T: Eq + std::hash::Hash + Deserialize<'de>,
+    U: Deserialize<'de>,
+    V: FromIterator<(T, U)>,
+    D: Deserializer<'de>,
+{
+    Ok(Vec::<(T, U)>::deserialize(deserializer)?
+        .into_iter()
+        .collect::<V>())
+}
