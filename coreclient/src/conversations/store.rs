@@ -4,7 +4,7 @@
 
 use crate::{
     types::*,
-    utils::persistance::{DataType, Persistable},
+    utils::persistence::{DataType, Persistable},
 };
 
 impl Persistable for Conversation {

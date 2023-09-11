@@ -58,7 +58,7 @@ use crate::{
     users::key_store::{
         PersistableAsIntermediateCredential, PersistableAsQueueRatchet, PersistableQsQueueRatchet,
     },
-    utils::persistance::{DataType, Persistable},
+    utils::persistence::{DataType, Persistable},
 };
 
 use self::{

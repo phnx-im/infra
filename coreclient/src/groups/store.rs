@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::utils::persistance::{DataType, Persistable};
+use crate::utils::persistence::{DataType, Persistable};
 
 use super::*;
 

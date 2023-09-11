@@ -10,7 +10,7 @@ use phnxbackend::{
     messages::{client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload},
 };
 
-use crate::utils::persistance::DataType;
+use crate::utils::persistence::DataType;
 
 use super::*;
 

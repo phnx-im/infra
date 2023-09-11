@@ -4,7 +4,7 @@
 
 use tls_codec::Serialize;
 
-use crate::utils::persistance::{DataType, Persistable};
+use crate::utils::persistence::{DataType, Persistable};
 
 use super::*;
 

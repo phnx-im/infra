@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     groups::GroupMessage,
-    utils::{persistance::Persistable, Timestamp},
+    utils::{persistence::Persistable, Timestamp},
 };
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]

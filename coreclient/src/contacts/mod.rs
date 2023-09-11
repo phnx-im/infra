@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::Serialize as TlsSerializeTrait;
 use uuid::Uuid;
 
-use crate::utils::persistance::{DataType, Persistable};
+use crate::utils::persistence::{DataType, Persistable};
 
 pub(crate) mod store;
 
