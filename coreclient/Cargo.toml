@@ -39,9 +39,11 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 rand = "0.8.4"
 
 # Persistence
+async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
-turbosql = "0.8"
+rusqlite = "0.29"
 serde_json = "1"
+hex = { version = "0.4" }
 
 # Feature dart-bridge
 simple_logger = { version = "4.2.0", optional = true }

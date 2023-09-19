@@ -4,13 +4,10 @@
 
 use std::ops::Deref;
 
-use anyhow::{bail, Result};
-use phnxbackend::{
-    auth_service::credentials::VerifiableClientCredential,
-    messages::{client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload},
-};
+use anyhow::Result;
+use phnxbackend::messages::{client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload};
 
-use crate::utils::persistence::DataType;
+use crate::utils::persistence::{DataType, PersistenceError};
 
 use super::*;
 
@@ -36,434 +33,412 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableAsCredential {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    credential: AsCredential,
-    fingerprint: CredentialFingerprint,
+pub(crate) struct LeafKeyStore<'a> {
+    db_connection: &'a Connection,
 }
 
-impl PersistableAsCredential {
-    pub(crate) fn from_as_credential(
-        own_client_id: &AsClientId,
-        credential: AsCredential,
-    ) -> Result<Self> {
-        let fingerprint = credential.fingerprint()?;
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            credential,
-            fingerprint,
-        })
+impl<'a> From<&'a Connection> for LeafKeyStore<'a> {
+    fn from(db_connection: &'a Connection) -> Self {
+        Self { db_connection }
     }
 }
 
-impl Persistable for PersistableAsCredential {
-    type Key = CredentialFingerprint;
-
-    type SecondaryKey = Fqdn;
-
-    const DATA_TYPE: DataType = DataType::AsCredential;
-
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
+impl<'a> LeafKeyStore<'a> {
+    pub(crate) fn get(
+        &self,
+        verifying_key: &SignaturePublicKey,
+    ) -> Result<Option<PersistableLeafKeys>, PersistenceError> {
+        let verifying_key_str = hex::encode(verifying_key.as_slice());
+        PersistableLeafKeys::load_one(self.db_connection, Some(&verifying_key_str), None)
     }
 
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
+    pub(crate) fn generate(&self, signing_key: &ClientSigningKey) -> Result<PersistableLeafKeys> {
+        let signature_ear_key = SignatureEarKey::random()?;
+        let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+        let keys = PersistableLeafKeys::from_connection_and_payload(
+            self.db_connection,
+            (leaf_signing_key, signature_ear_key),
+        );
+        keys.persist()?;
+        Ok(keys)
     }
+
+    pub(crate) fn delete(
+        &self,
+        verifying_key: &SignaturePublicKey,
+    ) -> Result<(), PersistenceError> {
+        let verifying_key_str = hex::encode(verifying_key.as_slice());
+        PersistableLeafKeys::purge_key(self.db_connection, &verifying_key_str)
+    }
+}
+
+pub(crate) struct PersistableLeafKeys<'a> {
+    connection: &'a Connection,
+    verifying_key_str: String,
+    payload: (InfraCredentialSigningKey, SignatureEarKey),
+}
+
+impl PersistableLeafKeys<'_> {
+    pub(crate) fn leaf_signing_key(&self) -> &InfraCredentialSigningKey {
+        &self.payload.0
+    }
+
+    pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
+        &self.payload.1
+    }
+}
+
+impl<'a> Persistable<'a> for PersistableLeafKeys<'a> {
+    type Key = String;
+
+    type SecondaryKey = String;
+
+    const DATA_TYPE: DataType = DataType::LeafKeys;
 
     fn key(&self) -> &Self::Key {
-        &self.fingerprint
+        &self.verifying_key_str
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        self.credential.domain()
+        &self.verifying_key_str
     }
 
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
+    type Payload = (InfraCredentialSigningKey, SignatureEarKey);
+
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        let verifying_key_str = hex::encode(payload.0.credential().verifying_key().as_slice());
+        Self {
+            connection: conn,
+            verifying_key_str,
+            payload,
+        }
     }
 }
 
-impl Deref for PersistableAsCredential {
-    type Target = AsCredential;
-
-    fn deref(&self) -> &Self::Target {
-        &self.credential
-    }
+pub(crate) struct QsVerifyingKeyStore<'a> {
+    db_connection: &'a Connection,
+    api_clients: ApiClients,
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableAsIntermediateCredential {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    credential: AsIntermediateCredential,
-    fingerprint: CredentialFingerprint,
-    domain: Fqdn,
-}
-
-impl PersistableAsIntermediateCredential {
-    pub(crate) fn from_as_intermediate_credential(
-        own_client_id: &AsClientId,
-        credential: AsIntermediateCredential,
-        domain: Fqdn,
-    ) -> Result<Self> {
-        let fingerprint = credential.fingerprint()?;
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            credential,
-            fingerprint,
-            domain,
-        })
-    }
-}
-
-impl PersistableAsIntermediateCredential {
-    /// Fetches the credentials of the AS with the given `domain` if they are
-    /// not already present in the store.
-    async fn fetch_credentials(
-        own_client_id: &AsClientId,
-        api_clients: &mut ApiClients,
-        domain: &Fqdn,
-    ) -> Result<()> {
-        let as_credentials_response = api_clients.get(&domain)?.as_as_credentials().await?;
-        let as_credentials: HashMap<CredentialFingerprint, AsCredential> = as_credentials_response
-            .as_credentials
-            .into_iter()
-            .map(|credential| Ok((credential.fingerprint()?, credential)))
-            .collect::<Result<HashMap<_, _>>>()?;
-        for as_inter_cred in as_credentials_response.as_intermediate_credentials {
-            let as_credential = as_credentials
-                .get(as_inter_cred.signer_fingerprint())
-                .ok_or(anyhow!(
-                    "Can't find AS credential for the given fingerprint"
-                ))?;
-            let verified_credential: AsIntermediateCredential =
-                as_inter_cred.verify(as_credential.verifying_key())?;
-            let p_as_inter_cred =
-                PersistableAsIntermediateCredential::from_as_intermediate_credential(
-                    own_client_id,
-                    verified_credential,
-                    domain.clone(),
-                )?;
-            p_as_inter_cred.persist()?;
-        }
-        for as_credential in as_credentials.values() {
-            let p_credential =
-                PersistableAsCredential::from_as_credential(own_client_id, as_credential.clone())?;
-            p_credential.persist()?;
-        }
-        Ok(())
-    }
-
-    pub async fn get(
-        own_client_id: &AsClientId,
-        api_clients: &mut ApiClients,
-        domain: &Fqdn,
-        fingerprint: &CredentialFingerprint,
-    ) -> Result<AsIntermediateCredential> {
-        if PersistableAsIntermediateCredential::load(own_client_id, fingerprint).is_err() {
-            Self::fetch_credentials(own_client_id, api_clients, domain).await?;
-        }
-        let credential = PersistableAsIntermediateCredential::load(own_client_id, fingerprint)?;
-        if &credential.domain != domain {
-            bail!("Found credential matching fingerprint, but it does not belong to the requested domain")
-        }
-        Ok(credential.credential)
-    }
-
-    pub async fn verify_client_credential(
-        own_client_id: &AsClientId,
-        api_clients: &mut ApiClients,
-        verifiable_client_credential: VerifiableClientCredential,
-    ) -> Result<ClientCredential> {
-        let as_intermediate_credential = Self::get(
-            own_client_id,
+impl<'a> QsVerifyingKeyStore<'a> {
+    pub(crate) fn new(db_connection: &'a Connection, api_clients: ApiClients) -> Self {
+        Self {
+            db_connection,
             api_clients,
-            &verifiable_client_credential.domain(),
-            verifiable_client_credential.signer_fingerprint(),
-        )
-        .await?;
-        let client_credential =
-            verifiable_client_credential.verify(as_intermediate_credential.verifying_key())?;
-        Ok(client_credential)
-    }
-}
-
-impl Persistable for PersistableAsIntermediateCredential {
-    type Key = CredentialFingerprint;
-
-    type SecondaryKey = Fqdn;
-
-    const DATA_TYPE: DataType = DataType::AsIntermediateCredential;
-
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
+        }
     }
 
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
-    fn key(&self) -> &Self::Key {
-        &self.fingerprint
-    }
-
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.domain
-    }
-
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
-    }
-}
-
-impl Deref for PersistableAsIntermediateCredential {
-    type Target = AsIntermediateCredential;
-
-    fn deref(&self) -> &Self::Target {
-        &self.credential
+    pub(crate) async fn get(&self, domain: &Fqdn) -> Result<PersistableQsVerifyingKey> {
+        if let Some(verifying_key) =
+            PersistableQsVerifyingKey::load_one(self.db_connection, Some(domain), None)?
+        {
+            Ok(verifying_key)
+        } else {
+            let verifying_key_response = self.api_clients.get(domain)?.qs_verifying_key().await?;
+            let verifying_key = PersistableQsVerifyingKey::from_connection_and_payload(
+                self.db_connection,
+                QualifiedQsVerifyingKey {
+                    qs_verifying_key: verifying_key_response.verifying_key,
+                    domain: domain.clone(),
+                },
+            );
+            verifying_key.persist()?;
+            Ok(verifying_key)
+        }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct PersistableLeafKeys {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    leaf_signing_key: InfraCredentialSigningKey,
-    signature_ear_key: SignatureEarKey,
-}
-
-impl PersistableLeafKeys {
-    pub(crate) fn from_keys(
-        own_client_id: AsClientId,
-        leaf_signing_key: InfraCredentialSigningKey,
-        signature_ear_key: SignatureEarKey,
-    ) -> Result<Self> {
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            leaf_signing_key,
-            signature_ear_key,
-        })
-    }
-
-    pub(crate) fn leaf_signing_key(&self) -> &InfraCredentialSigningKey {
-        &self.leaf_signing_key
-    }
-}
-
-impl Persistable for PersistableLeafKeys {
-    type Key = SignaturePublicKey;
-
-    type SecondaryKey = SignaturePublicKey;
-
-    const DATA_TYPE: DataType = DataType::LeafKeys;
-
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
-    }
-
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
-    fn key(&self) -> &Self::Key {
-        self.leaf_signing_key.credential().verifying_key()
-    }
-
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        self.leaf_signing_key.credential().verifying_key()
-    }
-
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableQsVerifyingKey {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    domain: Fqdn,
+pub(crate) struct QualifiedQsVerifyingKey {
     qs_verifying_key: QsVerifyingKey,
+    domain: Fqdn,
 }
 
-impl PersistableQsVerifyingKey {
-    pub(crate) fn from_verifying_key(
-        own_client_id: AsClientId,
-        domain: Fqdn,
-        qs_verifying_key: QsVerifyingKey,
-    ) -> Result<Self> {
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            domain,
-            qs_verifying_key,
-        })
-    }
+pub(crate) struct PersistableQsVerifyingKey<'a> {
+    connection: &'a Connection,
+    payload: QualifiedQsVerifyingKey,
+}
 
-    pub(super) async fn get(
-        own_client_id: &AsClientId,
-        api_clients: &mut ApiClients,
-        domain: &Fqdn,
-    ) -> Result<QsVerifyingKey> {
-        if let Ok(verifying_key) = PersistableQsVerifyingKey::load(&own_client_id, domain) {
-            Ok(verifying_key.qs_verifying_key)
-        } else {
-            let verifying_key_response = api_clients.get(domain)?.qs_verifying_key().await?;
-            let verifying_key = Self::from_verifying_key(
-                own_client_id.clone(),
-                domain.clone(),
-                verifying_key_response.verifying_key,
-            )?;
-            verifying_key.persist()?;
-            Ok(verifying_key.qs_verifying_key)
-        }
+impl Deref for PersistableQsVerifyingKey<'_> {
+    type Target = QsVerifyingKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.payload.qs_verifying_key
     }
 }
 
-impl Persistable for PersistableQsVerifyingKey {
+impl<'a> Persistable<'a> for PersistableQsVerifyingKey<'a> {
     type Key = Fqdn;
 
     type SecondaryKey = Fqdn;
 
     const DATA_TYPE: DataType = DataType::QsVerifyingKey;
 
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
-    }
-
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
     fn key(&self) -> &Self::Key {
-        &self.domain
+        &self.payload.domain
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.domain
+        &self.payload.domain
     }
 
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
+    type Payload = QualifiedQsVerifyingKey;
+
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        Self {
+            connection: conn,
+            payload,
+        }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum QueueRatchetType {
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub(crate) enum QueueType {
     As,
     Qs,
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableAsQueueRatchet {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    queue_ratchet: AsQueueRatchet,
+impl std::fmt::Display for QueueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueueType::As => write!(f, "as"),
+            QueueType::Qs => write!(f, "qs"),
+        }
+    }
 }
 
-impl PersistableAsQueueRatchet {
-    pub(crate) fn from_ratchet(
-        own_client_id: AsClientId,
-        queue_ratchet: AsQueueRatchet,
-    ) -> Result<Self> {
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            queue_ratchet,
-        })
+pub(crate) struct QueueRatchetStore<'a> {
+    db_connection: &'a Connection,
+}
+
+impl<'a> From<&'a Connection> for QueueRatchetStore<'a> {
+    fn from(db_connection: &'a Connection) -> Self {
+        Self { db_connection }
+    }
+}
+
+impl<'a> QueueRatchetStore<'a> {
+    fn initialize_sequence_number(&self, queue_type: QueueType) -> Result<(), PersistenceError> {
+        log::info!("Initializing sequence number for queue type {}", queue_type);
+        let sequence_number = PersistableSequenceNumber::from_connection_and_payload(
+            self.db_connection,
+            QualifiedSequenceNumber {
+                queue_type,
+                sequence_number: 0,
+            },
+        );
+        sequence_number.persist()
     }
 
-    pub fn decrypt(&mut self, queue_message: QueueMessage) -> Result<AsQueueMessagePayload> {
-        let message = self.queue_ratchet.decrypt(queue_message)?;
+    pub(crate) fn initialize_as_queue_ratchet(&self, ratcht_secret: RatchetSecret) -> Result<()> {
+        let payload = AsQueueRatchet::try_from(ratcht_secret)?;
+        let ratchet =
+            PersistableAsQueueRatchet::from_connection_and_payload(self.db_connection, payload);
+        ratchet.persist()?;
+        self.initialize_sequence_number(QueueType::As)?;
+        Ok(())
+    }
+
+    pub(crate) fn initialize_qs_queue_ratchet(&self, ratcht_secret: RatchetSecret) -> Result<()> {
+        let ratchet = QsQueueRatchet::try_from(ratcht_secret)?;
+        let ratchet =
+            PersistableQsQueueRatchet::from_connection_and_payload(self.db_connection, ratchet);
+        ratchet.persist()?;
+        self.initialize_sequence_number(QueueType::Qs)?;
+        Ok(())
+    }
+
+    pub(crate) fn get_as_queue_ratchet(&self) -> Result<PersistableAsQueueRatchet> {
+        PersistableAsQueueRatchet::load_one(self.db_connection, Some(&QueueType::As), None)?
+            .ok_or(anyhow!("Couldn't find AS queue ratchet in DB."))
+    }
+
+    pub(crate) fn get_qs_queue_ratchet(&self) -> Result<PersistableQsQueueRatchet> {
+        PersistableQsQueueRatchet::load_one(self.db_connection, Some(&QueueType::Qs), None)?
+            .ok_or(anyhow!("Couldn't find QS queue ratchet in DB."))
+    }
+
+    pub(crate) fn get_sequence_number(
+        &self,
+        queue_type: QueueType,
+    ) -> Result<PersistableSequenceNumber> {
+        PersistableSequenceNumber::load_one(self.db_connection, Some(&queue_type), None)?
+            .ok_or(anyhow!("No sequence number found for type {}", queue_type))
+    }
+}
+
+pub(crate) struct PersistableAsQueueRatchet<'a> {
+    connection: &'a Connection,
+    payload: AsQueueRatchet,
+}
+
+impl PersistableAsQueueRatchet<'_> {
+    pub(crate) fn decrypt(&mut self, ciphertext: QueueMessage) -> Result<AsQueueMessagePayload> {
+        let plaintext = self.payload.decrypt(ciphertext)?;
         self.persist()?;
-        Ok(message)
+        Ok(plaintext)
     }
 }
 
-impl Persistable for PersistableAsQueueRatchet {
-    type Key = QueueRatchetType;
+impl Deref for PersistableAsQueueRatchet<'_> {
+    type Target = AsQueueRatchet;
 
-    type SecondaryKey = QueueRatchetType;
+    fn deref(&self) -> &Self::Target {
+        &self.payload
+    }
+}
+
+impl<'a> Persistable<'a> for PersistableAsQueueRatchet<'a> {
+    type Key = QueueType;
+
+    type SecondaryKey = QueueType;
 
     const DATA_TYPE: DataType = DataType::QueueRatchet;
 
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
-    }
-
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
     fn key(&self) -> &Self::Key {
-        &QueueRatchetType::As
+        &QueueType::As
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &QueueRatchetType::As
+        &QueueType::As
     }
 
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
+    type Payload = AsQueueRatchet;
+
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        Self {
+            connection: conn,
+            payload,
+        }
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableQsQueueRatchet {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    queue_ratchet: QsQueueRatchet,
+pub(crate) struct PersistableQsQueueRatchet<'a> {
+    connection: &'a Connection,
+    payload: QsQueueRatchet,
 }
 
-impl PersistableQsQueueRatchet {
-    pub(crate) fn from_ratchet(
-        own_client_id: AsClientId,
-        queue_ratchet: QsQueueRatchet,
-    ) -> Result<Self> {
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            queue_ratchet,
-        })
-    }
-
-    pub fn decrypt(&mut self, queue_message: QueueMessage) -> Result<QsQueueMessagePayload> {
-        let message = self.queue_ratchet.decrypt(queue_message)?;
+impl PersistableQsQueueRatchet<'_> {
+    pub(crate) fn decrypt(&mut self, ciphertext: QueueMessage) -> Result<QsQueueMessagePayload> {
+        let plaintext = self.payload.decrypt(ciphertext)?;
         self.persist()?;
-        Ok(message)
+        Ok(plaintext)
     }
 }
 
-impl Persistable for PersistableQsQueueRatchet {
-    type Key = QueueRatchetType;
+impl<'a> Persistable<'a> for PersistableQsQueueRatchet<'a> {
+    type Key = QueueType;
 
-    type SecondaryKey = QueueRatchetType;
+    type SecondaryKey = QueueType;
 
     const DATA_TYPE: DataType = DataType::QueueRatchet;
 
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
-    }
-
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
     fn key(&self) -> &Self::Key {
-        &QueueRatchetType::Qs
+        &QueueType::Qs
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &QueueRatchetType::Qs
+        &QueueType::Qs
     }
 
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
+    type Payload = QsQueueRatchet;
+
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        Self {
+            connection: conn,
+            payload,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct QualifiedSequenceNumber {
+    queue_type: QueueType,
+    sequence_number: u64,
+}
+
+pub(crate) struct PersistableSequenceNumber<'a> {
+    connection: &'a Connection,
+    payload: QualifiedSequenceNumber,
+}
+
+impl PersistableSequenceNumber<'_> {
+    pub(crate) fn set(&mut self, sequence_number: u64) -> Result<()> {
+        self.payload.sequence_number = sequence_number;
+        self.persist()?;
+        Ok(())
+    }
+}
+
+impl Deref for PersistableSequenceNumber<'_> {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.payload.sequence_number
+    }
+}
+
+impl<'a> Persistable<'a> for PersistableSequenceNumber<'a> {
+    type Key = QueueType;
+
+    type SecondaryKey = QueueType;
+
+    const DATA_TYPE: DataType = DataType::SequenceNumber;
+
+    fn key(&self) -> &Self::Key {
+        &self.payload.queue_type
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.payload.queue_type
+    }
+
+    type Payload = QualifiedSequenceNumber;
+
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        Self {
+            connection: conn,
+            payload,
+        }
     }
 }

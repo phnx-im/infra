@@ -155,6 +155,7 @@ use mls_assist::{
     },
 };
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use uuid::Uuid;
 
 use crate::{
     crypto::{
@@ -182,6 +183,13 @@ pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 pub struct QualifiedGroupId {
     pub group_id: [u8; 16],
     pub owning_domain: Fqdn,
+}
+
+impl std::fmt::Display for QualifiedGroupId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let uuid = Uuid::from_bytes(self.group_id);
+        write!(f, "{}@{}", uuid, self.owning_domain)
+    }
 }
 
 pub struct DsApi {}
@@ -492,7 +500,7 @@ impl DsApi {
     }
 
     async fn generate_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
-        let id = rand::random::<[u8; 16]>();
+        let id = Uuid::new_v4().to_bytes_le();
         let owning_domain = ds_storage_provider.own_domain().await;
         let qgid = QualifiedGroupId {
             group_id: id,

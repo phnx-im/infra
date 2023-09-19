@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, Result};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers,
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient};
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxbackend::{
     auth_service::{
         credentials::{
@@ -25,7 +28,7 @@ use phnxbackend::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
                 SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
-            EarDecryptable, EarEncryptable,
+            EarEncryptable,
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -51,28 +54,33 @@ use phnxbackend::{
     },
 };
 use rand::rngs::OsRng;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
-    contacts::{Contact, ContactAddInfos, PartialContact},
-    users::key_store::{
-        PersistableAsIntermediateCredential, PersistableAsQueueRatchet, PersistableQsQueueRatchet,
-    },
-    utils::persistence::{DataType, Persistable},
+    contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
+    conversations::store::{ConversationMessageStore, ConversationStore},
+    groups::store::GroupStore,
+    users::user_store::UserData,
+    utils::persistence::{db_path, DataType, Persistable, PersistenceError},
 };
 
 use self::{
+    as_credential_store::AsCredentialStore,
     key_store::{
-        MemoryUserKeyStore, PersistableLeafKeys, PersistableQsVerifyingKey, QueueRatchetType,
+        LeafKeyStore, MemoryUserKeyStore, QsVerifyingKeyStore, QueueRatchetStore, QueueType,
     },
     openmls_provider::PhnxOpenMlsProvider,
 };
 
 use super::*;
 
-pub mod key_store;
+pub(crate) mod as_credential_store;
+pub(crate) mod key_store;
 pub(crate) mod openmls_provider;
 pub mod process;
+mod user_store;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -81,7 +89,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ApiClients {
     // We store our own domain such that we can manually map our own domain to
     // an API client that uses an IP address instead of the actual domain. This
@@ -90,7 +98,7 @@ pub(crate) struct ApiClients {
     own_domain: Fqdn,
     own_domain_or_address: String,
     #[serde(skip)]
-    clients: HashMap<String, ApiClient>,
+    clients: Arc<Mutex<HashMap<String, ApiClient>>>,
 }
 
 impl ApiClients {
@@ -99,35 +107,45 @@ impl ApiClients {
         Self {
             own_domain,
             own_domain_or_address,
-            clients: HashMap::new(),
+            clients: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub(crate) fn get(&mut self, domain: &Fqdn) -> Result<&ApiClient> {
+    pub(crate) fn get(&self, domain: &Fqdn) -> Result<ApiClient, ApiClientsError> {
         let lookup_domain = if domain == &self.own_domain {
             self.own_domain_or_address.clone()
         } else {
             domain.clone().to_string()
         };
-        let client = self
+        let mut clients = self
             .clients
+            .lock()
+            .map_err(|_| ApiClientsError::MutexPoisonError)?;
+        let client = clients
             .entry(lookup_domain.clone())
             .or_insert(ApiClient::initialize(lookup_domain)?);
-        Ok(client)
+        Ok(client.clone())
     }
 
-    fn default_client(&mut self) -> Result<&ApiClient> {
+    fn default_client(&self) -> Result<ApiClient, ApiClientsError> {
         let own_domain = self.own_domain.clone();
         self.get(&own_domain)
     }
 }
 
+#[derive(Debug, Error)]
+pub(crate) enum ApiClientsError {
+    #[error(transparent)]
+    ApiClientError(#[from] ApiClientInitError),
+    #[error("Mutex poisoned")]
+    MutexPoisonError,
+}
+
 pub struct SelfUser<T: Notifiable> {
-    rowid: Option<i64>,
+    sqlite_connection: Connection,
     pub(crate) crypto_backend: PhnxOpenMlsProvider,
-    pub(crate) notification_hub_option: Option<NotificationHub<T>>,
+    pub(crate) notification_hub_option: Mutex<Option<NotificationHub<T>>>,
     api_clients: ApiClients,
-    pub(crate) user_name: UserName,
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) key_store: MemoryUserKeyStore,
@@ -146,13 +164,12 @@ impl<T: Notifiable> SelfUser<T> {
         // Let's turn TLS off for now.
         let domain = user_name.domain();
         let domain_or_address = domain_or_address.to_string();
-        let mut api_clients = ApiClients::new(user_name.domain(), domain_or_address);
+        let api_clients = ApiClients::new(user_name.domain(), domain_or_address.clone());
 
         let as_client_id = AsClientId::random(user_name.clone())?;
 
         let api_client = api_clients.default_client()?;
 
-        let crypto_backend = PhnxOpenMlsProvider::new(&as_client_id)?;
         let (client_credential_csr, prelim_signing_key) =
             ClientCredentialCsr::new(as_client_id.clone(), SignatureScheme::ED25519)?;
 
@@ -228,19 +245,21 @@ impl<T: Notifiable> SelfUser<T> {
             .client_credential
             .verify(chosen_inter_credential.verifying_key())?;
 
+        // Connect to or set up database
+        // We want a different sqlite db per client.
+        let db_path = db_path(&as_client_id);
+        let sqlite_connection = Connection::open(db_path)?;
+
         let signing_key = ClientSigningKey::from_prelim_key(prelim_signing_key, credential)?;
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
-        let as_queue_ratchet: AsQueueRatchet = as_initial_ratchet_secret.clone().try_into()?;
-        let persistable_as_queue_ratchet =
-            PersistableAsQueueRatchet::from_ratchet(as_client_id.clone(), as_queue_ratchet)?;
-        persistable_as_queue_ratchet.persist()?;
-        let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
+        let queue_ratchet_store = QueueRatchetStore::from(&sqlite_connection);
+        // The queue ratchets are persisted in the store. There's nothing else
+        // we want to do with them here.
+        queue_ratchet_store.initialize_as_queue_ratchet(as_initial_ratchet_secret.clone())?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        let qs_queue_ratchet: QsQueueRatchet = qs_initial_ratchet_secret.clone().try_into()?;
-        let persistable_qs_queue_ratchet =
-            PersistableQsQueueRatchet::from_ratchet(as_client_id.clone(), qs_queue_ratchet)?;
-        persistable_qs_queue_ratchet.persist()?;
+        queue_ratchet_store.initialize_qs_queue_ratchet(qs_initial_ratchet_secret.clone())?;
+        let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::random()?;
 
@@ -252,14 +271,6 @@ impl<T: Notifiable> SelfUser<T> {
         let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
-
-        // Fetch and store the local QS verifying key
-        let qs_verifying_key = PersistableQsVerifyingKey::from_verifying_key(
-            as_client_id.clone(),
-            user_name.domain(),
-            api_client.qs_verifying_key().await?.verifying_key,
-        )?;
-        qs_verifying_key.persist()?;
 
         let qs_encryption_key = api_client.qs_encryption_key().await?.encryption_key;
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
@@ -327,35 +338,29 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await?;
 
-        // Initialize and persist sequence numbers.
-        let qs_sequence_number =
-            PersistableSequenceNumber::new(&as_client_id, QueueRatchetType::Qs)?;
-        qs_sequence_number.persist()?;
-        let as_sequence_number =
-            PersistableSequenceNumber::new(&as_client_id, QueueRatchetType::As)?;
-        as_sequence_number.persist()?;
-
-        let mut user = Self {
-            rowid: None,
-            crypto_backend,
-            api_clients,
-            user_name,
+        let user_data = UserData {
+            as_client_id,
+            qs_client_id: create_user_record_response.client_id,
             key_store,
             _qs_user_id: create_user_record_response.user_id,
-            qs_client_id: create_user_record_response.client_id,
-            notification_hub_option: Some(notification_hub),
-        };
+            server_url: domain_or_address,
+        }
+        .persist(&sqlite_connection)?;
+
+        let user = Self::from_user_data(sqlite_connection, user_data, Some(notification_hub))?;
 
         let mut qs_add_packages = vec![];
+        let leaf_key_store = user.leaf_key_store();
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
-            let add_package = user.generate_add_package(&encrypted_client_credential, false)?;
+            let add_package =
+                user.generate_add_package(&leaf_key_store, &encrypted_client_credential, false)?;
             qs_add_packages.push(add_package);
         }
         let last_resort_add_package =
-            user.generate_add_package(&encrypted_client_credential, true)?;
+            user.generate_add_package(&leaf_key_store, &encrypted_client_credential, true)?;
         qs_add_packages.push(last_resort_add_package);
 
         // Upload add packages
@@ -369,21 +374,23 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await?;
 
-        user.persist()?;
         Ok(user)
     }
 
     pub(crate) fn generate_add_package(
-        &mut self,
+        &self,
+        leaf_key_store: &LeafKeyStore<'_>,
         encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
     ) -> Result<AddPackage> {
-        let signature_ear_key = SignatureEarKey::random()?;
-        let leaf_signer =
-            InfraCredentialSigningKey::generate(&self.key_store.signing_key, &signature_ear_key);
+        let leaf_keys = leaf_key_store.generate(&self.key_store.signing_key)?;
         let credential_with_key = CredentialWithKey {
-            credential: leaf_signer.credential().clone().into(),
-            signature_key: leaf_signer.credential().verifying_key().clone(),
+            credential: leaf_keys.leaf_signing_key().credential().clone().into(),
+            signature_key: leaf_keys
+                .leaf_signing_key()
+                .credential()
+                .verifying_key()
+                .clone(),
         };
         let capabilities = Capabilities::new(
             Some(&SUPPORTED_PROTOCOL_VERSIONS),
@@ -413,14 +420,13 @@ impl<T: Notifiable> SelfUser<T> {
                     ciphersuite: CIPHERSUITE,
                     version: ProtocolVersion::Mls10,
                 },
-                &self.crypto_backend,
-                &leaf_signer,
+                self.crypto_backend(),
+                leaf_keys.leaf_signing_key(),
                 credential_with_key,
             )?;
-        let esek = signature_ear_key.encrypt(&self.key_store.signature_ear_key_wrapper_key)?;
-        let leaf_keys =
-            PersistableLeafKeys::from_keys(self.as_client_id(), leaf_signer, signature_ear_key)?;
-        leaf_keys.persist()?;
+        let esek = leaf_keys
+            .signature_ear_key()
+            .encrypt(&self.key_store.signature_ear_key_wrapper_key)?;
 
         let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
         Ok(add_package)
@@ -434,8 +440,9 @@ impl<T: Notifiable> SelfUser<T> {
             .ds_request_group_id()
             .await?;
         let client_reference = self.create_own_client_reference();
-        let (group, partial_params) = Group::create_group(
-            &self.crypto_backend,
+        let group_store = self.group_store();
+        let (group, partial_params) = group_store.create_group(
+            self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
         )?;
@@ -464,9 +471,9 @@ impl<T: Notifiable> SelfUser<T> {
         let attributes = ConversationAttributes {
             title: title.to_string(),
         };
-        let conversation =
-            Conversation::create_group_conversation(&self.as_client_id(), group_id, attributes)?;
-        self.dispatch_conversation_notification(conversation.id());
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store.create_group_conversation(group_id, attributes)?;
+        self.dispatch_conversation_notification(conversation.id())?;
         Ok(conversation.id())
     }
 
@@ -476,34 +483,41 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         invited_users: &[UserName],
     ) -> Result<()> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let group_id = conversation.group_id.clone();
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
         for invited_user in invited_users {
             let user_name = invited_user.to_string().into();
-            let mut contact = Contact::load(&self.as_client_id(), &user_name)?;
+            let mut contact = self
+                .contact_store()
+                .get(&user_name)?
+                .ok_or(anyhow!("Can't find contact with user name {}", user_name))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
-            let add_info = if let Some(add_info) = contact.add_infos() {
-                add_info
-            } else {
-                self.get_key_packages(&user_name).await?;
-                let mut contact = Contact::load(&self.as_client_id(), &user_name)?;
-                contact.add_infos().ok_or(anyhow!(
-                    "No add infos available for the user with the name {}",
-                    user_name
-                ))?
-            };
+            let add_info = self
+                .contact_store()
+                .add_infos(self.crypto_backend().crypto(), &mut contact)
+                .await?;
             contact_add_infos.push(add_info);
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
-        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
+
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id)?
+            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
         let params = group.invite(
-            &self.crypto_backend,
+            self.crypto_backend(),
             &self.key_store.signing_key,
             contact_add_infos,
             contact_wai_keys,
@@ -522,7 +536,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
         // Send off the notifications
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
@@ -533,15 +547,24 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         target_users: &[UserName],
     ) -> Result<()> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let group_id = &conversation.group_id;
-        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id();
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(group_id)?
+            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let mut clients = vec![];
         for user_name in target_users {
             let mut user_clients = group.user_client_ids(user_name);
             clients.append(&mut user_clients);
         }
-        let params = group.remove(&self.crypto_backend, clients)?;
+        let params = group.remove(self.crypto_backend(), clients)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
@@ -553,39 +576,40 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
         // Send off the notifications
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
     }
 
     fn dispatch_message_notifications(
-        &mut self,
+        &self,
         conversation_id: Uuid,
         group_messages: Vec<GroupMessage>,
-    ) -> Result<(), CorelibError> {
+    ) -> Result<()> {
+        let message_store = self.message_store();
         for group_message in group_messages.into_iter() {
-            let conversation_message = ConversationMessage::new(
-                self.as_client_id(),
-                conversation_id.into(),
-                group_message,
-            );
+            let conversation_message = message_store.create(&conversation_id, group_message)?;
             let dispatched_conversation_message = DispatchedConversationMessage {
                 conversation_id: UuidBytes::from_uuid(conversation_id),
                 conversation_message: conversation_message.clone(),
             };
-            conversation_message.persist()?;
-            if let Some(ref mut notification_hub) = self.notification_hub_option {
+            // TODO: Unwrapping a mutex poisoning error here for now.
+            let mut notification_hub_option = self.notification_hub_option.lock().unwrap();
+            if let Some(ref mut notification_hub) = *notification_hub_option {
                 notification_hub.dispatch_message_notification(dispatched_conversation_message);
             }
         }
         Ok(())
     }
 
-    fn dispatch_conversation_notification(&mut self, conversation_id: Uuid) {
-        if let Some(ref mut notification_hub) = self.notification_hub_option {
+    fn dispatch_conversation_notification(&self, conversation_id: Uuid) -> Result<()> {
+        // TODO: Unwrapping a mutex poisoning error here for now.
+        let mut notification_hub_option = self.notification_hub_option.lock().unwrap();
+        if let Some(ref mut notification_hub) = *notification_hub_option {
             notification_hub.dispatch_conversation_notification(conversation_id);
         }
+        Ok(())
     }
 
     /// Send a message and return it. Note that the message has already been
@@ -595,13 +619,22 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         message: MessageContentType,
     ) -> Result<ConversationMessage> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let group_id = &conversation.group_id;
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id();
         // Generate ciphertext
-        let mut group = Group::load(&self.as_client_id(), &group_id.as_group_id())?;
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id)?
+            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Generate ciphertext
         let (params, message) = group
-            .create_message(&self.crypto_backend, message.clone())
+            .create_message(self.crypto_backend(), message.clone())
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
@@ -612,11 +645,11 @@ impl<T: Notifiable> SelfUser<T> {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        let conversation_message =
-            ConversationMessage::new(self.as_client_id(), conversation.id(), message);
+        let conversation_message = self
+            .message_store()
+            .create(&conversation.id(), message)?
+            .into();
 
-        // Store message locally
-        conversation_message.persist()?;
         Ok(conversation_message)
     }
 
@@ -638,14 +671,14 @@ impl<T: Notifiable> SelfUser<T> {
         // Verify the connection key packages
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
+        let as_credential_store = self.as_credential_store();
         for connection_package in connection_packages.into_iter() {
-            let as_intermediate_credential = PersistableAsIntermediateCredential::get(
-                &self.as_client_id(),
-                &mut self.api_clients,
-                &user_domain,
-                connection_package.client_credential_signer_fingerprint(),
-            )
-            .await?;
+            let as_intermediate_credential = as_credential_store
+                .get(
+                    &user_domain,
+                    connection_package.client_credential_signer_fingerprint(),
+                )
+                .await?;
             let verifying_key = as_intermediate_credential.verifying_key();
             verified_connection_packages.push(connection_package.verify(verifying_key)?)
         }
@@ -663,8 +696,9 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         // Create the connection group
         log::info!("Creating local connection group");
-        let (connection_group, partial_params) = Group::create_group(
-            &self.crypto_backend,
+        let group_store = self.group_store();
+        let (connection_group, partial_params) = group_store.create_group(
+            self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
         )?;
@@ -724,8 +758,8 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
 
         // Create the connection conversation
-        let conversation = Conversation::create_connection_conversation(
-            &self.as_client_id(),
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store.create_connection_conversation(
             group_id,
             user_name.clone(),
             ConversationAttributes {
@@ -733,18 +767,12 @@ impl<T: Notifiable> SelfUser<T> {
             },
         )?;
 
-        let contact = PartialContact::new(
-            &self.as_client_id(),
-            user_name.clone(),
-            conversation.id(),
+        // Create and persist a new partial contact
+        let _ = self.contact_store().new_partial_contact(
+            &user_name,
+            &conversation.id(),
             friendship_package_ear_key,
         )?;
-        contact.persist()?;
-        let partial_contacts = PartialContact::load_all(&self.as_client_id())?;
-        log::info!(
-            "Just persisted partial contact. Reading back: {:?}",
-            partial_contacts
-        );
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -761,33 +789,55 @@ impl<T: Notifiable> SelfUser<T> {
                 .await?;
         }
 
-        self.dispatch_conversation_notification(conversation.id());
+        self.dispatch_conversation_notification(conversation.id())?;
 
         Ok(())
     }
 
     pub async fn update_user_key(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
-        let params = group.update_user_key(&self.crypto_backend)?;
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id;
+        // Generate ciphertext
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id.as_group_id())?
+            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
+        let params = group.update_user_key(self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
     }
 
     pub async fn delete_group(&mut self, conversation_id: Uuid) -> Result<()> {
-        let mut conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
+        let conversation_store = self.conversation_store();
+        let mut conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id;
+        // Generate ciphertext
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id.as_group_id())?
+            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
         let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         if past_members.len() != 1 {
-            let params = group.delete(&self.crypto_backend)?;
+            let params = group.delete(self.crypto_backend())?;
             let owner_domain = conversation.owner_domain();
             self.api_clients
                 .get(&owner_domain)?
@@ -797,7 +847,7 @@ impl<T: Notifiable> SelfUser<T> {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+            let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
             self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         }
         conversation.set_inactive(&past_members)?;
@@ -806,16 +856,16 @@ impl<T: Notifiable> SelfUser<T> {
 
     async fn fetch_messages_from_queue(
         &mut self,
-        queue_type: QueueRatchetType,
+        queue_type: QueueType,
     ) -> Result<Vec<QueueMessage>> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number =
-            PersistableSequenceNumber::load(&self.as_client_id(), &queue_type)?;
+        let queue_ratchet_store = self.queue_ratchet_store();
+        let mut sequence_number = queue_ratchet_store.get_sequence_number(queue_type)?;
         while remaining_messages > 0 {
             let api_client = self.api_clients.default_client()?;
-            let mut response = match queue_type {
-                QueueRatchetType::As => {
+            let mut response = match &queue_type {
+                QueueType::As => {
                     api_client
                         .as_dequeue_messages(
                             *sequence_number,
@@ -824,7 +874,7 @@ impl<T: Notifiable> SelfUser<T> {
                         )
                         .await?
                 }
-                QueueRatchetType::Qs => {
+                QueueType::Qs => {
                     api_client
                         .qs_dequeue_messages(
                             &self.qs_client_id,
@@ -837,7 +887,7 @@ impl<T: Notifiable> SelfUser<T> {
             };
 
             if let Some(message) = messages.last() {
-                sequence_number.set_and_persist(message.sequence_number)?;
+                sequence_number.set(message.sequence_number)?;
             }
 
             remaining_messages = response.remaining_messages_number;
@@ -847,17 +897,27 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub async fn as_fetch_messages(&mut self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueRatchetType::As).await
+        self.fetch_messages_from_queue(QueueType::As).await
     }
 
     pub async fn qs_fetch_messages(&mut self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueRatchetType::Qs).await
+        self.fetch_messages_from_queue(QueueType::Qs).await
     }
 
     pub async fn leave_group(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
-        let params = group.leave_group(&self.crypto_backend)?;
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id;
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id.as_group_id())?
+            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
+        let params = group.leave_group(self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
@@ -871,25 +931,45 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     pub async fn update(&mut self, conversation_id: Uuid) -> Result<()> {
-        let conversation = Conversation::load(&self.as_client_id(), &conversation_id.into())?;
-        let mut group = Group::load(&self.as_client_id(), &conversation.group_id.as_group_id())?;
-        let params = group.update(&self.crypto_backend)?;
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id
+            ))?;
+        let group_id = &conversation.group_id;
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id.as_group_id())?
+            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
+        let params = group.update(self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
     }
 
-    pub fn contacts(&self) -> Result<Vec<Contact>> {
-        Ok(Contact::load_all(&self.as_client_id())?)
+    pub fn contacts(&self) -> Result<Vec<Contact>, PersistenceError> {
+        let contact_store = self.contact_store();
+        contact_store.get_all_contacts().map(|cs| {
+            cs.into_iter()
+                .map(|c| c.convert_for_export())
+                .collect::<Vec<_>>()
+        })
     }
 
-    pub fn partial_contacts(&self) -> Result<Vec<PartialContact>> {
-        Ok(PartialContact::load_all(&self.as_client_id())?)
+    pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
+        let contact_store = self.contact_store();
+        contact_store.get_all_partial_contacts().map(|cs| {
+            cs.into_iter()
+                .map(|c| c.convert_for_export())
+                .collect::<Vec<_>>()
+        })
     }
 
     fn create_own_client_reference(&self) -> QsClientReference {
@@ -904,40 +984,46 @@ impl<T: Notifiable> SelfUser<T> {
         }
     }
 
-    pub fn user_name(&self) -> &UserName {
-        &self.user_name
-    }
-
-    fn group(&self, conversation_id: Uuid) -> Option<Group> {
-        self.conversation(conversation_id).and_then(|conversation| {
-            Group::load(&self.as_client_id(), &conversation.group_id.as_group_id()).ok()
-        })
+    pub fn user_name(&self) -> UserName {
+        self.key_store
+            .signing_key
+            .credential()
+            .identity()
+            .user_name()
     }
 
     /// Returns None if there is no conversation with the given id.
     pub fn group_members(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
-        self.group(conversation_id).map(|group| {
-            group
-                .members()
-                .iter()
-                .map(|member| member.clone())
-                .collect()
-        })
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)
+            .ok()??;
+
+        let group_store = self.group_store();
+        group_store
+            .get(&conversation.group_id())
+            .ok()?
+            .map(|g| g.members().iter().map(|member| member.clone()).collect())
     }
 
     pub fn pending_removes(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
-        self.group(conversation_id)
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)
+            .ok()??;
+
+        let group_store = self.group_store();
+        group_store
+            .get(&conversation.group_id())
+            .ok()?
             .map(|group| group.pending_removes())
     }
 
-    pub fn conversations(&self) -> Result<Vec<Conversation>> {
-        let mut conversations = Conversation::load_all(&self.as_client_id())?;
-        conversations.sort_by(|a, b| a.last_used.cmp(&b.last_used));
-        Ok(conversations)
-    }
-
-    fn as_client_id(&self) -> AsClientId {
-        self.key_store.signing_key.credential().identity()
+    pub fn conversations(&self) -> Result<Vec<Conversation>, PersistenceError> {
+        let conversation_store = self.conversation_store();
+        conversation_store
+            .get_all()
+            .map(|cs| cs.into_iter().map(|c| c.convert_for_export()).collect())
     }
 
     pub async fn websocket(&mut self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
@@ -947,190 +1033,47 @@ impl<T: Notifiable> SelfUser<T> {
             .await?)
     }
 
-    pub(crate) async fn get_key_packages(&mut self, contact_name: &UserName) -> Result<()> {
-        let qs_verifying_key = PersistableQsVerifyingKey::get(
-            &self.as_client_id(),
-            &mut self.api_clients,
-            &contact_name.domain(),
+    fn api_clients(&self) -> ApiClients {
+        self.api_clients.clone()
+    }
+
+    fn conversation_store(&self) -> ConversationStore<'_> {
+        (&self.sqlite_connection).into()
+    }
+
+    fn qs_verifying_key_store(&self) -> QsVerifyingKeyStore<'_> {
+        QsVerifyingKeyStore::new(&self.sqlite_connection, self.api_clients())
+    }
+
+    fn as_credential_store(&self) -> AsCredentialStore<'_> {
+        AsCredentialStore::new(&self.sqlite_connection, self.api_clients())
+    }
+
+    fn contact_store(&self) -> ContactStore<'_> {
+        ContactStore::new(
+            &self.sqlite_connection,
+            self.qs_verifying_key_store(),
+            self.api_clients(),
         )
-        .await?;
-        let mut contact = Contact::load(&self.as_client_id(), contact_name)?;
-        let mut add_infos = Vec::new();
-        for _ in 0..5 {
-            let response = self
-                .api_clients
-                .get(&contact_name.domain())?
-                .qs_key_package_batch(
-                    contact.friendship_token.clone(),
-                    contact.add_package_ear_key.clone(),
-                )
-                .await?;
-            let key_packages: Vec<(KeyPackage, SignatureEarKey)> = response
-                .add_packages
-                .into_iter()
-                .map(|add_package| {
-                    let validated_add_package = add_package
-                        .validate(self.crypto_backend.crypto(), ProtocolVersion::default())?;
-                    let key_package = validated_add_package.key_package().clone();
-                    let sek = SignatureEarKey::decrypt(
-                        &contact.signature_ear_key_wrapper_key,
-                        validated_add_package.encrypted_signature_ear_key(),
-                    )?;
-                    Ok((key_package, sek))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let add_info = ContactAddInfos {
-                key_packages,
-                key_package_batch: response.key_package_batch.verify(&qs_verifying_key)?,
-            };
-            add_infos.push(add_info);
-        }
-        contact.add_infos.append(&mut add_infos);
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PersistableSequenceNumber {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    queue_ratchet_type: QueueRatchetType,
-    sequence_number: u64,
-}
-
-impl PersistableSequenceNumber {
-    pub(crate) fn new(
-        own_client_id: &AsClientId,
-        queue_ratchet_type: QueueRatchetType,
-    ) -> Result<Self> {
-        Ok(Self {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            queue_ratchet_type,
-            sequence_number: 0,
-        })
     }
 
-    pub(crate) fn set_and_persist(&mut self, new_sequence_number: u64) -> Result<()> {
-        self.sequence_number = new_sequence_number;
-        Ok(self.persist()?)
-    }
-}
-
-impl Deref for PersistableSequenceNumber {
-    type Target = u64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.sequence_number
-    }
-}
-
-impl Persistable for PersistableSequenceNumber {
-    type Key = QueueRatchetType;
-
-    type SecondaryKey = QueueRatchetType;
-
-    const DATA_TYPE: DataType = DataType::SequenceNumber;
-
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
+    fn group_store(&self) -> GroupStore<'_> {
+        (&self.sqlite_connection).into()
     }
 
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
+    fn message_store(&self) -> ConversationMessageStore<'_> {
+        (&self.sqlite_connection).into()
     }
 
-    fn key(&self) -> &Self::Key {
-        &self.queue_ratchet_type
+    fn queue_ratchet_store(&self) -> QueueRatchetStore<'_> {
+        (&self.sqlite_connection).into()
     }
 
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.queue_ratchet_type
+    fn leaf_key_store(&self) -> LeafKeyStore<'_> {
+        (&self.sqlite_connection).into()
     }
 
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct PersistableSelfUser {
-    rowid: Option<i64>,
-    own_client_id: Vec<u8>,
-    pub(crate) crypto_backend: Vec<u8>,
-    api_clients: Vec<u8>,
-    pub(crate) user_name: UserName,
-    pub(crate) _qs_user_id: QsUserId,
-    pub(crate) qs_client_id: QsClientId,
-    pub(crate) key_store: Vec<u8>,
-}
-
-impl<T: Notifiable> SelfUser<T> {
-    pub(crate) fn persist(&self) -> Result<()> {
-        let persistable = PersistableSelfUser {
-            rowid: self.rowid,
-            own_client_id: self.as_client_id().tls_serialize_detached()?,
-            crypto_backend: serde_json::to_vec(&self.crypto_backend)?,
-            api_clients: serde_json::to_vec(&self.api_clients)?,
-            user_name: self.user_name.clone(),
-            _qs_user_id: self._qs_user_id.clone(),
-            qs_client_id: self.qs_client_id.clone(),
-            key_store: serde_json::to_vec(&self.key_store)?,
-        };
-        persistable.persist()?;
-        Ok(())
-    }
-
-    pub fn load(own_client_id: &AsClientId, notification_hub: NotificationHub<T>) -> Result<Self> {
-        let persistable = PersistableSelfUser::load(own_client_id, &own_client_id.user_name())?;
-        let crypto_backend: PhnxOpenMlsProvider =
-            serde_json::from_slice(&persistable.crypto_backend)?;
-        let api_clients: ApiClients = serde_json::from_slice(&persistable.api_clients)?;
-        let key_store: MemoryUserKeyStore = serde_json::from_slice(&persistable.key_store)?;
-        Ok(SelfUser {
-            rowid: persistable.rowid,
-            crypto_backend,
-            api_clients,
-            user_name: persistable.user_name,
-            _qs_user_id: persistable._qs_user_id,
-            qs_client_id: persistable.qs_client_id,
-            key_store,
-            notification_hub_option: Some(notification_hub),
-        })
-    }
-
-    pub fn purge(&self) -> Result<()> {
-        if let Some(rowid) = self.rowid {
-            PersistableSelfUser::purge_row_id(rowid)?;
-        }
-        Ok(())
-    }
-}
-
-impl Persistable for PersistableSelfUser {
-    type Key = UserName;
-
-    type SecondaryKey = UserName;
-
-    const DATA_TYPE: DataType = DataType::SelfUser;
-
-    fn own_client_id_bytes(&self) -> Vec<u8> {
-        self.own_client_id.clone()
-    }
-
-    fn rowid(&self) -> Option<i64> {
-        self.rowid
-    }
-
-    fn set_rowid(&mut self, rowid: i64) {
-        self.rowid = Some(rowid);
-    }
-
-    fn key(&self) -> &Self::Key {
-        &self.user_name
-    }
-
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.user_name
+    fn crypto_backend(&self) -> &PhnxOpenMlsProvider {
+        &self.crypto_backend
     }
 }

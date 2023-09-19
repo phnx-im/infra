@@ -2,27 +2,27 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
 use openmls::prelude::GroupId;
-use phnxbackend::{
-    auth_service::{AsClientId, UserName},
-    ds::api::QualifiedGroupId,
-    qs::Fqdn,
-};
+use phnxbackend::{auth_service::UserName, ds::api::QualifiedGroupId};
 use serde::{Deserialize, Serialize};
-use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserialize, TlsSerialize, TlsSize,
-};
+use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
-use crate::{
-    groups::GroupMessage,
-    utils::{persistence::Persistable, Timestamp},
-};
+use crate::groups::GroupMessage;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GroupIdBytes {
     pub bytes: Vec<u8>,
+}
+
+impl std::fmt::Display for GroupIdBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let group_id = self.as_group_id();
+        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
+            .map_err(|_| std::fmt::Error)?;
+
+        write!(f, "{}", qgid)
+    }
 }
 
 impl From<GroupId> for GroupIdBytes {
@@ -49,6 +49,13 @@ impl From<Uuid> for UuidBytes {
         Self {
             bytes: *uuid.as_bytes(),
         }
+    }
+}
+
+impl std::fmt::Display for UuidBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let uuid = self.as_uuid();
+        write!(f, "{}", uuid)
     }
 }
 
@@ -83,8 +90,6 @@ impl UuidBytes {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
-    pub rowid: Option<i64>,
-    pub own_client_id: Vec<u8>,
     pub conversation_id: UuidBytes,
     pub id: UuidBytes,
     pub timestamp: u64,
@@ -92,15 +97,9 @@ pub struct ConversationMessage {
 }
 
 impl ConversationMessage {
-    pub(crate) fn new(
-        own_client_id: AsClientId,
-        conversation_id: Uuid,
-        group_message: GroupMessage,
-    ) -> ConversationMessage {
+    pub(crate) fn new(conversation_id: Uuid, group_message: GroupMessage) -> ConversationMessage {
         let (id, timestamp, message) = group_message.into_parts();
         ConversationMessage {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached().unwrap(),
             conversation_id: UuidBytes::from_uuid(conversation_id),
             id: id.into(),
             timestamp,
@@ -165,8 +164,6 @@ pub struct ErrorMessage {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Conversation {
-    pub rowid: Option<i64>,
-    pub own_client_id: Vec<u8>,
     pub id: UuidBytes,
     // Id of the (active) MLS group representing this conversation.
     pub group_id: GroupIdBytes,
@@ -174,76 +171,6 @@ pub struct Conversation {
     pub conversation_type: ConversationType,
     pub last_used: u64,
     pub attributes: ConversationAttributes,
-}
-
-impl Conversation {
-    pub(crate) fn create_connection_conversation(
-        own_client_id: &AsClientId,
-        group_id: GroupId,
-        user_name: UserName,
-        attributes: ConversationAttributes,
-    ) -> Result<Self> {
-        // To keep things simple and to make sure that conversation ids are the
-        // same across users, we derive the conversation id from the group id.
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation = Conversation {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            id: uuid_bytes.clone(),
-            group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name.to_string()),
-            last_used: Timestamp::now().as_u64(),
-            attributes,
-        };
-        conversation.persist()?;
-        Ok(conversation)
-    }
-
-    pub(crate) fn create_group_conversation(
-        own_client_id: &AsClientId,
-        group_id: GroupId,
-        attributes: ConversationAttributes,
-    ) -> Result<Self> {
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation = Conversation {
-            rowid: None,
-            own_client_id: own_client_id.tls_serialize_detached()?,
-            id: uuid_bytes.clone(),
-            group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Group,
-            last_used: Timestamp::now().as_u64(),
-            attributes,
-        };
-        conversation.persist()?;
-        Ok(conversation)
-    }
-
-    pub(crate) fn owner_domain(&self) -> Fqdn {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.bytes).unwrap();
-        qgid.owning_domain
-    }
-
-    pub(crate) fn confirm(&mut self) -> Result<()> {
-        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
-            self.conversation_type = ConversationType::Connection(user_name);
-        }
-        self.persist()?;
-        Ok(())
-    }
-
-    pub(crate) fn set_inactive(&mut self, past_members: &[String]) -> Result<()> {
-        self.status = ConversationStatus::Inactive(InactiveConversation {
-            past_members: past_members.iter().map(|m| m.to_owned()).collect(),
-        });
-        self.persist()?;
-        Ok(())
-    }
-
-    pub(crate) fn id(&self) -> Uuid {
-        self.id.as_uuid()
-    }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::utils::persistence::PersistenceError;
+
 use super::*;
 
 use openmls_memory_keystore::MemoryKeyStoreError;
@@ -32,5 +34,7 @@ pub enum GroupOperationError {
     #[error(transparent)]
     TlsCodecError(#[from] tls_codec::Error),
     #[error(transparent)]
-    GroupStoreError(#[from] turbosql::Error),
+    GroupStoreError(#[from] PersistenceError),
+    #[error("Invalid group state: Can't find own client information")]
+    InvalidGroupState,
 }

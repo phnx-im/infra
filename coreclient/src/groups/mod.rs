@@ -56,15 +56,14 @@ use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use uuid::Uuid;
 
 use crate::{
-    contacts::{Contact, ContactAddInfos},
+    contacts::{store::ContactStore, ContactAddInfos},
     types::MessageContentType,
     types::*,
     users::{
-        key_store::{PersistableAsIntermediateCredential, PersistableLeafKeys},
+        as_credential_store::AsCredentialStore, key_store::LeafKeyStore,
         openmls_provider::PhnxOpenMlsProvider,
-        ApiClients,
     },
-    utils::{persistence::Persistable, Timestamp},
+    utils::Timestamp,
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -102,10 +101,7 @@ pub(crate) struct PartialCreateGroupParams {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Group {
-    #[serde(skip)]
-    rowid: Option<i64>,
-    own_client_id: AsClientId,
-    group_id: GroupId,
+    group_id_bytes: GroupIdBytes,
     leaf_signer: InfraCredentialSigningKey,
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
@@ -147,7 +143,7 @@ impl Group {
     }
 
     /// Create a group.
-    pub fn create_group(
+    fn create_group(
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
@@ -187,8 +183,7 @@ impl Group {
         };
 
         let group = Self {
-            rowid: None,
-            group_id,
+            group_id_bytes: group_id.into(),
             leaf_signer,
             signature_ear_key_wrapper_key,
             mls_group,
@@ -197,24 +192,21 @@ impl Group {
             user_auth_signing_key_option: Some(user_auth_key),
             client_information: [(0, (signer.credential().clone(), signature_ear_key))].into(),
             pending_diff: None,
-            own_client_id: signer.credential().identity(),
         };
-
-        // Persist the new group
-        group.persist()?;
 
         Ok((group, params))
     }
 
     /// Join a group with the provided welcome message. Returns the group name.
-    pub(crate) async fn join_group(
+    async fn join_group(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        api_clients: &mut ApiClients,
-        own_client_id: &AsClientId,
+        leaf_key_store: LeafKeyStore<'_>,
+        as_credential_store: AsCredentialStore<'_>,
+        contact_store: ContactStore<'_>,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
@@ -263,22 +255,19 @@ impl Group {
         let verifiable_attribution_info = welcome_attribution_info
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
-        let contact = Contact::load(
-            own_client_id,
-            &verifiable_attribution_info.sender().user_name(),
-        )?;
-        let sender_client_credential = contact
-            .client_credential(&verifiable_attribution_info.sender())
-            .ok_or(anyhow!("Sender is not a contact."))?;
+        let sender_client_id = verifiable_attribution_info.sender();
+        let sender_client_credential = contact_store
+            .get(&sender_client_id.user_name())?
+            .and_then(|c| c.client_credential(&sender_client_id).cloned())
+            .ok_or(anyhow!("Unknown sender."))?;
 
         let welcome_attribution_info: WelcomeAttributionInfoPayload =
             verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
 
         let client_information = decrypt_and_verify_client_info(
-            own_client_id,
             welcome_attribution_info.client_credential_encryption_key(),
             welcome_attribution_info.signature_ear_key_wrapper_key(),
-            api_clients,
+            &as_credential_store,
             joiner_info.encrypted_client_information,
         )
         .await?;
@@ -300,25 +289,23 @@ impl Group {
                         ))?
                         .clone();
                     let _verified_credential: InfraCredentialTbs =
-                        InfraCredentialPlaintext::decrypt(credential, &signature_ear_key)?
+                        InfraCredentialPlaintext::decrypt(&credential, &signature_ear_key)?
                             .verify(client_credential.verifying_key())?;
                 }
                 _ => bail!("We should only use infra credentials."),
             }
         }
 
-        let leaf_keys = PersistableLeafKeys::load(own_client_id, verifying_key)?;
-        log::info!("Loaded leaf keys: {:?}", leaf_keys);
+        let leaf_keys = leaf_key_store
+            .get(verifying_key)?
+            .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
         let leaf_signer = leaf_keys.leaf_signing_key().clone();
 
+        // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
+        leaf_key_store.delete(verifying_key)?;
+
         let group = Self {
-            rowid: None,
-            own_client_id: client_information
-                .get(&mls_group.own_leaf_index().usize())
-                .ok_or(anyhow!("Own credential not included in client information"))?
-                .0
-                .identity(),
-            group_id: mls_group.group_id().clone(),
+            group_id_bytes: mls_group.group_id().clone().into(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key: welcome_attribution_info
@@ -334,16 +321,11 @@ impl Group {
             pending_diff: None,
         };
 
-        // Write to DB
-        group.persist()?;
-        // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        leaf_keys.purge()?;
-
         Ok(group)
     }
 
     /// Join a group using an external commit.
-    pub(crate) async fn join_group_externally(
+    async fn join_group_externally(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
@@ -351,7 +333,7 @@ impl Group {
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        api_clients: &mut ApiClients,
+        as_credential_store: &AsCredentialStore<'_>,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
@@ -385,10 +367,9 @@ impl Group {
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
 
         let mut client_information = decrypt_and_verify_client_info(
-            &own_client_credential.identity(),
             &credential_ear_key,
             &signature_ear_key_wrapper_key,
-            api_clients,
+            as_credential_store,
             encrypted_client_info,
         )
         .await?;
@@ -397,7 +378,6 @@ impl Group {
         let own_client_credential = own_client_credential.clone();
         let own_signature_ear_key = signature_ear_key.clone();
         let own_index = mls_group.own_leaf_index().usize();
-        let own_client_id = own_client_credential.identity();
         debug_assert!(client_information.get(&own_index).is_none());
         client_information.insert(own_index, (own_client_credential, own_signature_ear_key));
 
@@ -423,9 +403,7 @@ impl Group {
         let user_auth_key = UserAuthSigningKey::generate()?;
 
         let group = Self {
-            rowid: None,
-            own_client_id,
-            group_id: mls_group.group_id().clone(),
+            group_id_bytes: mls_group.group_id().clone().into(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key,
@@ -436,20 +414,17 @@ impl Group {
             pending_diff: None,
         };
 
-        // Write to DB and read the group back.
-        group.persist()?;
-
         Ok((group, commit, group_info.into()))
     }
 
     /// Process inbound message
     ///
     /// Returns the processed message and whether the group was deleted.
-    pub(crate) async fn process_message(
+    async fn process_message(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         message: impl Into<ProtocolMessage>,
-        api_clients: &mut ApiClients,
+        as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
         let processed_message = self.mls_group.process_message(provider, message)?;
 
@@ -509,10 +484,9 @@ impl Group {
                 match aad_payload {
                     InfraAadPayload::AddUsers(add_users_payload) => {
                         let client_information = decrypt_and_verify_client_info(
-                            &self.own_client_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
-                            api_clients,
+                            as_credential_store,
                             add_users_payload
                                 .encrypted_credential_information
                                 .into_iter()
@@ -594,8 +568,7 @@ impl Group {
                                     update_client_payload.option_encrypted_client_credential
                                 {
                                     let client_credential = decrypt_and_verify_client_credential(
-                                        &self.own_client_id,
-                                        api_clients,
+                                        as_credential_store,
                                         &self.credential_ear_key,
                                         &ecc,
                                     )
@@ -648,8 +621,7 @@ impl Group {
                         // Decrypt and verify the client credential.
                         let (ecc, esek) = join_group_payload.encrypted_client_information;
                         let client_credential = decrypt_and_verify_client_credential(
-                            &self.own_client_id,
-                            api_clients,
+                            as_credential_store,
                             &self.credential_ear_key,
                             &ecc,
                         )
@@ -690,8 +662,7 @@ impl Group {
                             join_connection_group_payload.encrypted_client_information;
                         // Decrypt and verify the client credential.
                         let client_credential = decrypt_and_verify_client_credential(
-                            &self.own_client_id,
-                            api_clients,
+                            as_credential_store,
                             &self.credential_ear_key,
                             &ecc,
                         )
@@ -722,10 +693,9 @@ impl Group {
                     }
                     InfraAadPayload::AddClients(add_clients_payload) => {
                         let client_credentials = decrypt_and_verify_client_info(
-                            &self.own_client_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
-                            api_clients,
+                            as_credential_store,
                             add_clients_payload
                                 .encrypted_client_information
                                 .into_iter()
@@ -836,7 +806,6 @@ impl Group {
             ))?
             .clone();
         self.pending_diff = Some(diff);
-        self.persist()?;
 
         Ok((processed_message, we_were_removed, sender_credential))
     }
@@ -844,7 +813,7 @@ impl Group {
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    pub(crate) fn invite(
+    fn invite(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         signer: &ClientSigningKey,
@@ -915,7 +884,7 @@ impl Group {
 
                 let wai = WelcomeAttributionInfoTbs {
                     payload: wai_payload,
-                    group_id: self.group_id.clone(),
+                    group_id: self.group_id().clone(),
                     welcome: welcome.tls_serialize_detached()?,
                 }
                 .sign(signer)?;
@@ -939,8 +908,6 @@ impl Group {
 
         self.pending_diff = Some(diff);
 
-        self.persist()?;
-
         let params = AddUsersParamsOut {
             commit,
             sender: user_auth_key.verifying_key().hash(),
@@ -951,7 +918,7 @@ impl Group {
         Ok(params)
     }
 
-    pub(crate) fn remove(
+    fn remove(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         members: Vec<AsClientId>,
@@ -998,7 +965,6 @@ impl Group {
             diff.remove_client_credential(index);
         }
         self.pending_diff = Some(diff);
-        self.persist()?;
 
         let params = RemoveUsersParamsOut {
             commit,
@@ -1007,7 +973,7 @@ impl Group {
         Ok(params)
     }
 
-    pub(crate) fn delete(
+    fn delete(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
     ) -> Result<DeleteGroupParamsOut> {
@@ -1054,7 +1020,6 @@ impl Group {
             diff.remove_client_credential(index);
         }
         self.pending_diff = Some(diff);
-        self.persist()?;
 
         let params = DeleteGroupParamsOut {
             commit,
@@ -1066,7 +1031,7 @@ impl Group {
     /// If a [`StagedCommit`] is given, merge it and apply the pending group
     /// diff. If no [`StagedCommit`] is given, merge any pending commit and
     /// apply the pending group diff.
-    pub(crate) fn merge_pending_commit(
+    fn merge_pending_commit(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
@@ -1176,7 +1141,6 @@ impl Group {
             self.mls_group.merge_pending_commit(provider)?;
             staged_commit_messages
         };
-        self.persist()?;
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
         {
@@ -1204,7 +1168,6 @@ impl Group {
             &self.leaf_signer,
             &msg.tls_serialize_detached()?,
         )?;
-        self.persist()?;
 
         let message = AssistedMessageOut {
             mls_message,
@@ -1216,13 +1179,21 @@ impl Group {
             message,
         };
 
-        let group_message = GroupMessage::content_message(&self.own_client_id.user_name(), msg);
+        let own_user_name = self
+            .client_information
+            .get(&self.mls_group().own_leaf_index().usize())
+            .ok_or(GroupOperationError::InvalidGroupState)?
+            .0
+            .identity()
+            .user_name();
+
+        let group_message = GroupMessage::content_message(&own_user_name, msg);
         Ok((send_message_params, group_message))
     }
 
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> &GroupId {
-        &self.group_id
+        &self.mls_group().group_id()
     }
 
     pub(crate) fn user_auth_key(&self) -> Option<&UserAuthSigningKey> {
@@ -1279,10 +1250,7 @@ impl Group {
             .collect()
     }
 
-    pub(crate) fn update(
-        &mut self,
-        provider: &impl OpenMlsProvider,
-    ) -> Result<UpdateClientParamsOut> {
+    fn update(&mut self, provider: &impl OpenMlsProvider) -> Result<UpdateClientParamsOut> {
         // We don't expect there to be a welcome.
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
@@ -1305,7 +1273,6 @@ impl Group {
                 .ok_or(anyhow!("No pending commit after commit operation"))?,
         );
         self.pending_diff = Some(diff);
-        self.persist()?;
         let commit = AssistedMessageOut {
             mls_message,
             group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
@@ -1318,7 +1285,7 @@ impl Group {
     }
 
     /// Update or set the user's auth key in this group.
-    pub(crate) fn update_user_key(
+    fn update_user_key(
         &mut self,
         provider: &impl OpenMlsProvider,
     ) -> Result<UpdateClientParamsOut> {
@@ -1343,9 +1310,10 @@ impl Group {
         );
         let user_auth_signing_key = UserAuthSigningKey::generate()?;
         let verifying_key = user_auth_signing_key.verifying_key().clone();
+
         diff.user_auth_key = Some(user_auth_signing_key);
         self.pending_diff = Some(diff);
-        self.persist()?;
+
         let params = UpdateClientParamsOut {
             commit: AssistedMessageOut {
                 mls_message: commit,
@@ -1357,7 +1325,7 @@ impl Group {
         Ok(params)
     }
 
-    pub(crate) fn leave_group(
+    fn leave_group(
         &mut self,
         provider: &impl OpenMlsProvider,
     ) -> Result<SelfRemoveClientParamsOut> {
@@ -1365,7 +1333,7 @@ impl Group {
             bail!("User auth key not set")
         };
         let proposal = self.mls_group.leave_group(provider, &self.leaf_signer)?;
-        self.persist()?;
+
         let assisted_message = AssistedMessageOut {
             mls_message: proposal,
             group_info_option: None,
@@ -1381,9 +1349,8 @@ impl Group {
         &self.leaf_signer
     }
 
-    pub(crate) fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
+    fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
         self.mls_group.store_pending_proposal(proposal);
-        self.persist()?;
         Ok(())
     }
 
@@ -1508,27 +1475,22 @@ fn get_user_name(
 
 /// Helper function to decrypt and verify an encrypted client credential
 async fn decrypt_and_verify_client_credential(
-    own_client_id: &AsClientId,
-    api_clients: &mut ApiClients,
+    as_credential_store: &AsCredentialStore<'_>,
     ear_key: &ClientCredentialEarKey,
     ciphertext: &EncryptedClientCredential,
 ) -> Result<ClientCredential> {
     let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)?;
 
-    let client_credential = PersistableAsIntermediateCredential::verify_client_credential(
-        own_client_id,
-        api_clients,
-        verifiable_credential,
-    )
-    .await?;
+    let client_credential = as_credential_store
+        .verify_client_credential(verifiable_credential)
+        .await?;
     Ok(client_credential)
 }
 
 async fn decrypt_and_verify_client_info(
-    own_client_id: &AsClientId,
     ear_key: &ClientCredentialEarKey,
     wrapper_key: &SignatureEarKeyWrapperKey,
-    api_clients: &mut ApiClients,
+    as_credential_store: &AsCredentialStore<'_>,
     encrypted_client_information: impl IntoIterator<
         Item = Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
     >,
@@ -1537,8 +1499,7 @@ async fn decrypt_and_verify_client_info(
     for (index, client_info) in encrypted_client_information.into_iter().enumerate() {
         if let Some((ecc, esek)) = client_info {
             let credential =
-                decrypt_and_verify_client_credential(own_client_id, api_clients, ear_key, &ecc)
-                    .await?;
+                decrypt_and_verify_client_credential(as_credential_store, ear_key, &ecc).await?;
             let sek = SignatureEarKey::decrypt(wrapper_key, &esek)?;
             client_information.insert(index, (credential, sek));
         }

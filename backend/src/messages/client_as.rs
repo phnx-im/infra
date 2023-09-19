@@ -38,7 +38,7 @@ use super::{
         ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
         VerifiableConnectionPackage,
     },
-    EncryptedAsQueueMessage, FriendshipToken, MlsInfraVersion, QueueMessage,
+    EncryptedAsQueueMessage, FriendshipToken, MlsInfraVersion,
 };
 
 mod private_mod {

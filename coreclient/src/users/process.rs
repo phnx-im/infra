@@ -19,7 +19,6 @@ use phnxbackend::{
 };
 use tls_codec::DeserializeBytes;
 
-use super::key_store::{PersistableAsQueueRatchet, QueueRatchetType};
 use super::*;
 
 impl<T: Notifiable> SelfUser<T> {
@@ -33,8 +32,8 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let mut qs_queue_ratchet =
-                    PersistableQsQueueRatchet::load(&self.as_client_id(), &QueueRatchetType::Qs)?;
+                let queue_ratchet_store = self.queue_ratchet_store();
+                let mut qs_queue_ratchet = queue_ratchet_store.get_qs_queue_ratchet()?;
                 let payload = qs_queue_ratchet.decrypt(message_ciphertext)?;
                 Ok(payload.extract()?)
             })
@@ -49,31 +48,27 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let group = Group::join_group(
-                        &self.crypto_backend,
-                        welcome_bundle,
-                        &self.key_store.wai_ear_key,
-                        // TODO: For now, I'm passing the ApiClients in here
-                        // s.t. the group can fetch AS Credentials if it needs
-                        // to. In the future, it would be great if we could have
-                        // multiple references to the API clients flying around,
-                        // for example one in the ASCredentials store itself.
-                        &mut self.api_clients,
-                        &self.key_store.signing_key.credential().identity(),
-                    )
-                    .await?;
+                    let group_store = self.group_store();
+                    let group = group_store
+                        .join_group(
+                            self.crypto_backend(),
+                            welcome_bundle,
+                            &self.key_store.wai_ear_key,
+                            self.leaf_key_store(),
+                            self.as_credential_store(),
+                            self.contact_store(),
+                        )
+                        .await?;
                     let group_id = group.group_id();
                     freshly_joined_groups.push(group_id.clone());
 
                     let attributes = ConversationAttributes {
                         title: "New conversation".to_string(),
                     };
-                    let conversation = Conversation::create_group_conversation(
-                        &self.as_client_id(),
-                        group_id.clone(),
-                        attributes,
-                    )?;
-                    self.dispatch_conversation_notification(conversation.id());
+                    let conversation_store = self.conversation_store();
+                    let conversation = conversation_store
+                        .create_group_conversation(group_id.clone(), attributes)?;
+                    self.dispatch_conversation_notification(conversation.id())?;
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -87,18 +82,22 @@ impl<T: Notifiable> SelfUser<T> {
                         MlsMessageInBody::GroupInfo(_) | MlsMessageInBody::KeyPackage(_) => bail!("Unexpected message type"),
                     };
                     let group_id = protocol_message.group_id();
-                    let group_id_bytes: GroupIdBytes = group_id.clone().into();
-                    let conversation_id =
-                        Conversation::load_secondary(&self.as_client_id(), &group_id_bytes)?
-                            .id
-                            .as_uuid();
+                    let conversation_store = self.conversation_store();
+                    let conversation = conversation_store
+                        .get_by_group_id(group_id)?
+                        .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
+                    let conversation_id = conversation.id();
 
-                    let mut group = Group::load(&self.as_client_id(), protocol_message.group_id())?;
+                    let group_store = self.group_store();
+                    let mut group = group_store
+                        .get(group_id)?
+                        .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
+                    let as_credential_store = self.as_credential_store();
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
-                            &self.crypto_backend,
+                            self.crypto_backend(),
                             protocol_message,
-                            &mut self.api_clients,
+                            &as_credential_store,
                         )
                         .await?;
 
@@ -121,8 +120,13 @@ impl<T: Notifiable> SelfUser<T> {
                         ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                             // If a client joined externally, we check if the
                             // group belongs to an unconfirmed conversation.
-                            let mut conversation =
-                                Conversation::load(&self.as_client_id(), &conversation_id.into())?;
+                            let conversation_store = self.conversation_store();
+                            let mut conversation = conversation_store
+                                .get_by_conversation_id(&conversation_id)?
+                                .ok_or(anyhow!(
+                                    "No conversation found for conversation ID {}",
+                                    conversation_id
+                                ))?;
                             if let ConversationType::UnconfirmedConnection(ref user_name) =
                                 conversation.conversation_type
                             {
@@ -135,8 +139,13 @@ impl<T: Notifiable> SelfUser<T> {
                                 }
                                 // Load up the partial contact and decrypt the
                                 // friendship package
-                                let partial_contact =
-                                    PartialContact::load(&self.as_client_id(), &user_name)?;
+                                let contact_store = self.contact_store();
+                                let partial_contact = contact_store
+                                    .get_partial_contact(&user_name)?
+                                    .ok_or(anyhow!(
+                                        "No partial contact found for user name {}",
+                                        user_name
+                                    ))?;
 
                                 // This is a bit annoying, since we already
                                 // de-serialized this in the group processing
@@ -172,7 +181,7 @@ impl<T: Notifiable> SelfUser<T> {
                                             .into_iter()
                                             .map(|add_package| {
                                                 let verified_add_package = add_package.validate(
-                                                    self.crypto_backend.crypto(),
+                                                    self.crypto_backend().crypto(),
                                                     ProtocolVersion::default(),
                                                 )?;
                                                 let key_package =
@@ -186,15 +195,12 @@ impl<T: Notifiable> SelfUser<T> {
                                                 Ok((key_package, sek))
                                             })
                                             .collect::<Result<Vec<_>>>()?;
-                                    let qs_verifying_key = PersistableQsVerifyingKey::get(
-                                        &self.as_client_id(),
-                                        &mut self.api_clients,
-                                        &user_name.domain(),
-                                    )
-                                    .await?;
+                                    let qs_verifying_key_store = self.qs_verifying_key_store();
+                                    let qs_verifying_key =
+                                        qs_verifying_key_store.get(&user_name.domain()).await?;
                                     let key_package_batch = key_package_batch_response
                                         .key_package_batch
-                                        .verify(&qs_verifying_key)?;
+                                        .verify(qs_verifying_key.deref())?;
                                     let add_info = ContactAddInfos {
                                         key_package_batch,
                                         key_packages,
@@ -203,7 +209,6 @@ impl<T: Notifiable> SelfUser<T> {
                                 }
                                 // Now we can turn the partial contact into a full one.
                                 partial_contact.into_contact_and_persist(
-                                    &self.as_client_id(),
                                     friendship_package,
                                     add_infos,
                                     sender_credential.clone(),
@@ -211,7 +216,7 @@ impl<T: Notifiable> SelfUser<T> {
                                 // Finally, we can turn the conversation type to a full connection group
                                 conversation.confirm()?;
                                 // And notify the application
-                                self.dispatch_conversation_notification(conversation_id);
+                                self.dispatch_conversation_notification(conversation_id)?;
                             }
                             // If we were removed, we set the group to inactive.
                             if we_were_removed {
@@ -222,7 +227,7 @@ impl<T: Notifiable> SelfUser<T> {
                                     .collect::<Vec<_>>();
                                 conversation.set_inactive(&past_members)?;
                             }
-                            group.merge_pending_commit(&self.crypto_backend, *staged_commit)?
+                            group.merge_pending_commit(self.crypto_backend(), *staged_commit)?
                         }
                         ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                             unimplemented!()
@@ -236,8 +241,11 @@ impl<T: Notifiable> SelfUser<T> {
 
         // After joining, we need to set our user auth keys.
         for group_id in freshly_joined_groups {
-            let mut group = Group::load(&self.as_client_id(), &group_id)?;
-            let params = group.update_user_key(&self.crypto_backend)?;
+            let group_store = self.group_store();
+            let mut group = group_store
+                .get(&group_id)?
+                .ok_or(anyhow!("Can't find freshly joined group."))?;
+            let params = group.update_user_key(self.crypto_backend())?;
             let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)?
@@ -245,7 +253,7 @@ impl<T: Notifiable> SelfUser<T> {
                 .await?;
             // Instead of using the conversation messages, we just
             // dispatch a conversation notification.
-            let _conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+            let _conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
         }
         Ok(())
     }
@@ -258,8 +266,8 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let mut as_queue_ratchet =
-                    PersistableAsQueueRatchet::load(&self.as_client_id(), &QueueRatchetType::As)?;
+                let queue_ratchet_store = self.queue_ratchet_store();
+                let mut as_queue_ratchet = queue_ratchet_store.get_as_queue_ratchet()?;
                 let payload = as_queue_ratchet.decrypt(message_ciphertext)?;
                 Ok(payload.extract()?)
             })
@@ -279,13 +287,13 @@ impl<T: Notifiable> SelfUser<T> {
                     // don't have them already.
                     let sender_domain = cep_in.sender_credential().domain();
 
-                    let as_intermediate_credential = PersistableAsIntermediateCredential::get(
-                        &self.as_client_id(),
-                        &mut self.api_clients,
-                        &sender_domain,
-                        cep_in.sender_credential().signer_fingerprint(),
-                    )
-                    .await?;
+                    let as_credential_store = self.as_credential_store();
+                    let as_intermediate_credential = as_credential_store
+                        .get(
+                            &sender_domain,
+                            cep_in.sender_credential().signer_fingerprint(),
+                        )
+                        .await?;
                     let cep_tbs = cep_in.verify(as_intermediate_credential.verifying_key());
                     // We create a new group and signal that fact to the user,
                     // so the user can decide if they want to accept the
@@ -334,23 +342,24 @@ impl<T: Notifiable> SelfUser<T> {
                             &cep_tbs.connection_group_ear_key,
                         )
                         .await?;
-
-                    let (group, commit, group_info) = Group::join_group_externally(
-                        &self.crypto_backend,
-                        eci,
-                        leaf_signer,
-                        signature_ear_key,
-                        cep_tbs.connection_group_ear_key.clone(),
-                        cep_tbs.connection_group_signature_ear_key_wrapper_key,
-                        cep_tbs.connection_group_credential_key,
-                        &mut self.api_clients,
-                        aad,
-                        self.key_store.signing_key.credential(),
-                    )
-                    .await?;
+                    let group_store = self.group_store();
+                    let (group, commit, group_info) = group_store
+                        .join_group_externally(
+                            self.crypto_backend(),
+                            eci,
+                            leaf_signer,
+                            signature_ear_key,
+                            cep_tbs.connection_group_ear_key.clone(),
+                            cep_tbs.connection_group_signature_ear_key_wrapper_key,
+                            cep_tbs.connection_group_credential_key,
+                            &self.as_credential_store(),
+                            aad,
+                            self.key_store.signing_key.credential(),
+                        )
+                        .await?;
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
-                    let mut conversation = Conversation::create_connection_conversation(
-                        &self.as_client_id(),
+                    let conversation_store = self.conversation_store();
+                    let mut conversation = conversation_store.create_connection_conversation(
                         group.group_id().clone(),
                         user_name.clone(),
                         ConversationAttributes {
@@ -360,22 +369,19 @@ impl<T: Notifiable> SelfUser<T> {
                     // TODO: For now, we automatically confirm conversations.
                     conversation.confirm()?;
                     conversations_with_messages.push(conversation.id());
+                    let contact_store = self.contact_store();
+                    contact_store
+                        .new_partial_contact(
+                            &user_name,
+                            &conversation.id(),
+                            cep_tbs.friendship_package_ear_key,
+                        )?
+                        .into_contact_and_persist(
+                            cep_tbs.friendship_package,
+                            vec![],
+                            cep_tbs.sender_client_credential,
+                        )?;
 
-                    PartialContact::new(
-                        &self.as_client_id(),
-                        user_name.clone(),
-                        conversation.id(),
-                        cep_tbs.friendship_package_ear_key,
-                    )?
-                    .into_contact_and_persist(
-                        &self.as_client_id(),
-                        cep_tbs.friendship_package,
-                        vec![],
-                        cep_tbs.sender_client_credential,
-                    )?;
-
-                    // Fetch a few KeyPackages for our new contact.
-                    self.get_key_packages(&user_name).await?;
                     // TODO: Send conversation message to UI.
 
                     let qs_client_reference = self.create_own_client_reference();
@@ -396,13 +402,17 @@ impl<T: Notifiable> SelfUser<T> {
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
         for conversation_id in conversations_with_messages {
-            self.dispatch_conversation_notification(conversation_id)
+            self.dispatch_conversation_notification(conversation_id)?
         }
         Ok(())
     }
 
     pub fn conversation(&self, conversation_id: Uuid) -> Option<Conversation> {
-        Conversation::load(&self.as_client_id(), &conversation_id.into()).ok()
+        let conversation_store = self.conversation_store();
+        conversation_store
+            .get_by_conversation_id(&conversation_id)
+            .ok()?
+            .map(|c| c.convert_for_export())
     }
 
     pub fn get_messages(
@@ -410,10 +420,12 @@ impl<T: Notifiable> SelfUser<T> {
         conversation_id: Uuid,
         last_n: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let messages = ConversationMessage::load_multiple_secondary(
-            &self.as_client_id(),
-            &conversation_id.into(),
-        )?;
+        let message_store = self.message_store();
+        let messages = message_store
+            .get_by_conversation_id(&conversation_id)?
+            .into_iter()
+            .map(|pm| pm.into())
+            .collect::<Vec<_>>();
 
         if last_n >= messages.len() {
             Ok(messages)

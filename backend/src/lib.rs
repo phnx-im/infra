@@ -4,7 +4,6 @@
 
 //#![allow(dead_code)]
 //#![allow(unused_variables)]
-#![deny(private_in_public)]
 #![deny(unreachable_pub)]
 
 pub mod auth_service;

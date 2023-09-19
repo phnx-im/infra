@@ -8,7 +8,7 @@ use opaque_ke::{
     CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
     RegistrationResponse, RegistrationUpload, ServerRegistration,
 };
-use rand::{RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerialize, TlsDeserializeBytes,
@@ -231,16 +231,31 @@ impl AsRef<[u8]> for AsClientId {
     }
 }
 
+impl std::fmt::Display for AsClientId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let client_id_str = String::from_utf8_lossy(&self.client_id);
+        write!(f, "{}.{}", client_id_str, self.user_name)
+    }
+}
+
 impl AsClientId {
     pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
-        let mut client_id = [0; 32];
         // TODO: Use a proper rng provider.
-        rand_chacha::ChaCha20Rng::from_entropy()
-            .try_fill_bytes(client_id.as_mut_slice())
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
+        let valid_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        let length = 16;
+
+        // Generate a random string as client id
+        let client_id: String = (0..length)
+            .map(|_| {
+                let index = rng.gen_range(0..valid_characters.len());
+                valid_characters.chars().nth(index).unwrap_or('a')
+            })
+            .collect();
         Ok(Self {
             user_name,
-            client_id: client_id.to_vec(),
+            client_id: client_id.into_bytes(),
         })
     }
 

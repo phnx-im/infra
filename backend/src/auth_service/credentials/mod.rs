@@ -55,6 +55,13 @@ pub struct CredentialFingerprint {
     value: Vec<u8>,
 }
 
+impl std::fmt::Display for CredentialFingerprint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fp = hex::encode(&self.value);
+        write!(f, "{}", fp)
+    }
+}
+
 #[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ExpirationData {
     not_before: TimeStamp,
@@ -164,6 +171,7 @@ impl PreliminaryAsSigningKey {
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
+    as_domain: Fqdn,
     signature_scheme: SignatureScheme,
     verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
 }
@@ -192,6 +200,7 @@ impl AsIntermediateCredentialCsr {
             version,
             signature_scheme,
             verifying_key,
+            as_domain,
         };
         Ok((credential, prelim_signing_key))
     }
@@ -254,6 +263,10 @@ impl AsIntermediateCredential {
 
     pub fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
         fingerprint_with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
+    }
+
+    pub fn domain(&self) -> &Fqdn {
+        &self.credential.csr.as_domain
     }
 }
 
