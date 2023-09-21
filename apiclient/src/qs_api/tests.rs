@@ -23,7 +23,7 @@ use crate::{qs_api::ws::WsEvent, ApiClient};
 static QUEUE_ID_VALUE: &[u8; 3] = &[1, 2, 3];
 
 #[tokio::test]
-async fn test_ws_lifecycle() {
+async fn ws_lifecycle() {
     let _ = env_logger::try_init();
     // Ask for a random port and create a listener
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port.");
@@ -40,6 +40,7 @@ async fn test_ws_lifecycle() {
     let retry_interval = 1;
 
     // Initialize the client
+    let address = format!("http://{}", address);
     let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     // Spawn the websocket connection task

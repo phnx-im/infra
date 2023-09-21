@@ -19,7 +19,7 @@ thiserror = "1"
 phnxbackend = { path = "../backend" }
 phnxserver = { path = "../server" }
 tokio = { version = "1.18.2", features = ["macros"] }
-tokio-tungstenite = { versions = "0.20.0", features = [
+tokio-tungstenite = { version = "0.20.0", features = [
     "rustls-tls-webpki-roots",
 ] }
 futures-util = "0.3.21"
@@ -30,6 +30,7 @@ base64 = "0.13.0"
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 tls_codec = { workspace = true }
+url = "2"
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }

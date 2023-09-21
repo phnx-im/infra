@@ -18,7 +18,7 @@ async fn health_check_works() {
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
-    tracing::info!("Server started: {}", address.to_string());
+    let address = format!("http://{}", address);
 
     // Initialize the client
     let client = ApiClient::initialize(address).expect("Failed to initialize client");
@@ -156,6 +156,7 @@ async fn inexistant_endpoint() {
     let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, true).await;
 
     // Initialize the client
+    let address = format!("http://{}", address);
     let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     // Call the inexistant endpoint

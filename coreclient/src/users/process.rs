@@ -92,10 +92,9 @@ impl<T: Notifiable> SelfUser<T> {
                         .ok_or(anyhow!("Can't find conversation for the given group id"))?
                         .id
                         .as_uuid();
-                    let Some(group) = self.group_store.get_group_mut(group_id)
-                        else {
-                            bail!("Unknown group")
-                        };
+                    let Some(group) = self.group_store.get_group_mut(group_id) else {
+                        bail!("Unknown group")
+                    };
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
                             &self.crypto_backend,
