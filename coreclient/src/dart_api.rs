@@ -167,10 +167,10 @@ impl RustUser {
         let mut user = self.user.lock().unwrap();
 
         let as_messages = user.as_fetch_messages().await?;
-        user.process_as_messages(as_messages).await.unwrap();
+        user.process_as_messages(as_messages).await?;
 
         let qs_messages = user.qs_fetch_messages().await?;
-        user.process_qs_messages(qs_messages).await.unwrap();
+        user.process_qs_messages(qs_messages).await?;
 
         Ok(())
     }
@@ -185,11 +185,9 @@ impl RustUser {
         &self,
         conversation_id: UuidBytes,
         message: MessageContentType,
-    ) -> ConversationMessage {
+    ) -> Result<ConversationMessage> {
         let mut user = self.user.lock().unwrap();
-        user.send_message(conversation_id.as_uuid(), message)
-            .await
-            .unwrap()
+        user.send_message(conversation_id.as_uuid(), message).await
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -232,8 +230,6 @@ impl RustUser {
                 .collect::<Vec<_>>(),
         )
         .await
-        .unwrap();
-        Ok(())
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -251,7 +247,15 @@ impl RustUser {
                 .collect::<Vec<_>>(),
         )
         .await
-        .unwrap();
-        Ok(())
+    }
+
+    pub fn members_of_conversation(&self, conversation_id: UuidBytes) -> Result<Vec<String>> {
+        let user = self.user.lock().unwrap();
+        Ok(user
+            .group_members(conversation_id.as_uuid())
+            .unwrap_or(Vec::new())
+            .into_iter()
+            .map(|c| c.to_string())
+            .collect())
     }
 }
