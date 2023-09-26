@@ -74,7 +74,7 @@ ACTION_AS_CREDENTIALS
 
 // === Authentication ===
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OpaqueLoginRequest {
     client_message: CredentialRequest<OpaqueCiphersuite>,
 }
@@ -97,7 +97,7 @@ pub struct OpaqueRegistrationRequest {
     pub client_message: RegistrationRequest<OpaqueCiphersuite>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OpaqueRegistrationResponse {
     pub server_message: RegistrationResponse<OpaqueCiphersuite>,
 }

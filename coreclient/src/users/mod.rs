@@ -10,15 +10,14 @@ use std::{
 use anyhow::{anyhow, Result};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
-    ClientRegistrationStartResult, Identifiers,
+    ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxbackend::{
     auth_service::{
         credentials::{
             keys::{ClientSigningKey, InfraCredentialSigningKey},
-            AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialCsr,
-            ClientCredentialPayload, CredentialFingerprint, ExpirationData,
+            ClientCredential, ClientCredentialCsr, ClientCredentialPayload, ExpirationData,
         },
         AsClientId, OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
     },
@@ -38,20 +37,15 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    ds::{api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, group_state::EncryptedClientCredential},
     messages::{
         client_as::{
-            AsQueueRatchet, ConnectionEstablishmentPackageTbs, ConnectionPackageTbs,
-            FriendshipPackage, UserConnectionPackagesParams,
+            ConnectionEstablishmentPackageTbs, ConnectionPackageTbs, FriendshipPackage,
+            UserConnectionPackagesParams,
         },
-        client_ds::QsQueueRatchet,
         client_ds_out::CreateGroupParamsOut,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
-    qs::{
-        AddPackage, ClientConfig, ClientIdEncryptionKey, Fqdn, QsClientId, QsClientReference,
-        QsUserId, QsVerifyingKey,
-    },
+    qs::{ClientConfig, Fqdn, QsClientId, QsClientReference, QsUserId},
 };
 use rand::rngs::OsRng;
 use rusqlite::Connection;
@@ -62,25 +56,28 @@ use crate::{
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
     conversations::store::{ConversationMessageStore, ConversationStore},
     groups::store::GroupStore,
-    users::user_store::UserData,
+    key_stores::{
+        as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore,
+        qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
+        queue_ratchets::QueueType, MemoryUserKeyStore,
+    },
     utils::persistence::{db_path, DataType, Persistable, PersistenceError},
 };
 
 use self::{
-    as_credential_store::AsCredentialStore,
-    key_store::{
-        LeafKeyStore, MemoryUserKeyStore, QsVerifyingKeyStore, QueueRatchetStore, QueueType,
-    },
+    api_clients::ApiClients,
+    create_user::InitialUserState,
     openmls_provider::PhnxOpenMlsProvider,
+    store::{PersistableUserData, UserCreationState},
 };
 
 use super::*;
 
-pub(crate) mod as_credential_store;
-pub(crate) mod key_store;
+pub(crate) mod api_clients;
+mod create_user;
 pub(crate) mod openmls_provider;
 pub mod process;
-mod user_store;
+mod store;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -88,58 +85,6 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub(crate) struct ApiClients {
-    // We store our own domain such that we can manually map our own domain to
-    // an API client that uses an IP address instead of the actual domain. This
-    // is a temporary workaround and should probably be replaced by a more
-    // thought-out mechanism.
-    own_domain: Fqdn,
-    own_domain_or_address: String,
-    #[serde(skip)]
-    clients: Arc<Mutex<HashMap<String, ApiClient>>>,
-}
-
-impl ApiClients {
-    fn new(own_domain: Fqdn, own_domain_or_address: impl ToString) -> Self {
-        let own_domain_or_address = own_domain_or_address.to_string();
-        Self {
-            own_domain,
-            own_domain_or_address,
-            clients: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub(crate) fn get(&self, domain: &Fqdn) -> Result<ApiClient, ApiClientsError> {
-        let lookup_domain = if domain == &self.own_domain {
-            self.own_domain_or_address.clone()
-        } else {
-            domain.clone().to_string()
-        };
-        let mut clients = self
-            .clients
-            .lock()
-            .map_err(|_| ApiClientsError::MutexPoisonError)?;
-        let client = clients
-            .entry(lookup_domain.clone())
-            .or_insert(ApiClient::initialize(lookup_domain)?);
-        Ok(client.clone())
-    }
-
-    fn default_client(&self) -> Result<ApiClient, ApiClientsError> {
-        let own_domain = self.own_domain.clone();
-        self.get(&own_domain)
-    }
-}
-
-#[derive(Debug, Error)]
-pub(crate) enum ApiClientsError {
-    #[error(transparent)]
-    ApiClientError(#[from] ApiClientInitError),
-    #[error("Mutex poisoned")]
-    MutexPoisonError,
-}
 
 pub struct SelfUser<T: Notifiable> {
     sqlite_connection: Connection,
@@ -152,284 +97,84 @@ pub struct SelfUser<T: Notifiable> {
 }
 
 impl<T: Notifiable> SelfUser<T> {
-    /// Create a new user with the given name and a fresh set of credentials.
+    /// Create a new user. If a user with the given `AsClientId` already exists,
+    /// this will overwrite that user.
     pub async fn new(
-        user_name: impl Into<UserName>,
+        as_client_id: AsClientId,
         password: &str,
         domain_or_address: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
-        let user_name = user_name.into();
-        log::debug!("Creating new user {}", user_name);
-        // Let's turn TLS off for now.
-        let domain = user_name.domain();
-        let domain_or_address = domain_or_address.to_string();
-        let api_clients = ApiClients::new(user_name.domain(), domain_or_address.clone());
-
-        let as_client_id = AsClientId::random(user_name.clone())?;
-
-        let api_client = api_clients.default_client()?;
-
-        let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(as_client_id.clone(), SignatureScheme::ED25519)?;
-
-        let as_credentials_response = api_client.as_as_credentials().await?;
-        let as_intermediate_credentials: Vec<AsIntermediateCredential> = as_credentials_response
-            .as_intermediate_credentials
-            .into_iter()
-            .map(|as_inter_cred| {
-                let as_credential = as_credentials_response
-                    .as_credentials
-                    .iter()
-                    .find(|as_cred| {
-                        if let Ok(fingerprint) = as_cred.fingerprint() {
-                            &fingerprint == as_inter_cred.signer_fingerprint()
-                        } else {
-                            false
-                        }
-                    })
-                    .ok_or(anyhow!(
-                        "Can't find AS credential with matching fingerprint"
-                    ))?;
-                let credential: AsIntermediateCredential =
-                    as_inter_cred.verify(as_credential.verifying_key())?;
-                Ok(credential)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let chosen_inter_credential = as_intermediate_credentials
-            .first()
-            .ok_or(anyhow!("AS didn't return any intermediate credentials"))?;
-
-        let client_credential_payload = ClientCredentialPayload::new(
-            client_credential_csr,
-            None,
-            chosen_inter_credential.fingerprint()?,
-        );
-
-        // Let's do OPAQUE registration.
-        // First get the server setup information.
-        let mut client_rng = OsRng;
-        let client_registration_start_result: ClientRegistrationStartResult<OpaqueCiphersuite> =
-            ClientRegistration::<OpaqueCiphersuite>::start(&mut client_rng, password.as_bytes())
-                .map_err(|e| anyhow!("Error starting OPAQUE handshake: {:?}", e))?;
-
-        let opaque_registration_request = OpaqueRegistrationRequest {
-            client_message: client_registration_start_result.message,
-        };
-
-        // Register the user with the backend.
-        let response = api_client
-            .as_initiate_create_user(client_credential_payload, opaque_registration_request)
-            .await?;
-
-        // Complete the OPAQUE registration.
-        let user_name_bytes = user_name.to_bytes();
-        let identifiers = Identifiers {
-            client: Some(&user_name_bytes),
-            server: Some(domain.as_bytes()),
-        };
-        let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
-        let client_registration_finish_result: ClientRegistrationFinishResult<OpaqueCiphersuite> =
-            client_registration_start_result
-                .state
-                .finish(
-                    &mut client_rng,
-                    password.as_bytes(),
-                    response.opaque_registration_response.server_message,
-                    response_parameters,
-                )
-                .map_err(|e| anyhow!("Error finishing OPAQUE handshake: {:?}", e))?;
-
-        let credential: ClientCredential = response
-            .client_credential
-            .verify(chosen_inter_credential.verifying_key())?;
-
         // Connect to or set up database
         // We want a different sqlite db per client.
         let db_path = db_path(&as_client_id);
-        let sqlite_connection = Connection::open(db_path)?;
+        let connection = Connection::open(db_path)?;
 
-        let signing_key = ClientSigningKey::from_prelim_key(prelim_signing_key, credential)?;
-        let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let as_initial_ratchet_secret = RatchetSecret::random()?;
-        let queue_ratchet_store = QueueRatchetStore::from(&sqlite_connection);
-        // The queue ratchets are persisted in the store. There's nothing else
-        // we want to do with them here.
-        queue_ratchet_store.initialize_as_queue_ratchet(as_initial_ratchet_secret.clone())?;
-        let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        queue_ratchet_store.initialize_qs_queue_ratchet(qs_initial_ratchet_secret.clone())?;
-        let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let qs_client_signing_key = QsClientSigningKey::random()?;
-        let qs_user_signing_key = QsUserSigningKey::random()?;
+        let domain_or_address = domain_or_address.to_string();
+        let api_clients =
+            ApiClients::new(as_client_id.user_name().domain(), domain_or_address.clone());
 
-        // TODO: The following five keys should be derived from a single
-        // friendship key. Once that's done, remove the random constructors.
-        let friendship_token = FriendshipToken::random()?;
-        let add_package_ear_key = AddPackageEarKey::random()?;
-        let client_credential_ear_key = ClientCredentialEarKey::random()?;
-        let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
-        let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
-        let push_token_ear_key = PushTokenEarKey::random()?;
-
-        let qs_encryption_key = api_client.qs_encryption_key().await?.encryption_key;
-        let connection_decryption_key = ConnectionDecryptionKey::generate()?;
-
-        let key_store = MemoryUserKeyStore {
-            signing_key,
-            as_queue_decryption_key,
-            connection_decryption_key,
-            qs_client_signing_key,
-            qs_user_signing_key,
-            qs_queue_decryption_key,
-            push_token_ear_key,
-            friendship_token,
-            add_package_ear_key,
-            client_credential_ear_key,
-            signature_ear_key_wrapper_key,
-            wai_ear_key,
-            qs_client_id_encryption_key: qs_encryption_key,
-        };
-
-        // TODO: For now, we use the same ConnectionDecryptionKey for all
-        // connection packages.
-
-        let mut connection_packages = vec![];
-        for _ in 0..CONNECTION_PACKAGES {
-            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION_DAYS);
-            let connection_package_tbs = ConnectionPackageTbs::new(
-                MlsInfraVersion::default(),
-                key_store.connection_decryption_key.encryption_key(),
-                lifetime,
-                key_store.signing_key.credential().clone(),
-            );
-            let connection_package = connection_package_tbs.sign(&key_store.signing_key)?;
-            connection_packages.push(connection_package);
-        }
-
-        let opaque_registration_record = OpaqueRegistrationRecord {
-            client_message: client_registration_finish_result.message,
-        };
-
-        api_client
-            .as_finish_user_registration(
-                key_store.as_queue_decryption_key.encryption_key(),
-                as_initial_ratchet_secret,
-                connection_packages,
-                opaque_registration_record,
-                &key_store.signing_key,
-            )
-            .await?;
-
-        // AS registration is complete, now create the user on the QS.
-        let encrypted_client_credential = key_store
-            .signing_key
-            .credential()
-            .encrypt(&key_store.client_credential_ear_key)?;
-
-        let create_user_record_response = api_client
-            .qs_create_user(
-                key_store.friendship_token.clone(),
-                key_store.qs_client_signing_key.verifying_key().clone(),
-                key_store.qs_queue_decryption_key.encryption_key(),
-                None,
-                qs_initial_ratchet_secret,
-                &key_store.qs_user_signing_key,
-            )
-            .await?;
-
-        let user_data = UserData {
-            as_client_id,
-            qs_client_id: create_user_record_response.client_id,
-            key_store,
-            _qs_user_id: create_user_record_response.user_id,
-            server_url: domain_or_address,
-        }
-        .persist(&sqlite_connection)?;
-
-        let user = Self::from_user_data(sqlite_connection, user_data, Some(notification_hub))?;
-
-        let mut qs_add_packages = vec![];
-        let leaf_key_store = user.leaf_key_store();
-        for _ in 0..ADD_PACKAGES {
-            // TODO: Which key do we need to use for encryption here? Probably
-            // the client credential ear key, since friends need to be able to
-            // decrypt it. We might want to use a separate key, though.
-            let add_package =
-                user.generate_add_package(&leaf_key_store, &encrypted_client_credential, false)?;
-            qs_add_packages.push(add_package);
-        }
-        let last_resort_add_package =
-            user.generate_add_package(&leaf_key_store, &encrypted_client_credential, true)?;
-        qs_add_packages.push(last_resort_add_package);
-
-        // Upload add packages
-        let api_client = user.api_clients.get(&user.user_name().domain())?;
-        api_client
-            .qs_publish_key_packages(
-                user.qs_client_id.clone(),
-                qs_add_packages,
-                user.key_store.add_package_ear_key.clone(),
-                &user.key_store.qs_client_signing_key,
-            )
-            .await?;
-
-        Ok(user)
+        InitialUserState::new(
+            &connection,
+            &api_clients,
+            &as_client_id,
+            domain_or_address,
+            password,
+        )
+        .await?
+        .complete_user_creation(connection, notification_hub, api_clients)
+        .await
     }
 
-    pub(crate) fn generate_add_package(
-        &self,
-        leaf_key_store: &LeafKeyStore<'_>,
-        encrypted_client_credential: &EncryptedClientCredential,
-        last_resort: bool,
-    ) -> Result<AddPackage> {
-        let leaf_keys = leaf_key_store.generate(&self.key_store.signing_key)?;
-        let credential_with_key = CredentialWithKey {
-            credential: leaf_keys.leaf_signing_key().credential().clone().into(),
-            signature_key: leaf_keys
-                .leaf_signing_key()
-                .credential()
-                .verifying_key()
-                .clone(),
-        };
-        let capabilities = Capabilities::new(
-            Some(&SUPPORTED_PROTOCOL_VERSIONS),
-            Some(&SUPPORTED_CIPHERSUITES),
-            Some(&SUPPORTED_EXTENSIONS),
-            Some(&SUPPORTED_PROPOSALS),
-            Some(&SUPPORTED_CREDENTIALS),
-        );
-        let client_reference = self.create_own_client_reference();
-        let client_ref_extension = Extension::Unknown(
-            QS_CLIENT_REFERENCE_EXTENSION_TYPE,
-            UnknownExtension(client_reference.tls_serialize_detached()?),
-        );
-        let leaf_node_extensions = Extensions::single(client_ref_extension);
-        let key_package_extensions = if last_resort {
-            let last_resort_extension = Extension::LastResort(LastResortExtension::new());
-            Extensions::single(last_resort_extension)
-        } else {
-            Extensions::default()
-        };
-        let kp = KeyPackage::builder()
-            .key_package_extensions(key_package_extensions)
-            .leaf_node_capabilities(capabilities)
-            .leaf_node_extensions(leaf_node_extensions)
-            .build(
-                CryptoConfig {
-                    ciphersuite: CIPHERSUITE,
-                    version: ProtocolVersion::Mls10,
-                },
-                self.crypto_backend(),
-                leaf_keys.leaf_signing_key(),
-                credential_with_key,
-            )?;
-        let esek = leaf_keys
-            .signature_ear_key()
-            .encrypt(&self.key_store.signature_ear_key_wrapper_key)?;
+    /// Load a user from the database. If a user creation process with a
+    /// matching `AsClientId` was interrupted before, this will resume that
+    /// process.
+    pub async fn load(
+        as_client_id: AsClientId,
+        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
+    ) -> Result<Option<SelfUser<T>>> {
+        let db_path = db_path(&as_client_id);
+        let connection = Connection::open(db_path)?;
 
-        let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
-        Ok(add_package)
+        let Some(stage) = PersistableUserData::load_one(&connection, Some(&as_client_id), None)?
+        else {
+            return Ok(None);
+        };
+
+        let user_data = stage.into_payload();
+
+        let self_user = match user_data {
+            UserCreationState::InitialUserState(state) => {
+                state
+                    .complete_user_creation(connection, notification_hub_option, None)
+                    .await?
+            }
+            UserCreationState::PostRegistrationInitState(state) => {
+                state
+                    .complete_user_creation(connection, None, notification_hub_option)
+                    .await?
+            }
+            UserCreationState::UnfinalizedRegistrationState(state) => {
+                state
+                    .complete_user_creation(connection, None, notification_hub_option)
+                    .await?
+            }
+            UserCreationState::AsRegisteredUserState(state) => {
+                state
+                    .complete_user_creation(connection, None, notification_hub_option)
+                    .await?
+            }
+            UserCreationState::QsRegisteredUserState(state) => {
+                state
+                    .complete_user_creation(connection, None, notification_hub_option)
+                    .await?
+            }
+            UserCreationState::FinalUserState(state) => {
+                state.into_self_user(connection, None, notification_hub_option)
+            }
+        };
+
+        Ok(Some(self_user))
     }
 
     /// Create new group

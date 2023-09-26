@@ -404,8 +404,13 @@ impl ClientCredentialPayload {
     pub fn identity(&self) -> AsClientId {
         self.csr.client_id.clone()
     }
+
+    pub fn identity_ref(&self) -> &AsClientId {
+        &self.csr.client_id
+    }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PreliminaryClientSigningKey {
     signing_key_bytes: Vec<u8>,
     verifying_key: ClientVerifyingKey,
@@ -426,6 +431,10 @@ pub struct ClientCredential {
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {
         self.payload.identity()
+    }
+
+    pub fn identity_ref(&self) -> &AsClientId {
+        self.payload.identity_ref()
     }
 
     pub fn verifying_key(&self) -> &ClientVerifyingKey {
@@ -457,7 +466,7 @@ impl EarDecryptable<ClientCredentialEarKey, EncryptedClientCredential>
 {
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Deserialize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -470,6 +479,10 @@ impl VerifiableClientCredential {
 
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
         &self.payload.signer_fingerprint
+    }
+
+    pub fn client_id(&self) -> &AsClientId {
+        &self.payload.csr.client_id
     }
 }
 

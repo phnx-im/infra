@@ -5,7 +5,12 @@
 use mls_assist::{openmls::prelude::GroupId, openmls_traits::types::HpkeCiphertext};
 use privacypass::batched_tokens::{TokenRequest, TokenResponse};
 
-use tls_codec::{DeserializeBytes, Serialize, Size, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerializeTrait, Size, TlsDeserializeBytes, TlsSerialize,
+    TlsSize,
+};
+
+use serde::{Deserialize, Serialize};
 
 use crate::{
     auth_service::{
@@ -52,7 +57,7 @@ pub(super) trait ClientCredentialAuthenticator
 where
     Self: Sized,
 {
-    type Tbs: Serialize;
+    type Tbs: TlsSerializeTrait;
 
     fn client_id(&self) -> AsClientId;
     fn into_payload(self) -> VerifiedAsRequestParams;
@@ -75,7 +80,7 @@ pub(super) trait TwoFactorAuthenticator
 where
     Self: Sized,
 {
-    type Tbs: Serialize;
+    type Tbs: TlsSerializeTrait;
 
     fn client_id(&self) -> AsClientId;
     fn into_payload(self) -> VerifiedAsRequestParams;
@@ -107,7 +112,7 @@ where
     fn into_verified(self) -> VerifiedAsRequestParams;
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct Init2FactorAuthParamsTbs {
     pub client_id: AsClientId,
     pub opaque_ke1: OpaqueLoginRequest,
@@ -160,7 +165,7 @@ pub struct Init2FactorAuthResponse {
     pub(crate) opaque_ke2: OpaqueLoginResponse,
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackageTbs {
     pub(super) protocol_version: MlsInfraVersion,
     pub(super) encryption_key: ConnectionEncryptionKey,
@@ -184,7 +189,7 @@ impl ConnectionPackageTbs {
     }
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize)]
+#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
     payload: ConnectionPackageTbs,
     signature: Signature,

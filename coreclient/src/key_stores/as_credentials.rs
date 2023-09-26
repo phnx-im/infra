@@ -2,14 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashMap;
+
 use phnxapiclient::as_api::AsRequestError;
 use phnxbackend::{
-    auth_service::credentials::VerifiableClientCredential,
-    crypto::signatures::traits::SignatureVerificationError,
+    auth_service::credentials::{
+        AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        VerifiableClientCredential,
+    },
+    crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
 };
 use thiserror::Error;
 
-use crate::utils::persistence::PersistenceError;
+use crate::{users::api_clients::ApiClientsError, utils::persistence::PersistenceError};
 
 use super::*;
 
@@ -68,6 +73,12 @@ pub(crate) struct PersistableAsIntermediateCredential<'a> {
     credential: AsIntermediateCredential,
 }
 
+impl PersistableAsIntermediateCredential<'_> {
+    pub(crate) fn into_credential(self) -> AsIntermediateCredential {
+        self.credential
+    }
+}
+
 pub(crate) struct AsCredentialStore<'a> {
     db_connection: &'a Connection,
     api_clients: ApiClients,
@@ -86,8 +97,7 @@ impl<'a> AsCredentialStore<'a> {
     async fn fetch_credentials(
         &self,
         domain: &Fqdn,
-        fingerprint: &CredentialFingerprint,
-    ) -> Result<PersistableAsIntermediateCredential<'a>, AsCredentialStoreError> {
+    ) -> Result<Vec<PersistableAsIntermediateCredential<'a>>, AsCredentialStoreError> {
         let as_credentials_response = self.api_clients.get(&domain)?.as_as_credentials().await?;
         let as_credentials: HashMap<CredentialFingerprint, AsCredential> = as_credentials_response
             .as_credentials
@@ -97,7 +107,7 @@ impl<'a> AsCredentialStore<'a> {
                 Some((fingerprint, credential))
             })
             .collect::<HashMap<_, _>>();
-        let mut target_credental_option = None;
+        let mut as_inter_creds = vec![];
         for as_inter_cred in as_credentials_response.as_intermediate_credentials {
             let as_credential = as_credentials
                 .get(as_inter_cred.signer_fingerprint())
@@ -109,9 +119,7 @@ impl<'a> AsCredentialStore<'a> {
                 verified_credential,
             );
             p_as_inter_cred.persist()?;
-            if p_as_inter_cred.fingerprint == *fingerprint {
-                target_credental_option = Some(p_as_inter_cred);
-            }
+            as_inter_creds.push(p_as_inter_cred);
         }
         for as_credential in as_credentials.into_values() {
             let p_credential = PersistableAsCredential::from_connection_and_payload(
@@ -120,33 +128,31 @@ impl<'a> AsCredentialStore<'a> {
             );
             p_credential.persist()?;
         }
-        let target_credential = target_credental_option
-            .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?;
-        Ok(target_credential)
+        Ok(as_inter_creds)
     }
 
-    pub async fn get(
+    pub(crate) async fn get(
         &'a self,
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<PersistableAsIntermediateCredential<'a>, AsCredentialStoreError> {
-        let credential_option: Option<PersistableAsIntermediateCredential<'a>> =
-            PersistableAsIntermediateCredential::load_one(
-                self.db_connection,
-                Some(fingerprint),
-                None,
-            )?;
-        let credential: PersistableAsIntermediateCredential<'a> =
-            if let Some(credential) = credential_option {
-                credential
-            } else {
-                let credential: PersistableAsIntermediateCredential<'a> =
-                    self.fetch_credentials(domain, fingerprint).await?;
-                credential
-            };
-        //if credential.domain() != domain {
-        //    return Err(AsCredentialStoreError::CredentialDomainMismatch);
-        //}
+        let credential_option = PersistableAsIntermediateCredential::load_one(
+            self.db_connection,
+            Some(fingerprint),
+            None,
+        )?;
+        let credential = if let Some(credential) = credential_option {
+            credential
+        } else {
+            self.fetch_credentials(domain)
+                .await?
+                .into_iter()
+                .find(|credential| credential.fingerprint().is_ok_and(|fp| &fp == fingerprint))
+                .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?
+        };
+        if credential.domain() != domain {
+            return Err(AsCredentialStoreError::AsIntermediateCredentialNotFound);
+        }
         Ok(credential)
     }
 
@@ -163,6 +169,23 @@ impl<'a> AsCredentialStore<'a> {
         let client_credential =
             verifiable_client_credential.verify(as_intermediate_credential.verifying_key())?;
         Ok(client_credential)
+    }
+
+    pub(crate) async fn get_intermediate_credential(
+        &self,
+        domain: &Fqdn,
+    ) -> Result<PersistableAsIntermediateCredential> {
+        let credential = if let Some(credential) =
+            PersistableAsIntermediateCredential::load_one(self.db_connection, None, None)?
+        {
+            credential
+        } else {
+            self.fetch_credentials(domain)
+                .await?
+                .pop()
+                .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?
+        };
+        Ok(credential)
     }
 }
 

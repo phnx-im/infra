@@ -57,12 +57,10 @@ use uuid::Uuid;
 
 use crate::{
     contacts::{store::ContactStore, ContactAddInfos},
+    key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     types::MessageContentType,
     types::*,
-    users::{
-        as_credential_store::AsCredentialStore, key_store::LeafKeyStore,
-        openmls_provider::PhnxOpenMlsProvider,
-    },
+    users::openmls_provider::PhnxOpenMlsProvider,
     utils::Timestamp,
 };
 use std::collections::{BTreeMap, HashSet};

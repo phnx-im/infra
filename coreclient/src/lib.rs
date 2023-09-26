@@ -7,6 +7,7 @@ mod errors;
 mod contacts;
 mod conversations;
 mod groups;
+mod key_stores;
 pub mod notifications;
 mod providers;
 pub mod types;

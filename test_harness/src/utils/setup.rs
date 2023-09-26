@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phnxbackend::auth_service::UserName;
+use phnxbackend::auth_service::{AsClientId, UserName};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -57,8 +57,9 @@ impl TestUser {
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
+        let as_client_id = AsClientId::random(user_name.clone()).unwrap();
         let user = SelfUser::new(
-            user_name.clone(),
+            as_client_id,
             &user_name.to_string(),
             domain_or_address,
             notification_hub,

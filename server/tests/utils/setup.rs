@@ -10,7 +10,10 @@ use std::{
 
 use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxapiclient::DomainOrAddress;
-use phnxbackend::{auth_service::UserName, qs::Fqdn};
+use phnxbackend::{
+    auth_service::{AsClientId, UserName},
+    qs::Fqdn,
+};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -67,8 +70,9 @@ impl TestUser {
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
+        let as_client_id = AsClientId::random(user_name.clone()).unwrap();
         let user = SelfUser::new(
-            user_name.clone(),
+            as_client_id,
             &user_name.to_string(),
             domain_or_address,
             notification_hub,

@@ -10,7 +10,8 @@ use phnxbackend::crypto::{ear::EarDecryptable, signatures::signable::Verifiable}
 use rusqlite::Connection;
 
 use crate::{
-    users::{key_store::QsVerifyingKeyStore, ApiClients},
+    key_stores::qs_verifying_keys::QsVerifyingKeyStore,
+    users::api_clients::ApiClients,
     utils::persistence::{DataType, Persistable, PersistenceError},
 };
 
