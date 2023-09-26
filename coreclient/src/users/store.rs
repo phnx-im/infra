@@ -6,20 +6,20 @@ use anyhow::bail;
 
 use super::{
     create_user::{
-        AsRegisteredUserState, FinalUserState, PostRegistrationInitState, QsRegisteredUserState,
-        UnfinalizedRegistrationState,
+        AsRegisteredUserState, PersistedUserState, PostRegistrationInitState,
+        QsRegisteredUserState, UnfinalizedRegistrationState,
     },
     *,
 };
 
 #[derive(Serialize, Deserialize)]
-pub(crate) enum UserCreationState {
+pub(super) enum UserCreationState {
     InitialUserState(InitialUserState),
     PostRegistrationInitState(PostRegistrationInitState),
     UnfinalizedRegistrationState(UnfinalizedRegistrationState),
     AsRegisteredUserState(AsRegisteredUserState),
     QsRegisteredUserState(QsRegisteredUserState),
-    FinalUserState(FinalUserState),
+    FinalUserState(PersistedUserState),
 }
 
 impl UserCreationState {
@@ -31,6 +31,17 @@ impl UserCreationState {
             Self::AsRegisteredUserState(state) => state.client_id(),
             Self::QsRegisteredUserState(state) => state.client_id(),
             Self::FinalUserState(state) => state.client_id(),
+        }
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        match self {
+            Self::InitialUserState(state) => state.server_url(),
+            Self::PostRegistrationInitState(state) => state.server_url(),
+            Self::UnfinalizedRegistrationState(state) => state.server_url(),
+            Self::AsRegisteredUserState(state) => state.server_url(),
+            Self::QsRegisteredUserState(state) => state.server_url(),
+            Self::FinalUserState(state) => state.server_url(),
         }
     }
 }
@@ -110,7 +121,7 @@ impl QsRegisteredUserState {
     }
 }
 
-impl FinalUserState {
+impl PersistedUserState {
     pub(super) fn persist(self, connection: &Connection) -> Result<Self> {
         let user_data = PersistableUserData::from_connection_and_payload(
             connection,
@@ -133,6 +144,10 @@ pub(super) struct PersistableUserData<'a> {
 impl PersistableUserData<'_> {
     pub(super) fn into_payload(self) -> UserCreationState {
         self.payload
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        self.payload.server_url()
     }
 }
 

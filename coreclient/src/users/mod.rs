@@ -108,21 +108,29 @@ impl<T: Notifiable> SelfUser<T> {
         // Connect to or set up database
         // We want a different sqlite db per client.
         let db_path = db_path(&as_client_id);
-        let connection = Connection::open(db_path)?;
+        let mut connection = Connection::open(db_path)?;
 
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
-        InitialUserState::new(
+        let initial_user_state = InitialUserState::new(
             &connection,
             &api_clients,
             &as_client_id,
             server_url,
             password,
         )
-        .await?
-        .complete_user_creation(connection, notification_hub, api_clients)
-        .await
+        .await?;
+
+        let mut savepoint = connection.savepoint()?;
+
+        let final_user_state = initial_user_state
+            .complete_user_creation(&mut savepoint, &api_clients)
+            .await?;
+
+        savepoint.commit()?;
+
+        Ok(final_user_state.into_self_user(connection, api_clients, notification_hub))
     }
 
     /// Load a user from the database. If a user creation process with a
@@ -133,45 +141,52 @@ impl<T: Notifiable> SelfUser<T> {
         notification_hub_option: impl Into<Option<NotificationHub<T>>>,
     ) -> Result<Option<SelfUser<T>>> {
         let db_path = db_path(&as_client_id);
-        let connection = Connection::open(db_path)?;
+        let mut connection = Connection::open(db_path)?;
 
         let Some(stage) = PersistableUserData::load_one(&connection, Some(&as_client_id), None)?
         else {
             return Ok(None);
         };
 
+        let api_clients = ApiClients::new(as_client_id.user_name().domain(), stage.server_url());
+
         let user_data = stage.into_payload();
 
-        let self_user = match user_data {
+        let mut savepoint = connection.savepoint()?;
+
+        let final_user_state = match user_data {
             UserCreationState::InitialUserState(state) => {
                 state
-                    .complete_user_creation(connection, notification_hub_option, None)
+                    .complete_user_creation(&mut savepoint, &api_clients)
                     .await?
             }
             UserCreationState::PostRegistrationInitState(state) => {
                 state
-                    .complete_user_creation(connection, None, notification_hub_option)
+                    .complete_user_creation(&mut savepoint, &api_clients)
                     .await?
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
                 state
-                    .complete_user_creation(connection, None, notification_hub_option)
+                    .complete_user_creation(&mut savepoint, &api_clients)
                     .await?
             }
             UserCreationState::AsRegisteredUserState(state) => {
                 state
-                    .complete_user_creation(connection, None, notification_hub_option)
+                    .complete_user_creation(&mut savepoint, &api_clients)
                     .await?
             }
             UserCreationState::QsRegisteredUserState(state) => {
                 state
-                    .complete_user_creation(connection, None, notification_hub_option)
+                    .complete_user_creation(&mut savepoint, &api_clients)
                     .await?
             }
-            UserCreationState::FinalUserState(state) => {
-                state.into_self_user(connection, None, notification_hub_option)
-            }
+            UserCreationState::FinalUserState(state) => state,
         };
+
+        savepoint.commit()?;
+
+        let self_user =
+            final_user_state.into_self_user(connection, api_clients, notification_hub_option);
 
         Ok(Some(self_user))
     }

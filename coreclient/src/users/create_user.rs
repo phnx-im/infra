@@ -10,6 +10,7 @@ use phnxbackend::{
     messages::{client_as::ConnectionPackage, client_qs::CreateUserRecordResponse},
     qs::ClientIdEncryptionKey,
 };
+use rusqlite::Savepoint;
 
 use super::*;
 
@@ -94,12 +95,12 @@ impl InitialUserState {
             as_intermediate_credential: as_intermediate_credential.into_credential(),
         }
         .persist(connection)?;
+
         Ok(initial_user_state)
     }
 
     async fn initiate_as_registration(
         self,
-        connection: &Connection,
         api_clients: &ApiClients,
     ) -> Result<PostRegistrationInitState> {
         let client_message =
@@ -118,52 +119,54 @@ impl InitialUserState {
             .await?;
 
         let post_registration_init_state = PostRegistrationInitState {
-            pre_opaque_request_data: self,
+            initial_user_state: self,
             opaque_server_response: response
                 .opaque_registration_response
                 .server_message
                 .serialize()
                 .to_vec(),
             client_credential: response.client_credential,
-        }
-        .persist(connection)?;
+        };
 
         Ok(post_registration_init_state)
     }
 
-    pub(super) async fn complete_user_creation<T: Notifiable>(
+    pub(super) async fn complete_user_creation(
         self,
-        connection: Connection,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-        api_clients_option: impl Into<Option<ApiClients>>,
-    ) -> Result<SelfUser<T>> {
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                self.client_credential_payload
-                    .identity()
-                    .user_name()
-                    .domain(),
-                self.server_url.clone(),
-            )
-        };
-        self.initiate_as_registration(&connection, &api_clients)
+        savepoint: &mut Savepoint<'_>,
+        api_clients: &ApiClients,
+    ) -> Result<PersistedUserState> {
+        let intermediate_state = self
+            .initiate_as_registration(&api_clients)
             .await?
-            .persist(&connection)?
-            .complete_user_creation(connection, api_clients, notification_hub_option)
-            .await
+            .persist(&savepoint)?;
+
+        let mut savepoint = savepoint.savepoint()?;
+
+        let result = intermediate_state
+            .complete_user_creation(&mut savepoint, api_clients)
+            .await;
+
+        if result.is_err() {
+            savepoint.commit()?;
+        }
+
+        result
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.client_credential_payload.identity_ref()
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.server_url
     }
 }
 
 // State after server response to OPAKE initialization
 #[derive(Serialize, Deserialize)]
 pub(super) struct PostRegistrationInitState {
-    pre_opaque_request_data: InitialUserState,
+    initial_user_state: InitialUserState,
     client_credential: VerifiableClientCredential,
     opaque_server_response: Vec<u8>,
 }
@@ -182,7 +185,7 @@ impl PostRegistrationInitState {
             password,
             qs_encryption_key,
             as_intermediate_credential,
-        } = self.pre_opaque_request_data;
+        } = self.initial_user_state;
 
         let user_name = client_credential_payload.identity().user_name();
         let domain = user_name.domain();
@@ -280,34 +283,39 @@ impl PostRegistrationInitState {
             as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
             connection_packages,
-        }
-        .persist(connection)?;
+        };
 
         Ok(unfinalized_registration_state)
     }
 
-    pub(super) async fn complete_user_creation<T: Notifiable>(
+    pub(super) async fn complete_user_creation(
         self,
-        connection: Connection,
-        api_clients_option: impl Into<Option<ApiClients>>,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> Result<SelfUser<T>> {
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                self.client_credential.client_id().user_name().domain(),
-                self.pre_opaque_request_data.server_url.clone(),
-            )
-        };
-        self.process_server_response(&connection)?
-            .persist(&connection)?
-            .complete_user_creation(connection, api_clients, notification_hub_option)
-            .await
+        connection: &mut Savepoint<'_>,
+        api_clients: &ApiClients,
+    ) -> Result<PersistedUserState> {
+        let intermediate_state = self
+            .process_server_response(&connection)?
+            .persist(&connection)?;
+
+        let mut savepoint = connection.savepoint()?;
+
+        let result = intermediate_state
+            .complete_user_creation(&mut savepoint, api_clients)
+            .await;
+
+        if result.is_err() {
+            savepoint.commit()?;
+        }
+
+        result
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.client_credential.client_id()
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.initial_user_state.server_url
     }
 }
 
@@ -325,7 +333,6 @@ pub(super) struct UnfinalizedRegistrationState {
 impl UnfinalizedRegistrationState {
     async fn finalize_as_registration(
         self,
-        connection: &Connection,
         api_clients: &ApiClients,
     ) -> Result<AsRegisteredUserState> {
         let UnfinalizedRegistrationState {
@@ -358,39 +365,39 @@ impl UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
-        }
-        .persist(connection)?;
+        };
         Ok(as_registered_user_state)
     }
 
-    pub(super) async fn complete_user_creation<T: Notifiable>(
+    pub(super) async fn complete_user_creation(
         self,
-        connection: Connection,
-        api_clients_option: impl Into<Option<ApiClients>>,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> Result<SelfUser<T>> {
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                self.key_store
-                    .signing_key
-                    .credential()
-                    .identity()
-                    .user_name()
-                    .domain(),
-                self.server_url.clone(),
-            )
-        };
-        self.finalize_as_registration(&connection, &api_clients)
+        connection: &mut Savepoint<'_>,
+        api_clients: &ApiClients,
+    ) -> Result<PersistedUserState> {
+        let intermediate_state = self
+            .finalize_as_registration(&api_clients)
             .await?
-            .persist(&connection)?
-            .complete_user_creation(connection, api_clients, notification_hub_option)
-            .await
+            .persist(&connection)?;
+
+        let mut savepoint = connection.savepoint()?;
+
+        let result = intermediate_state
+            .complete_user_creation(&mut savepoint, api_clients)
+            .await;
+
+        if result.is_err() {
+            savepoint.commit()?;
+        }
+
+        result
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.key_store.signing_key.credential().identity_ref()
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.server_url
     }
 }
 
@@ -403,11 +410,7 @@ pub(super) struct AsRegisteredUserState {
 }
 
 impl AsRegisteredUserState {
-    async fn register_with_qs(
-        self,
-        connection: &Connection,
-        api_clients: &ApiClients,
-    ) -> Result<QsRegisteredUserState> {
+    async fn register_with_qs(self, api_clients: &ApiClients) -> Result<QsRegisteredUserState> {
         let AsRegisteredUserState {
             key_store,
             server_url,
@@ -431,40 +434,40 @@ impl AsRegisteredUserState {
             server_url,
             qs_user_id: user_id,
             qs_client_id: client_id,
-        }
-        .persist(connection)?;
+        };
 
         Ok(qs_registered_user_state)
     }
 
-    pub(super) async fn complete_user_creation<T: Notifiable>(
+    pub(super) async fn complete_user_creation(
         self,
-        connection: Connection,
-        api_clients_option: impl Into<Option<ApiClients>>,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> Result<SelfUser<T>> {
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                self.key_store
-                    .signing_key
-                    .credential()
-                    .identity()
-                    .user_name()
-                    .domain(),
-                self.server_url.clone(),
-            )
-        };
-        self.register_with_qs(&connection, &api_clients)
+        connection: &mut Savepoint<'_>,
+        api_clients: &ApiClients,
+    ) -> Result<PersistedUserState> {
+        let intermediate_state = self
+            .register_with_qs(&api_clients)
             .await?
-            .persist(&connection)?
-            .complete_user_creation(connection, api_clients, notification_hub_option)
-            .await
+            .persist(&connection)?;
+
+        let mut savepoint = connection.savepoint()?;
+
+        let result = intermediate_state
+            .complete_user_creation(&mut savepoint, api_clients)
+            .await;
+
+        if result.is_err() {
+            savepoint.commit()?;
+        }
+
+        result
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.key_store.signing_key.credential().identity_ref()
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.server_url
     }
 }
 
@@ -482,7 +485,7 @@ impl QsRegisteredUserState {
         self,
         connection: &Connection,
         api_clients: &ApiClients,
-    ) -> Result<FinalUserState> {
+    ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
             ref key_store,
             server_url: _,
@@ -529,7 +532,7 @@ impl QsRegisteredUserState {
             )
             .await?;
 
-        let state = FinalUserState {
+        let state = PersistedUserState {
             state: self,
             crypto_backend,
         };
@@ -537,72 +540,51 @@ impl QsRegisteredUserState {
         Ok(state)
     }
 
-    pub(super) async fn complete_user_creation<T: Notifiable>(
+    pub(super) async fn complete_user_creation(
         self,
-        connection: Connection,
-        api_clients_option: impl Into<Option<ApiClients>>,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> Result<SelfUser<T>> {
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                self.key_store
-                    .signing_key
-                    .credential()
-                    .identity()
-                    .user_name()
-                    .domain(),
-                self.server_url.clone(),
-            )
-        };
-        let self_user = self
-            .upload_add_packages(&connection, &api_clients)
+        savepoint: &mut Savepoint<'_>,
+        api_clients: &ApiClients,
+    ) -> Result<PersistedUserState> {
+        let final_state = self
+            .upload_add_packages(savepoint, &api_clients)
             .await?
-            .persist(&connection)?
-            .into_self_user(connection, api_clients, notification_hub_option);
+            .persist(&savepoint)?;
 
-        Ok(self_user)
+        // No need to create new savepoint here, since we assume the caller is
+        // going to commit the underlying transaction.
+
+        Ok(final_state)
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.key_store.signing_key.credential().identity_ref()
     }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.server_url
+    }
 }
 
 // State after creating QS user
 #[derive(Serialize, Deserialize)]
-pub(super) struct FinalUserState {
+pub(super) struct PersistedUserState {
     state: QsRegisteredUserState,
     crypto_backend: PhnxOpenMlsProvider,
 }
 
-impl FinalUserState {
+impl PersistedUserState {
     pub(super) fn into_self_user<T: Notifiable>(
         self,
         connection: Connection,
-        api_clients_option: impl Into<Option<ApiClients>>,
+        api_clients: ApiClients,
         notification_hub_option: impl Into<Option<NotificationHub<T>>>,
     ) -> SelfUser<T> {
         let QsRegisteredUserState {
             key_store,
-            server_url,
+            server_url: _,
             qs_user_id,
             qs_client_id,
         } = self.state;
-        let api_clients = if let Some(api_clients) = api_clients_option.into() {
-            api_clients
-        } else {
-            ApiClients::new(
-                key_store
-                    .signing_key
-                    .credential()
-                    .identity()
-                    .user_name()
-                    .domain(),
-                server_url.clone(),
-            )
-        };
         SelfUser {
             sqlite_connection: connection,
             key_store: key_store,
@@ -616,5 +598,9 @@ impl FinalUserState {
 
     pub(super) fn client_id(&self) -> &AsClientId {
         self.state.key_store.signing_key.credential().identity_ref()
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.state.server_url
     }
 }

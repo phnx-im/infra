@@ -147,7 +147,13 @@ impl<'a> AsCredentialStore<'a> {
             self.fetch_credentials(domain)
                 .await?
                 .into_iter()
-                .find(|credential| credential.fingerprint().is_ok_and(|fp| &fp == fingerprint))
+                .find(|credential| {
+                    if let Ok(credential_fingerprint) = credential.fingerprint() {
+                        &credential_fingerprint == fingerprint
+                    } else {
+                        false
+                    }
+                })
                 .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?
         };
         if credential.domain() != domain {

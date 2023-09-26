@@ -108,6 +108,10 @@ impl TestBackend {
         }
     }
 
+    pub fn url(&self) -> String {
+        self.url.clone()
+    }
+
     pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
         let user_name = user_name.into();
         tracing::info!("Creating {user_name}");

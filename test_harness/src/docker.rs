@@ -206,7 +206,11 @@ fn create_network(network_name: &str) {
 
     if !command_output.status.success()
         && command_output.stderr
-            != b"Error response from daemon: network with name phnx_test_network already exists\n"
+            != (format!(
+                "Error response from daemon: network with name {} already exists\n",
+                network_name
+            ))
+            .as_bytes()
     {
         panic!("Failed to create network: {:?}", command_output);
     }

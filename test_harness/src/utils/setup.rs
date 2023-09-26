@@ -899,7 +899,11 @@ impl TestBed {
         for removed_name in &removed_names {
             let test_removed = self.users.get_mut(removed_name).unwrap();
             let removed = &mut test_removed.user;
-            let removed_conversations_before = removed.conversations().unwrap();
+            let removed_conversations_before = removed
+                .conversations()
+                .unwrap()
+                .into_iter()
+                .collect::<HashSet<_>>();
             let past_members =
                 HashSet::<UserName>::from_iter(removed.group_members(conversation_id).unwrap());
 
@@ -910,7 +914,11 @@ impl TestBed {
                 .await
                 .expect("Error processing qs messages.");
 
-            let removed_conversations_after = removed.conversations().unwrap();
+            let removed_conversations_after = removed
+                .conversations()
+                .unwrap()
+                .into_iter()
+                .collect::<HashSet<_>>();
             let conversation = removed_conversations_after
                 .iter()
                 .find(|c| c.id.as_uuid() == conversation_id)
@@ -926,19 +934,11 @@ impl TestBed {
                 panic!("Conversation should be inactive.")
             }
             assert!(conversation.conversation_type == ConversationType::Group);
-            let error = removed_conversations_before
-                .iter()
-                .zip(removed_conversations_after.iter())
-                .any(|(before, after)| before.id != after.id);
-            if error {
-                tracing::info!(
-                    "Removed user {} has a different set of conversations before and after the remove operation.",
-                    removed_name
-                );
-                tracing::info!("Before: {:?}", removed_conversations_before);
-                tracing::info!("After: {:?}", removed_conversations_after);
+            for conversation in removed_conversations_after {
+                assert!(removed_conversations_before
+                    .iter()
+                    .any(|c| c.id == conversation.id))
             }
-            assert!(!error)
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for removed_name in &removed_names {
