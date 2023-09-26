@@ -48,13 +48,13 @@ impl NetworkProvider for MockNetworkProvider {
         bytes: Vec<u8>,
         destination: Fqdn,
     ) -> Result<FederatedProcessingResult, Self::NetworkError> {
-        let transport_encryption = match self.transport_encryption {
-            TransportEncryption::On => "s",
-            TransportEncryption::Off => "",
+        let (transport_encryption, port) = match self.transport_encryption {
+            TransportEncryption::On => ("s", 443),
+            TransportEncryption::Off => ("", 80),
         };
         let url = format!(
-            "http{}://{}:8000{}",
-            transport_encryption, destination, ENDPOINT_QS_FEDERATION
+            "http{}://{}:{}{}",
+            transport_encryption, destination, port, ENDPOINT_QS_FEDERATION
         );
         // Reqwest should resolve the hostname on its own.
         let result = match self.client.post(url).body(bytes).send().await {

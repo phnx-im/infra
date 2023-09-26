@@ -102,7 +102,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn new(
         as_client_id: AsClientId,
         password: &str,
-        domain_or_address: impl ToString,
+        server_url: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         // Connect to or set up database
@@ -110,15 +110,14 @@ impl<T: Notifiable> SelfUser<T> {
         let db_path = db_path(&as_client_id);
         let connection = Connection::open(db_path)?;
 
-        let domain_or_address = domain_or_address.to_string();
-        let api_clients =
-            ApiClients::new(as_client_id.user_name().domain(), domain_or_address.clone());
+        let server_url = server_url.to_string();
+        let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
         InitialUserState::new(
             &connection,
             &api_clients,
             &as_client_id,
-            domain_or_address,
+            server_url,
             password,
         )
         .await?

@@ -4,12 +4,10 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    net::SocketAddr,
     sync::{Arc, Mutex},
 };
 
 use opaque_ke::rand::{rngs::OsRng, Rng};
-use phnxapiclient::DomainOrAddress;
 use phnxbackend::{
     auth_service::{AsClientId, UserName},
     qs::Fqdn,
@@ -60,13 +58,11 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &UserName, address_option: Option<SocketAddr>) -> Self {
+    pub async fn new(user_name: &UserName, address_option: Option<String>) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
-        let domain_or_address = if let Some(address) = address_option {
-            DomainOrAddress::Address(address)
-        } else {
-            DomainOrAddress::Domain(user_name.domain())
-        };
+        let hostname_str = address_option.unwrap_or_else(|| user_name.domain().to_string());
+
+        let server_url = format!("http://{}", hostname_str);
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
@@ -74,7 +70,7 @@ impl TestUser {
         let user = SelfUser::new(
             as_client_id,
             &user_name.to_string(),
-            domain_or_address,
+            server_url,
             notification_hub,
         )
         .await
@@ -91,7 +87,7 @@ pub struct TestBackend {
     pub users: HashMap<UserName, TestUser>,
     pub groups: HashMap<Uuid, HashSet<UserName>>,
     // This is what we feed to the test clients.
-    pub domain_or_address: DomainOrAddress,
+    pub url: String,
     pub domain: Fqdn,
 }
 
@@ -106,7 +102,7 @@ impl TestBackend {
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
         Self {
             users: HashMap::new(),
-            domain_or_address: DomainOrAddress::Address(address),
+            url: address.to_string(),
             groups: HashMap::new(),
             domain,
         }
@@ -115,13 +111,7 @@ impl TestBackend {
     pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
         let user_name = user_name.into();
         tracing::info!("Creating {user_name}");
-        let address_option =
-            if let DomainOrAddress::Address(address) = self.domain_or_address.clone() {
-                Some(address)
-            } else {
-                None
-            };
-        let user = TestUser::new(&user_name, address_option).await;
+        let user = TestUser::new(&user_name, Some(self.url.clone())).await;
         self.users.insert(user_name, user);
     }
 

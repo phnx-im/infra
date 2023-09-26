@@ -7,6 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phnxapiclient::DEFAULT_PORT_HTTP;
 use phnxbackend::auth_service::{AsClientId, UserName};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
@@ -52,7 +53,7 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &UserName, domain_or_address: impl ToString) -> Self {
+    pub async fn new(user_name: &UserName, server_url: impl ToString) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
 
         let notifier = TestNotifier::new();
@@ -61,7 +62,7 @@ impl TestUser {
         let user = SelfUser::new(
             as_client_id,
             &user_name.to_string(),
-            domain_or_address,
+            server_url,
             notification_hub,
         )
         .await
@@ -277,7 +278,8 @@ impl TestBed {
     pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
         let user_name = user_name.into();
         tracing::info!("Creating {user_name}");
-        let user = TestUser::new(&user_name, user_name.domain()).await;
+        let server_url = format!("http://{}:{}", user_name.domain(), DEFAULT_PORT_HTTP);
+        let user = TestUser::new(&user_name, server_url).await;
         self.users.insert(user_name, user);
     }
 

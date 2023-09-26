@@ -15,7 +15,7 @@ pub const ENDPOINT_DS_GROUP_IDS: &str = "/ds_group_ids";
 /// QS endpoints
 pub const ENDPOINT_QS: &str = "/qs";
 pub const ENDPOINT_QS_FEDERATION: &str = "/qs_federation";
-pub const ENDPOINT_QS_WS: &str = "/qs/ws/"; // WebSocket endpoints must end with a slash.
+pub const ENDPOINT_QS_WS: &str = "/qs/ws";
 
 /// AS endpoints
 pub const ENDPOINT_AS: &str = "/as";
