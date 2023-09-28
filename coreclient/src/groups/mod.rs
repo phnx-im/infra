@@ -196,8 +196,8 @@ impl Group {
     }
 
     /// Join a group with the provided welcome message. Returns the group name.
-    async fn join_group(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+    async fn join_group<'a>(
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -323,8 +323,8 @@ impl Group {
     }
 
     /// Join a group using an external commit.
-    async fn join_group_externally(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+    async fn join_group_externally<'a>(
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
@@ -418,9 +418,9 @@ impl Group {
     /// Process inbound message
     ///
     /// Returns the processed message and whether the group was deleted.
-    async fn process_message(
+    async fn process_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
@@ -811,9 +811,9 @@ impl Group {
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    fn invite(
+    fn invite<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
@@ -916,9 +916,9 @@ impl Group {
         Ok(params)
     }
 
-    fn remove(
+    fn remove<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
@@ -971,9 +971,9 @@ impl Group {
         Ok(params)
     }
 
-    fn delete(
+    fn delete<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
     ) -> Result<DeleteGroupParamsOut> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key")
@@ -1029,9 +1029,9 @@ impl Group {
     /// If a [`StagedCommit`] is given, merge it and apply the pending group
     /// diff. If no [`StagedCommit`] is given, merge any pending commit and
     /// apply the pending group diff.
-    fn merge_pending_commit(
+    fn merge_pending_commit<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
     ) -> Result<Vec<GroupMessage>> {
         // Collect free indices s.t. we know where the added members will land
@@ -1156,9 +1156,9 @@ impl Group {
     }
 
     /// Send an application message to the group.
-    pub fn create_message(
+    pub fn create_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         msg: MessageContentType,
     ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
         let mls_message = self.mls_group.create_message(

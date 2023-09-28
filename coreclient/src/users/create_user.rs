@@ -10,9 +10,10 @@ use phnxbackend::{
     messages::{client_as::ConnectionPackage, client_qs::CreateUserRecordResponse},
     qs::ClientIdEncryptionKey,
 };
-use rusqlite::Savepoint;
+use rand_chacha::rand_core::OsRng;
+use rusqlite::Transaction;
 
-use super::*;
+use super::{openmls_provider::PersistableSeed, *};
 
 // State pre-AS Registration
 #[derive(Serialize, Deserialize)]
@@ -67,12 +68,6 @@ impl InitialUserState {
             None,
             as_intermediate_credential.fingerprint()?,
         );
-
-        // TODO: USER CREATION STATE MACHINE: This is the first real state
-        // point. We should now persist the CSR (and more importantly the
-        // private key) and the next time the user starts this process with the
-        // same user name/client id, it should load it from DB and start from
-        // here.
 
         // Let's do OPAQUE registration.
         // First get the server setup information.
@@ -133,25 +128,21 @@ impl InitialUserState {
 
     pub(super) async fn complete_user_creation(
         self,
-        savepoint: &mut Savepoint<'_>,
+        transaction: &mut Transaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
+        let savepoint = transaction.savepoint()?;
+
         let intermediate_state = self
             .initiate_as_registration(&api_clients)
             .await?
             .persist(&savepoint)?;
 
-        let mut savepoint = savepoint.savepoint()?;
+        savepoint.commit()?;
 
-        let result = intermediate_state
-            .complete_user_creation(&mut savepoint, api_clients)
-            .await;
-
-        if result.is_err() {
-            savepoint.commit()?;
-        }
-
-        result
+        intermediate_state
+            .complete_user_creation(transaction, api_clients)
+            .await
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
@@ -290,24 +281,20 @@ impl PostRegistrationInitState {
 
     pub(super) async fn complete_user_creation(
         self,
-        connection: &mut Savepoint<'_>,
+        transaction: &mut Transaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
+        let savepoint = transaction.savepoint()?;
+
         let intermediate_state = self
-            .process_server_response(&connection)?
-            .persist(&connection)?;
+            .process_server_response(&savepoint)?
+            .persist(&savepoint)?;
 
-        let mut savepoint = connection.savepoint()?;
+        savepoint.commit()?;
 
-        let result = intermediate_state
-            .complete_user_creation(&mut savepoint, api_clients)
-            .await;
-
-        if result.is_err() {
-            savepoint.commit()?;
-        }
-
-        result
+        intermediate_state
+            .complete_user_creation(transaction, api_clients)
+            .await
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
@@ -371,25 +358,21 @@ impl UnfinalizedRegistrationState {
 
     pub(super) async fn complete_user_creation(
         self,
-        connection: &mut Savepoint<'_>,
+        transaction: &mut Transaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
+        let savepoint = transaction.savepoint()?;
+
         let intermediate_state = self
             .finalize_as_registration(&api_clients)
             .await?
-            .persist(&connection)?;
+            .persist(&savepoint)?;
 
-        let mut savepoint = connection.savepoint()?;
+        savepoint.commit()?;
 
-        let result = intermediate_state
-            .complete_user_creation(&mut savepoint, api_clients)
-            .await;
-
-        if result.is_err() {
-            savepoint.commit()?;
-        }
-
-        result
+        intermediate_state
+            .complete_user_creation(transaction, api_clients)
+            .await
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
@@ -441,25 +424,20 @@ impl AsRegisteredUserState {
 
     pub(super) async fn complete_user_creation(
         self,
-        connection: &mut Savepoint<'_>,
+        transaction: &mut Transaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
+        let savepoint = transaction.savepoint()?;
         let intermediate_state = self
             .register_with_qs(&api_clients)
             .await?
-            .persist(&connection)?;
+            .persist(&savepoint)?;
 
-        let mut savepoint = connection.savepoint()?;
+        savepoint.commit()?;
 
-        let result = intermediate_state
-            .complete_user_creation(&mut savepoint, api_clients)
-            .await;
-
-        if result.is_err() {
-            savepoint.commit()?;
-        }
-
-        result
+        intermediate_state
+            .complete_user_creation(transaction, api_clients)
+            .await
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
@@ -494,8 +472,8 @@ impl QsRegisteredUserState {
         } = self;
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
-        let crypto_backend =
-            PhnxOpenMlsProvider::new(key_store.signing_key.credential().identity());
+        PersistableSeed::new_random(connection)?;
+        let crypto_backend = PhnxOpenMlsProvider::new(connection);
 
         let mut qs_add_packages = vec![];
         let leaf_key_store = LeafKeyStore::from(connection);
@@ -532,26 +510,24 @@ impl QsRegisteredUserState {
             )
             .await?;
 
-        let state = PersistedUserState {
-            state: self,
-            crypto_backend,
-        };
+        let state = PersistedUserState { state: self };
 
         Ok(state)
     }
 
     pub(super) async fn complete_user_creation(
         self,
-        savepoint: &mut Savepoint<'_>,
+        transaction: &mut Transaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
+        let savepoint = transaction.savepoint()?;
+
         let final_state = self
-            .upload_add_packages(savepoint, &api_clients)
+            .upload_add_packages(&savepoint, &api_clients)
             .await?
             .persist(&savepoint)?;
 
-        // No need to create new savepoint here, since we assume the caller is
-        // going to commit the underlying transaction.
+        savepoint.commit()?;
 
         Ok(final_state)
     }
@@ -569,7 +545,6 @@ impl QsRegisteredUserState {
 #[derive(Serialize, Deserialize)]
 pub(super) struct PersistedUserState {
     state: QsRegisteredUserState,
-    crypto_backend: PhnxOpenMlsProvider,
 }
 
 impl PersistedUserState {
@@ -587,11 +562,10 @@ impl PersistedUserState {
         } = self.state;
         SelfUser {
             sqlite_connection: connection,
-            key_store: key_store,
+            key_store,
             _qs_user_id: qs_user_id,
             qs_client_id: qs_client_id,
             notification_hub_option: Mutex::new(notification_hub_option.into()),
-            crypto_backend: self.crypto_backend,
             api_clients: api_clients.clone(),
         }
     }
