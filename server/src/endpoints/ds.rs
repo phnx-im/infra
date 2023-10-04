@@ -6,9 +6,9 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
+use phnx_types::messages::client_ds::VerifiableClientToDsMessage;
 use phnxbackend::{
     ds::{api::DsApi, DsStorageProvider},
-    messages::client_ds::VerifiableClientToDsMessage,
     qs::QsConnector,
 };
 use tls_codec::{DeserializeBytes, Serialize};

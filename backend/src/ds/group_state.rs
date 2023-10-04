@@ -4,7 +4,6 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use mls_assist::{
     group::Group,
     openmls::{
@@ -12,136 +11,31 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use serde::{Deserialize, Serialize};
-use tls_codec::{
-    DeserializeBytes as TlsDeserializeBytesTrait, Serialize as TlsSerializeTrait, Size,
-    TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes,
-};
-
-use crate::{
+use phnx_types::{
+    credentials::EncryptedClientCredential,
     crypto::{
         ear::{
             keys::{EncryptedSignatureEarKey, GroupStateEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
-        signatures::keys::UserAuthVerifyingKey,
-        EncryptedDsGroupState,
+        signatures::keys::{UserAuthVerifyingKey, UserKeyHash},
     },
+    identifiers::{QsClientReference, SealedClientReference},
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
-    qs::QsClientReference,
+    time::TimeStamp,
 };
+use serde::{Deserialize, Serialize};
 
 use super::{
     api::ExternalCommitInfo,
     errors::{UpdateQueueConfigError, ValidationError},
 };
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TimeStamp {
-    time: DateTime<Utc>,
-}
-
-impl Size for TimeStamp {
-    fn tls_serialized_len(&self) -> usize {
-        8
-    }
-}
-
-impl TlsSerializeTrait for TimeStamp {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        self.time
-            .timestamp_millis()
-            .to_be_bytes()
-            .tls_serialize(writer)
-    }
-}
-
-impl TlsDeserializeBytesTrait for TimeStamp {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let millis_bytes: [u8; 8] = bytes
-            .get(..8)
-            .ok_or(tls_codec::Error::EndOfStream)?
-            .try_into()
-            .map_err(|_| tls_codec::Error::EndOfStream)?;
-        let millis = i64::from_be_bytes(millis_bytes);
-        let time = DateTime::<Utc>::from_naive_utc_and_offset(
-            NaiveDateTime::from_timestamp_millis(millis).ok_or(tls_codec::Error::InvalidInput)?,
-            Utc,
-        );
-        Ok((Self { time }, &bytes[8..]))
-    }
-}
-
-impl TimeStamp {
-    pub fn now() -> Self {
-        let time = Utc::now();
-        Self { time }
-    }
-
-    pub(crate) fn in_days(days_in_the_future: i64) -> Self {
-        let time = Utc::now() + Duration::days(days_in_the_future);
-        Self { time }
-    }
-
-    /// Checks if this time stamp is more than `expiration_days` in the past.
-    pub(crate) fn has_expired(&self, expiration_days: i64) -> bool {
-        Utc::now() - Duration::days(expiration_days) >= self.time
-    }
-
-    pub(crate) fn is_between(&self, start: &Self, end: &Self) -> bool {
-        self.time >= start.time && self.time <= end.time
-    }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Hash,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-)]
-pub struct UserKeyHash {
-    pub(super) hash: VLBytes,
-}
-
-impl UserKeyHash {
-    pub(crate) fn new(hash: Vec<u8>) -> Self {
-        Self { hash: hash.into() }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
     pub(super) clients: Vec<LeafNodeIndex>,
     pub(super) user_auth_key: UserAuthVerifyingKey,
-}
-
-#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct EncryptedClientCredential {
-    pub(super) encrypted_client_credential: Ciphertext,
-}
-
-impl From<Ciphertext> for EncryptedClientCredential {
-    fn from(value: Ciphertext) -> Self {
-        Self {
-            encrypted_client_credential: value,
-        }
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedClientCredential {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.encrypted_client_credential
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -360,6 +254,29 @@ impl DsGroupState {
             client_information.push(Some(client_profile.encrypted_client_information.clone()));
         }
         client_information
+    }
+}
+
+#[derive(Clone)]
+pub struct EncryptedDsGroupState {
+    pub ciphertext: Ciphertext,
+    pub last_used: TimeStamp,
+    pub deleted_queues: Vec<SealedClientReference>,
+}
+
+impl From<Ciphertext> for EncryptedDsGroupState {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self {
+            ciphertext,
+            last_used: TimeStamp::now(),
+            deleted_queues: Vec::new(),
+        }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedDsGroupState {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
     }
 }
 

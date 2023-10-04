@@ -3,12 +3,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::ServerRegistration;
+use phnx_types::{
+    credentials::ClientCredential,
+    crypto::{signatures::signable::Signable, OpaqueCiphersuite},
+    messages::{
+        client_as::{
+            DeleteUserParamsTbs, InitUserRegistrationParams, InitUserRegistrationResponse,
+        },
+        client_as_out::FinishUserRegistrationParamsTbsIn,
+    },
+    time::TimeStamp,
+};
 use privacypass::Serialize;
 
-use crate::{
-    auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
-    crypto::signatures::signable::Signable,
-    messages::{client_as::*, client_as_out::FinishUserRegistrationParamsTbsIn},
+use crate::auth_service::{
+    errors::{DeleteUserError, FinishUserRegistrationError, InitUserRegistrationError},
+    AsClientRecord, AsEphemeralStorageProvider, AsStorageProvider, AuthService,
 };
 
 impl AuthService {

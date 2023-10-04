@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    messages::client_qs::{
-        CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
-        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
-    },
-    qs::{
-        errors::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
-        storage_provider_trait::QsStorageProvider,
-        user_record::QsUserRecord,
-        Qs,
-    },
+use phnx_types::messages::client_qs::{
+    CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
+    CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
+};
+
+use crate::qs::{
+    errors::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
+    storage_provider_trait::QsStorageProvider,
+    user_record::QsUserRecord,
+    Qs,
 };
 
 impl Qs {

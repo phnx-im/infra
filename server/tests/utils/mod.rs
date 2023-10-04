@@ -13,7 +13,7 @@ pub mod setup;
 
 use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
-use phnxbackend::qs::Fqdn;
+use phnx_types::identifiers::Fqdn;
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,

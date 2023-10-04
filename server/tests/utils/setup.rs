@@ -8,10 +8,7 @@ use std::{
 };
 
 use opaque_ke::rand::{rngs::OsRng, Rng};
-use phnxbackend::{
-    auth_service::{AsClientId, UserName},
-    qs::Fqdn,
-};
+use phnx_types::identifiers::{AsClientId, Fqdn, UserName};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{

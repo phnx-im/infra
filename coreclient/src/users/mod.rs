@@ -12,14 +12,10 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
-use phnxbackend::{
-    auth_service::{
-        credentials::{
-            keys::{ClientSigningKey, InfraCredentialSigningKey},
-            ClientCredential, ClientCredentialCsr, ClientCredentialPayload, ExpirationData,
-        },
-        AsClientId, OpaqueRegistrationRecord, OpaqueRegistrationRequest, UserName,
+use phnx_types::{
+    credentials::{
+        keys::{ClientSigningKey, InfraCredentialSigningKey},
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     },
     crypto::{
         ear::{
@@ -37,6 +33,7 @@ use phnxbackend::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
+    identifiers::{AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, UserName},
     messages::{
         client_as::{
             ConnectionEstablishmentPackageTbs, ConnectionPackageTbs, FriendshipPackage,
@@ -45,8 +42,8 @@ use phnxbackend::{
         client_ds_out::CreateGroupParamsOut,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
-    qs::{ClientConfig, Fqdn, QsClientId, QsClientReference, QsUserId},
 };
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use rand::rngs::OsRng;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};

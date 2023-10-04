@@ -5,13 +5,17 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
+use phnx_types::{
+    crypto::hpke::ClientIdDecryptionKey,
+    identifiers::QsUserId,
+    keypackage_batch::QsEncryptedAddPackage,
+    messages::{FriendshipToken, QueueMessage},
+};
 use tls_codec::{DeserializeBytes, Serialize, Size};
 
-use crate::messages::{FriendshipToken, QueueMessage};
-
 use super::{
-    client_record::QsClientRecord, user_record::QsUserRecord, ClientIdDecryptionKey, Fqdn,
-    QsClientId, QsConfig, QsEncryptedAddPackage, QsSigningKey, QsUserId,
+    client_record::QsClientRecord, user_record::QsUserRecord, Fqdn, QsClientId, QsConfig,
+    QsSigningKey,
 };
 
 /// Storage provider trait for the QS.

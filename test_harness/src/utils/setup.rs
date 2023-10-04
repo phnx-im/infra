@@ -7,8 +7,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phnx_types::identifiers::{AsClientId, UserName};
 use phnxapiclient::DEFAULT_PORT_HTTP;
-use phnxbackend::auth_service::{AsClientId, UserName};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{

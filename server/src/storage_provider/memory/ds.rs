@@ -9,13 +9,9 @@ use std::{
 };
 
 use async_trait::async_trait;
-use chrono::{Duration, Utc};
 use mls_assist::openmls::prelude::GroupId;
-use phnxbackend::{
-    crypto::EncryptedDsGroupState,
-    ds::{group_state::TimeStamp, DsStorageProvider, LoadState},
-    qs::Fqdn,
-};
+use phnx_types::{identifiers::Fqdn, time::TimeStamp};
+use phnxbackend::ds::{group_state::EncryptedDsGroupState, DsStorageProvider, LoadState};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -62,7 +58,7 @@ impl DsStorageProvider for MemoryDsStorage {
         let group_id = GroupId::from_slice(Uuid::new_v4().as_bytes());
 
         let mut encrypted_group_state = encrypted_group_state;
-        encrypted_group_state.last_used = Utc::now();
+        encrypted_group_state.last_used = TimeStamp::now();
 
         if let Ok(mut groups) = self.groups.try_lock() {
             match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
@@ -78,12 +74,10 @@ impl DsStorageProvider for MemoryDsStorage {
         match self.groups.try_lock() {
             Ok(groups) => match groups.get(group_id) {
                 Some(StorageState::Taken(encrypted_group_state)) => {
-                    if Utc::now().signed_duration_since(encrypted_group_state.last_used)
-                        < Duration::days(90)
-                    {
-                        LoadState::Success(encrypted_group_state.clone())
-                    } else {
+                    if encrypted_group_state.last_used.has_expired(90) {
                         LoadState::Expired
+                    } else {
+                        LoadState::Success(encrypted_group_state.clone())
                     }
                 }
                 Some(StorageState::Reserved(timestamp)) => LoadState::Reserved(timestamp.clone()),

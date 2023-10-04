@@ -17,10 +17,8 @@ use actix_web_actors::ws::{self};
 use async_trait::*;
 use dispatch::*;
 use messages::*;
-use phnxbackend::{
-    messages::client_ds::EventMessage,
-    qs::{QsClientId, WebsocketNotifier, WebsocketNotifierError, WsNotification},
-};
+use phnx_types::{identifiers::QsClientId, messages::client_ds::EventMessage};
+use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
 use serde::{Deserialize, Serialize};
 use tokio::{self, time::Duration};
 

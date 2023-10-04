@@ -2,15 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnx_types::{
+    crypto::{hpke::HpkeDecryptable, signatures::keys::QsVerifyingKey},
+    identifiers::{ClientConfig, Fqdn},
+    messages::MlsInfraVersion,
+};
 use tls_codec::Serialize;
 
-use crate::{
-    crypto::hpke::HpkeDecryptable,
-    messages::{
-        intra_backend::DsFanOutMessage,
-        qs_qs::{QsToQsMessage, QsToQsPayload},
-        MlsInfraVersion,
-    },
+use crate::messages::{
+    intra_backend::DsFanOutMessage,
+    qs_qs::{QsToQsMessage, QsToQsPayload},
 };
 
 use super::{
@@ -18,7 +19,7 @@ use super::{
     network_provider_trait::NetworkProvider,
     qs_api::FederatedProcessingResult,
     storage_provider_trait::QsStorageProvider,
-    ClientConfig, Fqdn, Qs, QsVerifyingKey, WebsocketNotifier,
+    Qs, WebsocketNotifier,
 };
 
 impl Qs {

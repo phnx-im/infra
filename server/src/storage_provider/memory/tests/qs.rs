@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
+use phnx_types::{
     crypto::{
         ear::Ciphertext,
         ratchet::QueueRatchet,
@@ -12,10 +12,10 @@ use phnxbackend::{
     messages::{
         client_ds::QsQueueMessagePayload, EncryptedQsQueueMessage, FriendshipToken, QueueMessage,
     },
-    qs::{
-        client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
-        user_record::QsUserRecord,
-    },
+};
+use phnxbackend::qs::{
+    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
+    user_record::QsUserRecord,
 };
 
 use crate::storage_provider::memory::qs::MemStorageProvider;

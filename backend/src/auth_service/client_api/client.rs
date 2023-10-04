@@ -2,15 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{ServerLogin, ServerLoginStartParameters};
-use privacypass::Serialize;
-use rand_chacha::rand_core::OsRng;
-
-use crate::{
-    auth_service::{credentials::*, errors::*, storage_provider_trait::*, *},
-    crypto::signatures::signable::Signable,
-    messages::client_as::*,
+use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
+use phnx_types::{
+    credentials::ClientCredential,
+    crypto::{opaque::OpaqueLoginResponse, signatures::signable::Signable, OpaqueCiphersuite},
+    messages::{
+        client_as::{
+            DeleteClientParamsTbs, DequeueMessagesParamsTbs, FinishClientAdditionParamsTbs,
+            InitClientAdditionResponse, InitiateClientAdditionParams,
+        },
+        client_qs::DequeueMessagesResponse,
+    },
+    time::TimeStamp,
 };
+use privacypass::Serialize;
+
+use crate::auth_service::{errors::*, storage_provider_trait::*, *};
 
 impl AuthService {
     pub(crate) async fn as_init_client_addition<

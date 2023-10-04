@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use openmls::prelude::GroupId;
-use phnxbackend::{auth_service::UserName, ds::api::QualifiedGroupId, qs::Fqdn};
+use phnx_types::identifiers::{Fqdn, QualifiedGroupId, UserName};
 use rusqlite::Connection;
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;

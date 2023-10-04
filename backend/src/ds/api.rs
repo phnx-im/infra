@@ -154,43 +154,33 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
-use crate::{
+use phnx_types::{
+    credentials::EncryptedClientCredential,
     crypto::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
-    messages::{
-        client_ds::{CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage},
-        intra_backend::{DsFanOutMessage, DsFanOutPayload},
+    identifiers::QualifiedGroupId,
+    messages::client_ds::{
+        CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage,
     },
-    qs::{Fqdn, QsConnector},
+};
+
+use crate::{
+    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
+    qs::QsConnector,
 };
 
 use super::{
     errors::DsProcessingError,
-    group_state::{DsGroupState, EncryptedClientCredential, SerializableDsGroupState},
+    group_state::{DsGroupState, SerializableDsGroupState},
     DsStorageProvider, LoadState,
 };
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
-
-pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
-
-#[derive(Debug, Clone, PartialEq, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-pub struct QualifiedGroupId {
-    pub group_id: [u8; 16],
-    pub owning_domain: Fqdn,
-}
-
-impl std::fmt::Display for QualifiedGroupId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let uuid = Uuid::from_bytes(self.group_id);
-        write!(f, "{}@{}", uuid, self.owning_domain)
-    }
-}
 
 pub struct DsApi {}
 

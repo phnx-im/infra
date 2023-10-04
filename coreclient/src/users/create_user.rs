@@ -3,12 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
-use phnxbackend::{
-    auth_service::credentials::{
+use phnx_types::{
+    credentials::{
         AsIntermediateCredential, PreliminaryClientSigningKey, VerifiableClientCredential,
     },
+    crypto::{
+        hpke::ClientIdEncryptionKey,
+        opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
+        signatures::signable::Verifiable,
+    },
     messages::{client_as::ConnectionPackage, client_qs::CreateUserRecordResponse},
-    qs::ClientIdEncryptionKey,
+    time::ExpirationData,
 };
 use rusqlite::Savepoint;
 

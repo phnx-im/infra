@@ -5,7 +5,7 @@
 use std::{net::TcpListener, sync::Arc};
 
 use mls_assist::openmls_traits::types::SignatureScheme;
-use phnxbackend::qs::Fqdn;
+use phnx_types::identifiers::Fqdn;
 use phnxserver::{
     configurations::*,
     endpoints::qs::ws::DispatchWebsocketNotifier,

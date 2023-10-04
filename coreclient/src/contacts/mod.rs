@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::KeyPackage;
-use phnxbackend::{
-    auth_service::{credentials::ClientCredential, AsClientId, UserName},
+use phnx_types::{
+    credentials::ClientCredential,
     crypto::ear::keys::{
         AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, SignatureEarKey,
         SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
     },
+    identifiers::{AsClientId, UserName},
+    keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{client_as::FriendshipPackage, FriendshipToken},
-    qs::{KeyPackageBatch, VERIFIED},
 };
 
 use anyhow::Result;

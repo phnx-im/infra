@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix::prelude::{Message, Recipient};
-use phnxbackend::qs::QsClientId;
+use phnx_types::identifiers::QsClientId;
 
 use super::QsWsMessage;
 

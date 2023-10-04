@@ -12,14 +12,17 @@ use openmls::{
     },
     versions::ProtocolVersion,
 };
-use phnxbackend::{
+use phnx_types::{
+    credentials::EncryptedClientCredential,
     crypto::{
         ear::{EarEncryptable, EncryptionError},
-        hpke::HpkeEncryptable,
+        hpke::{ClientIdEncryptionKey, HpkeEncryptable},
     },
-    ds::{api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, group_state::EncryptedClientCredential},
+    identifiers::{
+        ClientConfig, QsClientId, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+    },
+    keypackage_batch::AddPackage,
     messages::{client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload},
-    qs::{AddPackage, ClientConfig, QsClientId, QsClientReference},
 };
 use tls_codec::Serialize as TlsSerializeTrait;
 
@@ -33,8 +36,8 @@ use crate::{
 };
 
 use anyhow::anyhow;
-use phnxbackend::{
-    auth_service::credentials::keys::{ClientSigningKey, InfraCredentialSigningKey},
+use phnx_types::{
+    credentials::keys::{ClientSigningKey, InfraCredentialSigningKey},
     crypto::{
         ear::keys::{
             AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKey,
@@ -47,7 +50,6 @@ use phnxbackend::{
     messages::{
         client_as::AsQueueRatchet, client_ds::QsQueueRatchet, FriendshipToken, QueueMessage,
     },
-    qs::{ClientIdEncryptionKey, Fqdn, QsVerifyingKey},
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};

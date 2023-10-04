@@ -10,7 +10,7 @@ use actix::{
     prelude::{Actor, Context, Handler, Recipient},
     ResponseFuture,
 };
-use phnxbackend::qs::QsClientId;
+use phnx_types::identifiers::QsClientId;
 
 use std::collections::HashMap;
 

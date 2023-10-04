@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use openmls::versions::ProtocolVersion;
 use openmls_traits::crypto::OpenMlsCrypto;
-use phnxbackend::crypto::{ear::EarDecryptable, signatures::signable::Verifiable};
+use phnx_types::crypto::{ear::EarDecryptable, signatures::signable::Verifiable};
 use rusqlite::Connection;
 
 use crate::{

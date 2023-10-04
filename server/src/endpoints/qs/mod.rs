@@ -8,8 +8,9 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
+use phnx_types::messages::client_qs::VerifiableClientToQsMessage;
 use phnxbackend::{
-    messages::{client_qs::VerifiableClientToQsMessage, qs_qs::QsToQsMessage},
+    messages::qs_qs::QsToQsMessage,
     qs::{
         network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider, Qs,
         WebsocketNotifier,

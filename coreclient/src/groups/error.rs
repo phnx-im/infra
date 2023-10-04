@@ -7,7 +7,7 @@ use crate::utils::persistence::PersistenceError;
 use super::*;
 
 use openmls_memory_keystore::MemoryKeyStoreError;
-use phnxbackend::crypto::DecryptionError;
+use phnx_types::crypto::DecryptionError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

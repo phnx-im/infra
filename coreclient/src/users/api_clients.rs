@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnx_types::identifiers::Fqdn;
+
 use super::*;
 
 #[derive(Serialize, Deserialize, Clone)]

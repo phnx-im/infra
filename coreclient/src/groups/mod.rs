@@ -9,16 +9,14 @@ pub(crate) mod store;
 pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
-use phnxbackend::{
-    auth_service::{
-        credentials::{
-            keys::{
-                ClientSigningKey, InfraCredentialPlaintext, InfraCredentialSigningKey,
-                InfraCredentialTbs,
-            },
-            ClientCredential, VerifiableClientCredential,
+use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};
+use phnx_types::{
+    credentials::{
+        keys::{
+            ClientSigningKey, InfraCredentialPlaintext, InfraCredentialSigningKey,
+            InfraCredentialTbs,
         },
-        AsClientId, UserName,
+        ClientCredential, EncryptedClientCredential, VerifiableClientCredential,
     },
     crypto::{
         ear::{
@@ -34,10 +32,8 @@ use phnxbackend::{
             signable::{Signable, Verifiable},
         },
     },
-    ds::{
-        api::QS_CLIENT_REFERENCE_EXTENSION_TYPE, group_state::EncryptedClientCredential,
-        WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
-    },
+    identifiers::{AsClientId, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
             AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
@@ -47,9 +43,10 @@ use phnxbackend::{
             AddUsersParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
+        welcome_attribution_info::{
+            WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
+        },
     },
-    qs::{KeyPackageBatch, VERIFIED},
-    AssistedGroupInfo, AssistedMessageOut,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;

@@ -2,25 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnx_types::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
 use privacypass::batched_tokens::server::Server;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{
-    auth_service::{
-        errors::IssueTokensError, storage_provider_trait::AsStorageProvider, AuthService,
-    },
-    messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
+use crate::auth_service::{
+    errors::IssueTokensError, storage_provider_trait::AsStorageProvider, AuthService,
 };
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-#[repr(u8)]
-pub enum AsTokenType {
-    AsEnqueue,
-    AsKeyPackageBatch,
-    DsGroupCreation,
-    DsGroupOperation,
-    QsKeyPackageBatch,
-}
 
 const MAX_TOKENS_PER_REQUEST: usize = 100;
 

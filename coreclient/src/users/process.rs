@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{bail, Result};
-use phnxbackend::{
+use phnx_types::{
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
-    ds::api::QualifiedGroupId,
+    identifiers::QualifiedGroupId,
     messages::{
         client_as::ExtractedAsQueueMessagePayload,
         client_as_out::ConnectionEstablishmentPackageIn,

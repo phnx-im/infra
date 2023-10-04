@@ -2,39 +2,39 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
-    auth_service::{
-        client_api::privacypass::AsTokenType,
-        credentials::{keys::ClientSigningKey, ClientCredentialPayload},
-        errors::AsProcessingError,
-        AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
-        OpaqueRegistrationRequest, UserName,
+use phnx_types::{
+    credentials::{keys::ClientSigningKey, ClientCredentialPayload},
+    crypto::{
+        kdf::keys::RatchetSecret,
+        opaque::{
+            OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
+            OpaqueRegistrationRequest,
+        },
+        signatures::signable::Signable,
+        RatchetEncryptionKey,
     },
-    crypto::{kdf::keys::RatchetSecret, signatures::signable::Signable, RatchetEncryptionKey},
+    identifiers::{AsClientId, UserName},
     messages::{
         client_as::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
             ClientConnectionPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
             DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EncryptedConnectionEstablishmentPackage,
-        },
-        client_as_out::ConnectionPackageIn,
-        client_qs::DequeueMessagesResponse,
-    },
-    messages::{
-        client_as::{
-            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
+            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams,
+            FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
             IssueTokensResponse, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            ConnectionPackageIn, InitClientAdditionResponseIn, InitUserRegistrationResponseIn,
+            UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
+        client_qs::DequeueMessagesResponse,
+        AsTokenType,
     },
 };
+use phnxbackend::auth_service::errors::AsProcessingError;
 use phnxserver::endpoints::ENDPOINT_AS;
 use privacypass::batched_tokens::TokenRequest;
 use thiserror::Error;

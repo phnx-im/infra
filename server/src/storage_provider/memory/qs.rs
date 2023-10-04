@@ -8,15 +8,17 @@ use std::{
 };
 
 use async_trait::async_trait;
+use phnx_types::{
+    crypto::hpke::ClientIdDecryptionKey,
+    identifiers::{Fqdn, QsClientId, QsUserId},
+    keypackage_batch::QsEncryptedAddPackage,
+    messages::{FriendshipToken, QueueMessage},
+};
 use thiserror::Error;
 
-use phnxbackend::{
-    messages::{FriendshipToken, QueueMessage},
-    qs::{
-        client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
-        user_record::QsUserRecord, ClientIdDecryptionKey, Fqdn, QsClientId, QsConfig,
-        QsEncryptedAddPackage, QsSigningKey, QsUserId,
-    },
+use phnxbackend::qs::{
+    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
+    user_record::QsUserRecord, QsConfig, QsSigningKey,
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 

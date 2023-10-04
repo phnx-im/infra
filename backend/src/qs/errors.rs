@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::crypto::DecryptionError;
-
 use super::{network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider};
+use phnx_types::crypto::DecryptionError;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -237,26 +236,6 @@ pub enum QsEncryptionKeyError {
 }
 
 // === Other errors ===
-
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum UnsealError {
-    /// Decryption error
-    #[error("Decryption error")]
-    DecryptionError,
-    /// Codec error
-    #[error("Codec error")]
-    CodecError,
-}
-
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum SealError {
-    /// Encryption error
-    #[error("Encryption error")]
-    EncryptionError,
-    /// Codec error
-    #[error("Codec error")]
-    CodecError,
-}
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]

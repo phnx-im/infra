@@ -4,6 +4,8 @@
 
 use std::collections::BTreeMap;
 
+use phnx_types::credentials::{keys::InfraCredentialSigningKey, ClientCredential};
+
 use crate::utils::{deserialize_btreemap, serialize_hashmap};
 
 use super::*;

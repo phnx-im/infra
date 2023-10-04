@@ -11,8 +11,8 @@ use mls_assist::{
         GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
 };
-use phnxbackend::{
-    auth_service::credentials::keys::InfraCredentialSigningKey,
+use phnx_types::{
+    credentials::keys::InfraCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
@@ -21,7 +21,7 @@ use phnxbackend::{
             traits::SigningKey,
         },
     },
-    ds::{errors::DsProcessingError, EncryptedWelcomeAttributionInfo},
+    identifiers::QsClientReference,
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
@@ -34,10 +34,10 @@ use phnxbackend::{
             RemoveClientsParamsOut, RemoveUsersParamsOut, ResyncClientParamsOut,
             SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
+        welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
-    qs::QsClientReference,
-    AssistedGroupInfo,
 };
+use phnxbackend::{ds::errors::DsProcessingError, AssistedGroupInfo};
 use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
 use tls_codec::DeserializeBytes;
 

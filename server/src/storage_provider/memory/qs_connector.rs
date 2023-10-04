@@ -5,13 +5,14 @@
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
+use phnx_types::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
         errors::{QsEnqueueError, QsVerifyingKeyError},
         network_provider_trait::NetworkProvider,
         storage_provider_trait::QsStorageProvider,
-        Fqdn, Qs, QsConnector, QsVerifyingKey,
+        Qs, QsConnector,
     },
 };
 

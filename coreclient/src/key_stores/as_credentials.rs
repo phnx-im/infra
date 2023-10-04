@@ -4,14 +4,15 @@
 
 use std::collections::HashMap;
 
-use phnxapiclient::as_api::AsRequestError;
-use phnxbackend::{
-    auth_service::credentials::{
+use phnx_types::{
+    credentials::{
         AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
         VerifiableClientCredential,
     },
     crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
+    identifiers::Fqdn,
 };
+use phnxapiclient::as_api::AsRequestError;
 use thiserror::Error;
 
 use crate::{users::api_clients::ApiClientsError, utils::persistence::PersistenceError};
@@ -207,7 +208,7 @@ impl<'a> Persistable<'a> for PersistableAsIntermediateCredential<'a> {
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.credential.domain()
+        self.credential.domain()
     }
 
     type Payload = AsIntermediateCredential;

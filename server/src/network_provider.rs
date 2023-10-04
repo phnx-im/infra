@@ -4,9 +4,8 @@
 
 use crate::endpoints::ENDPOINT_QS_FEDERATION;
 use async_trait::async_trait;
-use phnxbackend::qs::{
-    network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult, Fqdn,
-};
+use phnx_types::identifiers::Fqdn;
+use phnxbackend::qs::{network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult};
 use reqwest::Client;
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
