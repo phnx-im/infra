@@ -19,7 +19,7 @@ phnxserver = { path = "../server" }
 phnxapiclient = { path = "../apiclient" }
 phnxcoreclient = { path = "../coreclient" }
 phnxbackend = { path = "../backend" }
-phnx_types = { path = "../phnx_types" }
+phnx_types = { path = "../types" }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 tokio = { version = "1", features = ["process"] }
 once_cell = "1"

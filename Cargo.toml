@@ -12,7 +12,7 @@ members = [
     "apiclient",
     "coreclient",
     "test_harness",
-    "phnx_types",
+    "types",
 ]
 
 [workspace.dependencies]

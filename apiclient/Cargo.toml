@@ -18,7 +18,7 @@ reqwest = { version = "^0.11", features = [
 thiserror = "1"
 phnxbackend = { path = "../backend" }
 phnxserver = { path = "../server" }
-phnx_types = { path = "../phnx_types" }
+phnx_types = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-tungstenite = { version = "0.20.0", features = [
     "rustls-tls-webpki-roots",
