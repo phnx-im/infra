@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnx_types::{
+use phnxbackend::qs::errors::QsProcessError;
+use phnxserver::endpoints::ENDPOINT_QS;
+use phnxtypes::{
     crypto::{
         ear::keys::AddPackageEarKey,
         kdf::keys::RatchetSecret,
@@ -31,8 +33,6 @@ use phnx_types::{
         FriendshipToken,
     },
 };
-use phnxbackend::qs::errors::QsProcessError;
-use phnxserver::endpoints::ENDPOINT_QS;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 

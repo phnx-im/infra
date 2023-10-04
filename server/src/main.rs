@@ -5,7 +5,6 @@
 use std::{net::TcpListener, sync::Arc};
 
 use mls_assist::openmls_traits::types::SignatureScheme;
-use phnx_types::identifiers::Fqdn;
 use phnxserver::{
     configurations::*,
     endpoints::qs::ws::DispatchWebsocketNotifier,
@@ -19,6 +18,7 @@ use phnxserver::{
     },
     telemetry::{get_subscriber, init_subscriber},
 };
+use phnxtypes::identifiers::Fqdn;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
-use phnx_types::{identifiers::Fqdn, time::TimeStamp};
+use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
 
 use self::group_state::EncryptedDsGroupState;
 

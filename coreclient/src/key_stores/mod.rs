@@ -12,7 +12,7 @@ use openmls::{
     },
     versions::ProtocolVersion,
 };
-use phnx_types::{
+use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{EarEncryptable, EncryptionError},
@@ -36,7 +36,7 @@ use crate::{
 };
 
 use anyhow::anyhow;
-use phnx_types::{
+use phnxtypes::{
     credentials::keys::{ClientSigningKey, InfraCredentialSigningKey},
     crypto::{
         ear::keys::{

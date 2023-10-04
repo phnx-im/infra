@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::GroupId;
-use phnx_types::identifiers::{QualifiedGroupId, UserName};
+use phnxtypes::identifiers::{QualifiedGroupId, UserName};
 use serde::{Deserialize, Serialize};
 use tls_codec::{DeserializeBytes, TlsDeserialize, TlsSerialize, TlsSize};
 use uuid::Uuid;

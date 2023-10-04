@@ -11,7 +11,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use phnx_types::{
+use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{

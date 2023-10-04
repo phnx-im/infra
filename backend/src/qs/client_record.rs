@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use phnx_types::{
+use phnxtypes::{
     crypto::{
         ear::{keys::PushTokenEarKey, EarDecryptable},
         ratchet::QueueRatchet,

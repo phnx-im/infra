@@ -6,7 +6,7 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
-use phnx_types::{
+use phnxtypes::{
     credentials::{
         keys::AsIntermediateSigningKey, AsCredential, AsIntermediateCredential, ClientCredential,
         CredentialFingerprint,

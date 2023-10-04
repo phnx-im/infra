@@ -5,7 +5,6 @@
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
-use phnx_types::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
@@ -15,6 +14,7 @@ use phnxbackend::{
         Qs, QsConnector,
     },
 };
+use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider};
-use phnx_types::crypto::DecryptionError;
+use phnxtypes::crypto::DecryptionError;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 

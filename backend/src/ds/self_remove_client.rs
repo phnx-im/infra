@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
 };
-use phnx_types::{messages::client_ds::SelfRemoveClientParams, time::Duration};
+use phnxtypes::{messages::client_ds::SelfRemoveClientParams, time::Duration};
 
 use crate::messages::intra_backend::DsFanOutPayload;
 

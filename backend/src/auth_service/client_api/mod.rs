@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
-use phnx_types::{
+use phnxtypes::{
     crypto::{opaque::OpaqueLoginResponse, OpaqueCiphersuite},
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };

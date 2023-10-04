@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{group::ProcessedAssistedMessage, openmls::prelude::ProcessedMessageContent};
-use phnx_types::{
+use phnxtypes::{
     messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinGroupParams},
     time::{Duration, TimeStamp},
 };

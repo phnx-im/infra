@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnx_types::{
+use phnxbackend::auth_service::errors::AsProcessingError;
+use phnxserver::endpoints::ENDPOINT_AS;
+use phnxtypes::{
     credentials::{keys::ClientSigningKey, ClientCredentialPayload},
     crypto::{
         kdf::keys::RatchetSecret,
@@ -34,8 +36,6 @@ use phnx_types::{
         AsTokenType,
     },
 };
-use phnxbackend::auth_service::errors::AsProcessingError;
-use phnxserver::endpoints::ENDPOINT_AS;
 use privacypass::batched_tokens::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};

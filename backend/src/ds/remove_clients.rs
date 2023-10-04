@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
-use phnx_types::{messages::client_ds::RemoveClientsParams, time::Duration};
+use phnxtypes::{messages::client_ds::RemoveClientsParams, time::Duration};
 
 use crate::messages::intra_backend::DsFanOutPayload;
 

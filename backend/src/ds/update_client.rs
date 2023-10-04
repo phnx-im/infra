@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
-use phnx_types::{
+use phnxtypes::{
     messages::client_ds::{InfraAadMessage, InfraAadPayload, UpdateClientParams},
     time::Duration,
 };

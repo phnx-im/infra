@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnx_types::{crypto::signatures::keys::QsUserVerifyingKey, messages::FriendshipToken};
+use phnxtypes::{crypto::signatures::keys::QsUserVerifyingKey, messages::FriendshipToken};
 
 use super::QsClientId;
 

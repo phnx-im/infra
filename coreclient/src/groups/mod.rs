@@ -10,7 +10,7 @@ pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
 use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};
-use phnx_types::{
+use phnxtypes::{
     credentials::{
         keys::{
             ClientSigningKey, InfraCredentialPlaintext, InfraCredentialSigningKey,

@@ -6,11 +6,11 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
-use phnx_types::messages::client_ds::VerifiableClientToDsMessage;
 use phnxbackend::{
     ds::{api::DsApi, DsStorageProvider},
     qs::QsConnector,
 };
+use phnxtypes::messages::client_ds::VerifiableClientToDsMessage;
 use tls_codec::{DeserializeBytes, Serialize};
 
 /// DS endpoint for all group-based functionalities.

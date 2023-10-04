@@ -8,7 +8,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
-use phnx_types::{
+use phnxtypes::{
     crypto::signatures::keys::UserKeyHash, messages::client_ds::RemoveUsersParams, time::Duration,
 };
 

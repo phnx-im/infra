@@ -6,7 +6,7 @@ use mls_assist::{
     openmls::prelude::{OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use phnx_types::{
+use phnxtypes::{
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
         signatures::signable::Signable,

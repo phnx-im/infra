@@ -7,7 +7,7 @@ use mls_assist::{
     openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use phnx_types::{
+use phnxtypes::{
     crypto::{
         ear::keys::GroupStateEarKey,
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},

@@ -4,7 +4,8 @@
 
 use std::collections::HashMap;
 
-use phnx_types::{
+use phnxapiclient::as_api::AsRequestError;
+use phnxtypes::{
     credentials::{
         AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
         VerifiableClientCredential,
@@ -12,7 +13,6 @@ use phnx_types::{
     crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
     identifiers::Fqdn,
 };
-use phnxapiclient::as_api::AsRequestError;
 use thiserror::Error;
 
 use crate::{users::api_clients::ApiClientsError, utils::persistence::PersistenceError};

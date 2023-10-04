@@ -13,7 +13,6 @@ pub mod setup;
 
 use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
-use phnx_types::identifiers::Fqdn;
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
@@ -27,6 +26,7 @@ use phnxserver::{
     },
     telemetry::{get_subscriber, init_subscriber},
 };
+use phnxtypes::identifiers::Fqdn;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();

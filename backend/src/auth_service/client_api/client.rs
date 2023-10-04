@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
-use phnx_types::{
+use phnxtypes::{
     credentials::ClientCredential,
     crypto::{opaque::OpaqueLoginResponse, signatures::signable::Signable, OpaqueCiphersuite},
     messages::{

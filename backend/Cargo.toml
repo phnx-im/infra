@@ -27,4 +27,4 @@ tls_codec = { workspace = true }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 
-phnx_types = { path = "../types" }
+phnxtypes = { path = "../types" }

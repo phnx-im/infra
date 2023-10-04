@@ -8,7 +8,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use phnx_types::{
+use phnxtypes::{
     crypto::hpke::ClientIdDecryptionKey,
     identifiers::{Fqdn, QsClientId, QsUserId},
     keypackage_batch::QsEncryptedAddPackage,

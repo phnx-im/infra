@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnx_types::messages::client_as::{
+use phnxtypes::messages::client_as::{
     AsClientConnectionPackageResponse, AsPublishConnectionPackagesParamsTbs,
     ClientConnectionPackageParamsTbs, ConnectionPackage,
 };

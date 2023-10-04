@@ -157,7 +157,7 @@ use mls_assist::{
 use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
-use phnx_types::{
+use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},

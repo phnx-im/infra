@@ -5,7 +5,7 @@
 #![allow(unused_variables)]
 
 use opaque_ke::ServerRegistration;
-use phnx_types::{
+use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
     identifiers::UserName,

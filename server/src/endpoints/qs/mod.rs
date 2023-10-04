@@ -8,7 +8,6 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
-use phnx_types::messages::client_qs::VerifiableClientToQsMessage;
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
     qs::{
@@ -16,6 +15,7 @@ use phnxbackend::{
         WebsocketNotifier,
     },
 };
+use phnxtypes::messages::client_qs::VerifiableClientToQsMessage;
 use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod ws;

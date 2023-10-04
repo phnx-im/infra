@@ -8,7 +8,6 @@ use std::{
 };
 
 use opaque_ke::rand::{rngs::OsRng, Rng};
-use phnx_types::identifiers::{AsClientId, Fqdn, UserName};
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -18,6 +17,7 @@ use phnxcoreclient::{
     users::SelfUser,
 };
 use phnxserver::network_provider::MockNetworkProvider;
+use phnxtypes::identifiers::{AsClientId, Fqdn, UserName};
 use uuid::Uuid;
 
 use crate::spawn_app;

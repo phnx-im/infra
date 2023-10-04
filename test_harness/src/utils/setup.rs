@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phnx_types::identifiers::{AsClientId, UserName};
 use phnxapiclient::DEFAULT_PORT_HTTP;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
@@ -17,6 +16,7 @@ use phnxcoreclient::{
     },
     users::SelfUser,
 };
+use phnxtypes::identifiers::{AsClientId, UserName};
 use rand::{rngs::OsRng, seq::IteratorRandom, Rng, RngCore};
 use uuid::Uuid;
 

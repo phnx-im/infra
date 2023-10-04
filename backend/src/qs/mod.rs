@@ -61,7 +61,7 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
-use phnx_types::{
+use phnxtypes::{
     crypto::{
         errors::RandomnessError,
         signatures::{keys::QsVerifyingKey, traits::SigningKey},

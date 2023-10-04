@@ -5,7 +5,7 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
-use phnx_types::{
+use phnxtypes::{
     crypto::hpke::ClientIdDecryptionKey,
     identifiers::QsUserId,
     keypackage_batch::QsEncryptedAddPackage,

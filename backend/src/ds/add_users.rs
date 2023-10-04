@@ -13,7 +13,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 
-use phnx_types::{
+use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
         ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},

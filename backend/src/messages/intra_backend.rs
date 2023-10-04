@@ -6,7 +6,7 @@
 //! passed internally within the backend.
 
 use mls_assist::messages::SerializedMlsMessage;
-use phnx_types::{
+use phnxtypes::{
     identifiers::QsClientReference,
     messages::client_ds::{EventMessage, QsQueueMessagePayload},
 };

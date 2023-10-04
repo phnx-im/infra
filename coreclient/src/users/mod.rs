@@ -12,7 +12,8 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
-use phnx_types::{
+use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
+use phnxtypes::{
     credentials::{
         keys::{ClientSigningKey, InfraCredentialSigningKey},
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
@@ -43,7 +44,6 @@ use phnx_types::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

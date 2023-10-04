@@ -11,7 +11,9 @@ use mls_assist::{
         GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
 };
-use phnx_types::{
+use phnxbackend::{ds::errors::DsProcessingError, AssistedGroupInfo};
+use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
+use phnxtypes::{
     credentials::keys::InfraCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
@@ -37,8 +39,6 @@ use phnx_types::{
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
 };
-use phnxbackend::{ds::errors::DsProcessingError, AssistedGroupInfo};
-use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
 use tls_codec::DeserializeBytes;
 
 #[derive(Error, Debug)]

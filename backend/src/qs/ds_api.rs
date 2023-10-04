@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnx_types::{
+use phnxtypes::{
     crypto::{hpke::HpkeDecryptable, signatures::keys::QsVerifyingKey},
     identifiers::{ClientConfig, Fqdn},
     messages::MlsInfraVersion,
