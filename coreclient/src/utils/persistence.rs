@@ -26,6 +26,7 @@ pub(crate) enum DataType {
     QueueRatchet,
     SequenceNumber,
     ClientData,
+    RandomnessSeed,
 }
 
 impl std::fmt::Display for DataType {

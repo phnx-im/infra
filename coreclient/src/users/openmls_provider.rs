@@ -4,30 +4,28 @@
 
 use openmls_rust_crypto::RustCrypto;
 use openmls_traits::key_store::MlsEntity;
+use rand::{RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 
 use crate::utils::persistence::PersistenceError;
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PhnxOpenMlsProvider {
-    as_client_id: AsClientId,
-    // TODO: Instead of skipping, we probably want to store the randomness here.
-    #[serde(skip)]
+pub(crate) struct PhnxOpenMlsProvider<'a> {
+    connection: &'a Connection,
     crypto: RustCrypto,
 }
 
-impl PhnxOpenMlsProvider {
-    pub(crate) fn new(as_client_id: AsClientId) -> Self {
-        let provider = Self {
-            as_client_id,
+impl<'a> PhnxOpenMlsProvider<'a> {
+    pub(crate) fn new(connection: &'a Connection) -> Self {
+        Self {
+            connection,
             crypto: RustCrypto::default(),
-        };
-        provider
+        }
     }
 }
 
-impl OpenMlsProvider for PhnxOpenMlsProvider {
+impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
     type KeyStoreProvider = Self;
     type CryptoProvider = RustCrypto;
     type RandProvider = RustCrypto;
@@ -88,9 +86,9 @@ impl<'a> Persistable<'a> for KeyStoreValue<'a> {
     }
 }
 
-impl OpenMlsKeyStore for PhnxOpenMlsProvider {
+impl<'a> OpenMlsKeyStore for PhnxOpenMlsProvider<'a> {
     /// The error type returned by the [`OpenMlsKeyStore`].
-    type Error = PhnxKeyStorError;
+    type Error = PersistenceError;
 
     /// Store a value `v` that implements the [`ToKeyStoreValue`] trait for
     /// serialization for ID `k`.
@@ -98,11 +96,9 @@ impl OpenMlsKeyStore for PhnxOpenMlsProvider {
     /// Returns an error if storing fails.
     fn store<V: MlsEntity>(&self, k: &[u8], v: &V) -> Result<(), Self::Error> {
         let value = serde_json::to_vec(v).map_err(|e| PersistenceError::SerdeError(e))?;
-        let db_path = db_path(&self.as_client_id);
-        let connection = Connection::open(db_path).map_err(|e| PersistenceError::SqliteError(e))?;
 
         let key_store_value = KeyStoreValue {
-            conn: &connection,
+            conn: self.connection,
             key: hex::encode(k),
             payload: value,
         };
@@ -115,12 +111,8 @@ impl OpenMlsKeyStore for PhnxOpenMlsProvider {
     ///
     /// Returns [`None`] if no value is stored for `k` or reading fails.
     fn read<V: MlsEntity>(&self, k: &[u8]) -> Option<V> {
-        let db_path = db_path(&self.as_client_id);
-        let connection = Connection::open(db_path)
-            .map_err(|e| PersistenceError::SqliteError(e))
-            .ok()?;
         let key_str = hex::encode(k);
-        let key_store_value = match KeyStoreValue::load_one(&connection, Some(&key_str), None) {
+        let key_store_value = match KeyStoreValue::load_one(self.connection, Some(&key_str), None) {
             Ok(key_store_value) => key_store_value,
             Err(_) => return None,
         };
@@ -132,16 +124,127 @@ impl OpenMlsKeyStore for PhnxOpenMlsProvider {
     ///
     /// Returns an error if storing fails.
     fn delete<V: MlsEntity>(&self, k: &[u8]) -> Result<(), Self::Error> {
-        let db_path = db_path(&self.as_client_id);
-        let connection = Connection::open(db_path).map_err(|e| PersistenceError::SqliteError(e))?;
         let key_str = hex::encode(k);
-        KeyStoreValue::purge_key(&connection, &key_str)?;
+        KeyStoreValue::purge_key(self.connection, &key_str)?;
         Ok(())
     }
 }
 
+impl<'a> OpenMlsRand for PhnxOpenMlsProvider<'a> {
+    type Error = PhnxRandomnessError;
+
+    fn random_array<const N: usize>(&self) -> std::result::Result<[u8; N], Self::Error> {
+        // Load seed from DB.
+        let seed = PersistableSeed::load_one(self.connection, Some(&0), None);
+        let mut rng = if let Ok(Some(seed)) = seed {
+            ChaCha20Rng::from_seed(seed.payload)
+        } else {
+            ChaCha20Rng::from_entropy()
+        };
+        let mut out = [0u8; N];
+        rng.try_fill_bytes(&mut out)
+            .map_err(|_| Self::Error::NotEnoughRandomness)?;
+        // Write fresh seed to DB.
+        PersistableSeed::from_rng(self.connection, &mut rng)?;
+        Ok(out)
+    }
+
+    fn random_vec(&self, len: usize) -> std::result::Result<Vec<u8>, Self::Error> {
+        // Load seed from DB.
+        let seed = PersistableSeed::load_one(self.connection, Some(&0), None);
+        let mut rng = if let Ok(Some(seed)) = seed {
+            ChaCha20Rng::from_seed(seed.payload)
+        } else {
+            ChaCha20Rng::from_entropy()
+        };
+        let mut out = vec![0u8; len];
+        rng.try_fill_bytes(&mut out)
+            .map_err(|_| Self::Error::NotEnoughRandomness)?;
+        // Write fresh seed to DB.
+        PersistableSeed::from_rng(self.connection, &mut rng)?;
+        Ok(out)
+    }
+}
+
 #[derive(Debug, Error)]
-pub(crate) enum PhnxKeyStorError {
+pub(crate) enum PhnxRandomnessError {
     #[error(transparent)]
-    PersistenceError(#[from] PersistenceError),
+    StorageError(#[from] PersistenceError),
+    #[error("Unable to collect enough randomness.")]
+    NotEnoughRandomness,
+}
+
+pub(super) struct PersistableSeed<'a> {
+    conn: &'a Connection,
+    payload: [u8; 32],
+}
+
+impl<'a> PersistableSeed<'a> {
+    /// Store a new random seed in the database.
+    pub(super) fn new_random(conn: &'a Connection) -> Result<(), PhnxRandomnessError> {
+        let mut rng = ChaCha20Rng::from_entropy();
+        let mut payload = [0u8; 32];
+        rng.try_fill_bytes(&mut payload)
+            .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
+        Ok(Self { conn, payload }.persist()?)
+    }
+
+    /// Generate a new seed from the given RNG and store it in the database.
+    pub(super) fn from_rng(
+        conn: &'a Connection,
+        rng: &mut ChaCha20Rng,
+    ) -> Result<(), PhnxRandomnessError> {
+        let mut payload = [0u8; 32];
+        rng.try_fill_bytes(&mut payload)
+            .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
+        Ok(Self { conn, payload }.persist()?)
+    }
+}
+
+impl<'a> Persistable<'a> for PersistableSeed<'a> {
+    type Key = u64;
+
+    type SecondaryKey = u64;
+
+    type Payload = [u8; 32];
+
+    const DATA_TYPE: DataType = DataType::RandomnessSeed;
+
+    fn key(&self) -> &Self::Key {
+        &0
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &0
+    }
+
+    fn connection(&self) -> &Connection {
+        self.conn
+    }
+
+    fn payload(&self) -> &Self::Payload {
+        &self.payload
+    }
+
+    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
+        Self { conn, payload }
+    }
+}
+
+#[test]
+fn randomness() {
+    use std::collections::HashSet;
+    let connection = Connection::open_in_memory().unwrap();
+
+    let provider = PhnxOpenMlsProvider::new(&connection);
+    let random_vec_1 = provider.random_vec(32).unwrap();
+    let random_vec_2 = provider.random_vec(32).unwrap();
+    let provider = PhnxOpenMlsProvider::new(&connection);
+    let random_vec_3 = provider.random_vec(32).unwrap();
+    let random_vec_4 = provider.random_vec(32).unwrap();
+    let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+    assert_eq!(set.len(), 4);
 }

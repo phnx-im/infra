@@ -44,7 +44,6 @@ use phnx_types::{
     },
 };
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
-use rand::rngs::OsRng;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -85,7 +84,6 @@ pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
 pub struct SelfUser<T: Notifiable> {
     sqlite_connection: Connection,
-    pub(crate) crypto_backend: PhnxOpenMlsProvider,
     pub(crate) notification_hub_option: Mutex<Option<NotificationHub<T>>>,
     api_clients: ApiClients,
     pub(crate) _qs_user_id: QsUserId,
@@ -119,13 +117,13 @@ impl<T: Notifiable> SelfUser<T> {
         )
         .await?;
 
-        let mut savepoint = connection.savepoint()?;
+        let mut transaction = connection.transaction()?;
 
         let final_user_state = initial_user_state
-            .complete_user_creation(&mut savepoint, &api_clients)
+            .complete_user_creation(&mut transaction, &api_clients)
             .await?;
 
-        savepoint.commit()?;
+        transaction.commit()?;
 
         Ok(final_user_state.into_self_user(connection, api_clients, notification_hub))
     }
@@ -149,38 +147,38 @@ impl<T: Notifiable> SelfUser<T> {
 
         let user_data = stage.into_payload();
 
-        let mut savepoint = connection.savepoint()?;
+        let mut transaction = connection.transaction()?;
 
         let final_user_state = match user_data {
             UserCreationState::InitialUserState(state) => {
                 state
-                    .complete_user_creation(&mut savepoint, &api_clients)
+                    .complete_user_creation(&mut transaction, &api_clients)
                     .await?
             }
             UserCreationState::PostRegistrationInitState(state) => {
                 state
-                    .complete_user_creation(&mut savepoint, &api_clients)
+                    .complete_user_creation(&mut transaction, &api_clients)
                     .await?
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
                 state
-                    .complete_user_creation(&mut savepoint, &api_clients)
+                    .complete_user_creation(&mut transaction, &api_clients)
                     .await?
             }
             UserCreationState::AsRegisteredUserState(state) => {
                 state
-                    .complete_user_creation(&mut savepoint, &api_clients)
+                    .complete_user_creation(&mut transaction, &api_clients)
                     .await?
             }
             UserCreationState::QsRegisteredUserState(state) => {
                 state
-                    .complete_user_creation(&mut savepoint, &api_clients)
+                    .complete_user_creation(&mut transaction, &api_clients)
                     .await?
             }
             UserCreationState::FinalUserState(state) => state,
         };
 
-        savepoint.commit()?;
+        transaction.commit()?;
 
         let self_user =
             final_user_state.into_self_user(connection, api_clients, notification_hub_option);
@@ -198,7 +196,7 @@ impl<T: Notifiable> SelfUser<T> {
         let client_reference = self.create_own_client_reference();
         let group_store = self.group_store();
         let (group, partial_params) = group_store.create_group(
-            self.crypto_backend(),
+            &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
         )?;
@@ -273,7 +271,7 @@ impl<T: Notifiable> SelfUser<T> {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
         let params = group.invite(
-            self.crypto_backend(),
+            &self.crypto_backend(),
             &self.key_store.signing_key,
             contact_add_infos,
             contact_wai_keys,
@@ -292,7 +290,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
         // Send off the notifications
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
@@ -320,7 +318,7 @@ impl<T: Notifiable> SelfUser<T> {
             let mut user_clients = group.user_client_ids(user_name);
             clients.append(&mut user_clients);
         }
-        let params = group.remove(self.crypto_backend(), clients)?;
+        let params = group.remove(&self.crypto_backend(), clients)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
@@ -332,7 +330,7 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         // Now that we know the commit went through, we can merge the commit and
         // create the events.
-        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
         // Send off the notifications
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
@@ -390,7 +388,7 @@ impl<T: Notifiable> SelfUser<T> {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Generate ciphertext
         let (params, message) = group
-            .create_message(self.crypto_backend(), message.clone())
+            .create_message(&self.crypto_backend(), message.clone())
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
@@ -454,7 +452,7 @@ impl<T: Notifiable> SelfUser<T> {
         log::info!("Creating local connection group");
         let group_store = self.group_store();
         let (connection_group, partial_params) = group_store.create_group(
-            self.crypto_backend(),
+            &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
         )?;
@@ -564,13 +562,13 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id.as_group_id())?
             .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-        let params = group.update_user_key(self.crypto_backend())?;
+        let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
     }
@@ -593,7 +591,7 @@ impl<T: Notifiable> SelfUser<T> {
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         if past_members.len() != 1 {
-            let params = group.delete(self.crypto_backend())?;
+            let params = group.delete(&self.crypto_backend())?;
             let owner_domain = conversation.owner_domain();
             self.api_clients
                 .get(&owner_domain)?
@@ -603,7 +601,7 @@ impl<T: Notifiable> SelfUser<T> {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+            let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
             self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         }
         conversation.set_inactive(&past_members)?;
@@ -673,7 +671,7 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id.as_group_id())?
             .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-        let params = group.leave_group(self.crypto_backend())?;
+        let params = group.leave_group(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
@@ -699,13 +697,13 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id.as_group_id())?
             .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-        let params = group.update(self.crypto_backend())?;
+        let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
         self.dispatch_message_notifications(conversation_id, conversation_messages)?;
         Ok(())
     }
@@ -829,7 +827,7 @@ impl<T: Notifiable> SelfUser<T> {
         (&self.sqlite_connection).into()
     }
 
-    fn crypto_backend(&self) -> &PhnxOpenMlsProvider {
-        &self.crypto_backend
+    fn crypto_backend(&self) -> PhnxOpenMlsProvider<'_> {
+        PhnxOpenMlsProvider::new(&self.sqlite_connection)
     }
 }

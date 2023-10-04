@@ -43,7 +43,7 @@ impl<'a> GroupStore<'a> {
 
     pub(crate) async fn join_group(
         &self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -68,7 +68,7 @@ impl<'a> GroupStore<'a> {
 
     pub(crate) async fn join_group_externally(
         &self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
@@ -104,9 +104,9 @@ pub(crate) struct PersistableGroup<'a> {
 }
 
 impl PersistableGroup<'_> {
-    pub(crate) fn invite(
+    pub(crate) fn invite<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
@@ -121,9 +121,9 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub(crate) fn merge_pending_commit(
+    pub(crate) fn merge_pending_commit<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
     ) -> Result<Vec<GroupMessage>> {
         let result = self
@@ -133,9 +133,9 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub(crate) fn remove(
+    pub(crate) fn remove<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut> {
         let result = self.payload.remove(provider, members)?;
@@ -143,9 +143,9 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub fn create_message(
+    pub fn create_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         msg: MessageContentType,
     ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
         let result = self.payload.create_message(provider, msg)?;
@@ -153,9 +153,9 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub(crate) async fn process_message(
+    pub(crate) async fn process_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
@@ -182,9 +182,9 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub(crate) fn delete(
+    pub(crate) fn delete<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider>,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
     ) -> Result<DeleteGroupParamsOut> {
         let result = self.payload.delete(provider)?;
         self.persist()?;

@@ -51,7 +51,7 @@ impl<T: Notifiable> SelfUser<T> {
                     let group_store = self.group_store();
                     let group = group_store
                         .join_group(
-                            self.crypto_backend(),
+                            &self.crypto_backend(),
                             welcome_bundle,
                             &self.key_store.wai_ear_key,
                             self.leaf_key_store(),
@@ -95,7 +95,7 @@ impl<T: Notifiable> SelfUser<T> {
                     let as_credential_store = self.as_credential_store();
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
-                            self.crypto_backend(),
+                            &self.crypto_backend(),
                             protocol_message,
                             &as_credential_store,
                         )
@@ -227,7 +227,7 @@ impl<T: Notifiable> SelfUser<T> {
                                     .collect::<Vec<_>>();
                                 conversation.set_inactive(&past_members)?;
                             }
-                            group.merge_pending_commit(self.crypto_backend(), *staged_commit)?
+                            group.merge_pending_commit(&self.crypto_backend(), *staged_commit)?
                         }
                         ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                             unimplemented!()
@@ -245,7 +245,7 @@ impl<T: Notifiable> SelfUser<T> {
             let mut group = group_store
                 .get(&group_id)?
                 .ok_or(anyhow!("Can't find freshly joined group."))?;
-            let params = group.update_user_key(self.crypto_backend())?;
+            let params = group.update_user_key(&self.crypto_backend())?;
             let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)?
@@ -253,7 +253,8 @@ impl<T: Notifiable> SelfUser<T> {
                 .await?;
             // Instead of using the conversation messages, we just
             // dispatch a conversation notification.
-            let _conversation_messages = group.merge_pending_commit(self.crypto_backend(), None)?;
+            let _conversation_messages =
+                group.merge_pending_commit(&self.crypto_backend(), None)?;
         }
         Ok(())
     }
@@ -345,7 +346,7 @@ impl<T: Notifiable> SelfUser<T> {
                     let group_store = self.group_store();
                     let (group, commit, group_info) = group_store
                         .join_group_externally(
-                            self.crypto_backend(),
+                            &self.crypto_backend(),
                             eci,
                             leaf_signer,
                             signature_ear_key,

@@ -74,7 +74,6 @@ impl ApiClient {
 
         match self.client.post(url).send().await {
             Ok(res) => {
-                log::info!("Got response from DS: {:?}", res);
                 match res.status().as_u16() {
                     // Success!
                     x if (200..=299).contains(&x) => {
