@@ -64,7 +64,7 @@ impl TestUser {
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
         let as_client_id = AsClientId::random(user_name.clone()).unwrap();
-        let user = SelfUser::new(
+        let mut user = SelfUser::new(
             as_client_id,
             &user_name.to_string(),
             server_url,
@@ -72,6 +72,7 @@ impl TestUser {
         )
         .await
         .unwrap();
+        user.clean_up_db();
         Self { user, notifier }
     }
 

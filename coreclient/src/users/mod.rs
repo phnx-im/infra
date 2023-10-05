@@ -4,6 +4,7 @@
 
 use std::{
     ops::Deref,
+    process::Command,
     sync::{Arc, Mutex},
 };
 
@@ -57,7 +58,7 @@ use crate::{
         qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
         queue_ratchets::QueueType, MemoryUserKeyStore,
     },
-    utils::persistence::{db_path, DataType, Persistable, PersistenceError},
+    utils::persistence::{open_client_db, DataType, Persistable, PersistenceError},
 };
 
 use self::{
@@ -89,6 +90,9 @@ pub struct SelfUser<T: Notifiable> {
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) key_store: MemoryUserKeyStore,
+    // If true, the database will be deleted after the SelfUser is dropped.
+    #[cfg(debug_assertions)]
+    clean_up_db: bool,
 }
 
 impl<T: Notifiable> SelfUser<T> {
@@ -102,8 +106,7 @@ impl<T: Notifiable> SelfUser<T> {
     ) -> Result<Self> {
         // Connect to or set up database
         // We want a different sqlite db per client.
-        let db_path = db_path(&as_client_id);
-        let mut connection = Connection::open(db_path)?;
+        let mut connection = open_client_db(&as_client_id)?;
 
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
@@ -135,8 +138,7 @@ impl<T: Notifiable> SelfUser<T> {
         as_client_id: AsClientId,
         notification_hub_option: impl Into<Option<NotificationHub<T>>>,
     ) -> Result<Option<SelfUser<T>>> {
-        let db_path = db_path(&as_client_id);
-        let mut connection = Connection::open(db_path)?;
+        let mut connection = open_client_db(&as_client_id)?;
 
         let Some(stage) = PersistableUserData::load_one(&connection, Some(&as_client_id), None)?
         else {
@@ -829,5 +831,23 @@ impl<T: Notifiable> SelfUser<T> {
 
     fn crypto_backend(&self) -> PhnxOpenMlsProvider<'_> {
         PhnxOpenMlsProvider::new(&self.sqlite_connection)
+    }
+}
+
+#[cfg(debug_assertions)]
+impl<T: Notifiable> SelfUser<T> {
+    pub fn clean_up_db(&mut self) {
+        self.clean_up_db = true;
+    }
+}
+
+impl<T: Notifiable> Drop for SelfUser<T> {
+    #[cfg(debug_assertions)]
+    fn drop(&mut self) {
+        if self.clean_up_db {
+            if let Some(db_path) = self.sqlite_connection.path() {
+                let _ = Command::new("rm").arg(db_path).status();
+            }
+        }
     }
 }

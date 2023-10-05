@@ -54,6 +54,7 @@ flutter_rust_bridge = { version = "=1.80.1", optional = true }
 [features]
 dart-bridge = ["flutter_rust_bridge", "tokio", "simple_logger"]
 
+[dev-dependencies]
 
 [build-dependencies]
 

@@ -7,8 +7,10 @@ use rusqlite::{named_params, params, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
-pub(crate) fn db_path(as_client_id: &AsClientId) -> String {
-    format!("{}.db", as_client_id)
+pub(crate) fn open_client_db(as_client_id: &AsClientId) -> Result<Connection, PersistenceError> {
+    let db_name = format!("{}.db", as_client_id);
+    let conn = Connection::open(db_name)?;
+    Ok(conn)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
