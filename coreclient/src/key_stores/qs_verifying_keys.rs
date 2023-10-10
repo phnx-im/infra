@@ -4,6 +4,8 @@
 
 use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 
+use crate::utils::persistence::PersistableStruct;
+
 use super::*;
 
 pub(crate) struct QsVerifyingKeyStore<'a> {
@@ -45,20 +47,17 @@ pub(crate) struct QualifiedQsVerifyingKey {
     domain: Fqdn,
 }
 
-pub(crate) struct PersistableQsVerifyingKey<'a> {
-    connection: &'a Connection,
-    payload: QualifiedQsVerifyingKey,
-}
-
-impl Deref for PersistableQsVerifyingKey<'_> {
+impl Deref for QualifiedQsVerifyingKey {
     type Target = QsVerifyingKey;
 
     fn deref(&self) -> &Self::Target {
-        &self.payload.qs_verifying_key
+        &self.qs_verifying_key
     }
 }
 
-impl<'a> Persistable<'a> for PersistableQsVerifyingKey<'a> {
+pub(crate) type PersistableQsVerifyingKey<'a> = PersistableStruct<'a, QualifiedQsVerifyingKey>;
+
+impl Persistable for QualifiedQsVerifyingKey {
     type Key = Fqdn;
 
     type SecondaryKey = Fqdn;
@@ -66,27 +65,10 @@ impl<'a> Persistable<'a> for PersistableQsVerifyingKey<'a> {
     const DATA_TYPE: DataType = DataType::QsVerifyingKey;
 
     fn key(&self) -> &Self::Key {
-        &self.payload.domain
+        &self.domain
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.payload.domain
-    }
-
-    type Payload = QualifiedQsVerifyingKey;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
+        &self.domain
     }
 }

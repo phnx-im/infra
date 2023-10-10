@@ -16,38 +16,35 @@ use phnxtypes::{
     time::ExpirationData,
 };
 use rand_chacha::rand_core::OsRng;
-use rusqlite::Transaction;
 
 use super::{openmls_provider::PersistableSeed, *};
 
-// State pre-AS Registration
+// State before any network queries
 #[derive(Serialize, Deserialize)]
-pub(super) struct InitialUserState {
-    client_credential_payload: ClientCredentialPayload,
-    prelim_signing_key: PreliminaryClientSigningKey,
-    opaque_message: Vec<u8>,
-    opaque_state: Vec<u8>,
-    server_url: String,
-    password: String,
-    qs_encryption_key: ClientIdEncryptionKey,
-    as_intermediate_credential: AsIntermediateCredential,
+pub(super) struct BasicUserData {
+    pub(super) as_client_id: AsClientId,
+    pub(super) server_url: String,
+    pub(super) password: String,
 }
 
-impl InitialUserState {
-    pub(super) async fn new(
+impl BasicUserData {
+    pub(super) fn client_id(&self) -> &AsClientId {
+        &self.as_client_id
+    }
+
+    pub(super) fn server_url(&self) -> &str {
+        &self.server_url
+    }
+
+    pub(super) async fn prepare_as_registration(
+        self,
         connection: &Connection,
         api_clients: &ApiClients,
-        as_client_id: &AsClientId,
-        domain_or_address: impl ToString,
-        password: &str,
-    ) -> Result<Self> {
+    ) -> Result<InitialUserState> {
         // Prepare user account creation
-        let user_name = as_client_id.user_name().clone();
-        log::debug!("Creating new user {}", user_name);
+        log::debug!("Creating new client {}", self.as_client_id);
         // Let's turn TLS off for now.
-        let domain = user_name.domain();
-        let domain_or_address = domain_or_address.to_string();
-
+        let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
         let as_credential_store = AsCredentialStore::new(&connection, api_clients.clone());
         let as_intermediate_credential = as_credential_store
@@ -66,22 +63,25 @@ impl InitialUserState {
 
         // Create CSR for AS to sign
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(as_client_id.clone(), SignatureScheme::ED25519)?;
+            ClientCredentialCsr::new(self.as_client_id.clone(), SignatureScheme::ED25519)?;
 
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
             None,
-            as_intermediate_credential.fingerprint()?,
+            as_intermediate_credential.fingerprint().clone(),
         );
 
         // Let's do OPAQUE registration.
         // First get the server setup information.
         let mut client_rng = OsRng;
         let client_registration_start_result: ClientRegistrationStartResult<OpaqueCiphersuite> =
-            ClientRegistration::<OpaqueCiphersuite>::start(&mut client_rng, password.as_bytes())
-                .map_err(|e| anyhow!("Error starting OPAQUE handshake: {:?}", e))?;
+            ClientRegistration::<OpaqueCiphersuite>::start(
+                &mut client_rng,
+                self.password.as_bytes(),
+            )
+            .map_err(|e| anyhow!("Error starting OPAQUE handshake: {:?}", e))?;
 
-        let initial_user_state = Self {
+        let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),
             prelim_signing_key: prelim_signing_key.clone(),
             opaque_message: client_registration_start_result
@@ -89,17 +89,31 @@ impl InitialUserState {
                 .serialize()
                 .to_vec(),
             opaque_state: client_registration_start_result.state.serialize().to_vec(),
-            server_url: domain_or_address.clone(),
-            password: password.to_string(),
+            server_url: self.server_url,
+            password: self.password,
             qs_encryption_key,
             as_intermediate_credential: as_intermediate_credential.into_credential(),
-        }
-        .persist(connection)?;
+        };
 
         Ok(initial_user_state)
     }
+}
 
-    async fn initiate_as_registration(
+// State pre-AS Registration
+#[derive(Serialize, Deserialize)]
+pub(super) struct InitialUserState {
+    client_credential_payload: ClientCredentialPayload,
+    prelim_signing_key: PreliminaryClientSigningKey,
+    opaque_message: Vec<u8>,
+    opaque_state: Vec<u8>,
+    server_url: String,
+    password: String,
+    qs_encryption_key: ClientIdEncryptionKey,
+    as_intermediate_credential: AsIntermediateCredential,
+}
+
+impl InitialUserState {
+    pub(super) async fn initiate_as_registration(
         self,
         api_clients: &ApiClients,
     ) -> Result<PostRegistrationInitState> {
@@ -131,25 +145,6 @@ impl InitialUserState {
         Ok(post_registration_init_state)
     }
 
-    pub(super) async fn complete_user_creation(
-        self,
-        transaction: &mut Transaction<'_>,
-        api_clients: &ApiClients,
-    ) -> Result<PersistedUserState> {
-        let savepoint = transaction.savepoint()?;
-
-        let intermediate_state = self
-            .initiate_as_registration(&api_clients)
-            .await?
-            .persist(&savepoint)?;
-
-        savepoint.commit()?;
-
-        intermediate_state
-            .complete_user_creation(transaction, api_clients)
-            .await
-    }
-
     pub(super) fn client_id(&self) -> &AsClientId {
         self.client_credential_payload.identity_ref()
     }
@@ -168,7 +163,7 @@ pub(super) struct PostRegistrationInitState {
 }
 
 impl PostRegistrationInitState {
-    fn process_server_response(
+    pub(super) fn process_server_response(
         self,
         connection: &Connection,
     ) -> Result<UnfinalizedRegistrationState> {
@@ -284,24 +279,6 @@ impl PostRegistrationInitState {
         Ok(unfinalized_registration_state)
     }
 
-    pub(super) async fn complete_user_creation(
-        self,
-        transaction: &mut Transaction<'_>,
-        api_clients: &ApiClients,
-    ) -> Result<PersistedUserState> {
-        let savepoint = transaction.savepoint()?;
-
-        let intermediate_state = self
-            .process_server_response(&savepoint)?
-            .persist(&savepoint)?;
-
-        savepoint.commit()?;
-
-        intermediate_state
-            .complete_user_creation(transaction, api_clients)
-            .await
-    }
-
     pub(super) fn client_id(&self) -> &AsClientId {
         self.client_credential.client_id()
     }
@@ -323,7 +300,7 @@ pub(super) struct UnfinalizedRegistrationState {
 }
 
 impl UnfinalizedRegistrationState {
-    async fn finalize_as_registration(
+    pub(super) async fn finalize_as_registration(
         self,
         api_clients: &ApiClients,
     ) -> Result<AsRegisteredUserState> {
@@ -361,25 +338,6 @@ impl UnfinalizedRegistrationState {
         Ok(as_registered_user_state)
     }
 
-    pub(super) async fn complete_user_creation(
-        self,
-        transaction: &mut Transaction<'_>,
-        api_clients: &ApiClients,
-    ) -> Result<PersistedUserState> {
-        let savepoint = transaction.savepoint()?;
-
-        let intermediate_state = self
-            .finalize_as_registration(&api_clients)
-            .await?
-            .persist(&savepoint)?;
-
-        savepoint.commit()?;
-
-        intermediate_state
-            .complete_user_creation(transaction, api_clients)
-            .await
-    }
-
     pub(super) fn client_id(&self) -> &AsClientId {
         self.key_store.signing_key.credential().identity_ref()
     }
@@ -398,7 +356,10 @@ pub(super) struct AsRegisteredUserState {
 }
 
 impl AsRegisteredUserState {
-    async fn register_with_qs(self, api_clients: &ApiClients) -> Result<QsRegisteredUserState> {
+    pub(super) async fn register_with_qs(
+        self,
+        api_clients: &ApiClients,
+    ) -> Result<QsRegisteredUserState> {
         let AsRegisteredUserState {
             key_store,
             server_url,
@@ -427,24 +388,6 @@ impl AsRegisteredUserState {
         Ok(qs_registered_user_state)
     }
 
-    pub(super) async fn complete_user_creation(
-        self,
-        transaction: &mut Transaction<'_>,
-        api_clients: &ApiClients,
-    ) -> Result<PersistedUserState> {
-        let savepoint = transaction.savepoint()?;
-        let intermediate_state = self
-            .register_with_qs(&api_clients)
-            .await?
-            .persist(&savepoint)?;
-
-        savepoint.commit()?;
-
-        intermediate_state
-            .complete_user_creation(transaction, api_clients)
-            .await
-    }
-
     pub(super) fn client_id(&self) -> &AsClientId {
         self.key_store.signing_key.credential().identity_ref()
     }
@@ -464,7 +407,7 @@ pub(super) struct QsRegisteredUserState {
 }
 
 impl QsRegisteredUserState {
-    async fn upload_add_packages(
+    pub(super) async fn upload_add_packages(
         self,
         connection: &Connection,
         api_clients: &ApiClients,
@@ -518,23 +461,6 @@ impl QsRegisteredUserState {
         let state = PersistedUserState { state: self };
 
         Ok(state)
-    }
-
-    pub(super) async fn complete_user_creation(
-        self,
-        transaction: &mut Transaction<'_>,
-        api_clients: &ApiClients,
-    ) -> Result<PersistedUserState> {
-        let savepoint = transaction.savepoint()?;
-
-        let final_state = self
-            .upload_add_packages(&savepoint, &api_clients)
-            .await?
-            .persist(&savepoint)?;
-
-        savepoint.commit()?;
-
-        Ok(final_state)
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {

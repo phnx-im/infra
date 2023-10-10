@@ -2,11 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
-
 use rusqlite::Connection;
 
-use crate::utils::persistence::{DataType, Persistable, PersistenceError};
+use crate::utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError};
 
 use super::*;
 
@@ -98,10 +96,7 @@ impl<'a> GroupStore<'a> {
     }
 }
 
-pub(crate) struct PersistableGroup<'a> {
-    connection: &'a Connection,
-    payload: Group,
-}
+pub(crate) type PersistableGroup<'a> = PersistableStruct<'a, Group>;
 
 impl PersistableGroup<'_> {
     pub(crate) fn invite<'a>(
@@ -210,42 +205,17 @@ impl PersistableGroup<'_> {
     }
 }
 
-impl Deref for PersistableGroup<'_> {
-    type Target = Group;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl<'a> Persistable<'a> for PersistableGroup<'a> {
+impl Persistable for Group {
     type Key = GroupIdBytes;
     type SecondaryKey = GroupIdBytes;
 
     const DATA_TYPE: DataType = DataType::MlsGroup;
 
     fn key(&self) -> &Self::Key {
-        &self.payload.group_id_bytes
+        &self.group_id_bytes
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.payload.group_id_bytes
-    }
-
-    type Payload = Group;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
+        &self.group_id_bytes
     }
 }

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::utils::persistence::PersistableStruct;
+
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -79,10 +81,7 @@ impl<'a> QueueRatchetStore<'a> {
     }
 }
 
-pub(crate) struct PersistableAsQueueRatchet<'a> {
-    connection: &'a Connection,
-    payload: AsQueueRatchet,
-}
+pub(crate) type PersistableAsQueueRatchet<'a> = PersistableStruct<'a, AsQueueRatchet>;
 
 impl PersistableAsQueueRatchet<'_> {
     pub(crate) fn decrypt(&mut self, ciphertext: QueueMessage) -> Result<AsQueueMessagePayload> {
@@ -92,15 +91,7 @@ impl PersistableAsQueueRatchet<'_> {
     }
 }
 
-impl Deref for PersistableAsQueueRatchet<'_> {
-    type Target = AsQueueRatchet;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl<'a> Persistable<'a> for PersistableAsQueueRatchet<'a> {
+impl Persistable for AsQueueRatchet {
     type Key = QueueType;
 
     type SecondaryKey = QueueType;
@@ -114,29 +105,9 @@ impl<'a> Persistable<'a> for PersistableAsQueueRatchet<'a> {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &QueueType::As
     }
-
-    type Payload = AsQueueRatchet;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
-    }
 }
 
-pub(crate) struct PersistableQsQueueRatchet<'a> {
-    connection: &'a Connection,
-    payload: QsQueueRatchet,
-}
+pub(crate) type PersistableQsQueueRatchet<'a> = PersistableStruct<'a, QsQueueRatchet>;
 
 impl PersistableQsQueueRatchet<'_> {
     pub(crate) fn decrypt(&mut self, ciphertext: QueueMessage) -> Result<QsQueueMessagePayload> {
@@ -146,7 +117,7 @@ impl PersistableQsQueueRatchet<'_> {
     }
 }
 
-impl<'a> Persistable<'a> for PersistableQsQueueRatchet<'a> {
+impl Persistable for QsQueueRatchet {
     type Key = QueueType;
 
     type SecondaryKey = QueueType;
@@ -160,23 +131,6 @@ impl<'a> Persistable<'a> for PersistableQsQueueRatchet<'a> {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &QueueType::Qs
     }
-
-    type Payload = QsQueueRatchet;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -185,10 +139,15 @@ pub(crate) struct QualifiedSequenceNumber {
     sequence_number: u64,
 }
 
-pub(crate) struct PersistableSequenceNumber<'a> {
-    connection: &'a Connection,
-    payload: QualifiedSequenceNumber,
+impl Deref for QualifiedSequenceNumber {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sequence_number
+    }
 }
+
+pub(crate) type PersistableSequenceNumber<'a> = PersistableStruct<'a, QualifiedSequenceNumber>;
 
 impl PersistableSequenceNumber<'_> {
     pub(crate) fn set(&mut self, sequence_number: u64) -> Result<()> {
@@ -198,15 +157,7 @@ impl PersistableSequenceNumber<'_> {
     }
 }
 
-impl Deref for PersistableSequenceNumber<'_> {
-    type Target = u64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload.sequence_number
-    }
-}
-
-impl<'a> Persistable<'a> for PersistableSequenceNumber<'a> {
+impl Persistable for QualifiedSequenceNumber {
     type Key = QueueType;
 
     type SecondaryKey = QueueType;
@@ -214,27 +165,10 @@ impl<'a> Persistable<'a> for PersistableSequenceNumber<'a> {
     const DATA_TYPE: DataType = DataType::SequenceNumber;
 
     fn key(&self) -> &Self::Key {
-        &self.payload.queue_type
+        &self.queue_type
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.payload.queue_type
-    }
-
-    type Payload = QualifiedSequenceNumber;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
+        &self.queue_type
     }
 }

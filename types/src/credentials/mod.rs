@@ -59,17 +59,15 @@ impl std::fmt::Display for CredentialFingerprint {
 }
 
 impl CredentialFingerprint {
-    fn with_label(credential: &impl TlsSerialize, label: &str) -> Result<Self, LibraryError> {
+    fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
         let rust_crypto = OpenMlsRustCrypto::default();
-        let payload = credential
-            .tls_serialize_detached()
-            .map_err(LibraryError::missing_bound_check)?;
+        let payload = credential.tls_serialize_detached().unwrap_or_default();
         let input = [label.as_bytes().to_vec(), payload].concat();
         let value = rust_crypto
             .crypto()
             .hash(HashType::Sha2_256, &input)
-            .map_err(|e| LibraryError::unexpected_crypto_error(&e.to_string()))?;
-        Ok(Self { value })
+            .unwrap_or_default();
+        Self { value }
     }
 }
 
@@ -78,11 +76,23 @@ const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredential {
+    body: AsCredentialBody,
+    fingerprint: CredentialFingerprint,
+}
+
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
+struct AsCredentialBody {
     version: MlsInfraVersion,
     as_domain: Fqdn,
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
     verifying_key: AsVerifyingKey,
+}
+
+impl AsCredentialBody {
+    fn hash(&self) -> CredentialFingerprint {
+        CredentialFingerprint::with_label(self, AS_CREDENTIAL_LABEL)
+    }
 }
 
 impl AsCredential {
@@ -101,28 +111,30 @@ impl AsCredential {
             expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
         let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
         let verifying_key = verifying_key_bytes.into();
-        let credential = Self {
+        let body = AsCredentialBody {
             version,
             as_domain,
             expiration_data,
             signature_scheme,
             verifying_key,
         };
+        let fingerprint = body.hash();
+        let credential = Self { body, fingerprint };
         let signing_key =
             AsSigningKey::from_bytes_and_credential(signing_key_bytes, credential.clone());
         Ok((credential, signing_key))
     }
 
-    pub fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
-        CredentialFingerprint::with_label(self, AS_CREDENTIAL_LABEL)
+    pub fn fingerprint(&self) -> &CredentialFingerprint {
+        &self.fingerprint
     }
 
     pub fn verifying_key(&self) -> &AsVerifyingKey {
-        &self.verifying_key
+        &self.body.verifying_key
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.as_domain
+        &self.body.as_domain
     }
 }
 
@@ -190,7 +202,7 @@ impl AsIntermediateCredentialCsr {
         let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(
             DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME,
         ));
-        let signer_fingerprint = as_signing_key.credential().fingerprint()?;
+        let signer_fingerprint = as_signing_key.credential().fingerprint().clone();
         let credential = AsIntermediateCredentialPayload {
             csr: self,
             expiration_data,
@@ -222,31 +234,57 @@ impl Signable for AsIntermediateCredentialPayload {
 }
 
 #[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
-pub struct AsIntermediateCredential {
+pub struct AsIntermediateCredentialBody {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
 }
 
+impl AsIntermediateCredentialBody {
+    fn hash(&self) -> CredentialFingerprint {
+        CredentialFingerprint::with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AsIntermediateCredential {
+    body: AsIntermediateCredentialBody,
+    fingerprint: CredentialFingerprint,
+}
+
+impl tls_codec::Serialize for AsIntermediateCredential {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.body.tls_serialize(writer)
+    }
+}
+
+impl tls_codec::Size for AsIntermediateCredential {
+    fn tls_serialized_len(&self) -> usize {
+        self.body.tls_serialized_len()
+    }
+}
+
 impl AsIntermediateCredential {
     pub fn verifying_key(&self) -> &AsIntermediateVerifyingKey {
-        &self.credential.csr.verifying_key
+        &self.body.credential.csr.verifying_key
     }
 
-    pub fn fingerprint(&self) -> Result<CredentialFingerprint, LibraryError> {
-        CredentialFingerprint::with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
+    pub fn fingerprint(&self) -> &CredentialFingerprint {
+        &self.fingerprint
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.credential.csr.as_domain
+        &self.body.credential.csr.as_domain
     }
 }
 
 impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential {
     fn from_payload(payload: AsIntermediateCredentialPayload, signature: Signature) -> Self {
-        Self {
+        let body = AsIntermediateCredentialBody {
             credential: payload,
             signature,
-        }
+        };
+        let fingerprint = body.hash();
+        Self { body, fingerprint }
     }
 }
 
@@ -283,10 +321,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
         verifiable: VerifiableAsIntermediateCredential,
         _seal: Self::SealingType,
     ) -> Self {
-        Self {
-            credential: verifiable.credential,
-            signature: verifiable.signature,
-        }
+        Self::from_payload(verifiable.credential, verifiable.signature)
     }
 }
 

@@ -55,6 +55,8 @@ flutter_rust_bridge = { version = "=1.80.1", optional = true }
 dart-bridge = ["flutter_rust_bridge", "tokio", "simple_logger"]
 
 [dev-dependencies]
+phnxserver_test_harness = { path = "../test_harness" }
+actix-rt = "^2.7"
 
 [build-dependencies]
 

@@ -17,7 +17,7 @@ use phnxcoreclient::{
     users::SelfUser,
 };
 use phnxserver::network_provider::MockNetworkProvider;
-use phnxtypes::identifiers::{AsClientId, Fqdn, UserName};
+use phnxtypes::identifiers::{Fqdn, UserName};
 use uuid::Uuid;
 
 use crate::spawn_app;
@@ -63,9 +63,8 @@ impl TestUser {
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
-        let as_client_id = AsClientId::random(user_name.clone()).unwrap();
         let mut user = SelfUser::new(
-            as_client_id,
+            user_name.clone(),
             &user_name.to_string(),
             server_url,
             notification_hub,

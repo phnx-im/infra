@@ -2,15 +2,142 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::ops::Deref;
+
 use phnxtypes::identifiers::AsClientId;
 use rusqlite::{named_params, params, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
+/// Open a connection to the DB that contains records for all clients on this
+/// device.
+pub(crate) fn open_phnx_db() -> Result<Connection, PersistenceError> {
+    let conn = Connection::open("phnx.db")?;
+    Ok(conn)
+}
+
 pub(crate) fn open_client_db(as_client_id: &AsClientId) -> Result<Connection, PersistenceError> {
     let db_name = format!("{}.db", as_client_id);
     let conn = Connection::open(db_name)?;
     Ok(conn)
+}
+
+pub(crate) struct PersistableStruct<'a, T: Persistable> {
+    pub(crate) connection: &'a Connection,
+    pub(crate) payload: T,
+}
+
+impl<'a, T: Persistable> Deref for PersistableStruct<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.payload
+    }
+}
+
+impl<'a, T: Persistable> PersistableStruct<'a, T> {
+    fn connection(&self) -> &Connection {
+        self.connection
+    }
+    pub(crate) fn payload(&self) -> &T {
+        &self.payload
+    }
+    pub(crate) fn from_connection_and_payload(conn: &'a Connection, payload: T) -> Self {
+        Self {
+            connection: conn,
+            payload,
+        }
+    }
+
+    /// Load a single value from the database. Returns `None` if no value was
+    /// found for the given primary and/or secondary key(s).
+    ///
+    /// Returns an error either if the underlying database query fails or if
+    /// deserialization of the returned value fails.
+    pub(crate) fn load_one(
+        conn: &'a Connection,
+        primary_key_option: Option<&T::Key>,
+        secondary_key_option: Option<&T::SecondaryKey>,
+    ) -> Result<Option<Self>, PersistenceError> {
+        let mut values = load_internal(conn, primary_key_option, secondary_key_option, false)?;
+        Ok(values.pop())
+    }
+
+    /// Load all values from the database that match the given key value(s).
+    ///
+    /// Returns an error either if the underlying database query fails or if
+    /// deserialization of the returned value fails.
+    pub(crate) fn load(
+        conn: &'a Connection,
+        primary_key_option: Option<&T::Key>,
+        secondary_key_option: Option<&T::SecondaryKey>,
+    ) -> Result<Vec<Self>, PersistenceError> {
+        load_internal(conn, primary_key_option, secondary_key_option, true)
+    }
+
+    /// Load all values of this data type from the database. This is an alias
+    /// for `load` with `None` as primary and secondary key.
+    ///
+    /// Returns an error either if the underlying database query fails or if
+    /// deserialization of the returned value fails.
+    pub(crate) fn load_all(conn: &'a Connection) -> Result<Vec<Self>, PersistenceError> {
+        Self::load(conn, None, None)
+    }
+
+    /// Persists this value in the database. If a value already exists for one
+    /// of the unique columns, it will replace that value with this one. If the
+    /// table for the data type of this value does not exist, it will be
+    /// created.
+    ///
+    /// Returns an error either if the underlying database query fails or if the
+    /// serialization of this value fails.
+    pub(crate) fn persist(&self) -> Result<(), PersistenceError> {
+        let serialized_payload = serde_json::to_vec(self.payload())?;
+        let statement_str = format!(
+            "INSERT OR REPLACE INTO {} (primary_key, secondary_key, value) VALUES (:key, :secondary_key, :value)",
+            T::DATA_TYPE
+        );
+        let mut stmt = match self.connection().prepare(&statement_str) {
+            Ok(stmt) => stmt,
+            // If the table does not exist, we create it and try again.
+            Err(e) => match e {
+                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
+                    let expected_error_string = format!("no such table: {}", T::DATA_TYPE);
+                    if error_string == &expected_error_string {
+                        create_table(self.connection(), T::DATA_TYPE)?;
+                    } else {
+                        return Err(e.into());
+                    }
+                    self.connection().prepare(&statement_str)?
+                }
+                _ => return Err(e.into()),
+            },
+        };
+        stmt.insert(
+            named_params! {":key": self.payload().key().to_string(), ":secondary_key": self.payload().secondary_key().to_string(),":value": serialized_payload},
+        )?;
+
+        Ok(())
+    }
+
+    /// Purges this value from the database.
+    ///
+    /// Returns an error either if the underlying database query fails.
+    pub(crate) fn purge(&self) -> Result<(), PersistenceError> {
+        let key = self.key();
+        Self::purge_key(self.connection(), key)
+    }
+
+    /// Purges a value of this data type and with the given key from the
+    /// database.
+    ///
+    /// Returns an error either if the underlying database query fails.
+    pub(crate) fn purge_key(conn: &Connection, key: &T::Key) -> Result<(), PersistenceError> {
+        let statement_str = format!("DELETE FROM {} WHERE primary_key = (:key)", T::DATA_TYPE);
+        let mut stmt = conn.prepare(&statement_str)?;
+        stmt.execute(named_params! {":key": key.to_string()})?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,6 +155,7 @@ pub(crate) enum DataType {
     QueueRatchet,
     SequenceNumber,
     ClientData,
+    ClientRecord,
     RandomnessSeed,
 }
 
@@ -37,107 +165,13 @@ impl std::fmt::Display for DataType {
     }
 }
 
-pub(crate) trait Persistable<'a>: Sized {
+pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
     type Key: std::fmt::Display + std::fmt::Debug;
     type SecondaryKey: std::fmt::Display + std::fmt::Debug;
-    type Payload: Serialize + DeserializeOwned;
     const DATA_TYPE: DataType;
 
     fn key(&self) -> &Self::Key;
     fn secondary_key(&self) -> &Self::SecondaryKey;
-    fn connection(&self) -> &Connection;
-    fn payload(&self) -> &Self::Payload;
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self;
-
-    /// Load a single value from the database. Returns `None` if no value was
-    /// found for the given primary and/or secondary key(s).
-    ///
-    /// Returns an error either if the underlying database query fails or if
-    /// deserialization of the returned value fails.
-    fn load_one(
-        conn: &'a Connection,
-        primary_key_option: Option<&Self::Key>,
-        secondary_key_option: Option<&Self::SecondaryKey>,
-    ) -> Result<Option<Self>, PersistenceError> {
-        let mut values = load_internal(conn, primary_key_option, secondary_key_option, false)?;
-        Ok(values.pop())
-    }
-
-    /// Load all values from the database that match the given key value(s).
-    ///
-    /// Returns an error either if the underlying database query fails or if
-    /// deserialization of the returned value fails.
-    fn load(
-        conn: &'a Connection,
-        primary_key_option: Option<&Self::Key>,
-        secondary_key_option: Option<&Self::SecondaryKey>,
-    ) -> Result<Vec<Self>, PersistenceError> {
-        load_internal(conn, primary_key_option, secondary_key_option, true)
-    }
-
-    /// Load all values of this data type from the database. This is an alias
-    /// for `load` with `None` as primary and secondary key.
-    ///
-    /// Returns an error either if the underlying database query fails or if
-    /// deserialization of the returned value fails.
-    fn load_all(conn: &'a Connection) -> Result<Vec<Self>, PersistenceError> {
-        Self::load(conn, None, None)
-    }
-
-    /// Persists this value in the database. If a value already exists for one
-    /// of the unique columns, it will replace that value with this one. If the
-    /// table for the data type of this value does not exist, it will be
-    /// created.
-    ///
-    /// Returns an error either if the underlying database query fails or if the
-    /// serialization of this value fails.
-    fn persist(&self) -> Result<(), PersistenceError> {
-        let serialized_payload = serde_json::to_vec(self.payload())?;
-        let statement_str = format!(
-            "INSERT OR REPLACE INTO {} (primary_key, secondary_key, value) VALUES (:key, :secondary_key, :value)",
-            Self::DATA_TYPE
-        );
-        let mut stmt = match self.connection().prepare(&statement_str) {
-            Ok(stmt) => stmt,
-            // If the table does not exist, we create it and try again.
-            Err(e) => match e {
-                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
-                    let expected_error_string = format!("no such table: {}", Self::DATA_TYPE);
-                    if error_string == &expected_error_string {
-                        create_table(self.connection(), Self::DATA_TYPE)?;
-                    } else {
-                        return Err(e.into());
-                    }
-                    self.connection().prepare(&statement_str)?
-                }
-                _ => return Err(e.into()),
-            },
-        };
-        stmt.insert(
-            named_params! {":key": self.key().to_string(), ":secondary_key": self.secondary_key().to_string(),":value": serialized_payload},
-        )?;
-
-        Ok(())
-    }
-
-    /// Purges this value from the database.
-    ///
-    /// Returns an error either if the underlying database query fails.
-    fn purge(&self) -> Result<(), PersistenceError> {
-        let key = self.key();
-        Self::purge_key(self.connection(), key)
-    }
-
-    /// Purges a value of this data type and with the given key from the
-    /// database.
-    ///
-    /// Returns an error either if the underlying database query fails.
-    fn purge_key(conn: &Connection, key: &Self::Key) -> Result<(), PersistenceError> {
-        let statement_str = format!("DELETE FROM {} WHERE primary_key = (:key)", Self::DATA_TYPE);
-        let mut stmt = conn.prepare(&statement_str)?;
-        stmt.execute(named_params! {":key": key.to_string()})?;
-        Ok(())
-    }
 }
 
 #[derive(Debug, Error)]
@@ -169,12 +203,12 @@ fn create_table(conn: &rusqlite::Connection, data_type: DataType) -> Result<(), 
 /// Helper function to read one or more values from the database. If
 /// `load_multiple` is set to false, the returned vector will contain at most
 /// one value.
-fn load_internal<'a, T: Persistable<'a>>(
+fn load_internal<'a, T: Persistable>(
     conn: &'a Connection,
     primary_key_option: Option<&T::Key>,
     secondary_key_option: Option<&T::SecondaryKey>,
     load_multiple: bool,
-) -> Result<Vec<T>, PersistenceError> {
+) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
     let mut statement_str = format!("SELECT value FROM {}", T::DATA_TYPE);
 
     // We prepare the query here, so we can use it in the match arms below.
@@ -210,7 +244,7 @@ fn load_internal<'a, T: Persistable<'a>>(
             .map(|row| {
                 let value_bytes = row?;
                 let payload = serde_json::from_slice(&value_bytes)?;
-                let value = T::from_connection_and_payload(conn, payload);
+                let value = PersistableStruct::from_connection_and_payload(conn, payload);
                 Ok(value)
             })
             .collect::<Result<Vec<_>, PersistenceError>>()?;

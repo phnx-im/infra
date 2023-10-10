@@ -7,7 +7,7 @@ use openmls_traits::key_store::MlsEntity;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use crate::utils::persistence::PersistenceError;
+use crate::utils::persistence::{PersistableStruct, PersistenceError};
 
 use super::*;
 
@@ -46,18 +46,18 @@ impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
     }
 }
 
-struct KeyStoreValue<'a> {
-    conn: &'a Connection,
+#[derive(Serialize, Deserialize)]
+struct KeyStoreValue {
     key: String,
     payload: Vec<u8>,
 }
 
-impl<'a> Persistable<'a> for KeyStoreValue<'a> {
+type PersistableKeyStoreValue<'a> = PersistableStruct<'a, KeyStoreValue>;
+
+impl Persistable for KeyStoreValue {
     type Key = String;
 
     type SecondaryKey = String;
-
-    type Payload = Vec<u8>;
 
     const DATA_TYPE: DataType = DataType::KeyStoreValue;
 
@@ -67,22 +67,6 @@ impl<'a> Persistable<'a> for KeyStoreValue<'a> {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.key
-    }
-
-    fn connection(&self) -> &Connection {
-        self.conn
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            conn,
-            key: String::new(),
-            payload,
-        }
     }
 }
 
@@ -98,11 +82,12 @@ impl<'a> OpenMlsKeyStore for PhnxOpenMlsProvider<'a> {
         let value = serde_json::to_vec(v).map_err(|e| PersistenceError::SerdeError(e))?;
 
         let key_store_value = KeyStoreValue {
-            conn: self.connection,
             key: hex::encode(k),
             payload: value,
         };
-        key_store_value.persist()?;
+        let pksv =
+            PersistableKeyStoreValue::from_connection_and_payload(self.connection, key_store_value);
+        pksv.persist()?;
         Ok(())
     }
 
@@ -112,12 +97,13 @@ impl<'a> OpenMlsKeyStore for PhnxOpenMlsProvider<'a> {
     /// Returns [`None`] if no value is stored for `k` or reading fails.
     fn read<V: MlsEntity>(&self, k: &[u8]) -> Option<V> {
         let key_str = hex::encode(k);
-        let key_store_value = match KeyStoreValue::load_one(self.connection, Some(&key_str), None) {
-            Ok(key_store_value) => key_store_value,
-            Err(_) => return None,
-        };
+        let key_store_value =
+            match PersistableKeyStoreValue::load_one(self.connection, Some(&key_str), None) {
+                Ok(key_store_value) => key_store_value,
+                Err(_) => return None,
+            };
 
-        serde_json::from_slice(&key_store_value?.payload).ok()
+        serde_json::from_slice(&key_store_value?.payload().payload).ok()
     }
 
     /// Delete a value stored for ID `k`.
@@ -125,7 +111,7 @@ impl<'a> OpenMlsKeyStore for PhnxOpenMlsProvider<'a> {
     /// Returns an error if storing fails.
     fn delete<V: MlsEntity>(&self, k: &[u8]) -> Result<(), Self::Error> {
         let key_str = hex::encode(k);
-        KeyStoreValue::purge_key(self.connection, &key_str)?;
+        PersistableKeyStoreValue::purge_key(self.connection, &key_str)?;
         Ok(())
     }
 }
@@ -174,10 +160,7 @@ pub(crate) enum PhnxRandomnessError {
     NotEnoughRandomness,
 }
 
-pub(super) struct PersistableSeed<'a> {
-    conn: &'a Connection,
-    payload: [u8; 32],
-}
+pub(super) type PersistableSeed<'a> = PersistableStruct<'a, [u8; 32]>;
 
 impl<'a> PersistableSeed<'a> {
     /// Store a new random seed in the database.
@@ -186,7 +169,7 @@ impl<'a> PersistableSeed<'a> {
         let mut payload = [0u8; 32];
         rng.try_fill_bytes(&mut payload)
             .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
-        Ok(Self { conn, payload }.persist()?)
+        Ok(Self::from_connection_and_payload(conn, payload).persist()?)
     }
 
     /// Generate a new seed from the given RNG and store it in the database.
@@ -197,16 +180,14 @@ impl<'a> PersistableSeed<'a> {
         let mut payload = [0u8; 32];
         rng.try_fill_bytes(&mut payload)
             .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
-        Ok(Self { conn, payload }.persist()?)
+        Ok(Self::from_connection_and_payload(conn, payload).persist()?)
     }
 }
 
-impl<'a> Persistable<'a> for PersistableSeed<'a> {
+impl Persistable for [u8; 32] {
     type Key = u64;
 
     type SecondaryKey = u64;
-
-    type Payload = [u8; 32];
 
     const DATA_TYPE: DataType = DataType::RandomnessSeed;
 
@@ -216,18 +197,6 @@ impl<'a> Persistable<'a> for PersistableSeed<'a> {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &0
-    }
-
-    fn connection(&self) -> &Connection {
-        self.conn
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self { conn, payload }
     }
 }
 

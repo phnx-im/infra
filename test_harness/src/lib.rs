@@ -7,6 +7,7 @@ use once_cell::sync::Lazy;
 use phnxserver::telemetry::{get_subscriber, init_subscriber};
 
 pub mod docker;
+pub mod federation_utils;
 pub mod test_scenarios;
 pub mod utils;
 

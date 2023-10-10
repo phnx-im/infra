@@ -13,7 +13,7 @@ use crate::{
     groups::GroupMessage,
     types::*,
     utils::{
-        persistence::{DataType, Persistable, PersistenceError},
+        persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
         Timestamp,
     },
 };
@@ -85,21 +85,21 @@ impl<'a> ConversationStore<'a> {
     pub(crate) fn get_by_conversation_id(
         &self,
         conversation_id: &Uuid,
-    ) -> Result<Option<PersistableConversation>, PersistenceError> {
+    ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
         let uuid_bytes = UuidBytes::from(*conversation_id);
-        PersistableConversation::load_one(self.db_connection, Some(&uuid_bytes), None)
+        PersistableStruct::load_one(self.db_connection, Some(&uuid_bytes), None)
     }
 
     pub(crate) fn get_by_group_id(
         &self,
         group_id: &GroupId,
-    ) -> Result<Option<PersistableConversation>, PersistenceError> {
+    ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
         let group_id_bytes = GroupIdBytes::from(group_id.clone());
-        PersistableConversation::load_one(self.db_connection, None, Some(&group_id_bytes))
+        PersistableStruct::load_one(self.db_connection, None, Some(&group_id_bytes))
     }
 
-    pub(crate) fn get_all(&self) -> Result<Vec<PersistableConversation>, PersistenceError> {
-        PersistableConversation::load_all(self.db_connection)
+    pub(crate) fn get_all(&self) -> Result<Vec<PersistableStruct<Conversation>>, PersistenceError> {
+        PersistableStruct::load_all(self.db_connection)
     }
 
     pub(crate) fn create_connection_conversation(
@@ -107,10 +107,10 @@ impl<'a> ConversationStore<'a> {
         group_id: GroupId,
         user_name: UserName,
         attributes: ConversationAttributes,
-    ) -> Result<PersistableConversation> {
+    ) -> Result<PersistableStruct<Conversation>> {
         let payload = Conversation::create_connection_conversation(group_id, user_name, attributes);
         let conversation =
-            PersistableConversation::from_connection_and_payload(self.db_connection, payload);
+            PersistableStruct::from_connection_and_payload(self.db_connection, payload);
         conversation.persist()?;
         Ok(conversation)
     }
@@ -119,29 +119,16 @@ impl<'a> ConversationStore<'a> {
         &self,
         group_id: GroupId,
         attributes: ConversationAttributes,
-    ) -> Result<PersistableConversation> {
+    ) -> Result<PersistableStruct<Conversation>> {
         let payload = Conversation::create_group_conversation(group_id, attributes);
         let conversation =
-            PersistableConversation::from_connection_and_payload(self.db_connection, payload);
+            PersistableStruct::from_connection_and_payload(self.db_connection, payload);
         conversation.persist()?;
         Ok(conversation)
     }
 }
 
-pub(crate) struct PersistableConversation<'a> {
-    connection: &'a Connection,
-    payload: Conversation,
-}
-
-impl std::ops::Deref for PersistableConversation<'_> {
-    type Target = Conversation;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl<'a> Persistable<'a> for PersistableConversation<'a> {
+impl Persistable for Conversation {
     type Key = UuidBytes;
     type SecondaryKey = GroupIdBytes;
 
@@ -154,26 +141,9 @@ impl<'a> Persistable<'a> for PersistableConversation<'a> {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.group_id
     }
-
-    type Payload = Conversation;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
-    }
 }
 
-impl PersistableConversation<'_> {
+impl PersistableStruct<'_, Conversation> {
     pub(crate) fn confirm(&mut self) -> Result<(), PersistenceError> {
         self.payload.confirm();
         self.persist()
@@ -227,10 +197,7 @@ impl<'a> ConversationMessageStore<'a> {
     }
 }
 
-pub(crate) struct PersistableConversationMessage<'a> {
-    connection: &'a Connection,
-    payload: ConversationMessage,
-}
+pub(crate) type PersistableConversationMessage<'a> = PersistableStruct<'a, ConversationMessage>;
 
 impl From<PersistableConversationMessage<'_>> for ConversationMessage {
     fn from(persistable: PersistableConversationMessage) -> Self {
@@ -238,15 +205,7 @@ impl From<PersistableConversationMessage<'_>> for ConversationMessage {
     }
 }
 
-impl std::ops::Deref for PersistableConversationMessage<'_> {
-    type Target = ConversationMessage;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl<'a> Persistable<'a> for PersistableConversationMessage<'a> {
+impl Persistable for ConversationMessage {
     // Message id
     type Key = UuidBytes;
 
@@ -261,22 +220,5 @@ impl<'a> Persistable<'a> for PersistableConversationMessage<'a> {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.id
-    }
-
-    type Payload = ConversationMessage;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
     }
 }

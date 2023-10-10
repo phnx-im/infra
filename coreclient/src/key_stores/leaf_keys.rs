@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::utils::persistence::PersistableStruct;
+
 use super::*;
 
 pub(crate) struct LeafKeyStore<'a> {
@@ -28,7 +30,7 @@ impl<'a> LeafKeyStore<'a> {
         let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
         let keys = PersistableLeafKeys::from_connection_and_payload(
             self.db_connection,
-            (leaf_signing_key, signature_ear_key),
+            LeafKeys::new(leaf_signing_key, signature_ear_key),
         );
         keys.persist()?;
         Ok(keys)
@@ -43,23 +45,41 @@ impl<'a> LeafKeyStore<'a> {
     }
 }
 
-pub(crate) struct PersistableLeafKeys<'a> {
-    connection: &'a Connection,
+#[derive(Serialize, Deserialize)]
+pub(crate) struct LeafKeys {
     verifying_key_str: String,
-    payload: (InfraCredentialSigningKey, SignatureEarKey),
+    leaf_signing_key: InfraCredentialSigningKey,
+    signature_ear_key: SignatureEarKey,
 }
+
+impl LeafKeys {
+    fn new(
+        leaf_signing_key: InfraCredentialSigningKey,
+        signature_ear_key: SignatureEarKey,
+    ) -> Self {
+        Self {
+            verifying_key_str: hex::encode(
+                leaf_signing_key.credential().verifying_key().as_slice(),
+            ),
+            leaf_signing_key,
+            signature_ear_key,
+        }
+    }
+}
+
+pub(crate) type PersistableLeafKeys<'a> = PersistableStruct<'a, LeafKeys>;
 
 impl PersistableLeafKeys<'_> {
     pub(crate) fn leaf_signing_key(&self) -> &InfraCredentialSigningKey {
-        &self.payload.0
+        &self.payload.leaf_signing_key
     }
 
     pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
-        &self.payload.1
+        &self.payload.signature_ear_key
     }
 }
 
-impl<'a> Persistable<'a> for PersistableLeafKeys<'a> {
+impl Persistable for LeafKeys {
     type Key = String;
 
     type SecondaryKey = String;
@@ -72,24 +92,5 @@ impl<'a> Persistable<'a> for PersistableLeafKeys<'a> {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.verifying_key_str
-    }
-
-    type Payload = (InfraCredentialSigningKey, SignatureEarKey);
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        let verifying_key_str = hex::encode(payload.0.credential().verifying_key().as_slice());
-        Self {
-            connection: conn,
-            verifying_key_str,
-            payload,
-        }
     }
 }

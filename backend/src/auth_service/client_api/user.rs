@@ -151,13 +151,7 @@ impl AuthService {
             .map(|cp| {
                 let verifying_credential = as_intermediate_credentials
                     .iter()
-                    .find(|aic| {
-                        if let Ok(fingerprint) = aic.fingerprint() {
-                            &fingerprint == cp.client_credential_signer_fingerprint()
-                        } else {
-                            false
-                        }
-                    })
+                    .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
                     .ok_or(FinishUserRegistrationError::InvalidConnectionPackage)?;
                 cp.verify(verifying_credential.verifying_key())
                     .map_err(|_| FinishUserRegistrationError::InvalidConnectionPackage)

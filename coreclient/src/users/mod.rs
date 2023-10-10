@@ -58,7 +58,7 @@ use crate::{
         qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
         queue_ratchets::QueueType, MemoryUserKeyStore,
     },
-    utils::persistence::{open_client_db, DataType, Persistable, PersistenceError},
+    utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
 use self::{
@@ -74,7 +74,9 @@ pub(crate) mod api_clients;
 mod create_user;
 pub(crate) mod openmls_provider;
 pub mod process;
-mod store;
+pub mod store;
+#[cfg(test)]
+mod tests;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -99,36 +101,47 @@ impl<T: Notifiable> SelfUser<T> {
     /// Create a new user. If a user with the given `AsClientId` already exists,
     /// this will overwrite that user.
     pub async fn new(
-        as_client_id: AsClientId,
+        user_name: impl Into<UserName>,
         password: &str,
         server_url: impl ToString,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
+        let user_name = user_name.into();
+        let as_client_id = AsClientId::random(user_name)?;
+
+        // Open the phnx db to store the client record
+        let phnx_db_connection = open_phnx_db()?;
+
         // Connect to or set up database
-        // We want a different sqlite db per client.
-        let mut connection = open_client_db(&as_client_id)?;
+        let mut client_db_connection = open_client_db(&as_client_id)?;
 
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
-        let initial_user_state = InitialUserState::new(
-            &connection,
-            &api_clients,
-            &as_client_id,
+        let mut client_db_transaction = client_db_connection.transaction()?;
+
+        let user_creation_state = UserCreationState::new(
+            &client_db_transaction,
+            &phnx_db_connection,
+            as_client_id,
             server_url,
             password,
-        )
-        .await?;
+        )?;
 
-        let mut transaction = connection.transaction()?;
-
-        let final_user_state = initial_user_state
-            .complete_user_creation(&mut transaction, &api_clients)
+        let final_state = user_creation_state
+            .complete_user_creation(
+                &phnx_db_connection,
+                &mut client_db_transaction,
+                &api_clients,
+            )
             .await?;
 
-        transaction.commit()?;
+        client_db_transaction.commit()?;
 
-        Ok(final_user_state.into_self_user(connection, api_clients, notification_hub))
+        let self_user =
+            final_state.into_self_user(client_db_connection, api_clients, Some(notification_hub));
+
+        Ok(self_user)
     }
 
     /// Load a user from the database. If a user creation process with a
@@ -138,52 +151,35 @@ impl<T: Notifiable> SelfUser<T> {
         as_client_id: AsClientId,
         notification_hub_option: impl Into<Option<NotificationHub<T>>>,
     ) -> Result<Option<SelfUser<T>>> {
-        let mut connection = open_client_db(&as_client_id)?;
+        let phnx_db_connection = open_phnx_db()?;
 
-        let Some(stage) = PersistableUserData::load_one(&connection, Some(&as_client_id), None)?
+        let mut client_db_connection = open_client_db(&as_client_id)?;
+        let mut client_db_transaction = client_db_connection.transaction()?;
+
+        let Some(user_creation_state) =
+            PersistableUserData::load_one(&client_db_transaction, Some(&as_client_id), None)?
         else {
             return Ok(None);
         };
 
-        let api_clients = ApiClients::new(as_client_id.user_name().domain(), stage.server_url());
+        let api_clients = ApiClients::new(
+            as_client_id.user_name().domain(),
+            user_creation_state.server_url(),
+        );
 
-        let user_data = stage.into_payload();
+        let final_state = user_creation_state
+            .into_payload()
+            .complete_user_creation(
+                &phnx_db_connection,
+                &mut client_db_transaction,
+                &api_clients,
+            )
+            .await?;
 
-        let mut transaction = connection.transaction()?;
-
-        let final_user_state = match user_data {
-            UserCreationState::InitialUserState(state) => {
-                state
-                    .complete_user_creation(&mut transaction, &api_clients)
-                    .await?
-            }
-            UserCreationState::PostRegistrationInitState(state) => {
-                state
-                    .complete_user_creation(&mut transaction, &api_clients)
-                    .await?
-            }
-            UserCreationState::UnfinalizedRegistrationState(state) => {
-                state
-                    .complete_user_creation(&mut transaction, &api_clients)
-                    .await?
-            }
-            UserCreationState::AsRegisteredUserState(state) => {
-                state
-                    .complete_user_creation(&mut transaction, &api_clients)
-                    .await?
-            }
-            UserCreationState::QsRegisteredUserState(state) => {
-                state
-                    .complete_user_creation(&mut transaction, &api_clients)
-                    .await?
-            }
-            UserCreationState::FinalUserState(state) => state,
-        };
-
-        transaction.commit()?;
+        client_db_transaction.commit()?;
 
         let self_user =
-            final_user_state.into_self_user(connection, api_clients, notification_hub_option);
+            final_state.into_self_user(client_db_connection, api_clients, notification_hub_option);
 
         Ok(Some(self_user))
     }
@@ -624,7 +620,7 @@ impl<T: Notifiable> SelfUser<T> {
                 QueueType::As => {
                     api_client
                         .as_dequeue_messages(
-                            *sequence_number,
+                            **sequence_number,
                             1_000_000,
                             &self.key_store.signing_key,
                         )
@@ -634,7 +630,7 @@ impl<T: Notifiable> SelfUser<T> {
                     api_client
                         .qs_dequeue_messages(
                             &self.qs_client_id,
-                            *sequence_number,
+                            **sequence_number,
                             1_000_000,
                             &self.key_store.qs_client_signing_key,
                         )

@@ -15,17 +15,16 @@ use phnxtypes::{
 };
 use thiserror::Error;
 
-use crate::{users::api_clients::ApiClientsError, utils::persistence::PersistenceError};
+use crate::{
+    users::api_clients::ApiClientsError,
+    utils::persistence::{PersistableStruct, PersistenceError},
+};
 
 use super::*;
 
-pub(crate) struct PersistableAsCredential<'a> {
-    connection: &'a Connection,
-    fingerprint: CredentialFingerprint,
-    credential: AsCredential,
-}
+pub(crate) type PersistableAsCredential<'a> = PersistableStruct<'a, AsCredential>;
 
-impl<'a> Persistable<'a> for PersistableAsCredential<'a> {
+impl Persistable for AsCredential {
     type Key = CredentialFingerprint;
 
     type SecondaryKey = Fqdn;
@@ -33,50 +32,20 @@ impl<'a> Persistable<'a> for PersistableAsCredential<'a> {
     const DATA_TYPE: DataType = DataType::AsCredential;
 
     fn key(&self) -> &Self::Key {
-        &self.fingerprint
+        &self.fingerprint()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        self.credential.domain()
-    }
-
-    type Payload = AsCredential;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.credential
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        let fingerprint = payload.fingerprint().unwrap();
-        Self {
-            connection: conn,
-            fingerprint,
-            credential: payload,
-        }
+        self.domain()
     }
 }
 
-impl Deref for PersistableAsCredential<'_> {
-    type Target = AsCredential;
-
-    fn deref(&self) -> &Self::Target {
-        &self.credential
-    }
-}
-
-pub(crate) struct PersistableAsIntermediateCredential<'a> {
-    connection: &'a Connection,
-    fingerprint: CredentialFingerprint,
-    credential: AsIntermediateCredential,
-}
+pub(crate) type PersistableAsIntermediateCredential<'a> =
+    PersistableStruct<'a, AsIntermediateCredential>;
 
 impl PersistableAsIntermediateCredential<'_> {
     pub(crate) fn into_credential(self) -> AsIntermediateCredential {
-        self.credential
+        self.payload
     }
 }
 
@@ -103,10 +72,7 @@ impl<'a> AsCredentialStore<'a> {
         let as_credentials: HashMap<CredentialFingerprint, AsCredential> = as_credentials_response
             .as_credentials
             .into_iter()
-            .filter_map(|credential| {
-                let fingerprint = credential.fingerprint().ok()?;
-                Some((fingerprint, credential))
-            })
+            .filter_map(|credential| Some((credential.fingerprint().clone(), credential)))
             .collect::<HashMap<_, _>>();
         let mut as_inter_creds = vec![];
         for as_inter_cred in as_credentials_response.as_intermediate_credentials {
@@ -148,13 +114,7 @@ impl<'a> AsCredentialStore<'a> {
             self.fetch_credentials(domain)
                 .await?
                 .into_iter()
-                .find(|credential| {
-                    if let Ok(credential_fingerprint) = credential.fingerprint() {
-                        &credential_fingerprint == fingerprint
-                    } else {
-                        false
-                    }
-                })
+                .find(|credential| credential.fingerprint() == fingerprint)
                 .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?
         };
         if credential.domain() != domain {
@@ -196,7 +156,7 @@ impl<'a> AsCredentialStore<'a> {
     }
 }
 
-impl<'a> Persistable<'a> for PersistableAsIntermediateCredential<'a> {
+impl Persistable for AsIntermediateCredential {
     type Key = CredentialFingerprint;
 
     type SecondaryKey = Fqdn;
@@ -204,38 +164,11 @@ impl<'a> Persistable<'a> for PersistableAsIntermediateCredential<'a> {
     const DATA_TYPE: DataType = DataType::AsIntermediateCredential;
 
     fn key(&self) -> &Self::Key {
-        &self.fingerprint
+        self.fingerprint()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        self.credential.domain()
-    }
-
-    type Payload = AsIntermediateCredential;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.credential
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        let fingerprint = payload.fingerprint().unwrap();
-        Self {
-            credential: payload,
-            fingerprint,
-            connection: conn,
-        }
-    }
-}
-
-impl Deref for PersistableAsIntermediateCredential<'_> {
-    type Target = AsIntermediateCredential;
-
-    fn deref(&self) -> &Self::Target {
-        &self.credential
+        self.domain()
     }
 }
 

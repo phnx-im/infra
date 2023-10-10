@@ -200,7 +200,7 @@ impl<T: Notifiable> SelfUser<T> {
                                         qs_verifying_key_store.get(&user_name.domain()).await?;
                                     let key_package_batch = key_package_batch_response
                                         .key_package_batch
-                                        .verify(qs_verifying_key.deref())?;
+                                        .verify(qs_verifying_key.deref().deref())?;
                                     let add_info = ContactAddInfos {
                                         key_package_batch,
                                         key_packages,

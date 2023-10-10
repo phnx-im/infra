@@ -12,7 +12,7 @@ use rusqlite::Connection;
 use crate::{
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
     users::api_clients::ApiClients,
-    utils::persistence::{DataType, Persistable, PersistenceError},
+    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
 };
 
 use super::*;
@@ -39,14 +39,14 @@ impl<'a> ContactStore<'a> {
     pub(crate) fn get(
         &self,
         user_name: &UserName,
-    ) -> Result<Option<PersistableContact<'a>>, PersistenceError> {
-        PersistableContact::load_one(&self.db_connection, Some(user_name), None)
+    ) -> Result<Option<PersistableStruct<'a, Contact>>, PersistenceError> {
+        PersistableStruct::load_one(&self.db_connection, Some(user_name), None)
     }
 
     async fn fetch_add_infos(
         &self,
         crypto_backend: &impl OpenMlsCrypto,
-        contact: &mut PersistableContact<'_>,
+        contact: &mut PersistableStruct<'_, Contact>,
     ) -> Result<()> {
         let contact_domain = &contact.user_name.domain();
         let qs_verifying_key = self.qs_verifying_key_store.get(contact_domain).await?;
@@ -78,7 +78,7 @@ impl<'a> ContactStore<'a> {
                 key_packages,
                 key_package_batch: response
                     .key_package_batch
-                    .verify(qs_verifying_key.deref())?,
+                    .verify(qs_verifying_key.deref().deref())?,
             };
             add_infos.push(add_info);
         }
@@ -90,7 +90,7 @@ impl<'a> ContactStore<'a> {
     pub(crate) async fn add_infos(
         &self,
         crypto_backend: &impl OpenMlsCrypto,
-        contact: &mut PersistableContact<'_>,
+        contact: &mut PersistableStruct<'_, Contact>,
     ) -> Result<ContactAddInfos> {
         let add_infos = if let Some(add_infos) = contact.payload.add_infos() {
             add_infos
@@ -108,14 +108,16 @@ impl<'a> ContactStore<'a> {
         user_name: &UserName,
         conversation_id: &Uuid,
         friendship_package_ear_key: FriendshipPackageEarKey,
-    ) -> Result<PersistablePartialContact> {
+    ) -> Result<PersistableStruct<'_, PartialContact>> {
         let payload = PartialContact::new(
             user_name.clone(),
             conversation_id.clone(),
             friendship_package_ear_key,
         )?;
-        let partial_contact =
-            PersistablePartialContact::from_connection_and_payload(self.db_connection, payload);
+        let partial_contact = PersistableStruct::<'_, PartialContact>::from_connection_and_payload(
+            self.db_connection,
+            payload,
+        );
         partial_contact.persist()?;
         Ok(partial_contact)
     }
@@ -123,85 +125,44 @@ impl<'a> ContactStore<'a> {
     pub(crate) fn get_partial_contact(
         &self,
         user_name: &UserName,
-    ) -> Result<Option<PersistablePartialContact>, PersistenceError> {
-        PersistablePartialContact::load_one(&self.db_connection, Some(user_name), None)
+    ) -> Result<Option<PersistableStruct<'_, PartialContact>>, PersistenceError> {
+        PersistableStruct::load_one(&self.db_connection, Some(user_name), None)
     }
 
-    pub(crate) fn get_all_contacts(&self) -> Result<Vec<PersistableContact>, PersistenceError> {
-        PersistableContact::load_all(self.db_connection)
+    pub(crate) fn get_all_contacts(
+        &self,
+    ) -> Result<Vec<PersistableStruct<'_, Contact>>, PersistenceError> {
+        PersistableStruct::load_all(self.db_connection)
     }
 
     pub(crate) fn get_all_partial_contacts(
         &self,
-    ) -> Result<Vec<PersistablePartialContact>, PersistenceError> {
-        PersistablePartialContact::load_all(self.db_connection)
+    ) -> Result<Vec<PersistableStruct<'_, PartialContact>>, PersistenceError> {
+        PersistableStruct::load_all(self.db_connection)
     }
 }
 
-pub(crate) struct PersistableContact<'a> {
-    connection: &'a Connection,
-    payload: Contact,
-}
-
-impl std::ops::Deref for PersistableContact<'_> {
-    type Target = Contact;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl PersistableContact<'_> {
+impl PersistableStruct<'_, Contact> {
     pub(crate) fn convert_for_export(self) -> Contact {
         self.payload
     }
 }
 
-impl<'a> Persistable<'a> for PersistableContact<'a> {
+impl Persistable for Contact {
     type Key = UserName;
     type SecondaryKey = UserName;
     const DATA_TYPE: DataType = DataType::Contact;
 
     fn key(&self) -> &Self::Key {
-        &self.payload.user_name
+        &self.user_name
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.payload.user_name
-    }
-
-    type Payload = Contact;
-
-    fn connection(&self) -> &Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
+        &self.user_name
     }
 }
 
-pub(crate) struct PersistablePartialContact<'a> {
-    connection: &'a Connection,
-    payload: PartialContact,
-}
-
-impl Deref for PersistablePartialContact<'_> {
-    type Target = PartialContact;
-
-    fn deref(&self) -> &Self::Target {
-        &self.payload
-    }
-}
-
-impl PersistablePartialContact<'_> {
+impl PersistableStruct<'_, PartialContact> {
     /// Creates a Contact from this PartialContact and the additional data. Then
     /// persists the resulting contact.
     pub(crate) fn into_contact_and_persist(
@@ -223,7 +184,7 @@ impl PersistablePartialContact<'_> {
             conversation_id: self.payload.conversation_id,
         };
         let persistable_contact =
-            PersistableContact::from_connection_and_payload(self.connection, payload);
+            PersistableStruct::from_connection_and_payload(self.connection, payload);
         persistable_contact.persist()?;
         Ok(())
     }
@@ -233,7 +194,7 @@ impl PersistablePartialContact<'_> {
     }
 }
 
-impl<'a> Persistable<'a> for PersistablePartialContact<'a> {
+impl Persistable for PartialContact {
     type Key = UserName;
 
     type SecondaryKey = UserName;
@@ -241,27 +202,10 @@ impl<'a> Persistable<'a> for PersistablePartialContact<'a> {
     const DATA_TYPE: DataType = DataType::PartialContact;
 
     fn key(&self) -> &Self::Key {
-        &self.payload.user_name
+        &self.user_name
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.payload.user_name
-    }
-
-    type Payload = PartialContact;
-
-    fn connection(&self) -> &'a Connection {
-        self.connection
-    }
-
-    fn payload(&self) -> &Self::Payload {
-        &self.payload
-    }
-
-    fn from_connection_and_payload(conn: &'a Connection, payload: Self::Payload) -> Self {
-        Self {
-            connection: conn,
-            payload,
-        }
+        &self.user_name
     }
 }

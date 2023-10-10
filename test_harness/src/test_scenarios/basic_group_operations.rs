@@ -4,7 +4,7 @@
 
 use phnxtypes::identifiers::Fqdn;
 
-use crate::utils::setup::TestBed;
+use crate::federation_utils::setup::TestBed;
 
 pub(super) const NUMBER_OF_SERVERS: usize = 2;
 
