@@ -572,8 +572,9 @@ impl Group {
                         let (client_credential, signature_ear_key) =
                             if processed_message.new_credential_option().is_some() {
                                 // If so, then there has to be a new signature ear key.
-                                let Some(encrypted_signature_ear_key) = update_client_payload
-                                .option_encrypted_signature_ear_key else {
+                                let Some(encrypted_signature_ear_key) =
+                                    update_client_payload.option_encrypted_signature_ear_key
+                                else {
                                     panic!("Invalid update client payload.")
                                 };
                                 let signature_ear_key = SignatureEarKey::decrypt(
@@ -1090,9 +1091,7 @@ impl Group {
             staged_commit
                 .remove_proposals()
                 .map(|remove_proposal| {
-                    let Sender::Member(sender_index) =
-                        remove_proposal.sender()
-                     else {
+                    let Sender::Member(sender_index) = remove_proposal.sender() else {
                         bail!("Only member proposals are supported for now")
                     };
                     let remover = get_user_name(&self.client_information, sender_index.usize())?;

@@ -11,7 +11,7 @@ use super::*;
 /// Test the websocket reconnect.
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
-async fn test_ws_reconnect() {
+async fn ws_reconnect() {
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
@@ -24,6 +24,7 @@ async fn test_ws_reconnect() {
     tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
+    let address = format!("http://{}", address);
     let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     let mut ws = client
@@ -47,7 +48,7 @@ async fn test_ws_reconnect() {
 /// Test the websocket sending.
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
-async fn test_ws_sending() {
+async fn ws_sending() {
     let network_provider = MockNetworkProvider::new();
     let (address, ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
 
@@ -60,6 +61,7 @@ async fn test_ws_sending() {
     tracing::info!("Server started: {}", address.to_string());
 
     // Initialize the client
+    let address = format!("http://{}", address);
     let client = ApiClient::initialize(address).expect("Failed to initialize client");
 
     let mut ws = client

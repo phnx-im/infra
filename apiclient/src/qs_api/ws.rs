@@ -298,6 +298,8 @@ impl ApiClient {
         // Spawn the connection task
         let handle = tokio::spawn(async move {
             // Connection loop
+            #[cfg(test)]
+            let mut counter = 0;
             loop {
                 // We build the request and set a custom header
                 let req = match address.clone().into_client_request() {
@@ -323,6 +325,13 @@ impl ApiClient {
                     // The connection was not established, wait and try again
                     Err(e) => {
                         log::error!("Error connecting to QS WebSocket: {}", e);
+                        #[cfg(test)]
+                        {
+                            counter += 1;
+                            if counter > 10 {
+                                break;
+                            }
+                        }
                     }
                 }
                 log::info!(
