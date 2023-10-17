@@ -93,10 +93,6 @@ pub fn run<
                 ENDPOINT_DS_GROUPS,
                 web::post().to(ds_process_message::<Dsp, Qc>),
             )
-            .route(
-                ENDPOINT_DS_GROUP_IDS,
-                web::post().to(ds_request_group_id::<Dsp>),
-            )
             // QS endpoint
             .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
             // QS federationendpoint

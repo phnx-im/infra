@@ -100,11 +100,11 @@ impl DsStorageProvider for MemoryDsStorage {
         }
     }
 
-    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<(), Self::StorageError> {
+    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError> {
         if let Ok(mut groups) = self.groups.try_lock() {
             match groups.insert(group_id.clone(), StorageState::Reserved(TimeStamp::now())) {
-                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
-                None => Ok(()),
+                Some(_) => Ok(false),
+                None => Ok(true),
             }
         } else {
             Err(MemoryDsStorageError::MemoryStoreError)

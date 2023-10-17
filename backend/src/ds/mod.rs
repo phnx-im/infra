@@ -58,8 +58,8 @@ pub trait DsStorageProvider: Sync + Send + 'static {
 
     /// Reserves the ds group state slot with the given group ID.
     ///
-    /// Returns an error if the group ID is already taken.
-    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<(), Self::StorageError>;
+    /// Returns false if the group ID is already taken and true otherwise.
+    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError>;
 
     /// Returns the domain of this DS.
     async fn own_domain(&self) -> Fqdn;

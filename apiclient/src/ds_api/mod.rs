@@ -12,7 +12,7 @@ use mls_assist::{
     },
 };
 use phnxbackend::{ds::errors::DsProcessingError, AssistedGroupInfo};
-use phnxserver::endpoints::{ENDPOINT_DS_GROUPS, ENDPOINT_DS_GROUP_IDS};
+use phnxserver::endpoints::ENDPOINT_DS_GROUPS;
 use phnxtypes::{
     credentials::keys::InfraCredentialSigningKey,
     crypto::{
@@ -31,14 +31,16 @@ use phnxtypes::{
         },
         client_ds_out::{
             AddClientsParamsOut, AddUsersParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
-            CreateGroupParamsOut, DeleteGroupParamsOut, DsProcessResponseIn, DsRequestParamsOut,
-            ExternalCommitInfoIn, JoinConnectionGroupParamsOut, JoinGroupParamsOut,
-            RemoveClientsParamsOut, RemoveUsersParamsOut, ResyncClientParamsOut,
-            SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
+            CreateGroupParamsOut, DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn,
+            DsRequestParamsOut, ExternalCommitInfoIn, JoinConnectionGroupParamsOut,
+            JoinGroupParamsOut, RemoveClientsParamsOut, RemoveUsersParamsOut,
+            ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
+            UpdateClientParamsOut,
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
 };
+
 use tls_codec::DeserializeBytes;
 
 #[derive(Error, Debug)]
@@ -68,50 +70,10 @@ impl<'a, T: SigningKey + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
 
 impl ApiClient {
     // Single purpose function since this is the only endpoint that doesn't require authentication.
-    pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
-        let url = self.build_url(Protocol::Http, ENDPOINT_DS_GROUP_IDS);
-        log::info!("Requesting group ID from DS at {}", url);
-
-        match self.client.post(url).send().await {
-            Ok(res) => {
-                match res.status().as_u16() {
-                    // Success!
-                    x if (200..=299).contains(&x) => {
-                        let ds_proc_res_bytes =
-                            res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
-                        let ds_proc_res = GroupId::tls_deserialize_exact(&ds_proc_res_bytes)
-                            .map_err(|_| DsRequestError::BadResponse)?;
-                        Ok(ds_proc_res)
-                    }
-                    // An error occurred. (There are no DS specific errors for this endpoint.)
-                    _ => {
-                        let error_text =
-                            res.text().await.map_err(|_| DsRequestError::BadResponse)?;
-                        Err(DsRequestError::NetworkError(error_text))
-                    }
-                }
-            }
-            // A network error occurred.
-            Err(err) => {
-                log::error!("Network error: {:?}", err);
-                Err(DsRequestError::NetworkError(err.to_string()))
-            }
-        }
-    }
-
-    async fn prepare_and_send_ds_message<'a, T: SigningKey + 'a>(
+    pub async fn send_ds_message(
         &self,
-        request_params: DsRequestParamsOut,
-        auth_method: impl Into<AuthenticationMethod<'a, T>>,
-        group_state_ear_key: &GroupStateEarKey,
+        message: DsMessageTypeOut,
     ) -> Result<DsProcessResponseIn, DsRequestError> {
-        let tbs = ClientToDsMessageTbsOut::new(group_state_ear_key.clone(), request_params);
-        let message = match auth_method.into() {
-            AuthenticationMethod::Signature(signer) => {
-                tbs.sign(signer).map_err(|_| DsRequestError::LibraryError)?
-            }
-            AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
-        };
         let message_bytes = message
             .tls_serialize_detached()
             .map_err(|_| DsRequestError::LibraryError)?;
@@ -166,6 +128,23 @@ impl ApiClient {
         }
     }
 
+    async fn prepare_and_send_ds_group_message<'a, T: SigningKey + 'a>(
+        &self,
+        request_params: DsRequestParamsOut,
+        auth_method: impl Into<AuthenticationMethod<'a, T>>,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<DsProcessResponseIn, DsRequestError> {
+        let tbs = ClientToDsMessageTbsOut::new(group_state_ear_key.clone(), request_params);
+        let message = match auth_method.into() {
+            AuthenticationMethod::Signature(signer) => {
+                tbs.sign(signer).map_err(|_| DsRequestError::LibraryError)?
+            }
+            AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
+        };
+        let message_type = DsMessageTypeOut::Group(message);
+        self.send_ds_message(message_type).await
+    }
+
     /// Creates a new group on the DS.
     pub async fn ds_create_group(
         &self,
@@ -173,7 +152,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::CreateGroupParams(payload),
             signing_key,
             group_state_ear_key,
@@ -196,7 +175,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::AddUsers(payload),
             signing_key,
             group_state_ear_key,
@@ -219,7 +198,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::RemoveUsers(params),
             signing_key,
             group_state_ear_key,
@@ -248,7 +227,7 @@ impl ApiClient {
             group_id,
             epoch,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::WelcomeInfo(payload),
             signing_key,
             group_state_ear_key,
@@ -275,7 +254,7 @@ impl ApiClient {
             sender: signing_key.verifying_key().hash(),
             group_id,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::ExternalCommitInfo(payload),
             signing_key,
             group_state_ear_key,
@@ -298,7 +277,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
         let payload = ConnectionGroupInfoParams { group_id };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::ConnectionGroupInfo(payload),
             AuthenticationMethod::<InfraCredentialSigningKey>::None,
             group_state_ear_key,
@@ -322,7 +301,7 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &InfraCredentialSigningKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::UpdateClient(params),
             signing_key,
             group_state_ear_key,
@@ -351,7 +330,7 @@ impl ApiClient {
             external_commit,
             qs_client_reference,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::JoinGroup(payload),
             signing_key,
             group_state_ear_key,
@@ -385,7 +364,7 @@ impl ApiClient {
             external_commit,
             qs_client_reference,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::JoinConnectionGroup(payload),
             signing_key,
             group_state_ear_key,
@@ -416,7 +395,7 @@ impl ApiClient {
             welcome,
             encrypted_welcome_attribution_infos,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::AddClients(payload),
             signing_key,
             group_state_ear_key,
@@ -445,7 +424,7 @@ impl ApiClient {
             sender: signing_key.verifying_key().hash(),
             new_auth_key,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::RemoveClients(payload),
             signing_key,
             group_state_ear_key,
@@ -472,7 +451,7 @@ impl ApiClient {
             external_commit,
             sender: signing_key.verifying_key().hash(),
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::ResyncClient(payload),
             signing_key,
             group_state_ear_key,
@@ -495,7 +474,7 @@ impl ApiClient {
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::SelfRemoveClient(params),
             signing_key,
             group_state_ear_key,
@@ -518,7 +497,7 @@ impl ApiClient {
         signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::SendMessage(params),
             signing_key,
             group_state_ear_key,
@@ -541,7 +520,7 @@ impl ApiClient {
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::DeleteGroup(params),
             signing_key,
             group_state_ear_key,
@@ -571,7 +550,7 @@ impl ApiClient {
             sender: own_index,
             new_queue_config,
         };
-        self.prepare_and_send_ds_message(
+        self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::UpdateQsClientReference(payload),
             signing_key,
             group_state_ear_key,
@@ -585,5 +564,20 @@ impl ApiClient {
                 Err(DsRequestError::UnexpectedResponse)
             }
         })
+    }
+
+    /// Delete the given group.
+    pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
+        let message_type = DsMessageTypeOut::NonGroup;
+        self.send_ds_message(message_type)
+            .await
+            // Check if the response is what we expected it to be.
+            .and_then(|response| {
+                if let DsProcessResponseIn::GroupId(group_id) = response {
+                    Ok(group_id)
+                } else {
+                    Err(DsRequestError::UnexpectedResponse)
+                }
+            })
     }
 }

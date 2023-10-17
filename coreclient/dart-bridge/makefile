@@ -114,13 +114,15 @@ ios-release:
 
 android-debug:
 	cd $(RUST_BASE_DIR) ; \
-		cargo build --features="dart-bridge" --target aarch64-linux-android
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnxcoreclient.so android/src/main/jniLibs/arm64-v8a/libphnxcoreclient.so
+		cargo ndk -t arm64-v8a build --features="dart-bridge"
+	mkdir -p android/app/src/main/jniLibs/arm64-v8a
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnxcoreclient.so android/app/src/main/jniLibs/arm64-v8a/libphnxcoreclient.so
 
 android-release:
 	cd $(RUST_BASE_DIR) ; \
-		cargo build --features="dart-bridge" --target aarch64-linux-android --release
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libphnxcoreclient.so android/src/main/jniLibs/arm64-v8a/libphnxcoreclient.so
+		cargo ndk -t arm64-v8a build --features="dart-bridge" --release
+	mkdir -p android/app/src/main/jniLibs/arm64-v8a
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libphnxcoreclient.so android/app/src/main/jniLibs/arm64-v8a/libphnxcoreclient.so
 
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \
