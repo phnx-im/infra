@@ -14,7 +14,6 @@ pub mod setup;
 use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxserver::{
-    configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
     network_provider::MockNetworkProvider,
     run,
@@ -53,9 +52,6 @@ pub async fn spawn_app(
 ) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
-
-    // Load configuration
-    let _configuration = get_configuration("").expect("Could not load configuration.");
 
     // Port binding
     let localhost = "127.0.0.1";
