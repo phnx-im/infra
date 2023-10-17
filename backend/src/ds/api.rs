@@ -162,7 +162,10 @@ use crate::{
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     messages::{
-        client_ds::{CreateGroupParams, DsRequestParams, DsSender, VerifiableClientToDsMessage},
+        client_ds::{
+            CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender,
+            VerifiableClientToDsMessage,
+        },
         intra_backend::{DsFanOutMessage, DsFanOutPayload},
     },
     qs::{Fqdn, QsConnector},
@@ -188,6 +191,26 @@ pub struct DsApi {}
 
 impl DsApi {
     pub async fn process<Dsp: DsStorageProvider, Q: QsConnector>(
+        ds_storage_provider: &Dsp,
+        qs_connector: &Q,
+        message: DsMessageTypeIn,
+    ) -> Result<DsProcessResponse, DsProcessingError> {
+        match message {
+            DsMessageTypeIn::Group(group_message) => {
+                Self::process_group_message(ds_storage_provider, qs_connector, group_message).await
+            }
+            DsMessageTypeIn::NonGroup => {
+                Self::request_group_id(ds_storage_provider)
+                    .await
+                    .map_err(|_| {
+                        tracing::warn!("Could not generate group id");
+                        DsProcessingError::StorageError
+                    })
+            }
+        }
+    }
+
+    pub async fn process_group_message<Dsp: DsStorageProvider, Q: QsConnector>(
         ds_storage_provider: &Dsp,
         qs_connector: &Q,
         message: VerifiableClientToDsMessage,
@@ -501,16 +524,14 @@ impl DsApi {
         GroupId::from_slice(&qgid.tls_serialize_detached().unwrap())
     }
 
-    pub async fn request_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
+    pub async fn request_group_id<Dsp: DsStorageProvider>(
+        ds_storage_provider: &Dsp,
+    ) -> Result<DsProcessResponse, Dsp::StorageError> {
         let mut group_id = Self::generate_group_id(ds_storage_provider).await;
-        while ds_storage_provider
-            .reserve_group_id(&group_id)
-            .await
-            .is_err()
-        {
+        while !ds_storage_provider.reserve_group_id(&group_id).await? {
             group_id = Self::generate_group_id(ds_storage_provider).await;
         }
-        group_id
+        Ok(DsProcessResponse::GroupId(group_id))
     }
 }
 
@@ -527,4 +548,5 @@ pub enum DsProcessResponse {
     Ok,
     WelcomeInfo(RatchetTree),
     ExternalCommitInfo(ExternalCommitInfo),
+    GroupId(GroupId),
 }

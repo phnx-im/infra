@@ -578,6 +578,13 @@ pub(crate) struct ClientToDsMessageIn {
     signature: Signature,
 }
 
+#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+#[repr(u8)]
+pub enum DsMessageTypeIn {
+    Group(VerifiableClientToDsMessage),
+    NonGroup,
+}
+
 #[derive(Debug, TlsSize)]
 pub struct VerifiableClientToDsMessage {
     message: ClientToDsMessageIn,
