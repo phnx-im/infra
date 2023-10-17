@@ -278,8 +278,8 @@ impl ApiClient {
         let serialized =
             serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
         let encoded = base64::encode(&serialized);
-        // Format the URL, WebSocket endpoints must end with a slash.
-        let address = self.build_url(Protocol::Ws, &format!("{}/", ENDPOINT_QS_WS));
+        // Format the URL
+        let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly
         let _ = Request::builder()
             .uri(address.clone())
