@@ -38,6 +38,8 @@ futures = { version = "0.3.28", features = ["executor"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
+# Vendored OpenSSL (for better cross compilation)
+openssl = { version = "*", features = ["vendored"] }
 
 # Feature dart-bridge
 simple_logger = { version = "4.2.0", optional = true }
