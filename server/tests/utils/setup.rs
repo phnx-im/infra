@@ -63,7 +63,7 @@ impl TestUser {
 
         let notifier = TestNotifier::new();
         notification_hub.add_sink(notifier.notifier());
-        let mut user = SelfUser::new(
+        let user = SelfUser::new_ephemeral(
             user_name.clone(),
             &user_name.to_string(),
             server_url,
@@ -71,7 +71,6 @@ impl TestUser {
         )
         .await
         .unwrap();
-        user.clean_up_db();
         Self { user, notifier }
     }
 

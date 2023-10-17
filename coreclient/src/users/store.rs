@@ -230,6 +230,10 @@ impl<'a> PersistableClientRecord<'a> {
 impl ClientRecord {
     pub fn load_all() -> Result<Vec<Self>, PersistenceError> {
         let connection = open_phnx_db()?;
+        Self::load_all_from_db(&connection)
+    }
+
+    pub fn load_all_from_db(connection: &Connection) -> Result<Vec<Self>, PersistenceError> {
         let records = PersistableClientRecord::load_all(&connection)?
             .into_iter()
             .map(|record| record.into_payload())

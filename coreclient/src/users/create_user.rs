@@ -498,8 +498,6 @@ impl PersistedUserState {
             qs_client_id: qs_client_id,
             notification_hub_option: Mutex::new(notification_hub_option.into()),
             api_clients: api_clients.clone(),
-            #[cfg(debug_assertions)]
-            clean_up_db: false,
         }
     }
 

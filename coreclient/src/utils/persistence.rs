@@ -9,10 +9,12 @@ use rusqlite::{named_params, params, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
+pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
+
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
 pub(crate) fn open_phnx_db() -> Result<Connection, PersistenceError> {
-    let conn = Connection::open("phnx.db")?;
+    let conn = Connection::open(&PHNX_DB_NAME)?;
     Ok(conn)
 }
 

@@ -4,7 +4,6 @@
 
 use std::{
     ops::Deref,
-    process::Command,
     sync::{Arc, Mutex},
 };
 
@@ -92,14 +91,11 @@ pub struct SelfUser<T: Notifiable> {
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) key_store: MemoryUserKeyStore,
-    // If true, the database will be deleted after the SelfUser is dropped.
-    #[cfg(debug_assertions)]
-    clean_up_db: bool,
 }
 
 impl<T: Notifiable> SelfUser<T> {
-    /// Create a new user. If a user with the given `AsClientId` already exists,
-    /// this will overwrite that user.
+    /// Create a new user with the given `user_name`. If a user with this name
+    /// already exists, this will overwrite that user.
     pub async fn new(
         user_name: impl Into<UserName>,
         password: &str,
@@ -108,13 +104,31 @@ impl<T: Notifiable> SelfUser<T> {
     ) -> Result<Self> {
         let user_name = user_name.into();
         let as_client_id = AsClientId::random(user_name)?;
-
         // Open the phnx db to store the client record
         let phnx_db_connection = open_phnx_db()?;
 
-        // Connect to or set up database
-        let mut client_db_connection = open_client_db(&as_client_id)?;
+        // Open client specific db
+        let client_db_connection = open_client_db(&as_client_id)?;
 
+        Self::new_with_connections(
+            as_client_id,
+            password,
+            server_url,
+            notification_hub,
+            phnx_db_connection,
+            client_db_connection,
+        )
+        .await
+    }
+
+    async fn new_with_connections(
+        as_client_id: AsClientId,
+        password: &str,
+        server_url: impl ToString,
+        notification_hub: NotificationHub<T>,
+        phnx_db_connection: Connection,
+        mut client_db_connection: Connection,
+    ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
@@ -142,6 +156,34 @@ impl<T: Notifiable> SelfUser<T> {
             final_state.into_self_user(client_db_connection, api_clients, Some(notification_hub));
 
         Ok(self_user)
+    }
+
+    /// The same as [`Self::new()`], except that databases ephemeral and dropped
+    /// together with this instance of SelfUser.
+    #[cfg(debug_assertions)]
+    pub async fn new_ephemeral(
+        user_name: impl Into<UserName>,
+        password: &str,
+        server_url: impl ToString,
+        notification_hub: NotificationHub<T>,
+    ) -> Result<Self> {
+        let user_name = user_name.into();
+        let as_client_id = AsClientId::random(user_name)?;
+        // Open the phnx db to store the client record
+        let phnx_db_connection = Connection::open_in_memory()?;
+
+        // Open client specific db
+        let client_db_connection = Connection::open_in_memory()?;
+
+        Self::new_with_connections(
+            as_client_id,
+            password,
+            server_url,
+            notification_hub,
+            phnx_db_connection,
+            client_db_connection,
+        )
+        .await
     }
 
     /// Load a user from the database. If a user creation process with a
@@ -827,23 +869,5 @@ impl<T: Notifiable> SelfUser<T> {
 
     fn crypto_backend(&self) -> PhnxOpenMlsProvider<'_> {
         PhnxOpenMlsProvider::new(&self.sqlite_connection)
-    }
-}
-
-#[cfg(debug_assertions)]
-impl<T: Notifiable> SelfUser<T> {
-    pub fn clean_up_db(&mut self) {
-        self.clean_up_db = true;
-    }
-}
-
-impl<T: Notifiable> Drop for SelfUser<T> {
-    #[cfg(debug_assertions)]
-    fn drop(&mut self) {
-        if self.clean_up_db {
-            if let Some(db_path) = self.sqlite_connection.path() {
-                let _ = Command::new("rm").arg(db_path).status();
-            }
-        }
     }
 }
