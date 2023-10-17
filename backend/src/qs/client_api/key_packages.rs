@@ -11,6 +11,10 @@ use phnxtypes::{
         ear::{EarDecryptable, EarEncryptable},
         signatures::signable::Signable,
     },
+    errors::qs::{
+        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
+        QsPublishKeyPackagesError, QsVerifyingKeyError,
+    },
     keypackage_batch::{AddPackage, AddPackageIn, KeyPackageBatchTbs},
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse,
@@ -20,14 +24,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
-use crate::qs::{
-    errors::{
-        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
-        QsPublishKeyPackagesError, QsVerifyingKeyError,
-    },
-    storage_provider_trait::QsStorageProvider,
-    Qs,
-};
+use crate::qs::{storage_provider_trait::QsStorageProvider, Qs};
 
 impl Qs {
     /// Clients publish key packages to the server.

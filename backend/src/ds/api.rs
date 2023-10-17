@@ -163,6 +163,7 @@ use phnxtypes::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
+    errors::DsProcessingError,
     identifiers::QualifiedGroupId,
     messages::client_ds::{
         CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender, VerifiableClientToDsMessage,
@@ -175,7 +176,6 @@ use crate::{
 };
 
 use super::{
-    errors::DsProcessingError,
     group_state::{DsGroupState, SerializableDsGroupState},
     DsStorageProvider, LoadState,
 };

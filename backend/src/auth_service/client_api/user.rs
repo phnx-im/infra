@@ -6,6 +6,9 @@ use opaque_ke::ServerRegistration;
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{signatures::signable::Signable, OpaqueCiphersuite},
+    errors::auth_service::{
+        DeleteUserError, FinishUserRegistrationError, InitUserRegistrationError,
+    },
     messages::{
         client_as::{
             DeleteUserParamsTbs, InitUserRegistrationParams, InitUserRegistrationResponse,
@@ -17,7 +20,6 @@ use phnxtypes::{
 use privacypass::Serialize;
 
 use crate::auth_service::{
-    errors::{DeleteUserError, FinishUserRegistrationError, InitUserRegistrationError},
     AsClientRecord, AsEphemeralStorageProvider, AsStorageProvider, AuthService,
 };
 

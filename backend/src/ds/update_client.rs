@@ -7,6 +7,7 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
+    errors::ClientUpdateError,
     messages::client_ds::{InfraAadMessage, InfraAadPayload, UpdateClientParams},
     time::Duration,
 };
@@ -16,7 +17,6 @@ use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::{
     api::USER_EXPIRATION_DAYS,
-    errors::ClientUpdateError,
     group_state::{DsGroupState, UserProfile},
 };
 

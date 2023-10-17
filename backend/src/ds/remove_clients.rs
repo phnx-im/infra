@@ -6,11 +6,13 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
-use phnxtypes::{messages::client_ds::RemoveClientsParams, time::Duration};
+use phnxtypes::{
+    errors::ClientRemovalError, messages::client_ds::RemoveClientsParams, time::Duration,
+};
 
 use crate::messages::intra_backend::DsFanOutPayload;
 
-use super::{api::USER_EXPIRATION_DAYS, errors::ClientRemovalError};
+use super::api::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

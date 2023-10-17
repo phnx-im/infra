@@ -9,12 +9,13 @@ use mls_assist::{
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
-    crypto::signatures::keys::UserKeyHash, messages::client_ds::RemoveUsersParams, time::Duration,
+    crypto::signatures::keys::UserKeyHash, errors::UserRemovalError,
+    messages::client_ds::RemoveUsersParams, time::Duration,
 };
 
 use crate::messages::intra_backend::DsFanOutPayload;
 
-use super::{api::USER_EXPIRATION_DAYS, errors::UserRemovalError};
+use super::api::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

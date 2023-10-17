@@ -6,6 +6,9 @@ use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{opaque::OpaqueLoginResponse, signatures::signable::Signable, OpaqueCiphersuite},
+    errors::auth_service::{
+        AsDequeueError, DeleteClientError, FinishClientAdditionError, InitClientAdditionError,
+    },
     messages::{
         client_as::{
             DeleteClientParamsTbs, DequeueMessagesParamsTbs, FinishClientAdditionParamsTbs,
@@ -17,7 +20,10 @@ use phnxtypes::{
 };
 use privacypass::Serialize;
 
-use crate::auth_service::{errors::*, storage_provider_trait::*, *};
+use crate::auth_service::{
+    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    AsClientRecord, AuthService,
+};
 
 impl AuthService {
     pub(crate) async fn as_init_client_addition<

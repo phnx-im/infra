@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
+use phnxtypes::{
+    errors::auth_service::IssueTokensError,
+    messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
+};
 use privacypass::batched_tokens::server::Server;
 
-use crate::auth_service::{
-    errors::IssueTokensError, storage_provider_trait::AsStorageProvider, AuthService,
-};
+use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
 
 const MAX_TOKENS_PER_REQUEST: usize = 100;
 

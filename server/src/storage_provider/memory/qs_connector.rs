@@ -8,13 +8,13 @@ use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
-        errors::{QsEnqueueError, QsVerifyingKeyError},
-        network_provider_trait::NetworkProvider,
-        storage_provider_trait::QsStorageProvider,
-        Qs, QsConnector,
+        errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+        storage_provider_trait::QsStorageProvider, Qs, QsConnector,
     },
 };
-use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
+use phnxtypes::{
+    crypto::signatures::keys::QsVerifyingKey, errors::qs::QsVerifyingKeyError, identifiers::Fqdn,
+};
 
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 

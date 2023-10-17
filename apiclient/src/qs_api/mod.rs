@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::qs::errors::QsProcessError;
-use phnxserver::endpoints::ENDPOINT_QS;
 use phnxtypes::{
     crypto::{
         ear::keys::AddPackageEarKey,
@@ -15,6 +13,8 @@ use phnxtypes::{
         },
         RatchetEncryptionKey,
     },
+    endpoint_paths::ENDPOINT_QS,
+    errors::qs::QsProcessError,
     identifiers::{QsClientId, QsUserId},
     keypackage_batch::AddPackage,
     messages::{

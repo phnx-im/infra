@@ -4,7 +4,7 @@
 
 use super::{
     messages::{Connect, Disconnect, NotifyMessage, NotifyMessageError},
-    QsWsMessage,
+    InternalQsWsMessage,
 };
 use actix::{
     prelude::{Actor, Context, Handler, Recipient},
@@ -22,7 +22,7 @@ enum NotifyClientError {
 /// clients and can send messages to them.
 #[derive(Default)]
 pub struct Dispatch {
-    sessions: HashMap<QsClientId, Recipient<QsWsMessage>>,
+    sessions: HashMap<QsClientId, Recipient<InternalQsWsMessage>>,
 }
 
 impl Dispatch {
@@ -30,7 +30,7 @@ impl Dispatch {
     fn notify_client(
         &self,
         queue_id: &QsClientId,
-        message: QsWsMessage,
+        message: InternalQsWsMessage,
     ) -> Result<(), NotifyClientError> {
         if let Some(socket_recipient) = self.sessions.get(queue_id) {
             socket_recipient.do_send(message);

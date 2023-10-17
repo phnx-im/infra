@@ -7,11 +7,11 @@ use std::time::Duration;
 
 use futures_util::{pin_mut, SinkExt, StreamExt};
 use http::{HeaderValue, Request};
-use phnxserver::endpoints::{
-    qs::ws::{QsOpenWsParams, QsWsMessage},
-    ENDPOINT_QS_WS,
+use phnxtypes::{
+    endpoint_paths::ENDPOINT_QS_WS,
+    identifiers::QsClientId,
+    messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use phnxtypes::identifiers::QsClientId;
 use serde_json;
 use thiserror::*;
 use tokio::{

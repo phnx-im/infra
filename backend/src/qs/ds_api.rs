@@ -4,6 +4,7 @@
 
 use phnxtypes::{
     crypto::{hpke::HpkeDecryptable, signatures::keys::QsVerifyingKey},
+    errors::qs::QsVerifyingKeyError,
     identifiers::{ClientConfig, Fqdn},
     messages::MlsInfraVersion,
 };
@@ -15,11 +16,9 @@ use crate::messages::{
 };
 
 use super::{
-    errors::{QsEnqueueError, QsVerifyingKeyError},
-    network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult,
-    storage_provider_trait::QsStorageProvider,
-    Qs, WebsocketNotifier,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider, Qs,
+    WebsocketNotifier,
 };
 
 impl Qs {

@@ -4,6 +4,7 @@
 
 use mls_assist::{group::ProcessedAssistedMessage, openmls::prelude::ProcessedMessageContent};
 use phnxtypes::{
+    errors::JoinGroupError,
     messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinGroupParams},
     time::{Duration, TimeStamp},
 };
@@ -13,7 +14,6 @@ use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::{
     api::USER_EXPIRATION_DAYS,
-    errors::JoinGroupError,
     group_state::{ClientProfile, DsGroupState},
 };
 

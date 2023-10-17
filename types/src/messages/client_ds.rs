@@ -172,6 +172,12 @@ pub enum InfraAadPayload {
     // proposals, there is not need to signal it explicitly.
 }
 
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
+pub enum QsWsMessage {
+    QueueUpdate,
+    Event(EventMessage),
+}
+
 #[derive(
     PartialEq, Eq, Debug, Clone, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]

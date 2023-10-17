@@ -8,6 +8,7 @@ use opaque_ke::ServerRegistration;
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
+    errors::auth_service::AsProcessingError,
     identifiers::UserName,
     messages::{
         client_as::{
@@ -24,14 +25,12 @@ use phnxtypes::{
 use tls_codec::{TlsSerialize, TlsSize};
 
 use self::{
-    errors::AsProcessingError,
     storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
     verification::VerifiableClientToAsMessage,
 };
 
 pub mod client_api;
 pub mod devices;
-pub mod errors;
 pub mod invitations;
 pub mod key_packages;
 pub mod registration;

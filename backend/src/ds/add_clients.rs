@@ -12,6 +12,7 @@ use phnxtypes::{
         ear::keys::GroupStateEarKey,
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
+    errors::ClientAdditionError,
     identifiers::{QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     messages::client_ds::{
         AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
@@ -23,7 +24,7 @@ use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
 
-use super::{api::USER_EXPIRATION_DAYS, errors::ClientAdditionError, group_state::ClientProfile};
+use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
 
 use super::group_state::DsGroupState;
 

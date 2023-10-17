@@ -12,11 +12,11 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
-use phnxserver::endpoints::{
-    qs::ws::{QsOpenWsParams, QsWsMessage},
-    ENDPOINT_QS_WS,
+use phnxtypes::{
+    endpoint_paths::ENDPOINT_QS_WS,
+    identifiers::QsClientId,
+    messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use phnxtypes::identifiers::QsClientId;
 
 use crate::{qs_api::ws::WsEvent, ApiClient};
 

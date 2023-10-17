@@ -6,11 +6,13 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
 };
-use phnxtypes::{messages::client_ds::SelfRemoveClientParams, time::Duration};
+use phnxtypes::{
+    errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
+};
 
 use crate::messages::intra_backend::DsFanOutPayload;
 
-use super::{api::USER_EXPIRATION_DAYS, errors::ClientSelfRemovalError};
+use super::api::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

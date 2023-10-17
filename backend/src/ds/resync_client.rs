@@ -6,12 +6,13 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
-use phnxtypes::{messages::client_ds::ResyncClientParams, time::Duration};
+use phnxtypes::{
+    errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
+};
 
 use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::api::USER_EXPIRATION_DAYS;
-use super::errors::ResyncClientError;
 
 use super::group_state::DsGroupState;
 

@@ -30,6 +30,11 @@ use crate::{
 
 use super::{push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QueueMessage};
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct QsOpenWsParams {
+    pub queue_id: QsClientId,
+}
+
 mod private_mod {
     #[derive(Default)]
     pub struct Seal;

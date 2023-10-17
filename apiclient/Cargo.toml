@@ -16,8 +16,6 @@ reqwest = { version = "^0.11", features = [
     "brotli",
 ] }
 thiserror = "1"
-phnxbackend = { path = "../backend" }
-phnxserver = { path = "../server" }
 phnxtypes = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-tungstenite = { version = "0.20.0", features = [

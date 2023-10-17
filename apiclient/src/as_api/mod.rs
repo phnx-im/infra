@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::auth_service::errors::AsProcessingError;
-use phnxserver::endpoints::ENDPOINT_AS;
 use phnxtypes::{
     credentials::{keys::ClientSigningKey, ClientCredentialPayload},
     crypto::{
@@ -15,6 +13,8 @@ use phnxtypes::{
         signatures::signable::Signable,
         RatchetEncryptionKey,
     },
+    endpoint_paths::ENDPOINT_AS,
+    errors::auth_service::AsProcessingError,
     identifiers::{AsClientId, UserName},
     messages::{
         client_as::{

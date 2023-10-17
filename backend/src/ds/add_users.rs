@@ -20,6 +20,7 @@ use phnxtypes::{
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
         signatures::{keys::QsVerifyingKey, signable::Verifiable},
     },
+    errors::AddUsersError,
     identifiers::{Fqdn, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, KEYPACKAGEBATCH_EXPIRATION_DAYS, VERIFIED},
     messages::client_ds::{
@@ -34,7 +35,7 @@ use crate::{
     qs::QsConnector,
 };
 
-use super::{api::USER_EXPIRATION_DAYS, errors::AddUsersError, group_state::ClientProfile};
+use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
 
 use super::group_state::DsGroupState;
 

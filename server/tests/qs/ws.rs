@@ -4,8 +4,8 @@
 
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
-use phnxserver::{endpoints::qs::ws::QsWsMessage, network_provider::MockNetworkProvider};
-use phnxtypes::identifiers::QsClientId;
+use phnxserver::network_provider::MockNetworkProvider;
+use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
 
 use super::*;
 

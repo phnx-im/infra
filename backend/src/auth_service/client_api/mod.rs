@@ -5,11 +5,11 @@
 use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
 use phnxtypes::{
     crypto::{opaque::OpaqueLoginResponse, OpaqueCiphersuite},
+    errors::auth_service::Init2FactorAuthError,
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
 use super::{
-    errors::Init2FactorAuthError,
     storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
     AuthService,
 };

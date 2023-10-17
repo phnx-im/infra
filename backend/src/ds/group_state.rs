@@ -20,16 +20,14 @@ use phnxtypes::{
         },
         signatures::keys::{UserAuthVerifyingKey, UserKeyHash},
     },
+    errors::{UpdateQueueConfigError, ValidationError},
     identifiers::{QsClientReference, SealedClientReference},
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
 
-use super::{
-    api::ExternalCommitInfo,
-    errors::{UpdateQueueConfigError, ValidationError},
-};
+use super::api::ExternalCommitInfo;
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct UserProfile {

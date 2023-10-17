@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::errors::qs::QsVerifyingKeyError;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
 use super::{
-    errors::{QsEnqueueError, QsVerifyingKeyError},
-    network_provider_trait::NetworkProvider,
-    storage_provider_trait::QsStorageProvider,
-    Qs, QsVerifyingKey, WebsocketNotifier,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    storage_provider_trait::QsStorageProvider, Qs, QsVerifyingKey, WebsocketNotifier,
 };
 
 #[derive(Error, Debug, Clone)]

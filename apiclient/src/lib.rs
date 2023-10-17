@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use http::StatusCode;
-use phnxserver::endpoints::ENDPOINT_HEALTH_CHECK;
+use phnxtypes::endpoint_paths::ENDPOINT_HEALTH_CHECK;
 use reqwest::{Client, ClientBuilder, Url};
 use thiserror::Error;
 use url::ParseError;

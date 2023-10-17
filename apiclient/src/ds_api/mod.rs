@@ -6,13 +6,11 @@
 
 use super::*;
 use mls_assist::{
-    messages::{AssistedMessageOut, AssistedWelcome},
+    messages::{AssistedGroupInfo, AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
         GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
 };
-use phnxbackend::{ds::errors::DsProcessingError, AssistedGroupInfo};
-use phnxserver::endpoints::ENDPOINT_DS_GROUPS;
 use phnxtypes::{
     credentials::keys::InfraCredentialSigningKey,
     crypto::{
@@ -23,6 +21,8 @@ use phnxtypes::{
             traits::SigningKey,
         },
     },
+    endpoint_paths::ENDPOINT_DS_GROUPS,
+    errors::DsProcessingError,
     identifiers::QsClientReference,
     messages::{
         client_ds::{

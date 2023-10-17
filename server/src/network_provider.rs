@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::endpoints::ENDPOINT_QS_FEDERATION;
 use async_trait::async_trait;
 use phnxbackend::qs::{network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult};
-use phnxtypes::identifiers::Fqdn;
+use phnxtypes::{endpoint_paths::ENDPOINT_QS_FEDERATION, identifiers::Fqdn};
 use reqwest::Client;
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
