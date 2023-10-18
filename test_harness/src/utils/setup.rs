@@ -7,6 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phnxapiclient::DEFAULT_PORT_HTTP;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -17,7 +18,7 @@ use phnxcoreclient::{
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::identifiers::{Fqdn, UserName};
-use rand::Rng;
+use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
 use uuid::Uuid;
 
@@ -51,14 +52,15 @@ impl TestNotifier {
 }
 
 pub struct TestUser {
-    user: SelfUser<TestNotifier>,
-    notifier: TestNotifier,
+    pub user: SelfUser<TestNotifier>,
+    pub notifier: TestNotifier,
 }
 
 impl TestUser {
     pub async fn new(user_name: &UserName, address_option: Option<String>) -> Self {
         let mut notification_hub = NotificationHub::<TestNotifier>::default();
-        let hostname_str = address_option.unwrap_or_else(|| user_name.domain().to_string());
+        let hostname_str = address_option
+            .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
@@ -80,39 +82,49 @@ impl TestUser {
     }
 }
 
+enum TestKind {
+    SingleBackend(String), // url of the single backend
+    Federated,
+}
+
 pub struct TestBackend {
     pub users: HashMap<UserName, TestUser>,
     pub groups: HashMap<Uuid, HashSet<UserName>>,
     // This is what we feed to the test clients.
-    pub url: String,
-    pub domain: Fqdn,
+    kind: TestKind,
 }
 
 impl TestBackend {
+    pub fn federated() -> Self {
+        Self {
+            users: HashMap::new(),
+            groups: HashMap::new(),
+            kind: TestKind::Federated,
+        }
+    }
     pub async fn single() -> Self {
         let network_provider = MockNetworkProvider::new();
-        let domain = "example.com".into();
-        TestBackend::new(domain, network_provider).await
-    }
-
-    async fn new(domain: Fqdn, network_provider: MockNetworkProvider) -> Self {
+        let domain = Fqdn::from("example.com");
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
         Self {
             users: HashMap::new(),
-            url: address.to_string(),
             groups: HashMap::new(),
-            domain,
+            kind: TestKind::SingleBackend(address.to_string()),
         }
     }
 
-    pub fn url(&self) -> String {
-        self.url.clone()
+    pub fn url(&self) -> Option<String> {
+        if let TestKind::SingleBackend(url) = &self.kind {
+            Some(url.clone())
+        } else {
+            None
+        }
     }
 
     pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
         let user_name = user_name.into();
         tracing::info!("Creating {user_name}");
-        let user = TestUser::new(&user_name, Some(self.url.clone())).await;
+        let user = TestUser::new(&user_name, self.url()).await;
         self.users.insert(user_name, user);
     }
 
@@ -922,94 +934,190 @@ impl TestBackend {
 
         self.flush_notifications();
     }
-}
 
-pub struct TestBed {
-    pub network_provider: MockNetworkProvider,
-    pub backends: HashMap<Fqdn, TestBackend>,
-}
+    pub fn random_user(&self, rng: &mut impl RngCore) -> UserName {
+        self.users
+            .keys()
+            .choose(rng)
+            .expect("There should be at least one user")
+            .clone()
+    }
 
-impl TestBed {
-    pub fn new() -> Self {
-        Self {
-            network_provider: MockNetworkProvider::new(),
-            backends: HashMap::new(),
+    pub async fn perform_random_operation(&mut self, rng: &mut impl RngCore) {
+        // Get a user to perform the operation
+        let random_user = self.random_user(rng);
+        // Possible actions:
+        // 0: Establish a connection
+        // 1: Create a group and invite one or more users
+        // 2: Invite up to 5 users to a group
+        // 3: Remove up to 5 users from a group
+        // 4: Leave a group
+        // Message sending is covered, as it's done as part of all of those
+        // actions. If one of the actions is not possible, it is skipped.
+        // TODO: Breaking up of connections
+        let action = rng.gen_range(0..=3);
+        match action {
+            // Establish a connection
+            0 => {
+                if let Some(other_user) = self
+                    .users
+                    .keys()
+                    .filter(|&other_user| {
+                        let is_contact = self
+                            .users
+                            .get(other_user)
+                            .unwrap()
+                            .user()
+                            .contacts()
+                            .unwrap()
+                            .into_iter()
+                            .any(|contact| contact.user_name == random_user);
+                        // The other user can't be the same user and the other
+                        //  user can't already be connected
+                        other_user != &random_user && !is_contact
+                    })
+                    .choose(rng)
+                {
+                    tracing::info!(
+                        random_operation = true,
+                        "Random operation: Connecting {} and {}",
+                        random_user,
+                        other_user
+                    );
+                    self.connect_users(random_user, other_user.clone()).await;
+                }
+            }
+            1 => {
+                let conversation_id = self.create_group(random_user).await;
+                tracing::info!(
+                    random_operation = true,
+                    "Random operation: Created group {}",
+                    conversation_id
+                );
+                // TODO: Invite user(s)
+            }
+            2 => {
+                // Pick a group
+                let user = self.users.get(&random_user).unwrap();
+                // Let's exclude connection groups for now.
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .unwrap()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
+                    })
+                    .choose(rng)
+                {
+                    let number_of_invitees = rng.gen_range(1..=5);
+                    let invitee_names = self
+                        .users
+                        .keys()
+                        .filter(|&invitee| {
+                            // The invitee user can't be already in the group, can't
+                            // be the random user and must be connected
+                            let is_group_member = self
+                                .groups
+                                .get(&conversation.id.as_uuid())
+                                .unwrap()
+                                .contains(invitee);
+                            let is_connected = user
+                                .user()
+                                .contacts()
+                                .unwrap()
+                                .into_iter()
+                                .any(|contact| &contact.user_name == invitee);
+                            !is_group_member && is_connected && invitee != &random_user
+                        })
+                        .cloned()
+                        .choose_multiple(rng, number_of_invitees);
+                    // It can happen that there are no suitable users to invite
+                    if invitee_names.len() > 0 {
+                        let invitee_strings = invitee_names
+                            .iter()
+                            .map(|invitee| invitee.to_string())
+                            .collect::<Vec<_>>();
+                        tracing::info!(
+                            random_operation = true,
+                            "Random operation: {} invites {} to group {}",
+                            random_user,
+                            invitee_strings.join(", "),
+                            conversation.id.as_uuid()
+                        );
+                        self.invite_to_group(conversation.id.as_uuid(), random_user, invitee_names)
+                            .await;
+                    }
+                }
+            }
+            3 => {
+                let user = self.users.get(&random_user).unwrap();
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .unwrap()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
+                    })
+                    .choose(rng)
+                {
+                    let number_of_removals = rng.gen_range(1..=5);
+                    let members_to_remove = self
+                        .groups
+                        .get(&conversation.id.as_uuid())
+                        .unwrap()
+                        .iter()
+                        .filter(|&member| member != &random_user)
+                        .cloned()
+                        .choose_multiple(rng, number_of_removals);
+                    if members_to_remove.len() > 0 {
+                        let removed_strings = members_to_remove
+                            .iter()
+                            .map(|removed| removed.to_string())
+                            .collect::<Vec<_>>();
+                        tracing::info!(
+                            random_operation = true,
+                            "Random operation: {} removes {} from group {}",
+                            random_user,
+                            removed_strings.join(", "),
+                            conversation.id.as_uuid()
+                        );
+                        self.remove_from_group(
+                            conversation.id.as_uuid(),
+                            random_user,
+                            members_to_remove,
+                        )
+                        .await;
+                    }
+                }
+            }
+            4 => {
+                let user = self.users.get(&random_user).unwrap();
+                if let Some(conversation) = user
+                    .user()
+                    .conversations()
+                    .unwrap()
+                    .into_iter()
+                    .filter(|conversation| {
+                        conversation.conversation_type == ConversationType::Group
+                            && conversation.status == ConversationStatus::Active
+                    })
+                    .choose(rng)
+                {
+                    tracing::info!(
+                        random_operation = true,
+                        "Random operation: {} leaves group {}",
+                        random_user,
+                        conversation.id.as_uuid()
+                    );
+                    self.leave_group(conversation.id.as_uuid(), random_user)
+                        .await;
+                }
+            }
+            _ => panic!("Invalid action"),
         }
-    }
-
-    pub async fn new_backend(&mut self, domain: Fqdn) {
-        let backend = TestBackend::new(domain.clone(), self.network_provider.clone()).await;
-        self.backends.insert(domain, backend);
-    }
-
-    pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
-        let user_name = user_name.into();
-        let domain = user_name.domain();
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.add_user(user_name).await;
-    }
-
-    pub async fn connect_users(
-        &mut self,
-        domain: Fqdn,
-        user1_name: impl Into<UserName>,
-        user2_name: impl Into<UserName>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.connect_users(user1_name, user2_name).await;
-    }
-
-    pub async fn send_message(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        sender_name: impl Into<UserName>,
-        recipient_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .send_message(conversation_id, sender_name, recipient_names)
-            .await;
-    }
-
-    pub async fn create_group(&mut self, domain: Fqdn, user_name: impl Into<UserName>) -> Uuid {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.create_group(user_name).await
-    }
-
-    pub async fn invite_to_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        inviter_name: impl Into<UserName>,
-        invitee_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .invite_to_group(conversation_id, inviter_name, invitee_names)
-            .await;
-    }
-
-    pub async fn remove_from_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        remover_name: impl Into<UserName>,
-        removed_names: Vec<impl Into<UserName>>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend
-            .remove_from_group(conversation_id, remover_name, removed_names)
-            .await;
-    }
-
-    pub async fn leave_group(
-        &mut self,
-        domain: Fqdn,
-        conversation_id: Uuid,
-        leaver_name: impl Into<UserName>,
-    ) {
-        let backend = self.backends.get_mut(&domain).unwrap();
-        backend.leave_group(conversation_id, leaver_name).await;
     }
 }

@@ -19,7 +19,7 @@ async fn user_stages() {
     let phnx_db_connection = Connection::open_in_memory().unwrap();
     let mut client_db_connection = Connection::open_in_memory().unwrap();
 
-    let server_url = setup.url();
+    let server_url = setup.url().unwrap();
     let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
     let computed_state = UserCreationState::new(

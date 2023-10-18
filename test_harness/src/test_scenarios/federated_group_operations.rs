@@ -4,13 +4,15 @@
 
 use phnxtypes::identifiers::Fqdn;
 
-use crate::federation_utils::setup::TestBed;
+use crate::utils::setup::TestBackend;
+
+type TestBed = TestBackend;
 
 pub(super) const NUMBER_OF_SERVERS: usize = 3;
 
 pub async fn group_operations_runner(domains: &[Fqdn]) {
     // Create three users.
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     // Create and connect alice and bob.
     let (alice_name, bob_name) = test_bed.create_and_connect_alice_and_bob(domains).await;
     let charlie_name = format!("charlie@{}", domains[2]);

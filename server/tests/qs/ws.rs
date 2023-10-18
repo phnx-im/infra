@@ -5,9 +5,8 @@
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
+use phnxserver_test_harness::utils::spawn_app;
 use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
-
-use super::*;
 
 /// Test the websocket reconnect.
 #[actix_rt::test]
