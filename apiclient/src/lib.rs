@@ -22,7 +22,7 @@ pub enum Protocol {
     Ws,
 }
 
-pub const DEFAULT_PORT_HTTP: u16 = 80;
+pub const DEFAULT_PORT_HTTP: u16 = 9420;
 pub const DEFAULT_PORT_HTTPS: u16 = 443;
 // TODO: Turn this on once we have the necessary test infrastructure for
 // certificates in place.
