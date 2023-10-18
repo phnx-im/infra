@@ -18,6 +18,7 @@ pub struct Settings {
 pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,
+    pub domain: String,
 }
 
 /// Configuration for the database.
@@ -101,9 +102,9 @@ pub fn get_configuration(prefix: &str) -> Result<Settings, ConfigError> {
         .add_source(
             config::File::from(configuration_directory.join(environment.as_str())).required(true),
         )
-        // Add in settings from environment variables (with a prefix of APP and '__' as separator)
-        // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("app").separator("__"));
+        // Add in settings from environment variables (with a prefix of APP and '_' as separator)
+        // E.g. `APP_APPLICATION_PORT=5001 would set `Settings.application.port`
+        .add_source(config::Environment::with_prefix("APP").separator("_"));
 
     builder.build()?.try_deserialize::<Settings>()
 }

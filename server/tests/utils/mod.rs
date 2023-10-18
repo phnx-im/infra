@@ -47,21 +47,21 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 /// address and a DispatchWebsocketNotifier to dispatch notofication over the
 /// websocket.
 pub async fn spawn_app(
-    domain: Fqdn,
+    domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
-    random_port: bool,
 ) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
 
     // Load configuration
-    let _configuration = get_configuration("").expect("Could not load configuration.");
+    let configuration = get_configuration("").expect("Could not load configuration.");
 
     // Port binding
-    let localhost = "127.0.0.1";
-    let port = if random_port { 0 } else { 8000 };
+    let port = 0;
+    let hostname = configuration.application.host;
     let listener =
-        TcpListener::bind(format!("{localhost}:{port}")).expect("Failed to bind to random port.");
+        TcpListener::bind(format!("{hostname}:{port}")).expect("Failed to bind to random port.");
+    let domain = domain.into().unwrap_or_else(|| Fqdn::from(hostname));
     let address = listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();

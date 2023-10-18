@@ -95,7 +95,7 @@ impl TestBackend {
     }
 
     async fn new(domain: Fqdn, network_provider: MockNetworkProvider) -> Self {
-        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
+        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
         Self {
             users: HashMap::new(),
             url: address.to_string(),
