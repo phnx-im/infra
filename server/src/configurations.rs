@@ -103,8 +103,8 @@ pub fn get_configuration(prefix: &str) -> Result<Settings, ConfigError> {
             config::File::from(configuration_directory.join(environment.as_str())).required(true),
         )
         // Add in settings from environment variables (with a prefix of APP and '_' as separator)
-        // E.g. `APP_APPLICATION_PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("APP").separator("_"));
+        // E.g. `PHNX_APPLICATION_PORT=5001 would set `Settings.application.port`
+        .add_source(config::Environment::with_prefix("PHNX").separator("_"));
 
     builder.build()?.try_deserialize::<Settings>()
 }

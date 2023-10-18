@@ -29,7 +29,7 @@ async fn main() -> std::io::Result<()> {
     // Load configuration
     let configuration = get_configuration("server/").expect("Could not load configuration.");
 
-    if configuration.application.host == "" {
+    if configuration.application.domain == "" {
         panic!("No domain name configured.");
     }
 

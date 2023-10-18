@@ -155,7 +155,7 @@ fn create_and_start_server_container(
 
     build_docker_image("server/Dockerfile", &image_name);
 
-    let server_domain_env_variable = format!("APP_APPLICATION_DOMAIN={}", server_domain);
+    let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
     run_docker_container(
         &image_name,
         &container_name,
