@@ -105,7 +105,7 @@ impl TestBackend {
     pub async fn single() -> Self {
         let network_provider = MockNetworkProvider::new();
         let domain = Fqdn::from("example.com");
-        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider, true).await;
+        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),

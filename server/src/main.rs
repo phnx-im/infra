@@ -29,16 +29,17 @@ async fn main() -> std::io::Result<()> {
     // Load configuration
     let configuration = get_configuration("server/").expect("Could not load configuration.");
 
+    if configuration.application.domain == "" {
+        panic!("No domain name configured.");
+    }
+
     // Port binding
     let address = format!(
         "{}:{}",
         configuration.application.host, configuration.application.port
     );
     let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
-    let domain: Fqdn = std::env::var("PHNX_SERVER_DOMAIN")
-        .expect("PHNX_SERVER_DOMAIN must be set.")
-        .as_str()
-        .into();
+    let domain: Fqdn = configuration.application.domain.into();
     tracing::info!("Starting server with domain {}.", domain);
     let network_provider = MockNetworkProvider::new();
 

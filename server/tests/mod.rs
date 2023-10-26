@@ -8,13 +8,14 @@ use phnxapiclient::ApiClient;
 
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
+use phnxtypes::identifiers::Fqdn;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app("example.com".into(), network_provider, true).await;
+    let (address, _ws_dispatch) = spawn_app(Fqdn::from("example.com"), network_provider).await;
 
     let address = format!("http://{}", address);
 
@@ -151,7 +152,7 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app("localhost".into(), network_provider, true).await;
+    let (address, _ws_dispatch) = spawn_app(Fqdn::from("localhost"), network_provider).await;
 
     // Initialize the client
     let address = format!("http://{}", address);

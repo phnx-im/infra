@@ -14,6 +14,7 @@ pub mod setup;
 use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxserver::{
+    configurations::get_configuration,
     endpoints::qs::ws::DispatchWebsocketNotifier,
     network_provider::MockNetworkProvider,
     run,
@@ -46,18 +47,21 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 /// address and a DispatchWebsocketNotifier to dispatch notofication over the
 /// websocket.
 pub async fn spawn_app(
-    domain: Fqdn,
+    domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
-    random_port: bool,
 ) -> (SocketAddr, DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
 
+    // Load configuration
+    let configuration = get_configuration("../server/").expect("Could not load configuration.");
+
     // Port binding
-    let localhost = "127.0.0.1";
-    let port = if random_port { 0 } else { 8000 };
+    let port = 0;
+    let host = configuration.application.host;
     let listener =
-        TcpListener::bind(format!("{localhost}:{port}")).expect("Failed to bind to random port.");
+        TcpListener::bind(format!("{host}:{port}")).expect("Failed to bind to random port.");
+    let domain = domain.into().unwrap_or_else(|| Fqdn::from(host));
     let address = listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
