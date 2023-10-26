@@ -372,7 +372,7 @@ impl<T: Notifiable> SelfUser<T> {
                     conversations_with_messages.push(conversation.id());
                     let contact_store = self.contact_store();
                     contact_store
-                        .new_partial_contact(
+                        .store_partial_contact(
                             &user_name,
                             &conversation.id(),
                             cep_tbs.friendship_package_ear_key,

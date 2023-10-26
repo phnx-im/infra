@@ -103,7 +103,7 @@ impl<'a> ContactStore<'a> {
         Ok(add_infos)
     }
 
-    pub(crate) fn new_partial_contact(
+    pub(crate) fn store_partial_contact(
         &self,
         user_name: &UserName,
         conversation_id: &Uuid,

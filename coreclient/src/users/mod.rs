@@ -40,7 +40,6 @@ use phnxtypes::{
             ConnectionEstablishmentPackageTbs, ConnectionPackageTbs, FriendshipPackage,
             UserConnectionPackagesParams,
         },
-        client_ds_out::CreateGroupParamsOut,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
@@ -245,15 +244,7 @@ impl<T: Notifiable> SelfUser<T> {
             .signing_key
             .credential()
             .encrypt(group.credential_ear_key())?;
-        let params = CreateGroupParamsOut {
-            group_id: partial_params.group_id,
-            ratchet_tree: partial_params.ratchet_tree,
-            encrypted_client_credential,
-            encrypted_signature_ear_key: partial_params.encrypted_signature_ear_key,
-            creator_client_reference: client_reference,
-            creator_user_auth_key: partial_params.user_auth_key,
-            group_info: partial_params.group_info,
-        };
+        let params = partial_params.into_params(encrypted_client_credential, client_reference);
         self.api_clients
             .default_client()?
             .ds_create_group(
@@ -353,15 +344,13 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let mut clients = vec![];
-        for user_name in target_users {
-            let mut user_clients = group.user_client_ids(user_name);
-            clients.append(&mut user_clients);
-        }
+        let clients = target_users
+            .iter()
+            .flat_map(|user_name| group.user_client_ids(user_name))
+            .collect::<Vec<_>>();
         let params = group.remove(&self.crypto_backend(), clients)?;
-        let owner_domain = conversation.owner_domain();
         self.api_clients
-            .get(&owner_domain)?
+            .get(&conversation.owner_domain())?
             .ds_remove_users(
                 params,
                 group.group_state_ear_key(),
@@ -432,10 +421,8 @@ impl<T: Notifiable> SelfUser<T> {
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
-        let owner_domain = conversation.owner_domain();
-
         self.api_clients
-            .get(&owner_domain)?
+            .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
@@ -461,12 +448,11 @@ impl<T: Notifiable> SelfUser<T> {
             .get(&user_domain)?
             .as_user_connection_packages(params)
             .await?;
-        let connection_packages = user_key_packages.connection_packages;
         // Verify the connection key packages
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         let as_credential_store = self.as_credential_store();
-        for connection_package in connection_packages.into_iter() {
+        for connection_package in user_key_packages.connection_packages.into_iter() {
             let as_intermediate_credential = as_credential_store
                 .get(
                     &user_domain,
@@ -530,15 +516,7 @@ impl<T: Notifiable> SelfUser<T> {
             .signing_key
             .credential()
             .encrypt(connection_group.credential_ear_key())?;
-        let params = CreateGroupParamsOut {
-            group_id: partial_params.group_id,
-            ratchet_tree: partial_params.ratchet_tree,
-            encrypted_client_credential,
-            encrypted_signature_ear_key: partial_params.encrypted_signature_ear_key,
-            creator_client_reference: client_reference,
-            creator_user_auth_key: partial_params.user_auth_key,
-            group_info: partial_params.group_info,
-        };
+        let params = partial_params.into_params(encrypted_client_credential, client_reference);
         log::info!("Creating connection group on DS");
         self.api_clients
             .default_client()?
@@ -562,7 +540,7 @@ impl<T: Notifiable> SelfUser<T> {
         )?;
 
         // Create and persist a new partial contact
-        let _ = self.contact_store().new_partial_contact(
+        self.contact_store().store_partial_contact(
             &user_name,
             &conversation.id(),
             friendship_package_ear_key,

@@ -33,7 +33,7 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{AsClientId, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{AsClientId, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
@@ -41,8 +41,9 @@ use phnxtypes::{
             UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, RemoveUsersParamsOut,
-            SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
+            AddUsersParamsOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            RemoveUsersParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
+            UpdateClientParamsOut,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -163,11 +164,29 @@ impl ClientAuthInfo {
 }
 
 pub(crate) struct PartialCreateGroupParams {
-    pub group_id: GroupId,
-    pub ratchet_tree: RatchetTree,
-    pub group_info: MlsMessageOut,
-    pub user_auth_key: UserAuthVerifyingKey,
-    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    group_id: GroupId,
+    ratchet_tree: RatchetTree,
+    group_info: MlsMessageOut,
+    user_auth_key: UserAuthVerifyingKey,
+    encrypted_signature_ear_key: EncryptedSignatureEarKey,
+}
+
+impl PartialCreateGroupParams {
+    pub(crate) fn into_params(
+        self,
+        encrypted_client_credential: EncryptedClientCredential,
+        client_reference: QsClientReference,
+    ) -> CreateGroupParamsOut {
+        CreateGroupParamsOut {
+            group_id: self.group_id,
+            ratchet_tree: self.ratchet_tree,
+            encrypted_client_credential,
+            encrypted_signature_ear_key: self.encrypted_signature_ear_key,
+            creator_client_reference: client_reference,
+            creator_user_auth_key: self.user_auth_key,
+            group_info: self.group_info,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -321,13 +340,11 @@ impl Group {
         )?;
 
         // Decrypt WelcomeAttributionInfo
-        let welcome_attribution_info = WelcomeAttributionInfo::decrypt(
+        let verifiable_attribution_info = WelcomeAttributionInfo::decrypt(
             welcome_attribution_info_ear_key,
             &welcome_bundle.encrypted_attribution_info,
-        )?;
-
-        let verifiable_attribution_info = welcome_attribution_info
-            .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
+        )?
+        .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
         let sender_client_id = verifiable_attribution_info.sender();
         let sender_client_credential = contact_store
