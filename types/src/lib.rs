@@ -20,6 +20,9 @@ pub mod keypackage_batch;
 pub mod messages;
 pub mod time;
 
+pub const DEFAULT_PORT_HTTP: u16 = 9420;
+pub const DEFAULT_PORT_HTTPS: u16 = 443;
+
 /// Unrecoverable error in this implementation.
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub struct LibraryError;

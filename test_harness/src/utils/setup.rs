@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phnxapiclient::DEFAULT_PORT_HTTP;
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{
@@ -17,7 +16,10 @@ use phnxcoreclient::{
     users::SelfUser,
 };
 use phnxserver::network_provider::MockNetworkProvider;
-use phnxtypes::identifiers::{Fqdn, UserName};
+use phnxtypes::{
+    identifiers::{Fqdn, UserName},
+    DEFAULT_PORT_HTTP,
+};
 use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
 use uuid::Uuid;

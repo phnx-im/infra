@@ -7,8 +7,8 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use phnxapiclient::{ApiClient, DEFAULT_PORT_HTTP};
-use phnxtypes::identifiers::Fqdn;
+use phnxapiclient::ApiClient;
+use phnxtypes::{identifiers::Fqdn, DEFAULT_PORT_HTTP};
 
 use crate::test_scenarios::FederationTestScenario;
 

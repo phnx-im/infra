@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use http::StatusCode;
-use phnxtypes::endpoint_paths::ENDPOINT_HEALTH_CHECK;
+use phnxtypes::{endpoint_paths::ENDPOINT_HEALTH_CHECK, DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS};
 use reqwest::{Client, ClientBuilder, Url};
 use thiserror::Error;
 use url::ParseError;
@@ -22,8 +22,6 @@ pub enum Protocol {
     Ws,
 }
 
-pub const DEFAULT_PORT_HTTP: u16 = 9420;
-pub const DEFAULT_PORT_HTTPS: u16 = 443;
 // TODO: Turn this on once we have the necessary test infrastructure for
 // certificates in place.
 const HTTPS_BY_DEFAULT: bool = false;
