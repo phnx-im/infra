@@ -14,7 +14,7 @@ pub mod types;
 pub mod users;
 mod utils;
 
-#[cfg(feature = "dart-bridge")]
+//#[cfg(feature = "dart-bridge")]
 mod dart_api;
 
 use std::collections::HashMap;

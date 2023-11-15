@@ -7,8 +7,7 @@ use std::sync::Mutex;
 use anyhow::Result;
 use flutter_rust_bridge::{RustOpaque, StreamSink};
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxbackend::auth_service::UserName;
-use phnxserver::endpoints::qs::ws::QsWsMessage;
+use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
 pub use crate::types::Conversation;
 pub use crate::types::*;
@@ -177,7 +176,7 @@ impl RustUser {
 
     pub fn get_conversations(&self) -> Vec<Conversation> {
         let user = self.user.lock().unwrap();
-        user.get_conversations()
+        user.conversations().unwrap_or_default()
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -197,13 +196,16 @@ impl RustUser {
         last_n: usize,
     ) -> Vec<ConversationMessage> {
         let user = self.user.lock().unwrap();
-        let messages = user.get_messages(conversation_id.as_uuid(), last_n);
+        let messages = user
+            .get_messages(conversation_id.as_uuid(), last_n)
+            .unwrap_or_default();
         messages
     }
 
     pub fn get_contacts(&self) -> Vec<String> {
         let user = self.user.lock().unwrap();
         user.contacts()
+            .unwrap_or_default()
             .into_iter()
             .map(|c| c.user_name.to_string())
             .collect()
