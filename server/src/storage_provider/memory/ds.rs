@@ -10,9 +10,10 @@ use std::{
 
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
-use phnxbackend::ds::{group_state::EncryptedDsGroupState, DsStorageProvider, LoadState};
+use phnxbackend::ds::{
+    group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION_DAYS,
+};
 use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
-use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum MemoryDsStorageError {
@@ -50,40 +51,29 @@ impl MemoryDsStorage {
 impl DsStorageProvider for MemoryDsStorage {
     type StorageError = MemoryDsStorageError;
 
-    async fn create_group_state(
+    async fn load_group_state(
         &self,
-        encrypted_group_state: EncryptedDsGroupState,
-    ) -> Result<GroupId, MemoryDsStorageError> {
-        // Generate a new group ID.
-        let group_id = GroupId::from_slice(Uuid::new_v4().as_bytes());
-
-        let mut encrypted_group_state = encrypted_group_state;
-        encrypted_group_state.last_used = TimeStamp::now();
-
-        if let Ok(mut groups) = self.groups.try_lock() {
-            match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
-                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
-                None => Ok(group_id),
-            }
-        } else {
-            Err(MemoryDsStorageError::MemoryStoreError)
-        }
-    }
-
-    async fn load_group_state(&self, group_id: &GroupId) -> LoadState {
+        group_id: &GroupId,
+    ) -> Result<LoadState, MemoryDsStorageError> {
         match self.groups.try_lock() {
             Ok(groups) => match groups.get(group_id) {
                 Some(StorageState::Taken(encrypted_group_state)) => {
-                    if encrypted_group_state.last_used.has_expired(90) {
+                    let result = if encrypted_group_state
+                        .last_used
+                        .has_expired(GROUP_STATE_EXPIRATION_DAYS)
+                    {
                         LoadState::Expired
                     } else {
                         LoadState::Success(encrypted_group_state.clone())
-                    }
+                    };
+                    Ok(result)
                 }
-                Some(StorageState::Reserved(timestamp)) => LoadState::Reserved(timestamp.clone()),
-                None => LoadState::NotFound,
+                Some(StorageState::Reserved(timestamp)) => {
+                    Ok(LoadState::Reserved(timestamp.clone()))
+                }
+                None => Ok(LoadState::NotFound),
             },
-            Err(_) => LoadState::NotFound,
+            Err(_) => Err(MemoryDsStorageError::MemoryStoreError),
         }
     }
 

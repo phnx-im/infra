@@ -2,5 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pub mod memory;
-pub mod postgres;
+pub mod ds;
+
+#[cfg(test)]
+pub mod tests;

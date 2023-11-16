@@ -13,6 +13,12 @@ pub struct TimeStamp {
     time: DateTime<Utc>,
 }
 
+impl From<DateTime<Utc>> for TimeStamp {
+    fn from(time: DateTime<Utc>) -> Self {
+        Self { time }
+    }
+}
+
 impl Size for TimeStamp {
     fn tls_serialized_len(&self) -> usize {
         8
