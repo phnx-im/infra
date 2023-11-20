@@ -70,7 +70,7 @@ impl DsStorageProvider for PostgresDsStorage {
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
 
-        let record = sqlx::query!(
+        let record = sqlx::query!( 
             "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
             group_uuid 
         ).fetch_one(&self.pool).await.map_err(|e| { 

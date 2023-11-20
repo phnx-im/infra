@@ -9,7 +9,7 @@ use thiserror::Error;
 // === DS API errors ===
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum QsEnqueueError<S: QsStorageProvider, N: NetworkProvider> {
     /// Couldn't find the requested queue.
     #[error("Couldn't find the requested queue")]

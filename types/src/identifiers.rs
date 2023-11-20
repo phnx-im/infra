@@ -266,34 +266,48 @@ impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientCon
 impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
 
 /// This is the pseudonymous client id used on the QS.
-#[derive(
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct QsClientId {
-    pub(crate) client_id: Vec<u8>,
+    pub(crate) client_id: Uuid,
+}
+
+impl tls_codec::Serialize for QsClientId {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.client_id.as_bytes().tls_serialize(writer)
+    }
+}
+
+impl tls_codec::DeserializeBytes for QsClientId {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize(bytes)?;
+        let client_id = Uuid::from_bytes(uuid_bytes);
+        Ok((Self { client_id }, rest))
+    }
+}
+
+impl tls_codec::Size for QsClientId {
+    fn tls_serialized_len(&self) -> usize {
+        self.client_id.as_bytes().len()
+    }
 }
 
 impl QsClientId {
-    pub fn from_bytes(client_id: Vec<u8>) -> Self {
-        Self { client_id }
-    }
-
     pub fn random() -> Self {
-        let client_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+        let client_id = Uuid::new_v4();
         Self { client_id }
     }
 
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_uuid(&self) -> &Uuid {
         &self.client_id
+    }
+}
+
+impl From<Uuid> for QsClientId {
+    fn from(value: Uuid) -> Self {
+        Self { client_id: value }
     }
 }
 

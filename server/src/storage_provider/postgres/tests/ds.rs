@@ -10,8 +10,8 @@ use phnxtypes::{
     crypto::ear::Ciphertext,
     identifiers::{Fqdn, QualifiedGroupId},
 };
+use sqlx::types::Uuid;
 use tls_codec::Serialize;
-use uuid::Uuid;
 
 use crate::{configurations::get_configuration, storage_provider::postgres::ds::PostgresDsStorage};
 
