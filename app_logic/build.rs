@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub fn main() {
-    #[cfg(feature = "dart-bridge")]
     {
         std::process::Command::new("make")
             .current_dir("dart-bridge")
