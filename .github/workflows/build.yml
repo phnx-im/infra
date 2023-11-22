@@ -29,8 +29,8 @@ jobs:
           channel: "stable"
           cache: true
       - name: Set up bridge
-        run: cd app_logic/dart-bridge && make setup-ci
-      - name: Build # (This now also builds the bridge)
+        run: cd app_logic/dart-bridge && make setup-ci && make dart-bridge
+      - name: Build 
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose -- --include-ignored
