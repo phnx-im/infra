@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::types::NotificationType;
+use crate::conversations::messages::NotificationType;
 
 pub(crate) trait CoreClientProvider: Send + Sync {
     type NotificationProvider: NotificationProvider;

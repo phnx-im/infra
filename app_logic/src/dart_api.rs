@@ -5,26 +5,33 @@
 use std::sync::Mutex;
 
 use anyhow::Result;
-use flutter_rust_bridge::{RustOpaque, StreamSink};
+use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
-pub use crate::types::Conversation;
-pub use crate::types::*;
-use crate::{
+use crate::types::ConversationIdBytes;
+pub use crate::types::{
+    UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType, UuidBytes,
+};
+use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     users::SelfUser,
+    NotificationType,
 };
+
+lazy_static! {
+    static ref FLUTTER_RUST_BRIDGE_HANDLER: DefaultHandler = DefaultHandler::default();
+}
 
 #[path = "../dart-bridge/bridge_generated.rs"]
 mod bridge_generated;
 
 /// This is only to tell flutter_rust_bridge that it should expose the types
 /// used in the parameters
-pub fn _expose_conversation(conversation: Conversation) -> Conversation {
+pub fn _expose_conversation(conversation: UiConversation) -> UiConversation {
     conversation
 }
-pub fn _expose_notification_type(notification_type: NotificationType) -> NotificationType {
+pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNotificationType {
     notification_type
 }
 
@@ -36,17 +43,18 @@ pub enum WsNotification {
 
 #[derive(Clone)]
 pub struct DartNotifier {
-    pub stream_sink: StreamSink<NotificationType>,
+    pub stream_sink: StreamSink<UiNotificationType>,
 }
 
 impl Notifiable for DartNotifier {
     fn notify(&self, notification_type: NotificationType) -> bool {
-        self.stream_sink.add(notification_type)
+        let ui_notification_type = UiNotificationType::from(notification_type);
+        self.stream_sink.add(ui_notification_type)
     }
 }
 
-impl From<StreamSink<NotificationType>> for DartNotifier {
-    fn from(stream_sink: StreamSink<NotificationType>) -> Self {
+impl From<StreamSink<UiNotificationType>> for DartNotifier {
+    fn from(stream_sink: StreamSink<UiNotificationType>) -> Self {
         Self { stream_sink }
     }
 }
@@ -68,14 +76,14 @@ impl UserBuilder {
         user_name: String,
         password: String,
         address: String,
-        stream_sink: StreamSink<NotificationType>,
+        stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<()> {
         let user = RustUser::new(user_name, password, address, stream_sink.clone())?;
         if let Ok(mut inner_user) = self.user.try_lock() {
             let _ = inner_user.insert(user);
             // Send an initial notification to the flutter side, since this
             // function cannot be async
-            stream_sink.add(NotificationType::ConversationChange(UuidBytes {
+            stream_sink.add(UiNotificationType::ConversationChange(UuidBytes {
                 bytes: [0; 16],
             }));
             Ok(())
@@ -107,7 +115,7 @@ impl RustUser {
         user_name: String,
         password: String,
         address: String,
-        stream_sink: StreamSink<NotificationType>,
+        stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<RustUser> {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
@@ -174,31 +182,40 @@ impl RustUser {
         Ok(())
     }
 
-    pub fn get_conversations(&self) -> Vec<Conversation> {
+    pub fn get_conversations(&self) -> Vec<UiConversation> {
         let user = self.user.lock().unwrap();
-        user.conversations().unwrap_or_default()
+        user.conversations()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| c.into())
+            .collect()
     }
 
     #[tokio::main(flavor = "current_thread")]
     pub async fn send_message(
         &self,
-        conversation_id: UuidBytes,
-        message: MessageContentType,
-    ) -> Result<ConversationMessage> {
+        conversation_id: ConversationIdBytes,
+        message: UiMessageContentType,
+    ) -> Result<UiConversationMessage> {
         let mut user = self.user.lock().unwrap();
-        user.send_message(conversation_id.as_uuid(), message).await
+        user.send_message(conversation_id.into(), message.into())
+            .await
+            .map(|m| m.into())
     }
 
     #[tokio::main(flavor = "current_thread")]
     pub async fn get_messages(
         &self,
-        conversation_id: UuidBytes,
+        conversation_id: ConversationIdBytes,
         last_n: usize,
-    ) -> Vec<ConversationMessage> {
+    ) -> Vec<UiConversationMessage> {
         let user = self.user.lock().unwrap();
         let messages = user
-            .get_messages(conversation_id.as_uuid(), last_n)
-            .unwrap_or_default();
+            .get_messages(conversation_id.into(), last_n)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|m| m.into())
+            .collect();
         messages
     }
 
@@ -212,20 +229,22 @@ impl RustUser {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    pub async fn create_conversation(&self, name: String) -> Result<UuidBytes> {
+    pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
         let mut user = self.user.lock().unwrap();
-        Ok(UuidBytes::from_uuid(user.create_conversation(&name).await?))
+        Ok(ConversationIdBytes::from(
+            user.create_conversation(&name).await?,
+        ))
     }
 
     #[tokio::main(flavor = "current_thread")]
     pub async fn add_users_to_conversation(
         &self,
-        conversation_id: UuidBytes,
+        conversation_id: ConversationIdBytes,
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
         user.invite_users(
-            conversation_id.as_uuid(),
+            conversation_id.into(),
             &user_names
                 .into_iter()
                 .map(UserName::from)
@@ -237,12 +256,12 @@ impl RustUser {
     #[tokio::main(flavor = "current_thread")]
     pub async fn remove_users_from_conversation(
         &self,
-        conversation_id: UuidBytes,
+        conversation_id: ConversationIdBytes,
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
         user.remove_users(
-            conversation_id.as_uuid(),
+            conversation_id.into(),
             &user_names
                 .into_iter()
                 .map(UserName::from)
@@ -251,10 +270,13 @@ impl RustUser {
         .await
     }
 
-    pub fn members_of_conversation(&self, conversation_id: UuidBytes) -> Result<Vec<String>> {
+    pub fn members_of_conversation(
+        &self,
+        conversation_id: ConversationIdBytes,
+    ) -> Result<Vec<String>> {
         let user = self.user.lock().unwrap();
         Ok(user
-            .group_members(conversation_id.as_uuid())
+            .group_members(conversation_id.into())
             .unwrap_or(Vec::new())
             .into_iter()
             .map(|c| c.to_string())

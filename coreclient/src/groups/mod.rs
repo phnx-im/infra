@@ -49,6 +49,7 @@ use phnxtypes::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
         },
     },
+    time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
@@ -56,12 +57,13 @@ use uuid::Uuid;
 
 use crate::{
     contacts::{store::ContactStore, ContactAddInfos},
+    conversations::messages::{
+        ContentMessage, DisplayMessage, DisplayMessageType, Message, MessageContentType,
+        SystemMessage,
+    },
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
-    types::MessageContentType,
-    types::*,
     users::openmls_provider::PhnxOpenMlsProvider,
-    utils::Timestamp,
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -191,7 +193,7 @@ impl PartialCreateGroupParams {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Group {
-    group_id_bytes: GroupIdBytes,
+    group_id: GroupId,
     leaf_signer: InfraCredentialSigningKey,
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
@@ -273,7 +275,7 @@ impl Group {
         };
 
         let group = Self {
-            group_id_bytes: group_id.into(),
+            group_id: group_id.into(),
             leaf_signer,
             signature_ear_key_wrapper_key,
             mls_group,
@@ -382,7 +384,7 @@ impl Group {
         leaf_key_store.delete(verifying_key)?;
 
         let group = Self {
-            group_id_bytes: mls_group.group_id().clone().into(),
+            group_id: mls_group.group_id().clone().into(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key: welcome_attribution_info
@@ -473,7 +475,7 @@ impl Group {
         let user_auth_key = UserAuthSigningKey::generate()?;
 
         let group = Self {
-            group_id_bytes: mls_group.group_id().clone().into(),
+            group_id: mls_group.group_id().clone().into(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key,
@@ -1364,9 +1366,9 @@ impl Group {
     }
 }
 
-pub(crate) struct GroupMessage {
+pub struct GroupMessage {
     id: Uuid,
-    timestamp: u64,
+    timestamp: TimeStamp,
     message: Message,
 }
 
@@ -1374,7 +1376,7 @@ impl GroupMessage {
     pub(crate) fn new(message: Message) -> Self {
         Self {
             id: Uuid::new_v4(),
-            timestamp: Timestamp::now().as_u64(),
+            timestamp: TimeStamp::now(),
             message,
         }
     }
@@ -1402,9 +1404,7 @@ impl GroupMessage {
 
     fn event_message(event_message: String) -> Self {
         let message = Message::Display(DisplayMessage {
-            message: DisplayMessageType::System(SystemMessage {
-                message: event_message,
-            }),
+            message: DisplayMessageType::System(SystemMessage::new(event_message)),
         });
         Self::new(message)
     }
@@ -1452,7 +1452,7 @@ impl GroupMessage {
         Ok(events)
     }
 
-    pub(crate) fn into_parts(self) -> (Uuid, u64, Message) {
+    pub fn into_parts(self) -> (Uuid, TimeStamp, Message) {
         (self.id, self.timestamp, self.message)
     }
 }

@@ -7,7 +7,7 @@ use openmls_traits::key_store::MlsEntity;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use crate::utils::persistence::{PersistableStruct, PersistenceError};
+use crate::utils::persistence::{PersistableStruct, PersistenceError, SqlKey};
 
 use super::*;
 
@@ -181,6 +181,12 @@ impl<'a> PersistableSeed<'a> {
         rng.try_fill_bytes(&mut payload)
             .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
         Ok(Self::from_connection_and_payload(conn, payload).persist()?)
+    }
+}
+
+impl SqlKey for u64 {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
     }
 }
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::utils::persistence::PersistableStruct;
+use crate::utils::persistence::{PersistableStruct, SqlKey};
 
 use super::*;
 
@@ -88,6 +88,12 @@ impl PersistableAsQueueRatchet<'_> {
         let plaintext = self.payload.decrypt(ciphertext)?;
         self.persist()?;
         Ok(plaintext)
+    }
+}
+
+impl SqlKey for QueueType {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
     }
 }
 
