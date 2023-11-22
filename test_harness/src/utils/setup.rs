@@ -607,12 +607,16 @@ impl TestBackend {
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
             assert!(conversation.conversation_type() == &ConversationType::Group);
-            invitee_conversations_before
+            let different_conversations = invitee_conversations_before
                 .into_iter()
-                .zip(invitee_conversations_after)
-                .for_each(|(before, after)| {
-                    assert_eq!(before.id(), after.id());
-                });
+                .collect::<HashSet<_>>()
+                .difference(
+                    &invitee_conversations_after
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                )
+                .count();
+            assert_eq!(different_conversations, 0);
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for group_member_name in group_members.iter() {
