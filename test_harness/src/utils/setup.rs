@@ -607,10 +607,13 @@ impl TestBackend {
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
             assert!(conversation.conversation_type() == &ConversationType::Group);
+            // Now that we've removed the new conversation, it should be the same set of conversations
+            tracing::info!("Conversations_before: {:?}", invitee_conversations_before);
+            tracing::info!("Conversations_after: {:?}", invitee_conversations_after);
             let different_conversations = invitee_conversations_before
                 .into_iter()
                 .collect::<HashSet<_>>()
-                .difference(
+                .symmetric_difference(
                     &invitee_conversations_after
                         .into_iter()
                         .collect::<HashSet<_>>(),
