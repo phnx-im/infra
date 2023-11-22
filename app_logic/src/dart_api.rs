@@ -11,7 +11,7 @@ use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
 use crate::types::ConversationIdBytes;
 pub use crate::types::{
-    UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType, UuidBytes,
+    UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
@@ -83,9 +83,9 @@ impl UserBuilder {
             let _ = inner_user.insert(user);
             // Send an initial notification to the flutter side, since this
             // function cannot be async
-            stream_sink.add(UiNotificationType::ConversationChange(UuidBytes {
-                bytes: [0; 16],
-            }));
+            stream_sink.add(UiNotificationType::ConversationChange(
+                ConversationIdBytes { bytes: [0; 16] },
+            ));
             Ok(())
         } else {
             return Err(anyhow::anyhow!("Could not acquire lock"));

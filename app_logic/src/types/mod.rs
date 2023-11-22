@@ -9,7 +9,6 @@ use phnxcoreclient::{
     DisplayMessageType, ErrorMessage, InactiveConversation, Knock, Message, MessageContentType,
     NotificationType, SystemMessage, TextMessage,
 };
-use phnxtypes::identifiers::UserName;
 use uuid::Uuid;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
@@ -22,12 +21,6 @@ impl From<GroupId> for GroupIdBytes {
         Self {
             bytes: group_id.as_slice().to_vec(),
         }
-    }
-}
-
-impl GroupIdBytes {
-    pub fn as_group_id(&self) -> GroupId {
-        GroupId::from_slice(&self.bytes)
     }
 }
 
@@ -105,24 +98,6 @@ impl From<InactiveConversation> for UiInactiveConversation {
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>(),
         }
-    }
-}
-
-impl UiInactiveConversation {
-    pub fn new(past_members: Vec<UserName>) -> Self {
-        Self {
-            past_members: past_members
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
-        }
-    }
-
-    pub fn past_members(&self) -> Vec<UserName> {
-        self.past_members
-            .iter()
-            .map(|s| UserName::from(s.clone()))
-            .collect()
     }
 }
 
@@ -370,7 +345,7 @@ pub struct UiNotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum UiNotificationType {
-    ConversationChange(UuidBytes), // The id of the changed conversation.
+    ConversationChange(ConversationIdBytes), // The id of the changed conversation.
     Message(UiDispatchedConversationMessage),
 }
 
@@ -378,7 +353,7 @@ impl From<NotificationType> for UiNotificationType {
     fn from(value: NotificationType) -> Self {
         match value {
             NotificationType::ConversationChange(conversation_id) => {
-                UiNotificationType::ConversationChange(conversation_id.as_uuid().into())
+                UiNotificationType::ConversationChange(conversation_id.into())
             }
             NotificationType::Message(message) => UiNotificationType::Message(message.into()),
         }
