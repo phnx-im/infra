@@ -4,10 +4,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use mls_assist::{
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{random::OpenMlsRand, types::HpkeCiphertext, OpenMlsProvider},
-};
+use mls_assist::openmls_traits::types::HpkeCiphertext;
 use rand::{Rng, SeedableRng};
 use uuid::Uuid;
 
@@ -311,25 +308,47 @@ impl From<Uuid> for QsClientId {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct QsUserId {
-    pub(crate) user_id: Vec<u8>,
+    pub(crate) user_id: Uuid,
+}
+
+impl From<Uuid> for QsUserId {
+    fn from(value: Uuid) -> Self {
+        Self { user_id: value }
+    }
 }
 
 impl QsUserId {
     pub fn random() -> Self {
-        let user_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+        let user_id = Uuid::new_v4();
         Self { user_id }
+    }
+
+    pub fn as_uuid(&self) -> &Uuid {
+        &self.user_id
+    }
+}
+
+impl tls_codec::Serialize for QsUserId {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.user_id.as_bytes().tls_serialize(writer)
+    }
+}
+
+impl tls_codec::DeserializeBytes for QsUserId {
+    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize(bytes)?;
+        let user_id = Uuid::from_bytes(uuid_bytes);
+        Ok((Self { user_id }, rest))
+    }
+}
+
+impl tls_codec::Size for QsUserId {
+    fn tls_serialized_len(&self) -> usize {
+        self.user_id.as_bytes().len()
     }
 }

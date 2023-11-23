@@ -184,6 +184,14 @@ impl AsRef<[u8]> for QsUserVerifyingKey {
     }
 }
 
+impl QsUserVerifyingKey {
+    /// This function is meant to be used only to restore a QsUserSigningKey
+    /// from a DB entry.
+    pub fn from_bytes(verifying_key: Vec<u8>) -> Self {
+        Self { verifying_key }
+    }
+}
+
 impl VerifyingKey for QsUserVerifyingKey {}
 
 #[derive(Serialize, Deserialize)]

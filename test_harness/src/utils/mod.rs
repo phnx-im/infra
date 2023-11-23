@@ -21,10 +21,9 @@ use phnxserver::{
     storage_provider::{
         memory::{
             auth_service::{EphemeralAsStorage, MemoryAsStorage},
-            qs::MemStorageProvider,
             qs_connector::MemoryEnqueueProvider,
         },
-        postgres::ds::PostgresDsStorage,
+        postgres::{ds::PostgresDsStorage, qs::PostgresQsStorage},
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -77,7 +76,13 @@ pub async fn spawn_app(
         .await
         .expect("Failed to connect to database.");
 
-    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+    // QS storage provider
+    // let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+    let qs_storage_provider = Arc::new(
+        PostgresQsStorage::new(&configuration.database, domain.clone())
+            .await
+            .expect("Failed to connect to database."),
+    );
 
     let as_storage_provider =
         MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519).unwrap();

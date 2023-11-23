@@ -120,7 +120,6 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Return a key package for a specific client. The user ID is used to check if
     /// the client belongs to the user.
-    /// TODO: Last resort key package
     /// TODO: This should probably check for expired KeyPackages
     async fn load_key_package(
         &self,

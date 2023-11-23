@@ -68,6 +68,26 @@ impl QsClientRecord {
         }
     }
 
+    /// This function is meant to be used to create a client record from value
+    /// stored in a DB. To create a fresh QS client record, use `new`.
+    pub fn from_db_values(
+        user_id: QsUserId,
+        encrypted_push_token: Option<EncryptedPushToken>,
+        owner_public_key: RatchetEncryptionKey,
+        owner_signature_key: QsClientVerifyingKey,
+        current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+        activity_time: TimeStamp,
+    ) -> Self {
+        Self {
+            user_id,
+            encrypted_push_token,
+            owner_public_key,
+            owner_signature_key,
+            current_ratchet_key,
+            activity_time,
+        }
+    }
+
     /// Update the client record.
     pub(crate) fn update(
         &mut self,
@@ -151,5 +171,31 @@ impl QsClientRecord {
 
         // Success!
         Ok(())
+    }
+
+    pub fn encrypted_push_token(&self) -> Option<&EncryptedPushToken> {
+        self.encrypted_push_token.as_ref()
+    }
+
+    pub fn owner_public_key(&self) -> &RatchetEncryptionKey {
+        &self.owner_public_key
+    }
+
+    pub fn owner_signature_key(&self) -> &QsClientVerifyingKey {
+        &self.owner_signature_key
+    }
+
+    pub fn current_ratchet_key(
+        &self,
+    ) -> &QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload> {
+        &self.current_ratchet_key
+    }
+
+    pub fn activity_time(&self) -> &TimeStamp {
+        &self.activity_time
+    }
+
+    pub fn user_id(&self) -> &QsUserId {
+        &self.user_id
     }
 }

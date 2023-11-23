@@ -73,7 +73,7 @@ impl DsStorageProvider for PostgresDsStorage {
         let record = sqlx::query!( 
             "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
             group_uuid 
-        ).fetch_one(&self.pool).await.map_err(|e| { 
+        ).fetch_one(&self.pool).await.map_err(|e| {
             tracing::warn!("Error loading group state: {:?}", e);
             e 
         }
