@@ -16,8 +16,7 @@ reqwest = { version = "^0.11", features = [
     "brotli",
 ] }
 thiserror = "1"
-phnxbackend = { path = "../backend" }
-phnxserver = { path = "../server" }
+phnxtypes = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-tungstenite = { version = "0.20.0", features = [
     "rustls-tls-webpki-roots",
@@ -30,6 +29,7 @@ base64 = "0.13.0"
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 tls_codec = { workspace = true }
+serde = { version = "1", features = ["derive"] }
 url = "2"
 
 [dev-dependencies]

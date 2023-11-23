@@ -154,38 +154,33 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsSerialize, TlsSize};
+use uuid::Uuid;
 
-use crate::{
+use phnxtypes::{
+    credentials::EncryptedClientCredential,
     crypto::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
         signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
-    messages::{
-        client_ds::{
-            CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender,
-            VerifiableClientToDsMessage,
-        },
-        intra_backend::{DsFanOutMessage, DsFanOutPayload},
+    errors::DsProcessingError,
+    identifiers::QualifiedGroupId,
+    messages::client_ds::{
+        CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender, VerifiableClientToDsMessage,
     },
-    qs::{Fqdn, QsConnector},
+};
+
+use crate::{
+    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
+    qs::QsConnector,
 };
 
 use super::{
-    errors::DsProcessingError,
-    group_state::{DsGroupState, EncryptedClientCredential, SerializableDsGroupState},
+    group_state::{DsGroupState, SerializableDsGroupState},
     DsStorageProvider, LoadState,
 };
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
-
-pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
-
-#[derive(Debug, Clone, PartialEq, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-pub struct QualifiedGroupId {
-    pub group_id: [u8; 16],
-    pub owning_domain: Fqdn,
-}
 
 pub struct DsApi {}
 
@@ -515,7 +510,7 @@ impl DsApi {
     }
 
     async fn generate_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
-        let id = rand::random::<[u8; 16]>();
+        let id = Uuid::new_v4().to_bytes_le();
         let owning_domain = ds_storage_provider.own_domain().await;
         let qgid = QualifiedGroupId {
             group_id: id,

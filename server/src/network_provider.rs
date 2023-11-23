@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::endpoints::ENDPOINT_QS_FEDERATION;
 use async_trait::async_trait;
-use phnxbackend::qs::{
-    network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult, Fqdn,
+use phnxbackend::qs::{network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult};
+use phnxtypes::{
+    endpoint_paths::ENDPOINT_QS_FEDERATION, identifiers::Fqdn, DEFAULT_PORT_HTTP,
+    DEFAULT_PORT_HTTPS,
 };
 use reqwest::Client;
 use thiserror::Error;
@@ -49,8 +50,8 @@ impl NetworkProvider for MockNetworkProvider {
         destination: Fqdn,
     ) -> Result<FederatedProcessingResult, Self::NetworkError> {
         let (transport_encryption, port) = match self.transport_encryption {
-            TransportEncryption::On => ("s", 443),
-            TransportEncryption::Off => ("", 80),
+            TransportEncryption::On => ("s", DEFAULT_PORT_HTTPS),
+            TransportEncryption::Off => ("", DEFAULT_PORT_HTTP),
         };
         let url = format!(
             "http{}://{}:{}{}",

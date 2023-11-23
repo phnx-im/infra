@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::{identifiers::Fqdn, messages::MlsInfraVersion};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::qs::Fqdn;
-
-use super::{intra_backend::DsFanOutMessage, MlsInfraVersion};
+use super::intra_backend::DsFanOutMessage;
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]

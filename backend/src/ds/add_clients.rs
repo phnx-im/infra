@@ -2,34 +2,29 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use tls_codec::{DeserializeBytes, Serialize};
-
-use crate::{
+use phnxtypes::{
     crypto::{
         ear::keys::GroupStateEarKey,
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
-    messages::{
-        client_ds::{
-            AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
-            QsQueueMessagePayload, QsQueueMessageType, WelcomeBundle,
-        },
-        intra_backend::{DsFanOutMessage, DsFanOutPayload},
-    },
-    qs::QsClientReference,
-};
-
-use super::{
-    api::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, USER_EXPIRATION_DAYS},
     errors::ClientAdditionError,
-    group_state::{ClientProfile, TimeStamp},
+    identifiers::{QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    messages::client_ds::{
+        AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
+        QsQueueMessagePayload, QsQueueMessageType, WelcomeBundle,
+    },
+    time::{Duration, TimeStamp},
 };
+use tls_codec::{DeserializeBytes, Serialize};
+
+use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
+
+use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
 
 use super::group_state::DsGroupState;
 

@@ -2,14 +2,27 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{ServerLogin, ServerLoginStartParameters};
+use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
+use phnxtypes::{
+    credentials::ClientCredential,
+    crypto::{opaque::OpaqueLoginResponse, signatures::signable::Signable, OpaqueCiphersuite},
+    errors::auth_service::{
+        AsDequeueError, DeleteClientError, FinishClientAdditionError, InitClientAdditionError,
+    },
+    messages::{
+        client_as::{
+            DeleteClientParamsTbs, DequeueMessagesParamsTbs, FinishClientAdditionParamsTbs,
+            InitClientAdditionResponse, InitiateClientAdditionParams,
+        },
+        client_qs::DequeueMessagesResponse,
+    },
+    time::TimeStamp,
+};
 use privacypass::Serialize;
-use rand_chacha::rand_core::OsRng;
 
-use crate::{
-    auth_service::{credentials::*, errors::*, storage_provider_trait::*, *},
-    crypto::signatures::signable::Signable,
-    messages::client_as::*,
+use crate::auth_service::{
+    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    AsClientRecord, AuthService,
 };
 
 impl AuthService {
@@ -185,7 +198,7 @@ impl AuthService {
     pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(
         storage_provider: &S,
         params: DequeueMessagesParamsTbs,
-    ) -> Result<AsDequeueMessagesResponse, AsDequeueError> {
+    ) -> Result<DequeueMessagesResponse, AsDequeueError> {
         let DequeueMessagesParamsTbs {
             sender,
             sequence_number_start,
@@ -203,7 +216,7 @@ impl AuthService {
                 AsDequeueError::StorageError
             })?;
 
-        let response = AsDequeueMessagesResponse {
+        let response = DequeueMessagesResponse {
             messages,
             remaining_messages_number,
         };

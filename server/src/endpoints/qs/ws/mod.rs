@@ -17,34 +17,36 @@ use actix_web_actors::ws::{self};
 use async_trait::*;
 use dispatch::*;
 use messages::*;
-use phnxbackend::{
-    messages::client_ds::EventMessage,
-    qs::{QsClientId, WebsocketNotifier, WebsocketNotifierError, WsNotification},
+use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
+use phnxtypes::{
+    identifiers::QsClientId,
+    messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use serde::{Deserialize, Serialize};
 use tokio::{self, time::Duration};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Serialize, Deserialize)]
-pub struct QsOpenWsParams {
-    pub queue_id: QsClientId,
-}
-
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Message)]
+// Type for internal use so we can derive `Message` and use the rtype attribute.
+#[derive(PartialEq, Eq, Debug, Clone, Message)]
 #[rtype(result = "()")]
-pub enum QsWsMessage {
-    QueueUpdate,
-    Event(EventMessage),
+pub struct InternalQsWsMessage {
+    inner: QsWsMessage,
 }
 
-impl From<WsNotification> for QsWsMessage {
+impl From<QsWsMessage> for InternalQsWsMessage {
+    fn from(message: QsWsMessage) -> Self {
+        InternalQsWsMessage { inner: message }
+    }
+}
+
+impl From<WsNotification> for InternalQsWsMessage {
     fn from(notification: WsNotification) -> Self {
         match notification {
             WsNotification::QueueUpdate => QsWsMessage::QueueUpdate,
             WsNotification::Event(event) => QsWsMessage::Event(event),
         }
+        .into()
     }
 }
 
@@ -156,12 +158,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for QsWsConnection {
 }
 
 /// Handler for QsWsMessage
-impl Handler<QsWsMessage> for QsWsConnection {
+impl Handler<InternalQsWsMessage> for QsWsConnection {
     type Result = ();
 
-    fn handle(&mut self, msg: QsWsMessage, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: InternalQsWsMessage, ctx: &mut Self::Context) {
         // Serialize the message
-        let serialized = serde_json::to_vec(&msg).unwrap();
+        let serialized = serde_json::to_vec(&msg.inner).unwrap();
         // Send the message to the client
         ctx.binary(serialized);
     }

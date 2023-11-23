@@ -4,15 +4,18 @@
 
 use std::collections::HashSet;
 
-use chrono::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
+use phnxtypes::{
+    crypto::signatures::keys::UserKeyHash, errors::UserRemovalError,
+    messages::client_ds::RemoveUsersParams, time::Duration,
+};
 
-use crate::messages::{client_ds::RemoveUsersParams, intra_backend::DsFanOutPayload};
+use crate::messages::intra_backend::DsFanOutPayload;
 
-use super::{api::USER_EXPIRATION_DAYS, errors::UserRemovalError, group_state::UserKeyHash};
+use super::api::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

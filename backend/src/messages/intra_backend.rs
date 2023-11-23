@@ -6,13 +6,15 @@
 //! passed internally within the backend.
 
 use mls_assist::messages::SerializedMlsMessage;
+use phnxtypes::{
+    identifiers::QsClientReference,
+    messages::client_ds::{EventMessage, QsQueueMessagePayload},
+};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::qs::QsClientReference;
-
-use super::client_ds::{EventMessage, QsQueueMessagePayload};
-
 // === DS to QS ===
+
+pub type QsInputMessage = DsFanOutMessage;
 
 #[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct DsFanOutMessage {

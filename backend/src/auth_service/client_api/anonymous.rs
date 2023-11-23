@@ -2,10 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    auth_service::{errors::*, storage_provider_trait::AsStorageProvider, AuthService},
-    messages::client_as::*,
+use phnxtypes::{
+    errors::auth_service::{
+        AsCredentialsError, EnqueueMessageError, UserClientsError, UserKeyPackagesError,
+    },
+    messages::client_as::{
+        AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserClientsParams,
+        UserClientsResponse, UserConnectionPackagesParams, UserConnectionPackagesResponse,
+    },
 };
+
+use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
 
 impl AuthService {
     pub(crate) async fn as_user_clients<S: AsStorageProvider>(

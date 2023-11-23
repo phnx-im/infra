@@ -3,12 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix_web::web::{self, Data};
-use phnxbackend::{
-    auth_service::{
-        storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-        AuthService,
-    },
-    messages::client_as_out::VerifiableClientToAsMessage,
+use phnxbackend::auth_service::{
+    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    verification::VerifiableClientToAsMessage,
+    AuthService,
 };
 use tls_codec::{DeserializeBytes, Serialize};
 

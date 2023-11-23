@@ -10,19 +10,19 @@ use std::{
 use async_trait::async_trait;
 use mls_assist::openmls_traits::types::SignatureScheme;
 use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerRegistration, ServerSetup};
-use phnxbackend::{
-    auth_service::{
-        credentials::{
-            keys::{AsIntermediateSigningKey, AsSigningKey},
-            AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
-            CredentialFingerprint,
-        },
-        storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-        AsClientId, AsClientRecord, AsUserRecord, UserName,
+use phnxbackend::auth_service::{
+    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    AsClientRecord, AsUserRecord,
+};
+use phnxtypes::{
+    credentials::{
+        keys::{AsIntermediateSigningKey, AsSigningKey},
+        AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
+        CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
+    identifiers::{AsClientId, Fqdn, UserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
-    qs::Fqdn,
 };
 use privacypass_middleware::memory_stores::MemoryKeyStore;
 use thiserror::Error;

@@ -9,12 +9,13 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use phnxbackend::{
-    messages::{client_qs::VerifiableClientToQsMessage, qs_qs::QsToQsMessage},
+    messages::qs_qs::QsToQsMessage,
     qs::{
         network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider, Qs,
         WebsocketNotifier,
     },
 };
+use phnxtypes::messages::client_qs::VerifiableClientToQsMessage;
 use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod ws;

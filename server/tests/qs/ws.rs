@@ -3,10 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
-use phnxbackend::qs::{Fqdn, QsClientId, WebsocketNotifier, WsNotification};
-use phnxserver::{endpoints::qs::ws::QsWsMessage, network_provider::MockNetworkProvider};
-
-use super::*;
+use phnxbackend::qs::{WebsocketNotifier, WsNotification};
+use phnxserver::network_provider::MockNetworkProvider;
+use phnxserver_test_harness::utils::spawn_app;
+use phnxtypes::{
+    identifiers::{Fqdn, QsClientId},
+    messages::client_ds::QsWsMessage,
+};
 
 /// Test the websocket reconnect.
 #[actix_rt::test]

@@ -4,48 +4,38 @@
 
 #![allow(unused_variables)]
 
-use mls_assist::openmls_traits::random::OpenMlsRand;
-use opaque_ke::{
-    CredentialFinalization, CredentialRequest, CredentialResponse, RegistrationRequest,
-    RegistrationResponse, RegistrationUpload, ServerRegistration,
-};
-use serde::{Deserialize, Serialize};
-use tls_codec::{
-    DeserializeBytes as TlsDeserializeTrait, Serialize as TlsSerialize, TlsDeserializeBytes,
-    TlsSerialize, TlsSize,
-};
-
-use crate::{
-    crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RandomnessError, RatchetEncryptionKey},
-    ds::group_state::TimeStamp,
+use opaque_ke::ServerRegistration;
+use phnxtypes::{
+    credentials::ClientCredential,
+    crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
+    errors::auth_service::AsProcessingError,
+    identifiers::UserName,
     messages::{
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, AsDequeueMessagesResponse,
-            AsQueueMessagePayload, Init2FactorAuthResponse, InitClientAdditionResponse,
-            InitUserRegistrationResponse, IssueTokensResponse, UserClientsResponse,
-            UserConnectionPackagesResponse, VerifiedAsRequestParams,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
+            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
+            IssueTokensResponse, UserClientsResponse, UserConnectionPackagesResponse,
+            VerifiedAsRequestParams,
         },
-        client_as_out::VerifiableClientToAsMessage,
+        client_qs::DequeueMessagesResponse,
         EncryptedAsQueueMessage,
     },
-    qs::Fqdn,
+    time::TimeStamp,
 };
+use tls_codec::{TlsSerialize, TlsSize};
 
 use self::{
-    credentials::ClientCredential,
-    errors::AsProcessingError,
     storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    verification::VerifiableClientToAsMessage,
 };
 
 pub mod client_api;
-pub mod codec;
-pub mod credentials;
 pub mod devices;
-pub mod errors;
 pub mod invitations;
 pub mod key_packages;
 pub mod registration;
 pub mod storage_provider_trait;
+pub mod verification;
 
 /*
 Actions:
@@ -73,47 +63,6 @@ ACTION_AS_CREDENTIALS
 
 // === Authentication ===
 
-#[derive(Debug)]
-pub struct OpaqueLoginRequest {
-    client_message: CredentialRequest<OpaqueCiphersuite>,
-}
-
-#[derive(Debug)]
-pub struct OpaqueLoginResponse {
-    server_message: CredentialResponse<OpaqueCiphersuite>,
-}
-
-#[derive(Clone, Debug)]
-pub struct OpaqueLoginFinish {
-    pub(crate) client_message: CredentialFinalization<OpaqueCiphersuite>,
-}
-
-/// Registration request containing the OPAQUE payload.
-///
-/// The TLS serialization implementation of this
-#[derive(Debug)]
-pub struct OpaqueRegistrationRequest {
-    pub client_message: RegistrationRequest<OpaqueCiphersuite>,
-}
-
-#[derive(Debug)]
-pub struct OpaqueRegistrationResponse {
-    pub server_message: RegistrationResponse<OpaqueCiphersuite>,
-}
-
-impl From<RegistrationResponse<OpaqueCiphersuite>> for OpaqueRegistrationResponse {
-    fn from(value: RegistrationResponse<OpaqueCiphersuite>) -> Self {
-        Self {
-            server_message: value,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct OpaqueRegistrationRecord {
-    pub client_message: RegistrationUpload<OpaqueCiphersuite>,
-}
-
 // === User ===
 
 pub struct AsUserId {
@@ -122,129 +71,20 @@ pub struct AsUserId {
 
 #[derive(Debug, Clone)]
 pub struct AsUserRecord {
-    user_name: UserName,
+    _user_name: UserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
 impl AsUserRecord {
     pub fn new(user_name: UserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
         Self {
-            user_name,
+            _user_name: user_name,
             password_file,
         }
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    TlsDeserializeBytes,
-    TlsSerialize,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
-pub struct UserName {
-    pub(crate) user_name: Vec<u8>,
-    pub(crate) domain: Fqdn,
-}
-
-impl From<Vec<u8>> for UserName {
-    fn from(value: Vec<u8>) -> Self {
-        Self::tls_deserialize_exact(&value).unwrap()
-    }
-}
-
-// TODO: This string processing is way too simplistic, but it should do for now.
-impl From<&str> for UserName {
-    fn from(value: &str) -> Self {
-        let mut split_name = value.split('@');
-        let name = split_name.next().unwrap();
-        // UserNames MUST be qualified
-        let domain = split_name.next().unwrap();
-        assert!(split_name.next().is_none());
-        let domain = domain.into();
-        let user_name = name.as_bytes().to_vec();
-        Self { user_name, domain }
-    }
-}
-
-impl UserName {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.tls_serialize_detached().unwrap()
-    }
-
-    pub fn domain(&self) -> Fqdn {
-        self.domain.clone()
-    }
-}
-
-impl From<String> for UserName {
-    fn from(value: String) -> Self {
-        value.as_str().into()
-    }
-}
-
-impl From<&String> for UserName {
-    fn from(value: &String) -> Self {
-        value.as_str().into()
-    }
-}
-
-impl std::fmt::Display for UserName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}@{}",
-            String::from_utf8_lossy(&self.user_name),
-            self.domain
-        )
-    }
-}
-
 // === Client ===
-
-#[derive(
-    Clone,
-    Debug,
-    TlsDeserializeBytes,
-    TlsSerialize,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Hash,
-)]
-pub struct AsClientId {
-    pub(crate) user_name: UserName,
-    pub(crate) client_id: Vec<u8>,
-}
-
-impl AsRef<[u8]> for AsClientId {
-    fn as_ref(&self) -> &[u8] {
-        &self.client_id
-    }
-}
-
-impl AsClientId {
-    pub fn random(rand: &impl OpenMlsRand, user_name: UserName) -> Result<Self, RandomnessError> {
-        let client_id = rand
-            .random_vec(32)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self {
-            user_name,
-            client_id,
-        })
-    }
-
-    pub fn user_name(&self) -> UserName {
-        self.user_name.clone()
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct AsClientRecord {
@@ -370,7 +210,7 @@ impl AuthService {
 pub enum AsProcessResponse {
     Ok,
     Init2FactorAuth(Init2FactorAuthResponse),
-    DequeueMessages(AsDequeueMessagesResponse),
+    DequeueMessages(DequeueMessagesResponse),
     ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),
     UserKeyPackages(UserConnectionPackagesResponse),

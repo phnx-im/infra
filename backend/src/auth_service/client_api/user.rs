@@ -3,12 +3,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::ServerRegistration;
+use phnxtypes::{
+    credentials::ClientCredential,
+    crypto::{signatures::signable::Signable, OpaqueCiphersuite},
+    errors::auth_service::{
+        DeleteUserError, FinishUserRegistrationError, InitUserRegistrationError,
+    },
+    messages::{
+        client_as::{
+            DeleteUserParamsTbs, InitUserRegistrationParams, InitUserRegistrationResponse,
+        },
+        client_as_out::FinishUserRegistrationParamsTbsIn,
+    },
+    time::TimeStamp,
+};
 use privacypass::Serialize;
 
-use crate::{
-    auth_service::{credentials::ClientCredential, errors::*, storage_provider_trait::*, *},
-    crypto::signatures::signable::Signable,
-    messages::{client_as::*, client_as_out::FinishUserRegistrationParamsTbsIn},
+use crate::auth_service::{
+    AsClientRecord, AsEphemeralStorageProvider, AsStorageProvider, AuthService,
 };
 
 impl AuthService {
@@ -141,13 +153,7 @@ impl AuthService {
             .map(|cp| {
                 let verifying_credential = as_intermediate_credentials
                     .iter()
-                    .find(|aic| {
-                        if let Ok(fingerprint) = aic.fingerprint() {
-                            &fingerprint == cp.client_credential_signer_fingerprint()
-                        } else {
-                            false
-                        }
-                    })
+                    .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
                     .ok_or(FinishUserRegistrationError::InvalidConnectionPackage)?;
                 cp.verify(verifying_credential.verifying_key())
                     .map_err(|_| FinishUserRegistrationError::InvalidConnectionPackage)

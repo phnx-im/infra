@@ -3,14 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 mod qs;
-mod utils;
 
 use phnxapiclient::ApiClient;
 
-use phnxbackend::qs::Fqdn;
 use phnxserver::network_provider::MockNetworkProvider;
-use utils::setup::TestBackend;
-pub use utils::*;
+use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
+use phnxtypes::identifiers::Fqdn;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]

@@ -7,22 +7,26 @@ mod errors;
 mod contacts;
 mod conversations;
 mod groups;
+mod key_stores;
 pub mod notifications;
 mod providers;
-pub mod types;
 pub mod users;
 mod utils;
-
-#[cfg(feature = "dart-bridge")]
-mod dart_api;
 
 use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
-use crate::{conversations::*, groups::*, types::*};
+
+pub use crate::conversations::{
+    messages::{
+        ContentMessage, ConversationMessage, DispatchedConversationMessage, DisplayMessage,
+        DisplayMessageType, ErrorMessage, Knock, Message, MessageContentType, NotificationType,
+        SystemMessage, TextMessage,
+    },
+    Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+    InactiveConversation,
+};
+pub use crate::groups::GroupMessage;
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
-pub(crate) use openmls_rust_crypto::OpenMlsRustCrypto;
-
-use uuid::Uuid;

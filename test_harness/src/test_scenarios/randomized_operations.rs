@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::qs::Fqdn;
+use phnxtypes::identifiers::Fqdn;
 use rand::{seq::SliceRandom, SeedableRng};
 
-use crate::utils::setup::TestBed;
+use crate::utils::setup::TestBackend;
+
+type TestBed = TestBackend;
 
 pub(super) const NUMBER_OF_SERVERS: usize = 3;
 
@@ -23,7 +25,7 @@ pub async fn randomized_operations_runner(domains: &[Fqdn]) {
         randomness_seed
     );
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(randomness_seed as u64);
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     for index in 0..10 {
         // Pick a random domain
         let domain = domains.choose(&mut rng).unwrap();

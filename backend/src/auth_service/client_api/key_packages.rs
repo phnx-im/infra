@@ -2,10 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    auth_service::{errors::*, storage_provider_trait::AsStorageProvider, AuthService},
-    messages::client_as::*,
+use phnxtypes::{
+    errors::auth_service::{ClientKeyPackageError, PublishConnectionPackageError},
+    messages::client_as::{
+        AsClientConnectionPackageResponse, AsPublishConnectionPackagesParamsTbs,
+        ClientConnectionPackageParamsTbs, ConnectionPackage,
+    },
 };
+
+use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
 
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages<S: AsStorageProvider>(
@@ -28,13 +33,7 @@ impl AuthService {
             .map(|cp| {
                 let verifying_credential = as_intermediate_credentials
                     .iter()
-                    .find(|aic| {
-                        if let Ok(fingerprint) = aic.fingerprint() {
-                            &fingerprint == cp.client_credential_signer_fingerprint()
-                        } else {
-                            false
-                        }
-                    })
+                    .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
                     .ok_or(PublishConnectionPackageError::InvalidKeyPackage)?;
                 cp.verify(verifying_credential.verifying_key())
                     .map_err(|_| PublishConnectionPackageError::InvalidKeyPackage)

@@ -28,11 +28,9 @@ jobs:
           flutter-version: "3.x"
           channel: "stable"
           cache: true
-      - name: Build
+      - name: Set up bridge
+        run: cd app_logic/dart-bridge && make setup-ci && make dart-bridge
+      - name: Build 
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose
-      - name: Set up bridge
-        run: cd coreclient/dart-bridge && make setup-ci
-      - name: Build bridge
-        run: cd coreclient && cargo build --verbose --features dart-bridge
+        run: cargo test --verbose -- --include-ignored

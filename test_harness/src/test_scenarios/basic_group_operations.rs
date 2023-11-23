@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::qs::Fqdn;
+use phnxtypes::identifiers::Fqdn;
 
-use crate::utils::setup::TestBed;
+use crate::utils::setup::TestBackend;
+
+type TestBed = TestBackend;
 
 pub(super) const NUMBER_OF_SERVERS: usize = 2;
 
@@ -32,12 +34,12 @@ impl TestBed {
 /// required to connect the two. Before running the test, it waits for the
 /// health check to succeed on both servers.
 pub async fn connect_users_runner(domains: &[Fqdn]) {
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     test_bed.create_and_connect_alice_and_bob(domains).await;
 }
 
 pub async fn invite_to_group_runner(domains: &[Fqdn]) {
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     let (alice_name, bob_name) = test_bed.create_and_connect_alice_and_bob(domains).await;
     let conversation_id = test_bed.create_group(&alice_name).await;
     test_bed
@@ -46,7 +48,7 @@ pub async fn invite_to_group_runner(domains: &[Fqdn]) {
 }
 
 pub async fn remove_from_group_runner(domains: &[Fqdn]) {
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     let (alice_name, bob_name) = test_bed.create_and_connect_alice_and_bob(domains).await;
     let conversation_id = test_bed.create_group(&alice_name).await;
     test_bed
@@ -58,7 +60,7 @@ pub async fn remove_from_group_runner(domains: &[Fqdn]) {
 }
 
 pub async fn leave_group_runner(domains: &[Fqdn]) {
-    let mut test_bed = TestBed::new().await;
+    let mut test_bed = TestBed::federated();
     let (alice_name, bob_name) = test_bed.create_and_connect_alice_and_bob(domains).await;
     let conversation_id = test_bed.create_group(&alice_name).await;
     test_bed

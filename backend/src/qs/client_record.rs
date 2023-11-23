@@ -5,25 +5,25 @@
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{
+use phnxtypes::{
     crypto::{
         ear::{keys::PushTokenEarKey, EarDecryptable},
         ratchet::QueueRatchet,
         signatures::keys::QsClientVerifyingKey,
         RatchetEncryptionKey, RatchetKeyUpdate,
     },
-    ds::group_state::TimeStamp,
+    identifiers::{QsClientId, QsUserId},
     messages::{
-        client_ds::QsQueueMessagePayload, intra_backend::DsFanOutPayload, EncryptedQsQueueMessage,
-        QueueMessage,
+        client_ds::QsQueueMessagePayload,
+        push_token::{EncryptedPushToken, PushToken},
+        EncryptedQsQueueMessage, QueueMessage,
     },
-    qs::WsNotification,
+    time::TimeStamp,
 };
 
-use super::{
-    errors::EnqueueError, storage_provider_trait::QsStorageProvider, EncryptedPushToken, PushToken,
-    QsClientId, QsUserId, WebsocketNotifier,
-};
+use crate::{messages::intra_backend::DsFanOutPayload, qs::WsNotification};
+
+use super::{errors::EnqueueError, storage_provider_trait::QsStorageProvider, WebsocketNotifier};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.

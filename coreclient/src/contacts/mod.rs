@@ -3,19 +3,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::KeyPackage;
-use phnxbackend::{
-    auth_service::{credentials::ClientCredential, AsClientId, UserName},
+use phnxtypes::{
+    credentials::ClientCredential,
     crypto::ear::keys::{
         AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, SignatureEarKey,
         SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
     },
+    identifiers::{AsClientId, UserName},
+    keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{client_as::FriendshipPackage, FriendshipToken},
-    qs::{KeyPackageBatch, VERIFIED},
 };
 
-use uuid::Uuid;
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+use crate::ConversationId;
+
+pub(crate) mod store;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub user_name: UserName,
     pub(crate) add_infos: Vec<ContactAddInfos>,
@@ -33,10 +39,10 @@ pub struct Contact {
     pub(crate) client_credential_ear_key: ClientCredentialEarKey,
     pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
-    pub(crate) conversation_id: Uuid,
+    pub(crate) conversation_id: ConversationId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ContactAddInfos {
     pub key_packages: Vec<(KeyPackage, SignatureEarKey)>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
@@ -65,31 +71,24 @@ impl Contact {
 }
 
 /// Contact which has not yet accepted our connection request.
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartialContact {
     pub user_name: UserName,
     // ID of the connection conversation with this contact.
-    pub conversation_id: Uuid,
+    pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
 }
 
 impl PartialContact {
-    pub(crate) fn into_contact(
-        self,
-        friendship_package: FriendshipPackage,
-        add_infos: Vec<ContactAddInfos>,
-        client_credential: ClientCredential,
-    ) -> Contact {
-        Contact {
-            user_name: self.user_name,
-            add_infos,
-            client_credentials: vec![client_credential],
-            wai_ear_key: friendship_package.wai_ear_key,
-            friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
-            client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
-            conversation_id: self.conversation_id,
-        }
+    pub(crate) fn new(
+        user_name: UserName,
+        conversation_id: ConversationId,
+        friendship_package_ear_key: FriendshipPackageEarKey,
+    ) -> Result<Self> {
+        Ok(Self {
+            user_name,
+            conversation_id,
+            friendship_package_ear_key,
+        })
     }
 }

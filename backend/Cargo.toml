@@ -17,26 +17,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "^1.0"
 async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }
-chrono = {version = "0.4.19", features = ["serde"]}
-utoipa = "2"
 # Rust crypto dependencies
-hmac = { version = "0.12" }
-sha2 = { version = "0.10" }
-digest = { version = "0.10.2" }
-rand = { version = "0.8" }
-rand_chacha = { version = "0.3" }
-subtle = { version = "2.4.1" }
-hkdf = { version = "0.12" }
-aes-gcm = { version = "0.9.4" }
-ed25519 = { version = "1.5.2", features = ["serde"] }
 tracing = { version = "0.1.35", features = ["log"] }
-secrecy = { version = "0.8", features = ["serde"] }
-opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"]}
-argon2 = { version = "0.5.0" }
+hex = { version = "0.4" }
 
-
+opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 tls_codec = { workspace = true }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 
+phnxtypes = { path = "../types" }

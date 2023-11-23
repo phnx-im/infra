@@ -2,20 +2,130 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pub(crate) mod error;
-pub(crate) mod store;
-
-pub(crate) use error::*;
-pub(crate) use store::*;
-
-use crate::{types::*, utils::*};
-
+use openmls::group::GroupId;
+use phnxtypes::{
+    identifiers::{QualifiedGroupId, UserName},
+    time::TimeStamp,
+};
+use serde::{Deserialize, Serialize};
+use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
-pub(crate) fn new_conversation_message(message: Message) -> ConversationMessage {
-    ConversationMessage {
-        id: UuidBytes::from_uuid(Uuid::new_v4()),
-        timestamp: Timestamp::now().as_u64(),
-        message,
+use crate::utils::persistence::SqlKey;
+
+pub(crate) mod messages;
+pub(crate) mod store;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ConversationId {
+    uuid: Uuid,
+}
+
+impl SqlKey for ConversationId {
+    fn to_sql_key(&self) -> String {
+        self.uuid.to_string()
     }
+}
+
+impl ConversationId {
+    pub fn as_uuid(&self) -> Uuid {
+        self.uuid
+    }
+}
+
+impl From<Uuid> for ConversationId {
+    fn from(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+}
+
+impl TryFrom<GroupId> for ConversationId {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+        let qgid = QualifiedGroupId::tls_deserialize_exact(value.as_slice())?;
+        let conversation_id = Self {
+            uuid: Uuid::from_bytes(qgid.group_id),
+        };
+        Ok(conversation_id)
+    }
+}
+
+impl SqlKey for GroupId {
+    fn to_sql_key(&self) -> String {
+        let qgid = QualifiedGroupId::tls_deserialize_exact(self.as_slice()).unwrap();
+        let conversation_id = ConversationId {
+            uuid: Uuid::from_bytes(qgid.group_id),
+        };
+        conversation_id.as_uuid().to_string()
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Conversation {
+    id: ConversationId,
+    // Id of the (active) MLS group representing this conversation.
+    group_id: GroupId,
+    status: ConversationStatus,
+    conversation_type: ConversationType,
+    last_used: TimeStamp,
+    attributes: ConversationAttributes,
+}
+
+impl Conversation {
+    pub fn group_id(&self) -> &GroupId {
+        &self.group_id
+    }
+
+    pub fn conversation_type(&self) -> &ConversationType {
+        &self.conversation_type
+    }
+
+    pub fn status(&self) -> &ConversationStatus {
+        &self.status
+    }
+
+    pub fn attributes(&self) -> &ConversationAttributes {
+        &self.attributes
+    }
+
+    pub fn last_used(&self) -> &TimeStamp {
+        &self.last_used
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
+pub enum ConversationStatus {
+    Inactive(InactiveConversation),
+    Active,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct InactiveConversation {
+    pub past_members: Vec<UserName>,
+}
+
+impl InactiveConversation {
+    pub fn new(past_members: Vec<UserName>) -> Self {
+        Self { past_members }
+    }
+
+    pub fn past_members(&self) -> &[UserName] {
+        &self.past_members
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
+pub enum ConversationType {
+    // A connection conversation that is not yet confirmed by the other party.
+    UnconfirmedConnection(UserName),
+    // A connection conversation that is confirmed by the other party and for
+    // which we have received the necessary secrets.
+    Connection(UserName),
+    Group,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ConversationAttributes {
+    pub title: String,
 }

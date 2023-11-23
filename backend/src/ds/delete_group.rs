@@ -6,10 +6,9 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
+use phnxtypes::{errors::GroupDeletionError, messages::client_ds::DeleteGroupParams};
 
-use crate::messages::{client_ds::DeleteGroupParams, intra_backend::DsFanOutPayload};
-
-use super::errors::GroupDeletionError;
+use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::group_state::DsGroupState;
 

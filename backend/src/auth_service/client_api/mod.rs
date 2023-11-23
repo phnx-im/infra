@@ -2,17 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{ServerLogin, ServerLoginStartParameters};
-use rand_chacha::rand_core::OsRng;
-
-use crate::{
-    auth_service::OpaqueLoginResponse,
-    crypto::OpaqueCiphersuite,
+use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
+use phnxtypes::{
+    crypto::{opaque::OpaqueLoginResponse, OpaqueCiphersuite},
+    errors::auth_service::Init2FactorAuthError,
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
 use super::{
-    errors::Init2FactorAuthError,
     storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
     AuthService,
 };

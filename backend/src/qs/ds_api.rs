@@ -2,23 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::{
+    crypto::{hpke::HpkeDecryptable, signatures::keys::QsVerifyingKey},
+    errors::qs::QsVerifyingKeyError,
+    identifiers::{ClientConfig, Fqdn},
+    messages::MlsInfraVersion,
+};
 use tls_codec::Serialize;
 
-use crate::{
-    crypto::hpke::HpkeDecryptable,
-    messages::{
-        intra_backend::DsFanOutMessage,
-        qs_qs::{QsToQsMessage, QsToQsPayload},
-        MlsInfraVersion,
-    },
+use crate::messages::{
+    intra_backend::DsFanOutMessage,
+    qs_qs::{QsToQsMessage, QsToQsPayload},
 };
 
 use super::{
-    errors::{QsEnqueueError, QsVerifyingKeyError},
-    network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult,
-    storage_provider_trait::QsStorageProvider,
-    ClientConfig, Fqdn, Qs, QsVerifyingKey, WebsocketNotifier,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider, Qs,
+    WebsocketNotifier,
 };
 
 impl Qs {

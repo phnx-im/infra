@@ -2,146 +2,231 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashMap;
-
+use anyhow::Result;
 use openmls::prelude::GroupId;
-use phnxbackend::auth_service::UserName;
+use phnxtypes::{
+    identifiers::{Fqdn, QualifiedGroupId, UserName},
+    time::TimeStamp,
+};
+use rusqlite::Connection;
+use tls_codec::DeserializeBytes;
+use uuid::Uuid;
 
-use crate::types::*;
+use crate::{
+    groups::GroupMessage,
+    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
+};
 
-use super::*;
+use super::{
+    messages::ConversationMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationStatus, ConversationType, InactiveConversation,
+};
 
-#[derive(Default)]
-pub(crate) struct ConversationStore {
-    conversations: HashMap<Uuid, Conversation>,
-    messages: HashMap<Uuid, HashMap<Uuid, ConversationMessage>>,
-}
-
-impl ConversationStore {
-    pub(crate) fn conversation_by_group_id(&self, group_id: &GroupId) -> Option<&Conversation> {
-        self.conversations
-            .values()
-            .find(|conversation| conversation.group_id.as_group_id() == *group_id)
-    }
-
-    pub(crate) fn create_connection_conversation(
-        &mut self,
+impl Conversation {
+    fn create_connection_conversation(
         group_id: GroupId,
         user_name: UserName,
         attributes: ConversationAttributes,
-    ) -> Uuid {
+    ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
         let conversation = Conversation {
-            id: uuid_bytes.clone(),
+            id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name.to_string()),
-            last_used: Timestamp::now().as_u64(),
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            last_used: TimeStamp::now(),
             attributes,
         };
-        self.conversations
-            .insert(uuid_bytes.as_uuid().clone(), conversation);
-        uuid_bytes.as_uuid()
+        Ok(conversation)
     }
 
-    pub(crate) fn create_group_conversation(
-        &mut self,
+    fn create_group_conversation(
         group_id: GroupId,
         attributes: ConversationAttributes,
-    ) -> Uuid {
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        let conversation_id = uuid_bytes.as_uuid();
+    ) -> Result<Self, tls_codec::Error> {
         let conversation = Conversation {
-            id: uuid_bytes.clone(),
+            id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
-            last_used: Timestamp::now().as_u64(),
+            last_used: TimeStamp::now(),
             attributes,
         };
-        self.conversations
-            .insert(conversation_id.clone(), conversation);
-        conversation_id
+        Ok(conversation)
     }
 
-    pub(crate) fn confirm_connection_conversation(&mut self, conversation_id: &Uuid) {
-        if let Some(conversation) = self.conversations.get_mut(conversation_id) {
-            if let ConversationType::UnconfirmedConnection(user_name) =
-                conversation.conversation_type.clone()
-            {
-                conversation.conversation_type = ConversationType::Connection(user_name);
-            }
+    pub(crate) fn owner_domain(&self) -> Fqdn {
+        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.as_slice()).unwrap();
+        qgid.owning_domain
+    }
+
+    fn confirm(&mut self) {
+        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
+            self.conversation_type = ConversationType::Connection(user_name);
         }
     }
 
-    pub(crate) fn conversations(&self) -> Vec<Conversation> {
-        let mut conversations: Vec<Conversation> = self.conversations.values().cloned().collect();
-        conversations.sort_by(|a, b| a.last_used.cmp(&b.last_used));
-        conversations
+    fn set_inactive(&mut self, past_members: &[UserName]) {
+        self.status = ConversationStatus::Inactive(InactiveConversation {
+            past_members: past_members.to_vec(),
+        })
     }
 
-    pub(crate) fn conversation(&self, conversation_id: Uuid) -> Option<&Conversation> {
-        self.conversations.get(&conversation_id)
+    pub fn id(&self) -> ConversationId {
+        self.id
     }
+}
 
-    pub(crate) fn set_inactive(&mut self, conversation_id: Uuid, past_members: &[String]) {
-        self.conversations
-            .get_mut(&conversation_id)
-            .map(|conversation| {
-                conversation.status = ConversationStatus::Inactive(InactiveConversation {
-                    past_members: past_members.iter().map(|m| m.to_owned()).collect(),
-                })
-            });
+pub(crate) struct ConversationStore<'a> {
+    db_connection: &'a Connection,
+}
+
+impl<'a> From<&'a Connection> for ConversationStore<'a> {
+    fn from(db_connection: &'a Connection) -> Self {
+        Self { db_connection }
     }
+}
 
-    pub(crate) fn messages(
+impl<'a> ConversationStore<'a> {
+    pub(crate) fn get_by_conversation_id(
         &self,
-        conversation_id: Uuid,
-        last_n: usize,
-    ) -> Vec<ConversationMessage> {
-        match self.messages.get(&conversation_id) {
-            Some(messages) => {
-                let mut messages: Vec<ConversationMessage> = messages
-                    .iter()
-                    .map(|(_uuid, message)| message.clone())
-                    .collect();
-                messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-                if last_n >= messages.len() {
-                    messages
-                } else {
-                    let (_left, right) = messages.split_at(messages.len() - last_n);
-                    right.to_vec()
-                }
-            }
-            None => {
-                vec![]
-            }
-        }
+        conversation_id: &ConversationId,
+    ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
+        PersistableStruct::load_one(self.db_connection, Some(conversation_id), None)
     }
 
-    pub(crate) fn store_message(
+    pub(crate) fn get_by_group_id(
+        &self,
+        group_id: &GroupId,
+    ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
+        PersistableStruct::load_one(self.db_connection, None, Some(group_id))
+    }
+
+    pub(crate) fn get_all(&self) -> Result<Vec<PersistableStruct<Conversation>>, PersistenceError> {
+        PersistableStruct::load_all(self.db_connection)
+    }
+
+    pub(crate) fn create_connection_conversation(
+        &self,
+        group_id: GroupId,
+        user_name: UserName,
+        attributes: ConversationAttributes,
+    ) -> Result<PersistableStruct<Conversation>> {
+        let payload =
+            Conversation::create_connection_conversation(group_id, user_name, attributes)?;
+        let conversation =
+            PersistableStruct::from_connection_and_payload(self.db_connection, payload);
+        conversation.persist()?;
+        Ok(conversation)
+    }
+
+    pub(crate) fn create_group_conversation(
+        &self,
+        group_id: GroupId,
+        attributes: ConversationAttributes,
+    ) -> Result<PersistableStruct<Conversation>> {
+        let payload = Conversation::create_group_conversation(group_id, attributes)?;
+        let conversation =
+            PersistableStruct::from_connection_and_payload(self.db_connection, payload);
+        conversation.persist()?;
+        Ok(conversation)
+    }
+}
+
+impl Persistable for Conversation {
+    type Key = ConversationId;
+    type SecondaryKey = GroupId;
+
+    const DATA_TYPE: DataType = DataType::Conversation;
+
+    fn key(&self) -> &Self::Key {
+        &self.id
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        self.group_id()
+    }
+}
+
+impl PersistableStruct<'_, Conversation> {
+    pub(crate) fn confirm(&mut self) -> Result<(), PersistenceError> {
+        self.payload.confirm();
+        self.persist()
+    }
+
+    pub(crate) fn set_inactive(
         &mut self,
-        conversation_id: Uuid,
-        message: ConversationMessage,
-    ) -> Result<(), ConversationStoreError> {
-        let message_id = message.id.clone();
-        match self.conversations.get(&conversation_id) {
-            Some(_conversation_data) => {
-                match self.messages.get_mut(&conversation_id) {
-                    Some(conversation_messages) => {
-                        conversation_messages.insert(message_id.as_uuid(), message);
-                    }
-                    None => {
-                        let mut conversation_messages = HashMap::new();
-                        conversation_messages.insert(message_id.as_uuid(), message);
-                        self.messages.insert(conversation_id, conversation_messages);
-                    }
-                }
-                Ok(())
-            }
-            None => Err(ConversationStoreError::UnknownConversation),
-        }
+        past_members: &[UserName],
+    ) -> Result<(), PersistenceError> {
+        self.payload.set_inactive(past_members);
+        self.persist()
+    }
+
+    pub(crate) fn group_id(&self) -> GroupId {
+        self.payload.group_id.clone()
+    }
+
+    pub(crate) fn convert_for_export(self) -> Conversation {
+        self.payload
+    }
+}
+
+pub(crate) struct ConversationMessageStore<'a> {
+    db_connection: &'a Connection,
+}
+
+impl<'a> From<&'a Connection> for ConversationMessageStore<'a> {
+    fn from(db_connection: &'a Connection) -> Self {
+        Self { db_connection }
+    }
+}
+
+impl<'a> ConversationMessageStore<'a> {
+    pub(crate) fn get_by_conversation_id(
+        &self,
+        conversation_id: &ConversationId,
+    ) -> Result<Vec<PersistableConversationMessage>, PersistenceError> {
+        PersistableConversationMessage::load(self.db_connection, None, Some(&conversation_id))
+    }
+
+    pub(crate) fn create(
+        &self,
+        conversation_id: &ConversationId,
+        group_message: GroupMessage,
+    ) -> Result<PersistableConversationMessage, PersistenceError> {
+        let payload = ConversationMessage::new(conversation_id.clone(), group_message);
+        let conversation_message = PersistableConversationMessage::from_connection_and_payload(
+            self.db_connection,
+            payload,
+        );
+        conversation_message.persist()?;
+        Ok(conversation_message)
+    }
+}
+
+pub(crate) type PersistableConversationMessage<'a> = PersistableStruct<'a, ConversationMessage>;
+
+impl From<PersistableConversationMessage<'_>> for ConversationMessage {
+    fn from(persistable: PersistableConversationMessage) -> Self {
+        persistable.payload
+    }
+}
+
+impl Persistable for ConversationMessage {
+    // Message id
+    type Key = Uuid;
+
+    // Conversation id
+    type SecondaryKey = ConversationId;
+
+    const DATA_TYPE: DataType = DataType::Message;
+
+    fn key(&self) -> &Self::Key {
+        &self.id
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.conversation_id
     }
 }

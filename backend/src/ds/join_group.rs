@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::Duration;
 use mls_assist::{group::ProcessedAssistedMessage, openmls::prelude::ProcessedMessageContent};
+use phnxtypes::{
+    errors::JoinGroupError,
+    messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinGroupParams},
+    time::{Duration, TimeStamp},
+};
 use tls_codec::DeserializeBytes;
 
-use crate::messages::{
-    client_ds::{InfraAadMessage, InfraAadPayload, JoinGroupParams},
-    intra_backend::DsFanOutPayload,
-};
+use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::{
     api::USER_EXPIRATION_DAYS,
-    errors::JoinGroupError,
-    group_state::{ClientProfile, DsGroupState, TimeStamp},
+    group_state::{ClientProfile, DsGroupState},
 };
 
 impl DsGroupState {

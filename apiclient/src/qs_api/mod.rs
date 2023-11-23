@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
+use phnxtypes::{
     crypto::{
         ear::keys::AddPackageEarKey,
         kdf::keys::RatchetSecret,
@@ -13,6 +13,10 @@ use phnxbackend::{
         },
         RatchetEncryptionKey,
     },
+    endpoint_paths::ENDPOINT_QS,
+    errors::qs::QsProcessError,
+    identifiers::{QsClientId, QsUserId},
+    keypackage_batch::AddPackage,
     messages::{
         client_qs::{
             ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
@@ -25,11 +29,10 @@ use phnxbackend::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
             CreateUserRecordParamsOut, PublishKeyPackagesParamsOut, QsRequestParamsOut,
         },
+        push_token::EncryptedPushToken,
         FriendshipToken,
     },
-    qs::{errors::QsProcessError, AddPackage, EncryptedPushToken, QsClientId, QsUserId},
 };
-use phnxserver::endpoints::ENDPOINT_QS;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 

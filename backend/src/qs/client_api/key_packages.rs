@@ -6,27 +6,25 @@ use mls_assist::{
     openmls::prelude::{OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-
-use crate::{
+use phnxtypes::{
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
         signatures::signable::Signable,
     },
-    ds::group_state::TimeStamp,
+    errors::qs::{
+        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
+        QsPublishKeyPackagesError, QsVerifyingKeyError,
+    },
+    keypackage_batch::{AddPackage, AddPackageIn, KeyPackageBatchTbs},
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse,
         KeyPackageBatchParams, KeyPackageBatchResponse, PublishKeyPackagesParams,
         VerifyingKeyResponse,
     },
-    qs::{
-        errors::{
-            QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
-            QsPublishKeyPackagesError, QsVerifyingKeyError,
-        },
-        storage_provider_trait::QsStorageProvider,
-        AddPackage, AddPackageIn, KeyPackageBatchTbs, Qs,
-    },
+    time::TimeStamp,
 };
+
+use crate::qs::{storage_provider_trait::QsStorageProvider, Qs};
 
 impl Qs {
     /// Clients publish key packages to the server.
@@ -135,7 +133,7 @@ impl Qs {
             .iter()
             .map(|add_package| {
                 add_package
-                    .key_package
+                    .key_package()
                     .hash_ref(OpenMlsRustCrypto::default().crypto())
                     .map_err(|_| QsKeyPackageBatchError::LibraryError)
             })
@@ -146,11 +144,8 @@ impl Qs {
             .await
             .map_err(|_| QsKeyPackageBatchError::StorageError)?;
 
-        let key_package_batch_tbs = KeyPackageBatchTbs {
-            homeserver_domain: config.domain.clone(),
-            key_package_refs,
-            time_of_signature: TimeStamp::now(),
-        };
+        let key_package_batch_tbs =
+            KeyPackageBatchTbs::new(config.domain.clone(), key_package_refs, TimeStamp::now());
 
         let signing_key = storage_provider
             .load_signing_key()

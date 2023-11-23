@@ -6,20 +6,18 @@ use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
-use privacypass::batched_tokens::server::BatchedKeyStore;
-
-use crate::{
-    crypto::OpaqueCiphersuite,
-    messages::{client_as::ConnectionPackage, QueueMessage},
-};
-
-use super::{
+use phnxtypes::{
     credentials::{
-        AsCredential, AsIntermediateCredential, AsIntermediateSigningKey, ClientCredential,
+        keys::AsIntermediateSigningKey, AsCredential, AsIntermediateCredential, ClientCredential,
         CredentialFingerprint,
     },
-    *,
+    crypto::OpaqueCiphersuite,
+    identifiers::{AsClientId, UserName},
+    messages::{client_as::ConnectionPackage, QueueMessage},
 };
+use privacypass::batched_tokens::server::BatchedKeyStore;
+
+use super::{AsClientRecord, AsUserRecord};
 
 /// Storage provider trait for the QS.
 #[async_trait]

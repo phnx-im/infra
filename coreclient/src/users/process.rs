@@ -3,17 +3,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{bail, Result};
-use phnxbackend::crypto::ear::EarDecryptable;
-use phnxbackend::crypto::hpke::HpkeDecryptable;
-use phnxbackend::ds::api::QualifiedGroupId;
-use phnxbackend::messages::client_as::ExtractedAsQueueMessagePayload;
-use phnxbackend::messages::client_as_out::ConnectionEstablishmentPackageIn;
-use phnxbackend::messages::client_ds::{
-    ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad,
+use phnxtypes::{
+    crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
+    identifiers::QualifiedGroupId,
+    messages::{
+        client_as::ExtractedAsQueueMessagePayload,
+        client_as_out::ConnectionEstablishmentPackageIn,
+        client_ds::{
+            ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload,
+            JoinConnectionGroupParamsAad,
+        },
+        client_ds_out::ExternalCommitInfoIn,
+        QueueMessage,
+    },
 };
-use phnxbackend::messages::client_ds_out::ExternalCommitInfoIn;
-use phnxbackend::messages::QueueMessage;
 use tls_codec::DeserializeBytes;
+
+use crate::conversations::ConversationType;
 
 use super::*;
 
@@ -28,12 +34,10 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedQsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let message = self
-                    .key_store
-                    .qs_queue_ratchet
-                    .decrypt(message_ciphertext)?
-                    .extract()?;
-                Ok(message)
+                let queue_ratchet_store = self.queue_ratchet_store();
+                let mut qs_queue_ratchet = queue_ratchet_store.get_qs_queue_ratchet()?;
+                let payload = qs_queue_ratchet.decrypt(message_ciphertext)?;
+                Ok(payload.extract()?)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -46,33 +50,27 @@ impl<T: Notifiable> SelfUser<T> {
         for message in messages {
             match message {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                    let group_id = self
-                        .group_store
+                    let group_store = self.group_store();
+                    let group = group_store
                         .join_group(
-                            &self.crypto_backend,
+                            &self.crypto_backend(),
                             welcome_bundle,
                             &self.key_store.wai_ear_key,
-                            &mut self.key_store.leaf_signers,
-                            // TODO: For now, I'm passing the ApiClients in here
-                            // s.t. the group can fetch AS Credentials if it needs
-                            // to. In the future, it would be great if we could have
-                            // multiple references to the API clients flying around,
-                            // for example one in the ASCredentials store itself.
-                            &mut self.api_clients,
-                            &mut self.key_store.as_credentials,
-                            &self.contacts,
+                            self.leaf_key_store(),
+                            self.as_credential_store(),
+                            self.contact_store(),
                         )
                         .await?;
+                    let group_id = group.group_id();
                     freshly_joined_groups.push(group_id.clone());
 
                     let attributes = ConversationAttributes {
                         title: "New conversation".to_string(),
                     };
-                    let conversation_id = self
-                        .conversation_store
-                        .create_group_conversation(group_id, attributes);
-                    self.notification_hub
-                        .dispatch_conversation_notification(conversation_id);
+                    let conversation_store = self.conversation_store();
+                    let conversation = conversation_store
+                        .create_group_conversation(group_id.clone(), attributes)?;
+                    self.dispatch_conversation_notification(conversation.id())?;
                 }
                 ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                     let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -86,21 +84,22 @@ impl<T: Notifiable> SelfUser<T> {
                         MlsMessageInBody::GroupInfo(_) | MlsMessageInBody::KeyPackage(_) => bail!("Unexpected message type"),
                     };
                     let group_id = protocol_message.group_id();
-                    let conversation_id = self
-                        .conversation_store
-                        .conversation_by_group_id(group_id)
-                        .ok_or(anyhow!("Can't find conversation for the given group id"))?
-                        .id
-                        .as_uuid();
-                    let Some(group) = self.group_store.get_group_mut(group_id) else {
-                        bail!("Unknown group")
-                    };
+                    let conversation_store = self.conversation_store();
+                    let conversation = conversation_store
+                        .get_by_group_id(group_id)?
+                        .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
+                    let conversation_id = conversation.id();
+
+                    let group_store = self.group_store();
+                    let mut group = group_store
+                        .get(group_id)?
+                        .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
+                    let as_credential_store = self.as_credential_store();
                     let (processed_message, we_were_removed, sender_credential) = group
                         .process_message(
-                            &self.crypto_backend,
+                            &self.crypto_backend(),
                             protocol_message,
-                            &mut self.api_clients,
-                            &mut self.key_store.as_credentials,
+                            &as_credential_store,
                         )
                         .await?;
 
@@ -108,26 +107,30 @@ impl<T: Notifiable> SelfUser<T> {
                     let aad = processed_message.authenticated_data().to_vec();
                     let conversation_messages = match processed_message.into_content() {
                         ProcessedMessageContent::ApplicationMessage(application_message) => {
-                            application_message_to_conversation_messages(
+                            vec![GroupMessage::from_application_message(
                                 &sender_credential,
                                 application_message,
-                            )?
+                            )?]
                         }
                         ProcessedMessageContent::ProposalMessage(proposal) => {
                             // For now, we don't to anything here. The proposal
                             // was processed by the MLS group and will be
                             // committed with the next commit.
-                            group.store_proposal(*proposal);
+                            group.store_proposal(*proposal)?;
                             vec![]
                         }
                         ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                             // If a client joined externally, we check if the
                             // group belongs to an unconfirmed conversation.
-                            if let ConversationType::UnconfirmedConnection(user_name) = &self
-                                .conversation_store
-                                .conversation(conversation_id)
-                                .ok_or(anyhow!("Can't find conversation for the given id"))?
-                                .conversation_type
+                            let conversation_store = self.conversation_store();
+                            let mut conversation = conversation_store
+                                .get_by_conversation_id(&conversation_id)?
+                                .ok_or(anyhow!(
+                                    "No conversation found for conversation ID {}",
+                                    conversation_id.as_uuid()
+                                ))?;
+                            if let ConversationType::UnconfirmedConnection(ref user_name) =
+                                conversation.conversation_type()
                             {
                                 let user_name = user_name.clone().into();
                                 // Check if it was an external commit and if the user name matches
@@ -138,7 +141,13 @@ impl<T: Notifiable> SelfUser<T> {
                                 }
                                 // Load up the partial contact and decrypt the
                                 // friendship package
-                                let partial_contact = self.partial_contacts.remove(&user_name).ok_or(anyhow!("Unknown sender: Can't find partial contact while processing connection request"))?;
+                                let contact_store = self.contact_store();
+                                let partial_contact = contact_store
+                                    .get_partial_contact(&user_name)?
+                                    .ok_or(anyhow!(
+                                        "No partial contact found for user name {}",
+                                        user_name
+                                    ))?;
 
                                 // This is a bit annoying, since we already
                                 // de-serialized this in the group processing
@@ -174,7 +183,7 @@ impl<T: Notifiable> SelfUser<T> {
                                             .into_iter()
                                             .map(|add_package| {
                                                 let verified_add_package = add_package.validate(
-                                                    self.crypto_backend.crypto(),
+                                                    self.crypto_backend().crypto(),
                                                     ProtocolVersion::default(),
                                                 )?;
                                                 let key_package =
@@ -188,28 +197,12 @@ impl<T: Notifiable> SelfUser<T> {
                                                 Ok((key_package, sek))
                                             })
                                             .collect::<Result<Vec<_>>>()?;
-                                    let qs_verifying_key = if let Some(qs_verifying_key) =
-                                        self.key_store.qs_verifying_keys.get(&user_name.domain())
-                                    {
-                                        qs_verifying_key
-                                    } else {
-                                        let qs_verifying_key = self
-                                            .api_clients
-                                            .get(&user_name.domain())?
-                                            .qs_verifying_key()
-                                            .await?;
-                                        self.key_store.qs_verifying_keys.insert(
-                                            user_name.domain().clone(),
-                                            qs_verifying_key.verifying_key,
-                                        );
-                                        self.key_store
-                                            .qs_verifying_keys
-                                            .get(&user_name.domain())
-                                            .ok_or(anyhow!("Error fetching QS veryfing key"))?
-                                    };
+                                    let qs_verifying_key_store = self.qs_verifying_key_store();
+                                    let qs_verifying_key =
+                                        qs_verifying_key_store.get(&user_name.domain()).await?;
                                     let key_package_batch = key_package_batch_response
                                         .key_package_batch
-                                        .verify(qs_verifying_key)?;
+                                        .verify(qs_verifying_key.deref().deref())?;
                                     let add_info = ContactAddInfos {
                                         key_package_batch,
                                         key_packages,
@@ -217,57 +210,48 @@ impl<T: Notifiable> SelfUser<T> {
                                     add_infos.push(add_info);
                                 }
                                 // Now we can turn the partial contact into a full one.
-                                let contact = partial_contact.into_contact(
+                                partial_contact.into_contact_and_persist(
                                     friendship_package,
                                     add_infos,
                                     sender_credential.clone(),
-                                );
-                                // And add it to our list of contacts
-                                self.contacts.insert(user_name.clone().into(), contact);
+                                )?;
                                 // Finally, we can turn the conversation type to a full connection group
-                                self.conversation_store
-                                    .confirm_connection_conversation(&conversation_id);
+                                conversation.confirm()?;
                                 // And notify the application
-                                self.notification_hub
-                                    .dispatch_conversation_notification(conversation_id);
+                                self.dispatch_conversation_notification(conversation_id)?;
                             }
                             // If we were removed, we set the group to inactive.
                             if we_were_removed {
-                                let past_members = group
-                                    .members()
-                                    .into_iter()
-                                    .map(|user_name| user_name.to_string())
-                                    .collect::<Vec<_>>();
-                                self.conversation_store
-                                    .set_inactive(conversation_id, &past_members);
+                                conversation.set_inactive(&group.members())?;
                             }
-                            group.merge_pending_commit(&self.crypto_backend, *staged_commit)?
+                            group.merge_pending_commit(&self.crypto_backend(), *staged_commit)?
                         }
                         ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                             unimplemented!()
                         }
                     };
                     // If we got until here, the message was deemed valid and we can apply the diff.
-                    self.send_off_notifications(conversation_id, conversation_messages)?;
+                    self.dispatch_message_notifications(conversation_id, conversation_messages)?;
                 }
             }
         }
 
         // After joining, we need to set our user auth keys.
         for group_id in freshly_joined_groups {
-            let group = self
-                .group_store
-                .get_group_mut(&group_id)
-                .ok_or(anyhow!("Error finding freshly created group"))?;
-            let params = group.update_user_key(&self.crypto_backend)?;
-            let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())?;
+            let group_store = self.group_store();
+            let mut group = group_store
+                .get(&group_id)?
+                .ok_or(anyhow!("Can't find freshly joined group."))?;
+            let params = group.update_user_key(&self.crypto_backend())?;
+            let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)?
                 .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
                 .await?;
             // Instead of using the conversation messages, we just
             // dispatch a conversation notification.
-            let _conversation_messages = group.merge_pending_commit(&self.crypto_backend, None)?;
+            let _conversation_messages =
+                group.merge_pending_commit(&self.crypto_backend(), None)?;
         }
         Ok(())
     }
@@ -280,16 +264,14 @@ impl<T: Notifiable> SelfUser<T> {
         let messages: Vec<ExtractedAsQueueMessagePayload> = message_ciphertexts
             .into_iter()
             .map(|message_ciphertext| {
-                let message = self
-                    .key_store
-                    .as_queue_ratchet
-                    .decrypt(message_ciphertext)?
-                    .extract()?;
-                Ok(message)
+                let queue_ratchet_store = self.queue_ratchet_store();
+                let mut as_queue_ratchet = queue_ratchet_store.get_as_queue_ratchet()?;
+                let payload = as_queue_ratchet.decrypt(message_ciphertext)?;
+                Ok(payload.extract()?)
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let mut notification_messages = vec![];
+        let mut conversations_with_messages = vec![];
         for message in messages {
             match message {
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
@@ -303,11 +285,9 @@ impl<T: Notifiable> SelfUser<T> {
                     // don't have them already.
                     let sender_domain = cep_in.sender_credential().domain();
 
-                    let as_intermediate_credential = self
-                        .key_store
-                        .as_credentials
+                    let as_credential_store = self.as_credential_store();
+                    let as_intermediate_credential = as_credential_store
                         .get(
-                            &mut self.api_clients,
                             &sender_domain,
                             cep_in.sender_credential().signer_fingerprint(),
                         )
@@ -360,49 +340,46 @@ impl<T: Notifiable> SelfUser<T> {
                             &cep_tbs.connection_group_ear_key,
                         )
                         .await?;
-
-                    let (group, commit, group_info) = Group::join_group_externally(
-                        &self.crypto_backend,
-                        eci,
-                        leaf_signer,
-                        signature_ear_key,
-                        cep_tbs.connection_group_ear_key.clone(),
-                        cep_tbs.connection_group_signature_ear_key_wrapper_key,
-                        cep_tbs.connection_group_credential_key,
-                        &mut self.key_store.as_credentials,
-                        &mut self.api_clients,
-                        aad,
-                        self.key_store.signing_key.credential(),
-                    )
-                    .await?;
+                    let group_store = self.group_store();
+                    let (group, commit, group_info) = group_store
+                        .join_group_externally(
+                            &self.crypto_backend(),
+                            eci,
+                            leaf_signer,
+                            signature_ear_key,
+                            cep_tbs.connection_group_ear_key.clone(),
+                            cep_tbs.connection_group_signature_ear_key_wrapper_key,
+                            cep_tbs.connection_group_credential_key,
+                            &self.as_credential_store(),
+                            aad,
+                            self.key_store.signing_key.credential(),
+                        )
+                        .await?;
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
-                    let conversation_id = self.conversation_store.create_connection_conversation(
-                        group.group_id(),
+                    let conversation_store = self.conversation_store();
+                    let mut conversation = conversation_store.create_connection_conversation(
+                        group.group_id().clone(),
                         user_name.clone(),
                         ConversationAttributes {
                             title: user_name.to_string(),
                         },
-                    );
+                    )?;
                     // TODO: For now, we automatically confirm conversations.
-                    self.conversation_store
-                        .confirm_connection_conversation(&conversation_id);
+                    conversation.confirm()?;
+                    conversations_with_messages.push(conversation.id());
+                    let contact_store = self.contact_store();
+                    contact_store
+                        .store_partial_contact(
+                            &user_name,
+                            &conversation.id(),
+                            cep_tbs.friendship_package_ear_key,
+                        )?
+                        .into_contact_and_persist(
+                            cep_tbs.friendship_package,
+                            vec![],
+                            cep_tbs.sender_client_credential,
+                        )?;
 
-                    notification_messages.push(conversation_id);
-
-                    let contact = PartialContact {
-                        user_name: user_name.clone(),
-                        conversation_id,
-                        friendship_package_ear_key: cep_tbs.friendship_package_ear_key,
-                    }
-                    .into_contact(
-                        cep_tbs.friendship_package,
-                        vec![],
-                        cep_tbs.sender_client_credential,
-                    );
-
-                    self.contacts.insert(user_name.clone(), contact);
-                    // Fetch a few KeyPackages for our new contact.
-                    self.get_key_packages(&user_name).await?;
                     // TODO: Send conversation message to UI.
 
                     let qs_client_reference = self.create_own_client_reference();
@@ -418,41 +395,41 @@ impl<T: Notifiable> SelfUser<T> {
                             &cep_tbs.connection_group_ear_key,
                         )
                         .await?;
-                    self.group_store.store_group(group)?;
                 }
             }
         }
         // TODO: We notify in bulk here. We might want to change this in the future.
-        for notification_message in notification_messages {
-            self.notification_hub
-                .dispatch_conversation_notification(notification_message);
+        for conversation_id in conversations_with_messages {
+            self.dispatch_conversation_notification(conversation_id)?
         }
         Ok(())
     }
 
-    /// Get existing conversations
-    pub fn get_conversations(&self) -> Vec<Conversation> {
-        self.conversation_store.conversations()
+    pub fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
+        let conversation_store = self.conversation_store();
+        conversation_store
+            .get_by_conversation_id(&conversation_id)
+            .ok()?
+            .map(|c| c.convert_for_export())
     }
 
-    pub fn conversation(&self, conversation_id: Uuid) -> Option<&Conversation> {
-        self.conversation_store.conversation(conversation_id)
-    }
+    pub fn get_messages(
+        &self,
+        conversation_id: ConversationId,
+        last_n: usize,
+    ) -> Result<Vec<ConversationMessage>> {
+        let message_store = self.message_store();
+        let messages = message_store
+            .get_by_conversation_id(&conversation_id)?
+            .into_iter()
+            .map(|pm| pm.into())
+            .collect::<Vec<_>>();
 
-    pub fn get_messages(&self, conversation_id: Uuid, last_n: usize) -> Vec<ConversationMessage> {
-        self.conversation_store.messages(conversation_id, last_n)
-    }
-
-    pub(super) async fn qs_verifying_key(&mut self, domain: &Fqdn) -> Result<&QsVerifyingKey> {
-        if !self.key_store.qs_verifying_keys.contains_key(domain) {
-            let qs_verifying_key = self.api_clients.get(domain)?.qs_verifying_key().await?;
-            self.key_store
-                .qs_verifying_keys
-                .insert(domain.clone(), qs_verifying_key.verifying_key);
+        if last_n >= messages.len() {
+            Ok(messages)
+        } else {
+            let (_left, right) = messages.split_at(messages.len() - last_n);
+            Ok(right.to_vec())
         }
-        self.key_store
-            .qs_verifying_keys
-            .get(domain)
-            .ok_or(anyhow!("Can't find QS verifying key for the given domain"))
     }
 }

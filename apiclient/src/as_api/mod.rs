@@ -2,39 +2,40 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
-    auth_service::{
-        client_api::privacypass::AsTokenType,
-        credentials::{keys::ClientSigningKey, ClientCredentialPayload},
-        errors::AsProcessingError,
-        AsClientId, OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
-        OpaqueRegistrationRequest, UserName,
-    },
-    crypto::{kdf::keys::RatchetSecret, signatures::signable::Signable, RatchetEncryptionKey},
-    messages::{
-        client_as::{
-            AsCredentialsParams, AsDequeueMessagesResponse, AsPublishConnectionPackagesParamsTbs,
-            AsRequestParams, ClientConnectionPackageParamsTbs, ClientToAsMessage,
-            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
-            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+use phnxtypes::{
+    credentials::{keys::ClientSigningKey, ClientCredentialPayload},
+    crypto::{
+        kdf::keys::RatchetSecret,
+        opaque::{
+            OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
+            OpaqueRegistrationRequest,
         },
-        client_as_out::ConnectionPackageIn,
+        signatures::signable::Signable,
+        RatchetEncryptionKey,
     },
+    endpoint_paths::ENDPOINT_AS,
+    errors::auth_service::AsProcessingError,
+    identifiers::{AsClientId, UserName},
     messages::{
         client_as::{
-            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
+            AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
+            ClientConnectionPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
+            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams,
+            FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
             IssueTokensResponse, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            ConnectionPackageIn, InitClientAdditionResponseIn, InitUserRegistrationResponseIn,
+            UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
+        client_qs::DequeueMessagesResponse,
+        AsTokenType,
     },
 };
-use phnxserver::endpoints::ENDPOINT_AS;
 use privacypass::batched_tokens::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
@@ -310,7 +311,7 @@ impl ApiClient {
         sequence_number_start: u64,
         max_message_number: u64,
         signing_key: &ClientSigningKey,
-    ) -> Result<AsDequeueMessagesResponse, AsRequestError> {
+    ) -> Result<DequeueMessagesResponse, AsRequestError> {
         let tbs = DequeueMessagesParamsTbs {
             sender: signing_key.credential().identity(),
             sequence_number_start,

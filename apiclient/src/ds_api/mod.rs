@@ -6,13 +6,13 @@
 
 use super::*;
 use mls_assist::{
-    messages::{AssistedMessageOut, AssistedWelcome},
+    messages::{AssistedGroupInfo, AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
         GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
     },
 };
-use phnxbackend::{
-    auth_service::credentials::keys::InfraCredentialSigningKey,
+use phnxtypes::{
+    credentials::keys::InfraCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
@@ -21,7 +21,9 @@ use phnxbackend::{
             traits::SigningKey,
         },
     },
-    ds::{errors::DsProcessingError, EncryptedWelcomeAttributionInfo},
+    endpoint_paths::ENDPOINT_DS_GROUPS,
+    errors::DsProcessingError,
+    identifiers::QsClientReference,
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
@@ -35,11 +37,10 @@ use phnxbackend::{
             ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
             UpdateClientParamsOut,
         },
+        welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
-    qs::QsClientReference,
-    AssistedGroupInfo,
 };
-use phnxserver::endpoints::ENDPOINT_DS_GROUPS;
+
 use tls_codec::DeserializeBytes;
 
 #[derive(Error, Debug)]

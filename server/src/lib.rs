@@ -10,7 +10,7 @@ pub mod network_provider;
 pub mod storage_provider;
 pub mod telemetry;
 
-use endpoints::{ds::*, *};
+use endpoints::ds::*;
 
 use actix_web::{
     dev::Server,
@@ -24,6 +24,10 @@ use phnxbackend::{
         network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider,
         QsConnector,
     },
+};
+use phnxtypes::endpoint_paths::{
+    ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
+    ENDPOINT_QS_WS,
 };
 use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;

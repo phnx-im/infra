@@ -2,93 +2,219 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::users::ApiClients;
+use rusqlite::Connection;
+
+use crate::utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError};
 
 use super::*;
 
-#[derive(Default)]
-pub(crate) struct GroupStore {
-    groups: HashMap<GroupId, Group>,
+pub(crate) struct GroupStore<'a> {
+    db_connection: &'a Connection,
 }
 
-impl GroupStore {
-    pub(crate) fn store_group(&mut self, group: Group) -> Result<(), GroupStoreError> {
-        match self.groups.insert(group.group_id.clone(), group) {
-            Some(_) => Err(GroupStoreError::DuplicateGroup),
-            None => Ok(()),
-        }
+impl<'a> From<&'a Connection> for GroupStore<'a> {
+    fn from(db_connection: &'a Connection) -> Self {
+        Self { db_connection }
+    }
+}
+
+impl<'a> GroupStore<'a> {
+    pub(crate) fn get(
+        &self,
+        group_id: &GroupId,
+    ) -> Result<Option<PersistableGroup>, PersistenceError> {
+        PersistableGroup::load_one(&self.db_connection, Some(&group_id), None)
+    }
+
+    pub(crate) fn create_group(
+        &self,
+        provider: &impl OpenMlsProvider,
+        signer: &ClientSigningKey,
+        group_id: GroupId,
+    ) -> Result<(PersistableGroup, PartialCreateGroupParams)> {
+        let (payload, params) = Group::create_group(provider, signer, group_id)?;
+        let group = PersistableGroup::from_connection_and_payload(&self.db_connection, payload);
+        group.persist()?;
+        Ok((group, params))
     }
 
     pub(crate) async fn join_group(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
+        &self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        leaf_signers: &mut HashMap<
-            SignaturePublicKey,
-            (InfraCredentialSigningKey, SignatureEarKey),
-        >,
-        api_clients: &mut ApiClients,
-        as_credentials: &mut AsCredentials,
-        contacts: &HashMap<UserName, Contact>,
-    ) -> Result<GroupId> {
-        let group = Group::join_group(
+        leaf_key_store: LeafKeyStore<'_>,
+        as_credential_store: AsCredentialStore<'_>,
+        contact_store: ContactStore<'_>,
+    ) -> Result<PersistableGroup> {
+        let payload = Group::join_group(
             provider,
             welcome_bundle,
             welcome_attribution_info_ear_key,
-            leaf_signers,
-            api_clients,
-            as_credentials,
-            contacts,
+            leaf_key_store,
+            as_credential_store,
+            contact_store,
         )
         .await?;
-        let group_id = group.group_id().clone();
-        self.groups.insert(group_id.clone(), group);
-
-        Ok(group_id)
+        let group = PersistableGroup::from_connection_and_payload(self.db_connection, payload);
+        group.persist()?;
+        Ok(group)
     }
 
-    //pub(crate) fn invite_user(&mut self, self_user: &mut SelfUser, group_id: Uuid, user: String) {}
-
-    pub(crate) fn get_group_mut(&mut self, group_id: &GroupId) -> Option<&mut Group> {
-        self.groups.get_mut(group_id)
-    }
-    pub(crate) fn get_group(&self, group_id: &GroupId) -> Option<&Group> {
-        self.groups.get(group_id)
-    }
-
-    pub(crate) fn create_message(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = MemoryKeyStore>,
-        group_id: &GroupId,
-        message: MessageContentType,
-    ) -> Result<SendMessageParamsOut> {
-        let group = self
-            .groups
-            .get_mut(group_id)
-            .ok_or(anyhow!("Unknown group"))?;
-        let message = group.create_message(provider, message)?;
-        Ok(message)
-    }
-
-    /// Returns the leaf signing key for the given group.
-    /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn leaf_signing_key(
+    pub(crate) async fn join_group_externally(
         &self,
-        group_id: &GroupId,
-    ) -> Option<&InfraCredentialSigningKey> {
-        self.groups.get(group_id).map(|g| &g.leaf_signer)
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        external_commit_info: ExternalCommitInfoIn,
+        leaf_signer: InfraCredentialSigningKey,
+        signature_ear_key: SignatureEarKey,
+        group_state_ear_key: GroupStateEarKey,
+        signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+        credential_ear_key: ClientCredentialEarKey,
+        as_credential_store: &AsCredentialStore<'_>,
+        aad: InfraAadMessage,
+        own_client_credential: &ClientCredential,
+    ) -> Result<(PersistableGroup, MlsMessageOut, MlsMessageOut)> {
+        let (payload, mls_message_out, mls_message_out_option) = Group::join_group_externally(
+            provider,
+            external_commit_info,
+            leaf_signer,
+            signature_ear_key,
+            group_state_ear_key,
+            signature_ear_key_wrapper_key,
+            credential_ear_key,
+            as_credential_store,
+            aad,
+            own_client_credential,
+        )
+        .await?;
+        let group = PersistableGroup::from_connection_and_payload(self.db_connection, payload);
+        group.persist()?;
+        Ok((group, mls_message_out, mls_message_out_option))
+    }
+}
+
+pub(crate) type PersistableGroup<'a> = PersistableStruct<'a, Group>;
+
+impl PersistableGroup<'_> {
+    pub(crate) fn invite<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        signer: &ClientSigningKey,
+        // The following three vectors have to be in sync, i.e. of the same length
+        // and refer to the same contacts in order.
+        add_infos: Vec<ContactAddInfos>,
+        wai_keys: Vec<WelcomeAttributionInfoEarKey>,
+        client_credentials: Vec<Vec<ClientCredential>>,
+    ) -> Result<AddUsersParamsOut> {
+        let result =
+            self.payload
+                .invite(provider, signer, add_infos, wai_keys, client_credentials)?;
+        self.persist()?;
+        Ok(result)
     }
 
-    /// Returns the group state EAR key for the given group.
-    /// TODO: We're returning a copy here, which is not ideal.
-    pub(crate) fn group_state_ear_key(&self, group_id: &GroupId) -> Option<&GroupStateEarKey> {
-        self.groups.get(group_id).map(|g| &g.group_state_ear_key)
+    pub(crate) fn merge_pending_commit<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        staged_commit_option: impl Into<Option<StagedCommit>>,
+    ) -> Result<Vec<GroupMessage>> {
+        let result = self
+            .payload
+            .merge_pending_commit(provider, staged_commit_option)?;
+        self.persist()?;
+        Ok(result)
     }
 
-    pub fn group(&self, group_id: &GroupId) -> Option<&Group> {
-        self.groups.get(group_id)
+    pub(crate) fn remove<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        members: Vec<AsClientId>,
+    ) -> Result<RemoveUsersParamsOut> {
+        let result = self.payload.remove(provider, members)?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub fn create_message<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        msg: MessageContentType,
+    ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
+        let result = self.payload.create_message(provider, msg)?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub(crate) async fn process_message<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        message: impl Into<ProtocolMessage>,
+        as_credential_store: &AsCredentialStore<'_>,
+    ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
+        let result = self
+            .payload
+            .process_message(provider, message, as_credential_store)
+            .await?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub(crate) fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
+        self.payload.store_proposal(proposal)?;
+        self.persist()?;
+        Ok(())
+    }
+
+    pub(crate) fn update_user_key(
+        &mut self,
+        provider: &impl OpenMlsProvider,
+    ) -> Result<UpdateClientParamsOut> {
+        let result = self.payload.update_user_key(provider)?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub(crate) fn delete<'a>(
+        &mut self,
+        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+    ) -> Result<DeleteGroupParamsOut> {
+        let result = self.payload.delete(provider)?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub(crate) fn leave_group(
+        &mut self,
+        provider: &impl OpenMlsProvider,
+    ) -> Result<SelfRemoveClientParamsOut> {
+        let result = self.payload.leave_group(provider)?;
+        self.persist()?;
+        Ok(result)
+    }
+
+    pub(crate) fn update(
+        &mut self,
+        provider: &impl OpenMlsProvider,
+    ) -> Result<UpdateClientParamsOut> {
+        let result = self.payload.update(provider)?;
+        self.persist()?;
+        Ok(result)
+    }
+}
+
+impl Persistable for Group {
+    type Key = GroupId;
+    type SecondaryKey = GroupId;
+
+    const DATA_TYPE: DataType = DataType::MlsGroup;
+
+    fn key(&self) -> &Self::Key {
+        &self.group_id
+    }
+
+    fn secondary_key(&self) -> &Self::SecondaryKey {
+        &self.group_id
     }
 }

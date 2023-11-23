@@ -21,6 +21,7 @@ api_docs = []
 
 [dependencies]
 phnxbackend = { path = "../backend" }
+phnxtypes = { path = "../types" }
 actix-web = "^4.0"
 serde_json = "1"
 serde = "1"

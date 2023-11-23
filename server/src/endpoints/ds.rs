@@ -8,9 +8,9 @@ use actix_web::{
 };
 use phnxbackend::{
     ds::{api::DsApi, DsStorageProvider},
-    messages::client_ds::DsMessageTypeIn,
     qs::QsConnector,
 };
+use phnxtypes::messages::client_ds::DsMessageTypeIn;
 use tls_codec::{DeserializeBytes, Serialize};
 
 /// DS endpoint for all group-based functionalities.

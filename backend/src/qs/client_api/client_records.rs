@@ -2,19 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    ds::group_state::TimeStamp,
+use phnxtypes::{
+    errors::qs::{QsCreateClientRecordError, QsUpdateClientRecordError},
     messages::client_qs::{
         CreateClientRecordParams, CreateClientRecordResponse, DeleteClientRecordParams,
         UpdateClientRecordParams,
     },
-    qs::{
-        client_record::QsClientRecord,
-        errors::{QsCreateClientRecordError, QsUpdateClientRecordError},
-        storage_provider_trait::QsStorageProvider,
-        Qs,
-    },
+    time::TimeStamp,
 };
+
+use crate::qs::{client_record::QsClientRecord, storage_provider_trait::QsStorageProvider, Qs};
 
 impl Qs {
     /// Create a new client record.

@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
+use phnxtypes::{
     crypto::signatures::signable::Verifiable,
+    errors::qs::{QsDequeueError, QsProcessError},
     messages::client_qs::{
         DequeueMessagesParams, DequeueMessagesResponse, QsProcessResponse, QsRequestParams,
         QsSender, VerifiableClientToQsMessage,
     },
-    qs::errors::QsDequeueError,
 };
 
-use super::{errors::QsProcessError, storage_provider_trait::QsStorageProvider, Qs};
+use super::{storage_provider_trait::QsStorageProvider, Qs};
 
 pub(crate) mod client_records;
 pub(crate) mod key_packages;
