@@ -8,7 +8,7 @@ use super::*;
 
 pub use chrono::Duration;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeStamp {
     time: DateTime<Utc>,
 }
@@ -65,6 +65,10 @@ impl TimeStamp {
 
     pub fn is_between(&self, start: &Self, end: &Self) -> bool {
         self.time >= start.time && self.time <= end.time
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        self.time.timestamp_millis() as u64
     }
 }
 

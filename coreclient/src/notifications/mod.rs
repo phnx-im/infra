@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use uuid::Uuid;
-
-use crate::types::*;
+use crate::{
+    conversations::messages::{DispatchedConversationMessage, NotificationType},
+    ConversationId,
+};
 
 trait NotificationProvider {
     fn notify(&self, notification_type: NotificationType) -> bool;
@@ -53,10 +54,8 @@ impl<T: Notifiable> NotificationHub<T> {
         self.dispatch_notification(NotificationType::Message(dispatched_conversation_message));
     }
 
-    pub(crate) fn dispatch_conversation_notification(&mut self, conversation_id: Uuid) {
-        self.dispatch_notification(NotificationType::ConversationChange(UuidBytes::from_uuid(
-            conversation_id,
-        )));
+    pub(crate) fn dispatch_conversation_notification(&mut self, conversation_id: ConversationId) {
+        self.dispatch_notification(NotificationType::ConversationChange(conversation_id));
     }
 
     fn dispatch_notification(&mut self, notification_type: NotificationType) {

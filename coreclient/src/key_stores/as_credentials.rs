@@ -17,12 +17,24 @@ use thiserror::Error;
 
 use crate::{
     users::api_clients::ApiClientsError,
-    utils::persistence::{PersistableStruct, PersistenceError},
+    utils::persistence::{PersistableStruct, PersistenceError, SqlKey},
 };
 
 use super::*;
 
 pub(crate) type PersistableAsCredential<'a> = PersistableStruct<'a, AsCredential>;
+
+impl SqlKey for CredentialFingerprint {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl SqlKey for Fqdn {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
+    }
+}
 
 impl Persistable for AsCredential {
     type Key = CredentialFingerprint;

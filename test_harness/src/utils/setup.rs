@@ -9,11 +9,8 @@ use std::{
 
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
-    types::{
-        ContentMessage, ConversationStatus, ConversationType, Message, MessageContentType,
-        NotificationType,
-    },
     users::SelfUser,
+    ConversationId, ConversationStatus, ConversationType, NotificationType, *,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
@@ -22,7 +19,6 @@ use phnxtypes::{
 };
 use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
-use uuid::Uuid;
 
 use super::spawn_app;
 
@@ -91,7 +87,7 @@ enum TestKind {
 
 pub struct TestBackend {
     pub users: HashMap<UserName, TestUser>,
-    pub groups: HashMap<Uuid, HashSet<UserName>>,
+    pub groups: HashMap<ConversationId, HashSet<UserName>>,
     // This is what we feed to the test clients.
     kind: TestKind,
 }
@@ -140,14 +136,14 @@ impl TestBackend {
     /// that the group state remains unchanged.
     pub async fn commit_to_proposals(
         &mut self,
-        conversation_id: Uuid,
+        conversation_id: ConversationId,
         updater_name: impl Into<UserName>,
     ) {
         let updater_name = &updater_name.into();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
-            conversation_id
+            conversation_id.as_uuid()
         );
 
         let test_updater = self.users.get_mut(&updater_name).unwrap();
@@ -192,9 +188,9 @@ impl TestBackend {
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_name) {
                 let conversation_after = group_member.conversation(conversation_id).unwrap();
-                assert!(matches!(&conversation_after.status,
+                assert!(matches!(&conversation_after.status(),
                 ConversationStatus::Inactive(ic)
-                if HashSet::<UserName>::from_iter(ic.past_members()) ==
+                if HashSet::<UserName>::from_iter(ic.past_members().to_vec()) ==
                     HashSet::<UserName>::from_iter(group_members_before)
                 ));
             } else {
@@ -212,12 +208,16 @@ impl TestBackend {
         }
     }
 
-    pub async fn update_group(&mut self, conversation_id: Uuid, updater_name: impl Into<UserName>) {
+    pub async fn update_group(
+        &mut self,
+        conversation_id: ConversationId,
+        updater_name: impl Into<UserName>,
+    ) {
         let updater_name = &updater_name.into();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
-            conversation_id
+            conversation_id.as_uuid()
         );
 
         let test_updater = self.users.get_mut(updater_name).unwrap();
@@ -256,7 +256,7 @@ impl TestBackend {
         &mut self,
         user1_name: impl Into<UserName>,
         user2_name: impl Into<UserName>,
-    ) -> Uuid {
+    ) -> ConversationId {
         let user1_name = user1_name.into();
         let user2_name = user2_name.into();
         tracing::info!("Connecting users {} and {}", user1_name, user2_name);
@@ -285,21 +285,21 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| c.attributes.title == user2_name.to_string())
+            .position(|c| c.attributes().title == user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
-        assert!(conversation.status == ConversationStatus::Active);
+        assert!(conversation.status() == &ConversationStatus::Active);
         assert!(
-            conversation.conversation_type
-                == ConversationType::UnconfirmedConnection(user2_name.to_string())
+            conversation.conversation_type()
+                == &ConversationType::UnconfirmedConnection(user2_name.clone())
         );
         user1_conversations_before
             .into_iter()
             .zip(user1_conversations_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.id, after.id);
+                assert_eq!(before.id(), after.id());
             });
-        let user1_conversation_id = conversation.id.clone().as_uuid();
+        let user1_conversation_id = conversation.id().clone();
 
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
@@ -327,20 +327,20 @@ impl TestBackend {
         let mut user2_conversations_after = user2.conversations().unwrap();
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes.title == user1_name.to_string())
+            .position(|c| c.attributes().title == user1_name.to_string())
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
-        assert!(conversation.status == ConversationStatus::Active);
+        assert!(conversation.status() == &ConversationStatus::Active);
         assert!(
-            conversation.conversation_type == ConversationType::Connection(user1_name.to_string())
+            conversation.conversation_type() == &ConversationType::Connection(user1_name.clone())
         );
         user2_conversations_before
             .into_iter()
             .zip(user2_conversations_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.id, after.id);
+                assert_eq!(before.id(), after.id());
             });
-        let user2_conversation_id = conversation.id.as_uuid();
+        let user2_conversation_id = conversation.id();
 
         let user2_user_name = user2.user_name().clone();
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
@@ -373,18 +373,18 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes.title == &user2_name.to_string())
+            .position(|c| &c.attributes().title == &user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
-        assert!(conversation.status == ConversationStatus::Active);
+        assert!(conversation.status() == &ConversationStatus::Active);
         assert!(
-            conversation.conversation_type == ConversationType::Connection(user2_name.to_string())
+            conversation.conversation_type() == &ConversationType::Connection(user2_name.clone())
         );
         user1_conversations_before
             .into_iter()
             .zip(user1_conversations_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.id, after.id);
+                assert_eq!(before.id(), after.id());
             });
         self.flush_notifications();
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
@@ -414,7 +414,7 @@ impl TestBackend {
     /// up to date.
     pub async fn send_message(
         &mut self,
-        conversation_id: Uuid,
+        conversation_id: ConversationId,
         sender_name: impl Into<UserName>,
         recipient_names: Vec<impl Into<UserName>>,
     ) {
@@ -433,7 +433,7 @@ impl TestBackend {
             recipient_strings.join(", ")
         );
         let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
-        let orig_message = MessageContentType::Text(phnxcoreclient::types::TextMessage { message });
+        let orig_message = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
         let test_sender = self.users.get_mut(&sender_name).unwrap();
         let sender = &mut test_sender.user;
 
@@ -493,7 +493,7 @@ impl TestBackend {
         self.flush_notifications();
     }
 
-    pub async fn create_group(&mut self, user_name: impl Into<UserName>) -> Uuid {
+    pub async fn create_group(&mut self, user_name: impl Into<UserName>) -> ConversationId {
         let user_name = user_name.into();
         let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
@@ -504,17 +504,17 @@ impl TestBackend {
         let mut user_conversations_after = user.conversations().unwrap();
         let new_conversation_position = user_conversations_after
             .iter()
-            .position(|c| c.attributes.title == group_name)
+            .position(|c| c.attributes().title == group_name)
             .expect("User 1 should have created a new conversation");
         let conversation = user_conversations_after.remove(new_conversation_position);
-        assert!(conversation.id.as_uuid() == conversation_id);
-        assert!(conversation.status == ConversationStatus::Active);
-        assert!(conversation.conversation_type == ConversationType::Group);
+        assert!(conversation.id() == conversation_id);
+        assert!(conversation.status() == &ConversationStatus::Active);
+        assert!(conversation.conversation_type() == &ConversationType::Group);
         user_conversations_before
             .into_iter()
             .zip(user_conversations_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.id, after.id);
+                assert_eq!(before.id(), after.id());
             });
         self.flush_notifications();
         let member_set: HashSet<UserName> = [user_name].into();
@@ -528,7 +528,7 @@ impl TestBackend {
     /// send and process their messages.
     pub async fn invite_to_group(
         &mut self,
-        conversation_id: Uuid,
+        conversation_id: ConversationId,
         inviter_name: impl Into<UserName>,
         invitee_names: Vec<impl Into<UserName>>,
     ) {
@@ -557,7 +557,7 @@ impl TestBackend {
             "{} invites {} to the group with id {}",
             inviter_name,
             invitee_strings.join(", "),
-            conversation_id
+            conversation_id.as_uuid()
         );
 
         // Perform the invite operation and check that the invitees are now in the group.
@@ -598,20 +598,28 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             let mut invitee_conversations_after = invitee.conversations().unwrap();
+            let conversation_uuid = conversation_id.as_uuid();
             let new_conversation_position = invitee_conversations_after
                 .iter()
-                .position(|c| c.id.as_uuid() == conversation_id)
-                .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_id}"));
+                .position(|c| c.id() == conversation_id)
+                .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_uuid}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(conversation.id.as_uuid() == conversation_id);
-            assert!(conversation.status == ConversationStatus::Active);
-            assert!(conversation.conversation_type == ConversationType::Group);
-            invitee_conversations_before
+            assert!(conversation.id() == conversation_id);
+            assert!(conversation.status() == &ConversationStatus::Active);
+            assert!(conversation.conversation_type() == &ConversationType::Group);
+            // Now that we've removed the new conversation, it should be the same set of conversations
+            tracing::info!("Conversations_before: {:?}", invitee_conversations_before);
+            tracing::info!("Conversations_after: {:?}", invitee_conversations_after);
+            let different_conversations = invitee_conversations_before
                 .into_iter()
-                .zip(invitee_conversations_after)
-                .for_each(|(before, after)| {
-                    assert_eq!(before.id, after.id);
-                });
+                .collect::<HashSet<_>>()
+                .symmetric_difference(
+                    &invitee_conversations_after
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                )
+                .count();
+            assert_eq!(different_conversations, 0);
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for group_member_name in group_members.iter() {
@@ -666,7 +674,7 @@ impl TestBackend {
     /// send and process their messages.
     pub async fn remove_from_group(
         &mut self,
-        conversation_id: Uuid,
+        conversation_id: ConversationId,
         remover_name: impl Into<UserName>,
         removed_names: Vec<impl Into<UserName>>,
     ) {
@@ -695,7 +703,7 @@ impl TestBackend {
             "{} removes {} from the group with id {}",
             remover_name,
             removed_strings.join(", "),
-            conversation_id
+            conversation_id.as_uuid()
         );
 
         // Perform the remove operation and check that the removed are not in
@@ -749,23 +757,24 @@ impl TestBackend {
                 .collect::<HashSet<_>>();
             let conversation = removed_conversations_after
                 .iter()
-                .find(|c| c.id.as_uuid() == conversation_id)
+                .find(|c| c.id() == conversation_id)
                 .expect(&format!(
-                    "{removed_name} should have the conversation with id {conversation_id}"
+                    "{removed_name} should have the conversation with id {}",
+                    conversation_id.as_uuid()
                 ));
-            assert!(conversation.id.as_uuid() == conversation_id);
-            if let ConversationStatus::Inactive(inactive_status) = &conversation.status {
+            assert!(conversation.id() == conversation_id);
+            if let ConversationStatus::Inactive(inactive_status) = &conversation.status() {
                 let inactive_status_members =
-                    HashSet::<UserName>::from_iter(inactive_status.past_members());
+                    HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
             }
-            assert!(conversation.conversation_type == ConversationType::Group);
+            assert!(conversation.conversation_type() == &ConversationType::Group);
             for conversation in removed_conversations_after {
                 assert!(removed_conversations_before
                     .iter()
-                    .any(|c| c.id == conversation.id))
+                    .any(|c| c.id() == conversation.id()))
             }
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
@@ -807,12 +816,16 @@ impl TestBackend {
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(&mut self, conversation_id: Uuid, leaver_name: impl Into<UserName>) {
+    pub async fn leave_group(
+        &mut self,
+        conversation_id: ConversationId,
+        leaver_name: impl Into<UserName>,
+    ) {
         let leaver_name = leaver_name.into();
         tracing::info!(
             "{} leaves the group with id {}",
             leaver_name,
-            conversation_id
+            conversation_id.as_uuid()
         );
         let test_leaver = self.users.get_mut(&leaver_name).unwrap();
         let leaver = &mut test_leaver.user;
@@ -855,12 +868,16 @@ impl TestBackend {
         self.flush_notifications();
     }
 
-    pub async fn delete_group(&mut self, conversation_id: Uuid, deleter_name: impl Into<UserName>) {
+    pub async fn delete_group(
+        &mut self,
+        conversation_id: ConversationId,
+        deleter_name: impl Into<UserName>,
+    ) {
         let deleter_name = deleter_name.into();
         tracing::info!(
             "{} deletes the group with id {}",
             deleter_name,
-            conversation_id
+            conversation_id.as_uuid()
         );
         let test_deleter = self.users.get_mut(&deleter_name).unwrap();
         let deleter = &mut test_deleter.user;
@@ -878,8 +895,8 @@ impl TestBackend {
         // the group anymore.
         let deleter_conversation_before = deleter.conversation(conversation_id).unwrap().clone();
         assert_eq!(
-            deleter_conversation_before.status,
-            ConversationStatus::Active
+            deleter_conversation_before.status(),
+            &ConversationStatus::Active
         );
         let past_members =
             HashSet::<UserName>::from_iter(deleter.group_members(conversation_id).unwrap());
@@ -887,9 +904,10 @@ impl TestBackend {
         deleter.delete_group(conversation_id).await.unwrap();
 
         let deleter_conversation_after = deleter.conversation(conversation_id).unwrap();
-        if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status {
+        if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status()
+        {
             let inactive_status_members =
-                HashSet::<UserName>::from_iter(inactive_status.past_members());
+                HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
             assert_eq!(inactive_status_members, past_members);
         } else {
             panic!("Conversation should be inactive.")
@@ -906,8 +924,8 @@ impl TestBackend {
             let group_member_conversation_before =
                 group_member.conversation(conversation_id).unwrap();
             assert_eq!(
-                group_member_conversation_before.status,
-                ConversationStatus::Active
+                group_member_conversation_before.status(),
+                &ConversationStatus::Active
             );
             let past_members = HashSet::<UserName>::from_iter(
                 group_member.group_members(conversation_id).unwrap(),
@@ -923,10 +941,10 @@ impl TestBackend {
             let group_member_conversation_after =
                 group_member.conversation(conversation_id).unwrap();
             if let ConversationStatus::Inactive(inactive_status) =
-                &group_member_conversation_after.status
+                &group_member_conversation_after.status()
             {
                 let inactive_status_members =
-                    HashSet::<UserName>::from_iter(inactive_status.past_members());
+                    HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -994,7 +1012,7 @@ impl TestBackend {
                 tracing::info!(
                     random_operation = true,
                     "Random operation: Created group {}",
-                    conversation_id
+                    conversation_id.as_uuid()
                 );
                 // TODO: Invite user(s)
             }
@@ -1008,8 +1026,8 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
+                        conversation.conversation_type() == &ConversationType::Group
+                            && conversation.status() == &ConversationStatus::Active
                     })
                     .choose(rng)
                 {
@@ -1022,7 +1040,7 @@ impl TestBackend {
                             // be the random user and must be connected
                             let is_group_member = self
                                 .groups
-                                .get(&conversation.id.as_uuid())
+                                .get(&conversation.id())
                                 .unwrap()
                                 .contains(invitee);
                             let is_connected = user
@@ -1046,9 +1064,9 @@ impl TestBackend {
                             "Random operation: {} invites {} to group {}",
                             random_user,
                             invitee_strings.join(", "),
-                            conversation.id.as_uuid()
+                            conversation.id().as_uuid()
                         );
-                        self.invite_to_group(conversation.id.as_uuid(), random_user, invitee_names)
+                        self.invite_to_group(conversation.id(), random_user, invitee_names)
                             .await;
                     }
                 }
@@ -1061,15 +1079,15 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
+                        conversation.conversation_type() == &ConversationType::Group
+                            && conversation.status() == &ConversationStatus::Active
                     })
                     .choose(rng)
                 {
                     let number_of_removals = rng.gen_range(1..=5);
                     let members_to_remove = self
                         .groups
-                        .get(&conversation.id.as_uuid())
+                        .get(&conversation.id())
                         .unwrap()
                         .iter()
                         .filter(|&member| member != &random_user)
@@ -1085,14 +1103,10 @@ impl TestBackend {
                             "Random operation: {} removes {} from group {}",
                             random_user,
                             removed_strings.join(", "),
-                            conversation.id.as_uuid()
+                            conversation.id().as_uuid()
                         );
-                        self.remove_from_group(
-                            conversation.id.as_uuid(),
-                            random_user,
-                            members_to_remove,
-                        )
-                        .await;
+                        self.remove_from_group(conversation.id(), random_user, members_to_remove)
+                            .await;
                     }
                 }
             }
@@ -1104,8 +1118,8 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
+                        conversation.conversation_type() == &ConversationType::Group
+                            && conversation.status() == &ConversationStatus::Active
                     })
                     .choose(rng)
                 {
@@ -1113,10 +1127,9 @@ impl TestBackend {
                         random_operation = true,
                         "Random operation: {} leaves group {}",
                         random_user,
-                        conversation.id.as_uuid()
+                        conversation.id().as_uuid()
                     );
-                    self.leave_group(conversation.id.as_uuid(), random_user)
-                        .await;
+                    self.leave_group(conversation.id(), random_user).await;
                 }
             }
             _ => panic!("Invalid action"),
