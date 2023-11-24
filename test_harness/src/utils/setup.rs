@@ -588,7 +588,7 @@ impl TestBackend {
         for invitee_name in &invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
-            let invitee_conversations_before = invitee.conversations().unwrap();
+            let mut invitee_conversations_before = invitee.conversations().unwrap();
 
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
@@ -607,6 +607,13 @@ impl TestBackend {
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
             assert!(conversation.conversation_type() == &ConversationType::Group);
+            // In case it was a re-join, we remove it from the conversation list before as well.
+            if let Some(inactive_conversation_position) = invitee_conversations_before
+                .iter()
+                .position(|c| c.id() == conversation_id)
+            {
+                invitee_conversations_before.remove(inactive_conversation_position);
+            }
             // Now that we've removed the new conversation, it should be the same set of conversations
             tracing::info!("Conversations_before: {:?}", invitee_conversations_before);
             tracing::info!("Conversations_after: {:?}", invitee_conversations_after);
