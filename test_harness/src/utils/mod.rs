@@ -76,6 +76,8 @@ pub async fn spawn_app(
         .await
         .expect("Failed to connect to database.");
 
+    // New database name for the QS provider
+    configuration.database.database_name = Uuid::new_v4().to_string();
     // QS storage provider
     // let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
     let qs_storage_provider = Arc::new(

@@ -77,7 +77,8 @@ impl PostgresQsStorage {
         // Generate a new one and add it to the table
         let signing_key = QsSigningKey::generate()?;
         sqlx::query!(
-            "INSERT INTO qs_signing_key (signing_key) VALUES ($1)",
+            "INSERT INTO qs_signing_key (id, signing_key) VALUES ($1, $2)",
+            Uuid::new_v4(),
             serde_json::to_vec(&signing_key)?,
         )
         .execute(&self.pool)
@@ -94,7 +95,8 @@ impl PostgresQsStorage {
         // Generate a new one and add it to the table
         let decryption_key = ClientIdDecryptionKey::generate()?;
         sqlx::query!(
-            "INSERT INTO qs_decryption_key (decryption_key) VALUES ($1)",
+            "INSERT INTO qs_decryption_key (id, decryption_key) VALUES ($1, $2)",
+            Uuid::new_v4(),
             serde_json::to_vec(&decryption_key)?,
         )
         .execute(&self.pool)
@@ -110,7 +112,8 @@ impl PostgresQsStorage {
 
         // Store the new config.
         sqlx::query!(
-            "INSERT INTO qs_config (config) VALUES ($1)",
+            "INSERT INTO qs_config (id, config) VALUES ($1, $2)",
+            Uuid::new_v4(),
             serde_json::to_vec(&config)?,
         )
         .execute(&self.pool)
@@ -201,6 +204,8 @@ impl QsStorageProvider for PostgresQsStorage {
         client_record: QsClientRecord,
     ) -> Result<QsClientId, Self::CreateClientError> {
         let client_id = QsClientId::random();
+
+        // Create and store the client record.
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
             Some(serde_json::to_vec(ept)?)
         } else {
@@ -222,6 +227,16 @@ impl QsStorageProvider for PostgresQsStorage {
         )
         .execute(&self.pool) 
         .await?;
+
+        // Initialize the client's queue
+        sqlx::query!( 
+            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)", 
+            client_id.as_uuid(),
+            BigDecimal::from(0u64),
+        )
+        .execute(&self.pool) 
+        .await?;
+
         Ok(client_id)
     }
 
@@ -279,6 +294,12 @@ impl QsStorageProvider for PostgresQsStorage {
     async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError> {
         sqlx::query!(
             "DELETE FROM qs_client_records WHERE client_id = $1",
+            client_id.as_uuid(),
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM queue_data WHERE queue_id = $1",
             client_id.as_uuid(),
         )
         .execute(&self.pool)
@@ -464,7 +485,7 @@ impl QsStorageProvider for PostgresQsStorage {
 
         // Delete all messages until the given "last seen" one.
         sqlx::query!(
-            "DELETE FROM queues WHERE queue_id = $1 AND sequence_number <= $2",
+            "DELETE FROM queues WHERE queue_id = $1 AND sequence_number < $2",
             client_id.as_uuid(),
             sequence_number_decimal,
         )

@@ -122,8 +122,6 @@ impl QsClientRecord {
                     .encrypt(queue_message)
                     .map_err(|_| EnqueueError::LibraryError)?;
 
-                // TODO: Store the new key.
-
                 // TODO: Future work: PCS
 
                 tracing::trace!("Enqueueing message in storage provider");

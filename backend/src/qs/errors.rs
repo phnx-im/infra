@@ -41,10 +41,10 @@ pub enum EnqueueError<S: QsStorageProvider> {
     #[error("Library Error")]
     LibraryError, // E.g. an error while encoding a message before enqueing it.
     /// Error in the underlying storage provider
-    #[error("Error in the underlying storage provider")]
+    #[error("Error in the underlying storage provider: {0}")]
     StorageProviderEnqueueError(S::EnqueueError),
     /// Error in the underlying storage provider
-    #[error("Error in the underlying storage provider")]
+    #[error("Error in the underlying storage provider: {0}")]
     StorageProviderStoreClientError(S::StoreClientError),
     /// Error sending push notification.
     #[error("Error sending push notification.")]

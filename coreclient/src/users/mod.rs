@@ -658,12 +658,12 @@ impl<T: Notifiable> SelfUser<T> {
                 }
             };
 
-            if let Some(message) = messages.last() {
-                sequence_number.set(message.sequence_number)?;
-            }
-
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
+
+            if let Some(message) = messages.last() {
+                sequence_number.set(message.sequence_number + 1)?;
+            }
         }
         Ok(messages)
     }
