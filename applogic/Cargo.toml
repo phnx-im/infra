@@ -24,8 +24,6 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 openmls = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
 serde = { version = "1", features = ["derive"] }
 tls_codec = { workspace = true }
-
-# Feature dart-bridge
 simple_logger = { version = "4.2.0" }
 tokio = { version = "1.29.0", features = ["rt", "macros"] }
-flutter_rust_bridge = { version = "=1.80.1" }
+flutter_rust_bridge = { version = "1.82.4" }

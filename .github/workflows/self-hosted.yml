@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up bridge
-        run: cd app_logic/dart-bridge && make setup-ci && make dart-bridge
+        run: cd applogic/dart-bridge && make setup-ci && make dart-bridge
       - name: Build
         run: cargo build --verbose
       - name: Run tests
