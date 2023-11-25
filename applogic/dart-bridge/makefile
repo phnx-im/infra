@@ -55,6 +55,7 @@ setup-flutter:
 
 setup-rust:
 	rustup upgrade
+	cd ../.. ; cargo clean ; cargo update
 	cargo install flutter_rust_bridge_codegen
 	cargo install cargo-expand
 
