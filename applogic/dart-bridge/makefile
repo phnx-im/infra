@@ -132,6 +132,7 @@ linux-debug:
 	cp $(RUST_TARGET_DIR)/debug/libphnx$(LIB_NAME).so linux/libphnx$(LIB_NAME).so
 
 dart-bridge:
+	touch bridge_generated.rs
 	flutter pub get
 	flutter_rust_bridge_codegen \
 	 	--rust-input ../src/dart_api.rs \
