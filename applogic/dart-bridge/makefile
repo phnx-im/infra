@@ -42,20 +42,21 @@ setup-linux:
 	sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev gawk
 	make setup-flutter
 	flutter config --enable-linux-desktop
-	cargo install flutter_rust_bridge_codegen
-	cargo install cargo-expand
+	make setup-rust
 
-setup-ci:
-	flutter pub get
-	flutter doctor
-	cargo install flutter_rust_bridge_codegen
-	cargo install cargo-expand
+setup-ci: setup-flutter setup-rust
 
 setup-flutter:
+	flutter channel stable
 	flutter upgrade
 	flutter pub get
 	flutter doctor
 	export PATH="$$PATH:$$HOME/.pub-cache/bin"
+
+setup-rust:
+	rustup upgrade
+	cargo install flutter_rust_bridge_codegen
+	cargo install cargo-expand
 
 # coreclient
 
@@ -117,13 +118,15 @@ android-debug:
 	cd $(RUST_BASE_DIR) ; \
 		cargo ndk -t arm64-v8a build
 	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
 android-release:
 	cd $(RUST_BASE_DIR) ; \
 		cargo ndk -t arm64-v8a build --release
 	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \
