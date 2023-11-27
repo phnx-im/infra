@@ -7,4 +7,4 @@ target
 .DS_Store
 Cargo.lock
 .vscode
-app_logic/dart-bridge/flutter
+applogic/dart-bridge/flutter
