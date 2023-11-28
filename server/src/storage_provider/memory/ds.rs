@@ -10,10 +10,16 @@ use std::{
 
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
+<<<<<<< HEAD
 use phnxbackend::ds::{
     group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION_DAYS,
 };
 use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
+=======
+use phnxbackend::ds::{group_state::EncryptedDsGroupState, DsStorageProvider, LoadState};
+use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
+use uuid::Uuid;
+>>>>>>> main
 
 #[derive(Debug)]
 pub enum MemoryDsStorageError {
@@ -53,6 +59,7 @@ impl DsStorageProvider for MemoryDsStorage {
 
     async fn load_group_state(
         &self,
+<<<<<<< HEAD
         group_id: &GroupId,
     ) -> Result<LoadState, MemoryDsStorageError> {
         match self.groups.try_lock() {
@@ -67,6 +74,35 @@ impl DsStorageProvider for MemoryDsStorage {
                         LoadState::Success(encrypted_group_state.clone())
                     };
                     Ok(result)
+=======
+        encrypted_group_state: EncryptedDsGroupState,
+    ) -> Result<GroupId, MemoryDsStorageError> {
+        // Generate a new group ID.
+        let group_id = GroupId::from_slice(Uuid::new_v4().as_bytes());
+
+        let mut encrypted_group_state = encrypted_group_state;
+        encrypted_group_state.last_used = TimeStamp::now();
+
+        if let Ok(mut groups) = self.groups.try_lock() {
+            match groups.insert(group_id.clone(), StorageState::Taken(encrypted_group_state)) {
+                Some(_) => Err(MemoryDsStorageError::GroupAlreadyExists),
+                None => Ok(group_id),
+            }
+        } else {
+            Err(MemoryDsStorageError::MemoryStoreError)
+        }
+    }
+
+    async fn load_group_state(&self, group_id: &GroupId) -> LoadState {
+        match self.groups.try_lock() {
+            Ok(groups) => match groups.get(group_id) {
+                Some(StorageState::Taken(encrypted_group_state)) => {
+                    if encrypted_group_state.last_used.has_expired(90) {
+                        LoadState::Expired
+                    } else {
+                        LoadState::Success(encrypted_group_state.clone())
+                    }
+>>>>>>> main
                 }
                 Some(StorageState::Reserved(timestamp)) => {
                     Ok(LoadState::Reserved(timestamp.clone()))

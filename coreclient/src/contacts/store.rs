@@ -12,7 +12,8 @@ use rusqlite::Connection;
 use crate::{
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
     users::api_clients::ApiClients,
-    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
+    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError, SqlKey},
+    ConversationId,
 };
 
 use super::*;
@@ -106,7 +107,7 @@ impl<'a> ContactStore<'a> {
     pub(crate) fn store_partial_contact(
         &self,
         user_name: &UserName,
-        conversation_id: &Uuid,
+        conversation_id: &ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Result<PersistableStruct<'_, PartialContact>> {
         let payload = PartialContact::new(
@@ -145,6 +146,12 @@ impl<'a> ContactStore<'a> {
 impl PersistableStruct<'_, Contact> {
     pub(crate) fn convert_for_export(self) -> Contact {
         self.payload
+    }
+}
+
+impl SqlKey for UserName {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
     }
 }
 

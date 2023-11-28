@@ -4,18 +4,22 @@
 
 use anyhow::Result;
 use openmls::prelude::GroupId;
-use phnxtypes::identifiers::{Fqdn, QualifiedGroupId, UserName};
+use phnxtypes::{
+    identifiers::{Fqdn, QualifiedGroupId, UserName},
+    time::TimeStamp,
+};
 use rusqlite::Connection;
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
 use crate::{
     groups::GroupMessage,
-    types::*,
-    utils::{
-        persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
-        Timestamp,
-    },
+    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
+};
+
+use super::{
+    messages::ConversationMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationStatus, ConversationType, InactiveConversation,
 };
 
 impl Conversation {
@@ -23,34 +27,37 @@ impl Conversation {
         group_id: GroupId,
         user_name: UserName,
         attributes: ConversationAttributes,
-    ) -> Self {
+    ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        Conversation {
-            id: uuid_bytes.clone(),
+        let conversation = Conversation {
+            id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name.to_string()),
-            last_used: Timestamp::now().as_u64(),
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            last_used: TimeStamp::now(),
             attributes,
-        }
+        };
+        Ok(conversation)
     }
 
-    fn create_group_conversation(group_id: GroupId, attributes: ConversationAttributes) -> Self {
-        let uuid_bytes = UuidBytes::from_group_id(&group_id);
-        Conversation {
-            id: uuid_bytes.clone(),
+    fn create_group_conversation(
+        group_id: GroupId,
+        attributes: ConversationAttributes,
+    ) -> Result<Self, tls_codec::Error> {
+        let conversation = Conversation {
+            id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
-            last_used: Timestamp::now().as_u64(),
+            last_used: TimeStamp::now(),
             attributes,
-        }
+        };
+        Ok(conversation)
     }
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.bytes).unwrap();
+        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.as_slice()).unwrap();
         qgid.owning_domain
     }
 
@@ -60,14 +67,14 @@ impl Conversation {
         }
     }
 
-    fn set_inactive(&mut self, past_members: &[String]) {
+    fn set_inactive(&mut self, past_members: &[UserName]) {
         self.status = ConversationStatus::Inactive(InactiveConversation {
-            past_members: past_members.iter().map(|m| m.to_owned()).collect(),
+            past_members: past_members.to_vec(),
         })
     }
 
-    pub(crate) fn id(&self) -> Uuid {
-        self.id.as_uuid()
+    pub fn id(&self) -> ConversationId {
+        self.id
     }
 }
 
@@ -84,18 +91,16 @@ impl<'a> From<&'a Connection> for ConversationStore<'a> {
 impl<'a> ConversationStore<'a> {
     pub(crate) fn get_by_conversation_id(
         &self,
-        conversation_id: &Uuid,
+        conversation_id: &ConversationId,
     ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
-        let uuid_bytes = UuidBytes::from(*conversation_id);
-        PersistableStruct::load_one(self.db_connection, Some(&uuid_bytes), None)
+        PersistableStruct::load_one(self.db_connection, Some(conversation_id), None)
     }
 
     pub(crate) fn get_by_group_id(
         &self,
         group_id: &GroupId,
     ) -> Result<Option<PersistableStruct<Conversation>>, PersistenceError> {
-        let group_id_bytes = GroupIdBytes::from(group_id.clone());
-        PersistableStruct::load_one(self.db_connection, None, Some(&group_id_bytes))
+        PersistableStruct::load_one(self.db_connection, None, Some(group_id))
     }
 
     pub(crate) fn get_all(&self) -> Result<Vec<PersistableStruct<Conversation>>, PersistenceError> {
@@ -108,7 +113,12 @@ impl<'a> ConversationStore<'a> {
         user_name: UserName,
         attributes: ConversationAttributes,
     ) -> Result<PersistableStruct<Conversation>> {
+<<<<<<< HEAD
         let payload = Conversation::create_connection_conversation(group_id, user_name, attributes);
+=======
+        let payload =
+            Conversation::create_connection_conversation(group_id, user_name, attributes)?;
+>>>>>>> main
         let conversation =
             PersistableStruct::from_connection_and_payload(self.db_connection, payload);
         conversation.persist()?;
@@ -120,7 +130,11 @@ impl<'a> ConversationStore<'a> {
         group_id: GroupId,
         attributes: ConversationAttributes,
     ) -> Result<PersistableStruct<Conversation>> {
+<<<<<<< HEAD
         let payload = Conversation::create_group_conversation(group_id, attributes);
+=======
+        let payload = Conversation::create_group_conversation(group_id, attributes)?;
+>>>>>>> main
         let conversation =
             PersistableStruct::from_connection_and_payload(self.db_connection, payload);
         conversation.persist()?;
@@ -129,8 +143,13 @@ impl<'a> ConversationStore<'a> {
 }
 
 impl Persistable for Conversation {
+<<<<<<< HEAD
     type Key = UuidBytes;
     type SecondaryKey = GroupIdBytes;
+=======
+    type Key = ConversationId;
+    type SecondaryKey = GroupId;
+>>>>>>> main
 
     const DATA_TYPE: DataType = DataType::Conversation;
 
@@ -139,7 +158,11 @@ impl Persistable for Conversation {
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
+<<<<<<< HEAD
         &self.group_id
+=======
+        self.group_id()
+>>>>>>> main
     }
 }
 
@@ -149,13 +172,24 @@ impl PersistableStruct<'_, Conversation> {
         self.persist()
     }
 
+<<<<<<< HEAD
     pub(crate) fn set_inactive(&mut self, past_members: &[String]) -> Result<(), PersistenceError> {
+=======
+    pub(crate) fn set_inactive(
+        &mut self,
+        past_members: &[UserName],
+    ) -> Result<(), PersistenceError> {
+>>>>>>> main
         self.payload.set_inactive(past_members);
         self.persist()
     }
 
     pub(crate) fn group_id(&self) -> GroupId {
+<<<<<<< HEAD
         self.payload.group_id.as_group_id()
+=======
+        self.payload.group_id.clone()
+>>>>>>> main
     }
 
     pub(crate) fn convert_for_export(self) -> Conversation {
@@ -176,15 +210,25 @@ impl<'a> From<&'a Connection> for ConversationMessageStore<'a> {
 impl<'a> ConversationMessageStore<'a> {
     pub(crate) fn get_by_conversation_id(
         &self,
+<<<<<<< HEAD
         conversation_id: &Uuid,
     ) -> Result<Vec<PersistableConversationMessage>, PersistenceError> {
         let uuid_bytes = UuidBytes::from(*conversation_id);
         PersistableConversationMessage::load(self.db_connection, None, Some(&uuid_bytes))
+=======
+        conversation_id: &ConversationId,
+    ) -> Result<Vec<PersistableConversationMessage>, PersistenceError> {
+        PersistableConversationMessage::load(self.db_connection, None, Some(&conversation_id))
+>>>>>>> main
     }
 
     pub(crate) fn create(
         &self,
+<<<<<<< HEAD
         conversation_id: &Uuid,
+=======
+        conversation_id: &ConversationId,
+>>>>>>> main
         group_message: GroupMessage,
     ) -> Result<PersistableConversationMessage, PersistenceError> {
         let payload = ConversationMessage::new(conversation_id.clone(), group_message);
@@ -207,10 +251,17 @@ impl From<PersistableConversationMessage<'_>> for ConversationMessage {
 
 impl Persistable for ConversationMessage {
     // Message id
+<<<<<<< HEAD
     type Key = UuidBytes;
 
     // Conversation id
     type SecondaryKey = UuidBytes;
+=======
+    type Key = Uuid;
+
+    // Conversation id
+    type SecondaryKey = ConversationId;
+>>>>>>> main
 
     const DATA_TYPE: DataType = DataType::Message;
 
@@ -219,6 +270,10 @@ impl Persistable for ConversationMessage {
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
+<<<<<<< HEAD
         &self.id
+=======
+        &self.conversation_id
+>>>>>>> main
     }
 }

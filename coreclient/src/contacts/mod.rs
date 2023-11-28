@@ -14,6 +14,7 @@ use phnxtypes::{
     messages::{client_as::FriendshipPackage, FriendshipToken},
 };
 
+use crate::ConversationId;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -38,7 +39,7 @@ pub struct Contact {
     pub(crate) client_credential_ear_key: ClientCredentialEarKey,
     pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
-    pub(crate) conversation_id: Uuid,
+    pub(crate) conversation_id: ConversationId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,14 +75,14 @@ impl Contact {
 pub struct PartialContact {
     pub user_name: UserName,
     // ID of the connection conversation with this contact.
-    pub conversation_id: Uuid,
+    pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
 }
 
 impl PartialContact {
     pub(crate) fn new(
         user_name: UserName,
-        conversation_id: Uuid,
+        conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Result<Self> {
         Ok(Self {

@@ -176,7 +176,11 @@ impl AddPackageIn {
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
+<<<<<<< HEAD
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+=======
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+>>>>>>> main
 pub struct QsEncryptedAddPackage {
     ctxt: Ciphertext,
 }

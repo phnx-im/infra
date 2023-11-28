@@ -40,12 +40,15 @@ impl FriendshipToken {
     pub fn token(&self) -> &[u8] {
         self.token.as_ref()
     }
+<<<<<<< HEAD
 
     /// This is meant to be used only when restoring the friendship token from a
     /// DB entry.
     pub fn from_bytes(token: Vec<u8>) -> Self {
         Self { token }
     }
+=======
+>>>>>>> main
 }
 
 /// Enum encoding the version of the MlsInfra protocol that was used to create

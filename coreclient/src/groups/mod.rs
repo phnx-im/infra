@@ -49,6 +49,10 @@ use phnxtypes::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
         },
     },
+<<<<<<< HEAD
+=======
+    time::TimeStamp,
+>>>>>>> main
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
@@ -56,12 +60,22 @@ use uuid::Uuid;
 
 use crate::{
     contacts::{store::ContactStore, ContactAddInfos},
+<<<<<<< HEAD
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     types::MessageContentType,
     types::*,
     users::openmls_provider::PhnxOpenMlsProvider,
     utils::Timestamp,
+=======
+    conversations::messages::{
+        ContentMessage, DisplayMessage, DisplayMessageType, Message, MessageContentType,
+        SystemMessage,
+    },
+    groups::client_information::ClientInformationDiff,
+    key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
+    users::openmls_provider::PhnxOpenMlsProvider,
+>>>>>>> main
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -164,6 +178,36 @@ impl ClientAuthInfo {
 }
 
 pub(crate) struct PartialCreateGroupParams {
+<<<<<<< HEAD
+=======
+    group_id: GroupId,
+    ratchet_tree: RatchetTree,
+    group_info: MlsMessageOut,
+    user_auth_key: UserAuthVerifyingKey,
+    encrypted_signature_ear_key: EncryptedSignatureEarKey,
+}
+
+impl PartialCreateGroupParams {
+    pub(crate) fn into_params(
+        self,
+        encrypted_client_credential: EncryptedClientCredential,
+        client_reference: QsClientReference,
+    ) -> CreateGroupParamsOut {
+        CreateGroupParamsOut {
+            group_id: self.group_id,
+            ratchet_tree: self.ratchet_tree,
+            encrypted_client_credential,
+            encrypted_signature_ear_key: self.encrypted_signature_ear_key,
+            creator_client_reference: client_reference,
+            creator_user_auth_key: self.user_auth_key,
+            group_info: self.group_info,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct Group {
+>>>>>>> main
     group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
@@ -273,7 +317,11 @@ impl Group {
         };
 
         let group = Self {
+<<<<<<< HEAD
             group_id_bytes: group_id.into(),
+=======
+            group_id: group_id.into(),
+>>>>>>> main
             leaf_signer,
             signature_ear_key_wrapper_key,
             mls_group,
@@ -382,7 +430,11 @@ impl Group {
         leaf_key_store.delete(verifying_key)?;
 
         let group = Self {
+<<<<<<< HEAD
             group_id_bytes: mls_group.group_id().clone().into(),
+=======
+            group_id: mls_group.group_id().clone().into(),
+>>>>>>> main
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key: welcome_attribution_info
@@ -473,7 +525,11 @@ impl Group {
         let user_auth_key = UserAuthSigningKey::generate()?;
 
         let group = Self {
+<<<<<<< HEAD
             group_id_bytes: mls_group.group_id().clone().into(),
+=======
+            group_id: mls_group.group_id().clone().into(),
+>>>>>>> main
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key,
@@ -1364,9 +1420,15 @@ impl Group {
     }
 }
 
+<<<<<<< HEAD
 pub(crate) struct GroupMessage {
     id: Uuid,
     timestamp: u64,
+=======
+pub struct GroupMessage {
+    id: Uuid,
+    timestamp: TimeStamp,
+>>>>>>> main
     message: Message,
 }
 
@@ -1374,7 +1436,11 @@ impl GroupMessage {
     pub(crate) fn new(message: Message) -> Self {
         Self {
             id: Uuid::new_v4(),
+<<<<<<< HEAD
             timestamp: Timestamp::now().as_u64(),
+=======
+            timestamp: TimeStamp::now(),
+>>>>>>> main
             message,
         }
     }
@@ -1402,9 +1468,13 @@ impl GroupMessage {
 
     fn event_message(event_message: String) -> Self {
         let message = Message::Display(DisplayMessage {
+<<<<<<< HEAD
             message: DisplayMessageType::System(SystemMessage {
                 message: event_message,
             }),
+=======
+            message: DisplayMessageType::System(SystemMessage::new(event_message)),
+>>>>>>> main
         });
         Self::new(message)
     }
@@ -1452,7 +1522,11 @@ impl GroupMessage {
         Ok(events)
     }
 
+<<<<<<< HEAD
     pub(crate) fn into_parts(self) -> (Uuid, u64, Message) {
+=======
+    pub fn into_parts(self) -> (Uuid, TimeStamp, Message) {
+>>>>>>> main
         (self.id, self.timestamp, self.message)
     }
 }

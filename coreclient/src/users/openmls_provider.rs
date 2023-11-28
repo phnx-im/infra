@@ -7,7 +7,11 @@ use openmls_traits::key_store::MlsEntity;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+<<<<<<< HEAD
 use crate::utils::persistence::{PersistableStruct, PersistenceError};
+=======
+use crate::utils::persistence::{PersistableStruct, PersistenceError, SqlKey};
+>>>>>>> main
 
 use super::*;
 
@@ -184,6 +188,15 @@ impl<'a> PersistableSeed<'a> {
     }
 }
 
+<<<<<<< HEAD
+=======
+impl SqlKey for u64 {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
+    }
+}
+
+>>>>>>> main
 impl Persistable for [u8; 32] {
     type Key = u64;
 

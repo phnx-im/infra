@@ -8,6 +8,10 @@ use phnxtypes::identifiers::AsClientId;
 use rusqlite::{named_params, params, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
+<<<<<<< HEAD
+=======
+use uuid::Uuid;
+>>>>>>> main
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
@@ -97,14 +101,23 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         let serialized_payload = serde_json::to_vec(self.payload())?;
         let statement_str = format!(
             "INSERT OR REPLACE INTO {} (primary_key, secondary_key, value) VALUES (:key, :secondary_key, :value)",
+<<<<<<< HEAD
             T::DATA_TYPE
+=======
+            T::DATA_TYPE.to_sql_key()
+>>>>>>> main
         );
         let mut stmt = match self.connection().prepare(&statement_str) {
             Ok(stmt) => stmt,
             // If the table does not exist, we create it and try again.
             Err(e) => match e {
                 rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
+<<<<<<< HEAD
                     let expected_error_string = format!("no such table: {}", T::DATA_TYPE);
+=======
+                    let expected_error_string =
+                        format!("no such table: {}", T::DATA_TYPE.to_sql_key());
+>>>>>>> main
                     if error_string == &expected_error_string {
                         create_table(self.connection(), T::DATA_TYPE)?;
                     } else {
@@ -116,7 +129,11 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
             },
         };
         stmt.insert(
+<<<<<<< HEAD
             named_params! {":key": self.payload().key().to_string(), ":secondary_key": self.payload().secondary_key().to_string(),":value": serialized_payload},
+=======
+            named_params! {":key": self.payload().key().to_sql_key(), ":secondary_key": self.payload().secondary_key().to_sql_key(),":value": serialized_payload},
+>>>>>>> main
         )?;
 
         Ok(())
@@ -135,9 +152,18 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
     ///
     /// Returns an error either if the underlying database query fails.
     pub(crate) fn purge_key(conn: &Connection, key: &T::Key) -> Result<(), PersistenceError> {
+<<<<<<< HEAD
         let statement_str = format!("DELETE FROM {} WHERE primary_key = (:key)", T::DATA_TYPE);
         let mut stmt = conn.prepare(&statement_str)?;
         stmt.execute(named_params! {":key": key.to_string()})?;
+=======
+        let statement_str = format!(
+            "DELETE FROM {} WHERE primary_key = (:key)",
+            T::DATA_TYPE.to_sql_key()
+        );
+        let mut stmt = conn.prepare(&statement_str)?;
+        stmt.execute(named_params! {":key": key.to_sql_key()})?;
+>>>>>>> main
         Ok(())
     }
 }
@@ -161,6 +187,7 @@ pub(crate) enum DataType {
     RandomnessSeed,
 }
 
+<<<<<<< HEAD
 impl std::fmt::Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
@@ -170,6 +197,33 @@ impl std::fmt::Display for DataType {
 pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
     type Key: std::fmt::Display + std::fmt::Debug;
     type SecondaryKey: std::fmt::Display + std::fmt::Debug;
+=======
+impl SqlKey for DataType {
+    fn to_sql_key(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+impl SqlKey for Uuid {
+    fn to_sql_key(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl SqlKey for String {
+    fn to_sql_key(&self) -> String {
+        self.clone()
+    }
+}
+
+pub(crate) trait SqlKey {
+    fn to_sql_key(&self) -> String;
+}
+
+pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
+    type Key: SqlKey + std::fmt::Debug;
+    type SecondaryKey: SqlKey + std::fmt::Debug;
+>>>>>>> main
     const DATA_TYPE: DataType;
 
     fn key(&self) -> &Self::Key;
@@ -186,7 +240,11 @@ pub enum PersistenceError {
 
 /// Helper function that creates a table for the given data type.
 fn create_table(conn: &rusqlite::Connection, data_type: DataType) -> Result<(), PersistenceError> {
+<<<<<<< HEAD
     let table_name = data_type.to_string();
+=======
+    let table_name = data_type.to_sql_key();
+>>>>>>> main
     let statement_str = format!(
         "CREATE TABLE IF NOT EXISTS {} (
                 rowid INTEGER PRIMARY KEY,
@@ -211,7 +269,11 @@ fn load_internal<'a, T: Persistable>(
     secondary_key_option: Option<&T::SecondaryKey>,
     load_multiple: bool,
 ) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
+<<<<<<< HEAD
     let mut statement_str = format!("SELECT value FROM {}", T::DATA_TYPE);
+=======
+    let mut statement_str = format!("SELECT value FROM {}", T::DATA_TYPE.to_sql_key());
+>>>>>>> main
 
     // We prepare the query here, so we can use it in the match arms below.
     // This is due to annoying lifetime issues.
@@ -223,7 +285,12 @@ fn load_internal<'a, T: Persistable>(
             Ok(stmt) => stmt,
             Err(e) => match e {
                 rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
+<<<<<<< HEAD
                     let expected_error_string = format!("no such table: {}", T::DATA_TYPE);
+=======
+                    let expected_error_string =
+                        format!("no such table: {}", T::DATA_TYPE.to_sql_key());
+>>>>>>> main
                     if error_string == &expected_error_string {
                         return Ok(vec![]);
                     } else {
@@ -259,17 +326,29 @@ fn load_internal<'a, T: Persistable>(
         // Loads values by secondary key
         (None, Some(key)) => {
             statement_str.push_str(" WHERE secondary_key = ?");
+<<<<<<< HEAD
             finalize_query(params![key.to_string()], statement_str)
+=======
+            finalize_query(params![key.to_sql_key()], statement_str)
+>>>>>>> main
         }
         // Loads values by primary key
         (Some(key), None) => {
             statement_str.push_str(" WHERE primary_key = ?");
+<<<<<<< HEAD
             finalize_query(params![key.to_string()], statement_str)
+=======
+            finalize_query(params![key.to_sql_key()], statement_str)
+>>>>>>> main
         }
         // Loads values by primary and secondary key
         (Some(pk), Some(sk)) => {
             statement_str.push_str(" WHERE primary_key = ? AND secondary_key = ?");
+<<<<<<< HEAD
             finalize_query(params![pk.to_string(), sk.to_string()], statement_str)
+=======
+            finalize_query(params![pk.to_sql_key(), sk.to_sql_key()], statement_str)
+>>>>>>> main
         }
     }
 }
