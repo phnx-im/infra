@@ -9,7 +9,6 @@ authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 thiserror = "1.0"
@@ -51,8 +50,3 @@ phnxserver_test_harness = { path = "../test_harness" }
 actix-rt = "^2.7"
 
 [build-dependencies]
-
-# [profile.release]
-# strip = true      # Automatically strip symbols from the binary.
-# lto = true
-# codegen-units = 1
