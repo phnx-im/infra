@@ -23,12 +23,7 @@ impl<'a> GroupStore<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<PersistableGroup>, PersistenceError> {
-<<<<<<< HEAD
-        let group_id_bytes = GroupIdBytes::from(group_id.clone());
-        PersistableGroup::load_one(&self.db_connection, Some(&group_id_bytes), None)
-=======
         PersistableGroup::load_one(&self.db_connection, Some(&group_id), None)
->>>>>>> main
     }
 
     pub(crate) fn create_group(
@@ -210,29 +205,16 @@ impl PersistableGroup<'_> {
 }
 
 impl Persistable for Group {
-<<<<<<< HEAD
-    type Key = GroupIdBytes;
-    type SecondaryKey = GroupIdBytes;
-=======
     type Key = GroupId;
     type SecondaryKey = GroupId;
->>>>>>> main
 
     const DATA_TYPE: DataType = DataType::MlsGroup;
 
     fn key(&self) -> &Self::Key {
-<<<<<<< HEAD
-        &self.group_id_bytes
-    }
-
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.group_id_bytes
-=======
         &self.group_id
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.group_id
->>>>>>> main
     }
 }

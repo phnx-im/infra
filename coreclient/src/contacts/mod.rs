@@ -17,7 +17,6 @@ use phnxtypes::{
 use crate::ConversationId;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 pub(crate) mod store;
 

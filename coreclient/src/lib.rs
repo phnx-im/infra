@@ -16,14 +16,6 @@ mod utils;
 use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
-<<<<<<< HEAD
-use crate::{groups::*, types::*};
-
-use notifications::{Notifiable, NotificationHub};
-pub(crate) use openmls::prelude::*;
-
-use uuid::Uuid;
-=======
 
 pub use crate::conversations::{
     messages::{
@@ -38,4 +30,3 @@ pub use crate::groups::GroupMessage;
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
->>>>>>> main

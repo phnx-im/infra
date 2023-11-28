@@ -4,15 +4,7 @@
 
 use std::fmt::{Display, Formatter};
 
-<<<<<<< HEAD
 use mls_assist::openmls_traits::types::HpkeCiphertext;
-=======
-use mls_assist::{
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{random::OpenMlsRand, types::HpkeCiphertext, OpenMlsProvider},
-};
-use rand::{Rng, SeedableRng};
->>>>>>> main
 use uuid::Uuid;
 
 use crate::crypto::{
@@ -157,7 +149,6 @@ impl std::fmt::Display for UserName {
     }
 }
 
-<<<<<<< HEAD
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct AsClientId {
     pub(crate) user_name: UserName,
@@ -193,79 +184,31 @@ impl TlsSerializeTrait for AsClientId {
 impl Size for AsClientId {
     fn tls_serialized_len(&self) -> usize {
         self.user_name.tls_serialized_len() + self.client_id.as_bytes().len()
-=======
-#[derive(
-    Clone,
-    Debug,
-    TlsDeserializeBytes,
-    TlsSerialize,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Hash,
-)]
-pub struct AsClientId {
-    pub(crate) user_name: UserName,
-    pub(crate) client_id: Vec<u8>,
-}
-
-impl AsRef<[u8]> for AsClientId {
-    fn as_ref(&self) -> &[u8] {
-        &self.client_id
->>>>>>> main
     }
 }
 
 impl std::fmt::Display for AsClientId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-<<<<<<< HEAD
         let client_id_str = self.client_id.to_string();
-=======
-        let client_id_str = String::from_utf8_lossy(&self.client_id);
->>>>>>> main
         write!(f, "{}.{}", client_id_str, self.user_name)
     }
 }
 
 impl AsClientId {
     pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
-<<<<<<< HEAD
         Ok(Self {
             user_name,
             client_id: Uuid::new_v4(),
-=======
-        // TODO: Use a proper rng provider.
-        let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
-        let valid_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-        let length = 16;
-
-        // Generate a random string as client id
-        let client_id: String = (0..length)
-            .map(|_| {
-                let index = rng.gen_range(0..valid_characters.len());
-                valid_characters.chars().nth(index).unwrap_or('a')
-            })
-            .collect();
-        Ok(Self {
-            user_name,
-            client_id: client_id.into_bytes(),
->>>>>>> main
         })
     }
 
     pub fn user_name(&self) -> UserName {
         self.user_name.clone()
     }
-<<<<<<< HEAD
 
     pub fn client_id(&self) -> Uuid {
         self.client_id
     }
-=======
->>>>>>> main
 }
 
 #[derive(
@@ -325,7 +268,6 @@ impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientCon
 impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
 
 /// This is the pseudonymous client id used on the QS.
-<<<<<<< HEAD
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct QsClientId {
     pub(crate) client_id: Uuid,
@@ -361,40 +303,10 @@ impl QsClientId {
     }
 
     pub fn as_uuid(&self) -> &Uuid {
-=======
-#[derive(
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-)]
-pub struct QsClientId {
-    pub(crate) client_id: Vec<u8>,
-}
-
-impl QsClientId {
-    pub fn from_bytes(client_id: Vec<u8>) -> Self {
-        Self { client_id }
-    }
-
-    pub fn random() -> Self {
-        let client_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
-        Self { client_id }
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
->>>>>>> main
         &self.client_id
     }
 }
 
-<<<<<<< HEAD
 impl From<Uuid> for QsClientId {
     fn from(value: Uuid) -> Self {
         Self { client_id: value }
@@ -410,27 +322,10 @@ impl From<Uuid> for QsUserId {
     fn from(value: Uuid) -> Self {
         Self { user_id: value }
     }
-=======
-#[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-)]
-pub struct QsUserId {
-    pub(crate) user_id: Vec<u8>,
->>>>>>> main
 }
 
 impl QsUserId {
     pub fn random() -> Self {
-<<<<<<< HEAD
         let user_id = Uuid::new_v4();
         Self { user_id }
     }
@@ -461,9 +356,4 @@ impl tls_codec::Size for QsUserId {
     fn tls_serialized_len(&self) -> usize {
         self.user_id.as_bytes().len()
     }
-=======
-        let user_id = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
-        Self { user_id }
-    }
->>>>>>> main
 }

@@ -5,11 +5,7 @@
 use anyhow::bail;
 use rusqlite::Transaction;
 
-<<<<<<< HEAD
-use crate::utils::persistence::{open_phnx_db, PersistableStruct};
-=======
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
->>>>>>> main
 
 use super::{
     create_user::{
@@ -180,15 +176,12 @@ impl PersistableUserData<'_> {
     }
 }
 
-<<<<<<< HEAD
-=======
 impl SqlKey for AsClientId {
     fn to_sql_key(&self) -> String {
         self.to_string()
     }
 }
 
->>>>>>> main
 impl Persistable for UserCreationState {
     type Key = AsClientId;
 

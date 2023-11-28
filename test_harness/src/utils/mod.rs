@@ -18,28 +18,15 @@ use phnxserver::{
     endpoints::qs::ws::DispatchWebsocketNotifier,
     network_provider::MockNetworkProvider,
     run,
-<<<<<<< HEAD
-    storage_provider::{
-        memory::{
-            auth_service::{EphemeralAsStorage, MemoryAsStorage},
-            qs_connector::MemoryEnqueueProvider,
-        },
-        postgres::{ds::PostgresDsStorage, qs::PostgresQsStorage},
-=======
     storage_provider::memory::{
         auth_service::{EphemeralAsStorage, MemoryAsStorage},
         ds::MemoryDsStorage,
         qs::MemStorageProvider,
         qs_connector::MemoryEnqueueProvider,
->>>>>>> main
     },
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
-<<<<<<< HEAD
-use uuid::Uuid;
-=======
->>>>>>> main
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -67,12 +54,7 @@ pub async fn spawn_app(
     Lazy::force(&TRACING);
 
     // Load configuration
-<<<<<<< HEAD
-    let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
-=======
     let configuration = get_configuration("../server/").expect("Could not load configuration.");
->>>>>>> main
 
     // Port binding
     let port = 0;
@@ -84,27 +66,8 @@ pub async fn spawn_app(
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
-<<<<<<< HEAD
-    // DS storage provider
-    // Uncomment to use memory provider instead of postgres
-    // let ds_storage_provider = MemoryDsStorage::new(domain.clone());
-    let ds_storage_provider = PostgresDsStorage::new(&configuration.database, domain.clone())
-        .await
-        .expect("Failed to connect to database.");
-
-    // New database name for the QS provider
-    configuration.database.database_name = Uuid::new_v4().to_string();
-    // QS storage provider
-    // let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
-    let qs_storage_provider = Arc::new(
-        PostgresQsStorage::new(&configuration.database, domain.clone())
-            .await
-            .expect("Failed to connect to database."),
-    );
-=======
     let ds_storage_provider = MemoryDsStorage::new(domain.clone());
     let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
->>>>>>> main
 
     let as_storage_provider =
         MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519).unwrap();

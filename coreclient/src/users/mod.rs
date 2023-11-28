@@ -49,15 +49,11 @@ use thiserror::Error;
 
 use crate::{
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
-<<<<<<< HEAD
-    conversations::store::{ConversationMessageStore, ConversationStore},
-=======
     conversations::{
         messages::{ConversationMessage, DispatchedConversationMessage, MessageContentType},
         store::{ConversationMessageStore, ConversationStore},
         Conversation, ConversationAttributes,
     },
->>>>>>> main
     groups::store::GroupStore,
     key_stores::{
         as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore,
@@ -281,11 +277,7 @@ impl<T: Notifiable> SelfUser<T> {
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-=======
                 conversation_id.as_uuid()
->>>>>>> main
             ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
@@ -349,11 +341,7 @@ impl<T: Notifiable> SelfUser<T> {
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-=======
                 conversation_id.as_uuid()
->>>>>>> main
             ))?;
         let group_id = &conversation.group_id();
         let group_store = self.group_store();
@@ -383,11 +371,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     fn dispatch_message_notifications(
         &self,
-<<<<<<< HEAD
-        conversation_id: Uuid,
-=======
         conversation_id: ConversationId,
->>>>>>> main
         group_messages: Vec<GroupMessage>,
     ) -> Result<()> {
         let message_store = self.message_store();
@@ -406,11 +390,7 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-<<<<<<< HEAD
-    fn dispatch_conversation_notification(&self, conversation_id: Uuid) -> Result<()> {
-=======
     fn dispatch_conversation_notification(&self, conversation_id: ConversationId) -> Result<()> {
->>>>>>> main
         // TODO: Unwrapping a mutex poisoning error here for now.
         let mut notification_hub_option = self.notification_hub_option.lock().unwrap();
         if let Some(ref mut notification_hub) = *notification_hub_option {
@@ -431,11 +411,7 @@ impl<T: Notifiable> SelfUser<T> {
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-=======
                 conversation_id.as_uuid()
->>>>>>> main
             ))?;
         let group_id = &conversation.group_id();
         // Generate ciphertext
@@ -594,26 +570,12 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-<<<<<<< HEAD
-    pub async fn update_user_key(&mut self, conversation_id: Uuid) -> Result<()> {
-=======
     pub async fn update_user_key(&mut self, conversation_id: ConversationId) -> Result<()> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-            ))?;
-        let group_id = &conversation.group_id;
-        // Generate ciphertext
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(&group_id.as_group_id())?
-            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-=======
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
@@ -622,7 +584,6 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
->>>>>>> main
         let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -634,27 +595,12 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-<<<<<<< HEAD
-    pub async fn delete_group(&mut self, conversation_id: Uuid) -> Result<()> {
-=======
     pub async fn delete_group(&mut self, conversation_id: ConversationId) -> Result<()> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let mut conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-            ))?;
-        let group_id = &conversation.group_id;
-        // Generate ciphertext
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(&group_id.as_group_id())?
-            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-        let past_members: Vec<_> = group.members().into_iter().map(|m| m.to_string()).collect();
-=======
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
@@ -664,7 +610,6 @@ impl<T: Notifiable> SelfUser<T> {
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let past_members = group.members();
->>>>>>> main
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         if past_members.len() != 1 {
@@ -716,13 +661,10 @@ impl<T: Notifiable> SelfUser<T> {
                         .await?
                 }
             };
-<<<<<<< HEAD
-=======
 
             if let Some(message) = messages.last() {
                 sequence_number.set(message.sequence_number)?;
             }
->>>>>>> main
 
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
@@ -742,25 +684,12 @@ impl<T: Notifiable> SelfUser<T> {
         self.fetch_messages_from_queue(QueueType::Qs).await
     }
 
-<<<<<<< HEAD
-    pub async fn leave_group(&mut self, conversation_id: Uuid) -> Result<()> {
-=======
     pub async fn leave_group(&mut self, conversation_id: ConversationId) -> Result<()> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-            ))?;
-        let group_id = &conversation.group_id;
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(&group_id.as_group_id())?
-            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-=======
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
@@ -768,7 +697,6 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
->>>>>>> main
         let params = group.leave_group(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -782,25 +710,12 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-<<<<<<< HEAD
-    pub async fn update(&mut self, conversation_id: Uuid) -> Result<()> {
-=======
     pub async fn update(&mut self, conversation_id: ConversationId) -> Result<()> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
-<<<<<<< HEAD
-                conversation_id
-            ))?;
-        let group_id = &conversation.group_id;
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(&group_id.as_group_id())?
-            .ok_or(anyhow!("Can't find group with id {}", group_id))?;
-=======
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
@@ -808,7 +723,6 @@ impl<T: Notifiable> SelfUser<T> {
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
->>>>>>> main
         let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
@@ -859,11 +773,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Returns None if there is no conversation with the given id.
-<<<<<<< HEAD
-    pub fn group_members(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
-=======
     pub fn group_members(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)
@@ -876,11 +786,7 @@ impl<T: Notifiable> SelfUser<T> {
             .map(|g| g.members().iter().map(|member| member.clone()).collect())
     }
 
-<<<<<<< HEAD
-    pub fn pending_removes(&self, conversation_id: Uuid) -> Option<Vec<UserName>> {
-=======
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)

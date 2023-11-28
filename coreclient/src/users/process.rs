@@ -127,17 +127,10 @@ impl<T: Notifiable> SelfUser<T> {
                                 .get_by_conversation_id(&conversation_id)?
                                 .ok_or(anyhow!(
                                     "No conversation found for conversation ID {}",
-<<<<<<< HEAD
-                                    conversation_id
-                                ))?;
-                            if let ConversationType::UnconfirmedConnection(ref user_name) =
-                                conversation.conversation_type
-=======
                                     conversation_id.as_uuid()
                                 ))?;
                             if let ConversationType::UnconfirmedConnection(ref user_name) =
                                 conversation.conversation_type()
->>>>>>> main
                             {
                                 let user_name = user_name.clone().into();
                                 // Check if it was an external commit and if the user name matches
@@ -229,16 +222,7 @@ impl<T: Notifiable> SelfUser<T> {
                             }
                             // If we were removed, we set the group to inactive.
                             if we_were_removed {
-<<<<<<< HEAD
-                                let past_members = group
-                                    .members()
-                                    .into_iter()
-                                    .map(|user_name| user_name.to_string())
-                                    .collect::<Vec<_>>();
-                                conversation.set_inactive(&past_members)?;
-=======
                                 conversation.set_inactive(&group.members())?;
->>>>>>> main
                             }
                             group.merge_pending_commit(&self.crypto_backend(), *staged_commit)?
                         }
@@ -421,11 +405,7 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-<<<<<<< HEAD
-    pub fn conversation(&self, conversation_id: Uuid) -> Option<Conversation> {
-=======
     pub fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
->>>>>>> main
         let conversation_store = self.conversation_store();
         conversation_store
             .get_by_conversation_id(&conversation_id)
@@ -435,11 +415,7 @@ impl<T: Notifiable> SelfUser<T> {
 
     pub fn get_messages(
         &self,
-<<<<<<< HEAD
-        conversation_id: Uuid,
-=======
         conversation_id: ConversationId,
->>>>>>> main
         last_n: usize,
     ) -> Result<Vec<ConversationMessage>> {
         let message_store = self.message_store();

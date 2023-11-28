@@ -8,24 +8,17 @@ use super::*;
 
 pub use chrono::Duration;
 
-<<<<<<< HEAD
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-=======
-#[derive(Eq, Hash, Clone, Debug, PartialEq, Serialize, Deserialize)]
->>>>>>> main
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash)]
 pub struct TimeStamp {
     time: DateTime<Utc>,
 }
 
-<<<<<<< HEAD
 impl From<DateTime<Utc>> for TimeStamp {
     fn from(time: DateTime<Utc>) -> Self {
         Self { time }
     }
 }
 
-=======
->>>>>>> main
 impl Size for TimeStamp {
     fn tls_serialized_len(&self) -> usize {
         8
@@ -80,13 +73,12 @@ impl TimeStamp {
         self.time >= start.time && self.time <= end.time
     }
 
-<<<<<<< HEAD
     pub fn time(&self) -> DateTime<Utc> {
         self.time
-=======
+    }
+
     pub fn as_u64(&self) -> u64 {
         self.time.timestamp_millis() as u64
->>>>>>> main
     }
 }
 

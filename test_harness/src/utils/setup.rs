@@ -19,12 +19,6 @@ use phnxtypes::{
 };
 use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
-<<<<<<< HEAD
-use uuid::Uuid;
-=======
-
-use super::spawn_app;
->>>>>>> main
 
 use super::spawn_app;
 
@@ -93,11 +87,7 @@ enum TestKind {
 
 pub struct TestBackend {
     pub users: HashMap<UserName, TestUser>,
-<<<<<<< HEAD
-    pub groups: HashMap<Uuid, HashSet<UserName>>,
-=======
     pub groups: HashMap<ConversationId, HashSet<UserName>>,
->>>>>>> main
     // This is what we feed to the test clients.
     kind: TestKind,
 }
@@ -198,15 +188,9 @@ impl TestBackend {
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_name) {
                 let conversation_after = group_member.conversation(conversation_id).unwrap();
-<<<<<<< HEAD
-                assert!(matches!(&conversation_after.status,
-                ConversationStatus::Inactive(ic)
-                if HashSet::<UserName>::from_iter(ic.past_members()) ==
-=======
                 assert!(matches!(&conversation_after.status(),
                 ConversationStatus::Inactive(ic)
                 if HashSet::<UserName>::from_iter(ic.past_members().to_vec()) ==
->>>>>>> main
                     HashSet::<UserName>::from_iter(group_members_before)
                 ));
             } else {
@@ -604,11 +588,7 @@ impl TestBackend {
         for invitee_name in &invitee_names {
             let test_invitee = self.users.get_mut(invitee_name).unwrap();
             let invitee = &mut test_invitee.user;
-<<<<<<< HEAD
-            let invitee_conversations_before = invitee.conversations().unwrap();
-=======
             let mut invitee_conversations_before = invitee.conversations().unwrap();
->>>>>>> main
 
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
@@ -618,22 +598,6 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             let mut invitee_conversations_after = invitee.conversations().unwrap();
-<<<<<<< HEAD
-            let new_conversation_position = invitee_conversations_after
-                .iter()
-                .position(|c| c.id.as_uuid() == conversation_id)
-                .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_id}"));
-            let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(conversation.id.as_uuid() == conversation_id);
-            assert!(conversation.status == ConversationStatus::Active);
-            assert!(conversation.conversation_type == ConversationType::Group);
-            invitee_conversations_before
-                .into_iter()
-                .zip(invitee_conversations_after)
-                .for_each(|(before, after)| {
-                    assert_eq!(before.id, after.id);
-                });
-=======
             let conversation_uuid = conversation_id.as_uuid();
             let new_conversation_position = invitee_conversations_after
                 .iter()
@@ -663,7 +627,6 @@ impl TestBackend {
                 )
                 .count();
             assert_eq!(different_conversations, 0);
->>>>>>> main
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for group_member_name in group_members.iter() {
@@ -814,19 +777,11 @@ impl TestBackend {
             } else {
                 panic!("Conversation should be inactive.")
             }
-<<<<<<< HEAD
-            assert!(conversation.conversation_type == ConversationType::Group);
-            for conversation in removed_conversations_after {
-                assert!(removed_conversations_before
-                    .iter()
-                    .any(|c| c.id == conversation.id))
-=======
             assert!(conversation.conversation_type() == &ConversationType::Group);
             for conversation in removed_conversations_after {
                 assert!(removed_conversations_before
                     .iter()
                     .any(|c| c.id() == conversation.id()))
->>>>>>> main
             }
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
@@ -1064,11 +1019,7 @@ impl TestBackend {
                 tracing::info!(
                     random_operation = true,
                     "Random operation: Created group {}",
-<<<<<<< HEAD
-                    conversation_id
-=======
                     conversation_id.as_uuid()
->>>>>>> main
                 );
                 // TODO: Invite user(s)
             }
@@ -1082,13 +1033,8 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-<<<<<<< HEAD
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
-=======
                         conversation.conversation_type() == &ConversationType::Group
                             && conversation.status() == &ConversationStatus::Active
->>>>>>> main
                     })
                     .choose(rng)
                 {
@@ -1101,11 +1047,7 @@ impl TestBackend {
                             // be the random user and must be connected
                             let is_group_member = self
                                 .groups
-<<<<<<< HEAD
-                                .get(&conversation.id.as_uuid())
-=======
                                 .get(&conversation.id())
->>>>>>> main
                                 .unwrap()
                                 .contains(invitee);
                             let is_connected = user
@@ -1129,15 +1071,9 @@ impl TestBackend {
                             "Random operation: {} invites {} to group {}",
                             random_user,
                             invitee_strings.join(", "),
-<<<<<<< HEAD
-                            conversation.id.as_uuid()
-                        );
-                        self.invite_to_group(conversation.id.as_uuid(), random_user, invitee_names)
-=======
                             conversation.id().as_uuid()
                         );
                         self.invite_to_group(conversation.id(), random_user, invitee_names)
->>>>>>> main
                             .await;
                     }
                 }
@@ -1150,24 +1086,15 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-<<<<<<< HEAD
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
-=======
                         conversation.conversation_type() == &ConversationType::Group
                             && conversation.status() == &ConversationStatus::Active
->>>>>>> main
                     })
                     .choose(rng)
                 {
                     let number_of_removals = rng.gen_range(1..=5);
                     let members_to_remove = self
                         .groups
-<<<<<<< HEAD
-                        .get(&conversation.id.as_uuid())
-=======
                         .get(&conversation.id())
->>>>>>> main
                         .unwrap()
                         .iter()
                         .filter(|&member| member != &random_user)
@@ -1183,21 +1110,10 @@ impl TestBackend {
                             "Random operation: {} removes {} from group {}",
                             random_user,
                             removed_strings.join(", "),
-<<<<<<< HEAD
-                            conversation.id.as_uuid()
-                        );
-                        self.remove_from_group(
-                            conversation.id.as_uuid(),
-                            random_user,
-                            members_to_remove,
-                        )
-                        .await;
-=======
                             conversation.id().as_uuid()
                         );
                         self.remove_from_group(conversation.id(), random_user, members_to_remove)
                             .await;
->>>>>>> main
                     }
                 }
             }
@@ -1209,13 +1125,8 @@ impl TestBackend {
                     .unwrap()
                     .into_iter()
                     .filter(|conversation| {
-<<<<<<< HEAD
-                        conversation.conversation_type == ConversationType::Group
-                            && conversation.status == ConversationStatus::Active
-=======
                         conversation.conversation_type() == &ConversationType::Group
                             && conversation.status() == &ConversationStatus::Active
->>>>>>> main
                     })
                     .choose(rng)
                 {
@@ -1223,16 +1134,9 @@ impl TestBackend {
                         random_operation = true,
                         "Random operation: {} leaves group {}",
                         random_user,
-<<<<<<< HEAD
-                        conversation.id.as_uuid()
-                    );
-                    self.leave_group(conversation.id.as_uuid(), random_user)
-                        .await;
-=======
                         conversation.id().as_uuid()
                     );
                     self.leave_group(conversation.id(), random_user).await;
->>>>>>> main
                 }
             }
             _ => panic!("Invalid action"),

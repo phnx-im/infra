@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-<<<<<<< HEAD
-use crate::utils::persistence::PersistableStruct;
-=======
 use crate::utils::persistence::{PersistableStruct, SqlKey};
->>>>>>> main
 
 use super::*;
 
@@ -95,15 +91,12 @@ impl PersistableAsQueueRatchet<'_> {
     }
 }
 
-<<<<<<< HEAD
-=======
 impl SqlKey for QueueType {
     fn to_sql_key(&self) -> String {
         self.to_string()
     }
 }
 
->>>>>>> main
 impl Persistable for AsQueueRatchet {
     type Key = QueueType;
 
