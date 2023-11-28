@@ -23,25 +23,25 @@ use super::{AsClientRecord, AsUserRecord};
 #[async_trait]
 pub trait AsStorageProvider: Sync + Send + 'static {
     type PrivacyPassKeyStore: BatchedKeyStore;
-    type StorageError: Error + Debug + Clone;
+    type StorageError: Error + Debug;
 
-    type CreateUserError: Error + Debug + Clone;
-    type StoreUserError: Error + Debug + Clone;
-    type DeleteUserError: Error + Debug + Clone;
+    type CreateUserError: Error + Debug;
+    type StoreUserError: Error + Debug;
+    type DeleteUserError: Error + Debug;
 
-    type StoreClientError: Error + Debug + Clone;
-    type CreateClientError: Error + Debug + Clone;
-    type DeleteClientError: Error + Debug + Clone;
+    type StoreClientError: Error + Debug;
+    type CreateClientError: Error + Debug;
+    type DeleteClientError: Error + Debug;
 
-    type EnqueueError: Error + Debug + Clone;
-    type ReadAndDeleteError: Error + Debug + Clone;
+    type EnqueueError: Error + Debug;
+    type ReadAndDeleteError: Error + Debug;
 
-    type StoreKeyPackagesError: Error + Debug + Clone;
+    type StoreKeyPackagesError: Error + Debug;
 
-    type LoadSigningKeyError: Error + Debug + Clone;
-    type LoadAsCredentialsError: Error + Debug + Clone;
+    type LoadSigningKeyError: Error + Debug;
+    type LoadAsCredentialsError: Error + Debug;
 
-    type LoadOpaqueKeyError: Error + Debug + Clone;
+    type LoadOpaqueKeyError: Error + Debug;
 
     // === Users ===
 
@@ -187,7 +187,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
 
 #[async_trait]
 pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
-    type StorageError: Error + Debug + Clone;
+    type StorageError: Error + Debug;
 
     /// Store a client credential for a given client ID.
     async fn store_credential(
