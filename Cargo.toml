@@ -24,6 +24,5 @@ tls_codec = { git = 'https://github.com/RustCrypto/formats.git', rev = '3e65c66f
 
 [profile.production]
 inherits = "release"
-strip = true         # Automatically strip symbols from the binary.
-# lto = true
+strip = true
 codegen-units = 1

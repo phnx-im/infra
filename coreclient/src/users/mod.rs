@@ -163,7 +163,6 @@ impl<T: Notifiable> SelfUser<T> {
 
     /// The same as [`Self::new()`], except that databases ephemeral and dropped
     /// together with this instance of SelfUser.
-    //[cfg(debug_assertions)]
     pub async fn new_ephemeral(
         user_name: impl Into<UserName>,
         password: &str,

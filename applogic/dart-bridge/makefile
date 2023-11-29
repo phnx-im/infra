@@ -98,19 +98,19 @@ ios-debug:
 		-output ios/libphnx$(LIB_NAME).xcframework
 	rm -rf ios/libphnx$(LIB_NAME).a
 
-ios-release:
+ios-production:
 	cd $(RUST_BASE_DIR) ; \
-		cargo build --target aarch64-apple-ios --release && \
-		cargo build --target aarch64-apple-ios-sim --release && \
-		cargo build --target x86_64-apple-ios --release
+		cargo build --target aarch64-apple-ios --profile production && \
+		cargo build --target aarch64-apple-ios-sim --profile production && \
+		cargo build --target x86_64-apple-ios --profile production
 	mkdir -p ios
 	lipo -create \
-		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/release/libphnx$(LIB_NAME).a \
-		$(RUST_TARGET_DIR)/x86_64-apple-ios/release/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/production/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/x86_64-apple-ios/production/libphnx$(LIB_NAME).a \
 		-output ios/libphnx$(LIB_NAME).a
 	rm -rf ios/libphnx$(LIB_NAME).xcframework
 	xcodebuild -create-xcframework \
-		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/release/libphnx$(LIB_NAME).a \
+		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/production/libphnx$(LIB_NAME).a \
 		-library ios/libphnx$(LIB_NAME).a \
 		-output ios/libphnx$(LIB_NAME).xcframework
 	rm -rf ios/libphnx$(LIB_NAME).a
