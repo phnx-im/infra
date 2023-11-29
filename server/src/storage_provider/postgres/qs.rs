@@ -196,6 +196,36 @@ impl QsStorageProvider for PostgresQsStorage {
         )
         .execute(&self.pool)
         .await?;
+        // Get all client ids of the user s.t. we can delete the queues as well.
+        let client_records = sqlx::query!(
+            "SELECT * FROM qs_client_records WHERE user_id = $1",
+            user_id.as_uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        for client_record in client_records {
+            sqlx::query!(
+                "DELETE FROM queue_data WHERE queue_id = $1",
+                client_record.client_id,
+            )
+            .execute(&self.pool)
+            .await?;
+
+            sqlx::query!(
+                "DELETE FROM key_packages WHERE client_id = $1",
+                client_record.client_id,
+            )
+            .execute(&self.pool)
+            .await?;
+        }
+        // Delete all the client data.
+        sqlx::query!(
+            "DELETE FROM qs_client_records WHERE user_id = $1",
+            user_id.as_uuid(),
+        )
+        .execute(&self.pool)
+        .await?;
+        
         Ok(())
     }
 
@@ -300,6 +330,12 @@ impl QsStorageProvider for PostgresQsStorage {
         .await?;
         sqlx::query!(
             "DELETE FROM queue_data WHERE queue_id = $1",
+            client_id.as_uuid(),
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM key_packages WHERE client_id = $1",
             client_id.as_uuid(),
         )
         .execute(&self.pool)

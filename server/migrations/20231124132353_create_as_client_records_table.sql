@@ -11,6 +11,7 @@ user_name BYTEA NOT NULL,
 queue_encryption_key BYTEA NOT NULL,
 ratchet BYTEA NOT NULL,
 activity_time timestamptz NOT NULL,
-client_credential BYTEA NOT NULL
+client_credential BYTEA NOT NULL,
+remaining_tokens integer NOT NULL
 );
 

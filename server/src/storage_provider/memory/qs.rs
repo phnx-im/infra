@@ -244,10 +244,6 @@ impl QsStorageProvider for MemStorageProvider {
 
     async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError> {
         // Get all locks.
-        let mut users = self
-            .users
-            .write()
-            .map_err(|_| DeleteClientError::StorageError)?;
         let mut clients = self
             .clients
             .write()
@@ -261,24 +257,12 @@ impl QsStorageProvider for MemStorageProvider {
             .write()
             .map_err(|_| DeleteClientError::StorageError)?;
         // Delete the client record.
-        let client_record = clients
+        clients
             .remove(client_id)
             .ok_or(DeleteClientError::UnknownClient)?;
         key_packages.remove(client_id);
         clients.remove(client_id);
         queues.remove(client_id);
-        // Delete the client in the user record.
-        let user_id = client_record.user_id;
-        let user_clients = clients.iter().filter_map(|(client_id, client)| {
-            if &client.user_id == &user_id {
-                Some(client_id)
-            } else {
-                None
-            }
-        });
-        if user_clients.count() == 0 {
-            users.remove(&user_id);
-        }
         Ok(())
     }
 

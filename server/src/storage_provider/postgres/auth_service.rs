@@ -2,19 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::configurations::DatabaseSettings;
 use async_trait::async_trait;
+use mls_assist::openmls_traits::types::SignatureScheme;
 use num_traits::ToPrimitive;
-use opaque_ke::{ServerRegistration, ServerSetup};
+use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
 use phnxbackend::auth_service::{
     storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
 };
 use phnxtypes::{
     credentials::{
         keys::{AsIntermediateSigningKey, AsSigningKey},
-        AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
+        CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, Fqdn, UserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
     time::TimeStamp,
 };
@@ -25,12 +28,94 @@ use privacypass::{
 };
 use sqlx::{
     types::{BigDecimal, Uuid},
-    PgPool,
+    Connection, Executor, PgConnection, PgPool,
 };
 use thiserror::Error;
 
 pub struct PostgresAsStorage {
     pool: PgPool,
+}
+
+impl PostgresAsStorage {
+    pub async fn new(
+        as_domain: Fqdn,
+        signature_scheme: SignatureScheme,
+        settings: &DatabaseSettings,
+    ) -> Result<Self, CreateAsStorageError> {
+        // Create database
+        let mut connection =
+            PgConnection::connect(&settings.connection_string_without_database()).await?;
+        connection
+            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
+            .await?;
+        // Migrate database
+        let connection_pool = PgPool::connect(&settings.connection_string()).await?;
+        sqlx::migrate!("./migrations").run(&connection_pool).await?;
+
+        let provider = Self {
+            pool: connection_pool,
+        };
+
+        // Check if the database has been initialized.
+        let (as_creds, _as_inter_creds, _) = provider.load_as_credentials().await?;
+        if as_creds.is_empty() {
+            let (as_signing_key, as_inter_signing_key) =
+                Self::generate_fresh_credentials(as_domain, signature_scheme)?;
+            let _ = sqlx::query!(
+                r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
+                Uuid::new_v4(),
+                CredentialType::As as _,
+                as_signing_key.credential().fingerprint().as_bytes(),
+                serde_json::to_vec(&as_signing_key)?,
+                true,
+            )
+            .execute(&provider.pool)
+            .await?;
+            let _ = sqlx::query!(
+                r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
+                Uuid::new_v4(),
+                CredentialType::Intermediate as _,
+                as_inter_signing_key.credential().fingerprint().as_bytes(),
+                serde_json::to_vec(&as_inter_signing_key)?,
+                true,
+            )
+            .execute(&provider.pool)
+            .await?;
+        }
+        if provider.load_opaque_setup().await.is_err() {
+            let mut rng = OsRng;
+            let opaque_setup = ServerSetup::<OpaqueCiphersuite>::new(&mut rng);
+            let _ = sqlx::query!(
+                r#"INSERT INTO opaque_setup (id, opaque_setup) VALUES ($1, $2)"#,
+                Uuid::new_v4(),
+                serde_json::to_vec(&opaque_setup)?,
+            )
+            .execute(&provider.pool)
+            .await?;
+        };
+        Ok(provider)
+    }
+
+    fn generate_fresh_credentials(
+        as_domain: Fqdn,
+        signature_scheme: SignatureScheme,
+    ) -> Result<(AsSigningKey, AsIntermediateSigningKey), CreateAsStorageError> {
+        let (_credential, as_signing_key) =
+            AsCredential::new(signature_scheme, as_domain.clone(), None)
+                .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+        let (csr, prelim_signing_key) =
+            AsIntermediateCredentialCsr::new(signature_scheme, as_domain)
+                .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+        let as_intermediate_credential = csr
+            .sign(&as_signing_key, None)
+            .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+        let as_intermediate_signing_key = AsIntermediateSigningKey::from_prelim_key(
+            prelim_signing_key,
+            as_intermediate_credential,
+        )
+        .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+        Ok((as_signing_key, as_intermediate_signing_key))
+    }
 }
 
 #[async_trait]
@@ -486,7 +571,12 @@ impl AsStorageProvider for PostgresAsStorage {
     async fn load_opaque_setup(
         &self,
     ) -> Result<ServerSetup<OpaqueCiphersuite>, Self::LoadSigningKeyError> {
-        todo!()
+        // There is currently only one OPAQUE setup.
+        let opaque_setup_record = sqlx::query!("SELECT opaque_setup FROM opaque_setup")
+            .fetch_one(&self.pool)
+            .await?;
+        let opaque_setup = serde_json::from_slice(&opaque_setup_record.opaque_setup)?;
+        Ok(opaque_setup)
     }
 
     // === Anonymous requests ===
@@ -528,7 +618,15 @@ impl AsStorageProvider for PostgresAsStorage {
         &self,
         client_id: &AsClientId,
     ) -> Result<usize, Self::StorageError> {
-        todo!()
+        let remaining_tokens_record = sqlx::query!(
+            "SELECT remaining_tokens FROM as_client_records WHERE client_id = $1",
+            client_id.client_id(),
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let remaining_tokens = remaining_tokens_record.remaining_tokens;
+        // TODO: Unsafe conversion.
+        Ok(remaining_tokens as usize)
     }
 
     async fn set_client_token_allowance(
@@ -536,7 +634,15 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         number_of_tokens: usize,
     ) -> Result<(), Self::StorageError> {
-        todo!()
+        sqlx::query!(
+            "UPDATE as_client_records SET remaining_tokens = $2 WHERE client_id = $1",
+            client_id.client_id(),
+            // TODO: Unsafe conversion.
+            number_of_tokens as i16,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Resets the token allowance of all clients. This should be called after a
@@ -545,8 +651,30 @@ impl AsStorageProvider for PostgresAsStorage {
         &self,
         number_of_tokens: usize,
     ) -> Result<(), Self::StorageError> {
-        todo!()
+        sqlx::query!(
+            "UPDATE as_client_records SET remaining_tokens = $1",
+            // TODO: Unsafe conversion.
+            number_of_tokens as i16,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
+}
+
+#[derive(Debug, Error)]
+pub enum CreateAsStorageError {
+    #[error(transparent)]
+    ProviderError(#[from] AsPostgresError),
+    #[error(transparent)]
+    MigrationError(#[from] sqlx::migrate::MigrateError),
+    #[error(transparent)]
+    PostgresError(#[from] sqlx::Error),
+    #[error(transparent)]
+    CodecError(#[from] serde_json::Error),
+    /// Credential generation error.
+    #[error("Credential generation error.")]
+    CredentialGenerationError,
 }
 
 #[derive(Debug, Error)]
