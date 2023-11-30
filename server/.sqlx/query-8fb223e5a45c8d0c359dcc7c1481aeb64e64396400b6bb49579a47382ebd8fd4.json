@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM qs_config",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8fb223e5a45c8d0c359dcc7c1481aeb64e64396400b6bb49579a47382ebd8fd4"
+}

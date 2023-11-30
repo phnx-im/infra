@@ -10,11 +10,9 @@ use phnxserver::{
     endpoints::qs::ws::DispatchWebsocketNotifier,
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::memory::{
-        auth_service::{EphemeralAsStorage, MemoryAsStorage},
-        ds::MemoryDsStorage,
-        qs::MemStorageProvider,
-        qs_connector::MemoryEnqueueProvider,
+    storage_provider::{
+        memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
+        postgres::{auth_service::PostgresAsStorage, ds::PostgresDsStorage, qs::PostgresQsStorage},
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -27,7 +25,7 @@ async fn main() -> std::io::Result<()> {
     init_subscriber(subscriber);
 
     // Load configuration
-    let configuration = get_configuration("server/").expect("Could not load configuration.");
+    let mut configuration = get_configuration("server/").expect("Could not load configuration.");
 
     if configuration.application.domain == "" {
         panic!("No domain name configured.");
@@ -43,9 +41,31 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("Starting server with domain {}.", domain);
     let network_provider = MockNetworkProvider::new();
 
-    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
-    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
-    let as_storage_provider = MemoryAsStorage::new(domain, SignatureScheme::ED25519).unwrap();
+    let base_db_name = configuration.database.database_name.clone();
+    configuration.database.database_name = format!("{}_ds", base_db_name);
+    // DS storage provider
+    let ds_storage_provider = PostgresDsStorage::new(&configuration.database, domain.clone())
+        .await
+        .expect("Failed to connect to database.");
+
+    // New database name for the QS provider
+    configuration.database.database_name = format!("{}_qs", base_db_name);
+    // QS storage provider
+    let qs_storage_provider = Arc::new(
+        PostgresQsStorage::new(&configuration.database, domain.clone())
+            .await
+            .expect("Failed to connect to database."),
+    );
+
+    // New database name for the AS provider
+    configuration.database.database_name = format!("{}_as", base_db_name);
+    let as_storage_provider = PostgresAsStorage::new(
+        domain.clone(),
+        SignatureScheme::ED25519,
+        &configuration.database,
+    )
+    .await
+    .expect("Failed to connect to database.");
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let qs_connector = MemoryEnqueueProvider {
