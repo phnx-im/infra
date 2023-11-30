@@ -236,6 +236,41 @@ impl AsStorageProvider for PostgresAsStorage {
 
     // === Clients ===
 
+    async fn create_client(
+        &self,
+        client_id: &AsClientId,
+        client_record: &AsClientRecord,
+    ) -> Result<(), Self::CreateClientError> {
+        let user_name_bytes = serde_json::to_vec(&client_id.user_name())?;
+        let queue_encryption_key_bytes = serde_json::to_vec(&client_record.queue_encryption_key)?;
+        let ratchet = serde_json::to_vec(&client_record.ratchet_key)?;
+        let activity_time = client_record.activity_time.time();
+        let client_credential = serde_json::to_vec(&client_record.credential)?;
+        sqlx::query!(
+            "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            client_id.client_id(),
+            user_name_bytes,
+            queue_encryption_key_bytes,
+            ratchet,
+            activity_time,
+            client_credential,
+            1000, // TODO: Once we use tokens, we should make this configurable.
+        )
+        .execute(&self.pool)
+        .await?;
+        // Initialize the client's queue.
+        let initial_sequence_number = BigDecimal::from(0u8);
+
+        sqlx::query!(
+            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)",
+            client_id.client_id(),
+            initial_sequence_number
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     /// Load the info for the client with the given client ID.
     async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord> {
         let user_record = sqlx::query!(
@@ -268,13 +303,14 @@ impl AsStorageProvider for PostgresAsStorage {
         let activity_time = client_record.activity_time.time();
         let client_credential = serde_json::to_vec(&client_record.credential)?;
         sqlx::query!(
-            "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential) VALUES ($1, $2, $3, $4, $5, $6)",
+            "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",
             client_id.client_id(),
             user_name_bytes,
             queue_encryption_key_bytes,
             ratchet,
             activity_time,
             client_credential,
+            1000, // TODO: Once we use tokens, we should make this configurable.
         )
         .execute(&self.pool)
         .await?;

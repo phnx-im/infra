@@ -68,6 +68,12 @@ pub trait AsStorageProvider: Sync + Send + 'static {
 
     // === Clients ===
 
+    async fn create_client(
+        &self,
+        client_id: &AsClientId,
+        client_record: &AsClientRecord,
+    ) -> Result<(), Self::CreateClientError>;
+
     /// Load the info for the client with the given client ID.
     async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord>;
 

@@ -74,13 +74,19 @@ impl AuthService {
         storage_provider
             .enqueue(&client_id, queue_message)
             .await
-            .map_err(|_| EnqueueMessageError::StorageError)?;
+            .map_err(|e| {
+                tracing::warn!("Failed to enqueue message: {:?}", e);
+                EnqueueMessageError::StorageError
+            })?;
 
         // Store the changed client record.
         storage_provider
             .store_client(&client_id, &client_record)
             .await
-            .map_err(|_| EnqueueMessageError::StorageError)?;
+            .map_err(|e| {
+                tracing::warn!("Failed to store client record: {:?}", e);
+                EnqueueMessageError::StorageError
+            })?;
 
         Ok(())
     }

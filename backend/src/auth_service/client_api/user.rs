@@ -181,7 +181,7 @@ impl AuthService {
         };
 
         storage_provider
-            .store_client(&client_id, &client_record)
+            .create_client(&client_id, &client_record)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
