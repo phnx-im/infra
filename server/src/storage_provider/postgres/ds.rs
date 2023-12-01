@@ -13,7 +13,7 @@ use phnxtypes::{
     identifiers::{Fqdn, SealedClientReference, QualifiedGroupId},
     time::TimeStamp,
 };
-use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor};
+use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor, postgres::PgConnectOptions, ConnectOptions};
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
 
@@ -26,9 +26,17 @@ pub struct PostgresDsStorage {
 
 impl PostgresDsStorage {
     pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, PostgresStorageError> {
+        tracing::info!("Connection string: {}", settings.connection_string_without_database());
         // Create database
-        let mut connection = PgConnection::connect(&settings.connection_string_without_database())
+        let options = PgConnectOptions::new()
+            .log_statements(tracing::log::LevelFilter::Info)
+            .username(&settings.username)
+            .password(&settings.password)
+            .host(&settings.host)
+            .port(settings.port).options([("statement_timeout", "5min")]);
+        let mut connection = PgConnection::connect_with(&options)
             .await?;
+        tracing::info!("Connection established");
         connection
             .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
             .await?;

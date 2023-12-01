@@ -11,4 +11,4 @@ database:
   port: 5432
   username: "postgres"
   password: "password"
-  database_name: "ds_db"
+  database_name: "phnx_db"
