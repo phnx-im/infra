@@ -44,13 +44,12 @@ async fn main() -> std::io::Result<()> {
     let base_db_name = configuration.database.database_name.clone();
     // DS storage provider
     configuration.database.database_name = format!("{}_ds", base_db_name);
-    tracing::info!("Connecting to DS database");
+    tracing::info!("Connecting to postgres server");
     let mut counter = 0;
     let mut ds_provider_result =
         PostgresDsStorage::new(&configuration.database, domain.clone()).await;
     // Try again for 10 times each second in case the postgres server is coming up.
     while let Err(e) = ds_provider_result {
-        tracing::info!("Waiting for database to be ready: {:?}", e);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         counter += 1;
         if counter > 10 {
@@ -63,7 +62,6 @@ async fn main() -> std::io::Result<()> {
     // New database name for the QS provider
     configuration.database.database_name = format!("{}_qs", base_db_name);
     // QS storage provider
-    tracing::info!("Connecting to QS database");
     let qs_storage_provider = Arc::new(
         PostgresQsStorage::new(&configuration.database, domain.clone())
             .await
@@ -72,7 +70,6 @@ async fn main() -> std::io::Result<()> {
 
     // New database name for the AS provider
     configuration.database.database_name = format!("{}_as", base_db_name);
-    tracing::info!("Connecting to AS database");
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
         SignatureScheme::ED25519,

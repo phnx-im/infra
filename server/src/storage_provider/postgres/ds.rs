@@ -13,7 +13,7 @@ use phnxtypes::{
     identifiers::{Fqdn, SealedClientReference, QualifiedGroupId},
     time::TimeStamp,
 };
-use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor, postgres::PgConnectOptions, ConnectOptions};
+use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor};
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
 
@@ -26,17 +26,9 @@ pub struct PostgresDsStorage {
 
 impl PostgresDsStorage {
     pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, PostgresStorageError> {
-        tracing::info!("Connection string: {}", settings.connection_string_without_database());
         // Create database
-        let options = PgConnectOptions::new()
-            .log_statements(tracing::log::LevelFilter::Info)
-            .username(&settings.username)
-            .password(&settings.password)
-            .host(&settings.host)
-            .port(settings.port).options([("statement_timeout", "5min")]);
-        let mut connection = PgConnection::connect_with(&options)
+        let mut connection = PgConnection::connect(&settings.connection_string_without_database())
             .await?;
-        tracing::info!("Connection established");
         connection
             .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
             .await?;
@@ -73,7 +65,6 @@ impl DsStorageProvider for PostgresDsStorage {
 
     /// Loads the ds group state with the group ID.
     async fn load_group_state(&self, group_id: &GroupId) -> Result<LoadState, Self::StorageError> {
-        tracing::info!("Loading group state");
         let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
@@ -114,7 +105,6 @@ impl DsStorageProvider for PostgresDsStorage {
                 }
             }
         };
-        tracing::info!("Done loading group state");
         result
     }
 
@@ -124,7 +114,6 @@ impl DsStorageProvider for PostgresDsStorage {
         group_id: &GroupId,
         encrypted_group_state: EncryptedDsGroupState,
     ) -> Result<(), Self::StorageError> {
-        tracing::info!("Saving group state");
         let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
             .map_err(|e| { 
                 tracing::warn!("Error parsing group id: {:?}", e);
@@ -157,7 +146,6 @@ impl DsStorageProvider for PostgresDsStorage {
     ///
     /// Returns false if the group ID is already taken and true otherwise.
     async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError> {
-        tracing::info!("Reserving group id");
         let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
