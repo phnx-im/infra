@@ -48,6 +48,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          # TODO: Comment this back in when the trigger is set to release
+          #tags: ${{ steps.meta.outputs.tags }}
+          tags: phnxserver:latest
           labels: ${{ steps.meta.outputs.labels }}
           file: ./server/Dockerfile
