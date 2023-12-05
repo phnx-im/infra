@@ -21,3 +21,8 @@ tls_codec = { version = "0.3.0", features = ["derive", "serde", "mls"] }
 
 [patch.crates-io]
 tls_codec = { git = 'https://github.com/RustCrypto/formats.git', rev = '3e65c66f4af19f22952200e3c5da3f035efe8e7a' }
+
+[profile.production]
+inherits = "release"
+strip = true
+codegen-units = 1

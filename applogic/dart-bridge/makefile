@@ -71,14 +71,14 @@ macos-debug:
 		$(RUST_TARGET_DIR)/aarch64-apple-darwin/debug/libphnx$(LIB_NAME).a \
 		-output macos/libphnx$(LIB_NAME).a
 
-macos-release:
+macos-production:
 	cd $(RUST_BASE_DIR) ; \
-		cargo build --target x86_64-apple-darwin --release && \
-		cargo build --target aarch64-apple-darwin --release
+		cargo build --target x86_64-apple-darwin --profile production && \
+		cargo build --target aarch64-apple-darwin --profile production
 	mkdir -p macos
 	lipo -create \
-		$(RUST_TARGET_DIR)/x86_64-apple-darwin/release/libphnx$(LIB_NAME).a \
-		$(RUST_TARGET_DIR)/aarch64-apple-darwin/release/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/x86_64-apple-darwin/production/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/aarch64-apple-darwin/production/libphnx$(LIB_NAME).a \
 		-output macos/libphnx$(LIB_NAME).a
 
 ios-debug:
@@ -98,19 +98,19 @@ ios-debug:
 		-output ios/libphnx$(LIB_NAME).xcframework
 	rm -rf ios/libphnx$(LIB_NAME).a
 
-ios-release:
+ios-production:
 	cd $(RUST_BASE_DIR) ; \
-		cargo build --target aarch64-apple-ios --release && \
-		cargo build --target aarch64-apple-ios-sim --release && \
-		cargo build --target x86_64-apple-ios --release
+		cargo build --target aarch64-apple-ios --profile production && \
+		cargo build --target aarch64-apple-ios-sim --profile production && \
+		cargo build --target x86_64-apple-ios --profile production
 	mkdir -p ios
 	lipo -create \
-		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/release/libphnx$(LIB_NAME).a \
-		$(RUST_TARGET_DIR)/x86_64-apple-ios/release/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/production/libphnx$(LIB_NAME).a \
+		$(RUST_TARGET_DIR)/x86_64-apple-ios/production/libphnx$(LIB_NAME).a \
 		-output ios/libphnx$(LIB_NAME).a
 	rm -rf ios/libphnx$(LIB_NAME).xcframework
 	xcodebuild -create-xcframework \
-		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/release/libphnx$(LIB_NAME).a \
+		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/production/libphnx$(LIB_NAME).a \
 		-library ios/libphnx$(LIB_NAME).a \
 		-output ios/libphnx$(LIB_NAME).xcframework
 	rm -rf ios/libphnx$(LIB_NAME).a
@@ -122,11 +122,11 @@ android-debug:
 	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so \
 		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
-android-release:
+android-production:
 	cd $(RUST_BASE_DIR) ; \
-		cargo ndk -t arm64-v8a build --release
+		cargo ndk -t arm64-v8a build --profile production
 	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/release/libphnx$(LIB_NAME).so \
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/production/libphnx$(LIB_NAME).so \
 		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
 linux-debug:
