@@ -30,6 +30,8 @@ jobs:
           POSTGRES_DB: phnx_db
         ports:
           - 5432:5432
+        options:
+          -N 1000
 
     steps:
       - uses: actions/checkout@v3
