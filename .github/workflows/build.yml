@@ -43,4 +43,6 @@ jobs:
       - name: Build 
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose -- --include-ignored
+        run: cargo test --verbose
+      - name: Run docker-based tests
+        run: cargo test --verbose -- --ignored
