@@ -28,10 +28,9 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           POSTGRES_DB: phnx_db
+          POSTGRES_INITDB_ARGS: -c 'max_connections=1000'
         ports:
           - 5432:5432
-        options:
-          -N 1000
 
     steps:
       - uses: actions/checkout@v3
