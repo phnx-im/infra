@@ -49,6 +49,5 @@ jobs:
           context: .
           push: true
           file: server/Dockerfile
-          #tags: ${{ steps.meta.outputs.tags }}
-          tags: phxserver:latest
-          #labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
