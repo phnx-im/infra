@@ -4,19 +4,15 @@
 
 name: Create and publish phnxserver Docker image
 
-# Configures this workflow to run every time a change is pushed to the branch called `release`.
+# Configures this workflow to run every time a release is published.
 on:
-  push:
-    branches: ['release']
-#on:
-#  release:
-#    types: [published]
+  release:
+    types: [published]
 
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
   REGISTRY: ghcr.io
-  #IMAGE_NAME: ${{ github.repository }}
-  IMAGE_NAME: ${{github.repository_owner}}/phnxserver
+  IMAGE_NAME: ${{ github.repository_owner }}/phnxserver
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
