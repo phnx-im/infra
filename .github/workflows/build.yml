@@ -28,9 +28,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: phnx_db
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -42,17 +42,6 @@ jobs:
 
     steps:
       # Increase number of postgres connections
-      - name: Install postgresql-client
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
-
-      - name: Connect to PostgreSQL with CLI
-        run: PGPASSWORD="${POSTGRES_PASSWORD}" psql -h 'localhost' -U "${POSTGRES_USER}" -c 'SELECT VERSION();'
-
-      - name: Show PostgreSQL config file
-        run: PGPASSWORD="${POSTGRES_PASSWORD}" psql -h 'localhost' -U "${POSTGRES_USER}" -c 'SHOW config_file;'
-
       - name: Alter max connections
         run: |
           docker exec -i postgres bash << EOF
@@ -61,9 +50,6 @@ jobs:
           EOF
           docker restart --time 0 postgres
           sleep 5
-
-      - name: Show max connections
-        run: PGPASSWORD="${POSTGRES_PASSWORD}" psql -h 'localhost' -U "${POSTGRES_USER}" -c 'SHOW max_connections;'
 
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
