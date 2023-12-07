@@ -14,10 +14,9 @@ use phnxtypes::{
     messages::{client_as::FriendshipPackage, FriendshipToken},
 };
 
+use crate::ConversationId;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
-use crate::ConversationId;
 
 pub(crate) mod store;
 

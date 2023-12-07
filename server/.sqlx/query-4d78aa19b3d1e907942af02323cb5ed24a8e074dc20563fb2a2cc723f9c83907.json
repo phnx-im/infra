@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4d78aa19b3d1e907942af02323cb5ed24a8e074dc20563fb2a2cc723f9c83907"
+}

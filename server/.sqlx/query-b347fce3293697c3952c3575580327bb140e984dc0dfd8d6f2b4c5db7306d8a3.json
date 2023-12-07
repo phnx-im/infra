@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE as_client_records SET remaining_tokens = $2 WHERE client_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b347fce3293697c3952c3575580327bb140e984dc0dfd8d6f2b4c5db7306d8a3"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "credential_type",
+            "kind": {
+              "Enum": [
+                "as",
+                "intermediate"
+              ]
+            }
+          }
+        },
+        "Bytea",
+        "Bytea",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3e926f0c7e9b040aae48550aed219d4effdcc99ac1b1c4dd69964a030d00cd00"
+}

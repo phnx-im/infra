@@ -176,12 +176,22 @@ impl QsStorageProvider for MemStorageProvider {
             .write()
             .map_err(|_| DeleteUserError::StorageError)?;
         // Delete the user
-        let user = users.remove(user_id).ok_or(DeleteUserError::UnknownUser)?;
+        users.remove(user_id).ok_or(DeleteUserError::UnknownUser)?;
         // Delete all KeyPackages and clients
-        for client in user.clients() {
-            key_packages.remove(client);
-            clients.remove(client);
-            queues.remove(client);
+        let user_clients = clients
+            .iter()
+            .filter_map(|(client_id, client)| {
+                if &client.user_id == user_id {
+                    Some(client_id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        for client in user_clients {
+            key_packages.remove(&client);
+            clients.remove(&client);
+            queues.remove(&client);
         }
         Ok(())
     }
@@ -191,10 +201,6 @@ impl QsStorageProvider for MemStorageProvider {
         client_record: QsClientRecord,
     ) -> Result<QsClientId, Self::CreateClientError> {
         // TODO: For now, we trust the RNG to prevent collisions.
-        let mut users = self
-            .users
-            .write()
-            .map_err(|_| CreateClientError::StorageError)?;
         let mut clients = self
             .clients
             .write()
@@ -207,11 +213,7 @@ impl QsStorageProvider for MemStorageProvider {
             .queues
             .write()
             .map_err(|_| CreateClientError::StorageError)?;
-        let user_record = users
-            .get_mut(&client_record.user_id)
-            .ok_or(CreateClientError::UnknownUser)?;
         let client_id = QsClientId::random();
-        user_record.clients_mut().push(client_id.clone());
         key_packages.insert(client_id.clone(), KeyPackages::new());
         clients.insert(client_id.clone(), client_record);
         queues.insert(client_id.clone(), QueueData::new());
@@ -242,10 +244,6 @@ impl QsStorageProvider for MemStorageProvider {
 
     async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError> {
         // Get all locks.
-        let mut users = self
-            .users
-            .write()
-            .map_err(|_| DeleteClientError::StorageError)?;
         let mut clients = self
             .clients
             .write()
@@ -259,29 +257,12 @@ impl QsStorageProvider for MemStorageProvider {
             .write()
             .map_err(|_| DeleteClientError::StorageError)?;
         // Delete the client record.
-        let client_record = clients
+        clients
             .remove(client_id)
             .ok_or(DeleteClientError::UnknownClient)?;
         key_packages.remove(client_id);
         clients.remove(client_id);
         queues.remove(client_id);
-        // Delete the client in the user record.
-        let user_id = client_record.user_id;
-        let user = users
-            .get_mut(&user_id)
-            .ok_or(DeleteClientError::UnknownUser)?;
-        let user_clients = user.clients_mut();
-        if let Some(position) = user_clients
-            .iter()
-            .position(|user_client_id| user_client_id == client_id)
-        {
-            user_clients.remove(position);
-        } else {
-            return Err(DeleteClientError::StorageError);
-        }
-        if user_clients.is_empty() {
-            users.remove(&user_id);
-        }
         Ok(())
     }
 
@@ -341,11 +322,16 @@ impl QsStorageProvider for MemStorageProvider {
         } else {
             return vec![];
         };
-        let user = if let Some((_id, record)) = users
+        let clients = if let Ok(clients) = self.clients.read() {
+            clients
+        } else {
+            return vec![];
+        };
+        let user_id = if let Some((id, _record)) = users
             .iter()
             .find(|(_user_id, user_record)| user_record.friendship_token() == friendship_token)
         {
-            record
+            id
         } else {
             return vec![];
         };
@@ -355,7 +341,14 @@ impl QsStorageProvider for MemStorageProvider {
         } else {
             return vec![];
         };
-        for client in user.clients() {
+        let user_clients = clients.iter().filter_map(|(client_id, client)| {
+            if &client.user_id == user_id {
+                Some(client_id)
+            } else {
+                None
+            }
+        });
+        for client in user_clients {
             if let Some(client_key_packages) = key_packages.get_mut(client) {
                 let client_key_package = client_key_packages
                     .load_key_package()

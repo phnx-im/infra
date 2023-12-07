@@ -6,3 +6,9 @@ application:
   port: 9420
   host: 0.0.0.0
   domain: ""
+database:
+  host: "127.0.0.1"
+  port: 5432
+  username: "postgres"
+  password: "password"
+  database_name: "phnx_db"

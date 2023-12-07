@@ -28,7 +28,7 @@ impl Qs {
                     .load_user(&user_id)
                     .await
                     .ok_or(QsProcessError::AuthenticationError)?;
-                let signature_public_key = user.auth_key;
+                let signature_public_key = user.verifying_key;
                 message
                     .verify(&signature_public_key)
                     .map_err(|_| QsProcessError::AuthenticationError)?
