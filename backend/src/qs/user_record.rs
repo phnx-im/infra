@@ -4,42 +4,34 @@
 
 use phnxtypes::{crypto::signatures::keys::QsUserVerifyingKey, messages::FriendshipToken};
 
-use super::QsClientId;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct QsUserRecord {
-    pub(crate) auth_key: QsUserVerifyingKey,
+    pub(crate) verifying_key: QsUserVerifyingKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) clients: Vec<QsClientId>,
 }
 
 impl QsUserRecord {
-    pub fn new(auth_key: QsUserVerifyingKey, friendship_token: FriendshipToken) -> Self {
+    pub fn new(verifying_key: QsUserVerifyingKey, friendship_token: FriendshipToken) -> Self {
         Self {
-            auth_key,
+            verifying_key,
             friendship_token,
-            clients: vec![],
         }
     }
 
     pub(crate) fn update(
         &mut self,
-        auth_key: QsUserVerifyingKey,
+        verifying_key: QsUserVerifyingKey,
         friendship_token: FriendshipToken,
     ) {
-        self.auth_key = auth_key;
+        self.verifying_key = verifying_key;
         self.friendship_token = friendship_token;
-    }
-
-    pub fn clients(&self) -> &[QsClientId] {
-        self.clients.as_ref()
-    }
-
-    pub fn clients_mut(&mut self) -> &mut Vec<QsClientId> {
-        &mut self.clients
     }
 
     pub fn friendship_token(&self) -> &FriendshipToken {
         &self.friendship_token
+    }
+
+    pub fn verifying_key(&self) -> &QsUserVerifyingKey {
+        &self.verifying_key
     }
 }

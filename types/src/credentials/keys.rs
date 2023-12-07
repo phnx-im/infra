@@ -27,7 +27,7 @@ use thiserror::Error;
 
 use super::{private_mod, ClientCredential, PreliminaryClientSigningKey};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsIntermediateSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: AsIntermediateCredential,
@@ -66,7 +66,7 @@ pub enum SigningKeyCreationError {
     PublicKeyMismatch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AsSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: AsCredential,

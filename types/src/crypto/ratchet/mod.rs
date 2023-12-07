@@ -98,4 +98,12 @@ impl<
     pub fn sequence_number(&self) -> u64 {
         self.sequence_number
     }
+
+    pub fn secret(&self) -> &RatchetSecret {
+        &self.secret
+    }
+
+    pub fn key(&self) -> &RatchetKey {
+        &self.key
+    }
 }

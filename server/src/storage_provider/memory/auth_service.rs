@@ -123,6 +123,14 @@ pub enum AsStorageError {
     PoisonedLock,
 }
 
+#[derive(Debug, Error, Clone)]
+pub enum AsCreateClientError {
+    #[error(transparent)]
+    AsStorageError(#[from] AsStorageError),
+    #[error("Client already exists.")]
+    DuplicateClientId,
+}
+
 const DEFAULT_NUMBER_OF_TOKENS: usize = 100;
 
 #[async_trait]
@@ -135,7 +143,7 @@ impl AsStorageProvider for MemoryAsStorage {
     type DeleteUserError = AsStorageError;
 
     type StoreClientError = AsStorageError;
-    type CreateClientError = AsStorageError;
+    type CreateClientError = AsCreateClientError;
     type DeleteClientError = AsStorageError;
 
     type EnqueueError = AsQueueError;
@@ -196,6 +204,32 @@ impl AsStorageProvider for MemoryAsStorage {
     }
 
     // === Clients ===
+
+    async fn create_client(
+        &self,
+        client_id: &AsClientId,
+        client_record: &AsClientRecord,
+    ) -> Result<(), Self::CreateClientError> {
+        let mut clients = self
+            .client_records
+            .write()
+            .map_err(|_| AsStorageError::PoisonedLock)?;
+        if clients.contains_key(client_id) {
+            return Err(AsCreateClientError::DuplicateClientId);
+        }
+        clients.insert(client_id.clone(), client_record.clone());
+        // If the client is first created, also create a queue and a token
+        // allowance.
+        self.queues
+            .write()
+            .map_err(|_| AsStorageError::PoisonedLock)?
+            .insert(client_id.clone(), QueueData::new());
+        self.remaining_tokens
+            .write()
+            .map_err(|_| AsStorageError::PoisonedLock)?
+            .insert(client_id.clone(), DEFAULT_NUMBER_OF_TOKENS);
+        Ok(())
+    }
 
     /// Load the info for the client with the given client ID.
     async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord> {

@@ -13,7 +13,8 @@ use phnxtypes::{identifiers::Fqdn, DEFAULT_PORT_HTTP};
 use crate::test_scenarios::FederationTestScenario;
 
 pub(crate) struct DockerTestBed {
-    servers: HashMap<Fqdn, Child>,
+    // (server, db)
+    servers: HashMap<Fqdn, (Child, Child)>,
     network_name: String,
 }
 
@@ -30,6 +31,8 @@ impl DockerTestBed {
             tracing::info!("Stopping docker container of server {domain}");
             let server_container_name = format!("{}_server_container", domain);
             stop_docker_container(&server_container_name);
+            let database_container_name = format!("{}_db_container", domain);
+            stop_docker_container(&database_container_name);
         }
     }
 
@@ -88,6 +91,9 @@ impl DockerTestBed {
             // No hostname required for the test container
             None,
             Some(&self.network_name),
+            None,
+            &[],
+            false,
         )
         .wait()
         .unwrap();
@@ -117,6 +123,9 @@ fn run_docker_container(
     env_variables: &[String],
     hostname_option: Option<&str>,
     network_name_option: Option<&str>,
+    port_option: Option<&str>,
+    run_parameters: &[String],
+    detach: bool,
 ) -> Child {
     let mut command = Command::new("docker");
     command.arg("run");
@@ -130,7 +139,15 @@ fn run_docker_container(
         command.args(["--hostname", hostname]);
     }
     command.args(["--name", container_name]);
-    command.args(["--rm", image_name]);
+    if let Some(port) = port_option {
+        command.args(["-p", format!("{}", port).as_str()]);
+    }
+    command.args(["--rm"]);
+    if detach {
+        command.args(["-d"]);
+    }
+    command.args([image_name]);
+    command.args(run_parameters);
     command.spawn().unwrap()
 }
 
@@ -145,28 +162,76 @@ fn stop_docker_container(container_name: &str) {
 fn create_and_start_server_container(
     server_domain: &Fqdn,
     network_name_option: Option<&str>,
-) -> Child {
+) -> (Child, Child) {
     // First go into the workspace dir s.t. we can build the docker image.
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
 
-    let image_name = "phnxserver_image";
-    let container_name = format!("{server_domain}_server_container");
+    let db_image_name = "postgres";
+    let db_container_name = format!("{server_domain}_db_container");
+    let db_domain = format!("db.{server_domain}");
+    let db_user = "postgres";
+    let db_password = "password";
+    let db_name = "phnx_server_db";
+    let db_port = "5432";
 
-    build_docker_image("server/Dockerfile", &image_name);
+    let db_domain_env_variable = format!("PHNX_DB_DOMAIN={db_domain}");
+    let db_user_env_variable = format!("POSTGRES_USER={db_user}");
+    let db_password_env_variable = format!("POSTGRES_PASSWORD={db_password}");
+    let db_name_env_variable = format!("POSTGRES_DB={db_name}");
+
+    let db = run_docker_container(
+        &db_image_name,
+        &db_container_name,
+        &[
+            db_domain_env_variable,
+            db_user_env_variable,
+            db_password_env_variable,
+            db_name_env_variable,
+        ],
+        Some(&db_domain),
+        network_name_option,
+        Some(db_port),
+        &["-N".to_string(), "1000".to_string(), "-i".to_string()],
+        false,
+    );
+
+    let server_image_name = "phnxserver_image";
+    let server_container_name = format!("{server_domain}_server_container");
+
+    build_docker_image("server/Dockerfile", &server_image_name);
 
     let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
-    run_docker_container(
-        &image_name,
-        &container_name,
-        &[server_domain_env_variable],
+    let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
+    let server_db_password_env_variable = format!("PHNX_DATABASE_PASSWORD={}", db_password);
+    let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
+    let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
+    let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
+    let server_sqlx_offline_env_variable = format!("SQLX_OFFLINE=true");
+    let server = run_docker_container(
+        &server_image_name,
+        &server_container_name,
+        &[
+            server_domain_env_variable,
+            server_host_env_variable,
+            server_db_name_env_variable,
+            server_db_user_env_variable,
+            server_db_password_env_variable,
+            server_db_port_env_variable,
+            server_sqlx_offline_env_variable,
+        ],
         Some(&server_domain.to_string()),
         network_name_option,
-    )
+        None,
+        &[],
+        false,
+    );
+
+    (server, db)
 }
 
 /// This function has to be called from the container that runs the tests.
-pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
+pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> bool {
     let mut domains = domains.into();
     let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
@@ -191,7 +256,9 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) {
         counter += 1;
     }
     if counter == 10 {
-        panic!("Servers did not come up in time");
+        return false;
+    } else {
+        return true;
     }
 }
 

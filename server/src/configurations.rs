@@ -8,8 +8,7 @@ use serde::Deserialize;
 /// Configuration for the server.
 #[derive(Deserialize, Clone)]
 pub struct Settings {
-    // TODO: Re-enable this once we have a database.
-    // database: DatabaseSettings,
+    pub database: DatabaseSettings,
     pub application: ApplicationSettings,
 }
 
@@ -29,7 +28,6 @@ pub struct DatabaseSettings {
     pub port: u16,
     pub host: String,
     pub database_name: String,
-    pub require_tls: bool,
 }
 
 impl DatabaseSettings {

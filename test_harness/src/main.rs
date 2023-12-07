@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
+use std::{collections::HashSet, process::ExitCode};
 
 use once_cell::sync::Lazy;
 use phnxserver::telemetry::{get_subscriber, init_subscriber};
@@ -35,7 +35,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 });
 
 #[tokio::main]
-async fn main() {
+async fn main() -> ExitCode {
     Lazy::force(&TRACING);
     let scenario_name = std::env::var("PHNX_TEST_SCENARIO").unwrap().into();
 
@@ -45,7 +45,9 @@ async fn main() {
         domains.insert(domain_name.into());
         counter += 1;
     }
-    wait_until_servers_are_up(domains.clone()).await;
+    if !wait_until_servers_are_up(domains.clone()).await {
+        return ExitCode::FAILURE;
+    };
     let domains_vec = domains.into_iter().collect::<Vec<_>>();
 
     match scenario_name {
@@ -57,5 +59,6 @@ async fn main() {
         FederationTestScenario::RandomizedOperations => {
             randomized_operations_runner(&domains_vec).await
         }
-    }
+    };
+    return ExitCode::SUCCESS;
 }

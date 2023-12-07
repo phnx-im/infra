@@ -69,6 +69,10 @@ impl CredentialFingerprint {
             .unwrap_or_default();
         Self { value }
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.value
+    }
 }
 
 const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
