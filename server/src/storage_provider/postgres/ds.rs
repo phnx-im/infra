@@ -4,18 +4,15 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
-use mls_assist::openmls::group::GroupId;
 use phnxbackend::ds::{
-    group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION_DAYS,
+    GenericLoadState, GROUP_STATE_EXPIRATION_DAYS, DsGenericStorageProvider, DsStorageProvider,
 };
 use phnxtypes::{
-    crypto::ear::Ciphertext,
-    identifiers::{Fqdn, SealedClientReference, QualifiedGroupId},
+    identifiers::{Fqdn},
     time::TimeStamp,
 };
 use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor};
 use thiserror::Error;
-use tls_codec::DeserializeBytes;
 
 use crate::configurations::DatabaseSettings;
 
@@ -60,14 +57,16 @@ pub enum PostgresStorageError {
 }
 
 #[async_trait]
-impl DsStorageProvider for PostgresDsStorage {
+impl<GroupCiphertext, GroupCiphertextId> DsGenericStorageProvider<GroupCiphertext, GroupCiphertextId> for PostgresDsStorage 
+where 
+    GroupCiphertext: serde::Serialize + serde::de::DeserializeOwned + std::fmt::Debug + Sync + Send,
+    GroupCiphertextId: AsRef<[u8; 16]> + std::fmt::Debug + Sync + Send,
+{
     type StorageError = PostgresStorageError;
 
     /// Loads the ds group state with the group ID.
-    async fn load_group_state(&self, group_id: &GroupId) -> Result<LoadState, Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
-            .map_err(|_| PostgresStorageError::InvalidInput)?;
-        let group_uuid = Uuid::from_bytes(qgid.group_id);
+    async fn load_group_state(&self, group_id: &GroupCiphertextId) -> Result<GenericLoadState<GroupCiphertext>, Self::StorageError> {
+        let group_uuid = Uuid::from_bytes(group_id.as_ref().clone());
 
         let record = sqlx::query!(
             "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
@@ -78,7 +77,7 @@ impl DsStorageProvider for PostgresDsStorage {
         }
         )?;
         // A group id is reserved if it is in the database but has an empty
-        // ciphertext and deleted queues.
+        // ciphertext.
         let ciphertext_bytes: Vec<u8> = record.ciphertext;
         let deleted_queues_bytes: Vec<u8> = record.deleted_queues;
         // TODO: We need a canonical version to signal if a group id is
@@ -86,51 +85,37 @@ impl DsStorageProvider for PostgresDsStorage {
         // to remove the NON NULL requirement for ciphertexts. Also leave a TODO
         // that there is probably a better way of doing this.
         
-        let result = match (ciphertext_bytes.as_slice(), deleted_queues_bytes.as_slice()) {
-            ([], []) => Ok(LoadState::Reserved(TimeStamp::from(record.last_used))),
-            (ciphertext_bytes, deleted_queues_bytes) => {
-                let ciphertext: Ciphertext = serde_json::from_slice(ciphertext_bytes)?;
+        if ciphertext_bytes.is_empty() {
+            Ok(GenericLoadState::Reserved(TimeStamp::from(record.last_used))) } else {
+                let ciphertext: GroupCiphertext = serde_json::from_slice(&ciphertext_bytes)?;
                 let last_used = TimeStamp::from(record.last_used);
                 if last_used.has_expired(GROUP_STATE_EXPIRATION_DAYS) {
-                    Ok(LoadState::Expired)
+                    Ok(GenericLoadState::Expired)
                 } else {
-                    let deleted_queues: Vec<SealedClientReference> =
-                        serde_json::from_slice(deleted_queues_bytes)?;
-                    let encrypted_group_state = EncryptedDsGroupState {
-                        ciphertext,
-                        last_used,
-                        deleted_queues,
-                    };
-                    Ok(LoadState::Success(encrypted_group_state))
-                }
-            }
-        };
-        result
+                    Ok(GenericLoadState::Success(ciphertext))
+                    }
+    }
     }
 
     /// Saves the ds group state with the group ID.
     async fn save_group_state(
         &self,
-        group_id: &GroupId,
-        encrypted_group_state: EncryptedDsGroupState,
-    ) -> Result<(), Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
-            .map_err(|e| { 
-                tracing::warn!("Error parsing group id: {:?}", e);
-                PostgresStorageError::InvalidInput 
-            })?;
-        let group_uuid = Uuid::from_bytes(qgid.group_id);
+        group_id: &GroupCiphertextId,
+        encrypted_group_state: GroupCiphertext,
+    ) -> Result<(), Self::StorageError> 
+    where
+        GroupCiphertext: 'async_trait, 
+    {
+        let group_uuid = Uuid::from_bytes(group_id.as_ref().clone());
         let last_used = Utc::now();
-        let deleted_queues = serde_json::to_vec(&encrypted_group_state.deleted_queues)?;
-        let ciphertext = serde_json::to_vec(&encrypted_group_state.ciphertext)?;
+        let ciphertext = serde_json::to_vec(&encrypted_group_state)?;
 
         // Insert the group state into the database.
         sqlx::query!(
-            r#"UPDATE encrypted_groups SET ciphertext = $2, last_used = $3, deleted_queues = $4 WHERE group_id = $1"#,
+            r#"UPDATE encrypted_groups SET ciphertext = $2, last_used = $3 WHERE group_id = $1"#,
             group_uuid,
             ciphertext,
             last_used,
-            deleted_queues
         )
         .execute(&self.pool)
         .await.map_err(|e| { 
@@ -145,10 +130,8 @@ impl DsStorageProvider for PostgresDsStorage {
     /// Reserves the ds group state slot with the given group ID.
     ///
     /// Returns false if the group ID is already taken and true otherwise.
-    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
-            .map_err(|_| PostgresStorageError::InvalidInput)?;
-        let group_uuid = Uuid::from_bytes(qgid.group_id);
+    async fn reserve_group_id(&self, group_id: &GroupCiphertextId) -> Result<bool, Self::StorageError> {
+        let group_uuid = Uuid::from_bytes(group_id.as_ref().clone());
 
         // This can probably be optimized to do only one query.
         let existing_entry = sqlx::query!(
@@ -183,3 +166,5 @@ impl DsStorageProvider for PostgresDsStorage {
         self.own_domain.clone()
     }
 }
+
+impl DsStorageProvider for PostgresDsStorage {}
