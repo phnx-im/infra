@@ -72,6 +72,12 @@ pub struct QualifiedGroupId {
     pub owning_domain: Fqdn,
 }
 
+impl AsRef<[u8; 16]> for QualifiedGroupId {
+    fn as_ref(&self) -> &[u8; 16] {
+        &self.group_id
+    }
+}
+
 impl std::fmt::Display for QualifiedGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let uuid = Uuid::from_bytes(self.group_id);

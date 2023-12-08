@@ -154,7 +154,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsSerialize, TlsSize};
+use tls_codec::{DeserializeBytes, Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
 use phnxtypes::{
@@ -215,8 +215,12 @@ impl DsApi {
 
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
+        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).map_err(|e| {
+            tracing::warn!("Error parsing group id: {:?}", e);
+            DsProcessingError::InvalidMessage
+        })?;
         let mut group_state = match ds_storage_provider
-            .load_group_state(&group_id)
+            .load_group_state(&qgid)
             .await
             .map_err(|_| DsProcessingError::StorageError)?
         {
@@ -464,12 +468,6 @@ impl DsApi {
         // group state if it has actually changed.
 
         if group_state_has_changed {
-            let group_id = group_state
-                .group()
-                .group_info()
-                .group_context()
-                .group_id()
-                .clone();
             // ... before we distribute the message, we encrypt ...
             let encrypted_group_state = Into::<SerializableDsGroupState>::into(group_state)
                 .encrypt(&ear_key)
@@ -480,7 +478,7 @@ impl DsApi {
 
             // ... and store the modified group state.
             ds_storage_provider
-                .save_group_state(&group_id, encrypted_group_state)
+                .save_group_state(&qgid, encrypted_group_state)
                 .await
                 .map_err(|_| DsProcessingError::StorageError)?;
         }
@@ -513,23 +511,25 @@ impl DsApi {
         Ok(response_option.unwrap_or(DsProcessResponse::Ok))
     }
 
-    async fn generate_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
+    async fn generate_group_id<Dsp: DsStorageProvider>(
+        ds_storage_provider: &Dsp,
+    ) -> QualifiedGroupId {
         let id = Uuid::new_v4().to_bytes_le();
         let owning_domain = ds_storage_provider.own_domain().await;
-        let qgid = QualifiedGroupId {
+        QualifiedGroupId {
             group_id: id,
             owning_domain,
-        };
-        GroupId::from_slice(&qgid.tls_serialize_detached().unwrap())
+        }
     }
 
     pub async fn request_group_id<Dsp: DsStorageProvider>(
         ds_storage_provider: &Dsp,
     ) -> Result<DsProcessResponse, Dsp::StorageError> {
-        let mut group_id = Self::generate_group_id(ds_storage_provider).await;
-        while !ds_storage_provider.reserve_group_id(&group_id).await? {
-            group_id = Self::generate_group_id(ds_storage_provider).await;
+        let mut qgid = Self::generate_group_id(ds_storage_provider).await;
+        while !ds_storage_provider.reserve_group_id(&qgid).await? {
+            qgid = Self::generate_group_id(ds_storage_provider).await;
         }
+        let group_id = GroupId::from_slice(&qgid.tls_serialize_detached().unwrap());
         Ok(DsProcessResponse::GroupId(group_id))
     }
 }

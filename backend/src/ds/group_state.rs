@@ -255,7 +255,7 @@ impl DsGroupState {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptedDsGroupState {
     pub ciphertext: Ciphertext,
     pub last_used: TimeStamp,

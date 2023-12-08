@@ -13,7 +13,10 @@ use phnxtypes::{
 use sqlx::types::Uuid;
 use tls_codec::Serialize;
 
-use crate::{configurations::get_configuration, storage_provider::postgres::ds::PostgresDsStorage};
+use crate::{
+    configurations::get_configuration,
+    storage_provider::postgres::ds::{PostgresDsStorage, PostgresStorageError},
+};
 
 async fn initialize_test_provider() -> PostgresDsStorage {
     let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
@@ -26,7 +29,8 @@ async fn initialize_test_provider() -> PostgresDsStorage {
 
 #[actix_rt::test]
 async fn reserve_group_id() {
-    let storage_provider = initialize_test_provider().await;
+    let storage_provider: Box<dyn DsStorageProvider<StorageError = PostgresStorageError>> =
+        Box::new(initialize_test_provider().await);
 
     // Sample a random group id and reserve it
     let group_uuid = Uuid::new_v4().as_bytes().clone();
@@ -34,16 +38,16 @@ async fn reserve_group_id() {
         group_id: group_uuid,
         owning_domain: Fqdn::from("example.com"),
     };
-    let group_id = GroupId::from_slice(&qgid.tls_serialize_detached().unwrap());
+    //let group_id = GroupId::from_slice(&qgid.tls_serialize_detached().unwrap());
     let was_reserved = storage_provider
-        .reserve_group_id(&group_id)
+        .reserve_group_id(&qgid)
         .await
         .expect("Error reserving group id.");
     assert!(was_reserved);
 
     // Try to reserve the same group id again
     let was_reserved_again = storage_provider
-        .reserve_group_id(&group_id)
+        .reserve_group_id(&qgid)
         .await
         .expect("Error reserving group id.");
 
@@ -53,34 +57,32 @@ async fn reserve_group_id() {
 
 #[actix_rt::test]
 async fn group_state_lifecycle() {
-    let storage_provider = initialize_test_provider().await;
+    let storage_provider: Box<dyn DsStorageProvider<StorageError = PostgresStorageError>> =
+        Box::new(initialize_test_provider().await);
 
     let dummy_ciphertext = Ciphertext::dummy();
     let test_state: EncryptedDsGroupState = dummy_ciphertext.into();
 
     // Create/store a dummy group state
-    let qgid_bytes = QualifiedGroupId {
+    let qgid = QualifiedGroupId {
         group_id: Uuid::new_v4().into_bytes(),
         owning_domain: Fqdn::from("example.com"),
-    }
-    .tls_serialize_detached()
-    .unwrap();
-    let group_id = GroupId::from_slice(&qgid_bytes);
+    };
     let was_reserved = storage_provider
-        .reserve_group_id(&group_id)
+        .reserve_group_id(&qgid)
         .await
         .expect("Error reserving group id.");
     assert!(was_reserved);
 
     // Save the group state
     storage_provider
-        .save_group_state(&group_id, test_state.clone())
+        .save_group_state(&qgid, test_state.clone())
         .await
         .expect("Error saving group state.");
 
     // Load the group state again
     let loaded_group_state = storage_provider
-        .load_group_state(&group_id)
+        .load_group_state(&qgid)
         .await
         .expect("Error loading group state.");
 
@@ -92,7 +94,7 @@ async fn group_state_lifecycle() {
 
     // Try to reserve the group id of the created group state
     let successfully_reserved = storage_provider
-        .reserve_group_id(&group_id)
+        .reserve_group_id(&qgid)
         .await
         .expect("Error reserving group id.");
 
@@ -104,7 +106,7 @@ async fn group_state_lifecycle() {
     let changed_test_state: EncryptedDsGroupState = changed_dummy_ciphertext.into();
 
     storage_provider
-        .save_group_state(&group_id, changed_test_state)
+        .save_group_state(&qgid, changed_test_state)
         .await
         .expect("Error saving group state.");
 }
