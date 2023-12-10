@@ -11,7 +11,6 @@ use phnxtypes::{
     keypackage_batch::QsEncryptedAddPackage,
     messages::{FriendshipToken, QueueMessage},
 };
-use tls_codec::{DeserializeBytes, Serialize, Size};
 
 use super::{
     client_record::QsClientRecord, user_record::QsUserRecord, Fqdn, QsClientId, QsConfig,
@@ -21,23 +20,23 @@ use super::{
 /// Storage provider trait for the QS.
 #[async_trait]
 pub trait QsStorageProvider: Sync + Send + Debug + 'static {
-    type CreateUserError: Error + Debug + Clone;
-    type StoreUserError: Error + Debug + Clone + Serialize + Size + DeserializeBytes;
-    type DeleteUserError: Error + Debug + Clone;
+    type CreateUserError: Error + Debug;
+    type StoreUserError: Error + Debug;
+    type DeleteUserError: Error + Debug;
 
-    type StoreClientError: Error + Debug + Clone;
-    type CreateClientError: Error + Debug + Clone + Serialize + Size + DeserializeBytes;
-    type DeleteClientError: Error + Debug + Clone;
+    type StoreClientError: Error + Debug;
+    type CreateClientError: Error + Debug;
+    type DeleteClientError: Error + Debug;
 
-    type EnqueueError: Error + Debug + Clone;
-    type ReadAndDeleteError: Error + Debug + Clone;
+    type EnqueueError: Error + Debug;
+    type ReadAndDeleteError: Error + Debug;
 
-    type StoreKeyPackagesError: Error + Debug + Clone;
+    type StoreKeyPackagesError: Error + Debug;
 
-    type LoadSigningKeyError: Error + Debug + Clone;
-    type LoadDecryptionKeyError: Error + Debug + Clone;
+    type LoadSigningKeyError: Error + Debug;
+    type LoadDecryptionKeyError: Error + Debug;
 
-    type LoadConfigError: Error + Debug + Clone;
+    type LoadConfigError: Error + Debug;
 
     async fn own_domain(&self) -> Fqdn;
 
@@ -121,7 +120,6 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
 
     /// Return a key package for a specific client. The user ID is used to check if
     /// the client belongs to the user.
-    /// TODO: Last resort key package
     /// TODO: This should probably check for expired KeyPackages
     async fn load_key_package(
         &self,

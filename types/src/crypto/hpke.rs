@@ -139,7 +139,7 @@ impl ClientIdEncryptionKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientIdDecryptionKey {
     private_key: DecryptionPrivateKey,
     encryption_key: ClientIdEncryptionKey,

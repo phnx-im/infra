@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a609eb37c43836644a62fcad427b5d9024c81f019c9fb607f4a3397da0538b2"
+}

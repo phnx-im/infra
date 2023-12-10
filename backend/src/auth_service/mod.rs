@@ -65,10 +65,6 @@ ACTION_AS_CREDENTIALS
 
 // === User ===
 
-pub struct AsUserId {
-    pub client_id: Vec<u8>,
-}
-
 #[derive(Debug, Clone)]
 pub struct AsUserRecord {
     _user_name: UserName,
@@ -94,7 +90,21 @@ pub struct AsClientRecord {
     pub credential: ClientCredential,
 }
 
-impl AsClientRecord {}
+impl AsClientRecord {
+    pub fn new(
+        queue_encryption_key: RatchetEncryptionKey,
+        ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
+        activity_time: TimeStamp,
+        credential: ClientCredential,
+    ) -> Self {
+        Self {
+            queue_encryption_key,
+            ratchet_key,
+            activity_time,
+            credential,
+        }
+    }
+}
 
 pub struct AuthService {}
 

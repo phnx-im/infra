@@ -17,10 +17,11 @@ use phnxtypes::{
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
+use uuid::Uuid;
 
 use crate::{qs_api::ws::WsEvent, ApiClient};
 
-static QUEUE_ID_VALUE: &[u8; 3] = &[1, 2, 3];
+static QUEUE_ID_VALUE: Uuid = Uuid::nil();
 
 #[tokio::test]
 async fn ws_lifecycle() {
@@ -33,7 +34,7 @@ async fn ws_lifecycle() {
     // Execute the server in the background
     let _ = tokio::spawn(server);
 
-    let queue_id = QsClientId::from_bytes(QUEUE_ID_VALUE.to_vec());
+    let queue_id = QsClientId::from(QUEUE_ID_VALUE);
 
     // Websocket parameters
     let timeout = 1;
@@ -122,10 +123,7 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     };
 
     // Check the queue id value
-    assert_eq!(
-        qs_open_ws_params.queue_id.as_slice(),
-        QUEUE_ID_VALUE.as_slice()
-    );
+    assert_eq!(qs_open_ws_params.queue_id.as_uuid(), &QUEUE_ID_VALUE);
 
     // Extract the queue ID
     let qs_ws_connection = QsWsConnection::new();

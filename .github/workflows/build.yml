@@ -16,12 +16,41 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: password
+  POSTGRES_DB: phnx_db
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --name postgres
+        ports:
+          - 5432:5432
 
     steps:
+      # Increase number of postgres connections
+      - name: Alter max connections
+        run: |
+          docker exec -i postgres bash << EOF
+            sed -i -e 's/max_connections = 100/max_connections = 1000/' /var/lib/postgresql/data/postgresql.conf
+            sed -i -e 's/shared_buffers = 128MB/shared_buffers = 2GB/' /var/lib/postgresql/data/postgresql.conf
+          EOF
+          docker restart --time 0 postgres
+          sleep 5
+
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
         with:
@@ -33,4 +62,6 @@ jobs:
       - name: Build 
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose -- --include-ignored
+        run: cargo test --verbose
+      - name: Run docker-based tests
+        run: cargo test --verbose -- --ignored

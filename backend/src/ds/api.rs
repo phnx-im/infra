@@ -197,8 +197,8 @@ impl DsApi {
             DsMessageTypeIn::NonGroup => {
                 Self::request_group_id(ds_storage_provider)
                     .await
-                    .map_err(|_| {
-                        tracing::warn!("Could not generate group id");
+                    .map_err(|e| {
+                        tracing::warn!("Could not generate group id: {:?}", e);
                         DsProcessingError::StorageError
                     })
             }
@@ -215,7 +215,11 @@ impl DsApi {
 
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
-        let mut group_state = match ds_storage_provider.load_group_state(&group_id).await {
+        let mut group_state = match ds_storage_provider
+            .load_group_state(&group_id)
+            .await
+            .map_err(|_| DsProcessingError::StorageError)?
+        {
             LoadState::Success(encrypted_group_state) => {
                 SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
                     .map_err(|_| DsProcessingError::CouldNotDecrypt)?

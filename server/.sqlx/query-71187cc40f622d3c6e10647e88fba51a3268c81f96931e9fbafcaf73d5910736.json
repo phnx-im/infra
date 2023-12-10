@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE qs_client_records SET user_id = $2, encrypted_push_token = $3, owner_public_key = $4, owner_signature_key = $5, ratchet = $6, activity_time = $7 WHERE client_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bytea",
+        "Bytea",
+        "Bytea",
+        "Bytea",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "71187cc40f622d3c6e10647e88fba51a3268c81f96931e9fbafcaf73d5910736"
+}

@@ -43,3 +43,12 @@ impl Default for Ciphertext {
         }
     }
 }
+
+impl Ciphertext {
+    pub fn dummy() -> Self {
+        Self {
+            ciphertext: VLBytes::new(vec![1u8; 32]),
+            nonce: [1u8; AEAD_NONCE_SIZE],
+        }
+    }
+}
