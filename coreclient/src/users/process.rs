@@ -8,7 +8,6 @@ use phnxtypes::{
     identifiers::QualifiedGroupId,
     messages::{
         client_as::ExtractedAsQueueMessagePayload,
-        client_as_out::ConnectionEstablishmentPackageIn,
         client_ds::{
             ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload,
             JoinConnectionGroupParamsAad,
@@ -21,7 +20,7 @@ use tls_codec::DeserializeBytes;
 
 use crate::conversations::ConversationType;
 
-use super::*;
+use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
 impl<T: Notifiable> SelfUser<T> {
     /// Process received messages by group. This function is meant to be called

@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::GroupId;
-use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     credentials::{
@@ -11,21 +10,13 @@ use crate::{
         VerifiableAsIntermediateCredential, VerifiableClientCredential,
     },
     crypto::{
-        ear::{
-            keys::{
-                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey,
-                SignatureEarKeyWrapperKey,
-            },
-            GenericDeserializable,
-        },
-        hpke::HpkeDecryptable,
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
-            signable::{Signature, Verifiable, VerifiedStruct},
+            signable::{Signature, Verifiable},
             traits::SignatureVerificationError,
         },
-        ConnectionDecryptionKey, ConnectionEncryptionKey, RatchetEncryptionKey,
+        ConnectionEncryptionKey, RatchetEncryptionKey,
     },
     identifiers::AsClientId,
     time::ExpirationData,
@@ -35,13 +26,11 @@ use super::{
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
         AsDequeueMessagesParams, AsPublishConnectionPackagesParams, ClientCredentialAuthenticator,
-        ConnectionEstablishmentPackageTbs, ConnectionPackage, ConnectionPackageTbs,
-        DeleteClientParams, DeleteUserParams, EncryptedConnectionEstablishmentPackage,
-        EnqueueMessageParams, FinishClientAdditionParams, FriendshipPackage,
-        Init2FactorAuthResponse, InitUserRegistrationParams, Initiate2FaAuthenticationParams,
-        InitiateClientAdditionParams, IssueTokensParams, IssueTokensResponse, NoAuth,
-        TwoFactorAuthenticator, UserClientsParams, UserConnectionPackagesParams,
-        VerifiedAsRequestParams,
+        ConnectionPackage, ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
+        EnqueueMessageParams, FinishClientAdditionParams, Init2FactorAuthResponse,
+        InitUserRegistrationParams, Initiate2FaAuthenticationParams, InitiateClientAdditionParams,
+        IssueTokensParams, IssueTokensResponse, NoAuth, TwoFactorAuthenticator, UserClientsParams,
+        UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
     MlsInfraVersion,
@@ -276,94 +265,5 @@ impl AsRequestParamsIn {
             Self::InitiateClientAddition(params) => AsAuthMethod::None(params.into_verified()),
             Self::AsCredentials(params) => AsAuthMethod::None(params.into_verified()),
         }
-    }
-}
-
-mod private_mod {
-    #[derive(Default)]
-    pub struct Seal;
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct ConnectionEstablishmentPackageTbsIn {
-    sender_client_credential: VerifiableClientCredential,
-    connection_group_id: GroupId,
-    connection_group_ear_key: GroupStateEarKey,
-    connection_group_credential_key: ClientCredentialEarKey,
-    connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    pub friendship_package_ear_key: FriendshipPackageEarKey,
-    friendship_package: FriendshipPackage,
-}
-
-impl VerifiedStruct<ConnectionEstablishmentPackageIn> for ConnectionEstablishmentPackageTbsIn {
-    type SealingType = private_mod::Seal;
-
-    fn from_verifiable(
-        verifiable: ConnectionEstablishmentPackageIn,
-        _seal: Self::SealingType,
-    ) -> Self {
-        verifiable.payload
-    }
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct ConnectionEstablishmentPackageIn {
-    payload: ConnectionEstablishmentPackageTbsIn,
-    // TBS: All information above signed by the ClientCredential.
-    signature: Signature,
-}
-
-impl GenericDeserializable for ConnectionEstablishmentPackageIn {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
-    }
-}
-
-impl ConnectionEstablishmentPackageIn {
-    pub fn sender_credential(&self) -> &VerifiableClientCredential {
-        &self.payload.sender_client_credential
-    }
-
-    pub fn verify(
-        self,
-        verifying_key: &AsIntermediateVerifyingKey,
-    ) -> ConnectionEstablishmentPackageTbs {
-        let sender_client_credential: ClientCredential = self
-            .payload
-            .sender_client_credential
-            .verify(verifying_key)
-            .unwrap();
-        ConnectionEstablishmentPackageTbs {
-            sender_client_credential,
-            connection_group_id: self.payload.connection_group_id,
-            connection_group_ear_key: self.payload.connection_group_ear_key,
-            connection_group_credential_key: self.payload.connection_group_credential_key,
-            connection_group_signature_ear_key_wrapper_key: self
-                .payload
-                .connection_group_signature_ear_key_wrapper_key,
-            friendship_package_ear_key: self.payload.friendship_package_ear_key,
-            friendship_package: self.payload.friendship_package,
-        }
-    }
-}
-
-impl HpkeDecryptable<ConnectionDecryptionKey, EncryptedConnectionEstablishmentPackage>
-    for ConnectionEstablishmentPackageIn
-{
-}
-
-impl Verifiable for ConnectionEstablishmentPackageIn {
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.payload.tls_serialize_detached()
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    fn label(&self) -> &str {
-        "ConnectionEstablishmentPackageTBS"
     }
 }

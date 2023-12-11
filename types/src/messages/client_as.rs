@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{openmls::prelude::GroupId, openmls_traits::types::HpkeCiphertext};
+use mls_assist::openmls_traits::types::HpkeCiphertext;
 use privacypass::batched_tokens::{TokenRequest, TokenResponse};
 
 use tls_codec::{
@@ -20,13 +20,11 @@ use crate::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey,
-                GroupStateEarKey, RatchetKey, SignatureEarKeyWrapperKey,
-                WelcomeAttributionInfoEarKey,
+                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, RatchetKey,
+                SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
             Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
-        hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
         opaque::{
             OpaqueLoginFinish, OpaqueLoginRequest, OpaqueLoginResponse, OpaqueRegistrationRecord,
@@ -527,55 +525,6 @@ impl From<Ciphertext> for EncryptedFriendshipPackage {
 
 impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
 impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
-
-#[derive(Debug, TlsSerialize, TlsSize, Clone)]
-pub struct ConnectionEstablishmentPackageTbs {
-    pub sender_client_credential: ClientCredential,
-    pub connection_group_id: GroupId,
-    pub connection_group_ear_key: GroupStateEarKey,
-    pub connection_group_credential_key: ClientCredentialEarKey,
-    pub connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    pub friendship_package_ear_key: FriendshipPackageEarKey,
-    pub friendship_package: FriendshipPackage,
-}
-
-impl Signable for ConnectionEstablishmentPackageTbs {
-    type SignedOutput = ConnectionEstablishmentPackage;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        "ConnectionEstablishmentPackageTBS"
-    }
-}
-
-#[derive(Debug, TlsSerialize, TlsSize, Clone)]
-pub struct ConnectionEstablishmentPackage {
-    payload: ConnectionEstablishmentPackageTbs,
-    // TBS: All information above signed by the ClientCredential.
-    signature: Signature,
-}
-
-impl GenericSerializable for ConnectionEstablishmentPackage {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
-impl HpkeEncryptable<ConnectionEncryptionKey, EncryptedConnectionEstablishmentPackage>
-    for ConnectionEstablishmentPackage
-{
-}
-
-impl SignedStruct<ConnectionEstablishmentPackageTbs> for ConnectionEstablishmentPackage {
-    fn from_payload(payload: ConnectionEstablishmentPackageTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct EncryptedConnectionEstablishmentPackage {

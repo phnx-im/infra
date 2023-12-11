@@ -36,10 +36,7 @@ use phnxtypes::{
     },
     identifiers::{AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, UserName},
     messages::{
-        client_as::{
-            ConnectionEstablishmentPackageTbs, ConnectionPackageTbs, FriendshipPackage,
-            UserConnectionPackagesParams,
-        },
+        client_as::{ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
@@ -60,6 +57,7 @@ use crate::{
         qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
         queue_ratchets::QueueType, MemoryUserKeyStore,
     },
+    users::connection_establishment::ConnectionEstablishmentPackageTbs,
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -73,6 +71,7 @@ use self::{
 use super::*;
 
 pub(crate) mod api_clients;
+mod connection_establishment;
 mod create_user;
 pub(crate) mod openmls_provider;
 pub mod process;
