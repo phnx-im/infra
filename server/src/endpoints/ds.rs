@@ -14,15 +14,6 @@ use phnxtypes::messages::client_ds::DsMessageTypeIn;
 use tls_codec::{DeserializeBytes, Serialize};
 
 /// DS endpoint for all group-based functionalities.
-#[utoipa::path(
-    post,
-    path = "{ENDPOINT_DS_GROUPS}",
-    tag = "DS GROUPS",
-    request_body = VerifiableClientToDsMessage,
-    responses(
-        (status = 200, description = "Message processed successfully."),
-    )
-)]
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
 pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>(
     message: web::Bytes,
