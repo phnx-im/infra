@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM qs_client_records WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "encrypted_push_token",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "owner_public_key",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 4,
+        "name": "owner_signature_key",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 5,
+        "name": "ratchet",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 6,
+        "name": "activity_time",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3bd4644e3de9e2325fd4a276293ec77ff2e2d45974cf3dacb991bb4e7ad34412"
+}

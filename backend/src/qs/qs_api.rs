@@ -13,7 +13,7 @@ use super::{
     storage_provider_trait::QsStorageProvider, Qs, QsVerifyingKey, WebsocketNotifier,
 };
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum FederatedProcessingError<S: QsStorageProvider, N: NetworkProvider> {
     /// Error enqueueing message
     #[error(transparent)]

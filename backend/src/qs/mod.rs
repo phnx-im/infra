@@ -75,6 +75,7 @@ use mls_assist::{
     openmls::prelude::{OpenMlsCrypto, OpenMlsProvider},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::messages::intra_backend::DsFanOutMessage;
 
@@ -115,7 +116,7 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QsSigningKey {
     signing_key: Vec<u8>,
     verifiying_key: QsVerifyingKey,
@@ -148,7 +149,7 @@ impl AsRef<[u8]> for QsSigningKey {
 
 impl SigningKey for QsSigningKey {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QsConfig {
     pub domain: Fqdn,
 }
