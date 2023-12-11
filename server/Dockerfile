@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Using 1.69 for now. 1.70 gives me an E0519 error when building the
-# dependencies.
-FROM lukemathwalker/cargo-chef:latest-rust-1.69.0 as chef
+FROM lukemathwalker/cargo-chef:latest-rust-latest as chef
 WORKDIR /app
 
 FROM chef as planner
@@ -22,7 +20,7 @@ ENV SQLX_OFFLINE true
 
 RUN cargo build --release --bin phnxserver
 
-FROM debian:bullseye-slim AS runtime
+FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
