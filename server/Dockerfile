@@ -4,7 +4,7 @@
 
 # Using 1.69 for now. 1.70 gives me an E0519 error when building the
 # dependencies.
-FROM lukemathwalker/cargo-chef:latest-rust-1.69.0 as chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.74.1 as chef
 WORKDIR /app
 
 FROM chef as planner
