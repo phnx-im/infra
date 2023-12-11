@@ -44,12 +44,16 @@ async fn main() -> std::io::Result<()> {
     let base_db_name = configuration.database.database_name.clone();
     // DS storage provider
     configuration.database.database_name = format!("{}_ds", base_db_name);
-    tracing::info!("Connecting to postgres server");
+    tracing::info!(
+        "Connecting to postgres server at {}.",
+        configuration.database.host
+    );
     let mut counter = 0;
     let mut ds_provider_result =
         PostgresDsStorage::new(&configuration.database, domain.clone()).await;
     // Try again for 10 times each second in case the postgres server is coming up.
     while let Err(e) = ds_provider_result {
+        tracing::info!("Failed to connect to postgres server: {}", e);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         counter += 1;
         if counter > 10 {
