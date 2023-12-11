@@ -20,14 +20,6 @@ use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod ws;
 
-#[utoipa::path(
-    get,
-    path = "{QS_ENDPOINT}",
-    tag = "QS",
-    responses(
-        (status = 200, description = "Processed QS request."),
-    )
-)]
 #[tracing::instrument(name = "Process QS message", skip_all)]
 pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     qs_storage_provider: Data<Arc<Qsp>>,
@@ -60,14 +52,6 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "{QS_ENDPOINT_FEDERATION}",
-    tag = "QS",
-    responses(
-        (status = 200, description = "Processed federated QS request."),
-    )
-)]
 #[tracing::instrument(name = "Process federated QS message", skip_all)]
 pub(crate) async fn qs_process_federated_message<
     S: QsStorageProvider,

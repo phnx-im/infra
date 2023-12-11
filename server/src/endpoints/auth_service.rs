@@ -13,15 +13,6 @@ use tls_codec::{DeserializeBytes, Serialize};
 use super::*;
 
 /// DS endpoint for all group-based functionalities.
-#[utoipa::path(
-    post,
-    path = "{ENDPOINT_AS}",
-    tag = "AS",
-    request_body = VerifiableClientToAsMessage,
-    responses(
-        (status = 200, description = "Message processed successfully."),
-    )
-)]
 #[tracing::instrument(name = "Perform AS operation", skip_all)]
 pub(crate) async fn as_process_message<Asp: AsStorageProvider, Aesp: AsEphemeralStorageProvider>(
     message: web::Bytes,
