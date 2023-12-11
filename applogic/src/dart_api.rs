@@ -15,7 +15,7 @@ pub use crate::types::{
 };
 use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
-    users::SelfUser,
+    users::{store::ClientRecord, SelfUser},
     NotificationType,
 };
 
@@ -71,6 +71,21 @@ impl UserBuilder {
         }
     }
 
+    pub fn load_default(&self, stream_sink: StreamSink<UiNotificationType>) -> Result<()> {
+        let user = RustUser::load_default(stream_sink.clone())?;
+        if let Ok(mut inner_user) = self.user.try_lock() {
+            let _ = inner_user.insert(user);
+            // Send an initial notification to the flutter side, since this
+            // function cannot be async
+            stream_sink.add(UiNotificationType::ConversationChange(
+                ConversationIdBytes { bytes: [0; 16] },
+            ));
+            Ok(())
+        } else {
+            return Err(anyhow::anyhow!("Could not acquire lock"));
+        }
+    }
+
     pub fn create_user(
         &self,
         user_name: String,
@@ -121,6 +136,28 @@ impl RustUser {
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let user = SelfUser::new(&user_name, &password, address, notification_hub).await?;
+        Ok(Self {
+            user: RustOpaque::new(Mutex::new(user)),
+        })
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    async fn load_default(stream_sink: StreamSink<UiNotificationType>) -> Result<RustUser> {
+        let client_record = ClientRecord::load_all()?.pop().ok_or_else(|| {
+            anyhow::anyhow!("No user found. Please create a user first using createUser")
+        })?;
+        let dart_notifier = DartNotifier { stream_sink };
+        let mut notification_hub = NotificationHub::<DartNotifier>::default();
+        notification_hub.add_sink(dart_notifier.notifier());
+        let as_client_id = client_record.as_client_id;
+        let user = SelfUser::load(as_client_id.clone(), notification_hub)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Could not load user with client_id {}",
+                    as_client_id.to_string()
+                )
+            })?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
         })
