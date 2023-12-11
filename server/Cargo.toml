@@ -42,7 +42,6 @@ tracing-subscriber = { version = "0.3.11", features = [
 ] }
 tracing-bunyan-formatter = "0.3"
 tracing-actix-web = "0.5"
-utoipa = { version = "2", features = ["actix_extras"] }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls.git", branch = "konrad/pgi_2" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
