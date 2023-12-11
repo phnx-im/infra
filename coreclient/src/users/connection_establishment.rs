@@ -8,28 +8,35 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey,
-                SignatureEarKeyWrapperKey,
+                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey,
+                GroupStateEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
-            GenericDeserializable, GenericSerializable,
+            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         ConnectionDecryptionKey, ConnectionEncryptionKey,
     },
-    messages::client_as::{EncryptedConnectionEstablishmentPackage, FriendshipPackage},
+    messages::{
+        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackage},
+        FriendshipToken,
+    },
 };
-use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
+
+use super::user_profile::UserProfile;
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {
-    pub sender_client_credential: ClientCredential,
-    pub connection_group_id: GroupId,
-    pub connection_group_ear_key: GroupStateEarKey,
-    pub connection_group_credential_key: ClientCredentialEarKey,
-    pub connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    pub friendship_package_ear_key: FriendshipPackageEarKey,
-    pub friendship_package: FriendshipPackage,
+    pub(crate) sender_client_credential: ClientCredential,
+    pub(crate) connection_group_id: GroupId,
+    pub(crate) connection_group_ear_key: GroupStateEarKey,
+    pub(crate) connection_group_credential_key: ClientCredentialEarKey,
+    pub(crate) connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(crate) friendship_package_ear_key: FriendshipPackageEarKey,
+    pub(crate) friendship_package: FriendshipPackage,
 }
 
 impl Signable for ConnectionEstablishmentPackageTbs {
@@ -82,7 +89,7 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     connection_group_ear_key: GroupStateEarKey,
     connection_group_credential_key: ClientCredentialEarKey,
     connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    pub friendship_package_ear_key: FriendshipPackageEarKey,
+    friendship_package_ear_key: FriendshipPackageEarKey,
     friendship_package: FriendshipPackage,
 }
 
@@ -158,3 +165,32 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
         "ConnectionEstablishmentPackageTBS"
     }
 }
+
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub(crate) struct FriendshipPackage {
+    pub(crate) friendship_token: FriendshipToken,
+    pub(crate) add_package_ear_key: AddPackageEarKey,
+    pub(crate) client_credential_ear_key: ClientCredentialEarKey,
+    pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
+    pub(crate) user_profile: UserProfile,
+}
+
+impl GenericSerializable for FriendshipPackage {
+    type Error = tls_codec::Error;
+
+    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
+        self.tls_serialize_detached()
+    }
+}
+
+impl GenericDeserializable for FriendshipPackage {
+    type Error = tls_codec::Error;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact(bytes)
+    }
+}
+
+impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
+impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}

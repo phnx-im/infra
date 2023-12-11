@@ -36,7 +36,7 @@ use phnxtypes::{
     },
     identifiers::{AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, UserName},
     messages::{
-        client_as::{ConnectionPackageTbs, FriendshipPackage, UserConnectionPackagesParams},
+        client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
@@ -57,7 +57,10 @@ use crate::{
         qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
         queue_ratchets::QueueType, MemoryUserKeyStore,
     },
-    users::connection_establishment::ConnectionEstablishmentPackageTbs,
+    users::{
+        connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
+        user_profile::UserProfile,
+    },
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -66,18 +69,20 @@ use self::{
     create_user::InitialUserState,
     openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
+    user_profile::UserProfileStore,
 };
 
 use super::*;
 
 pub(crate) mod api_clients;
-mod connection_establishment;
+pub(crate) mod connection_establishment;
 mod create_user;
 pub(crate) mod openmls_provider;
 pub mod process;
 pub mod store;
 #[cfg(test)]
 mod tests;
+pub(crate) mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -262,6 +267,18 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = conversation_store.create_group_conversation(group_id, attributes)?;
         self.dispatch_conversation_notification(conversation.id())?;
         Ok(conversation.id())
+    }
+
+    pub async fn store_user_profile(
+        &self,
+        display_name: String,
+        profile_picture_option: Option<Vec<u8>>,
+    ) -> Result<()> {
+        let user_profile = UserProfile::new(display_name, profile_picture_option);
+
+        let user_profile_store = self.user_profile_store();
+        user_profile_store.store(user_profile)?;
+        Ok(())
     }
 
     /// Invite users to an existing group
@@ -487,6 +504,10 @@ impl<T: Notifiable> SelfUser<T> {
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
+        let user_profile = self
+            .user_profile_store()
+            .get()?
+            .unwrap_or(UserProfile::from(self.user_name()));
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.key_store.friendship_token.clone(),
@@ -494,6 +515,7 @@ impl<T: Notifiable> SelfUser<T> {
             client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
             signature_ear_key_wrapper_key: self.key_store.signature_ear_key_wrapper_key.clone(),
             wai_ear_key: self.key_store.wai_ear_key.clone(),
+            user_profile,
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
@@ -848,6 +870,10 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     fn leaf_key_store(&self) -> LeafKeyStore<'_> {
+        (&self.sqlite_connection).into()
+    }
+
+    fn user_profile_store(&self) -> UserProfileStore<'_> {
         (&self.sqlite_connection).into()
     }
 

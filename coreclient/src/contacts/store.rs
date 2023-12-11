@@ -11,7 +11,7 @@ use rusqlite::Connection;
 
 use crate::{
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
-    users::api_clients::ApiClients,
+    users::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError, SqlKey},
     ConversationId,
 };
@@ -189,6 +189,7 @@ impl PersistableStruct<'_, PartialContact> {
             client_credential_ear_key: friendship_package.client_credential_ear_key,
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id: self.payload.conversation_id,
+            user_profile: friendship_package.user_profile,
         };
         let persistable_contact =
             PersistableStruct::from_connection_and_payload(self.connection, payload);

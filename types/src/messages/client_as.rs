@@ -19,11 +19,8 @@ use crate::{
     },
     crypto::{
         ear::{
-            keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, RatchetKey,
-                SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
-            },
-            Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            keys::RatchetKey, Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable,
+            GenericSerializable,
         },
         kdf::keys::RatchetSecret,
         opaque::{
@@ -43,7 +40,7 @@ use super::{
         ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
         VerifiableConnectionPackage,
     },
-    AsTokenType, EncryptedAsQueueMessage, FriendshipToken, MlsInfraVersion,
+    AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
 };
 
 mod private_mod {
@@ -481,31 +478,6 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct FriendshipPackage {
-    pub friendship_token: FriendshipToken,
-    pub add_package_ear_key: AddPackageEarKey,
-    pub client_credential_ear_key: ClientCredentialEarKey,
-    pub signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    pub wai_ear_key: WelcomeAttributionInfoEarKey,
-}
-
-impl GenericSerializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
-impl GenericDeserializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
-    }
-}
-
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct EncryptedFriendshipPackage {
     ciphertext: Ciphertext,
@@ -522,9 +494,6 @@ impl From<Ciphertext> for EncryptedFriendshipPackage {
         Self { ciphertext }
     }
 }
-
-impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
-impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct EncryptedConnectionEstablishmentPackage {

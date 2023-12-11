@@ -304,6 +304,11 @@ impl<T: Notifiable> SelfUser<T> {
                     let esek = signature_ear_key
                         .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
 
+                    let user_profile = self
+                        .user_profile_store()
+                        .get()?
+                        .unwrap_or_else(|| UserProfile::from(self.user_name()));
+
                     let encrypted_friendship_package = FriendshipPackage {
                         friendship_token: self.key_store.friendship_token.clone(),
                         add_package_ear_key: self.key_store.add_package_ear_key.clone(),
@@ -313,6 +318,7 @@ impl<T: Notifiable> SelfUser<T> {
                             .signature_ear_key_wrapper_key
                             .clone(),
                         wai_ear_key: self.key_store.wai_ear_key.clone(),
+                        user_profile,
                     }
                     .encrypt(&cep_tbs.friendship_package_ear_key)?;
                     let ecc = self
