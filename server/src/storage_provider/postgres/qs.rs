@@ -33,9 +33,10 @@ impl PostgresQsStorage {
         // Create database
         let mut connection = PgConnection::connect(&settings.connection_string_without_database())
             .await?;
-        connection
+        // TODO: For now, we ignore the error if the database already exists.
+        let _ = connection
             .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
-            .await?;
+            .await;
         // Migrate database
         let connection_pool = PgPool::connect(&settings.connection_string())
             .await?;
