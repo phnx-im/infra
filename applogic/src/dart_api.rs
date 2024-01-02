@@ -163,6 +163,11 @@ impl RustUser {
         })
     }
 
+    pub fn user_name(&self) -> String {
+        let user = self.user.lock().unwrap();
+        user.user_name().to_string()
+    }
+
     #[tokio::main(flavor = "current_thread")]
     pub async fn websocket(
         &self,
