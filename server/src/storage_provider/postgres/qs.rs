@@ -16,11 +16,13 @@ use phnxtypes::{
 };
 use sqlx::{
     types::{BigDecimal, Uuid},
-    PgPool, PgConnection, Connection, Executor,
+    PgPool,
 };
 use thiserror::Error; 
 
 use crate::configurations::DatabaseSettings;
+
+use super::connect_to_database;
 
 #[derive(Debug)]
 pub struct PostgresQsStorage {
@@ -30,22 +32,10 @@ pub struct PostgresQsStorage {
 
 impl PostgresQsStorage {
     pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, CreateQsStorageError> {
-        // Create database
-        let mut connection = PgConnection::connect(&settings.connection_string_without_database())
-            .await?;
-        // TODO: For now, we ignore the error if the database already exists.
-        let _ = connection
-            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
-            .await;
-        // Migrate database
-        let connection_pool = PgPool::connect(&settings.connection_string())
-            .await?;
-        sqlx::migrate!("./migrations")
-            .run(&connection_pool)
-            .await?;
+        let pool = connect_to_database(settings).await?;
 
         let provider = Self {
-            pool: connection_pool,
+            pool,
             own_domain,
         };
 

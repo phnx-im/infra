@@ -13,11 +13,13 @@ use phnxtypes::{
     identifiers::{Fqdn, SealedClientReference, QualifiedGroupId},
     time::TimeStamp,
 };
-use sqlx::{types::Uuid, PgPool, PgConnection, Connection, Executor};
+use sqlx::{types::Uuid, PgPool};
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
 
 use crate::configurations::DatabaseSettings;
+
+use super::connect_to_database;
 
 pub struct PostgresDsStorage {
     pool: PgPool,
@@ -26,22 +28,11 @@ pub struct PostgresDsStorage {
 
 impl PostgresDsStorage {
     pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, PostgresStorageError> {
-        // Create database
-        let mut connection = PgConnection::connect(&settings.connection_string_without_database())
-            .await?;
-        // TODO: For now, we ignore the error if the database already exists.
-        let _ = connection
-            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
-            .await;
-        // Migrate database
-        let connection_pool = PgPool::connect(&settings.connection_string())
-            .await?;
-        sqlx::migrate!("./migrations")
-            .run(&connection_pool)
-            .await?;
+
+        let pool = connect_to_database(settings).await?;
 
         let provider = Self {
-            pool: connection_pool,
+            pool,
             own_domain,
         };
         Ok(provider)
