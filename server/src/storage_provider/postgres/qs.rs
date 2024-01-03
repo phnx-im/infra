@@ -60,8 +60,8 @@ impl PostgresQsStorage {
     // TODO: All the functions below use two queries. This can probably be optimized.
 
     async fn generate_fresh_signing_key(&self) -> Result<(), GenerateKeyError> {
-        // Delete the existing key.
-        sqlx::query!( "DELETE FROM qs_signing_key")
+        // Delete the existing key. 
+        sqlx::query!("DELETE FROM qs_signing_key")
         .execute(&self.pool)
         .await?;
 
