@@ -388,12 +388,6 @@ pub async fn run_server_restart_test() {
         false,
     );
 
-    //let server_domain_fqdn = Fqdn::from(server_domain);
-    //let server_domains = vec![server_domain_fqdn.clone()]
-    //    .into_iter()
-    //    .collect::<HashSet<_>>();
-    //wait_until_servers_are_up(server_domains).await;
-
     sleep(Duration::from_secs(3));
 
     tracing::info!("All servers are up, stopping server.");
