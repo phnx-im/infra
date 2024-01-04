@@ -9,7 +9,7 @@ use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpa
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
-use crate::types::ConversationIdBytes;
+use crate::types::{ConversationIdBytes, UiContact};
 pub use crate::types::{
     UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
@@ -261,12 +261,12 @@ impl RustUser {
         messages
     }
 
-    pub fn get_contacts(&self) -> Vec<String> {
+    pub fn get_contacts(&self) -> Vec<UiContact> {
         let user = self.user.lock().unwrap();
         user.contacts()
             .unwrap_or_default()
             .into_iter()
-            .map(|c| c.user_name.to_string())
+            .map(|c| c.into())
             .collect()
     }
 

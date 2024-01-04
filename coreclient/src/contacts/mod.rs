@@ -49,6 +49,11 @@ pub(crate) struct ContactAddInfos {
 }
 
 impl Contact {
+    /// Get the user name of this contact.
+    pub fn user_name(&self) -> &UserName {
+        &self.user_name
+    }
+
     pub(crate) fn client_credential(&self, client_id: &AsClientId) -> Option<&ClientCredential> {
         self.client_credentials
             .iter()

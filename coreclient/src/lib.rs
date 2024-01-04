@@ -17,16 +17,19 @@ use std::collections::HashMap;
 
 pub(crate) use crate::errors::*;
 
-pub use crate::conversations::{
-    messages::{
-        ContentMessage, ConversationMessage, DispatchedConversationMessage, DisplayMessage,
-        DisplayMessageType, ErrorMessage, Knock, Message, MessageContentType, NotificationType,
-        SystemMessage, TextMessage,
+pub use crate::{
+    contacts::{Contact, PartialContact},
+    conversations::{
+        messages::{
+            ContentMessage, ConversationMessage, DispatchedConversationMessage, DisplayMessage,
+            DisplayMessageType, ErrorMessage, Knock, Message, MessageContentType, NotificationType,
+            SystemMessage, TextMessage,
+        },
+        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+        InactiveConversation,
     },
-    Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-    InactiveConversation,
+    groups::GroupMessage,
 };
-pub use crate::groups::GroupMessage;
 
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
