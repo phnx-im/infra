@@ -5,12 +5,15 @@
 use std::{
     collections::{HashMap, HashSet},
     process::{Child, Command, Stdio},
+    thread::sleep,
+    time::Duration,
 };
 
+use once_cell::sync::Lazy;
 use phnxapiclient::ApiClient;
 use phnxtypes::{identifiers::Fqdn, DEFAULT_PORT_HTTP};
 
-use crate::test_scenarios::FederationTestScenario;
+use crate::{test_scenarios::FederationTestScenario, TRACING};
 
 pub(crate) struct DockerTestBed {
     // (server, db)
@@ -306,4 +309,120 @@ fn assert_docker_is_running() {
     {
         panic!("Docker is not running. Please start docker and try again.");
     }
+}
+
+pub async fn run_server_restart_test() {
+    Lazy::force(&TRACING);
+
+    // Make sure that Docker is actually running
+    assert_docker_is_running();
+
+    let server_domain = "example.com";
+    let network_name = "server_restart_network";
+    // Create docker network
+    create_network(network_name);
+
+    // Start server and db container
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
+
+    let db_image_name = "postgres";
+    let db_container_name = format!("{server_domain}_db_container");
+    let db_domain = format!("db.{server_domain}");
+    let db_user = "postgres";
+    let db_password = "password";
+    let db_name = "phnx_server_db";
+    let db_port = "5432";
+
+    let db_domain_env_variable = format!("PHNX_DB_DOMAIN={db_domain}");
+    let db_user_env_variable = format!("POSTGRES_USER={db_user}");
+    let db_password_env_variable = format!("POSTGRES_PASSWORD={db_password}");
+    let db_name_env_variable = format!("POSTGRES_DB={db_name}");
+
+    let _db = run_docker_container(
+        &db_image_name,
+        &db_container_name,
+        &[
+            db_domain_env_variable,
+            db_user_env_variable,
+            db_password_env_variable,
+            db_name_env_variable,
+        ],
+        Some(&db_domain),
+        Some(network_name),
+        Some(db_port),
+        &["-N".to_string(), "1000".to_string(), "-i".to_string()],
+        false,
+    );
+
+    let server_image_name = "phnxserver_image";
+    let server_container_name = format!("{server_domain}_server_container");
+
+    build_docker_image("server/Dockerfile", &server_image_name);
+
+    let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
+    let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
+    let server_db_password_env_variable = format!("PHNX_DATABASE_PASSWORD={}", db_password);
+    let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
+    let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
+    let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
+    let server_sqlx_offline_env_variable = format!("SQLX_OFFLINE=true");
+
+    tracing::info!("Starting phnx server");
+    let _server = run_docker_container(
+        &server_image_name,
+        &server_container_name,
+        &[
+            server_domain_env_variable.clone(),
+            server_host_env_variable.clone(),
+            server_db_name_env_variable.clone(),
+            server_db_user_env_variable.clone(),
+            server_db_password_env_variable.clone(),
+            server_db_port_env_variable.clone(),
+            server_sqlx_offline_env_variable.clone(),
+        ],
+        Some(&server_domain.to_string()),
+        Some(network_name),
+        None,
+        &[],
+        false,
+    );
+
+    sleep(Duration::from_secs(3));
+
+    tracing::info!("All servers are up, stopping server.");
+
+    // Stop server container
+    stop_docker_container(&server_container_name);
+
+    sleep(Duration::from_secs(3));
+
+    tracing::info!("Waited three seconds, starting server again.");
+
+    // Start server container again
+    let _server = run_docker_container(
+        &server_image_name,
+        &server_container_name,
+        &[
+            server_domain_env_variable,
+            server_host_env_variable,
+            server_db_name_env_variable,
+            server_db_user_env_variable,
+            server_db_password_env_variable,
+            server_db_port_env_variable,
+            server_sqlx_offline_env_variable,
+        ],
+        Some(&server_domain.to_string()),
+        Some(network_name),
+        None,
+        &[],
+        false,
+    );
+
+    sleep(Duration::from_secs(3));
+
+    stop_docker_container(&server_container_name);
+    stop_docker_container(&db_container_name);
+
+    tracing::info!("Done running server restart test");
 }

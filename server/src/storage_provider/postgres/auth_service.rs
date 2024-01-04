@@ -28,9 +28,11 @@ use privacypass::{
 };
 use sqlx::{
     types::{BigDecimal, Uuid},
-    Connection, Executor, PgConnection, PgPool,
+    PgPool,
 };
 use thiserror::Error;
+
+use super::connect_to_database;
 
 pub struct PostgresAsStorage {
     pool: PgPool,
@@ -42,19 +44,9 @@ impl PostgresAsStorage {
         signature_scheme: SignatureScheme,
         settings: &DatabaseSettings,
     ) -> Result<Self, CreateAsStorageError> {
-        // Create database
-        let mut connection =
-            PgConnection::connect(&settings.connection_string_without_database()).await?;
-        connection
-            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
-            .await?;
-        // Migrate database
-        let connection_pool = PgPool::connect(&settings.connection_string()).await?;
-        sqlx::migrate!("./migrations").run(&connection_pool).await?;
+        let pool = connect_to_database(settings).await?;
 
-        let provider = Self {
-            pool: connection_pool,
-        };
+        let provider = Self { pool };
 
         // Check if the database has been initialized.
         let (as_creds, _as_inter_creds, _) = provider.load_as_credentials().await?;
