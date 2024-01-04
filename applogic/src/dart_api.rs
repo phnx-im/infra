@@ -324,4 +324,14 @@ impl RustUser {
             .map(|c| c.to_string())
             .collect())
     }
+
+    pub async fn set_user_profile(
+        &self,
+        display_name: String,
+        profile_picture_option: Option<Vec<u8>>,
+    ) -> Result<()> {
+        let user = self.user.lock().unwrap();
+        user.store_user_profile(display_name, profile_picture_option)
+            .await
+    }
 }
