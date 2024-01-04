@@ -325,6 +325,7 @@ impl RustUser {
             .collect())
     }
 
+    #[tokio::main(flavor = "current_thread")]
     pub async fn set_user_profile(
         &self,
         display_name: String,
