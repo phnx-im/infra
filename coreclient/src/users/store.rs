@@ -234,8 +234,8 @@ impl<'a> PersistableClientRecord<'a> {
 }
 
 impl ClientRecord {
-    pub fn load_all() -> Result<Vec<Self>, PersistenceError> {
-        let connection = open_phnx_db()?;
+    pub fn load_all(path: &str) -> Result<Vec<Self>, PersistenceError> {
+        let connection = open_phnx_db(path)?;
         Self::load_all_from_db(&connection)
     }
 
