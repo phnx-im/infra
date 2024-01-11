@@ -71,8 +71,12 @@ impl UserBuilder {
         }
     }
 
-    pub fn load_default(&self, stream_sink: StreamSink<UiNotificationType>) -> Result<()> {
-        let user = RustUser::load_default(stream_sink.clone())?;
+    pub fn load_default(
+        &self,
+        path: String,
+        stream_sink: StreamSink<UiNotificationType>,
+    ) -> Result<()> {
+        let user = RustUser::load_default(path, stream_sink.clone())?;
         if let Ok(mut inner_user) = self.user.try_lock() {
             let _ = inner_user.insert(user);
             // Send an initial notification to the flutter side, since this
@@ -91,9 +95,10 @@ impl UserBuilder {
         user_name: String,
         password: String,
         address: String,
+        path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<()> {
-        let user = RustUser::new(user_name, password, address, stream_sink.clone())?;
+        let user = RustUser::new(user_name, password, address, path, stream_sink.clone())?;
         if let Ok(mut inner_user) = self.user.try_lock() {
             let _ = inner_user.insert(user);
             // Send an initial notification to the flutter side, since this
@@ -130,27 +135,31 @@ impl RustUser {
         user_name: String,
         password: String,
         address: String,
+        path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<RustUser> {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
-        let user = SelfUser::new(&user_name, &password, address, notification_hub).await?;
+        let user = SelfUser::new(&user_name, &password, address, &path, notification_hub).await?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
         })
     }
 
     #[tokio::main(flavor = "current_thread")]
-    async fn load_default(stream_sink: StreamSink<UiNotificationType>) -> Result<RustUser> {
-        let client_record = ClientRecord::load_all()?.pop().ok_or_else(|| {
+    async fn load_default(
+        path: String,
+        stream_sink: StreamSink<UiNotificationType>,
+    ) -> Result<RustUser> {
+        let client_record = ClientRecord::load_all(&path)?.pop().ok_or_else(|| {
             anyhow::anyhow!("No user found. Please create a user first using createUser")
         })?;
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let as_client_id = client_record.as_client_id;
-        let user = SelfUser::load(as_client_id.clone(), notification_hub)
+        let user = SelfUser::load(as_client_id.clone(), &path, notification_hub)
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(

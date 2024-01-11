@@ -14,13 +14,17 @@ pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
-pub(crate) fn open_phnx_db() -> Result<Connection, PersistenceError> {
-    let conn = Connection::open(&PHNX_DB_NAME)?;
+pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, PersistenceError> {
+    let db_name = format!("{}/{}", client_db_path, PHNX_DB_NAME);
+    let conn = Connection::open(db_name)?;
     Ok(conn)
 }
 
-pub(crate) fn open_client_db(as_client_id: &AsClientId) -> Result<Connection, PersistenceError> {
-    let db_name = format!("{}.db", as_client_id);
+pub(crate) fn open_client_db(
+    as_client_id: &AsClientId,
+    client_db_path: &str,
+) -> Result<Connection, PersistenceError> {
+    let db_name = format!("{}/{}.db", client_db_path, as_client_id);
     let conn = Connection::open(db_name)?;
     Ok(conn)
 }
