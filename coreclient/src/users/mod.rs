@@ -103,16 +103,16 @@ impl<T: Notifiable> SelfUser<T> {
         user_name: impl Into<UserName>,
         password: &str,
         server_url: impl ToString,
-        path: &str,
+        client_db_path: &str,
         notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.into();
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
-        let phnx_db_connection = open_phnx_db(path)?;
+        let phnx_db_connection = open_phnx_db(client_db_path)?;
 
         // Open client specific db
-        let client_db_connection = open_client_db(&as_client_id, path)?;
+        let client_db_connection = open_client_db(&as_client_id, client_db_path)?;
 
         Self::new_with_connections(
             as_client_id,
@@ -194,12 +194,12 @@ impl<T: Notifiable> SelfUser<T> {
     /// process.
     pub async fn load(
         as_client_id: AsClientId,
-        path: &str,
+        client_db_path: &str,
         notification_hub_option: impl Into<Option<NotificationHub<T>>>,
     ) -> Result<Option<SelfUser<T>>> {
-        let phnx_db_connection = open_phnx_db(path)?;
+        let phnx_db_connection = open_phnx_db(client_db_path)?;
 
-        let mut client_db_connection = open_client_db(&as_client_id, path)?;
+        let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
         let mut client_db_transaction = client_db_connection.transaction()?;
 
         let Some(user_creation_state) =
