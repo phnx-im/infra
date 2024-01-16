@@ -170,6 +170,14 @@ impl PersistableStruct<'_, Conversation> {
     pub(crate) fn convert_for_export(self) -> Conversation {
         self.payload
     }
+
+    pub(crate) fn set_conversation_picture(
+        &mut self,
+        conversation_picture: Option<Vec<u8>>,
+    ) -> Result<(), PersistenceError> {
+        self.payload.attributes.conversation_picture_option = conversation_picture;
+        self.persist()
+    }
 }
 
 pub(crate) struct ConversationMessageStore<'a> {

@@ -128,12 +128,16 @@ impl From<ConversationType> for UiConversationType {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
     pub title: String,
+    pub conversation_picture_option: Option<Vec<u8>>,
 }
 
 impl From<ConversationAttributes> for UiConversationAttributes {
     fn from(attributes: ConversationAttributes) -> Self {
         Self {
-            title: attributes.title,
+            title: attributes.title().to_string(),
+            conversation_picture_option: attributes
+                .conversation_picture_option()
+                .map(|a| a.to_vec()),
         }
     }
 }

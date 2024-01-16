@@ -285,7 +285,7 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| c.attributes().title == user2_name.to_string())
+            .position(|c| c.attributes().title() == user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -327,7 +327,7 @@ impl TestBackend {
         let mut user2_conversations_after = user2.conversations().unwrap();
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title == user1_name.to_string())
+            .position(|c| c.attributes().title() == user1_name.to_string())
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -373,7 +373,7 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes().title == &user2_name.to_string())
+            .position(|c| &c.attributes().title() == &user2_name.to_string())
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -500,11 +500,11 @@ impl TestBackend {
         let user_conversations_before = user.conversations().unwrap();
 
         let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
-        let conversation_id = user.create_conversation(&group_name).await.unwrap();
+        let conversation_id = user.create_conversation(&group_name, None).await.unwrap();
         let mut user_conversations_after = user.conversations().unwrap();
         let new_conversation_position = user_conversations_after
             .iter()
-            .position(|c| c.attributes().title == group_name)
+            .position(|c| c.attributes().title() == group_name)
             .expect("User 1 should have created a new conversation");
         let conversation = user_conversations_after.remove(new_conversation_position);
         assert!(conversation.id() == conversation_id);

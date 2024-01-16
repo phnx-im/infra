@@ -20,6 +20,8 @@ use tls_codec::DeserializeBytes;
 
 use crate::conversations::ConversationType;
 
+use self::user_profile::Asset;
+
 use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
 impl<T: Notifiable> SelfUser<T> {
@@ -63,9 +65,8 @@ impl<T: Notifiable> SelfUser<T> {
                     let group_id = group.group_id();
                     freshly_joined_groups.push(group_id.clone());
 
-                    let attributes = ConversationAttributes {
-                        title: "New conversation".to_string(),
-                    };
+                    let attributes =
+                        ConversationAttributes::new("New conversation".to_string(), None);
                     let conversation_store = self.conversation_store();
                     let conversation = conversation_store
                         .create_group_conversation(group_id.clone(), attributes)?;
@@ -208,6 +209,15 @@ impl<T: Notifiable> SelfUser<T> {
                                     };
                                     add_infos.push(add_info);
                                 }
+                                // Set the picture of the conversation to the one of the contact.
+                                let conversation_picture_option = friendship_package
+                                    .user_profile
+                                    .profile_picture_option()
+                                    .map(|asset| match asset {
+                                        Asset::Value(value) => value.to_owned(),
+                                    });
+                                conversation
+                                    .set_conversation_picture(conversation_picture_option)?;
                                 // Now we can turn the partial contact into a full one.
                                 partial_contact.into_contact_and_persist(
                                     friendship_package,
@@ -362,12 +372,20 @@ impl<T: Notifiable> SelfUser<T> {
                         .await?;
                     let user_name = cep_tbs.sender_client_credential.identity().user_name();
                     let conversation_store = self.conversation_store();
+                    let conversation_picture_option = cep_tbs
+                        .friendship_package
+                        .user_profile
+                        .profile_picture_option()
+                        .map(|asset| match asset {
+                            Asset::Value(value) => value.to_owned(),
+                        });
                     let mut conversation = conversation_store.create_connection_conversation(
                         group.group_id().clone(),
                         user_name.clone(),
-                        ConversationAttributes {
-                            title: user_name.to_string(),
-                        },
+                        ConversationAttributes::new(
+                            user_name.to_string(),
+                            conversation_picture_option,
+                        ),
                     )?;
                     // TODO: For now, we automatically confirm conversations.
                     conversation.confirm()?;
