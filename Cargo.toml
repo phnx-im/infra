@@ -18,6 +18,12 @@ members = [
 
 [workspace.dependencies]
 tls_codec = { version = "0.3.0", features = ["derive", "serde", "mls"] }
+reqwest = { version = "^0.11", features = [
+    "json",
+    "rustls-tls-webpki-roots",
+    "rustls",
+    "brotli",
+], default-features = false }
 
 [patch.crates-io]
 tls_codec = { git = 'https://github.com/RustCrypto/formats.git', rev = '3e65c66f4af19f22952200e3c5da3f035efe8e7a' }
