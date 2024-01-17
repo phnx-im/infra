@@ -21,7 +21,7 @@ uuid = { version = "1.0.0", features = ["v4", "serde"] }
 tracing = { version = "0.1.35", features = ["log"] }
 hex = { version = "0.4" }
 
-opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
+opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 tls_codec = { workspace = true }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
