@@ -23,7 +23,7 @@ http = "0.2.7"
 log = "0.4.17"
 base64 = "0.13.0"
 mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
-privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
+privacypass = { workspace = true }
 tls_codec = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 url = "2"

@@ -23,7 +23,7 @@ pub(crate) async fn as_process_message<Asp: AsStorageProvider, Aesp: AsEphemeral
     let storage_provider = as_storage_provider.get_ref();
     let ephemeral_storage_provider = as_ephemeral_storage_provider.get_ref();
     // Create a new group on the DS.
-    let message = match VerifiableClientToAsMessage::tls_deserialize_exact(&message) {
+    let message = match VerifiableClientToAsMessage::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("Received invalid message: {:?}", e);

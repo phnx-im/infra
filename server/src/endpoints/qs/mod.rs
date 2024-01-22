@@ -29,7 +29,7 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     let storage_provider = qs_storage_provider.get_ref();
 
     // Deserialize the message.
-    let message = match VerifiableClientToQsMessage::tls_deserialize_exact(message.as_ref()) {
+    let message = match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(message.as_ref()) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("QS received invalid message: {:?}", e);
@@ -64,7 +64,7 @@ pub(crate) async fn qs_process_federated_message<
     message: web::Bytes,
 ) -> impl Responder {
     // Deserialize the message.
-    let message = match QsToQsMessage::tls_deserialize_exact(message.as_ref()) {
+    let message = match QsToQsMessage::tls_deserialize_exact_bytes(message.as_ref()) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("QS received invalid federated message: {:?}", e);

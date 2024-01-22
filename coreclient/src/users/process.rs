@@ -155,7 +155,8 @@ impl<T: Notifiable> SelfUser<T> {
                                 // friendship package here.
                                 let encrypted_friendship_package =
                                     if let InfraAadPayload::JoinConnectionGroup(payload) =
-                                        InfraAadMessage::tls_deserialize_exact(&aad)?.into_payload()
+                                        InfraAadMessage::tls_deserialize_exact_bytes(&aad)?
+                                            .into_payload()
                                     {
                                         payload.encrypted_friendship_package
                                     } else {
@@ -252,7 +253,7 @@ impl<T: Notifiable> SelfUser<T> {
                 .get(&group_id)?
                 .ok_or(anyhow!("Can't find freshly joined group."))?;
             let params = group.update_user_key(&self.crypto_backend())?;
-            let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
+            let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)?
                 .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
@@ -344,7 +345,7 @@ impl<T: Notifiable> SelfUser<T> {
                     .into();
 
                     // Fetch external commit information.
-                    let qgid = QualifiedGroupId::tls_deserialize_exact(
+                    let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(
                         cep_tbs.connection_group_id.as_slice(),
                     )?;
                     let eci: ExternalCommitInfoIn = self

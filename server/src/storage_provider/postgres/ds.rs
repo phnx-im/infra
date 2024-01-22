@@ -57,7 +57,7 @@ impl DsStorageProvider for PostgresDsStorage {
 
     /// Loads the ds group state with the group ID.
     async fn load_group_state(&self, group_id: &GroupId) -> Result<LoadState, Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice())
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
 
@@ -106,7 +106,7 @@ impl DsStorageProvider for PostgresDsStorage {
         group_id: &GroupId,
         encrypted_group_state: EncryptedDsGroupState,
     ) -> Result<(), Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice())
             .map_err(|e| { 
                 tracing::warn!("Error parsing group id: {:?}", e);
                 PostgresStorageError::InvalidInput 
@@ -138,7 +138,7 @@ impl DsStorageProvider for PostgresDsStorage {
     ///
     /// Returns false if the group ID is already taken and true otherwise.
     async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice())
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice())
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
 

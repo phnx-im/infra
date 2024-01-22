@@ -247,10 +247,15 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         let client_reference = self.create_own_client_reference();
         let group_store = self.group_store();
+        // Store the conversation attributes in the group's aad
+        let conversation_attributes =
+            ConversationAttributes::new(title.to_string(), conversation_picture_option);
+        let group_aad = serde_json::to_vec(&conversation_attributes)?.into();
         let (group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
+            group_aad,
         )?;
         let encrypted_client_credential = self
             .key_store
@@ -266,10 +271,9 @@ impl<T: Notifiable> SelfUser<T> {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        let attributes =
-            ConversationAttributes::new(title.to_string(), conversation_picture_option);
         let conversation_store = self.conversation_store();
-        let conversation = conversation_store.create_group_conversation(group_id, attributes)?;
+        let conversation =
+            conversation_store.create_group_conversation(group_id, conversation_attributes)?;
         self.dispatch_conversation_notification(conversation.id())?;
         Ok(conversation.id())
     }
@@ -517,10 +521,14 @@ impl<T: Notifiable> SelfUser<T> {
         // Create the connection group
         log::info!("Creating local connection group");
         let group_store = self.group_store();
+        let title = format!("Connection group: {} - {}", user_name, self.user_name());
+        let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
+        let group_aad = serde_json::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
+            group_aad,
         )?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the

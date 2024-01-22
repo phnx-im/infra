@@ -115,7 +115,7 @@ impl GenericDeserializable for ConnectionEstablishmentPackageIn {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
+        Self::tls_deserialize_exact_bytes(bytes)
     }
 }
 
@@ -188,7 +188,7 @@ impl GenericDeserializable for FriendshipPackage {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
+        Self::tls_deserialize_exact_bytes(bytes)
     }
 }
 

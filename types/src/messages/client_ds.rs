@@ -86,7 +86,7 @@ impl QsQueueMessagePayload {
     pub fn extract(self) -> Result<ExtractedQsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
             QsQueueMessageType::WelcomeBundle => {
-                let wb = WelcomeBundle::tls_deserialize_exact(&self.payload)?;
+                let wb = WelcomeBundle::tls_deserialize_exact_bytes(&self.payload)?;
                 ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
             }
             QsQueueMessageType::MlsMessage => {
@@ -590,11 +590,11 @@ pub struct VerifiableClientToDsMessage {
 }
 
 impl DeserializeBytes for VerifiableClientToDsMessage {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let (message, remainder) = ClientToDsMessageIn::tls_deserialize(bytes)?;
+        let (message, remainder) = ClientToDsMessageIn::tls_deserialize_bytes(bytes)?;
         // We want the payload to be the TBS bytes, which means we want all the bytes except the signature.
         let serialized_payload = bytes
             .get(..bytes.len() - remainder.len() - message.signature.tls_serialized_len())
@@ -732,7 +732,7 @@ impl GenericDeserializable for DsJoinerInformationIn {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
+        Self::tls_deserialize_exact_bytes(bytes)
     }
 }
 

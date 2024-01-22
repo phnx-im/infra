@@ -69,7 +69,7 @@ impl DsGroupState {
 
         // Validate that the AAD includes enough encrypted credential chains
         let aad_message =
-            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
                 .map_err(|_| AddUsersError::InvalidMessage)?;
         // TODO: Check version of Aad Message
         let aad_payload = if let InfraAadPayload::AddUsers(aad) = aad_message.into_payload() {
@@ -234,7 +234,7 @@ impl DsGroupState {
                     .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
                     .ok_or(AddUsersError::InvalidMessage)?;
                 let leaf_index = member.index;
-                let client_queue_config = QsClientReference::tls_deserialize_exact(
+                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
                     key_package
                         .leaf_node()
                         .extensions()
@@ -268,7 +268,7 @@ impl DsGroupState {
         let mut fan_out_messages: Vec<DsFanOutMessage> = vec![];
         for (add_packages, attribution_info) in added_users.into_iter() {
             for (key_package, _) in add_packages {
-                let client_queue_config = QsClientReference::tls_deserialize_exact(
+                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
                     key_package
                         .leaf_node()
                         .extensions()
