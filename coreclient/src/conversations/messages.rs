@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserialize, TlsSerialize, TlsSize};
 
 use crate::GroupMessage;
 
@@ -44,7 +44,7 @@ pub struct ContentMessage {
 }
 
 #[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
 )]
 #[repr(u16)]
 pub enum MessageContentType {
@@ -53,7 +53,7 @@ pub enum MessageContentType {
 }
 
 #[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct TextMessage {
     message: Vec<u8>,
@@ -70,7 +70,7 @@ impl TextMessage {
 }
 
 #[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+    PartialEq, Debug, Clone, TlsSerialize, TlsDeserialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct Knock {}
 

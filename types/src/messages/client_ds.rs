@@ -90,8 +90,9 @@ impl QsQueueMessagePayload {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
             }
             QsQueueMessageType::MlsMessage => {
-                let message =
-                    MlsMessageIn::tls_deserialize_exact_bytes(&mut self.payload.as_slice())?;
+                let message = <MlsMessageIn as tls_codec::Deserialize>::tls_deserialize(
+                    &mut self.payload.as_slice(),
+                )?;
                 ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };
