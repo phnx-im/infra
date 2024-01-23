@@ -8,7 +8,6 @@ use phnxtypes::{
     identifiers::QualifiedGroupId,
     messages::{
         client_as::ExtractedAsQueueMessagePayload,
-        client_as_out::ConnectionEstablishmentPackageIn,
         client_ds::{
             ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload,
             JoinConnectionGroupParamsAad,
@@ -21,7 +20,7 @@ use tls_codec::DeserializeBytes;
 
 use crate::conversations::ConversationType;
 
-use super::*;
+use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
 impl<T: Notifiable> SelfUser<T> {
     /// Process received messages by group. This function is meant to be called
@@ -155,7 +154,8 @@ impl<T: Notifiable> SelfUser<T> {
                                 // friendship package here.
                                 let encrypted_friendship_package =
                                     if let InfraAadPayload::JoinConnectionGroup(payload) =
-                                        InfraAadMessage::tls_deserialize_exact(&aad)?.into_payload()
+                                        InfraAadMessage::tls_deserialize_exact_bytes(&aad)?
+                                            .into_payload()
                                     {
                                         payload.encrypted_friendship_package
                                     } else {
@@ -243,7 +243,7 @@ impl<T: Notifiable> SelfUser<T> {
                 .get(&group_id)?
                 .ok_or(anyhow!("Can't find freshly joined group."))?;
             let params = group.update_user_key(&self.crypto_backend())?;
-            let qgid = QualifiedGroupId::tls_deserialize_exact(group_id.as_slice()).unwrap();
+            let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice()).unwrap();
             self.api_clients
                 .get(&qgid.owning_domain)?
                 .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
@@ -305,6 +305,11 @@ impl<T: Notifiable> SelfUser<T> {
                     let esek = signature_ear_key
                         .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
 
+                    let user_profile = self
+                        .user_profile_store()
+                        .get()?
+                        .unwrap_or_else(|| UserProfile::from(self.user_name()));
+
                     let encrypted_friendship_package = FriendshipPackage {
                         friendship_token: self.key_store.friendship_token.clone(),
                         add_package_ear_key: self.key_store.add_package_ear_key.clone(),
@@ -314,6 +319,7 @@ impl<T: Notifiable> SelfUser<T> {
                             .signature_ear_key_wrapper_key
                             .clone(),
                         wai_ear_key: self.key_store.wai_ear_key.clone(),
+                        user_profile,
                     }
                     .encrypt(&cep_tbs.friendship_package_ear_key)?;
                     let ecc = self
@@ -329,7 +335,7 @@ impl<T: Notifiable> SelfUser<T> {
                     .into();
 
                     // Fetch external commit information.
-                    let qgid = QualifiedGroupId::tls_deserialize_exact(
+                    let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(
                         cep_tbs.connection_group_id.as_slice(),
                     )?;
                     let eci: ExternalCommitInfoIn = self

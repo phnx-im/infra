@@ -4,10 +4,10 @@
 
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    ContentMessage, Conversation, ConversationAttributes, ConversationId, ConversationMessage,
-    ConversationStatus, ConversationType, DispatchedConversationMessage, DisplayMessage,
-    DisplayMessageType, ErrorMessage, InactiveConversation, Knock, Message, MessageContentType,
-    NotificationType, SystemMessage, TextMessage,
+    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationMessage, ConversationStatus, ConversationType, DispatchedConversationMessage,
+    DisplayMessage, DisplayMessageType, ErrorMessage, InactiveConversation, Knock, Message,
+    MessageContentType, NotificationType, SystemMessage, TextMessage,
 };
 use uuid::Uuid;
 
@@ -356,6 +356,28 @@ impl From<NotificationType> for UiNotificationType {
                 UiNotificationType::ConversationChange(conversation_id.into())
             }
             NotificationType::Message(message) => UiNotificationType::Message(message.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UiContact {
+    pub user_name: String,
+    pub display_name: String,
+    pub avatar: Option<Vec<u8>>,
+}
+
+impl From<Contact> for UiContact {
+    fn from(contact: Contact) -> Self {
+        let display_name_string = contact.user_profile().display_name().as_ref().to_string();
+        Self {
+            user_name: contact.user_name().to_string(),
+            display_name: display_name_string,
+            avatar: contact
+                .user_profile()
+                .profile_picture_option()
+                .and_then(|a| a.value())
+                .map(|a| a.to_vec()),
         }
     }
 }

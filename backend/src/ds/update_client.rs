@@ -80,7 +80,7 @@ impl DsGroupState {
 
         // If there is an AAD, we might have to update the client profile later.
         let aad_message =
-            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
                 .map_err(|_| {
                     tracing::warn!("Error deserializing AAD payload");
                     ClientUpdateError::InvalidMessage

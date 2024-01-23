@@ -54,7 +54,7 @@ impl DsGroupState {
 
         // Validate that the AAD includes enough encrypted credential chains
         let aad_message =
-            InfraAadMessage::tls_deserialize_exact(processed_message.authenticated_data())
+            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
                 .map_err(|_| ClientAdditionError::InvalidMessage)?;
         // TODO: Check version of Aad Message
         let aad_payload =
@@ -152,7 +152,7 @@ impl DsGroupState {
             user_profile.clients.push(leaf_index);
 
             // Create the client profile.
-            let client_queue_config = QsClientReference::tls_deserialize_exact(
+            let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
                 key_package
                     .extensions()
                     .iter()

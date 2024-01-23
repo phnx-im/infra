@@ -27,7 +27,9 @@ pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types" }
-opaque-ke = { version = "3.0.0-pre.1", features = ["argon2"] }
+opaque-ke = { version = "3.0.0-pre.4", features = [
+    "argon2",
+], git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0-pre.7" }
 futures = { version = "0.3.28", features = ["executor"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG

@@ -43,7 +43,7 @@ impl TryFrom<GroupId> for ConversationId {
     type Error = tls_codec::Error;
 
     fn try_from(value: GroupId) -> Result<Self, Self::Error> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(value.as_slice())?;
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(value.as_slice())?;
         let conversation_id = Self {
             uuid: Uuid::from_bytes(qgid.group_id),
         };
@@ -53,7 +53,7 @@ impl TryFrom<GroupId> for ConversationId {
 
 impl SqlKey for GroupId {
     fn to_sql_key(&self) -> String {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(self.as_slice()).unwrap();
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(self.as_slice()).unwrap();
         let conversation_id = ConversationId {
             uuid: Uuid::from_bytes(qgid.group_id),
         };

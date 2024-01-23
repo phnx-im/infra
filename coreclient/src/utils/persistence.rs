@@ -154,6 +154,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum DataType {
     KeyStoreValue,
+    UserProfile,
     Contact,
     PartialContact,
     Conversation,

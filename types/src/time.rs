@@ -35,7 +35,7 @@ impl TlsSerializeTrait for TimeStamp {
 }
 
 impl TlsDeserializeBytesTrait for TimeStamp {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {

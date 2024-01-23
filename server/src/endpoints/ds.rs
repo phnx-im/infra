@@ -24,7 +24,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
     let storage_provider = ds_storage_provider.get_ref();
     let qs_connector = qs_connector.get_ref();
     // Create a new group on the DS.
-    let message = match DsMessageTypeIn::tls_deserialize_exact(&message) {
+    let message = match DsMessageTypeIn::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
         Err(e) => {
             tracing::warn!("Received invalid message: {:?}", e);

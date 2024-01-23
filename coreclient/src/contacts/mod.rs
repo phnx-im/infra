@@ -11,10 +11,10 @@ use phnxtypes::{
     },
     identifiers::{AsClientId, UserName},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
-    messages::{client_as::FriendshipPackage, FriendshipToken},
+    messages::FriendshipToken,
 };
 
-use crate::ConversationId;
+use crate::{users::user_profile::UserProfile, ConversationId};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +39,7 @@ pub struct Contact {
     pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
+    pub(crate) user_profile: UserProfile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +49,11 @@ pub(crate) struct ContactAddInfos {
 }
 
 impl Contact {
+    /// Get the user name of this contact.
+    pub fn user_name(&self) -> &UserName {
+        &self.user_name
+    }
+
     pub(crate) fn client_credential(&self, client_id: &AsClientId) -> Option<&ClientCredential> {
         self.client_credentials
             .iter()
@@ -66,6 +72,10 @@ impl Contact {
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
         &self.wai_ear_key
+    }
+
+    pub fn user_profile(&self) -> &UserProfile {
+        &self.user_profile
     }
 }
 

@@ -57,7 +57,8 @@ impl Conversation {
     }
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
-        let qgid = QualifiedGroupId::tls_deserialize_exact(&self.group_id.as_slice()).unwrap();
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact_bytes(&self.group_id.as_slice()).unwrap();
         qgid.owning_domain
     }
 

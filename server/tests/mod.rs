@@ -307,3 +307,77 @@ async fn benchmarks() {
         elapsed.as_millis() / NUM_MESSAGES as u128
     );
 }
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Connect users test", skip_all)]
+async fn exchange_user_profiles() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(ALICE).await;
+
+    // Set a user profile for alice
+    let alice_display_name = "4l1c3".to_string();
+    let alice_profile_picture = vec![0u8, 1, 2, 3, 4, 5];
+    setup
+        .users
+        .get(&ALICE.into())
+        .unwrap()
+        .user
+        .store_user_profile(
+            alice_display_name.clone(),
+            Some(alice_profile_picture.clone()),
+        )
+        .await
+        .unwrap();
+
+    setup.add_user(BOB).await;
+
+    // Set a user profile for
+    let bob_display_name = "B0b".to_string();
+    let bob_profile_picture = vec![6u8, 6, 6];
+    setup
+        .users
+        .get(&BOB.into())
+        .unwrap()
+        .user
+        .store_user_profile(bob_display_name.clone(), Some(bob_profile_picture.clone()))
+        .await
+        .unwrap();
+
+    setup.connect_users(ALICE, BOB).await;
+
+    let bob_contact = setup
+        .users
+        .get(&ALICE.into())
+        .unwrap()
+        .user
+        .contacts()
+        .unwrap()
+        .pop()
+        .unwrap()
+        .clone();
+
+    let profile_picture = bob_contact
+        .user_profile()
+        .profile_picture_option()
+        .unwrap()
+        .clone()
+        .value()
+        .unwrap()
+        .to_vec();
+
+    assert!(profile_picture == bob_profile_picture);
+
+    assert!(bob_contact.user_profile().display_name().as_ref() == &bob_display_name);
+
+    let alice_contact = setup
+        .users
+        .get(&BOB.into())
+        .unwrap()
+        .user
+        .contacts()
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert!(alice_contact.user_profile().display_name().as_ref() == &alice_display_name);
+}

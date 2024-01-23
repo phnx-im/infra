@@ -34,7 +34,7 @@ impl tls_codec::Serialize for OpaqueRegistrationRequest {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueRegistrationRequest {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -66,7 +66,7 @@ impl tls_codec::Serialize for OpaqueRegistrationResponse {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueRegistrationResponse {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -97,7 +97,7 @@ impl tls_codec::Serialize for OpaqueRegistrationRecord {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueRegistrationRecord {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -128,7 +128,7 @@ impl tls_codec::Serialize for OpaqueLoginRequest {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueLoginRequest {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -159,7 +159,7 @@ impl tls_codec::Serialize for OpaqueLoginResponse {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueLoginResponse {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -190,7 +190,7 @@ impl tls_codec::Serialize for OpaqueLoginFinish {
 }
 
 impl tls_codec::DeserializeBytes for OpaqueLoginFinish {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
@@ -246,5 +246,5 @@ fn test_opaque_codec() {
     let bytes = opaque_registration_record.tls_serialize_detached().unwrap();
 
     assert_eq!(bytes.len(), OPAQUE_REGISTRATION_RECORD_SIZE);
-    let _ = OpaqueRegistrationRecord::tls_deserialize(bytes.as_slice()).unwrap();
+    let _ = OpaqueRegistrationRecord::tls_deserialize_bytes(bytes.as_slice()).unwrap();
 }

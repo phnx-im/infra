@@ -9,7 +9,7 @@ use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpa
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
-use crate::types::ConversationIdBytes;
+use crate::types::{ConversationIdBytes, UiContact};
 pub use crate::types::{
     UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
@@ -270,12 +270,12 @@ impl RustUser {
         messages
     }
 
-    pub fn get_contacts(&self) -> Vec<String> {
+    pub fn get_contacts(&self) -> Vec<UiContact> {
         let user = self.user.lock().unwrap();
         user.contacts()
             .unwrap_or_default()
             .into_iter()
-            .map(|c| c.user_name.to_string())
+            .map(|c| c.into())
             .collect()
     }
 
@@ -332,5 +332,16 @@ impl RustUser {
             .into_iter()
             .map(|c| c.to_string())
             .collect())
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn set_user_profile(
+        &self,
+        display_name: String,
+        profile_picture_option: Option<Vec<u8>>,
+    ) -> Result<()> {
+        let user = self.user.lock().unwrap();
+        user.store_user_profile(display_name, profile_picture_option)
+            .await
     }
 }
