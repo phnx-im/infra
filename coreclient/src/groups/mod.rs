@@ -1418,8 +1418,9 @@ impl GroupMessage {
         sender: &ClientCredential,
         application_message: ApplicationMessage,
     ) -> Result<Self> {
-        let content =
-            MessageContentType::tls_deserialize(&mut application_message.into_bytes().as_slice())?;
+        let content = MessageContentType::tls_deserialize_exact_bytes(
+            &mut application_message.into_bytes().as_slice(),
+        )?;
         let message = Message::Content(ContentMessage {
             sender: sender.identity().user_name().to_string(),
             content,
