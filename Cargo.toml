@@ -24,7 +24,7 @@ reqwest = { version = "^0.11", features = [
     "rustls",
     "brotli",
 ], default-features = false }
-privacypass = { git = "https://github.com/kkohbrok/privacypass" }
+privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 
 [patch.crates-io]
 opaque-ke = { git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0-pre.7" }
