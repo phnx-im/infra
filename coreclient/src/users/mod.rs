@@ -521,7 +521,7 @@ impl<T: Notifiable> SelfUser<T> {
         // Create the connection group
         log::info!("Creating local connection group");
         let group_store = self.group_store();
-        let title = format!("Connection group: {} - {}", user_name, self.user_name());
+        let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_aad = serde_json::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = group_store.create_group(
@@ -587,7 +587,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = conversation_store.create_connection_conversation(
             group_id,
             user_name.clone(),
-            ConversationAttributes::new(user_name.to_string(), None),
+            conversation_attributes,
         )?;
 
         // Create and persist a new partial contact

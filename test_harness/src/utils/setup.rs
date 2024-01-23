@@ -283,9 +283,10 @@ impl TestBackend {
                 assert_eq!(before.user_name, after.user_name);
             });
         let mut user1_conversations_after = user1.conversations().unwrap();
+        let test_title = format!("Connection group: {} - {}", user1_name, user2_name);
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == user2_name.to_string())
+            .position(|c| c.attributes().title() == test_title)
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -373,7 +374,7 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes().title() == &user2_name.to_string())
+            .position(|c| &c.attributes().title() == &test_title)
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -500,7 +501,11 @@ impl TestBackend {
         let user_conversations_before = user.conversations().unwrap();
 
         let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
-        let conversation_id = user.create_conversation(&group_name, None).await.unwrap();
+        let group_picture_bytes_option = Some(OsRng.gen::<[u8; 32]>().to_vec());
+        let conversation_id = user
+            .create_conversation(&group_name, group_picture_bytes_option.clone())
+            .await
+            .unwrap();
         let mut user_conversations_after = user.conversations().unwrap();
         let new_conversation_position = user_conversations_after
             .iter()
@@ -510,6 +515,11 @@ impl TestBackend {
         assert!(conversation.id() == conversation_id);
         assert!(conversation.status() == &ConversationStatus::Active);
         assert!(conversation.conversation_type() == &ConversationType::Group);
+        assert_eq!(conversation.attributes().title(), &group_name);
+        assert_eq!(
+            conversation.attributes().conversation_picture_option(),
+            group_picture_bytes_option.as_ref().map(|b| b.as_slice())
+        );
         user_conversations_before
             .into_iter()
             .zip(user_conversations_after)
@@ -552,6 +562,7 @@ impl TestBackend {
             .process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
+        let inviter_conversation = inviter.conversation(conversation_id).unwrap();
 
         tracing::info!(
             "{} invites {} to the group with id {}",
@@ -607,6 +618,16 @@ impl TestBackend {
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
             assert!(conversation.conversation_type() == &ConversationType::Group);
+            assert_eq!(
+                conversation.attributes().title(),
+                inviter_conversation.attributes().title()
+            );
+            assert_eq!(
+                conversation.attributes().conversation_picture_option(),
+                inviter_conversation
+                    .attributes()
+                    .conversation_picture_option()
+            );
             // In case it was a re-join, we remove it from the conversation list before as well.
             if let Some(inactive_conversation_position) = invitee_conversations_before
                 .iter()
