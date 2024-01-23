@@ -33,9 +33,9 @@ impl tls_codec::Serialize for DisplayName {
 }
 
 impl tls_codec::DeserializeBytes for DisplayName {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
         let (display_name_bytes, bytes): (Vec<u8>, &[u8]) =
-            tls_codec::DeserializeBytes::tls_deserialize(bytes)?;
+            tls_codec::DeserializeBytes::tls_deserialize_bytes(bytes)?;
         let display_name = String::from_utf8(display_name_bytes.to_vec()).map_err(|_| {
             tls_codec::Error::DecodingError("Couldn't convert bytes to UTF-8 string".to_string())
         })?;

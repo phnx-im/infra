@@ -252,7 +252,8 @@ impl InfraCredentialPlaintext {
         ear_key: &SignatureEarKey,
     ) -> Result<Self, InfraCredentialDecryptionError> {
         let encrypted_signature =
-            Ciphertext::tls_deserialize_exact(credential.encrypted_signature().as_slice())?.into();
+            Ciphertext::tls_deserialize_exact_bytes(credential.encrypted_signature().as_slice())?
+                .into();
         let signature = Signature::decrypt(&ear_key, &encrypted_signature)
             .map_err(|_| InfraCredentialDecryptionError::SignatureDecryptionError)?;
         let payload = InfraCredentialTbs {

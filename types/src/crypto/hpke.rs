@@ -162,7 +162,7 @@ impl ClientIdDecryptionKey {
     //        .private_key
     //        .decrypt(&[], &[], &sealed_client_reference.ciphertext)
     //        .map_err(|_| UnsealError::DecryptionError)?;
-    //    ClientConfig::tls_deserialize_exact(&bytes).map_err(|_| UnsealError::CodecError)
+    //    ClientConfig::tls_deserialize_exact_bytes(&bytes).map_err(|_| UnsealError::CodecError)
     //}
 
     pub fn generate() -> Result<Self, RandomnessError> {

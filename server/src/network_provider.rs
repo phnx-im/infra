@@ -60,7 +60,7 @@ impl NetworkProvider for MockNetworkProvider {
         // Reqwest should resolve the hostname on its own.
         let result = match self.client.post(url).body(bytes).send().await {
             // For now we don't care about the response.
-            Ok(response_bytes) => FederatedProcessingResult::tls_deserialize_exact(
+            Ok(response_bytes) => FederatedProcessingResult::tls_deserialize_exact_bytes(
                 &response_bytes.bytes().await.unwrap(),
             )
             .map_err(|_| MockNetworkError::MalformedResponse)?,

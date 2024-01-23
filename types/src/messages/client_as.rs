@@ -530,8 +530,9 @@ impl AsQueueMessagePayload {
     pub fn extract(self) -> Result<ExtractedAsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
             AsQueueMessageType::EncryptedConnectionEstablishmentPackage => {
-                let cep =
-                    EncryptedConnectionEstablishmentPackage::tls_deserialize_exact(&self.payload)?;
+                let cep = EncryptedConnectionEstablishmentPackage::tls_deserialize_exact_bytes(
+                    &self.payload,
+                )?;
                 ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(cep)
             }
         };
@@ -554,7 +555,7 @@ impl GenericDeserializable for AsQueueMessagePayload {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact(bytes)
+        Self::tls_deserialize_exact_bytes(bytes)
     }
 }
 
@@ -743,12 +744,12 @@ pub struct IssueTokensParamsTbs {
 }
 
 impl DeserializeBytes for IssueTokensParamsTbs {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let (client_id, bytes) = AsClientId::tls_deserialize(bytes)?;
-        let (token_type, bytes) = AsTokenType::tls_deserialize(bytes)?;
+        let (client_id, bytes) = AsClientId::tls_deserialize_bytes(bytes)?;
+        let (token_type, bytes) = AsTokenType::tls_deserialize_bytes(bytes)?;
         let mut bytes_reader = bytes;
         let token_request =
             <TokenRequest as tls_codec::Deserialize>::tls_deserialize(&mut bytes_reader)?;
@@ -814,7 +815,7 @@ pub struct IssueTokensResponse {
 }
 
 impl DeserializeBytes for IssueTokensResponse {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {

@@ -79,7 +79,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            AsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
+                            AsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Ok(ds_proc_res)
                     }
@@ -88,7 +88,7 @@ impl ApiClient {
                         let ds_proc_err_bytes =
                             res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
                         let ds_proc_err =
-                            AsProcessingError::tls_deserialize_exact(&ds_proc_err_bytes)
+                            AsProcessingError::tls_deserialize_exact_bytes(&ds_proc_err_bytes)
                                 .map_err(|_| AsRequestError::BadResponse)?;
                         Err(AsRequestError::AsError(ds_proc_err))
                     }

@@ -91,7 +91,7 @@ impl ApiClient {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =
-                            DsProcessResponseIn::tls_deserialize_exact(&ds_proc_res_bytes)
+                            DsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
                                 .map_err(|e| {
                                     log::warn!("Couldn't deserialize OK response body: {:?}", e);
                                     DsRequestError::BadResponse
@@ -104,13 +104,12 @@ impl ApiClient {
                             log::warn!("No body in DS-error response.");
                             DsRequestError::BadResponse
                         })?;
-                        let ds_proc_err = DsProcessingError::tls_deserialize_exact(
-                            &ds_proc_err_bytes,
-                        )
-                        .map_err(|_| {
-                            log::warn!("Couldn't deserialize DS-error response body.");
-                            DsRequestError::BadResponse
-                        })?;
+                        let ds_proc_err =
+                            DsProcessingError::tls_deserialize_exact_bytes(&ds_proc_err_bytes)
+                                .map_err(|_| {
+                                    log::warn!("Couldn't deserialize DS-error response body.");
+                                    DsRequestError::BadResponse
+                                })?;
                         Err(DsRequestError::DsError(ds_proc_err))
                     }
                     // All other errors

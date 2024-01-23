@@ -98,7 +98,7 @@ pub struct UserName {
 
 impl From<Vec<u8>> for UserName {
     fn from(value: Vec<u8>) -> Self {
-        Self::tls_deserialize_exact(&value).unwrap()
+        Self::tls_deserialize_exact_bytes(&value).unwrap()
     }
 }
 
@@ -156,12 +156,12 @@ pub struct AsClientId {
 }
 
 impl TlsDeserializeBytesTrait for AsClientId {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let (user_name, rest) = <UserName>::tls_deserialize(bytes.as_ref())?;
-        let (client_id_bytes, rest) = <[u8; 16]>::tls_deserialize(rest)?;
+        let (user_name, rest) = <UserName>::tls_deserialize_bytes(bytes.as_ref())?;
+        let (client_id_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(rest)?;
         let client_id = Uuid::from_bytes(client_id_bytes);
         Ok((
             Self {
@@ -280,11 +280,11 @@ impl tls_codec::Serialize for QsClientId {
 }
 
 impl tls_codec::DeserializeBytes for QsClientId {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize(bytes)?;
+        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(bytes)?;
         let client_id = Uuid::from_bytes(uuid_bytes);
         Ok((Self { client_id }, rest))
     }
@@ -342,11 +342,11 @@ impl tls_codec::Serialize for QsUserId {
 }
 
 impl tls_codec::DeserializeBytes for QsUserId {
-    fn tls_deserialize(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
     where
         Self: Sized,
     {
-        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize(bytes)?;
+        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(bytes)?;
         let user_id = Uuid::from_bytes(uuid_bytes);
         Ok((Self { user_id }, rest))
     }
