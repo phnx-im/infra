@@ -32,7 +32,7 @@ pub struct ConversationIdBytes {
 impl From<ConversationId> for ConversationIdBytes {
     fn from(conversation_id: ConversationId) -> Self {
         Self {
-            bytes: conversation_id.as_uuid().to_bytes_le(),
+            bytes: conversation_id.as_uuid().into_bytes(),
         }
     }
 }
