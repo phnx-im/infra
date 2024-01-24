@@ -393,7 +393,6 @@ async fn retrieve_conversation_messages() {
 
     let conversation_id = setup.connect_users(ALICE, BOB).await;
 
-    //setup.send_message(conversation_id, ALICE, &[BOB]).await;
     let alice_test_user = setup.users.get_mut(&ALICE.into()).unwrap();
     let alice = &mut alice_test_user.user;
 
