@@ -66,7 +66,13 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Option<Self>, PersistenceError> {
-        let mut values = load_internal(conn, primary_key_option, secondary_key_option, false)?;
+        let mut values = load_internal(
+            conn,
+            primary_key_option,
+            secondary_key_option,
+            false,
+            T::DATA_TYPE,
+        )?;
         Ok(values.pop())
     }
 
@@ -79,7 +85,13 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Vec<Self>, PersistenceError> {
-        load_internal(conn, primary_key_option, secondary_key_option, true)
+        load_internal(
+            conn,
+            primary_key_option,
+            secondary_key_option,
+            true,
+            T::DATA_TYPE,
+        )
     }
 
     /// Load all values of this data type from the database. This is an alias
@@ -213,14 +225,21 @@ pub enum PersistenceError {
 /// Helper function that creates a table for the given data type.
 fn create_table(conn: &rusqlite::Connection, data_type: DataType) -> Result<(), PersistenceError> {
     let table_name = data_type.to_sql_key();
-    let statement_str = format!(
+    let mut statement_str = format!(
         "CREATE TABLE IF NOT EXISTS {} (
                 rowid INTEGER PRIMARY KEY,
                 primary_key TEXT UNIQUE,
-                secondary_key TEXT UNIQUE,
-                value BLOB
-            )",
+                secondary_key TEXT,",
         table_name,
+    );
+    match data_type {
+        DataType::Message => statement_str.push_str("timestamp i64,"),
+        _ => {}
+    };
+    statement_str.push_str(
+        "
+        value BLOB
+    )",
     );
     let mut stmt = conn.prepare(&statement_str)?;
     stmt.execute([])?;
@@ -236,12 +255,16 @@ fn load_internal<'a, T: Persistable>(
     primary_key_option: Option<&T::Key>,
     secondary_key_option: Option<&T::SecondaryKey>,
     load_multiple: bool,
+    data_type: DataType,
 ) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
     let mut statement_str = format!("SELECT value FROM {}", T::DATA_TYPE.to_sql_key());
 
     // We prepare the query here, so we can use it in the match arms below.
     // This is due to annoying lifetime issues.
     let finalize_query = |params: &[&dyn ToSql], mut final_statement: String| {
+        if matches!(data_type, DataType::Message) {
+            final_statement.push_str(" ORDER BY timestamp DESC");
+        }
         if !load_multiple {
             final_statement.push_str(" LIMIT 1");
         }
