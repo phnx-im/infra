@@ -4,8 +4,10 @@
 
 mod qs;
 
+use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
+use phnxcoreclient::MessageContentType;
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::Fqdn;
@@ -380,4 +382,40 @@ async fn exchange_user_profiles() {
         .unwrap();
 
     assert!(alice_contact.user_profile().display_name().as_ref() == &alice_display_name);
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "User profile exchange test", skip_all)]
+async fn retrieve_conversation_messages() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(ALICE).await;
+    setup.add_user(BOB).await;
+
+    let conversation_id = setup.connect_users(ALICE, BOB).await;
+
+    //setup.send_message(conversation_id, ALICE, &[BOB]).await;
+    let alice_test_user = setup.users.get_mut(&ALICE.into()).unwrap();
+    let alice = &mut alice_test_user.user;
+
+    let mut messages_sent = vec![];
+    for _ in 0..10 {
+        let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
+        let message_content = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
+        let message = alice
+            .send_message(conversation_id, message_content)
+            .await
+            .unwrap();
+        messages_sent.push(message);
+    }
+
+    // Let's see what Alice's messages for this conversation look like.
+    let messages = setup
+        .users
+        .get(&ALICE.into())
+        .unwrap()
+        .user
+        .get_messages(conversation_id, 10)
+        .unwrap();
+
+    assert_eq!(messages, messages_sent);
 }
