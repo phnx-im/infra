@@ -31,9 +31,9 @@ impl<'a> GroupStore<'a> {
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
-        group_aad: GroupAad,
+        group_data: GroupData,
     ) -> Result<(PersistableGroup, PartialCreateGroupParams)> {
-        let (payload, params) = Group::create_group(provider, signer, group_id, group_aad)?;
+        let (payload, params) = Group::create_group(provider, signer, group_id, group_data)?;
         let group = PersistableGroup::from_connection_and_payload(&self.db_connection, payload);
         group.persist()?;
         Ok((group, params))

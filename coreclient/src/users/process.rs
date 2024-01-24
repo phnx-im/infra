@@ -65,9 +65,9 @@ impl<T: Notifiable> SelfUser<T> {
                     let group_id = group.group_id();
                     freshly_joined_groups.push(group_id.clone());
 
-                    let group_aad = group.group_aad().ok_or(anyhow!("No group AAD"))?;
+                    let group_data = group.group_data().ok_or(anyhow!("No group AAD"))?;
                     let attributes: ConversationAttributes =
-                        serde_json::from_slice(group_aad.bytes())?;
+                        serde_json::from_slice(group_data.bytes())?;
                     let conversation_store = self.conversation_store();
                     let conversation = conversation_store
                         .create_group_conversation(group_id.clone(), attributes)?;
