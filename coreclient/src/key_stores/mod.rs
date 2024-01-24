@@ -7,8 +7,8 @@ use std::ops::Deref;
 use anyhow::Result;
 use openmls::{
     prelude::{
-        Capabilities, CredentialWithKey, CryptoConfig, Extension, Extensions, KeyPackage,
-        LastResortExtension, SignaturePublicKey, UnknownExtension,
+        CredentialWithKey, CryptoConfig, Extension, Extensions, KeyPackage, LastResortExtension,
+        SignaturePublicKey, UnknownExtension,
     },
     versions::ProtocolVersion,
 };
@@ -27,10 +27,7 @@ use phnxtypes::{
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
-    groups::{
-        SUPPORTED_CIPHERSUITES, SUPPORTED_CREDENTIALS, SUPPORTED_EXTENSIONS, SUPPORTED_PROPOSALS,
-        SUPPORTED_PROTOCOL_VERSIONS,
-    },
+    groups::default_capabilities,
     users::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, CIPHERSUITE},
     utils::persistence::{DataType, Persistable, PersistenceError},
 };
@@ -129,13 +126,7 @@ impl MemoryUserKeyStore {
                 .verifying_key()
                 .clone(),
         };
-        let capabilities = Capabilities::new(
-            Some(&SUPPORTED_PROTOCOL_VERSIONS),
-            Some(&SUPPORTED_CIPHERSUITES),
-            Some(&SUPPORTED_EXTENSIONS),
-            Some(&SUPPORTED_PROPOSALS),
-            Some(&SUPPORTED_CREDENTIALS),
-        );
+        let capabilities = default_capabilities();
         let client_reference = self.create_own_client_reference(qs_client_id);
         let client_ref_extension = Extension::Unknown(
             QS_CLIENT_REFERENCE_EXTENSION_TYPE,

@@ -381,15 +381,3 @@ async fn exchange_user_profiles() {
 
     assert!(alice_contact.user_profile().display_name().as_ref() == &alice_display_name);
 }
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Conversation attributes test", skip_all)]
-async fn conversation_attributes() {
-    let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-
-    setup.connect_users(ALICE, BOB).await;
-    let alice = setup.users.get(&ALICE.into()).unwrap().user;
-    let conversations = alice.conversations().unwrap();
-}

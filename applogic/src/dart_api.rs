@@ -292,7 +292,7 @@ impl RustUser {
         conversation_id: ConversationIdBytes,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<()> {
-        let mut user = self.user.lock().unwrap();
+        let user = self.user.lock().unwrap();
         user.set_conversation_picture(conversation_id.into(), conversation_picture)?;
         Ok(())
     }
