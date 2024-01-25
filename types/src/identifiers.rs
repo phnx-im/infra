@@ -125,27 +125,49 @@ pub struct UserName {
     pub(crate) domain: Fqdn,
 }
 
+impl<T> SafeTryInto<T> for T {
+    type Error = std::convert::Infallible;
+
+    fn try_into(self) -> Result<T, Self::Error> {
+        Ok(self)
+    }
+}
+
+// Convenience trait to allow `impl TryInto<UserName>` as function input.
+pub trait SafeTryInto<T>: Sized {
+    type Error: std::error::Error + Send + Sync + 'static;
+    fn try_into(self) -> Result<T, Self::Error>;
+}
+
 // TODO: This string processing is way too simplistic, but it should do for now.
-impl TryFrom<&str> for UserName {
+impl SafeTryInto<UserName> for &str {
     type Error = FqdnError;
 
-    fn try_from(value: &str) -> Result<Self, FqdnError> {
-        let mut split_name = value.split('@');
+    fn try_into(self) -> Result<UserName, Self::Error> {
+        let mut split_name = self.split('@');
         let name = split_name.next().unwrap();
         // UserNames MUST be qualified
         let domain = split_name.next().unwrap();
         assert!(split_name.next().is_none());
-        let domain = domain.try_into()?;
+        let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
         let user_name = name.as_bytes().to_vec();
-        Ok(Self { user_name, domain })
+        Ok(UserName { user_name, domain })
     }
 }
 
-impl TryFrom<String> for UserName {
+impl SafeTryInto<UserName> for String {
     type Error = FqdnError;
 
-    fn try_from(value: String) -> Result<Self, FqdnError> {
-        Self::try_from(value.as_str())
+    fn try_into(self) -> Result<UserName, FqdnError> {
+        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    }
+}
+
+impl SafeTryInto<UserName> for &String {
+    type Error = FqdnError;
+
+    fn try_into(self) -> Result<UserName, FqdnError> {
+        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
 

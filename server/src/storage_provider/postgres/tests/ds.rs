@@ -18,7 +18,7 @@ use crate::{configurations::get_configuration, storage_provider::postgres::ds::P
 async fn initialize_test_provider() -> PostgresDsStorage {
     let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
     configuration.database.database_name = Uuid::new_v4().to_string();
-    let own_domain = Fqdn::from(configuration.application.domain);
+    let own_domain = Fqdn::try_from("example.com").unwrap();
     PostgresDsStorage::new(&configuration.database, own_domain.clone())
         .await
         .unwrap()
@@ -32,7 +32,7 @@ async fn reserve_group_id() {
     let group_uuid = Uuid::new_v4().as_bytes().clone();
     let qgid = QualifiedGroupId {
         group_id: group_uuid,
-        owning_domain: Fqdn::from("example.com"),
+        owning_domain: Fqdn::try_from("example.com").unwrap(),
     };
     let group_id = GroupId::from_slice(&qgid.tls_serialize_detached().unwrap());
     let was_reserved = storage_provider
@@ -61,7 +61,7 @@ async fn group_state_lifecycle() {
     // Create/store a dummy group state
     let qgid_bytes = QualifiedGroupId {
         group_id: Uuid::new_v4().into_bytes(),
-        owning_domain: Fqdn::from("example.com"),
+        owning_domain: Fqdn::try_from("example.com").unwrap(),
     }
     .tls_serialize_detached()
     .unwrap();

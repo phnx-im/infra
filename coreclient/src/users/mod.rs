@@ -34,7 +34,9 @@ use phnxtypes::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    identifiers::{AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, UserName},
+    identifiers::{
+        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, SafeTryInto, UserName,
+    },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
@@ -104,7 +106,7 @@ impl<T: Notifiable> SelfUser<T> {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: impl TryInto<UserName>,
+        user_name: impl SafeTryInto<UserName>,
         password: &str,
         server_url: impl ToString,
         client_db_path: &str,
@@ -477,8 +479,8 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(conversation_message)
     }
 
-    pub async fn add_contact(&mut self, user_name: impl Into<UserName>) -> Result<()> {
-        let user_name = user_name.into();
+    pub async fn add_contact(&mut self, user_name: impl SafeTryInto<UserName>) -> Result<()> {
+        let user_name = user_name.try_into()?;
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
