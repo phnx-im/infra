@@ -6,6 +6,7 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
+use notify_rust::{error::NotificationError, Notification};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{
     identifiers::{SafeTryInto, UserName},
@@ -227,6 +228,8 @@ impl RustUser {
     pub async fn fetch_messages(&self) -> Result<()> {
         let mut user = self.user.lock().unwrap();
 
+        Notification::new().summary("Fetching messages").show()?;
+
         let as_messages = user.as_fetch_messages().await?;
         user.process_as_messages(as_messages).await?;
 
@@ -357,4 +360,19 @@ impl RustUser {
         user.store_user_profile(display_name, profile_picture_option)
             .await
     }
+
+    fn trigger_notification(
+        &self,
+        notification_info: NotificationInfo,
+    ) -> Result<(), NotificationError> {
+        Notification::new()
+            .summary(&notification_info.sender.to_string())
+            .body(&notification_info.message_content)
+            .show()
+    }
+}
+
+struct NotificationInfo {
+    sender: UserName,
+    message_content: String,
 }
