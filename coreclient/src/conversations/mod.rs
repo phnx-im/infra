@@ -127,5 +127,36 @@ pub enum ConversationType {
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ConversationAttributes {
-    pub title: String,
+    title: String,
+    conversation_picture_option: Option<Vec<u8>>,
+}
+
+impl ConversationAttributes {
+    pub fn new(title: String, conversation_picture_option: Option<Vec<u8>>) -> Self {
+        Self {
+            title,
+            conversation_picture_option,
+        }
+    }
+
+    pub fn title(&self) -> &str {
+        self.title.as_ref()
+    }
+
+    pub fn conversation_picture_option(&self) -> Option<&[u8]> {
+        self.conversation_picture_option
+            .as_ref()
+            .map(|v| v.as_slice())
+    }
+
+    pub fn set_conversation_picture_option(
+        &mut self,
+        conversation_picture_option: Option<Vec<u8>>,
+    ) {
+        self.conversation_picture_option = conversation_picture_option;
+    }
+
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
+    }
 }

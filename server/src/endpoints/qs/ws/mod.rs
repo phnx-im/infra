@@ -15,6 +15,7 @@ use actix_web::{
 };
 use actix_web_actors::ws::{self};
 use async_trait::*;
+use base64::{engine::general_purpose, Engine as _};
 use dispatch::*;
 use messages::*;
 use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
@@ -190,7 +191,7 @@ pub(crate) async fn upgrade_connection(
     };
 
     // Decode the header value
-    let decoded_header_value = match base64::decode(header_value) {
+    let decoded_header_value: Vec<u8> = match general_purpose::STANDARD.decode(header_value) {
         Ok(value) => value,
         Err(e) => {
             tracing::error!("Could not decode QsOpenWsParams header: {}", e);

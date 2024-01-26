@@ -75,14 +75,22 @@ use self::{
 };
 
 pub const FRIENDSHIP_PACKAGE_PROPOSAL_TYPE: u16 = 0xff00;
+pub const GROUP_DATA_EXTENSION_TYPE: u16 = 0xff01;
 
-pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 0] = [];
-//pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 1] =
-//    [ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE)];
-pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 0] = [];
+pub const DEFAULT_MLS_VERSION: ProtocolVersion = ProtocolVersion::Mls10;
+pub const DEFAULT_CIPHERSUITE: Ciphersuite =
+    Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+
+pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 3] = [
+    ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE),
+    ExtensionType::Unknown(GROUP_DATA_EXTENSION_TYPE),
+    ExtensionType::LastResort,
+];
+pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 1] =
+    [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
 pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infra];
 
-fn default_required_capabilities() -> RequiredCapabilitiesExtension {
+pub fn default_required_capabilities() -> RequiredCapabilitiesExtension {
     RequiredCapabilitiesExtension::new(
         &REQUIRED_EXTENSION_TYPES,
         &REQUIRED_PROPOSAL_TYPES,
@@ -91,18 +99,13 @@ fn default_required_capabilities() -> RequiredCapabilitiesExtension {
 }
 
 // Default capabilities for every leaf node we create.
-pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [ProtocolVersion::Mls10];
-pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] =
-    [Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519];
-pub const SUPPORTED_EXTENSIONS: [ExtensionType; 2] = [
-    ExtensionType::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE),
-    ExtensionType::LastResort,
-];
-pub const SUPPORTED_PROPOSALS: [ProposalType; 1] =
-    [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
-pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = [CredentialType::Infra];
+pub const SUPPORTED_PROTOCOL_VERSIONS: [ProtocolVersion; 1] = [DEFAULT_MLS_VERSION];
+pub const SUPPORTED_CIPHERSUITES: [Ciphersuite; 1] = [DEFAULT_CIPHERSUITE];
+pub const SUPPORTED_EXTENSIONS: [ExtensionType; 3] = REQUIRED_EXTENSION_TYPES;
+pub const SUPPORTED_PROPOSALS: [ProposalType; 1] = REQUIRED_PROPOSAL_TYPES;
+pub const SUPPORTED_CREDENTIALS: [CredentialType; 1] = REQUIRED_CREDENTIAL_TYPES;
 
-fn default_capabilities() -> Capabilities {
+pub fn default_capabilities() -> Capabilities {
     Capabilities::new(
         Some(&SUPPORTED_PROTOCOL_VERSIONS),
         Some(&SUPPORTED_CIPHERSUITES),
@@ -209,6 +212,22 @@ impl PartialCreateGroupParams {
     }
 }
 
+pub(crate) struct GroupData {
+    bytes: Vec<u8>,
+}
+
+impl GroupData {
+    pub(crate) fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl From<Vec<u8>> for GroupData {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Group {
     group_id: GroupId,
@@ -243,6 +262,7 @@ impl Group {
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
+        group_data: GroupData,
     ) -> Result<(Self, PartialCreateGroupParams)> {
         let credential_ear_key = ClientCredentialEarKey::random()?;
         let user_auth_key = UserAuthSigningKey::generate()?;
@@ -260,7 +280,12 @@ impl Group {
             credential: Credential::from(leaf_signer.credential().clone()),
             signature_key: leaf_signer.credential().verifying_key().clone(),
         };
-        let gc_extensions = Extensions::single(required_capabilities);
+        let group_data_extension = Extension::Unknown(
+            GROUP_DATA_EXTENSION_TYPE,
+            UnknownExtension(group_data.bytes),
+        );
+        let gc_extensions =
+            Extensions::from_vec(vec![group_data_extension, required_capabilities])?;
 
         let mls_group = MlsGroup::builder()
             .with_group_id(group_id.clone())
@@ -1373,6 +1398,15 @@ impl Group {
                 _ => None,
             })
             .collect()
+    }
+
+    pub(crate) fn group_data(&self) -> Option<GroupData> {
+        self.mls_group().extensions().iter().find_map(|e| match e {
+            Extension::Unknown(GROUP_DATA_EXTENSION_TYPE, extension_bytes) => {
+                Some(GroupData::from(extension_bytes.0.clone()))
+            }
+            _ => None,
+        })
     }
 }
 

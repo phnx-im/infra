@@ -235,7 +235,11 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Create new group
-    pub async fn create_conversation(&mut self, title: &str) -> Result<ConversationId> {
+    pub async fn create_conversation(
+        &mut self,
+        title: &str,
+        conversation_picture_option: Option<Vec<u8>>,
+    ) -> Result<ConversationId> {
         let group_id = self
             .api_clients
             .default_client()?
@@ -243,10 +247,15 @@ impl<T: Notifiable> SelfUser<T> {
             .await?;
         let client_reference = self.create_own_client_reference();
         let group_store = self.group_store();
+        // Store the conversation attributes in the group's aad
+        let conversation_attributes =
+            ConversationAttributes::new(title.to_string(), conversation_picture_option);
+        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
         let (group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
+            group_data,
         )?;
         let encrypted_client_credential = self
             .key_store
@@ -262,11 +271,9 @@ impl<T: Notifiable> SelfUser<T> {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        let attributes = ConversationAttributes {
-            title: title.to_string(),
-        };
         let conversation_store = self.conversation_store();
-        let conversation = conversation_store.create_group_conversation(group_id, attributes)?;
+        let conversation =
+            conversation_store.create_group_conversation(group_id, conversation_attributes)?;
         self.dispatch_conversation_notification(conversation.id())?;
         Ok(conversation.id())
     }
@@ -280,6 +287,22 @@ impl<T: Notifiable> SelfUser<T> {
 
         let user_profile_store = self.user_profile_store();
         user_profile_store.store(user_profile)?;
+        Ok(())
+    }
+
+    pub fn set_conversation_picture(
+        &self,
+        conversation_id: ConversationId,
+        conversation_picture_option: Option<Vec<u8>>,
+    ) -> Result<()> {
+        let conversation_store = self.conversation_store();
+        let mut conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id.as_uuid()
+            ))?;
+        conversation.set_conversation_picture(conversation_picture_option)?;
         Ok(())
     }
 
@@ -498,10 +521,14 @@ impl<T: Notifiable> SelfUser<T> {
         // Create the connection group
         log::info!("Creating local connection group");
         let group_store = self.group_store();
+        let title = format!("Connection group: {} - {}", self.user_name(), user_name);
+        let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
+        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
+            group_data,
         )?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
@@ -560,9 +587,7 @@ impl<T: Notifiable> SelfUser<T> {
         let conversation = conversation_store.create_connection_conversation(
             group_id,
             user_name.clone(),
-            ConversationAttributes {
-                title: user_name.to_string(),
-            },
+            conversation_attributes,
         )?;
 
         // Create and persist a new partial contact

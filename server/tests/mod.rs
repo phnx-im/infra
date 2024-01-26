@@ -311,7 +311,7 @@ async fn benchmarks() {
 }
 
 #[actix_rt::test]
-#[tracing::instrument(name = "Connect users test", skip_all)]
+#[tracing::instrument(name = "User profile exchange test", skip_all)]
 async fn exchange_user_profiles() {
     let mut setup = TestBackend::single().await;
     setup.add_user(ALICE).await;

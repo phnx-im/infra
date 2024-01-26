@@ -283,8 +283,18 @@ impl RustUser {
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
         let mut user = self.user.lock().unwrap();
         Ok(ConversationIdBytes::from(
-            user.create_conversation(&name).await?,
+            user.create_conversation(&name, None).await?,
         ))
+    }
+
+    pub fn set_conversation_picture(
+        &self,
+        conversation_id: ConversationIdBytes,
+        conversation_picture: Option<Vec<u8>>,
+    ) -> Result<()> {
+        let user = self.user.lock().unwrap();
+        user.set_conversation_picture(conversation_id.into(), conversation_picture)?;
+        Ok(())
     }
 
     #[tokio::main(flavor = "current_thread")]
