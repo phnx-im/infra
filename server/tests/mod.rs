@@ -395,7 +395,10 @@ async fn retrieve_conversation_messages() {
 
     let conversation_id = setup.connect_users(ALICE, BOB).await;
 
-    let alice_test_user = setup.users.get_mut(&ALICE.into()).unwrap();
+    let alice_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
+        .unwrap();
     let alice = &mut alice_test_user.user;
 
     let mut messages_sent = vec![];
@@ -412,7 +415,7 @@ async fn retrieve_conversation_messages() {
     // Let's see what Alice's messages for this conversation look like.
     let messages = setup
         .users
-        .get(&ALICE.into())
+        .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
         .user
         .get_messages(conversation_id, 10)
