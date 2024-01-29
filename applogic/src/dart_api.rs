@@ -17,7 +17,7 @@ use crate::{
     types::{ConversationIdBytes, UiContact},
 };
 use phnxcoreclient::{
-    users::{store::ClientRecord, SelfUser},
+    users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
     ConversationMessage, NotificationType,
 };
 
@@ -245,10 +245,23 @@ impl RustUser {
         // Fetch QS messages
         let qs_messages = user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
+        let mut new_conversations = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
-            let conversation_messages = user.process_qs_message(qs_message_plaintext).await?;
-            self.dispatch_message_notifications(conversation_messages);
+            match user.process_qs_message(qs_message_plaintext).await? {
+                ProcessQsMessageResult::ConversationId(conversation_id) => {
+                    self.dispatch_conversation_notification(conversation_id.into());
+                    new_conversations.push(conversation_id);
+                }
+                ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
+                    self.dispatch_message_notifications(conversation_messages);
+                }
+            };
+        }
+
+        // Update user auth keys of newly created conversations.
+        for conversation_id in new_conversations {
+            user.update_user_key(conversation_id).await?;
         }
 
         Ok(())

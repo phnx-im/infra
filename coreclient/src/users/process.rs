@@ -24,6 +24,11 @@ use self::user_profile::Asset;
 
 use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
+pub enum ProcessQsMessageResult {
+    ConversationId(ConversationId),
+    ConversationMessages(Vec<ConversationMessage>),
+}
+
 impl SelfUser {
     /// Decrypt a `QueueMessage` received from the QS queue.
     pub fn decrypt_qs_queue_message(
@@ -38,7 +43,8 @@ impl SelfUser {
 
     /// Process a decrypted message received from the QS queue.
     ///
-    /// Returns the [`ConversationId`] of the impacted conversation.
+    /// Returns the [`ConversationId`] of newly created conversations and any
+    /// [`ConversationMessage`]s produced by processin the QS message.
     ///
     /// TODO: If the message is a welcome bundle, we currently also update the
     /// user auth key. This results in a request to the DS (which can fail for a
@@ -46,16 +52,16 @@ impl SelfUser {
     pub async fn process_qs_message(
         &mut self,
         qs_message_ciphertext: ExtractedQsQueueMessagePayload,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<ProcessQsMessageResult> {
         // TODO: We should verify whether the messages are valid infra messages, i.e.
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
         // Keep track of freshly joined groups s.t. we can later update our user auth keys.
-        let (conversation_id, group_messages) = match qs_message_ciphertext {
+        let processing_result = match qs_message_ciphertext {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
                 let group_store = self.group_store();
-                let mut group = group_store
+                let group = group_store
                     .join_group(
                         &self.crypto_backend(),
                         welcome_bundle,
@@ -76,17 +82,7 @@ impl SelfUser {
                 let conversation =
                     conversation_store.create_group_conversation(group_id.clone(), attributes)?;
 
-                // Fresh joiners have to set their user auth key. We do this
-                // immediately for now.
-                let params = group.update_user_key(&self.crypto_backend())?;
-                let qgid =
-                    QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice()).unwrap();
-                self.api_clients
-                    .get(&qgid.owning_domain)?
-                    .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
-                    .await?;
-
-                (conversation.id(), vec![])
+                ProcessQsMessageResult::ConversationId(conversation.id())
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -251,13 +247,13 @@ impl SelfUser {
                         unimplemented!()
                     }
                 };
-                (conversation_id, group_messages)
+                let conversation_messages =
+                    self.store_group_messages(conversation_id, group_messages)?;
+                ProcessQsMessageResult::ConversationMessages(conversation_messages)
             }
         };
 
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
-
-        Ok(conversation_messages)
+        Ok(processing_result)
     }
 
     /// Decrypt a `QueueMessage` received from the AS queue.
@@ -449,11 +445,24 @@ impl SelfUser {
         qs_messages: Vec<QueueMessage>,
     ) -> Result<Vec<ConversationMessage>> {
         let mut collected_conversation_messages = vec![];
+        let mut new_conversations = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message)?;
-            let conversation_messages = self.process_qs_message(qs_message_plaintext).await?;
-            collected_conversation_messages.extend(conversation_messages);
+            match self.process_qs_message(qs_message_plaintext).await? {
+                ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
+                    collected_conversation_messages.extend(conversation_messages);
+                }
+                ProcessQsMessageResult::ConversationId(conversation_id) => {
+                    new_conversations.push(conversation_id)
+                }
+            };
         }
+
+        for conversation_id in new_conversations {
+            // Update user auth keys of newly created conversations.
+            self.update_user_key(conversation_id).await?;
+        }
+
         Ok(collected_conversation_messages)
     }
 
