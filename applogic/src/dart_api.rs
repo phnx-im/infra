@@ -9,14 +9,16 @@ use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpa
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
 
-use crate::types::{ConversationIdBytes, UiContact};
 pub use crate::types::{
     UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
-use phnxcoreclient::{
+use crate::{
     notifications::{Notifiable, NotificationHub},
+    types::{ConversationIdBytes, UiContact},
+};
+use phnxcoreclient::{
     users::{store::ClientRecord, SelfUser},
-    NotificationType,
+    ConversationMessage, NotificationType,
 };
 
 lazy_static! {
@@ -125,8 +127,11 @@ impl UserBuilder {
     }
 }
 
+type DartNotificationHub = NotificationHub<DartNotifier>;
+
 pub struct RustUser {
-    user: RustOpaque<Mutex<SelfUser<DartNotifier>>>,
+    user: RustOpaque<Mutex<SelfUser>>,
+    notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
 
 impl RustUser {
@@ -141,9 +146,10 @@ impl RustUser {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
-        let user = SelfUser::new(&user_name, &password, address, &path, notification_hub).await?;
+        let user = SelfUser::new(&user_name, &password, address, &path).await?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
+            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
 
@@ -159,7 +165,7 @@ impl RustUser {
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let as_client_id = client_record.as_client_id;
-        let user = SelfUser::load(as_client_id.clone(), &path, notification_hub)
+        let user = SelfUser::load(as_client_id.clone(), &path)
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(
@@ -169,6 +175,7 @@ impl RustUser {
             })?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
+            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
 
@@ -216,7 +223,8 @@ impl RustUser {
     #[tokio::main(flavor = "current_thread")]
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.add_contact(&user_name).await?;
+        let conversation_id = user.add_contact(&user_name).await?;
+        self.dispatch_conversation_notification(conversation_id.into());
         Ok(())
     }
 
@@ -224,11 +232,24 @@ impl RustUser {
     pub async fn fetch_messages(&self) -> Result<()> {
         let mut user = self.user.lock().unwrap();
 
+        // Fetch AS messages
         let as_messages = user.as_fetch_messages().await?;
-        user.process_as_messages(as_messages).await?;
+        // Process each as message individually and dispatch conversation
+        // notifications to the UI in case a new conversation is created.
+        for as_message in as_messages {
+            let as_message_plaintext = user.decrypt_as_queue_message(as_message)?;
+            let conversation_id = user.process_as_message(as_message_plaintext).await?;
+            self.dispatch_conversation_notification(conversation_id.into());
+        }
 
+        // Fetch QS messages
         let qs_messages = user.qs_fetch_messages().await?;
-        user.process_qs_messages(qs_messages).await?;
+        // Process each qs message individually and dispatch conversation message notifications
+        for qs_message in qs_messages {
+            let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
+            let conversation_messages = user.process_qs_message(qs_message_plaintext).await?;
+            self.dispatch_message_notifications(conversation_messages);
+        }
 
         Ok(())
     }
@@ -304,14 +325,17 @@ impl RustUser {
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.invite_users(
-            conversation_id.into(),
-            &user_names
-                .into_iter()
-                .map(UserName::from)
-                .collect::<Vec<_>>(),
-        )
-        .await
+        let conversation_messages = user
+            .invite_users(
+                conversation_id.into(),
+                &user_names
+                    .into_iter()
+                    .map(UserName::from)
+                    .collect::<Vec<_>>(),
+            )
+            .await?;
+        self.dispatch_message_notifications(conversation_messages);
+        Ok(())
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -321,14 +345,17 @@ impl RustUser {
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.remove_users(
-            conversation_id.into(),
-            &user_names
-                .into_iter()
-                .map(UserName::from)
-                .collect::<Vec<_>>(),
-        )
-        .await
+        let conversation_messages = user
+            .remove_users(
+                conversation_id.into(),
+                &user_names
+                    .into_iter()
+                    .map(UserName::from)
+                    .collect::<Vec<_>>(),
+            )
+            .await?;
+        self.dispatch_message_notifications(conversation_messages);
+        Ok(())
     }
 
     pub fn members_of_conversation(
@@ -353,5 +380,23 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         user.store_user_profile(display_name, profile_picture_option)
             .await
+    }
+
+    /// Dispatch a notification to the flutter side if and only if a
+    /// notification hub is set.
+    fn dispatch_conversation_notification(&mut self, conversation_id: ConversationIdBytes) {
+        let mut notification_hub = self.notification_hub_option.lock().unwrap();
+        notification_hub.dispatch_conversation_notification(conversation_id.into())
+    }
+
+    /// Dispatch conversation message notifications to the flutter side if and
+    /// only if a notification hub is set.
+    fn dispatch_message_notifications(&self, conversation_messages: Vec<ConversationMessage>) {
+        let mut notification_hub = self.notification_hub_option.lock().unwrap();
+        conversation_messages
+            .into_iter()
+            .for_each(|conversation_message| {
+                notification_hub.dispatch_message_notification(conversation_message.into())
+            });
     }
 }

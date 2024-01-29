@@ -121,6 +121,15 @@ pub struct DispatchedConversationMessage {
     pub conversation_message: ConversationMessage,
 }
 
+impl From<ConversationMessage> for DispatchedConversationMessage {
+    fn from(conversation_message: ConversationMessage) -> Self {
+        Self {
+            conversation_id: conversation_message.conversation_id.clone(),
+            conversation_message,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NotificationsRequest {}
 

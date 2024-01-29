@@ -8,7 +8,6 @@ mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
-pub mod notifications;
 mod providers;
 pub mod users;
 mod utils;
@@ -31,5 +30,4 @@ pub use crate::{
     groups::GroupMessage,
 };
 
-use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
