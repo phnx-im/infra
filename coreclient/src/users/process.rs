@@ -67,11 +67,6 @@ impl SelfUser {
                     .await?;
                 let group_id = group.group_id().clone();
 
-                // Instead of using the conversation messages, we just return
-                // the conversation ID s.t. the app can reload the group
-                // information.
-                let group_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
@@ -91,7 +86,7 @@ impl SelfUser {
                     .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
                     .await?;
 
-                (conversation.id(), group_messages)
+                (conversation.id(), vec![])
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 let protocol_message: ProtocolMessage = match mls_message.extract() {
