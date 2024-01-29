@@ -115,26 +115,11 @@ impl ErrorMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct DispatchedConversationMessage {
-    pub conversation_id: ConversationId,
-    pub conversation_message: ConversationMessage,
-}
-
-impl From<ConversationMessage> for DispatchedConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
-        Self {
-            conversation_id: conversation_message.conversation_id.clone(),
-            conversation_message,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(DispatchedConversationMessage),
+    Message(ConversationMessage),
 }
