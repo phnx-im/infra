@@ -46,9 +46,18 @@ impl SelfUser {
     /// Returns the [`ConversationId`] of newly created conversations and any
     /// [`ConversationMessage`]s produced by processin the QS message.
     ///
-    /// TODO: If the message is a welcome bundle, we currently also update the
-    /// user auth key. This results in a request to the DS (which can fail for a
-    /// variety of reasons) and should probably not be done in this function.
+    /// TODO: This function is (still) async, because depending on the message
+    /// it processes, it might do one of the following:
+    ///
+    /// * fetch credentials from the AS to authenticate existing group members
+    ///   (when joining a new group) or new group members (when processing an
+    ///   Add or external join)
+    /// * download AddInfos (KeyPackages, etc.) from the DS. This happens when a
+    ///   user externally joins a connection group and the contact is upgraded
+    ///   from partial contact to full contact.
+    /// * get a QS verifying key from the QS. This also happens when a user
+    ///   externally joins a connection group to verify the KeyPackageBatches
+    ///   received from the QS as part of the AddInfo download.
     pub async fn process_qs_message(
         &mut self,
         qs_message_ciphertext: ExtractedQsQueueMessagePayload,
