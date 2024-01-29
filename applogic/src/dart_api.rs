@@ -384,7 +384,7 @@ impl RustUser {
 
     /// Dispatch a notification to the flutter side if and only if a
     /// notification hub is set.
-    fn dispatch_conversation_notification(&mut self, conversation_id: ConversationIdBytes) {
+    fn dispatch_conversation_notification(&self, conversation_id: ConversationIdBytes) {
         let mut notification_hub = self.notification_hub_option.lock().unwrap();
         notification_hub.dispatch_conversation_notification(conversation_id.into())
     }
