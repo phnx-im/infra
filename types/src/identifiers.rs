@@ -125,6 +125,14 @@ pub struct UserName {
     pub(crate) domain: Fqdn,
 }
 
+#[derive(Debug, Clone, Error)]
+pub enum UserNameError {
+    #[error("The given string does not represent a valid user name.")]
+    InvalidUserName,
+    #[error(transparent)]
+    FqdnError(#[from] FqdnError),
+}
+
 impl<T> SafeTryInto<T> for T {
     type Error = std::convert::Infallible;
 
@@ -141,14 +149,16 @@ pub trait SafeTryInto<T>: Sized {
 
 // TODO: This string processing is way too simplistic, but it should do for now.
 impl SafeTryInto<UserName> for &str {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
     fn try_into(self) -> Result<UserName, Self::Error> {
         let mut split_name = self.split('@');
-        let name = split_name.next().unwrap();
+        let name = split_name.next().ok_or(UserNameError::InvalidUserName)?;
         // UserNames MUST be qualified
-        let domain = split_name.next().unwrap();
-        assert!(split_name.next().is_none());
+        let domain = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        if split_name.next().is_some() {
+            return Err(UserNameError::InvalidUserName);
+        }
         let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
         let user_name = name.as_bytes().to_vec();
         Ok(UserName { user_name, domain })
@@ -156,17 +166,17 @@ impl SafeTryInto<UserName> for &str {
 }
 
 impl SafeTryInto<UserName> for String {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
-    fn try_into(self) -> Result<UserName, FqdnError> {
+    fn try_into(self) -> Result<UserName, UserNameError> {
         <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
 
 impl SafeTryInto<UserName> for &String {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
-    fn try_into(self) -> Result<UserName, FqdnError> {
+    fn try_into(self) -> Result<UserName, UserNameError> {
         <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
