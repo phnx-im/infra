@@ -5,6 +5,7 @@
 use std::fmt::{Display, Formatter};
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
+use url::Host;
 use uuid::Uuid;
 
 use crate::crypto::{
@@ -17,52 +18,80 @@ use super::*;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 
-#[derive(
-    Clone,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-    Debug,
-)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct Fqdn {
-    // TODO: We should probably use a more restrictive type here.
-    domain: Vec<u8>,
+    domain: Host<String>,
+}
+
+impl Size for Fqdn {
+    fn tls_serialized_len(&self) -> usize {
+        if let Host::Domain(domain) = &self.domain {
+            domain.as_str().as_bytes().tls_serialized_len()
+        } else {
+            0
+        }
+    }
+}
+
+impl TlsDeserializeBytesTrait for Fqdn {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (domain_bytes, rest) = <Vec<u8>>::tls_deserialize_bytes(bytes)?;
+        let domain_string = String::from_utf8(domain_bytes).map_err(|_| {
+            tls_codec::Error::DecodingError("Couldn't decode domain string.".to_owned())
+        })?;
+        let domain = Fqdn::try_from(domain_string).map_err(|e| {
+            let e = format!("Couldn't decode domain string: {}.", e);
+            tls_codec::Error::DecodingError(e)
+        })?;
+        Ok((domain, rest))
+    }
+}
+
+impl TlsSerializeTrait for Fqdn {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        if let Host::Domain(domain) = &self.domain {
+            domain.as_str().as_bytes().tls_serialize(writer)
+        } else {
+            Ok(0)
+        }
+    }
 }
 
 impl Display for Fqdn {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(&self.domain))
+        write!(f, "{}", &self.domain)
     }
 }
 
-impl Fqdn {
-    pub fn new(domain: String) -> Self {
-        Self {
-            domain: domain.into_bytes(),
+#[derive(Debug, Clone, Error)]
+pub enum FqdnError {
+    #[error("The given string does not represent a valid domain name.")]
+    NotADomainName,
+    #[error(transparent)]
+    UrlError(#[from] url::ParseError),
+}
+
+impl TryFrom<String> for Fqdn {
+    type Error = FqdnError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for Fqdn {
+    type Error = FqdnError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let domain = Host::<String>::parse(&value)?;
+        // Fqdns can't be IP addresses.
+        if !matches!(domain, Host::Domain(_)) {
+            return Err(FqdnError::NotADomainName);
         }
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.domain
-    }
-}
-
-impl From<&str> for Fqdn {
-    fn from(domain: &str) -> Self {
-        Self {
-            domain: domain.as_bytes().to_vec(),
-        }
-    }
-}
-
-impl From<String> for Fqdn {
-    fn from(domain: String) -> Self {
-        domain.as_str().into()
+        Ok(Self { domain })
     }
 }
 
@@ -96,45 +125,65 @@ pub struct UserName {
     pub(crate) domain: Fqdn,
 }
 
-impl From<Vec<u8>> for UserName {
-    fn from(value: Vec<u8>) -> Self {
-        Self::tls_deserialize_exact_bytes(&value).unwrap()
+#[derive(Debug, Clone, Error)]
+pub enum UserNameError {
+    #[error("The given string does not represent a valid user name.")]
+    InvalidUserName,
+    #[error(transparent)]
+    FqdnError(#[from] FqdnError),
+}
+
+impl<T> SafeTryInto<T> for T {
+    type Error = std::convert::Infallible;
+
+    fn try_into(self) -> Result<T, Self::Error> {
+        Ok(self)
     }
 }
 
+// Convenience trait to allow `impl TryInto<UserName>` as function input.
+pub trait SafeTryInto<T>: Sized {
+    type Error: std::error::Error + Send + Sync + 'static;
+    fn try_into(self) -> Result<T, Self::Error>;
+}
+
 // TODO: This string processing is way too simplistic, but it should do for now.
-impl From<&str> for UserName {
-    fn from(value: &str) -> Self {
-        let mut split_name = value.split('@');
-        let name = split_name.next().unwrap();
+impl SafeTryInto<UserName> for &str {
+    type Error = UserNameError;
+
+    fn try_into(self) -> Result<UserName, Self::Error> {
+        let mut split_name = self.split('@');
+        let name = split_name.next().ok_or(UserNameError::InvalidUserName)?;
         // UserNames MUST be qualified
-        let domain = split_name.next().unwrap();
-        assert!(split_name.next().is_none());
-        let domain = domain.into();
+        let domain = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        if split_name.next().is_some() {
+            return Err(UserNameError::InvalidUserName);
+        }
+        let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
         let user_name = name.as_bytes().to_vec();
-        Self { user_name, domain }
+        Ok(UserName { user_name, domain })
+    }
+}
+
+impl SafeTryInto<UserName> for String {
+    type Error = UserNameError;
+
+    fn try_into(self) -> Result<UserName, UserNameError> {
+        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    }
+}
+
+impl SafeTryInto<UserName> for &String {
+    type Error = UserNameError;
+
+    fn try_into(self) -> Result<UserName, UserNameError> {
+        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
 
 impl UserName {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.tls_serialize_detached().unwrap()
-    }
-
     pub fn domain(&self) -> Fqdn {
         self.domain.clone()
-    }
-}
-
-impl From<String> for UserName {
-    fn from(value: String) -> Self {
-        value.as_str().into()
-    }
-}
-
-impl From<&String> for UserName {
-    fn from(value: &String) -> Self {
-        value.as_str().into()
     }
 }
 
@@ -355,5 +404,36 @@ impl tls_codec::DeserializeBytes for QsUserId {
 impl tls_codec::Size for QsUserId {
     fn tls_serialized_len(&self) -> usize {
         self.user_id.as_bytes().len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_fqdn() {
+        let fqdn_str = "example.com";
+        let fqdn = Fqdn::try_from(fqdn_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_str.to_string()));
+
+        let fqdn_subdomain_str = "sub.example.com";
+        let fqdn = Fqdn::try_from(fqdn_subdomain_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_subdomain_str.to_string()));
+    }
+
+    #[test]
+    fn invalid_fqdn() {
+        let fqdn_str = "invalid#domain#character";
+        let result = Fqdn::try_from(fqdn_str);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), FqdnError::UrlError(_)));
+    }
+
+    #[test]
+    fn ip_address_fqdn() {
+        let fqdn_str = "192.168.0.1";
+        let result = Fqdn::try_from(fqdn_str);
+        assert!(matches!(result.unwrap_err(), FqdnError::NotADomainName));
     }
 }

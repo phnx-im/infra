@@ -34,7 +34,9 @@ use phnxtypes::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    identifiers::{AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, UserName},
+    identifiers::{
+        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, SafeTryInto, UserName,
+    },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
@@ -103,12 +105,12 @@ impl SelfUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: impl Into<UserName>,
+        user_name: impl SafeTryInto<UserName>,
         password: &str,
         server_url: impl ToString,
         client_db_path: &str,
     ) -> Result<Self> {
-        let user_name = user_name.into();
+        let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
         let phnx_db_connection = open_phnx_db(client_db_path)?;
@@ -319,11 +321,10 @@ impl SelfUser {
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
         for invited_user in invited_users {
-            let user_name = invited_user.to_string().into();
-            let mut contact = self
-                .contact_store()
-                .get(&user_name)?
-                .ok_or(anyhow!("Can't find contact with user name {}", user_name))?;
+            let mut contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+                "Can't find contact with user name {}",
+                invited_user
+            ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
             let add_info = self
@@ -448,8 +449,11 @@ impl SelfUser {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    pub async fn add_contact(&mut self, user_name: impl Into<UserName>) -> Result<ConversationId> {
-        let user_name = user_name.into();
+    pub async fn add_contact(
+        &mut self,
+        user_name: impl SafeTryInto<UserName>,
+    ) -> Result<ConversationId> {
+        let user_name = user_name.try_into()?;
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
