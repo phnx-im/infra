@@ -140,6 +140,7 @@ pub struct RustUser {
 impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
+        #[cfg(target_os = "macos")]
         notify_rust::set_application(&"im.phnx.prototype")?;
         Ok(())
     }
