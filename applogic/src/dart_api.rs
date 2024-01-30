@@ -7,7 +7,10 @@ use std::sync::Mutex;
 use anyhow::Result;
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxtypes::{identifiers::UserName, messages::client_ds::QsWsMessage};
+use phnxtypes::{
+    identifiers::{SafeTryInto, UserName},
+    messages::client_ds::QsWsMessage,
+};
 
 use crate::types::{ConversationIdBytes, UiContact};
 pub use crate::types::{
@@ -312,8 +315,8 @@ impl RustUser {
             conversation_id.into(),
             &user_names
                 .into_iter()
-                .map(UserName::from)
-                .collect::<Vec<_>>(),
+                .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                .collect::<Result<Vec<UserName>, _>>()?,
         )
         .await
     }
@@ -329,8 +332,8 @@ impl RustUser {
             conversation_id.into(),
             &user_names
                 .into_iter()
-                .map(UserName::from)
-                .collect::<Vec<_>>(),
+                .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                .collect::<Result<Vec<UserName>, _>>()?,
         )
         .await
     }

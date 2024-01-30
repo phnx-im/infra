@@ -16,7 +16,8 @@ use phnxtypes::{
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
 async fn ws_reconnect() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app(Fqdn::from("example.com"), network_provider).await;
+    let (address, _ws_dispatch) =
+        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
     let client_id = QsClientId::random();
 
@@ -53,7 +54,8 @@ async fn ws_reconnect() {
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
 async fn ws_sending() {
     let network_provider = MockNetworkProvider::new();
-    let (address, ws_dispatch) = spawn_app(Fqdn::from("example.com"), network_provider).await;
+    let (address, ws_dispatch) =
+        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
     let client_id = QsClientId::random();
 
