@@ -37,7 +37,11 @@ async fn main() -> std::io::Result<()> {
         configuration.application.host, configuration.application.port
     );
     let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
-    let domain: Fqdn = configuration.application.domain.into();
+    let domain: Fqdn = configuration
+        .application
+        .domain
+        .try_into()
+        .expect("Invalid domain.");
     tracing::info!("Starting server with domain {}.", domain);
     let network_provider = MockNetworkProvider::new();
 
