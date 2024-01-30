@@ -396,3 +396,33 @@ impl tls_codec::Size for QsUserId {
         self.user_id.as_bytes().len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_fqdn() {
+        let fqdn_str = "example.com";
+        let fqdn = Fqdn::try_from(fqdn_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_str.to_string()));
+
+        let fqdn_subdomain_str = "sub.example.com";
+        let fqdn = Fqdn::try_from(fqdn_subdomain_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_subdomain_str.to_string()));
+    }
+
+    #[test]
+    fn test_invalid_fqdn() {
+        let fqdn_str = "not_a_domain";
+        let result = Fqdn::try_from(fqdn_str);
+        assert_eq!(result.unwrap_err(), FqdnError::NotADomainName);
+    }
+
+    #[test]
+    fn test_ip_address_fqdn() {
+        let fqdn_str = "192.168.0.1";
+        let result = Fqdn::try_from(fqdn_str);
+        assert_eq!(result.unwrap_err(), FqdnError::NotADomainName);
+    }
+}
