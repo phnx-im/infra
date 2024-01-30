@@ -38,6 +38,10 @@ pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNot
     notification_type
 }
 
+pub fn delete_databases(client_db_path: String) {
+    phnxcoreclient::delete_databases(client_db_path.as_str())
+}
+
 pub enum WsNotification {
     Connected,
     Disconnected,

@@ -31,5 +31,7 @@ pub use crate::{
     groups::GroupMessage,
 };
 
+pub use crate::utils::persistence::delete_databases;
+
 use notifications::{Notifiable, NotificationHub};
 pub(crate) use openmls::prelude::*;
