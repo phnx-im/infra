@@ -18,8 +18,11 @@ use crate::{
 };
 use phnxcoreclient::{
     users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
-    ConversationMessage, NotificationType,
+    ConversationId, ConversationMessage, NotificationType,
 };
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+use {anyhow::anyhow, notify_rust::Notification};
 
 lazy_static! {
     static ref FLUTTER_RUST_BRIDGE_HANDLER: DefaultHandler = DefaultHandler::default();
@@ -224,7 +227,7 @@ impl RustUser {
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().unwrap();
         let conversation_id = user.add_contact(&user_name).await?;
-        self.dispatch_conversation_notification(conversation_id.into());
+        self.dispatch_conversation_notifications(vec![conversation_id.into()]);
         Ok(())
     }
 
@@ -234,34 +237,59 @@ impl RustUser {
 
         // Fetch AS messages
         let as_messages = user.as_fetch_messages().await?;
+
         // Process each as message individually and dispatch conversation
         // notifications to the UI in case a new conversation is created.
+        let mut new_connections = vec![];
         for as_message in as_messages {
             let as_message_plaintext = user.decrypt_as_queue_message(as_message)?;
             let conversation_id = user.process_as_message(as_message_plaintext).await?;
-            self.dispatch_conversation_notification(conversation_id.into());
+            // Let the UI know that there'a s new conversation
+            self.dispatch_conversation_notifications(vec![conversation_id]);
         }
+
+        // Send a notification to the OS (desktop only), the UI deals with
+        // mobile notifications
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        self.send_desktop_os_connection_notifications(&user, new_connections)?;
 
         // Fetch QS messages
         let qs_messages = user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
         let mut new_conversations = vec![];
+        let mut new_messages = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
             match user.process_qs_message(qs_message_plaintext).await? {
                 ProcessQsMessageResult::ConversationId(conversation_id) => {
-                    self.dispatch_conversation_notification(conversation_id.into());
                     new_conversations.push(conversation_id);
                 }
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
-                    self.dispatch_message_notifications(conversation_messages);
+                    new_messages.extend(conversation_messages);
                 }
             };
         }
+        // Let the UI know there is new stuff
+        self.dispatch_message_notifications(new_messages.clone());
+        self.dispatch_conversation_notifications(new_conversations.clone());
+
+        // Send a notification to the OS (desktop only)
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        {
+            self.send_desktop_os_message_notifications(&user, new_messages)?;
+            self.send_desktop_os_conversation_notifications(&user, new_conversations.clone())?;
+        }
 
         // Update user auth keys of newly created conversations.
+        let mut new_messages = vec![];
         for conversation_id in new_conversations {
-            user.update_user_key(conversation_id).await?;
+            let messages = user.update_user_key(conversation_id).await?;
+            new_messages.extend(messages);
+        }
+
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        {
+            self.send_desktop_os_message_notifications(&user, new_messages)?;
         }
 
         Ok(())
@@ -397,19 +425,136 @@ impl RustUser {
 
     /// Dispatch a notification to the flutter side if and only if a
     /// notification hub is set.
-    fn dispatch_conversation_notification(&self, conversation_id: ConversationIdBytes) {
+    fn dispatch_conversation_notifications(
+        &self,
+        conversation_ids: impl IntoIterator<Item = ConversationId>,
+    ) {
         let mut notification_hub = self.notification_hub_option.lock().unwrap();
-        notification_hub.dispatch_conversation_notification(conversation_id.into())
+        conversation_ids.into_iter().for_each(|conversation_id| {
+            notification_hub.dispatch_conversation_notification(conversation_id.into())
+        });
     }
 
     /// Dispatch conversation message notifications to the flutter side if and
     /// only if a notification hub is set.
-    fn dispatch_message_notifications(&self, conversation_messages: Vec<ConversationMessage>) {
+    fn dispatch_message_notifications(
+        &self,
+        conversation_messages: impl IntoIterator<Item = ConversationMessage>,
+    ) {
         let mut notification_hub = self.notification_hub_option.lock().unwrap();
         conversation_messages
             .into_iter()
             .for_each(|conversation_message| {
                 notification_hub.dispatch_message_notification(conversation_message.into())
             });
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_message_notifications(
+        &self,
+        user: &SelfUser,
+        conversation_messages: Vec<ConversationMessage>,
+    ) -> Result<()> {
+        let (summary, body) = match &conversation_messages[..] {
+            [] => return Ok(()),
+            [conversation_message] => {
+                let conversation_title = user
+                    .conversation(conversation_message.conversation_id)
+                    .ok_or(anyhow!("Conversation not found"))?
+                    .attributes()
+                    .title()
+                    .to_string();
+                let summary = conversation_title;
+                let body = conversation_message.message.string_representation();
+                (summary, body)
+            }
+            _ => (
+                "New messages".to_owned(),
+                "You have received new messages.".to_owned(),
+            ),
+        };
+
+        Notification::new()
+            .summary(summary.as_str())
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_conversation_notifications(
+        &self,
+        user: &SelfUser,
+        conversations: Vec<ConversationId>,
+    ) -> Result<()> {
+        let (summary, body) = match conversations[..] {
+            [] => return Ok(()),
+            [conversation] => {
+                let conversation_title = user
+                    .conversation(conversation)
+                    .ok_or(anyhow!("Conversation not found"))?
+                    .attributes()
+                    .title()
+                    .to_string();
+                let summary = "New conversation";
+                let body = format!("You have been added to {}", conversation_title);
+                (summary, body)
+            }
+            _ => {
+                let summary = "New conversations";
+                let body = "You have been added to new conversations.".to_owned();
+                (summary, body)
+            }
+        };
+
+        Notification::new()
+            .summary(summary)
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_connection_notifications(
+        &self,
+        user: &SelfUser,
+        connection_conversations: Vec<ConversationId>,
+    ) -> Result<()> {
+        let (summary, body) = match connection_conversations[..] {
+            [] => return Ok(()),
+            [conversation] => {
+                let conversation = user
+                    .conversation(conversation)
+                    .ok_or(anyhow!("Conversation not found"))?;
+                let contact_name = match conversation.conversation_type() {
+                    phnxcoreclient::ConversationType::UnconfirmedConnection(username)
+                    | phnxcoreclient::ConversationType::Connection(username) => {
+                        username.to_string()
+                    }
+                    phnxcoreclient::ConversationType::Group => {
+                        return Err(anyhow!(
+                            "Conversation is a regular group, not a connection."
+                        ))
+                    }
+                };
+                let summary = "New connection";
+                let body = format!("{} has created a new connection with you.", contact_name);
+                (summary, body)
+            }
+            _ => {
+                let summary = "New connections";
+                let body = "Multiple new connections have been created.".to_owned();
+                (summary, body)
+            }
+        };
+
+        Notification::new()
+            .summary(summary)
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
     }
 }
