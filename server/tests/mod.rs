@@ -10,14 +10,15 @@ use phnxapiclient::ApiClient;
 use phnxcoreclient::MessageContentType;
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
-use phnxtypes::identifiers::Fqdn;
+use phnxtypes::identifiers::{Fqdn, SafeTryInto};
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app(Fqdn::from("example.com"), network_provider).await;
+    let (address, _ws_dispatch) =
+        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
     let address = format!("http://{}", address);
 
@@ -154,7 +155,8 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) = spawn_app(Fqdn::from("localhost"), network_provider).await;
+    let (address, _ws_dispatch) =
+        spawn_app(Fqdn::try_from("localhost").unwrap(), network_provider).await;
 
     // Initialize the client
     let address = format!("http://{}", address);
@@ -321,7 +323,7 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = vec![0u8, 1, 2, 3, 4, 5];
     setup
         .users
-        .get(&ALICE.into())
+        .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
         .user
         .store_user_profile(
@@ -338,7 +340,7 @@ async fn exchange_user_profiles() {
     let bob_profile_picture = vec![6u8, 6, 6];
     setup
         .users
-        .get(&BOB.into())
+        .get(&SafeTryInto::try_into(BOB).unwrap())
         .unwrap()
         .user
         .store_user_profile(bob_display_name.clone(), Some(bob_profile_picture.clone()))
@@ -349,7 +351,7 @@ async fn exchange_user_profiles() {
 
     let bob_contact = setup
         .users
-        .get(&ALICE.into())
+        .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
         .user
         .contacts()
@@ -373,7 +375,7 @@ async fn exchange_user_profiles() {
 
     let alice_contact = setup
         .users
-        .get(&BOB.into())
+        .get(&SafeTryInto::try_into(BOB).unwrap())
         .unwrap()
         .user
         .contacts()
@@ -393,7 +395,10 @@ async fn retrieve_conversation_messages() {
 
     let conversation_id = setup.connect_users(ALICE, BOB).await;
 
-    let alice_test_user = setup.users.get_mut(&ALICE.into()).unwrap();
+    let alice_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
+        .unwrap();
     let alice = &mut alice_test_user.user;
 
     let mut messages_sent = vec![];
@@ -410,7 +415,7 @@ async fn retrieve_conversation_messages() {
     // Let's see what Alice's messages for this conversation look like.
     let messages = setup
         .users
-        .get(&ALICE.into())
+        .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
         .user
         .get_messages(conversation_id, 10)

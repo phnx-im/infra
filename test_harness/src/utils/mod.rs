@@ -61,7 +61,7 @@ pub async fn spawn_app(
     let host = configuration.application.host;
     let listener =
         TcpListener::bind(format!("{host}:{port}")).expect("Failed to bind to random port.");
-    let domain = domain.into().unwrap_or_else(|| Fqdn::from(host));
+    let domain = domain.into().unwrap_or_else(|| host.try_into().unwrap());
     let address = listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
