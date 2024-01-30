@@ -138,6 +138,12 @@ pub struct RustUser {
 }
 
 impl RustUser {
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
+        notify_rust::set_application(&"im.phnx.prototype")?;
+        Ok(())
+    }
+
     #[tokio::main(flavor = "current_thread")]
     async fn new(
         user_name: String,
@@ -150,6 +156,8 @@ impl RustUser {
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let user = SelfUser::new(&user_name, &password, address, &path).await?;
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        Self::init_desktop_os_notifications()?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
@@ -176,6 +184,8 @@ impl RustUser {
                     as_client_id.to_string()
                 )
             })?;
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        Self::init_desktop_os_notifications()?;
         Ok(Self {
             user: RustOpaque::new(Mutex::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
@@ -246,6 +256,7 @@ impl RustUser {
             let conversation_id = user.process_as_message(as_message_plaintext).await?;
             // Let the UI know that there'a s new conversation
             self.dispatch_conversation_notifications(vec![conversation_id]);
+            new_connections.push(conversation_id);
         }
 
         // Send a notification to the OS (desktop only), the UI deals with
