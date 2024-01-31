@@ -182,10 +182,11 @@ impl PostRegistrationInitState {
         let domain = user_name.domain();
 
         // Complete the OPAQUE registration.
-        let user_name_bytes = user_name.to_bytes();
+        let user_name_bytes = user_name.tls_serialize_detached()?;
+        let domain_bytes = domain.tls_serialize_detached()?;
         let identifiers = Identifiers {
             client: Some(&user_name_bytes),
-            server: Some(domain.as_bytes()),
+            server: Some(&domain_bytes),
         };
         let opaque_server_response =
             RegistrationResponse::<OpaqueCiphersuite>::deserialize(&self.opaque_server_response)

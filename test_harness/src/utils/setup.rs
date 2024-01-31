@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use phnxcoreclient::{users::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    identifiers::{Fqdn, UserName},
+    identifiers::{Fqdn, SafeTryInto, UserName},
     DEFAULT_PORT_HTTP,
 };
 use rand::{seq::IteratorRandom, Rng, RngCore};
@@ -71,7 +71,7 @@ impl TestBackend {
     }
     pub async fn single() -> Self {
         let network_provider = MockNetworkProvider::new();
-        let domain = Fqdn::from("example.com");
+        let domain = Fqdn::try_from("example.com").unwrap();
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
         Self {
             users: HashMap::new(),
@@ -88,8 +88,8 @@ impl TestBackend {
         }
     }
 
-    pub async fn add_user(&mut self, user_name: impl Into<UserName>) {
-        let user_name = user_name.into();
+    pub async fn add_user(&mut self, user_name: impl SafeTryInto<UserName>) {
+        let user_name = user_name.try_into().unwrap();
         tracing::info!("Creating {user_name}");
         let user = TestUser::new(&user_name, self.url()).await;
         self.users.insert(user_name, user);
@@ -100,9 +100,9 @@ impl TestBackend {
     pub async fn commit_to_proposals(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl Into<UserName>,
+        updater_name: impl SafeTryInto<UserName>,
     ) {
-        let updater_name = &updater_name.into();
+        let updater_name = &updater_name.try_into().unwrap();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
@@ -174,9 +174,9 @@ impl TestBackend {
     pub async fn update_group(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl Into<UserName>,
+        updater_name: impl SafeTryInto<UserName>,
     ) {
-        let updater_name = &updater_name.into();
+        let updater_name = &updater_name.try_into().unwrap();
         tracing::info!(
             "{} performs an update in group {}",
             updater_name,
@@ -217,11 +217,11 @@ impl TestBackend {
 
     pub async fn connect_users(
         &mut self,
-        user1_name: impl Into<UserName>,
-        user2_name: impl Into<UserName>,
+        user1_name: impl SafeTryInto<UserName>,
+        user2_name: impl SafeTryInto<UserName>,
     ) -> ConversationId {
-        let user1_name = user1_name.into();
-        let user2_name = user2_name.into();
+        let user1_name = user1_name.try_into().unwrap();
+        let user2_name = user2_name.try_into().unwrap();
         tracing::info!("Connecting users {} and {}", user1_name, user2_name);
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
@@ -378,13 +378,13 @@ impl TestBackend {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        sender_name: impl Into<UserName>,
-        recipient_names: Vec<impl Into<UserName>>,
+        sender_name: impl SafeTryInto<UserName>,
+        recipient_names: Vec<impl SafeTryInto<UserName>>,
     ) {
-        let sender_name = sender_name.into();
+        let sender_name = sender_name.try_into().unwrap();
         let recipient_names: Vec<UserName> = recipient_names
             .into_iter()
-            .map(|name| name.into())
+            .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
         let recipient_strings = recipient_names
             .iter()
@@ -446,8 +446,8 @@ impl TestBackend {
         }
     }
 
-    pub async fn create_group(&mut self, user_name: impl Into<UserName>) -> ConversationId {
-        let user_name = user_name.into();
+    pub async fn create_group(&mut self, user_name: impl SafeTryInto<UserName>) -> ConversationId {
+        let user_name = user_name.try_into().unwrap();
         let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
         let user_conversations_before = user.conversations().unwrap();
@@ -490,13 +490,13 @@ impl TestBackend {
     pub async fn invite_to_group(
         &mut self,
         conversation_id: ConversationId,
-        inviter_name: impl Into<UserName>,
-        invitee_names: Vec<impl Into<UserName>>,
+        inviter_name: impl SafeTryInto<UserName>,
+        invitee_names: Vec<impl SafeTryInto<UserName>>,
     ) {
-        let inviter_name = inviter_name.into();
+        let inviter_name = inviter_name.try_into().unwrap();
         let invitee_names: Vec<UserName> = invitee_names
             .into_iter()
-            .map(|name| name.into())
+            .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
         let invitee_strings = invitee_names
             .iter()
@@ -655,13 +655,13 @@ impl TestBackend {
     pub async fn remove_from_group(
         &mut self,
         conversation_id: ConversationId,
-        remover_name: impl Into<UserName>,
-        removed_names: Vec<impl Into<UserName>>,
+        remover_name: impl SafeTryInto<UserName>,
+        removed_names: Vec<impl SafeTryInto<UserName>>,
     ) {
-        let remover_name = remover_name.into();
+        let remover_name = remover_name.try_into().unwrap();
         let removed_names: Vec<UserName> = removed_names
             .into_iter()
-            .map(|name| name.into())
+            .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
         let removed_strings = removed_names
             .iter()
@@ -797,9 +797,9 @@ impl TestBackend {
     pub async fn leave_group(
         &mut self,
         conversation_id: ConversationId,
-        leaver_name: impl Into<UserName>,
+        leaver_name: impl SafeTryInto<UserName>,
     ) {
-        let leaver_name = leaver_name.into();
+        let leaver_name = leaver_name.try_into().unwrap();
         tracing::info!(
             "{} leaves the group with id {}",
             leaver_name,
@@ -847,9 +847,9 @@ impl TestBackend {
     pub async fn delete_group(
         &mut self,
         conversation_id: ConversationId,
-        deleter_name: impl Into<UserName>,
+        deleter_name: impl SafeTryInto<UserName>,
     ) {
-        let deleter_name = deleter_name.into();
+        let deleter_name = deleter_name.try_into().unwrap();
         tracing::info!(
             "{} deletes the group with id {}",
             deleter_name,
