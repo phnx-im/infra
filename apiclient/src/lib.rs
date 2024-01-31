@@ -100,7 +100,6 @@ impl ApiClient {
             }),
             endpoint
         );
-        log::info!("Built URL: {}", url);
         url
     }
 
