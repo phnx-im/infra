@@ -5,4 +5,5 @@
 mod dart_api;
 mod notifications;
 
+mod notifications;
 mod types;
