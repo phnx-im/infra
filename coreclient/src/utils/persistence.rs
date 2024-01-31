@@ -24,7 +24,6 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, Persisten
 ///
 /// WARNING: This will delete all APP-data from this device! Also, this function
 /// may panic.
-#[cfg(debug_assertions)]
 pub fn delete_databases(client_db_path: &str) {
     use std::fs;
 
