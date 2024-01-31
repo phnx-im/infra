@@ -20,12 +20,44 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, Persisten
     Ok(conn)
 }
 
+/// Delete both the phnx.db and all client dbs from this device.
+///
+/// WARNING: This will delete all APP-data from this device! Also, this function
+/// may panic.
+#[cfg(debug_assertions)]
+pub fn delete_databases(client_db_path: &str) {
+    use std::fs;
+
+    use crate::users::store::ClientRecord;
+
+    // First delete all client DBs.
+    let phnx_db_connection = open_phnx_db(client_db_path).unwrap();
+    let client_ids = PersistableStruct::<ClientRecord>::load_all(&phnx_db_connection)
+        .unwrap()
+        .into_iter()
+        .map(|record| record.payload().as_client_id.clone())
+        .collect::<Vec<_>>();
+    for client_id in client_ids {
+        let full_client_db_path = format!("{}/{}", client_db_path, client_db_name(&client_id));
+        fs::remove_file(full_client_db_path).unwrap();
+    }
+
+    // Finally, delete the phnx.db.
+    let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
+    fs::remove_file(full_phnx_db_path).unwrap();
+}
+
+fn client_db_name(as_client_id: &AsClientId) -> String {
+    format!("{}.db", as_client_id)
+}
+
 pub(crate) fn open_client_db(
     as_client_id: &AsClientId,
     client_db_path: &str,
 ) -> Result<Connection, PersistenceError> {
-    let db_name = format!("{}/{}.db", client_db_path, as_client_id);
-    let conn = Connection::open(db_name)?;
+    let client_db_name = client_db_name(as_client_id);
+    let full_db_path = format!("{}/{}", client_db_path, client_db_name);
+    let conn = Connection::open(full_db_path)?;
     Ok(conn)
 }
 
@@ -165,6 +197,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum DataType {
+    // Data types in client dbs
     KeyStoreValue,
     UserProfile,
     Contact,
@@ -179,8 +212,9 @@ pub(crate) enum DataType {
     QueueRatchet,
     SequenceNumber,
     ClientData,
-    ClientRecord,
     RandomnessSeed,
+    // Data types in phnx.db
+    ClientRecord,
 }
 
 impl SqlKey for DataType {
