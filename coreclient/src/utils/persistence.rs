@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{ops::Deref, path::Path};
 
+use anyhow::{bail, Result};
 use phnxtypes::identifiers::AsClientId;
 use rusqlite::{named_params, params, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -24,27 +25,34 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, Persisten
 ///
 /// WARNING: This will delete all APP-data from this device! Also, this function
 /// may panic.
-#[cfg(debug_assertions)]
-pub fn delete_databases(client_db_path: &str) {
+pub fn delete_databases(client_db_path: &str) -> Result<()> {
     use std::fs;
 
     use crate::users::store::ClientRecord;
 
+    let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
+    if !Path::new(&full_phnx_db_path).exists() {
+        bail!("phnx.db does not exist")
+    }
+
     // First delete all client DBs.
-    let phnx_db_connection = open_phnx_db(client_db_path).unwrap();
-    let client_ids = PersistableStruct::<ClientRecord>::load_all(&phnx_db_connection)
-        .unwrap()
-        .into_iter()
-        .map(|record| record.payload().as_client_id.clone())
-        .collect::<Vec<_>>();
-    for client_id in client_ids {
-        let full_client_db_path = format!("{}/{}", client_db_path, client_db_name(&client_id));
-        fs::remove_file(full_client_db_path).unwrap();
+    let phnx_db_connection = open_phnx_db(client_db_path)?;
+    if let Ok(client_records) = PersistableStruct::<ClientRecord>::load_all(&phnx_db_connection) {
+        for client_record in client_records {
+            let full_client_db_path = format!(
+                "{}/{}",
+                client_db_path,
+                client_db_name(&client_record.as_client_id)
+            );
+            if let Err(e) = fs::remove_file(full_client_db_path) {
+                log::error!("Failed to delete client DB: {}", e)
+            }
+        }
     }
 
     // Finally, delete the phnx.db.
-    let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
-    fs::remove_file(full_phnx_db_path).unwrap();
+    fs::remove_file(full_phnx_db_path)?;
+    Ok(())
 }
 
 fn client_db_name(as_client_id: &AsClientId) -> String {
