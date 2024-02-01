@@ -4,12 +4,17 @@
 
 mod qs;
 
+use std::fs;
+
 use opaque_ke::rand::{rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
-use phnxcoreclient::MessageContentType;
+use phnxcoreclient::{users::SelfUser, MessageContentType};
 use phnxserver::network_provider::MockNetworkProvider;
-use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
+use phnxserver_test_harness::utils::{
+    setup::{TestBackend, TestNotifier},
+    spawn_app,
+};
 use phnxtypes::identifiers::{Fqdn, SafeTryInto};
 
 #[actix_rt::test]
@@ -422,4 +427,29 @@ async fn retrieve_conversation_messages() {
         .unwrap();
 
     assert_eq!(messages, messages_sent);
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "User persistence test", skip_all)]
+async fn client_persistence() {
+    // Create and persist the user.
+    let mut setup = TestBackend::single().await;
+    setup.add_persisted_user(ALICE).await;
+    let client_id = setup
+        .users
+        .get(&SafeTryInto::try_into(ALICE).unwrap())
+        .unwrap()
+        .user
+        .as_client_id();
+
+    // Try to load the user from the database.
+    let user_result = SelfUser::<TestNotifier>::load(client_id.clone(), "./", None)
+        .await
+        .unwrap();
+
+    assert!(user_result.is_some());
+
+    fs::remove_file("./phnx.db").unwrap();
+    let client_db_path = format!("./{}.db", client_id);
+    fs::remove_file(client_db_path).unwrap();
 }

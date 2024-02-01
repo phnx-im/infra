@@ -861,6 +861,10 @@ impl<T: Notifiable> SelfUser<T> {
             .await?)
     }
 
+    pub fn as_client_id(&self) -> AsClientId {
+        self.key_store.signing_key.credential().identity().clone()
+    }
+
     fn api_clients(&self) -> ApiClients {
         self.api_clients.clone()
     }
