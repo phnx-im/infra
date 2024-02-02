@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Mutex;
+use std::{ops::Deref, sync::Mutex};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{
@@ -25,7 +25,7 @@ use phnxcoreclient::{
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-use {anyhow::anyhow, notify_rust::Notification};
+use notify_rust::Notification;
 
 lazy_static! {
     static ref FLUTTER_RUST_BRIDGE_HANDLER: DefaultHandler = DefaultHandler::default();
@@ -72,67 +72,60 @@ impl From<StreamSink<UiNotificationType>> for DartNotifier {
 }
 
 pub struct UserBuilder {
-    pub user: RustOpaque<Mutex<Option<RustUser>>>,
+    stream_sink: RustOpaque<Mutex<Option<StreamSink<UiNotificationType>>>>,
 }
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
         let _ = simple_logger::init_with_level(log::Level::Info);
         Self {
-            user: RustOpaque::new(Mutex::new(None)),
+            stream_sink: RustOpaque::new(Mutex::new(None)),
         }
     }
 
-    pub fn load_default(
-        &self,
-        path: String,
-        stream_sink: StreamSink<UiNotificationType>,
-    ) -> Result<()> {
-        let user = RustUser::load_default(path, stream_sink.clone())?;
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            let _ = inner_user.insert(user);
-            // Send an initial notification to the flutter side, since this
-            // function cannot be async
+    pub fn get_stream(&self, stream_sink: StreamSink<UiNotificationType>) -> Result<()> {
+        self.stream_sink = RustOpaque::new(Mutex::new(Some(stream_sink)));
+        // Since the function will return immediately we send a first
+        // notification to the Dart side so we can wait for it there.
+        let stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        if let Some(stream_sink) = stream_sink_option.deref() {
             stream_sink.add(UiNotificationType::ConversationChange(
                 ConversationIdBytes { bytes: [0; 16] },
             ));
-            Ok(())
+        }
+        Ok(())
+    }
+
+    pub fn load_default(self, path: String) -> Result<RustUser> {
+        let stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        if let Some(stream_sink) = stream_sink_option.deref().take() {
+            RustUser::load_default(path, stream_sink)
         } else {
-            return Err(anyhow::anyhow!("Could not acquire lock"));
+            return Err(anyhow::anyhow!("Please set a stream sink first."));
         }
     }
 
     pub fn create_user(
-        &self,
+        self,
         user_name: String,
         password: String,
         address: String,
         path: String,
-        stream_sink: StreamSink<UiNotificationType>,
-    ) -> Result<()> {
-        let user = RustUser::new(user_name, password, address, path, stream_sink.clone())?;
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            let _ = inner_user.insert(user);
-            // Send an initial notification to the flutter side, since this
-            // function cannot be async
-            stream_sink.add(UiNotificationType::ConversationChange(
-                ConversationIdBytes { bytes: [0; 16] },
-            ));
-            Ok(())
+    ) -> Result<RustUser> {
+        let stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        if let Some(stream_sink) = stream_sink_option.deref().take() {
+            RustUser::new(user_name, password, address, path, stream_sink.clone())
         } else {
-            return Err(anyhow::anyhow!("Could not acquire lock"));
-        }
-    }
-
-    pub fn into_user(&self) -> Result<RustUser> {
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            if let Some(user) = inner_user.take() {
-                return Ok(user);
-            } else {
-                return Err(anyhow::anyhow!("User not created"));
-            }
-        } else {
-            Err(anyhow::anyhow!("Could not acquire lock"))
+            return Err(anyhow::anyhow!("Please set a stream sink first."));
         }
     }
 }
