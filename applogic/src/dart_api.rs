@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::Deref, sync::Mutex};
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
@@ -83,28 +83,30 @@ impl UserBuilder {
         }
     }
 
+    /// Set the stream sink that will be used to send notifications to Dart. On
+    /// the Dart side, this doesn't wait for the stream sink to be set
+    /// internally, but immediately returns a stream. To confirm that the stream
+    /// sink is set, this function sends a first notification to the Dart side.
     pub fn get_stream(&self, stream_sink: StreamSink<UiNotificationType>) -> Result<()> {
-        self.stream_sink = RustOpaque::new(Mutex::new(Some(stream_sink)));
-        // Since the function will return immediately we send a first
-        // notification to the Dart side so we can wait for it there.
-        let stream_sink_option = self
+        let mut stream_sink_option = self
             .stream_sink
             .lock()
             .map_err(|e| anyhow!("Lock error: {:?}", e))?;
-        if let Some(stream_sink) = stream_sink_option.deref() {
-            stream_sink.add(UiNotificationType::ConversationChange(
-                ConversationIdBytes { bytes: [0; 16] },
-            ));
-        }
+        let stream_sink = stream_sink_option.insert(stream_sink);
+        // Since the function will return immediately we send a first
+        // notification to the Dart side so we can wait for it there.
+        stream_sink.add(UiNotificationType::ConversationChange(
+            ConversationIdBytes { bytes: [0; 16] },
+        ));
         Ok(())
     }
 
-    pub fn load_default(self, path: String) -> Result<RustUser> {
-        let stream_sink_option = self
+    pub fn load_default(&self, path: String) -> Result<RustUser> {
+        let mut stream_sink_option = self
             .stream_sink
             .lock()
             .map_err(|e| anyhow!("Lock error: {:?}", e))?;
-        if let Some(stream_sink) = stream_sink_option.deref().take() {
+        if let Some(stream_sink) = stream_sink_option.take() {
             RustUser::load_default(path, stream_sink)
         } else {
             return Err(anyhow::anyhow!("Please set a stream sink first."));
@@ -112,17 +114,17 @@ impl UserBuilder {
     }
 
     pub fn create_user(
-        self,
+        &self,
         user_name: String,
         password: String,
         address: String,
         path: String,
     ) -> Result<RustUser> {
-        let stream_sink_option = self
+        let mut stream_sink_option = self
             .stream_sink
             .lock()
             .map_err(|e| anyhow!("Lock error: {:?}", e))?;
-        if let Some(stream_sink) = stream_sink_option.deref().take() {
+        if let Some(stream_sink) = stream_sink_option.take() {
             RustUser::new(user_name, password, address, path, stream_sink.clone())
         } else {
             return Err(anyhow::anyhow!("Please set a stream sink first."));
