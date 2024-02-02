@@ -25,3 +25,4 @@ serde = { version = "1", features = ["derive"] }
 tls_codec = { workspace = true }
 tokio = { version = "1.29.0", features = ["rt", "macros"] }
 flutter_rust_bridge = { version = "1.82.4" }
+notify-rust = "4"
