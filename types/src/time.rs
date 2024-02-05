@@ -8,7 +8,7 @@ use super::*;
 
 pub use chrono::Duration;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, Copy)]
 pub struct TimeStamp {
     time: DateTime<Utc>,
 }
@@ -16,6 +16,26 @@ pub struct TimeStamp {
 impl From<DateTime<Utc>> for TimeStamp {
     fn from(time: DateTime<Utc>) -> Self {
         Self { time }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum TimeStampError {
+    #[error("Invalid input")]
+    InvalidInput,
+}
+
+// We need this conversion, because Dart will only be able to send us u64.
+impl TryFrom<u64> for TimeStamp {
+    type Error = TimeStampError;
+
+    fn try_from(time: u64) -> Result<Self, Self::Error> {
+        let time = DateTime::<Utc>::from_naive_utc_and_offset(
+            NaiveDateTime::from_timestamp_millis(time as i64)
+                .ok_or(TimeStampError::InvalidInput)?,
+            Utc,
+        );
+        Ok(Self { time })
     }
 }
 
@@ -73,12 +93,20 @@ impl TimeStamp {
         self.time >= start.time && self.time <= end.time
     }
 
+    pub fn is_more_recent_than(&self, other: &Self) -> bool {
+        self.time > other.time
+    }
+
     pub fn time(&self) -> DateTime<Utc> {
         self.time
     }
 
     pub fn as_u64(&self) -> u64 {
         self.time.timestamp_millis() as u64
+    }
+
+    pub fn as_i64(&self) -> i64 {
+        self.time.timestamp_millis() as i64
     }
 }
 

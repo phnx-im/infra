@@ -4,4 +4,5 @@
 
 mod dart_api;
 
+mod app_state;
 mod types;

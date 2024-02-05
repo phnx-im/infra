@@ -8,13 +8,13 @@ use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, UserName},
     time::TimeStamp,
 };
-use rusqlite::Connection;
+use rusqlite::{named_params, Connection};
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
 use crate::{
     groups::GroupMessage,
-    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
+    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError, SqlKey},
 };
 
 use super::{
@@ -211,6 +211,41 @@ impl<'a> ConversationMessageStore<'a> {
         );
         conversation_message.persist()?;
         Ok(conversation_message)
+    }
+
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub(crate) fn mark_as_read(
+        &self,
+        conversation_id: ConversationId,
+        timestamp: TimeStamp,
+    ) -> Result<(), PersistenceError> {
+        let data_type = DataType::Message;
+        let data_type_sql_key = data_type.to_sql_key();
+        let statement_str = format!(
+            "UPDATE {data_type_sql_key} SET read = true FROM {data_type_sql_key} WHERE secondary_key = :secondary_key AND timestamp < :timestamp",
+        );
+        let mut stmt = match self.db_connection.prepare(&statement_str) {
+            Ok(stmt) => stmt,
+            // If the table does not exist, we create it and try again.
+            Err(e) => match e {
+                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
+                    let expected_error_string = format!("no such table: {}", data_type_sql_key);
+                    // If there is no table, there are no messages to be marked.
+                    if error_string == &expected_error_string {
+                        return Ok(());
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+                _ => return Err(e.into()),
+            },
+        };
+        stmt.insert(
+            named_params! {":secondary_key": conversation_id.to_sql_key(),":timestamp": timestamp.as_i64()},
+        )?;
+
+        Ok(())
     }
 }
 

@@ -14,9 +14,12 @@ pub struct ConversationMessage {
     pub id: Uuid,
     pub timestamp: TimeStamp,
     pub message: Message,
+    read: bool,
 }
 
 impl ConversationMessage {
+    /// Create a new conversation message from a group message. New messages are
+    /// marked as unread by default.
     pub(crate) fn new(
         conversation_id: ConversationId,
         group_message: GroupMessage,
@@ -27,6 +30,7 @@ impl ConversationMessage {
             id: id.into(),
             timestamp,
             message,
+            read: false, // new messages are unread by default
         }
     }
 }

@@ -41,6 +41,7 @@ use phnxtypes::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
+    time::TimeStamp,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -859,6 +860,17 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(api_client?
             .spawn_websocket(self.qs_client_id.clone(), timeout, retry_interval)
             .await?)
+    }
+
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub fn mark_as_read(
+        &self,
+        conversation_id: ConversationId,
+        timestamp: TimeStamp,
+    ) -> Result<(), PersistenceError> {
+        let conversation_store = self.message_store();
+        conversation_store.mark_as_read(conversation_id, timestamp)
     }
 
     fn api_clients(&self) -> ApiClients {

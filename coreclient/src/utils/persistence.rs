@@ -275,7 +275,8 @@ fn create_table(conn: &rusqlite::Connection, data_type: DataType) -> Result<(), 
         table_name,
     );
     match data_type {
-        DataType::Message => statement_str.push_str("timestamp i64,"),
+        DataType::Message => statement_str
+            .push_str("timestamp i64 DEFAULT CURRENT_TIMESTAMP, read BOOLEAN DEFAULT false,"), // Message specific fields
         _ => {}
     };
     statement_str.push_str(
