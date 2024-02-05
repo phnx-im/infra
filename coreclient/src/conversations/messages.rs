@@ -41,6 +41,29 @@ pub enum Message {
     Display(DisplayMessage),
 }
 
+impl Message {
+    /// Returns a string representation of the message for use in UI
+    /// notifications.
+    pub fn string_representation(&self) -> String {
+        match self {
+            Message::Content(content) => match &content.content {
+                MessageContentType::Text(text) => {
+                    format!(
+                        "{}: {}",
+                        content.sender,
+                        String::from_utf8_lossy(text.message())
+                    )
+                }
+                MessageContentType::Knock(_) => String::from("Knock"),
+            },
+            Message::Display(display) => match &display.message {
+                DisplayMessageType::System(system) => system.message().to_string(),
+                DisplayMessageType::Error(error) => error.message().to_string(),
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
     pub sender: String,
@@ -119,17 +142,11 @@ impl ErrorMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct DispatchedConversationMessage {
-    pub conversation_id: ConversationId,
-    pub conversation_message: ConversationMessage,
-}
-
 #[derive(Debug, Clone)]
 pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(DispatchedConversationMessage),
+    Message(ConversationMessage),
 }

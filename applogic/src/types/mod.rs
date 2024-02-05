@@ -5,9 +5,9 @@
 use openmls::group::GroupId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DispatchedConversationMessage,
-    DisplayMessage, DisplayMessageType, ErrorMessage, InactiveConversation, Knock, Message,
-    MessageContentType, NotificationType, SystemMessage, TextMessage,
+    ConversationMessage, ConversationStatus, ConversationType, DisplayMessage, DisplayMessageType,
+    ErrorMessage, InactiveConversation, Knock, Message, MessageContentType, NotificationType,
+    SystemMessage, TextMessage,
 };
 use uuid::Uuid;
 
@@ -325,32 +325,13 @@ impl From<ErrorMessage> for UiErrorMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiDispatchedConversationMessage {
-    pub conversation_id: ConversationIdBytes,
-    pub conversation_message: UiConversationMessage,
-}
-
-impl From<DispatchedConversationMessage> for UiDispatchedConversationMessage {
-    fn from(dispatched_conversation_message: DispatchedConversationMessage) -> Self {
-        Self {
-            conversation_id: ConversationIdBytes::from(
-                dispatched_conversation_message.conversation_id,
-            ),
-            conversation_message: UiConversationMessage::from(
-                dispatched_conversation_message.conversation_message,
-            ),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct UiNotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum UiNotificationType {
     ConversationChange(ConversationIdBytes), // The id of the changed conversation.
-    Message(UiDispatchedConversationMessage),
+    Message(UiConversationMessage),
 }
 
 impl From<NotificationType> for UiNotificationType {

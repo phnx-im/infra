@@ -480,12 +480,11 @@ pub(super) struct PersistedUserState {
 }
 
 impl PersistedUserState {
-    pub(super) fn into_self_user<T: Notifiable>(
+    pub(super) fn into_self_user(
         self,
         connection: Connection,
         api_clients: ApiClients,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> SelfUser<T> {
+    ) -> SelfUser {
         let QsRegisteredUserState {
             key_store,
             server_url: _,
@@ -497,7 +496,6 @@ impl PersistedUserState {
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id: qs_client_id,
-            notification_hub_option: Mutex::new(notification_hub_option.into()),
             api_clients: api_clients.clone(),
         }
     }
