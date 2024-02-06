@@ -240,7 +240,6 @@ impl SelfUser {
                             // Now we can turn the partial contact into a full one.
                             partial_contact.into_contact_and_persist(
                                 friendship_package,
-                                add_infos,
                                 sender_credential.clone(),
                             )?;
                             // Finally, we can turn the conversation type to a full connection group
@@ -396,7 +395,6 @@ impl SelfUser {
                     )?
                     .into_contact_and_persist(
                         cep_tbs.friendship_package,
-                        vec![],
                         cep_tbs.sender_client_credential,
                     )?;
 

@@ -317,19 +317,26 @@ impl SelfUser {
             ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
+
+        // Fetch fresh KeyPackages and a fresh KeyPackageBatch from the QS for
+        // each invited user.
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
         for invited_user in invited_users {
-            let mut contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+            // Get the WAI keys and client credentials for the invited users.
+            let contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
-            let add_info = self
-                .contact_store()
-                .add_infos(self.crypto_backend().crypto(), &mut contact)
+            let add_info = contact
+                .fetch_add_infos(
+                    self.api_clients(),
+                    self.qs_verifying_key_store(),
+                    self.crypto_backend().crypto(),
+                )
                 .await?;
             contact_add_infos.push(add_info);
         }
@@ -894,11 +901,7 @@ impl SelfUser {
     }
 
     fn contact_store(&self) -> ContactStore<'_> {
-        ContactStore::new(
-            &self.sqlite_connection,
-            self.qs_verifying_key_store(),
-            self.api_clients(),
-        )
+        ContactStore::new(&self.sqlite_connection)
     }
 
     fn group_store(&self) -> GroupStore<'_> {
