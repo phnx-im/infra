@@ -40,16 +40,19 @@ pub enum Message {
 impl Message {
     /// Returns a string representation of the message for use in UI
     /// notifications.
-    pub fn string_representation(&self) -> String {
+    pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
         match self {
             Message::Content(content) => match &content.content {
-                MessageContentType::Text(text) => {
-                    format!(
-                        "{}: {}",
-                        content.sender,
-                        String::from_utf8_lossy(text.message())
-                    )
-                }
+                MessageContentType::Text(text) => match conversation_type {
+                    ConversationType::Group => {
+                        format!(
+                            "{}: {}",
+                            content.sender,
+                            String::from_utf8_lossy(text.message())
+                        )
+                    }
+                    _ => String::from_utf8_lossy(text.message()).to_string(),
+                },
                 MessageContentType::Knock(_) => String::from("Knock"),
             },
             Message::Display(display) => match &display.message {

@@ -1081,7 +1081,7 @@ impl Group {
             .last()
             .map(|(index, _)| *index)
             .ok_or(anyhow!("Client information vector is empty"))?;
-        let free_indices: Vec<usize> = (0..2 * highest_index)
+        let free_indices: Vec<usize> = (0..(2 * highest_index))
             .filter(|&index| {
                 self.client_information.get(index).is_none()
                     // We also check the diff to take removed members into account
