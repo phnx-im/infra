@@ -417,8 +417,8 @@ impl TestBackend {
         let sender_user_name = test_sender.user.user_name().to_owned();
 
         assert_eq!(
-            message.message,
-            Message::Content(ContentMessage {
+            message.message(),
+            &Message::Content(ContentMessage {
                 sender: test_sender.user.user_name().to_string(),
                 content: orig_message.clone()
             })
@@ -437,8 +437,8 @@ impl TestBackend {
                 .unwrap();
 
             assert_eq!(
-                messages.last().unwrap().message,
-                Message::Content(ContentMessage {
+                messages.last().unwrap().message(),
+                &Message::Content(ContentMessage {
                     sender: sender_user_name.to_string(),
                     content: orig_message.clone()
                 })

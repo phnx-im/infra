@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use openmls::prelude::GroupId;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, UserName},
@@ -14,7 +14,9 @@ use uuid::Uuid;
 
 use crate::{
     groups::GroupMessage,
-    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError, SqlKey},
+    utils::persistence::{
+        DataType, Persistable, PersistableStruct, PersistenceError, SqlFieldDefinition, SqlKey,
+    },
 };
 
 use super::{
@@ -272,5 +274,46 @@ impl Persistable for ConversationMessage {
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.conversation_id
+    }
+
+    fn additional_fields() -> Vec<SqlFieldDefinition> {
+        vec![
+            ("timestamp", "i64 DEFAULT CURRENT_TIMESTAMP").into(),
+            ("message", "BLOB").into(),
+            ("read", "BOOLEAN DEFAULT false").into(),
+        ]
+    }
+
+    fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
+        let message_bytes = serde_json::to_vec(&self.message)?;
+        Ok(vec![
+            Box::new(self.timestamp.as_i64()),
+            Box::new(message_bytes),
+            Box::new(self.read),
+        ])
+    }
+
+    fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
+        let conversation_uuid: Uuid = row.get(1)?;
+        let conversation_id = ConversationId::from(conversation_uuid);
+        let id = row.get(2)?;
+        let timestamp_u64: u64 = row.get(3)?;
+        let timestamp = timestamp_u64.try_into().map_err(|e| {
+            anyhow!(
+                "Error converting timestamp from u64 to TimeStamp: {} when reading from SQLite",
+                e
+            )
+        })?;
+
+        let message_bytes: Vec<u8> = row.get(4)?;
+        let message = serde_json::from_slice(&message_bytes)?;
+        let read = row.get(5)?;
+        Ok(ConversationMessage {
+            conversation_id,
+            id,
+            timestamp,
+            message,
+            read,
+        })
     }
 }

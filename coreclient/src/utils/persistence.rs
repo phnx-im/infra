@@ -106,13 +106,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Option<Self>, PersistenceError> {
-        let mut values = load_internal(
-            conn,
-            primary_key_option,
-            secondary_key_option,
-            false,
-            T::DATA_TYPE,
-        )?;
+        let mut values = load_internal(conn, primary_key_option, secondary_key_option, false)?;
         Ok(values.pop())
     }
 
@@ -125,13 +119,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Vec<Self>, PersistenceError> {
-        load_internal(
-            conn,
-            primary_key_option,
-            secondary_key_option,
-            true,
-            T::DATA_TYPE,
-        )
+        load_internal(conn, primary_key_option, secondary_key_option, true)
     }
 
     /// Load all values of this data type from the database. This is an alias
@@ -151,11 +139,20 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
     /// Returns an error either if the underlying database query fails or if the
     /// serialization of this value fails.
     pub(crate) fn persist(&self) -> Result<(), PersistenceError> {
-        let serialized_payload = serde_json::to_vec(self.payload())?;
-        let statement_str = format!(
-            "INSERT OR REPLACE INTO {} (primary_key, secondary_key, value) VALUES (:key, :secondary_key, :value)",
+        let mut statement_str = format!(
+            "INSERT OR REPLACE INTO {} (primary_key, secondary_key",
             T::DATA_TYPE.to_sql_key()
         );
+        for field in T::additional_fields() {
+            statement_str.push_str(", ");
+            statement_str.push_str(field.field_name);
+        }
+        statement_str.push_str(") VALUES (?1, ?2");
+        for index in 0..T::additional_fields().len() {
+            statement_str.push_str(", ?");
+            statement_str.push_str((index + 3).to_string().as_str());
+        }
+        statement_str.push_str(")");
         let mut stmt = match self.connection().prepare(&statement_str) {
             Ok(stmt) => stmt,
             // If the table does not exist, we create it and try again.
@@ -164,7 +161,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
                     let expected_error_string =
                         format!("no such table: {}", T::DATA_TYPE.to_sql_key());
                     if error_string == &expected_error_string {
-                        create_table(self.connection(), T::DATA_TYPE)?;
+                        T::create_table(self.connection())?;
                     } else {
                         return Err(e.into());
                     }
@@ -173,9 +170,13 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
                 _ => return Err(e.into()),
             },
         };
-        stmt.insert(
-            named_params! {":key": self.payload().key().to_sql_key(), ":secondary_key": self.payload().secondary_key().to_sql_key(),":value": serialized_payload},
-        )?;
+        let mut fields: Vec<Box<dyn ToSql>> = vec![
+            Box::new(self.payload().key().to_sql_key()),
+            Box::new(self.payload().secondary_key().to_sql_key()),
+        ];
+        fields.append(&mut self.payload().get_sql_values()?);
+        let field_refs: Vec<&dyn ToSql> = fields.iter().map(|e| e.as_ref()).collect();
+        stmt.insert(field_refs.as_slice())?;
 
         Ok(())
     }
@@ -247,13 +248,80 @@ pub(crate) trait SqlKey {
     fn to_sql_key(&self) -> String;
 }
 
+pub(crate) struct SqlFieldDefinition {
+    field_name: &'static str,
+    field_keywords: &'static str,
+}
+
+impl From<(&'static str, &'static str)> for SqlFieldDefinition {
+    fn from((field_name, field_keywords): (&'static str, &'static str)) -> Self {
+        Self {
+            field_name: field_name,
+            field_keywords: field_keywords,
+        }
+    }
+}
+
 pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
     type Key: SqlKey + std::fmt::Debug;
     type SecondaryKey: SqlKey + std::fmt::Debug;
+
     const DATA_TYPE: DataType;
+
+    /// Returns fields that (in addition to the default fields are required for
+    /// the table of this data, as well as any associated keywords. Default
+    /// fields are
+    /// - "rowid INTEGER PRIMARY KEY",
+    /// - "primary_key TEXT UNIQUE",
+    /// - "secondary_key TEXT".
+    fn additional_fields() -> Vec<SqlFieldDefinition> {
+        let value_field_definition = SqlFieldDefinition {
+            field_name: "value",
+            field_keywords: "BLOB",
+        };
+        vec![value_field_definition]
+    }
+
+    /// The length of the vector resulting from this function MUST match up with
+    /// the number of additional fields.
+    fn get_sql_values(&self) -> Result<Vec<Box<dyn ToSql>>, PersistenceError> {
+        let value = serde_json::to_vec(self)?;
+        Ok(vec![Box::new(value)])
+    }
 
     fn key(&self) -> &Self::Key;
     fn secondary_key(&self) -> &Self::SecondaryKey;
+
+    /// Construct an instance of `Self` from a row of the SQL table. Note that
+    /// the first three rows (indices 0 to 2) are the rowid, primary key and
+    /// secondary key.
+    fn try_from_row(row: &Row) -> Result<Self, PersistenceError> {
+        let value: Vec<u8> = row.get(3)?;
+        let payload = serde_json::from_slice(&value)?;
+        Ok(payload)
+    }
+
+    /// Helper function that creates a table for the given data type.
+    fn create_table(conn: &rusqlite::Connection) -> Result<(), PersistenceError> {
+        let table_name = Self::DATA_TYPE.to_sql_key();
+        let mut statement_str = format!(
+            "CREATE TABLE IF NOT EXISTS {} (
+                rowid INTEGER PRIMARY KEY,
+                primary_key TEXT UNIQUE,
+                secondary_key TEXT",
+            table_name,
+        );
+        for field in Self::additional_fields() {
+            statement_str.push_str(", ");
+            let sql_field_statement = format!("{} {}", field.field_name, field.field_keywords);
+            statement_str.push_str(&sql_field_statement);
+        }
+        statement_str.push_str(")");
+        let mut stmt = conn.prepare(&statement_str)?;
+        stmt.execute([])?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Error)]
@@ -262,32 +330,8 @@ pub enum PersistenceError {
     SqliteError(#[from] rusqlite::Error),
     #[error(transparent)]
     SerdeError(#[from] serde_json::Error),
-}
-
-/// Helper function that creates a table for the given data type.
-fn create_table(conn: &rusqlite::Connection, data_type: DataType) -> Result<(), PersistenceError> {
-    let table_name = data_type.to_sql_key();
-    let mut statement_str = format!(
-        "CREATE TABLE IF NOT EXISTS {} (
-                rowid INTEGER PRIMARY KEY,
-                primary_key TEXT UNIQUE,
-                secondary_key TEXT,",
-        table_name,
-    );
-    match data_type {
-        DataType::Message => statement_str
-            .push_str("timestamp i64 DEFAULT CURRENT_TIMESTAMP, read BOOLEAN DEFAULT false,"), // Message specific fields
-        _ => {}
-    };
-    statement_str.push_str(
-        "
-        value BLOB
-    )",
-    );
-    let mut stmt = conn.prepare(&statement_str)?;
-    stmt.execute([])?;
-
-    Ok(())
+    #[error("Failed to convert value from row")]
+    ConversionError(#[from] anyhow::Error),
 }
 
 /// Helper function to read one or more values from the database. If
@@ -298,14 +342,15 @@ fn load_internal<'a, T: Persistable>(
     primary_key_option: Option<&T::Key>,
     secondary_key_option: Option<&T::SecondaryKey>,
     load_multiple: bool,
-    data_type: DataType,
 ) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
-    let mut statement_str = format!("SELECT value FROM {}", T::DATA_TYPE.to_sql_key());
+    let mut statement_str = "SELECT rowid, primary_key, secondary_key,".to_string();
+    statement_str.push_str("FROM ");
+    statement_str.push_str(T::DATA_TYPE.to_sql_key().as_str());
 
     // We prepare the query here, so we can use it in the match arms below.
     // This is due to annoying lifetime issues.
     let finalize_query = |params: &[&dyn ToSql], mut final_statement: String| {
-        if matches!(data_type, DataType::Message) {
+        if matches!(T::DATA_TYPE, DataType::Message) {
             final_statement.push_str(" ORDER BY timestamp DESC");
         }
         if !load_multiple {
@@ -327,22 +372,14 @@ fn load_internal<'a, T: Persistable>(
             },
         };
 
-        let rows = stmt.query_map(
-            params,
-            |row: &Row<'_>| -> Result<Vec<u8>, rusqlite::Error> {
-                // We only query the value column, so we can use 0 as index here.
-                let value_bytes: Vec<u8> = row.get(0)?;
-                Ok(value_bytes)
-            },
-        )?;
-        let values = rows
-            .map(|row| {
-                let value_bytes = row?;
-                let payload = serde_json::from_slice(&value_bytes)?;
+        let payloads = stmt.query(params)?;
+        let values = payloads
+            .and_then(|row| {
+                let payload = T::try_from_row(row)?;
                 let value = PersistableStruct::from_connection_and_payload(conn, payload);
                 Ok(value)
             })
-            .collect::<Result<Vec<_>, PersistenceError>>()?;
+            .collect::<Result<Vec<PersistableStruct<'_, T>>, PersistenceError>>()?;
 
         Ok(values)
     };

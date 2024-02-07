@@ -10,11 +10,11 @@ use super::*;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
-    pub conversation_id: ConversationId,
-    pub id: Uuid,
-    pub timestamp: TimeStamp,
-    pub message: Message,
-    read: bool,
+    pub(super) conversation_id: ConversationId,
+    pub(super) id: Uuid,
+    pub(super) timestamp: TimeStamp,
+    pub(super) message: Message,
+    pub(super) read: bool,
 }
 
 impl ConversationMessage {
@@ -32,6 +32,14 @@ impl ConversationMessage {
             message,
             read: false, // new messages are unread by default
         }
+    }
+
+    pub fn conversation_id(&self) -> ConversationId {
+        self.conversation_id
+    }
+
+    pub fn message(&self) -> &Message {
+        &self.message
     }
 }
 

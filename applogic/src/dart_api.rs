@@ -540,13 +540,13 @@ impl RustUser {
             [] => return Ok(()),
             [conversation_message] => {
                 let conversation_title = user
-                    .conversation(conversation_message.conversation_id)
+                    .conversation(conversation_message.conversation_id())
                     .ok_or(anyhow!("Conversation not found"))?
                     .attributes()
                     .title()
                     .to_string();
                 let summary = conversation_title;
-                let body = conversation_message.message.string_representation();
+                let body = conversation_message.message().string_representation();
                 (summary, body)
             }
             _ => (
