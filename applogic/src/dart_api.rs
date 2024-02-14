@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Mutex,
-};
+use std::{ops::DerefMut, sync::Mutex};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
@@ -24,9 +21,6 @@ use crate::{
         current_conversation_state::CurrentConversationState,
         mark_messages_read_state::MarkAsReadTimerState, AppState,
     },
-    types::{ConversationIdBytes, UiContact},
-};
-use phnxcoreclient::{
     notifications::{Notifiable, NotificationHub},
     types::{ConversationIdBytes, UiContact},
 };
@@ -155,7 +149,13 @@ impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
         #[cfg(target_os = "macos")]
-        notify_rust::set_application(&"im.phnx.prototype")?;
+        {
+            let res = notify_rust::set_application(&"im.phnx.prototype");
+            if res.is_err() {
+                log::warn!("Could not set application for desktop notifications");
+            }
+        }
+
         Ok(())
     }
 
@@ -539,14 +539,21 @@ impl RustUser {
         let (summary, body) = match &conversation_messages[..] {
             [] => return Ok(()),
             [conversation_message] => {
-                let conversation_title = user
+                let conversation = user
                     .conversation(conversation_message.conversation_id())
-                    .ok_or(anyhow!("Conversation not found"))?
-                    .attributes()
-                    .title()
-                    .to_string();
-                let summary = conversation_title;
-                let body = conversation_message.message().string_representation();
+                    .ok_or(anyhow!("Conversation not found"))?;
+                let summary = match conversation.conversation_type() {
+                    phnxcoreclient::ConversationType::UnconfirmedConnection(username)
+                    | phnxcoreclient::ConversationType::Connection(username) => {
+                        username.to_string()
+                    }
+                    phnxcoreclient::ConversationType::Group => {
+                        conversation.attributes().title().to_string()
+                    }
+                };
+                let body = conversation_message
+                    .message()
+                    .string_representation(conversation.conversation_type());
                 (summary, body)
             }
             _ => (

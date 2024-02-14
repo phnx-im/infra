@@ -318,19 +318,26 @@ impl SelfUser {
             ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
+
+        // Fetch fresh KeyPackages and a fresh KeyPackageBatch from the QS for
+        // each invited user.
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
         for invited_user in invited_users {
-            let mut contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+            // Get the WAI keys and client credentials for the invited users.
+            let contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
-            let add_info = self
-                .contact_store()
-                .add_infos(self.crypto_backend().crypto(), &mut contact)
+            let add_info = contact
+                .fetch_add_infos(
+                    self.api_clients(),
+                    self.qs_verifying_key_store(),
+                    self.crypto_backend().crypto(),
+                )
                 .await?;
             contact_add_infos.push(add_info);
         }
@@ -875,6 +882,16 @@ impl SelfUser {
         conversation_store.mark_as_read(conversation_id, timestamp)
     }
 
+    /// Returns how many messages in the conversation with the given ID are
+    /// marked as unread.
+    pub fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let conversation_store = self.message_store();
+        conversation_store.unread_message_count(conversation_id)
+    }
+
     fn store_group_messages(
         &self,
         conversation_id: ConversationId,
@@ -906,11 +923,7 @@ impl SelfUser {
     }
 
     fn contact_store(&self) -> ContactStore<'_> {
-        ContactStore::new(
-            &self.sqlite_connection,
-            self.qs_verifying_key_store(),
-            self.api_clients(),
-        )
+        ContactStore::new(&self.sqlite_connection)
     }
 
     fn group_store(&self) -> GroupStore<'_> {

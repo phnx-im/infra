@@ -387,7 +387,7 @@ async fn exchange_user_profiles() {
 }
 
 #[actix_rt::test]
-#[tracing::instrument(name = "User profile exchange test", skip_all)]
+#[tracing::instrument(name = "Message retrieval test", skip_all)]
 async fn retrieve_conversation_messages() {
     let mut setup = TestBackend::single().await;
     setup.add_user(ALICE).await;
@@ -401,8 +401,9 @@ async fn retrieve_conversation_messages() {
         .unwrap();
     let alice = &mut alice_test_user.user;
 
+    let number_of_messages = 10;
     let mut messages_sent = vec![];
-    for _ in 0..10 {
+    for _ in 0..number_of_messages {
         let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
         let message_content = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
         let message = alice
@@ -412,14 +413,62 @@ async fn retrieve_conversation_messages() {
         messages_sent.push(message);
     }
 
+    // Reverse the order of the messages, because the messages are retrieved in
+    // descending order of timestamps.
+    let messages_sent = messages_sent.into_iter().rev().collect::<Vec<_>>();
+
     // Let's see what Alice's messages for this conversation look like.
-    let messages = setup
+    let messages_retrieved = setup
         .users
         .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
         .user
-        .get_messages(conversation_id, 10)
+        .get_messages(conversation_id, number_of_messages)
         .unwrap();
 
-    assert_eq!(messages, messages_sent);
+    assert_eq!(messages_retrieved, messages_sent);
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Marking messages as read test", skip_all)]
+async fn mark_as_read() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(ALICE).await;
+    setup.add_user(BOB).await;
+
+    let conversation_id = setup.connect_users(ALICE, BOB).await;
+
+    let alice_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
+        .unwrap();
+    let alice = &mut alice_test_user.user;
+
+    // Send a few messages
+    let number_of_messages = 10;
+    let mut messages_sent = vec![];
+    for _ in 0..number_of_messages {
+        let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
+        let message_content = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
+        let message = alice
+            .send_message(conversation_id, message_content)
+            .await
+            .unwrap();
+        messages_sent.push(message);
+    }
+
+    // All messages should be unread
+    let expected_unread_message_count = number_of_messages + 2; // 2 because the messages sent by alice and bob to check the connection are also counted.
+    let unread_message_count = alice.unread_message_count(conversation_id).unwrap();
+    assert_eq!(expected_unread_message_count, unread_message_count);
+
+    // Let's mark all but the last two messages as read
+    let timestamp = messages_sent[8].timestamp();
+
+    alice.mark_as_read(conversation_id, timestamp).unwrap();
+
+    // Check if we were successful
+    let expected_unread_message_count = 2;
+    let unread_message_count = alice.unread_message_count(conversation_id).unwrap();
+    assert_eq!(expected_unread_message_count, unread_message_count);
 }

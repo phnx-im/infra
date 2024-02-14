@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::str::FromStr;
+
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
 use openmls::prelude::GroupId;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, UserName},
@@ -225,11 +228,10 @@ impl<'a> ConversationMessageStore<'a> {
         let data_type = DataType::Message;
         let data_type_sql_key = data_type.to_sql_key();
         let statement_str = format!(
-            "UPDATE {data_type_sql_key} SET read = true FROM {data_type_sql_key} WHERE secondary_key = :secondary_key AND timestamp < :timestamp",
+            "UPDATE {data_type_sql_key} SET read = true WHERE secondary_key = :secondary_key AND timestamp < :timestamp",
         );
         let mut stmt = match self.db_connection.prepare(&statement_str) {
             Ok(stmt) => stmt,
-            // If the table does not exist, we create it and try again.
             Err(e) => match e {
                 rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
                     let expected_error_string = format!("no such table: {}", data_type_sql_key);
@@ -243,11 +245,42 @@ impl<'a> ConversationMessageStore<'a> {
                 _ => return Err(e.into()),
             },
         };
-        stmt.insert(
-            named_params! {":secondary_key": conversation_id.to_sql_key(),":timestamp": timestamp.as_i64()},
+        stmt.execute(
+            named_params! {":secondary_key": conversation_id.to_sql_key(),":timestamp": timestamp.time()},
         )?;
 
         Ok(())
+    }
+
+    pub(crate) fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let data_type = DataType::Message;
+        let data_type_sql_key = data_type.to_sql_key();
+        let statement_str = format!(
+            "SELECT COUNT(*) FROM {data_type_sql_key} WHERE secondary_key = :secondary_key AND read = false",
+        );
+        let mut stmt = match self.db_connection.prepare(&statement_str) {
+            Ok(stmt) => stmt,
+            Err(e) => match e {
+                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
+                    let expected_error_string = format!("no such table: {}", data_type_sql_key);
+                    // If there is no table, there are no unread messages.
+                    if error_string == &expected_error_string {
+                        return Ok(0);
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+                _ => return Err(e.into()),
+            },
+        };
+        let count: u32 = stmt.query_row(
+            named_params! {":secondary_key": conversation_id.to_sql_key()},
+            |row| row.get(0),
+        )?;
+        Ok(count)
     }
 }
 
@@ -278,7 +311,7 @@ impl Persistable for ConversationMessage {
 
     fn additional_fields() -> Vec<SqlFieldDefinition> {
         vec![
-            ("timestamp", "i64 DEFAULT CURRENT_TIMESTAMP").into(),
+            ("timestamp", "TEXT").into(),
             ("message", "BLOB").into(),
             ("read", "BOOLEAN DEFAULT false").into(),
         ]
@@ -287,23 +320,31 @@ impl Persistable for ConversationMessage {
     fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
         let message_bytes = serde_json::to_vec(&self.message)?;
         Ok(vec![
-            Box::new(self.timestamp.as_i64()),
+            Box::new(self.timestamp.time()),
             Box::new(message_bytes),
             Box::new(self.read),
         ])
     }
 
     fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
-        let conversation_uuid: Uuid = row.get(1)?;
-        let conversation_id = ConversationId::from(conversation_uuid);
-        let id = row.get(2)?;
-        let timestamp_u64: u64 = row.get(3)?;
-        let timestamp = timestamp_u64.try_into().map_err(|e| {
+        let id_text = row.get::<_, String>(1)?;
+        let id = Uuid::from_str(&id_text).map_err(|e| {
             anyhow!(
-                "Error converting timestamp from u64 to TimeStamp: {} when reading from SQLite",
+                "Error converting message UUID from string to Uuid: {} when reading from SQLite",
                 e
             )
         })?;
+        let conversation_uuid_text = row.get::<_, String>(2)?;
+        let conversation_id: ConversationId = Uuid::from_str(&conversation_uuid_text)
+            .map_err(|e| {
+                anyhow!(
+            "Error converting conversation UUID from string to Uuid: {} when reading from SQLite",
+            e
+        )
+            })?
+            .into();
+        let date_time: DateTime<Utc> = row.get(3)?;
+        let timestamp = date_time.into();
 
         let message_bytes: Vec<u8> = row.get(4)?;
         let message = serde_json::from_slice(&message_bytes)?;

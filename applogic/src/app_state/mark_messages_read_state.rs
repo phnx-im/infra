@@ -112,7 +112,7 @@ impl AppState {
         }
 
         // If there is no timer running, we start a new one.
-        mark_as_read_state_option.insert(MarkAsReadTimer::new(timestamp));
+        let _ = mark_as_read_state_option.insert(MarkAsReadTimer::new(timestamp));
         // Drop the lock to the current conversation s.t. other processes can
         // access the state.
         drop(current_conversation_option);

@@ -104,10 +104,6 @@ impl TimeStamp {
     pub fn as_u64(&self) -> u64 {
         self.time.timestamp_millis() as u64
     }
-
-    pub fn as_i64(&self) -> i64 {
-        self.time.timestamp_millis() as i64
-    }
 }
 
 #[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]

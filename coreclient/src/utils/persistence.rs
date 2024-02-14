@@ -256,8 +256,8 @@ pub(crate) struct SqlFieldDefinition {
 impl From<(&'static str, &'static str)> for SqlFieldDefinition {
     fn from((field_name, field_keywords): (&'static str, &'static str)) -> Self {
         Self {
-            field_name: field_name,
-            field_keywords: field_keywords,
+            field_name,
+            field_keywords,
         }
     }
 }
@@ -343,8 +343,12 @@ fn load_internal<'a, T: Persistable>(
     secondary_key_option: Option<&T::SecondaryKey>,
     load_multiple: bool,
 ) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
-    let mut statement_str = "SELECT rowid, primary_key, secondary_key,".to_string();
-    statement_str.push_str("FROM ");
+    let mut statement_str = "SELECT rowid, primary_key, secondary_key".to_string();
+    for field in T::additional_fields() {
+        statement_str.push_str(", ");
+        statement_str.push_str(field.field_name);
+    }
+    statement_str.push_str(" FROM ");
     statement_str.push_str(T::DATA_TYPE.to_sql_key().as_str());
 
     // We prepare the query here, so we can use it in the match arms below.
