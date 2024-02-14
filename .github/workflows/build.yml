@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Rust
+name: Build and test Rust code
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

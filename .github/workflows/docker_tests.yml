@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Docker-based tests
+name: Run docker-based tests
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,5 +52,12 @@ jobs:
           sleep 5
 
       - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.x"
+          channel: "stable"
+          cache: true
+      - name: Set up bridge
+        run: cd applogic/dart-bridge && make setup-ci && make dart-bridge
       - name: Run docker-based tests
         run: cargo test --verbose -- --ignored
