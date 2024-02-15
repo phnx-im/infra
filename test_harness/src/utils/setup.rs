@@ -44,6 +44,27 @@ impl TestUser {
         Self { user }
     }
 
+    pub async fn new_persisted(
+        user_name: &UserName,
+        address_option: Option<String>,
+        db_dir: &str,
+    ) -> Self {
+        let hostname_str = address_option
+            .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
+
+        let server_url = format!("http://{}", hostname_str);
+
+        let user = SelfUser::new(
+            user_name.clone(),
+            &user_name.to_string(),
+            server_url,
+            db_dir,
+        )
+        .await
+        .unwrap();
+        Self { user }
+    }
+
     pub fn user(&self) -> &SelfUser {
         &self.user
     }
@@ -86,6 +107,13 @@ impl TestBackend {
         } else {
             None
         }
+    }
+
+    pub async fn add_persisted_user(&mut self, user_name: impl SafeTryInto<UserName>) {
+        let user_name = user_name.try_into().unwrap();
+        tracing::info!("Creating {user_name}");
+        let user = TestUser::new_persisted(&user_name, self.url(), "./").await;
+        self.users.insert(user_name, user);
     }
 
     pub async fn add_user(&mut self, user_name: impl SafeTryInto<UserName>) {
