@@ -1075,13 +1075,16 @@ impl Group {
         let Some(diff) = self.pending_diff.take() else {
             bail!("No pending group diff");
         };
+        // Compute free indices by checking for blank leaves starting from 0 and
+        // up to the highest index. We later extend the iterator to account for
+        // an extension of the tree.
         let highest_index = self
             .client_information
             .iter()
             .last()
             .map(|(index, _)| *index)
             .ok_or(anyhow!("Client information vector is empty"))?;
-        let free_indices: Vec<usize> = (0..(2 * highest_index))
+        let free_indices: Vec<usize> = (0..highest_index)
             .filter(|&index| {
                 self.client_information.get(index).is_none()
                     // We also check the diff to take removed members into account
@@ -1148,7 +1151,7 @@ impl Group {
         self.pending_diff = None;
         let mut staged_commit_messages = if let Some(staged_commit) = staged_commit_option {
             let staged_commit_messages = GroupMessage::from_staged_commit(
-                free_indices.iter().copied(),
+                free_indices.into_iter().chain((highest_index + 1)..),
                 &self.client_information,
                 &staged_commit,
             )?;
@@ -1162,7 +1165,7 @@ impl Group {
             let staged_commit_messages =
                 if let Some(staged_commit) = self.mls_group.pending_commit() {
                     GroupMessage::from_staged_commit(
-                        free_indices.iter().copied(),
+                        free_indices.into_iter().chain((highest_index + 1)..),
                         &self.client_information,
                         staged_commit,
                     )?
