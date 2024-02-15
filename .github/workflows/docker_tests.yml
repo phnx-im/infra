@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Build and test Rust code
+name: Run docker-based tests
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -59,7 +59,5 @@ jobs:
           cache: true
       - name: Set up bridge
         run: cd applogic/dart-bridge && make setup-ci && make dart-bridge
-      - name: Build 
-        run: cargo build --verbose
-      - name: Run tests
-        run: cargo test --verbose
+      - name: Run docker-based tests
+        run: cargo test --verbose -- --ignored

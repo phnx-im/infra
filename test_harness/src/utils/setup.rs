@@ -2,16 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
+use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{
-    notifications::{Notifiable, NotificationHub},
-    users::SelfUser,
-    ConversationId, ConversationStatus, ConversationType, NotificationType, *,
-};
+use phnxcoreclient::{users::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, SafeTryInto, UserName},
@@ -22,57 +15,33 @@ use rand_chacha::rand_core::OsRng;
 
 use super::spawn_app;
 
-#[derive(Clone)]
-pub struct TestNotifier {
-    notifications: Arc<Mutex<Vec<NotificationType>>>,
-}
-
-impl Notifiable for TestNotifier {
-    fn notify(&self, notification_type: NotificationType) -> bool {
-        let mut inner = self.notifications.lock().unwrap();
-        inner.push(notification_type);
-        true
-    }
-}
-
-impl TestNotifier {
-    pub fn new() -> Self {
-        Self {
-            notifications: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    pub fn notifications(&mut self) -> Vec<NotificationType> {
-        let mut notifications_lock = self.notifications.lock().unwrap();
-        let notifications = notifications_lock.drain(..).collect();
-        notifications
-    }
-}
-
 pub struct TestUser {
-    pub user: SelfUser<TestNotifier>,
-    pub notifier: TestNotifier,
+    pub user: SelfUser,
+}
+
+impl AsRef<SelfUser> for TestUser {
+    fn as_ref(&self) -> &SelfUser {
+        &self.user
+    }
+}
+
+impl AsMut<SelfUser> for TestUser {
+    fn as_mut(&mut self) -> &mut SelfUser {
+        &mut self.user
+    }
 }
 
 impl TestUser {
     pub async fn new(user_name: &UserName, address_option: Option<String>) -> Self {
-        let mut notification_hub = NotificationHub::<TestNotifier>::default();
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
-        let notifier = TestNotifier::new();
-        notification_hub.add_sink(notifier.notifier());
-        let user = SelfUser::new_ephemeral(
-            user_name.clone(),
-            &user_name.to_string(),
-            server_url,
-            notification_hub,
-        )
-        .await
-        .unwrap();
-        Self { user, notifier }
+        let user = SelfUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
+            .await
+            .unwrap();
+        Self { user }
     }
 
     pub async fn new_persisted(
@@ -80,27 +49,23 @@ impl TestUser {
         address_option: Option<String>,
         db_dir: &str,
     ) -> Self {
-        let mut notification_hub = NotificationHub::<TestNotifier>::default();
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
-        let notifier = TestNotifier::new();
-        notification_hub.add_sink(notifier.notifier());
         let user = SelfUser::new(
             user_name.clone(),
             &user_name.to_string(),
             server_url,
             db_dir,
-            notification_hub,
         )
         .await
         .unwrap();
-        Self { user, notifier }
+        Self { user }
     }
 
-    pub fn user(&self) -> &SelfUser<TestNotifier> {
+    pub fn user(&self) -> &SelfUser {
         &self.user
     }
 }
@@ -158,12 +123,6 @@ impl TestBackend {
         self.users.insert(user_name, user);
     }
 
-    pub fn flush_notifications(&mut self) {
-        self.users.values_mut().for_each(|u| {
-            let _ = u.notifier.notifications();
-        });
-    }
-
     /// This has the updater commit an update, but without the checks ensuring
     /// that the group state remains unchanged.
     pub async fn commit_to_proposals(
@@ -212,7 +171,7 @@ impl TestBackend {
             let group_members_before = group_member.group_members(conversation_id).unwrap();
 
             group_member
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -273,7 +232,7 @@ impl TestBackend {
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -341,7 +300,7 @@ impl TestBackend {
         tracing::info!("{} fetches AS messages", user2_name);
         let as_messages = user2.as_fetch_messages().await.unwrap();
         tracing::info!("{} processes AS messages", user2_name);
-        user2.process_as_messages(as_messages).await.unwrap();
+        user2.fully_process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().unwrap();
         let new_contact_position = user2_contacts_after
@@ -388,7 +347,7 @@ impl TestBackend {
         tracing::info!("{} fetches QS messages", user1_name);
         let qs_messages = user1.qs_fetch_messages().await.unwrap();
         tracing::info!("{} processes QS messages", user1_name);
-        user1.process_qs_messages(qs_messages).await.unwrap();
+        user1.fully_process_qs_messages(qs_messages).await.unwrap();
 
         // User 1 should have added user 2 to its contacts now and a connection
         // group should have been created.
@@ -419,7 +378,6 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        self.flush_notifications();
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
@@ -475,7 +433,7 @@ impl TestBackend {
         let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
 
         sender
-            .process_qs_messages(sender_qs_messages)
+            .fully_process_qs_messages(sender_qs_messages)
             .await
             .unwrap();
 
@@ -501,29 +459,19 @@ impl TestBackend {
             //let _recipient_notifications = recipient.notifier.notifications();
             let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
 
-            recipient_user
-                .process_qs_messages(recipient_qs_messages)
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
                 .await
                 .unwrap();
 
-            let recipient_notifications = recipient.notifier.notifications();
-
-            assert!(matches!(
-                recipient_notifications.last().unwrap(),
-                NotificationType::Message(_)
-            ));
-
-            if let NotificationType::Message(message) = &recipient_notifications.last().unwrap() {
-                assert_eq!(
-                    message.conversation_message.message,
-                    Message::Content(ContentMessage {
-                        sender: sender_user_name.to_string(),
-                        content: orig_message.clone()
-                    })
-                );
-            }
+            assert_eq!(
+                messages.last().unwrap().message,
+                Message::Content(ContentMessage {
+                    sender: sender_user_name.to_string(),
+                    content: orig_message.clone()
+                })
+            );
         }
-        self.flush_notifications();
     }
 
     pub async fn create_group(&mut self, user_name: impl SafeTryInto<UserName>) -> ConversationId {
@@ -558,7 +506,6 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        self.flush_notifications();
         let member_set: HashSet<UserName> = [user_name].into();
         assert_eq!(member_set.len(), 1);
         self.groups.insert(conversation_id, member_set);
@@ -591,7 +538,7 @@ impl TestBackend {
         let qs_messages = inviter.qs_fetch_messages().await.unwrap();
 
         inviter
-            .process_qs_messages(qs_messages)
+            .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
         let inviter_conversation = inviter.conversation(conversation_id).unwrap();
@@ -636,7 +583,7 @@ impl TestBackend {
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
             invitee
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -695,7 +642,7 @@ impl TestBackend {
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -708,11 +655,12 @@ impl TestBackend {
             let invitee_set = invitee_names.iter().collect::<HashSet<_>>();
             assert_eq!(new_members, invitee_set)
         }
+
         for invitee_name in &invitee_names {
             let unique_member = group_members.insert(invitee_name.clone());
             assert!(unique_member == true);
         }
-        self.flush_notifications();
+
         // Now send messages to check that the group works properly. This also
         // ensures that everyone involved has picked up their messages from the
         // QS and that notifications are flushed.
@@ -755,7 +703,7 @@ impl TestBackend {
         let qs_messages = remover.qs_fetch_messages().await.unwrap();
 
         remover
-            .process_qs_messages(qs_messages)
+            .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
 
@@ -806,7 +754,7 @@ impl TestBackend {
             let qs_messages = removed.qs_fetch_messages().await.unwrap();
 
             removed
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -854,7 +802,7 @@ impl TestBackend {
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -871,8 +819,6 @@ impl TestBackend {
                 .collect::<HashSet<_>>();
             assert_eq!(removed_members, removed_set)
         }
-
-        self.flush_notifications();
     }
 
     /// Has the leaver leave the given group.
@@ -911,7 +857,7 @@ impl TestBackend {
         let qs_messages = random_member.qs_fetch_messages().await.unwrap();
 
         random_member
-            .process_qs_messages(qs_messages)
+            .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
 
@@ -924,8 +870,6 @@ impl TestBackend {
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         group_members.remove(&leaver_name);
-
-        self.flush_notifications();
     }
 
     pub async fn delete_group(
@@ -947,7 +891,7 @@ impl TestBackend {
         let qs_messages = deleter.qs_fetch_messages().await.unwrap();
 
         deleter
-            .process_qs_messages(qs_messages)
+            .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
 
@@ -994,7 +938,7 @@ impl TestBackend {
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             group_member
-                .process_qs_messages(qs_messages)
+                .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
 
@@ -1011,8 +955,6 @@ impl TestBackend {
             }
         }
         self.groups.remove(&conversation_id);
-
-        self.flush_notifications();
     }
 
     pub fn random_user(&self, rng: &mut impl RngCore) -> UserName {

@@ -11,10 +11,7 @@ use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{users::SelfUser, MessageContentType};
 use phnxserver::network_provider::MockNetworkProvider;
-use phnxserver_test_harness::utils::{
-    setup::{TestBackend, TestNotifier},
-    spawn_app,
-};
+use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::{Fqdn, SafeTryInto};
 
 #[actix_rt::test]
@@ -443,9 +440,7 @@ async fn client_persistence() {
         .as_client_id();
 
     // Try to load the user from the database.
-    let user_result = SelfUser::<TestNotifier>::load(client_id.clone(), "./", None)
-        .await
-        .unwrap();
+    let user_result = SelfUser::load(client_id.clone(), "./").await.unwrap();
 
     assert!(user_result.is_some());
 
