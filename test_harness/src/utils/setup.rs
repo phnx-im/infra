@@ -529,10 +529,23 @@ impl TestBackend {
                 .expect("Error getting group members."),
         );
 
-        inviter
+        let invite_messages = inviter
             .invite_users(conversation_id, &invitee_names)
             .await
             .expect("Error inviting users.");
+
+        let mut expected_messages = HashSet::new();
+        for invitee_name in &invitee_names {
+            let expected_message = format!(
+                "{} added {} to the conversation",
+                inviter_name, invitee_name,
+            );
+            expected_messages.insert(expected_message);
+        }
+
+        let invite_messages = display_messages_to_string_map(invite_messages);
+
+        assert_eq!(invite_messages, expected_messages);
 
         let inviter_group_members_after = HashSet::<UserName>::from_iter(
             inviter
@@ -613,10 +626,14 @@ impl TestBackend {
             );
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
-            group_member
+            let invite_messages = group_member
                 .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
+
+            let invite_messages = display_messages_to_string_map(invite_messages);
+
+            assert_eq!(invite_messages, expected_messages);
 
             let group_members_after = HashSet::<UserName>::from_iter(
                 group_member.group_members(conversation_id).unwrap(),
@@ -692,10 +709,23 @@ impl TestBackend {
             .group_members(conversation_id)
             .expect("Error getting group members.");
 
-        remover
+        let remove_messages = remover
             .remove_users(conversation_id, &removed_names)
             .await
             .expect("Error removing users.");
+
+        let mut expected_messages = HashSet::new();
+
+        for removed_name in &removed_names {
+            let expected_message = format!(
+                "{} removed {} from the conversation",
+                remover_name, removed_name,
+            );
+            expected_messages.insert(expected_message);
+        }
+
+        let remove_messages = display_messages_to_string_map(remove_messages);
+        assert_eq!(remove_messages, expected_messages);
 
         let remover_group_members_after = HashSet::<UserName>::from_iter(
             remover
@@ -773,10 +803,13 @@ impl TestBackend {
             let group_members_before = group_member.group_members(conversation_id).unwrap();
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
-            group_member
+            let remove_messages = group_member
                 .fully_process_qs_messages(qs_messages)
                 .await
                 .expect("Error processing qs messages.");
+
+            let remove_messages = display_messages_to_string_map(remove_messages);
+            assert_eq!(remove_messages, expected_messages);
 
             let group_members_after = HashSet::<UserName>::from_iter(
                 group_member.group_members(conversation_id).unwrap(),
@@ -1109,4 +1142,21 @@ impl TestBackend {
             _ => panic!("Invalid action"),
         }
     }
+}
+
+fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) -> HashSet<String> {
+    display_messages
+        .into_iter()
+        .filter_map(|m| {
+            if let Message::Display(display_message) = m.message {
+                if let DisplayMessageType::System(system_message) = display_message.message {
+                    Some(system_message.message().to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
 }
