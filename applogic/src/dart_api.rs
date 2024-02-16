@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::DerefMut, sync::Mutex};
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
@@ -17,10 +20,7 @@ pub use crate::types::{
     UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
 use crate::{
-    app_state::{
-        current_conversation_state::CurrentConversationState,
-        mark_messages_read_state::MarkAsReadTimerState, AppState,
-    },
+    app_state::AppState,
     notifications::{Notifiable, NotificationHub},
     types::{ConversationIdBytes, UiContact},
 };
@@ -140,7 +140,7 @@ impl UserBuilder {
 type DartNotificationHub = NotificationHub<DartNotifier>;
 
 pub struct RustUser {
-    user: RustOpaque<Mutex<SelfUser>>,
+    user: RustOpaque<Arc<Mutex<SelfUser>>>,
     app_state: RustOpaque<AppState>,
     notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
@@ -174,7 +174,7 @@ impl RustUser {
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(Arc::new(Mutex::new(user))),
             app_state: RustOpaque::new(AppState::new()),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
@@ -203,7 +203,7 @@ impl RustUser {
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(Arc::new(Mutex::new(user))),
             app_state: RustOpaque::new(AppState::new()),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
@@ -452,56 +452,29 @@ impl RustUser {
     }
 
     /// This function is called from the flutter side to mark messages as read.
-    /// It will start a short timer (around 2 seconds) after which the messages
-    /// will be marked as read.
     ///
-    /// If the function is called and there is already a timer running, the
-    /// function updates the timestamp and resets the duration.
-    #[tokio::main(flavor = "current_thread")]
-    pub async fn mark_messages_as_read(&self, timestamp: u64) -> Result<()> {
-        let timestamp = TimeStamp::try_from(timestamp)?;
-        match self.app_state.set_mark_messages_as_read_timer(timestamp)? {
-            // Either there is already a timer running (in which case we just
-            // updated the timestamp and reset the timer), or the timer was
-            // cancelled. In either case, there is nothing to do.
-            MarkAsReadTimerState::Running | MarkAsReadTimerState::Cancelled => {}
-            MarkAsReadTimerState::Stopped(conversation_id, timestamp) => {
-                // The timer has finished. Mark the messages as read.
-                let user = self.user.lock().unwrap();
-                user.mark_as_read(conversation_id, timestamp)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Change the current conversation to the conversation with the given id.
-    #[tokio::main(flavor = "current_thread")]
-    pub async fn change_current_conversation(
+    /// The function is debounced and can be called multiple times in quick
+    /// succession. If there is no debouncing currently in progress, this
+    /// function will start a new debouncing process and may take a short while
+    /// to terminate.
+    pub fn mark_messages_as_read_debounced(
         &self,
         conversation_id: ConversationIdBytes,
+        timestamp: u64,
     ) -> Result<()> {
-        let conversation_id = conversation_id.into();
-        let mut current_conversation = self.app_state.current_conversation.lock().unwrap();
-        if let Some(current_conversation_state) = current_conversation.deref_mut() {
-            // If the current conversation is the same as the new conversation,
-            // there is nothing to do.
-            if current_conversation_state.conversation_id() == conversation_id {
-                return Ok(());
-            } else {
-                // If there is a current conversation and there is a timer
-                // running, mark the messages as read, then continue with the
-                // function to set the new conversation.
-                if let Some(timestamp) = current_conversation_state.delete_current_timer() {
-                    let user = self.user.lock().unwrap();
-                    user.mark_as_read(conversation_id, timestamp)?;
-                };
-            }
-        }
+        let timestamp = TimeStamp::try_from(timestamp)?;
+        self.app_state.mark_messages_read_debounced(
+            self.user.deref().clone(),
+            conversation_id.into(),
+            timestamp,
+        )
+    }
 
-        // Set a new current conversation.
-        let new_conversation = CurrentConversationState::new(conversation_id);
-        *current_conversation = Some(new_conversation);
-        Ok(())
+    /// This function is called from the flutter side to flush the debouncer
+    /// state for a conversation.
+    pub fn flush_debouncer_state(&self, conversation_id: ConversationIdBytes) -> Result<()> {
+        self.app_state
+            .flush_debouncer_state(self.user.deref().clone(), conversation_id.into())
     }
 
     /// Dispatch a notification to the flutter side if and only if a
