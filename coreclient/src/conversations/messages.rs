@@ -14,7 +14,6 @@ pub struct ConversationMessage {
     pub(super) id: Uuid,
     pub(super) timestamp: TimeStamp,
     pub(super) message: Message,
-    pub(super) read: bool,
 }
 
 impl ConversationMessage {
@@ -30,7 +29,6 @@ impl ConversationMessage {
             id: id.into(),
             timestamp,
             message,
-            read: false, // new messages are unread by default
         }
     }
 

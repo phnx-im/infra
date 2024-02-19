@@ -153,23 +153,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
             statement_str.push_str((index + 3).to_string().as_str());
         }
         statement_str.push_str(")");
-        let mut stmt = match self.connection().prepare(&statement_str) {
-            Ok(stmt) => stmt,
-            // If the table does not exist, we create it and try again.
-            Err(e) => match e {
-                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
-                    let expected_error_string =
-                        format!("no such table: {}", T::DATA_TYPE.to_sql_key());
-                    if error_string == &expected_error_string {
-                        T::create_table(self.connection())?;
-                    } else {
-                        return Err(e.into());
-                    }
-                    self.connection().prepare(&statement_str)?
-                }
-                _ => return Err(e.into()),
-            },
-        };
+        let mut stmt = self.connection().prepare(&statement_str)?;
         let mut fields: Vec<Box<dyn ToSql>> = vec![
             Box::new(self.payload().key().to_sql_key()),
             Box::new(self.payload().secondary_key().to_sql_key()),
@@ -262,6 +246,11 @@ impl From<(&'static str, &'static str)> for SqlFieldDefinition {
     }
 }
 
+/// Trait for types that can be persisted in a SQLite database.
+///
+/// Tables for all data types are created when a client is created. New
+/// implementers MUST be added to the `DataType` enum and added to the
+/// `create_tables` function in `coreclient/src/utils/persistence.rs`.
 pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
     type Key: SqlKey + std::fmt::Debug;
     type SecondaryKey: SqlKey + std::fmt::Debug;
@@ -302,7 +291,7 @@ pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
     }
 
     /// Helper function that creates a table for the given data type.
-    fn create_table(conn: &rusqlite::Connection) -> Result<(), PersistenceError> {
+    fn create_table(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let table_name = Self::DATA_TYPE.to_sql_key();
         let mut statement_str = format!(
             "CREATE TABLE IF NOT EXISTS {} (
@@ -360,21 +349,7 @@ fn load_internal<'a, T: Persistable>(
         if !load_multiple {
             final_statement.push_str(" LIMIT 1");
         }
-        let mut stmt = match conn.prepare(&final_statement) {
-            Ok(stmt) => stmt,
-            Err(e) => match e {
-                rusqlite::Error::SqliteFailure(_, Some(ref error_string)) => {
-                    let expected_error_string =
-                        format!("no such table: {}", T::DATA_TYPE.to_sql_key());
-                    if error_string == &expected_error_string {
-                        return Ok(vec![]);
-                    } else {
-                        return Err(e.into());
-                    }
-                }
-                _ => return Err(e.into()),
-            },
-        };
+        let mut stmt = conn.prepare(&final_statement)?;
 
         let payloads = stmt.query(params)?;
         let values = payloads

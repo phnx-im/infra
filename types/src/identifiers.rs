@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 use url::Host;
@@ -105,6 +108,55 @@ impl std::fmt::Display for QualifiedGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let uuid = Uuid::from_bytes(self.group_id);
         write!(f, "{}@{}", uuid, self.owning_domain)
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum QualifiedGroupIdError {
+    #[error(transparent)]
+    FqdnError(#[from] FqdnError),
+    #[error("The given string does not represent a valid qualified group id.")]
+    InvalidQualifiedGroupId,
+}
+
+impl TryFrom<String> for QualifiedGroupId {
+    type Error = QualifiedGroupIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for QualifiedGroupId {
+    type Error = QualifiedGroupIdError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut split_string = value.split('@');
+        let group_id = split_string.next().ok_or_else(|| {
+            tracing::debug!("The given string is empty.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+
+        let group_id_uuid = Uuid::from_str(group_id).map_err(|_| {
+            tracing::debug!("The given group id is not a valid UUID.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+        let group_id = group_id_uuid.into_bytes();
+        // GroupIds MUST be qualified
+        let domain = split_string.next().ok_or_else(|| {
+            tracing::debug!("The given group id is not qualified.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+        let owning_domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
+        if split_string.next().is_some() {
+            tracing::debug!("The domain name may not contain a '@'.");
+            return Err(QualifiedGroupIdError::InvalidQualifiedGroupId);
+        }
+
+        Ok(Self {
+            group_id,
+            owning_domain,
+        })
     }
 }
 

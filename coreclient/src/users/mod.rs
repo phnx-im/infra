@@ -878,7 +878,7 @@ impl SelfUser {
         conversation_id: ConversationId,
         timestamp: TimeStamp,
     ) -> Result<(), PersistenceError> {
-        let conversation_store = self.message_store();
+        let conversation_store = self.conversation_store();
         conversation_store.mark_as_read(conversation_id, timestamp)
     }
 
@@ -888,7 +888,7 @@ impl SelfUser {
         &self,
         conversation_id: ConversationId,
     ) -> Result<u32, PersistenceError> {
-        let conversation_store = self.message_store();
+        let conversation_store = self.conversation_store();
         conversation_store.unread_message_count(conversation_id)
     }
 
