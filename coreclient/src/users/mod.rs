@@ -892,6 +892,10 @@ impl SelfUser {
         conversation_store.unread_message_count(conversation_id)
     }
 
+    pub fn as_client_id(&self) -> AsClientId {
+        self.key_store.signing_key.credential().identity().clone()
+    }
+
     fn store_group_messages(
         &self,
         conversation_id: ConversationId,
