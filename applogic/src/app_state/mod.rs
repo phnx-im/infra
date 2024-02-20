@@ -19,14 +19,22 @@ pub(crate) mod mark_as_read_debouncer;
 /// Appstate contains only ephemeral data and does not need to be persisted.
 pub(super) struct AppState {
     mark_as_read_debouncers: MarkAsReadDebouncer,
+    user_mutex: Arc<Mutex<SelfUser>>,
+}
+
+impl Drop for AppState {
+    fn drop(&mut self) {
+        let _ = self.flush_debouncer_state();
+    }
 }
 
 impl AppState {
     /// Create a new `AppState` with no current conversation and no ongoing
     /// marking of messages as read.
-    pub(super) fn new() -> Self {
+    pub(super) fn new(user_mutex: Arc<Mutex<SelfUser>>) -> Self {
         Self {
             mark_as_read_debouncers: MarkAsReadDebouncer::new(),
+            user_mutex,
         }
     }
 
@@ -39,19 +47,21 @@ impl AppState {
     /// Otherwise it will return immediately.
     pub(super) fn mark_messages_read_debounced(
         &self,
-        user_mutex: Arc<Mutex<SelfUser>>,
         conversation_id: ConversationId,
         timestamp: TimeStamp,
     ) -> Result<()> {
-        self.mark_as_read_debouncers
-            .mark_as_read_debounced(user_mutex, conversation_id, timestamp)
+        self.mark_as_read_debouncers.mark_as_read_debounced(
+            self.user_mutex.clone(),
+            conversation_id,
+            timestamp,
+        )
     }
 
     /// If there is a debouncing process going on for the conversation with the
     /// given [`ConversationId`], immediately stop it and mark all messages as
     /// read.
-    pub(super) fn flush_debouncer_state(&self, user_mutex: Arc<Mutex<SelfUser>>) -> Result<()> {
+    pub(super) fn flush_debouncer_state(&self) -> Result<()> {
         self.mark_as_read_debouncers
-            .flush_debouncer_state(user_mutex)
+            .flush_debouncer_state(self.user_mutex.clone())
     }
 }

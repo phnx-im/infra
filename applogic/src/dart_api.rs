@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
@@ -145,14 +142,6 @@ pub struct RustUser {
     notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
 
-impl Drop for RustUser {
-    fn drop(&mut self) {
-        let _ = self
-            .app_state
-            .flush_debouncer_state(self.user.deref().clone());
-    }
-}
-
 impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
@@ -181,9 +170,10 @@ impl RustUser {
         let user = SelfUser::new(&user_name, &password, address, &path).await?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Arc::new(Mutex::new(user))),
-            app_state: RustOpaque::new(AppState::new()),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
@@ -210,9 +200,10 @@ impl RustUser {
             })?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Arc::new(Mutex::new(user))),
-            app_state: RustOpaque::new(AppState::new()),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
@@ -471,19 +462,15 @@ impl RustUser {
         timestamp: u64,
     ) -> Result<()> {
         let timestamp = TimeStamp::try_from(timestamp)?;
-        self.app_state.mark_messages_read_debounced(
-            self.user.deref().clone(),
-            conversation_id.into(),
-            timestamp,
-        )
+        self.app_state
+            .mark_messages_read_debounced(conversation_id.into(), timestamp)
     }
 
     /// This function is called from the flutter side to flush the debouncer
     /// state, immediately terminating the debouncer and marking all pending
     /// messages as read.
     pub fn flush_debouncer_state(&self) -> Result<()> {
-        self.app_state
-            .flush_debouncer_state(self.user.deref().clone())
+        self.app_state.flush_debouncer_state()
     }
 
     /// Dispatch a notification to the flutter side if and only if a
