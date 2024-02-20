@@ -145,6 +145,14 @@ pub struct RustUser {
     notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
 
+impl Drop for RustUser {
+    fn drop(&mut self) {
+        let _ = self
+            .app_state
+            .flush_debouncer_state(self.user.deref().clone());
+    }
+}
+
 impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
