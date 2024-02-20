@@ -10,13 +10,15 @@ use super::*;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
-    pub conversation_id: ConversationId,
-    pub id: Uuid,
-    pub timestamp: TimeStamp,
-    pub message: Message,
+    pub(super) conversation_id: ConversationId,
+    pub(super) id: Uuid,
+    pub(super) timestamp: TimeStamp,
+    pub(super) message: Message,
 }
 
 impl ConversationMessage {
+    /// Create a new conversation message from a group message. New messages are
+    /// marked as unread by default.
     pub(crate) fn new(
         conversation_id: ConversationId,
         group_message: GroupMessage,
@@ -28,6 +30,22 @@ impl ConversationMessage {
             timestamp,
             message,
         }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn timestamp(&self) -> TimeStamp {
+        self.timestamp
+    }
+
+    pub fn conversation_id(&self) -> ConversationId {
+        self.conversation_id
+    }
+
+    pub fn message(&self) -> &Message {
+        &self.message
     }
 }
 

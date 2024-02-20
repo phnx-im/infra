@@ -41,6 +41,7 @@ use phnxtypes::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
+    time::TimeStamp,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -870,9 +871,30 @@ impl SelfUser {
             .await?)
     }
 
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+        &self,
+        mark_as_read_data: T,
+    ) -> Result<(), PersistenceError> {
+        let conversation_store = self.conversation_store();
+        conversation_store.mark_as_read(mark_as_read_data)
+    }
+
+    /// Returns how many messages in the conversation with the given ID are
+    /// marked as unread.
+    pub fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let conversation_store = self.conversation_store();
+        conversation_store.unread_message_count(conversation_id)
+    }
+
     pub fn as_client_id(&self) -> AsClientId {
         self.key_store.signing_key.credential().identity().clone()
     }
+
     fn store_group_messages(
         &self,
         conversation_id: ConversationId,

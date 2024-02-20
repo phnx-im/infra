@@ -445,8 +445,8 @@ impl TestBackend {
         let sender_user_name = test_sender.user.user_name().to_owned();
 
         assert_eq!(
-            message.message,
-            Message::Content(ContentMessage {
+            message.message(),
+            &Message::Content(ContentMessage {
                 sender: test_sender.user.user_name().to_string(),
                 content: orig_message.clone()
             })
@@ -465,8 +465,8 @@ impl TestBackend {
                 .unwrap();
 
             assert_eq!(
-                messages.last().unwrap().message,
-                Message::Content(ContentMessage {
+                messages.last().unwrap().message(),
+                &Message::Content(ContentMessage {
                     sender: sender_user_name.to_string(),
                     content: orig_message.clone()
                 })
@@ -1176,8 +1176,8 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
     display_messages
         .into_iter()
         .filter_map(|m| {
-            if let Message::Display(display_message) = m.message {
-                if let DisplayMessageType::System(system_message) = display_message.message {
+            if let Message::Display(display_message) = m.message() {
+                if let DisplayMessageType::System(system_message) = &display_message.message {
                     Some(system_message.message().to_string())
                 } else {
                     None

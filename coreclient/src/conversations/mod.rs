@@ -54,11 +54,15 @@ impl TryFrom<GroupId> for ConversationId {
 impl SqlKey for GroupId {
     fn to_sql_key(&self) -> String {
         let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(self.as_slice()).unwrap();
-        let conversation_id = ConversationId {
-            uuid: Uuid::from_bytes(qgid.group_id),
-        };
-        conversation_id.as_uuid().to_string()
+        qgid.to_string()
     }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub(super) struct ConversationPayload {
+    status: ConversationStatus,
+    conversation_type: ConversationType,
+    attributes: ConversationAttributes,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -66,10 +70,11 @@ pub struct Conversation {
     id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
     group_id: GroupId,
-    status: ConversationStatus,
-    conversation_type: ConversationType,
     last_used: TimeStamp,
-    attributes: ConversationAttributes,
+    // The timestamp of the last message that was (marked as) read by the user.
+    last_read: TimeStamp,
+    // Payload encoded as a byte array when communicating with the DB.
+    pub(super) conversation_payload: ConversationPayload,
 }
 
 impl Conversation {
@@ -78,15 +83,15 @@ impl Conversation {
     }
 
     pub fn conversation_type(&self) -> &ConversationType {
-        &self.conversation_type
+        &self.conversation_payload.conversation_type
     }
 
     pub fn status(&self) -> &ConversationStatus {
-        &self.status
+        &self.conversation_payload.status
     }
 
     pub fn attributes(&self) -> &ConversationAttributes {
-        &self.attributes
+        &self.conversation_payload.attributes
     }
 
     pub fn last_used(&self) -> &TimeStamp {

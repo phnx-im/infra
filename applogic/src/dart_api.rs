@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
@@ -10,12 +10,14 @@ use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{
     identifiers::{SafeTryInto, UserName},
     messages::client_ds::QsWsMessage,
+    time::TimeStamp,
 };
 
 pub use crate::types::{
     UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
 };
 use crate::{
+    app_state::AppState,
     notifications::{Notifiable, NotificationHub},
     types::{ConversationIdBytes, UiContact},
 };
@@ -135,7 +137,8 @@ impl UserBuilder {
 type DartNotificationHub = NotificationHub<DartNotifier>;
 
 pub struct RustUser {
-    user: RustOpaque<Mutex<SelfUser>>,
+    user: RustOpaque<Arc<Mutex<SelfUser>>>,
+    app_state: RustOpaque<AppState>,
     notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
 
@@ -167,8 +170,10 @@ impl RustUser {
         let user = SelfUser::new(&user_name, &password, address, &path).await?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
@@ -195,8 +200,10 @@ impl RustUser {
             })?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
             notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
@@ -443,6 +450,29 @@ impl RustUser {
             .await
     }
 
+    /// This function is called from the flutter side to mark messages as read.
+    ///
+    /// The function is debounced and can be called multiple times in quick
+    /// succession. If there is no debouncing currently in progress, this
+    /// function will start a new debouncing process and may take a short while
+    /// to terminate.
+    pub fn mark_messages_as_read_debounced(
+        &self,
+        conversation_id: ConversationIdBytes,
+        timestamp: u64,
+    ) -> Result<()> {
+        let timestamp = TimeStamp::try_from(timestamp)?;
+        self.app_state
+            .mark_messages_read_debounced(conversation_id.into(), timestamp)
+    }
+
+    /// This function is called from the flutter side to flush the debouncer
+    /// state, immediately terminating the debouncer and marking all pending
+    /// messages as read.
+    pub fn flush_debouncer_state(&self) -> Result<()> {
+        self.app_state.flush_debouncer_state()
+    }
+
     /// Dispatch a notification to the flutter side if and only if a
     /// notification hub is set.
     fn dispatch_conversation_notifications(
@@ -479,7 +509,7 @@ impl RustUser {
             [] => return Ok(()),
             [conversation_message] => {
                 let conversation = user
-                    .conversation(conversation_message.conversation_id)
+                    .conversation(conversation_message.conversation_id())
                     .ok_or(anyhow!("Conversation not found"))?;
                 let summary = match conversation.conversation_type() {
                     phnxcoreclient::ConversationType::UnconfirmedConnection(username)
@@ -491,7 +521,7 @@ impl RustUser {
                     }
                 };
                 let body = conversation_message
-                    .message
+                    .message()
                     .string_representation(conversation.conversation_type());
                 (summary, body)
             }

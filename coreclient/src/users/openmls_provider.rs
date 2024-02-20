@@ -47,7 +47,7 @@ impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
 }
 
 #[derive(Serialize, Deserialize)]
-struct KeyStoreValue {
+pub(super) struct KeyStoreValue {
     key: String,
     payload: Vec<u8>,
 }
@@ -210,6 +210,7 @@ impl Persistable for [u8; 32] {
 fn randomness() {
     use std::collections::HashSet;
     let connection = Connection::open_in_memory().unwrap();
+    <[u8; 32] as Persistable>::create_table(&connection).unwrap();
 
     let provider = PhnxOpenMlsProvider::new(&connection);
     let random_vec_1 = provider.random_vec(32).unwrap();

@@ -425,23 +425,27 @@ impl SelfUser {
             .map(|c| c.convert_for_export())
     }
 
+    /// Get the most recent `number_of_messages` messages from the conversation
+    /// with the given [`ConversationId`].
     pub fn get_messages(
         &self,
         conversation_id: ConversationId,
-        last_n: usize,
+        number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
         let message_store = self.message_store();
-        let messages = message_store
+        // TODO: We need a way of loading the most recent `n` message instead of
+        // truncating after the fact.
+        let mut messages = message_store
             .get_by_conversation_id(&conversation_id)?
             .into_iter()
             .map(|pm| pm.into())
             .collect::<Vec<_>>();
 
-        if last_n >= messages.len() {
+        if number_of_messages >= messages.len() {
             Ok(messages)
         } else {
-            let (_left, right) = messages.split_at(messages.len() - last_n);
-            Ok(right.to_vec())
+            messages.truncate(number_of_messages);
+            Ok(messages)
         }
     }
 
