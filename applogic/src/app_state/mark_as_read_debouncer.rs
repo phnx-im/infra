@@ -22,30 +22,20 @@ const DEFAULT_DURATION: u64 = 2000;
 /// messages as read state.
 const DURATION_CHECK_INTERVAL: u64 = 500;
 
-#[derive(Debug, Clone)]
-struct ConversationDebouncerState {
+#[derive(Debug)]
+struct DebouncerState {
+    // A map of conversation ids to the state of an ongoing debouncing process.
+    // If this is `None`, then there is no debouncing thread running.
+    conversation_timestamps: HashMap<ConversationId, TimeStamp>,
+    // The duration of the debouncing process.
     duration: u64,
-    timestamp: TimeStamp,
+    starting_duration: u64,
 }
 
-impl ConversationDebouncerState {
-    /// Create a new `ConversationDebouncerState` with the given `timestamp` and
-    /// a default duration of 2 seconds.
-    pub(super) fn new(timestamp: TimeStamp, duration: u64) -> Self {
-        Self {
-            duration,
-            timestamp,
-        }
-    }
-
-    /// Set the timestamp of the last message that's being marked as read.
-    pub(super) fn set_timestamp(&mut self, timestamp: TimeStamp) {
-        self.timestamp = timestamp;
-    }
-
-    /// Reset the duration of the marking as read.
-    pub(super) fn set_duration(&mut self, duration: u64) {
-        self.duration = duration;
+impl DebouncerState {
+    /// Reset the duration of the debouncer.
+    pub(super) fn reset_duration(&mut self) {
+        self.duration = self.starting_duration;
     }
 
     /// Decrement the duration of the debouncer state by the default check interval.
@@ -57,16 +47,25 @@ impl ConversationDebouncerState {
             .checked_sub(DURATION_CHECK_INTERVAL)
             .unwrap_or(0);
     }
+
+    /// Create a new [`DebouncerState`] with the given `timestamp` and
+    /// conversation id, as well as the default duration.
+    fn new(
+        conversation_timestamps: impl Into<HashMap<ConversationId, TimeStamp>>,
+        default_duration: u64,
+    ) -> Self {
+        Self {
+            conversation_timestamps: conversation_timestamps.into(),
+            duration: default_duration,
+            starting_duration: default_duration,
+        }
+    }
 }
 
 /// A debouncer that marks messages as read in conversations.
 pub(super) struct MarkAsReadDebouncer {
-    // A map of conversation ids to the state of an ongoing debouncing process.
-    // If this is `None`, then there is no debouncing thread running.
-    conversation_debouncer_states_option:
-        Arc<Mutex<Option<HashMap<ConversationId, ConversationDebouncerState>>>>,
-    // The duration of the debouncing process.
-    duration: u64,
+    conversation_debouncer_states_option: Arc<Mutex<Option<DebouncerState>>>,
+    default_duration: u64,
 }
 
 impl MarkAsReadDebouncer {
@@ -75,7 +74,7 @@ impl MarkAsReadDebouncer {
     pub(super) fn new() -> Self {
         Self {
             conversation_debouncer_states_option: Arc::new(Mutex::new(None)),
-            duration: DEFAULT_DURATION,
+            default_duration: DEFAULT_DURATION,
         }
     }
 
@@ -83,31 +82,24 @@ impl MarkAsReadDebouncer {
     fn new_with_duration(duration: u64) -> Self {
         Self {
             conversation_debouncer_states_option: Arc::new(Mutex::new(None)),
-            duration,
+            default_duration: duration,
         }
     }
-}
 
-impl MarkAsReadDebouncer {
     /// If there is a debouncer state for the given conversation id, immediately
     /// flush the state by marking all messages in the conversation older then
     /// the current timestamp as read and removing the state.
     ///
     /// If there is no debouncer state for the given conversation id, this
     /// function does nothing.
-    pub(crate) fn flush_debouncer_state<T: MarkAsRead>(
-        &self,
-        user: T,
-        conversation_id: ConversationId,
-    ) -> Result<()> {
+    pub(crate) fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
         let mut debouncer_state_option = self
             .conversation_debouncer_states_option
             .lock()
             .map_err(|e| anyhow!("Mark as read debouncer mutex poisoned: {}", e))?;
-        if let Some(ref mut debouncer_state) = *debouncer_state_option {
-            if let Some(conversation_state) = debouncer_state.remove(&conversation_id) {
-                user.mark_as_read(conversation_id, conversation_state.timestamp)?;
-            };
+        if let Some(debouncer_state) = debouncer_state_option.take() {
+            user.mark_as_read(&debouncer_state.conversation_timestamps)?;
+            debouncer_state_option.take();
         }
         Ok(())
     }
@@ -139,30 +131,21 @@ impl MarkAsReadDebouncer {
             .conversation_debouncer_states_option
             .lock()
             .map_err(|e| anyhow!("Mark as read debouncer mutex poisoned: {}", e))?;
-        // There is a thread running iff there is a debouncer state.
-        if let Some(ref mut conversation_debouncer_state) = *conversation_debouncer_state_option {
-            // If there is, we check if there already is an instance for the given conversation id.
-            if let Some(debouncer) = conversation_debouncer_state.get_mut(&conversation_id) {
-                // If there is, we update the timestamp and reset the duration.
-                debouncer.set_timestamp(timestamp);
-                debouncer.set_duration(self.duration);
-            } else {
-                // If there isn't, we create a new instance for the given conversation id.
-                conversation_debouncer_state.insert(
-                    conversation_id,
-                    ConversationDebouncerState::new(timestamp, self.duration),
-                );
-            }
-            // We now return since there already is a timer running.
+        // Check if there is already a debouncer state.
+        if let Some(ref mut debouncer_state) = *conversation_debouncer_state_option {
+            // As there is a debouncer state, there must already be a thread
+            // running, so all we have to do is update (or add) the timestamp
+            // and reset the duration.
+            debouncer_state
+                .conversation_timestamps
+                .insert(conversation_id, timestamp);
+            debouncer_state.reset_duration();
             return Ok(());
         }
 
         // Since there is no thread running we create a new state and start a new thread.
-        let debouncer_state = [(
-            conversation_id,
-            ConversationDebouncerState::new(timestamp, self.duration),
-        )]
-        .into();
+        let debouncer_state =
+            DebouncerState::new([(conversation_id, timestamp)], self.default_duration);
         *conversation_debouncer_state_option = Some(debouncer_state);
 
         // We now spawn a thread that periodically gets a lock on the debouncer
@@ -173,24 +156,22 @@ impl MarkAsReadDebouncer {
         // conversation debouncer state. If there are no more conversation
         // debouncer states, the thread will terminate. If an error occurs in
         // the thread, we log it and return.
-        let debouncer_states_mutex = self.conversation_debouncer_states_option.clone();
-        let duration = self.duration;
+        let debouncer_state_mutex = self.conversation_debouncer_states_option.clone();
 
-        thread::spawn(move || debouncing_timer(debouncer_states_mutex, user, duration));
+        thread::spawn(move || debouncing_timer(debouncer_state_mutex, user));
         Ok(())
     }
 }
 
 fn debouncing_timer<T: MarkAsRead + Sync + Send>(
-    debouncer_states_mutex: Arc<Mutex<Option<HashMap<ConversationId, ConversationDebouncerState>>>>,
+    debouncer_state_mutex: Arc<Mutex<Option<DebouncerState>>>,
     user: T,
-    duration: u64,
 ) {
     loop {
         // Wait for a bit.
-        sleep(Duration::from_millis(duration));
+        sleep(Duration::from_millis(DURATION_CHECK_INTERVAL));
         // Re-acquire the lock.
-        let mut debouncer_conversation_states_option = match debouncer_states_mutex.lock() {
+        let mut debouncer_state_option = match debouncer_state_mutex.lock() {
             Ok(states) => states,
             Err(e) => {
                 log::error!("Mark as read debouncer mutex poisoned: {}", e);
@@ -198,60 +179,42 @@ fn debouncing_timer<T: MarkAsRead + Sync + Send>(
             }
         };
 
-        // If somehow the debouncer state was removed while the debouncer
-        // thread was running, we log an error and return.
-        let Some(ref mut debouncer_conversation_states) = *debouncer_conversation_states_option
-        else {
-            log::error!("Debouncer state was removed while the debouncer thread was running.");
+        // If the debouncer state was removed while the debouncer thread was
+        // running (e.g. because the debouncer state was flushed), there is
+        // nothing left for the thread to do.
+        let Some(ref mut debouncer_state) = *debouncer_state_option else {
             return;
         };
 
-        // Go through all the debouncer states and decrement their
-        // duration.
-        let keys: Vec<_> = debouncer_conversation_states.keys().copied().collect();
-        for conversation_id in keys.into_iter() {
-            // This must be Some.
-            let Some(debouncer_state) = debouncer_conversation_states.get_mut(&conversation_id)
-            else {
-                log::error!("Can't find debouncer state");
-                return;
+        debouncer_state.decrement_duration();
+        // If the duration has reached zero, we mark the messages as read
+        // and remove the debouncer state.
+        if debouncer_state.duration == 0 {
+            if let Err(e) = user.mark_as_read(&debouncer_state.conversation_timestamps) {
+                log::error!("Failed to mark messages as read: {}", e);
             };
-            debouncer_state.decrement_duration();
-            // If the duration has reached zero, we remove the debouncer
-            // state from the map and mark the messages in the conversation
-            // as read.
-            if debouncer_state.duration == 0 {
-                let debouncer_state_timestamp = debouncer_state.timestamp;
-                // We remove the conversation regardless of whether marking
-                // the messages as read was successful or not. If it wasn't,
-                // the function will have to be called again and the
-                // messages may be marked as read then.
-                debouncer_conversation_states.remove(&conversation_id);
-                if let Err(e) = user.mark_as_read(conversation_id, debouncer_state_timestamp) {
-                    log::error!("Failed to mark messages as read: {}", e);
-                    continue;
-                };
-            }
-        }
-        // Remove the debouncer state and terminate if this was the last map
-        // entry.
-        if debouncer_conversation_states.is_empty() {
-            debouncer_conversation_states_option.take();
+            debouncer_state_option.take();
             return;
         }
     }
 }
 
 pub(crate) trait MarkAsRead {
-    fn mark_as_read(&self, conversation_id: ConversationId, timestamp: TimeStamp) -> Result<()>;
+    fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+        &self,
+        mark_as_read_data: T,
+    ) -> Result<()>;
 }
 
 impl MarkAsRead for Arc<Mutex<SelfUser>> {
-    fn mark_as_read(&self, conversation_id: ConversationId, timestamp: TimeStamp) -> Result<()> {
+    fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+        &self,
+        mark_as_read_data: T,
+    ) -> Result<()> {
         let user = self
             .lock()
             .map_err(|e| anyhow!("User mutex poisoned: {}", e))?;
-        user.mark_as_read(conversation_id, timestamp)?;
+        user.mark_as_read(mark_as_read_data)?;
         Ok(())
     }
 }
@@ -296,14 +259,15 @@ mod tests {
     }
 
     impl MarkAsRead for Arc<Mutex<TestUser>> {
-        fn mark_as_read(
+        fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
             &self,
-            conversation_id: ConversationId,
-            timestamp: TimeStamp,
+            mark_as_read_data: T,
         ) -> Result<()> {
             let mut user = self.lock().unwrap();
-            let conversation = user.conversations.get_mut(&conversation_id).unwrap();
-            *conversation = timestamp;
+            for (conversation_id, timestamp) in mark_as_read_data {
+                let conversation = user.conversations.get_mut(&conversation_id).unwrap();
+                *conversation = *timestamp;
+            }
             Ok(())
         }
     }

@@ -468,7 +468,7 @@ async fn mark_as_read() {
     // the vector is 0-indexed).
     let timestamp = messages_sent[messages_sent.len() - 3].timestamp();
 
-    alice.mark_as_read(conversation_id, timestamp).unwrap();
+    alice.mark_as_read([(conversation_id, timestamp)]).unwrap();
 
     // Check if we were successful
     let expected_unread_message_count = 2;

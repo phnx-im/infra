@@ -873,13 +873,12 @@ impl SelfUser {
 
     /// Mark all messages in the conversation with the given conversation id and
     /// with a timestamp older than the given timestamp as read.
-    pub fn mark_as_read(
+    pub fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
         &self,
-        conversation_id: ConversationId,
-        timestamp: TimeStamp,
+        mark_as_read_data: T,
     ) -> Result<(), PersistenceError> {
         let conversation_store = self.conversation_store();
-        conversation_store.mark_as_read(conversation_id, timestamp)
+        conversation_store.mark_as_read(mark_as_read_data)
     }
 
     /// Returns how many messages in the conversation with the given ID are

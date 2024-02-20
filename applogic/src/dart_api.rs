@@ -471,10 +471,11 @@ impl RustUser {
     }
 
     /// This function is called from the flutter side to flush the debouncer
-    /// state for a conversation.
-    pub fn flush_debouncer_state(&self, conversation_id: ConversationIdBytes) -> Result<()> {
+    /// state, immediately terminating the debouncer and marking all pending
+    /// messages as read.
+    pub fn flush_debouncer_state(&self) -> Result<()> {
         self.app_state
-            .flush_debouncer_state(self.user.deref().clone(), conversation_id.into())
+            .flush_debouncer_state(self.user.deref().clone())
     }
 
     /// Dispatch a notification to the flutter side if and only if a

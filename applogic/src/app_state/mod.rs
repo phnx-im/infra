@@ -50,12 +50,8 @@ impl AppState {
     /// If there is a debouncing process going on for the conversation with the
     /// given [`ConversationId`], immediately stop it and mark all messages as
     /// read.
-    pub(super) fn flush_debouncer_state(
-        &self,
-        user_mutex: Arc<Mutex<SelfUser>>,
-        conversation_id: ConversationId,
-    ) -> Result<()> {
+    pub(super) fn flush_debouncer_state(&self, user_mutex: Arc<Mutex<SelfUser>>) -> Result<()> {
         self.mark_as_read_debouncers
-            .flush_debouncer_state(user_mutex, conversation_id)
+            .flush_debouncer_state(user_mutex)
     }
 }

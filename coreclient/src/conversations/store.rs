@@ -159,23 +159,30 @@ impl<'a> ConversationStore<'a> {
         conversation_message_store.unread_message_count(conversation_id)
     }
 
-    /// Set the `last_read` marker of the conversation with the given
-    /// [`ConversationId`] to the given timestamp. This is used to mark all
+    /// Set the `last_read` marker of all conversations with the given
+    /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read(
+    pub(crate) fn mark_as_read<
+        'b,
+        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
+    >(
         &self,
-        conversation_id: ConversationId,
-        timestamp: TimeStamp,
+        mark_as_read_data: T,
     ) -> Result<(), PersistenceError> {
-        let statement_str = format!(
-            "UPDATE {} SET last_read = :timestamp WHERE primary_key = :conversation_id",
-            DataType::Conversation.to_sql_key()
-        );
-        let mut stmt = self.db_connection.prepare(&statement_str)?;
-        stmt.execute(named_params! {
-            ":timestamp": timestamp.time(),
-            ":conversation_id": conversation_id.to_sql_key(),
-        })?;
+        // TOOD: This should be a transaction
+        let transaction = self.db_connection;
+        for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
+            let statement_str = format!(
+                "UPDATE {} SET last_read = :timestamp WHERE primary_key = :conversation_id",
+                DataType::Conversation.to_sql_key()
+            );
+            let mut stmt = transaction.prepare(&statement_str)?;
+            stmt.execute(named_params! {
+                ":timestamp": timestamp.time(),
+                ":conversation_id": conversation_id.to_sql_key(),
+            })?;
+        }
+        //transaction.commit()?;
         Ok(())
     }
 }
