@@ -21,22 +21,34 @@ The implementation spans client, server and test-specific components. It is
 split across multiple crates:
 
 - `types`: Structs, Enums and utilities used by multiple other crates in this
-  repository.
-- `backend`: Implements the protocol logic of the server component. It is
-  written to work with arbitrary storate providers. The crate itself provides an
-  in-memory and a Postgres-based storage provider.
-- `server`: The frontend component that makes the logic implemented in the
-  `backend` available to clients a REST API. It can be compiled into a binary
-  that can be run to expose the HTTP endpoints.
-- `coreclient`: Implements the protocol logic of the client component. Its
-  storage is based on Sqlite.
+  repository. This crate allows us to compile client and server components
+  separately.
+- `backend`: Implements both the local and the federation part of the protocol
+  logic on the server side. Inspired by the type-based verificaiton design of
+  the OpenMLS crate (on which both `coreclient` and `backend` are built),
+  verification of incoming messages is enforced using Rust's type system. The
+  `backend` is written to work with arbitrary storage providers. The crate
+  itself provides an in-memory and a Postgres-based storage provider.
+- `server`: The server component that makes the logic implemented in the
+  `backend` available to clients a REST API. Beside the REST API, the `server`
+  also supports web-sockets, which the backend can use to notify clients of new
+  messages. The `server` crate can be compiled into a binary that can be run to
+  expose the HTTP endpoints. A `Dockerfile` is available to deploy the server in
+  a Docker environment.
+- `coreclient`: Implements the protocol logic of the client component. The
+  `coreclient` stores and manages a user's contacts and conversations and
+  provides a high-level API to make use of the protocol in the context of a
+  messaging application. Just like the `backend`, the `coreclient` uses a
+  type-based message verification approach. The crate can be used to instantiate
+  and persist (via Sqlite) multiple clients parallely.
 - `apiclient`: A shallow layer that the `coreclient` calls to interact with the
   `backend` via the `server` using HTTP(s).
 - `applogic`: A thin layer for initial testing of higher-level messaging
   concepts.
-- `test_harness`: Exclusively used for testing. Contains a test framework to
-  conduct integration tests and can be compiled into a binary for docker-based
-  testing of the protocol's federation capabilities.
+- `test_harness`: Exclusively used for testing. The `test_harness` contains a
+  test framework to conduct integration tests and can be compiled into a binary
+  for [docker-based testing](#docker-based-federation-testing) of the protocol's
+  federation capabilities.
 
 ## Docker-based federation testing
 
@@ -45,7 +57,8 @@ servers. To properly test federation-related functionalities, the `test_harness`
 provides utilities to spin up multiple servers using Docker. Docker allows us to
 approximate a real-world networking environments, where servers can discover
 one-another using DNS and facilitate communication between their respective
-clients across a network.
+clients across a network. The `server` crate contains several federated test
+scenarios that are run in this way.
 
 Since the tests build fresh Docker images from the code and spin up multiple
 containers, running them is somewhat slow. To make regular testing more
@@ -56,7 +69,7 @@ whenever a pull request is made.
 ## Threat model
 
 For privacy, the Phoenix Protocol aims to protect against two different types of
-adversaries: the "warrant" adversary which has access to snapshots of persisted
+adversaries: the snapshot adversary which has access to snapshots of persisted
 state, and the active observer adversary which can observe the server's working
 memory. Note that observation of traffic patterns and network metadata is not
 part of the protocol's threat model. Metadata of that nature can be hidden using
@@ -66,7 +79,7 @@ with our protocol. For more documentation on the threat model, see
 
 ## Security measures
 
-For the "warrant" threat model, the protocol heavily relies on
+For the snaphot threat model, the protocol heavily relies on
 encryption-at-rest, which allows it to hide group communication metadata almost
 entirely. For the active observer threat model, the protocol uses pseudonyms to
 create a disconnect between a user's communication behaviour and its real
