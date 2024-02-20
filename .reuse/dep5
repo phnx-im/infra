@@ -6,3 +6,7 @@ Source: https://github.com/phnx-im/infra
 Files: server/.sqlx/*
 Copyright: 2023 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
+
+Files: *.md
+Copyright: 2023 Phoenix R&D GmbH <hello@phnx.im>
+License: CC-BY-4.0
