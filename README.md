@@ -36,11 +36,12 @@ split across multiple crates:
   expose the HTTP endpoints. A `Dockerfile` is available to deploy the server in
   a Docker environment.
 - `coreclient`: Implements the protocol logic of the client component. The
-  `coreclient` stores and manages a user's contacts and conversations and
-  provides a high-level API to make use of the protocol in the context of a
-  messaging application. Just like the `backend`, the `coreclient` uses a
-  type-based message verification approach. The crate can be used to instantiate
-  and persist (via Sqlite) multiple clients parallely.
+  `coreclient` stores and manages a user's contacts, conversations, as well as
+  the underlying MLS groups. It provides a high-level API to make use of the
+  protocol in the context of a messaging application. Just like the `backend`,
+  the `coreclient` uses a type-based message verification approach. The crate
+  can be used to instantiate and persist (via Sqlite) multiple clients
+  parallely.
 - `apiclient`: A shallow layer that the `coreclient` calls to interact with the
   `backend` via the `server` using HTTP(s).
 - `applogic`: A thin layer for initial testing of higher-level messaging
