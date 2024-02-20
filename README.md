@@ -33,8 +33,8 @@ split across multiple crates:
   `backend` available to clients a REST API. Beside the REST API, the `server`
   also supports web-sockets, which the backend can use to notify clients of new
   messages. The `server` crate can be compiled into a binary that can be run to
-  expose the HTTP endpoints. A `Dockerfile` is available to deploy the server in
-  a Docker environment.
+  expose the HTTP endpoints. A `Dockerfile` is available to build a Docker image
+  that contains the server binary.
 - `coreclient`: Implements the protocol logic of the client component. The
   `coreclient` stores and manages a user's contacts, conversations, as well as
   the underlying MLS groups. It provides a high-level API to make use of the
