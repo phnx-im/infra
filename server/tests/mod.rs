@@ -99,7 +99,7 @@ async fn update_group() {
 }
 
 #[actix_rt::test]
-#[tracing::instrument(name = "Invite to group test", skip_all)]
+#[tracing::instrument(name = "Remove from group test", skip_all)]
 async fn remove_from_group() {
     let mut setup = TestBackend::single().await;
     setup.add_user(ALICE).await;
@@ -116,6 +116,31 @@ async fn remove_from_group() {
     setup
         .remove_from_group(conversation_id, CHARLIE, vec![ALICE, BOB])
         .await
+}
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Re-add to group test", skip_all)]
+async fn re_add_client() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(ALICE).await;
+    setup.add_user(BOB).await;
+    setup.connect_users(ALICE, BOB).await;
+    let conversation_id = setup.create_group(ALICE).await;
+    setup
+        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .await;
+    setup
+        .remove_from_group(conversation_id, ALICE, vec![BOB])
+        .await;
+    setup
+        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .await;
+    setup
+        .remove_from_group(conversation_id, ALICE, vec![BOB])
+        .await;
+    setup
+        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .await;
 }
 
 #[actix_rt::test]
