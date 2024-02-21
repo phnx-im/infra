@@ -475,7 +475,7 @@ impl RustUser {
 
     /// Get a list of contacts to be added to the conversation with the given
     /// [`ConversationId`].
-    pub fn invitation_candidates(
+    pub fn member_candidates(
         &self,
         conversation_id: ConversationIdBytes,
     ) -> Result<Vec<UiContact>> {
