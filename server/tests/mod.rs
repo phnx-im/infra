@@ -129,18 +129,16 @@ async fn re_add_client() {
     setup
         .invite_to_group(conversation_id, ALICE, vec![BOB])
         .await;
-    setup
-        .remove_from_group(conversation_id, ALICE, vec![BOB])
-        .await;
-    setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
-        .await;
-    setup
-        .remove_from_group(conversation_id, ALICE, vec![BOB])
-        .await;
-    setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
-        .await;
+    for _ in 0..10 {
+        setup
+            .remove_from_group(conversation_id, ALICE, vec![BOB])
+            .await;
+        setup
+            .invite_to_group(conversation_id, ALICE, vec![BOB])
+            .await;
+    }
+    setup.send_message(conversation_id, ALICE, vec![BOB]).await;
+    setup.send_message(conversation_id, BOB, vec![ALICE]).await;
 }
 
 #[actix_rt::test]
