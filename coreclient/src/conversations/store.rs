@@ -83,9 +83,9 @@ impl Conversation {
         }
     }
 
-    fn set_inactive(&mut self, past_members: &[UserName]) {
+    fn set_inactive(&mut self, past_members: Vec<UserName>) {
         self.conversation_payload.status = ConversationStatus::Inactive(InactiveConversation {
-            past_members: past_members.to_vec(),
+            past_members: past_members,
         })
     }
 
@@ -269,7 +269,7 @@ impl PersistableStruct<'_, Conversation> {
 
     pub(crate) fn set_inactive(
         &mut self,
-        past_members: &[UserName],
+        past_members: Vec<UserName>,
     ) -> Result<(), PersistenceError> {
         self.payload.set_inactive(past_members);
         self.persist()
