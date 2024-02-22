@@ -35,8 +35,6 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, Persisten
 pub fn delete_databases(client_db_path: &str) -> Result<()> {
     use std::fs;
 
-    use crate::users::store::ClientRecord;
-
     let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
     if !Path::new(&full_phnx_db_path).exists() {
         bail!("phnx.db does not exist")
