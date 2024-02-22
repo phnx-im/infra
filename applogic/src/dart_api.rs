@@ -433,7 +433,7 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         Ok(user
             .group_members(conversation_id.into())
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .into_iter()
             .map(|c| c.to_string())
             .collect())
@@ -471,6 +471,30 @@ impl RustUser {
     /// messages as read.
     pub fn flush_debouncer_state(&self) -> Result<()> {
         self.app_state.flush_debouncer_state()
+    }
+
+    /// Get a list of contacts to be added to the conversation with the given
+    /// [`ConversationId`].
+    pub fn member_candidates(
+        &self,
+        conversation_id: ConversationIdBytes,
+    ) -> Result<Vec<UiContact>> {
+        let user = self.user.lock().unwrap();
+        let group_members = user
+            .group_members(conversation_id.into())
+            .ok_or(anyhow!("Conversation not found"))?;
+        let add_candidates = user
+            .contacts()?
+            .into_iter()
+            .filter_map(|c| {
+                if !group_members.contains(&c.user_name) {
+                    Some(c.into())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok(add_candidates)
     }
 
     /// Dispatch a notification to the flutter side if and only if a
