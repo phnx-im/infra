@@ -130,7 +130,10 @@ pub enum ClientKeyPackageError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UserKeyPackagesError {
+pub enum UserConnectionPackagesError {
+    /// User could not be found
+    #[error("User could not be found")]
+    UnknownUser,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -230,7 +233,7 @@ pub enum AsProcessingError {
     #[error(transparent)]
     ClientKeyPackageError(#[from] ClientKeyPackageError),
     #[error(transparent)]
-    UserKeyPackagesError(#[from] UserKeyPackagesError),
+    UserKeyPackagesError(#[from] UserConnectionPackagesError),
     #[error(transparent)]
     EnqueueMessageError(#[from] EnqueueMessageError),
     #[error(transparent)]
