@@ -1457,47 +1457,58 @@ impl GroupMessage {
         Self::new(message)
     }
 
-    /// For now, this doesn't cover removes.
+    /// Turn a staged commit into a list of messages based on the proposals it
+    /// includes. This function doesn't handle removes, because for the creation
+    /// of "remove" messages, we need to know the user names of the removed
+    /// members. The `client_information` we have in this function represents
+    /// the state of the group after the commit has been applied, so we can't
+    /// use it to look up the user names of the removed members.
     fn from_staged_commit(
         free_indices: impl Iterator<Item = usize>,
         client_information: &ClientInformation<ClientAuthInfo>,
         staged_commit: &StagedCommit,
     ) -> Result<Vec<Self>> {
-        let adds: Vec<GroupMessage> = staged_commit
+        // Collect adder and addee names and filter out duplicates
+        let adds_set = staged_commit
             .add_proposals()
             .zip(free_indices)
             .map(|(staged_add_proposal, free_index)| {
-                let sender = if let Sender::Member(sender_index) = staged_add_proposal.sender() {
-                    sender_index.usize()
-                } else {
+                let Sender::Member(sender_index) = staged_add_proposal.sender() else {
                     // We don't support non-member adds.
                     bail!("Non-member add proposal")
                 };
-                let event_message = format!(
-                    "{} added {} to the conversation",
-                    client_information.get_user_name(sender)?,
-                    client_information.get_user_name(free_index)?
-                );
-                let message = GroupMessage::event_message(event_message);
-                Ok(message)
+                Ok((
+                    client_information.get_user_name(sender_index.usize())?,
+                    client_information.get_user_name(free_index)?,
+                ))
             })
-            .collect::<Result<Vec<_>>>()?;
-        let mut updates: Vec<GroupMessage> = staged_commit
-            .update_proposals()
-            .map(|staged_update_proposal| {
-                let updated_member = staged_update_proposal
-                    .update_proposal()
-                    .leaf_node()
-                    .credential()
-                    .identity();
-                let event_message = format!("{} updated", String::from_utf8_lossy(updated_member),);
+            .collect::<Result<HashSet<_>>>()?;
+        let event_messages = adds_set
+            .into_iter()
+            .map(|add| {
+                let event_message = format!("{} added {} to the conversation", add.0, add.1);
                 GroupMessage::event_message(event_message)
             })
-            .collect();
-        let mut events = adds;
-        events.append(&mut updates);
+            .collect::<Vec<_>>();
 
-        Ok(events)
+        // Emit log messages for updates.
+        staged_commit
+            .update_proposals()
+            .try_for_each(|staged_update_proposal| {
+                let Sender::Member(sender_index) = staged_update_proposal.sender() else {
+                    // Update proposals have to be sent by group members.
+                    bail!("Invalid proposal")
+                };
+                let user_name = client_information.get_user_name(sender_index.usize())?;
+                log::debug!(
+                    "{}'s client at index {} has updated their key material",
+                    user_name,
+                    sender_index
+                );
+                Ok(())
+            })?;
+
+        Ok(event_messages)
     }
 
     pub fn into_parts(self) -> (Uuid, TimeStamp, Message) {
