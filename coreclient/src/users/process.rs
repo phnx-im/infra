@@ -433,20 +433,13 @@ impl SelfUser {
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
         let message_store = self.message_store();
-        // TODO: We need a way of loading the most recent `n` message instead of
-        // truncating after the fact.
-        let mut messages = message_store
-            .get_by_conversation_id(&conversation_id)?
+        let messages = message_store
+            // We don't support architectures lower than 32 bit.
+            .get_by_conversation_id(&conversation_id, Some(number_of_messages as u32))?
             .into_iter()
-            .map(|pm| pm.into())
-            .collect::<Vec<_>>();
-
-        if number_of_messages >= messages.len() {
-            Ok(messages)
-        } else {
-            messages.truncate(number_of_messages);
-            Ok(messages)
-        }
+            .map(|pm| pm.payload)
+            .collect();
+        Ok(messages)
     }
 
     /// Convenience function that takes a list of `QueueMessage`s retrieved from

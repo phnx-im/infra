@@ -37,7 +37,9 @@ pub fn delete_databases(client_db_path: &str) -> Result<()> {
 
     // First delete all client DBs.
     let phnx_db_connection = open_phnx_db(client_db_path)?;
-    if let Ok(client_records) = PersistableStruct::<ClientRecord>::load_all(&phnx_db_connection) {
+    if let Ok(client_records) =
+        PersistableStruct::<ClientRecord>::load_all_unfiltered(&phnx_db_connection)
+    {
         for client_record in client_records {
             let full_client_db_path = format!(
                 "{}/{}",
@@ -106,7 +108,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Option<Self>, PersistenceError> {
-        let mut values = load_internal(conn, primary_key_option, secondary_key_option, false)?;
+        let mut values = load_internal(conn, primary_key_option, secondary_key_option, Some(1))?;
         Ok(values.pop())
     }
 
@@ -114,21 +116,21 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
     ///
     /// Returns an error either if the underlying database query fails or if
     /// deserialization of the returned value fails.
-    pub(crate) fn load(
+    pub(crate) fn load_all(
         conn: &'a Connection,
         primary_key_option: Option<&T::Key>,
         secondary_key_option: Option<&T::SecondaryKey>,
     ) -> Result<Vec<Self>, PersistenceError> {
-        load_internal(conn, primary_key_option, secondary_key_option, true)
+        load_internal(conn, primary_key_option, secondary_key_option, None)
     }
 
     /// Load all values of this data type from the database. This is an alias
-    /// for `load` with `None` as primary and secondary key.
+    /// for `load_all` with `None` as primary and secondary key.
     ///
     /// Returns an error either if the underlying database query fails or if
     /// deserialization of the returned value fails.
-    pub(crate) fn load_all(conn: &'a Connection) -> Result<Vec<Self>, PersistenceError> {
-        Self::load(conn, None, None)
+    pub(crate) fn load_all_unfiltered(conn: &'a Connection) -> Result<Vec<Self>, PersistenceError> {
+        Self::load_all(conn, None, None)
     }
 
     /// Persists this value in the database. If a value already exists for one
@@ -233,8 +235,8 @@ pub(crate) trait SqlKey {
 }
 
 pub(crate) struct SqlFieldDefinition {
-    field_name: &'static str,
-    field_keywords: &'static str,
+    pub(crate) field_name: &'static str,
+    pub(crate) field_keywords: &'static str,
 }
 
 impl From<(&'static str, &'static str)> for SqlFieldDefinition {
@@ -324,13 +326,12 @@ pub enum PersistenceError {
 }
 
 /// Helper function to read one or more values from the database. If
-/// `load_multiple` is set to false, the returned vector will contain at most
-/// one value.
+/// `number_of_entries` is set, it will load at most that number of entries.
 fn load_internal<'a, T: Persistable>(
     conn: &'a Connection,
     primary_key_option: Option<&T::Key>,
     secondary_key_option: Option<&T::SecondaryKey>,
-    load_multiple: bool,
+    number_of_entries_option: Option<u32>,
 ) -> Result<Vec<PersistableStruct<'a, T>>, PersistenceError> {
     let mut statement_str = "SELECT rowid, primary_key, secondary_key".to_string();
     for field in T::additional_fields() {
@@ -344,10 +345,14 @@ fn load_internal<'a, T: Persistable>(
     // This is due to annoying lifetime issues.
     let finalize_query = |params: &[&dyn ToSql], mut final_statement: String| {
         if matches!(T::DATA_TYPE, DataType::Message) {
+            // We want to load messages in reverse order, so the use of LIMIT
+            // gives us the most recent messages. We reverse the order of the
+            // messages at the end of the query.
             final_statement.push_str(" ORDER BY timestamp DESC");
         }
-        if !load_multiple {
-            final_statement.push_str(" LIMIT 1");
+        if let Some(number_of_entries) = number_of_entries_option {
+            let limit_str = format!(" LIMIT {}", number_of_entries);
+            final_statement.push_str(&limit_str);
         }
         let mut stmt = conn.prepare(&final_statement)?;
 

@@ -415,10 +415,6 @@ async fn retrieve_conversation_messages() {
         messages_sent.push(message);
     }
 
-    // Reverse the order of the messages, because the messages are retrieved in
-    // descending order of timestamps.
-    let messages_sent = messages_sent.into_iter().rev().collect::<Vec<_>>();
-
     // Let's see what Alice's messages for this conversation look like.
     let messages_retrieved = setup
         .users
@@ -428,6 +424,7 @@ async fn retrieve_conversation_messages() {
         .get_messages(conversation_id, number_of_messages)
         .unwrap();
 
+    assert_eq!(messages_retrieved.len(), messages_sent.len());
     assert_eq!(messages_retrieved, messages_sent);
 }
 
