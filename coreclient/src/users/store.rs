@@ -259,10 +259,27 @@ impl ClientRecord {
     }
 
     pub fn load_all_from_db(connection: &Connection) -> Result<Vec<Self>, PersistenceError> {
-        let records = PersistableClientRecord::load_all(&connection)?
-            .into_iter()
-            .map(|record| record.into_payload())
-            .collect();
+        // Create a table for the client records in the phnx db if one doesn't
+        // exist.
+        let records = match PersistableClientRecord::load_all(&connection) {
+            Ok(records) => records
+                .into_iter()
+                .map(|record| record.into_payload())
+                .collect(),
+            Err(e) => {
+                let PersistenceError::SqliteError(rusqlite::Error::SqliteFailure(_, Some(msg))) =
+                    &e
+                else {
+                    return Err(e);
+                };
+                if msg == "no such table: ClientRecord" {
+                    <ClientRecord as Persistable>::create_table(&connection)?;
+                    Vec::new()
+                } else {
+                    return Err(e);
+                }
+            }
+        };
         Ok(records)
     }
 }
