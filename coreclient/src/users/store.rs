@@ -290,7 +290,6 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <UserProfile as Persistable>::create_table(client_db_connection)?;
     <Contact as Persistable>::create_table(client_db_connection)?;
     <PartialContact as Persistable>::create_table(client_db_connection)?;
-    println!("Creating conversation table");
     <Conversation as Persistable>::create_table(client_db_connection)?;
     <Group as Persistable>::create_table(client_db_connection)?;
     <ConversationMessage as Persistable>::create_table(client_db_connection)?;
