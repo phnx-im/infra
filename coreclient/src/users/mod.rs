@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::{
+    collections::HashSet,
     ops::Deref,
     sync::{Arc, Mutex},
 };
@@ -673,7 +674,7 @@ impl SelfUser {
         } else {
             vec![]
         };
-        conversation.set_inactive(&past_members)?;
+        conversation.set_inactive(past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -831,7 +832,7 @@ impl SelfUser {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
+    pub fn group_members(&self, conversation_id: ConversationId) -> Option<HashSet<UserName>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)
@@ -841,7 +842,7 @@ impl SelfUser {
         group_store
             .get(&conversation.group_id())
             .ok()?
-            .map(|g| g.members().iter().map(|member| member.clone()).collect())
+            .map(|g| g.members())
     }
 
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {

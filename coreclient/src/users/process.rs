@@ -247,7 +247,7 @@ impl SelfUser {
                         }
                         // If we were removed, we set the group to inactive.
                         if we_were_removed {
-                            conversation.set_inactive(&group.members())?;
+                            conversation.set_inactive(group.members().into_iter().collect())?;
                         }
                         group.merge_pending_commit(&self.crypto_backend(), *staged_commit)?
                     }
