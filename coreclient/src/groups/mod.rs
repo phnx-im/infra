@@ -1278,7 +1278,8 @@ impl Group {
         &self.signature_ear_key_wrapper_key
     }
 
-    pub(crate) fn members(&self) -> Vec<UserName> {
+    /// Returns a set containing the [`UserName`] of the members of the group.
+    pub(crate) fn members(&self) -> HashSet<UserName> {
         self.client_information
             .iter()
             .map(|(_index, client_auth_info)| {
@@ -1286,8 +1287,6 @@ impl Group {
             })
             // Collecting to a HashSet first to deduplicate.
             .collect::<HashSet<UserName>>()
-            .into_iter()
-            .collect()
     }
 
     fn update(&mut self, provider: &impl OpenMlsProvider) -> Result<UpdateClientParamsOut> {
