@@ -1103,7 +1103,8 @@ impl Group {
             .pending_commit()
             .or_else(|| staged_commit_option.as_ref())
         {
-            staged_commit
+            // Collect the remover/removed pairs into a set to avoid duplicates.
+            let removed_set = staged_commit
                 .remove_proposals()
                 .map(|remove_proposal| {
                     let Sender::Member(sender_index) = remove_proposal.sender() else {
@@ -1116,18 +1117,20 @@ impl Group {
                     let removed = self
                         .client_information
                         .get_user_name(removed_index.usize())?;
-                    let event_message = if remover == removed {
-                        format!("{} left the conversation", remover.to_string(),)
-                    } else {
-                        format!(
-                            "{} removed {} from the conversation",
-                            remover.to_string(),
-                            removed.to_string()
-                        )
-                    };
-                    Ok(GroupMessage::event_message(event_message))
+                    Ok((remover, removed))
                 })
-                .collect::<Result<Vec<_>>>()?
+                .collect::<Result<HashSet<_>>>()?;
+            removed_set
+                .into_iter()
+                .map(|(remover, removed)| {
+                    let event_message = if remover == removed {
+                        format!("{} left the conversation", remover)
+                    } else {
+                        format!("{} removed {} from the conversation", remover, removed)
+                    };
+                    GroupMessage::event_message(event_message)
+                })
+                .collect()
         } else {
             vec![]
         };
@@ -1485,8 +1488,12 @@ impl GroupMessage {
             .collect::<Result<HashSet<_>>>()?;
         let event_messages = adds_set
             .into_iter()
-            .map(|add| {
-                let event_message = format!("{} added {} to the conversation", add.0, add.1);
+            .map(|(adder, addee)| {
+                let event_message = if adder == addee {
+                    format!("{} joined the conversation", adder)
+                } else {
+                    format!("{} added {} to the conversation", adder, addee)
+                };
                 GroupMessage::event_message(event_message)
             })
             .collect::<Vec<_>>();
