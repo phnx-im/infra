@@ -475,6 +475,12 @@ impl SelfUser {
             .get(&user_domain)?
             .as_user_connection_packages(params)
             .await?;
+
+        // The AS should return an error if the user does not exist, but we
+        // check here locally just to be sure.
+        if user_key_packages.connection_packages.is_empty() {
+            return Err(anyhow!("User {} does not exist", user_name));
+        }
         // Verify the connection key packages
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
