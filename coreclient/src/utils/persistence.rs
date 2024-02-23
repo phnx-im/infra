@@ -11,13 +11,20 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::users::store::ClientRecord;
+
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
 pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, PersistenceError> {
     let db_name = format!("{}/{}", client_db_path, PHNX_DB_NAME);
+    let db_existed = Path::new(&db_name).exists();
     let conn = Connection::open(db_name)?;
+    // Create a table for the client records if the db was newly created.
+    if !db_existed {
+        ClientRecord::create_table(&conn)?;
+    }
     Ok(conn)
 }
 
@@ -27,8 +34,6 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, Persisten
 /// may panic.
 pub fn delete_databases(client_db_path: &str) -> Result<()> {
     use std::fs;
-
-    use crate::users::store::ClientRecord;
 
     let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
     if !Path::new(&full_phnx_db_path).exists() {
