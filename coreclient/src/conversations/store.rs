@@ -11,7 +11,7 @@ use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, UserName},
     time::TimeStamp,
 };
-use rusqlite::{named_params, Connection};
+use rusqlite::{named_params, params, Connection};
 use tls_codec::{DeserializeBytes, Serialize};
 use uuid::Uuid;
 
@@ -120,7 +120,7 @@ impl<'a> ConversationStore<'a> {
     }
 
     pub(crate) fn get_all(&self) -> Result<Vec<PersistableStruct<Conversation>>, PersistenceError> {
-        PersistableStruct::load_all(self.db_connection)
+        PersistableStruct::load_all_unfiltered(self.db_connection)
     }
 
     pub(crate) fn create_connection_conversation(
@@ -306,11 +306,40 @@ impl<'a> From<&'a Connection> for ConversationMessageStore<'a> {
 }
 
 impl<'a> ConversationMessageStore<'a> {
+    /// Get the last `number_of_messages` messages from the conversation with
+    /// the given [`ConversationId`]. If `number_of_messages` is `None`, all
+    /// messages are loaded and returned.
     pub(crate) fn get_by_conversation_id(
         &self,
         conversation_id: &ConversationId,
+        number_of_messages: Option<u32>,
     ) -> Result<Vec<PersistableConversationMessage>, PersistenceError> {
-        PersistableConversationMessage::load(self.db_connection, None, Some(&conversation_id))
+        // We start with the wrapper query that later re-orders the messages we get out of the DB.
+        let mut statement_str =
+            "SELECT * FROM (SELECT rowid, primary_key, secondary_key".to_string();
+        // We add all the fields we want to select from the message table.
+        for field in ConversationMessage::additional_fields() {
+            statement_str.push_str(", ");
+            statement_str.push_str(field.field_name);
+        }
+        // Finally, we add the rest of the query.
+        statement_str.push_str(" FROM Message WHERE secondary_key = ? ORDER BY timestamp DESC LIMIT ?) ORDER BY timestamp ASC");
+
+        let params = params![
+            conversation_id.to_sql_key(),
+            number_of_messages.unwrap_or(u32::MAX)
+        ];
+
+        self.db_connection
+            .prepare(&statement_str)?
+            .query(params)?
+            .and_then(|row| {
+                let payload = ConversationMessage::try_from_row(row)?;
+                let value =
+                    PersistableStruct::from_connection_and_payload(&self.db_connection, payload);
+                Ok(value)
+            })
+            .collect()
     }
 
     pub(crate) fn create(
