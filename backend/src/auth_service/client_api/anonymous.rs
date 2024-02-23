@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     errors::auth_service::{
-        AsCredentialsError, EnqueueMessageError, UserClientsError, UserKeyPackagesError,
+        AsCredentialsError, EnqueueMessageError, UserClientsError, UserConnectionPackagesError,
     },
     messages::client_as::{
         AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserClientsParams,
@@ -32,15 +32,23 @@ impl AuthService {
     pub async fn as_user_connection_packages<S: AsStorageProvider>(
         storage_provider: &S,
         params: UserConnectionPackagesParams,
-    ) -> Result<UserConnectionPackagesResponse, UserKeyPackagesError> {
+    ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
         let UserConnectionPackagesParams { user_name } = params;
 
-        let key_packages = storage_provider
+        let connection_packages = storage_provider
             .load_user_connection_packages(&user_name)
             .await
-            .map_err(|_| UserKeyPackagesError::StorageError)?;
+            .map_err(|_| UserConnectionPackagesError::StorageError)?;
 
-        let response = UserConnectionPackagesResponse { key_packages };
+        // If there are no connection packages, we have to conclude that there
+        // is no user.
+        if connection_packages.is_empty() {
+            return Err(UserConnectionPackagesError::UnknownUser);
+        }
+
+        let response = UserConnectionPackagesResponse {
+            key_packages: connection_packages,
+        };
         Ok(response)
     }
 

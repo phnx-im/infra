@@ -523,3 +523,19 @@ async fn client_persistence() {
     let client_db_path = format!("./{}.db", client_id);
     fs::remove_file(client_db_path).unwrap();
 }
+
+#[actix_rt::test]
+#[tracing::instrument(name = "Test server error if unknown user", skip_all)]
+async fn error_if_user_doesnt_exist() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(ALICE).await;
+    let alice_test = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
+        .unwrap();
+    let alice = &mut alice_test.user;
+
+    let res = alice.add_contact(BOB).await;
+
+    assert!(res.is_err());
+}

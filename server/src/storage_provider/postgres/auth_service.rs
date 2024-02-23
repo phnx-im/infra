@@ -387,7 +387,7 @@ impl AsStorageProvider for PostgresAsStorage {
         Some(connection_package)
     }
 
-    /// Return a key package for each client of a user referenced by a
+    /// Return a connection package for each client of a user referenced by a
     /// user name.
     async fn load_user_connection_packages(
         &self,
