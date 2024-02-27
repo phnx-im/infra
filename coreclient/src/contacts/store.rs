@@ -57,13 +57,13 @@ impl<'a> ContactStore<'a> {
     pub(crate) fn get_all_contacts(
         &self,
     ) -> Result<Vec<PersistableStruct<'_, Contact>>, PersistenceError> {
-        PersistableStruct::load_all(self.db_connection)
+        PersistableStruct::load_all_unfiltered(self.db_connection)
     }
 
     pub(crate) fn get_all_partial_contacts(
         &self,
     ) -> Result<Vec<PersistableStruct<'_, PartialContact>>, PersistenceError> {
-        PersistableStruct::load_all(self.db_connection)
+        PersistableStruct::load_all_unfiltered(self.db_connection)
     }
 }
 

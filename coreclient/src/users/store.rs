@@ -259,7 +259,7 @@ impl ClientRecord {
     }
 
     pub fn load_all_from_db(connection: &Connection) -> Result<Vec<Self>, PersistenceError> {
-        PersistableStruct::<'_, ClientRecord>::load_all(&connection)?
+        PersistableStruct::<'_, ClientRecord>::load_all_unfiltered(&connection)?
             .into_iter()
             .map(|record| Ok(record.into_payload()))
             .collect()
