@@ -33,7 +33,9 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{AsClientId, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{
+        AsClientId, Fqdn, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+    },
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
@@ -53,16 +55,15 @@ use phnxtypes::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
-use uuid::Uuid;
 
 use crate::{
     contacts::{store::ContactStore, ContactAddInfos},
     conversations::messages::{
-        ContentMessage, DisplayMessage, DisplayMessageType, Message, MessageContentType,
-        SystemMessage,
+        ContentMessage, DisplayMessage, DisplayMessageType, Message, SystemMessage,
     },
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
+    mimi_content::{MessageId, MimiContent},
     users::openmls_provider::PhnxOpenMlsProvider,
 };
 use std::collections::{BTreeMap, HashSet};
@@ -70,7 +71,7 @@ use std::collections::{BTreeMap, HashSet};
 use openmls::{prelude::*, treesync::RatchetTree};
 
 use self::{
-    client_information::ClientInformation,
+    client_information::{ClientInformation, StagedClientInformationDiff},
     diff::{GroupDiff, StagedGroupDiff},
 };
 
@@ -1069,7 +1070,8 @@ impl Group {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
-    ) -> Result<Vec<GroupMessage>> {
+        ds_timestamp: TimeStamp,
+    ) -> Result<Vec<TimestampedMessage>> {
         // Collect free indices s.t. we know where the added members will land
         // and we can look up their identifies later.
         let Some(diff) = self.pending_diff.take() else {
@@ -1095,45 +1097,40 @@ impl Group {
             })
             .collect();
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
-        // Now we figure out who was removed. We do that before the diff is
-        // applied s.t. we still have access to the user identities of the
-        // removed members.
-        let mut messages: Vec<_> = if let Some(staged_commit) = self
-            .mls_group
-            .pending_commit()
-            .or_else(|| staged_commit_option.as_ref())
-        {
-            // Collect the remover/removed pairs into a set to avoid duplicates.
-            let removed_set = staged_commit
-                .remove_proposals()
-                .map(|remove_proposal| {
-                    let Sender::Member(sender_index) = remove_proposal.sender() else {
-                        bail!("Only member proposals are supported for now")
-                    };
-                    let remover = self
-                        .client_information
-                        .get_user_name(sender_index.usize())?;
-                    let removed_index = remove_proposal.remove_proposal().removed();
-                    let removed = self
-                        .client_information
-                        .get_user_name(removed_index.usize())?;
-                    Ok((remover, removed))
-                })
-                .collect::<Result<HashSet<_>>>()?;
-            removed_set
-                .into_iter()
-                .map(|(remover, removed)| {
-                    let event_message = if remover == removed {
-                        format!("{} left the conversation", remover)
-                    } else {
-                        format!("{} removed {} from the conversation", remover, removed)
-                    };
-                    GroupMessage::event_message(event_message)
-                })
-                .collect()
+
+        // Compute the messages we want to emit from the staged commit and the
+        // client info diff.
+        let event_messages = if let Some(staged_commit) = staged_commit_option {
+            let staged_commit_messages = TimestampedMessage::from_staged_commit(
+                free_indices.into_iter().chain((highest_index + 1)..),
+                &self.client_information,
+                &diff.client_information,
+                &staged_commit,
+                ds_timestamp,
+            )?;
+            self.mls_group
+                .merge_staged_commit(provider, staged_commit)?;
+            staged_commit_messages
         } else {
-            vec![]
+            // If we're merging a pending commit, we need to check if we have
+            // committed a remove proposal by reference. If we have, we need to
+            // create a notification message.
+            let staged_commit_messages =
+                if let Some(staged_commit) = self.mls_group.pending_commit() {
+                    TimestampedMessage::from_staged_commit(
+                        free_indices.into_iter().chain((highest_index + 1)..),
+                        &self.client_information,
+                        &diff.client_information,
+                        staged_commit,
+                        ds_timestamp,
+                    )?
+                } else {
+                    vec![]
+                };
+            self.mls_group.merge_pending_commit(provider)?;
+            staged_commit_messages
         };
+
         // We now apply the diff
         if let Some(leaf_signer) = diff.leaf_signer {
             self.leaf_signer = leaf_signer;
@@ -1152,32 +1149,6 @@ impl Group {
         }
         self.client_information.merge_diff(diff.client_information);
         self.pending_diff = None;
-        let mut staged_commit_messages = if let Some(staged_commit) = staged_commit_option {
-            let staged_commit_messages = GroupMessage::from_staged_commit(
-                free_indices.into_iter().chain((highest_index + 1)..),
-                &self.client_information,
-                &staged_commit,
-            )?;
-            self.mls_group
-                .merge_staged_commit(provider, staged_commit)?;
-            staged_commit_messages
-        } else {
-            // If we're merging a pending commit, we need to check if we have
-            // committed a remove proposal by reference. If we have, we need to
-            // create a notification message.
-            let staged_commit_messages =
-                if let Some(staged_commit) = self.mls_group.pending_commit() {
-                    GroupMessage::from_staged_commit(
-                        free_indices.into_iter().chain((highest_index + 1)..),
-                        &self.client_information,
-                        staged_commit,
-                    )?
-                } else {
-                    vec![]
-                };
-            self.mls_group.merge_pending_commit(provider)?;
-            staged_commit_messages
-        };
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
         {
@@ -1190,20 +1161,19 @@ impl Group {
                 debug_assert!(client_information.is_some())
             });
         }
-        messages.append(&mut staged_commit_messages);
-        Ok(messages)
+        Ok(event_messages)
     }
 
     /// Send an application message to the group.
     pub fn create_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
-        msg: MessageContentType,
-    ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
+        content: MimiContent,
+    ) -> Result<(SendMessageParamsOut, Message), GroupOperationError> {
         let mls_message = self.mls_group.create_message(
             provider,
             &self.leaf_signer,
-            &msg.tls_serialize_detached()?,
+            &content.tls_serialize_detached()?,
         )?;
 
         let message = AssistedMessageOut {
@@ -1224,8 +1194,9 @@ impl Group {
             .identity()
             .user_name();
 
-        let group_message = GroupMessage::content_message(&own_user_name, msg);
-        Ok((send_message_params, group_message))
+        let content_message = ContentMessage::new(own_user_name.to_string(), content);
+        let message = Message::Content(content_message);
+        Ok((send_message_params, message))
     }
 
     /// Get a reference to the group's group id.
@@ -1415,48 +1386,46 @@ impl Group {
     }
 }
 
-pub struct GroupMessage {
-    id: Uuid,
-    timestamp: TimeStamp,
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TimestampedMessage {
+    ds_timestamp: TimeStamp,
     message: Message,
 }
 
-impl GroupMessage {
-    pub(crate) fn new(message: Message) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            timestamp: TimeStamp::now(),
-            message,
-        }
-    }
-
-    pub(crate) fn content_message(sender: &UserName, content: MessageContentType) -> Self {
-        let message = Message::Content(ContentMessage {
-            sender: sender.to_string(),
-            content,
-        });
-        Self::new(message)
+impl TimestampedMessage {
+    pub(crate) fn ds_timestamp(&self) -> TimeStamp {
+        self.ds_timestamp
     }
 
     pub(crate) fn from_application_message(
-        sender: &ClientCredential,
         application_message: ApplicationMessage,
-    ) -> Result<Self> {
-        let content = MessageContentType::tls_deserialize_exact_bytes(
-            &mut application_message.into_bytes().as_slice(),
-        )?;
-        let message = Message::Content(ContentMessage {
-            sender: sender.identity().user_name().to_string(),
-            content,
-        });
-        Ok(GroupMessage::new(message))
+        ds_timestamp: TimeStamp,
+        sender_name: UserName,
+    ) -> Result<Self, tls_codec::Error> {
+        let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
+        let message = Message::Content(ContentMessage::new(sender_name.to_string(), content));
+        Ok(Self {
+            ds_timestamp,
+            message,
+        })
     }
 
-    fn event_message(event_message: String) -> Self {
-        let message = Message::Display(DisplayMessage {
-            message: DisplayMessageType::System(SystemMessage::new(event_message)),
-        });
-        Self::new(message)
+    pub(crate) fn from_message_and_timestamp(message: Message, ds_timestamp: TimeStamp) -> Self {
+        Self {
+            message,
+            ds_timestamp,
+        }
+    }
+
+    fn event_message(sender_domain: Fqdn, event_message: String, ds_timestamp: TimeStamp) -> Self {
+        let message = Message::Display(DisplayMessage::new(
+            MessageId::new(sender_domain),
+            DisplayMessageType::System(SystemMessage::new(event_message)),
+        ));
+        Self {
+            message,
+            ds_timestamp,
+        }
     }
 
     /// Turn a staged commit into a list of messages based on the proposals it
@@ -1468,8 +1437,32 @@ impl GroupMessage {
     fn from_staged_commit(
         free_indices: impl Iterator<Item = usize>,
         client_information: &ClientInformation<ClientAuthInfo>,
+        client_information_diff: &StagedClientInformationDiff<ClientAuthInfo>,
         staged_commit: &StagedCommit,
+        ds_timestamp: TimeStamp,
     ) -> Result<Vec<Self>> {
+        // Collect the remover/removed pairs into a set to avoid duplicates.
+        let removed_set = staged_commit
+            .remove_proposals()
+            .map(|remove_proposal| {
+                let Sender::Member(sender_index) = remove_proposal.sender() else {
+                    bail!("Only member proposals are supported for now")
+                };
+                let remover = client_information.get_user_name(sender_index.usize())?;
+                let removed_index = remove_proposal.remove_proposal().removed();
+                let removed = client_information.get_user_name(removed_index.usize())?;
+                Ok((remover, removed))
+            })
+            .collect::<Result<HashSet<_>>>()?;
+        let remove_messages = removed_set.into_iter().map(|(remover, removed)| {
+            let event_message = if remover == removed {
+                format!("{} left the conversation", remover)
+            } else {
+                format!("{} removed {} from the conversation", remover, removed)
+            };
+            TimestampedMessage::event_message(remover.domain(), event_message, ds_timestamp)
+        });
+
         // Collect adder and addee names and filter out duplicates
         let adds_set = staged_commit
             .add_proposals()
@@ -1479,23 +1472,34 @@ impl GroupMessage {
                     // We don't support non-member adds.
                     bail!("Non-member add proposal")
                 };
-                Ok((
-                    client_information.get_user_name(sender_index.usize())?,
-                    client_information.get_user_name(free_index)?,
-                ))
+                // Get the name of the sender from the list of existing clients
+                let sender_name = client_information.get_user_name(sender_index.usize())?;
+                // Get the name of the added member from the diff containing
+                // the new clients.
+                let addee_name = client_information_diff
+                    .get_user_name(free_index)
+                    // If one of these errors happen, we probably miscalculated the index.
+                    .ok_or(anyhow!(
+                        "Can't find user name of added client at index {}",
+                        free_index
+                    ))?
+                    .ok_or(anyhow!(
+                        "Can't find user name of added client at index {}",
+                        free_index
+                    ))?;
+                Ok((sender_name, addee_name))
             })
             .collect::<Result<HashSet<_>>>()?;
-        let event_messages = adds_set
-            .into_iter()
-            .map(|(adder, addee)| {
-                let event_message = if adder == addee {
-                    format!("{} joined the conversation", adder)
-                } else {
-                    format!("{} added {} to the conversation", adder, addee)
-                };
-                GroupMessage::event_message(event_message)
-            })
-            .collect::<Vec<_>>();
+        let add_messages = adds_set.into_iter().map(|(adder, addee)| {
+            let event_message = if adder == addee {
+                format!("{} joined the conversation", adder)
+            } else {
+                format!("{} added {} to the conversation", adder, addee)
+            };
+            TimestampedMessage::event_message(adder.domain(), event_message, ds_timestamp)
+        });
+
+        let event_messages = remove_messages.chain(add_messages).collect();
 
         // Emit log messages for updates.
         staged_commit
@@ -1517,8 +1521,8 @@ impl GroupMessage {
         Ok(event_messages)
     }
 
-    pub fn into_parts(self) -> (Uuid, TimeStamp, Message) {
-        (self.id, self.timestamp, self.message)
+    pub(crate) fn message(&self) -> &Message {
+        &self.message
     }
 }
 

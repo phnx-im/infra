@@ -16,7 +16,7 @@ use tls_codec::{DeserializeBytes, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    groups::GroupMessage,
+    groups::TimestampedMessage,
     utils::persistence::{
         DataType, Persistable, PersistableStruct, PersistenceError, SqlFieldDefinition, SqlKey,
     },
@@ -316,7 +316,7 @@ impl<'a> ConversationMessageStore<'a> {
     pub(crate) fn create(
         &self,
         conversation_id: &ConversationId,
-        group_message: GroupMessage,
+        group_message: TimestampedMessage,
     ) -> Result<PersistableConversationMessage, PersistenceError> {
         let payload = ConversationMessage::new(conversation_id.clone(), group_message);
         let conversation_message = PersistableConversationMessage::from_connection_and_payload(
@@ -363,7 +363,7 @@ impl Persistable for ConversationMessage {
     const DATA_TYPE: DataType = DataType::Message;
 
     fn key(&self) -> &Self::Key {
-        &self.id
+        self.id_ref()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
@@ -375,21 +375,17 @@ impl Persistable for ConversationMessage {
     }
 
     fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
-        let message_bytes = serde_json::to_vec(&self.message)?;
+        let message_bytes = serde_json::to_vec(&self.message())?;
         Ok(vec![
-            Box::new(self.timestamp.time()),
+            Box::new(self.timestamp().time()),
             Box::new(message_bytes),
         ])
     }
 
     fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
-        let id_text = row.get::<_, String>(1)?;
-        let id = Uuid::from_str(&id_text).map_err(|e| {
-            anyhow!(
-                "Error converting message UUID from string to Uuid: {} when reading from SQLite",
-                e
-            )
-        })?;
+        // We store the ID both as an index and as a field in the message. This
+        // is easier for now as otherwise we'd have take apart the message. In
+        // any case, we don't have to use the result from the table lookup.
         let conversation_uuid_text = row.get::<_, String>(2)?;
         let conversation_id: ConversationId = Uuid::from_str(&conversation_uuid_text)
             .map_err(|e| {
@@ -404,11 +400,11 @@ impl Persistable for ConversationMessage {
 
         let message_bytes: Vec<u8> = row.get(4)?;
         let message = serde_json::from_slice(&message_bytes)?;
-        Ok(ConversationMessage {
+        let timestamped_message =
+            TimestampedMessage::from_message_and_timestamp(message, timestamp);
+        Ok(ConversationMessage::new(
             conversation_id,
-            id,
-            timestamp,
-            message,
-        })
+            timestamped_message,
+        ))
     }
 }

@@ -6,8 +6,8 @@ use openmls::group::GroupId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
     ConversationMessage, ConversationStatus, ConversationType, DisplayMessage, DisplayMessageType,
-    ErrorMessage, InactiveConversation, Knock, Message, MessageContentType, NotificationType,
-    SystemMessage, TextMessage,
+    ErrorMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
+    SystemMessage,
 };
 use uuid::Uuid;
 
@@ -194,80 +194,82 @@ impl From<Message> for UiMessage {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub struct UiMessageId {
+    pub id: UuidBytes,
+    pub domain: String,
+}
+
+impl From<MessageId> for UiMessageId {
+    fn from(message_id: MessageId) -> Self {
+        Self {
+            id: UuidBytes::from(message_id.id()),
+            domain: message_id.domain().to_string(),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UiReplyToInfo {
+    pub message_id: UiMessageId,
+    pub hash: Vec<u8>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UiMimiContent {
+    pub id: UiMessageId,
+    pub timestamp: u64,
+    pub replaces: Option<UiMessageId>,
+    pub topic_id: Option<Vec<u8>>,
+    pub expires: Option<u64>,
+    pub in_reply_to: Option<UiReplyToInfo>,
+    pub last_seen: Vec<UiMessageId>,
+    // This will need to become more complex.
+    pub body: String,
+}
+
+impl From<MimiContent> for UiMimiContent {
+    fn from(mimi_content: MimiContent) -> Self {
+        Self {
+            id: UiMessageId::from(mimi_content.id()),
+            timestamp: mimi_content.timestamp().as_u64(),
+            replaces: mimi_content.replaces().map(|r| UiMessageId {
+                id: UuidBytes::from(r.as_uuid()),
+                domain: r.sender_domain().to_string(),
+            }),
+            topic_id: mimi_content.topic_id().map(|t| t.id().to_vec()),
+            expires: mimi_content.expires().map(|e| e.as_u64()),
+            in_reply_to: mimi_content.in_reply_to().map(|i| UiReplyToInfo {
+                message_id: UiMessageId {
+                    id: UuidBytes::from(i.message_id().as_uuid()),
+                    domain: i.message_id().sender_domain().to_string(),
+                },
+                hash: i.hash().to_vec(),
+            }),
+            last_seen: mimi_content
+                .last_seen()
+                .iter()
+                .map(|m| UiMessageId {
+                    id: UuidBytes::from(m.as_uuid()),
+                    domain: m.sender_domain().to_string(),
+                })
+                .collect(),
+            body: mimi_content.body().to_string(),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct UiContentMessage {
     pub sender: String,
-    pub content: UiMessageContentType,
+    pub content: UiMimiContent,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
-            sender: content_message.sender.to_string(),
-            content: UiMessageContentType::from(content_message.content),
+            sender: content_message.sender().to_string(),
+            content: UiMimiContent::from(content_message.content()),
         }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-#[repr(u16)]
-pub enum UiMessageContentType {
-    Text(UiTextMessage),
-    Knock(UiKnock),
-}
-
-impl From<UiMessageContentType> for MessageContentType {
-    fn from(ui_message_content_type: UiMessageContentType) -> Self {
-        match ui_message_content_type {
-            UiMessageContentType::Text(text_message) => {
-                MessageContentType::Text(TextMessage::from(text_message))
-            }
-            UiMessageContentType::Knock(knock) => MessageContentType::Knock(knock.into()),
-        }
-    }
-}
-
-impl From<MessageContentType> for UiMessageContentType {
-    fn from(message_content_type: MessageContentType) -> Self {
-        match message_content_type {
-            MessageContentType::Text(text_message) => {
-                UiMessageContentType::Text(UiTextMessage::from(text_message))
-            }
-            MessageContentType::Knock(knock) => UiMessageContentType::Knock(knock.into()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiTextMessage {
-    pub message: Vec<u8>,
-}
-
-impl From<TextMessage> for UiTextMessage {
-    fn from(text_message: TextMessage) -> Self {
-        Self {
-            message: text_message.message().to_vec(),
-        }
-    }
-}
-
-impl From<UiTextMessage> for TextMessage {
-    fn from(ui_text_message: UiTextMessage) -> Self {
-        TextMessage::new(ui_text_message.message)
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiKnock {}
-
-impl From<Knock> for UiKnock {
-    fn from(_: Knock) -> Self {
-        Self {}
-    }
-}
-
-impl From<UiKnock> for Knock {
-    fn from(_: UiKnock) -> Self {
-        Self {}
     }
 }
 
@@ -279,7 +281,7 @@ pub struct UiDisplayMessage {
 impl From<DisplayMessage> for UiDisplayMessage {
     fn from(display_message: DisplayMessage) -> Self {
         Self {
-            message: UiDisplayMessageType::from(display_message.message),
+            message: UiDisplayMessageType::from(display_message.message().clone()),
         }
     }
 }

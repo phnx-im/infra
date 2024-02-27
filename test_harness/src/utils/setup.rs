@@ -10,7 +10,7 @@ use phnxtypes::{
     identifiers::{Fqdn, SafeTryInto, UserName},
     DEFAULT_PORT_HTTP,
 };
-use rand::{seq::IteratorRandom, Rng, RngCore};
+use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
 
 use super::spawn_app;
@@ -415,8 +415,12 @@ impl TestBackend {
             sender_name,
             recipient_strings.join(", ")
         );
-        let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
-        let orig_message = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
+        let message: String = OsRng
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect();
+        let orig_message = MimiContent::simple_markdown_message(sender_name.domain(), message);
         let test_sender = self.users.get_mut(&sender_name).unwrap();
         let sender = &mut test_sender.user;
 
@@ -438,10 +442,10 @@ impl TestBackend {
 
         assert_eq!(
             message.message(),
-            &Message::Content(ContentMessage {
-                sender: test_sender.user.user_name().to_string(),
-                content: orig_message.clone()
-            })
+            &Message::Content(ContentMessage::new(
+                test_sender.user.user_name().to_string(),
+                orig_message.clone()
+            ))
         );
 
         for recipient_name in &recipient_names {
@@ -1153,7 +1157,7 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
         .into_iter()
         .filter_map(|m| {
             if let Message::Display(display_message) = m.message() {
-                if let DisplayMessageType::System(system_message) = &display_message.message {
+                if let DisplayMessageType::System(system_message) = display_message.message() {
                     Some(system_message.message().to_string())
                 } else {
                     None

@@ -2,18 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
-use crate::GroupMessage;
+use crate::{
+    groups::TimestampedMessage,
+    mimi_content::{MessageId, MimiContent},
+};
 
 use super::*;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    // The ID is only globally consistent for actual content messages. Event
+    // messages have local identifiers only.
     pub(super) conversation_id: ConversationId,
-    pub(super) id: Uuid,
-    pub(super) timestamp: TimeStamp,
-    pub(super) message: Message,
+    timestamped_message: TimestampedMessage,
 }
 
 impl ConversationMessage {
@@ -21,23 +22,32 @@ impl ConversationMessage {
     /// marked as unread by default.
     pub(crate) fn new(
         conversation_id: ConversationId,
-        group_message: GroupMessage,
+        timestamped_message: TimestampedMessage,
     ) -> ConversationMessage {
-        let (id, timestamp, message) = group_message.into_parts();
         ConversationMessage {
             conversation_id,
-            id: id.into(),
-            timestamp,
-            message,
+            timestamped_message,
         }
     }
 
+    pub fn id_ref(&self) -> &Uuid {
+        match self.timestamped_message.message() {
+            Message::Content(content) => content.content.id(),
+            Message::Display(display) => &display.id,
+        }
+        .id_ref()
+    }
+
     pub fn id(&self) -> Uuid {
-        self.id
+        match self.timestamped_message.message() {
+            Message::Content(content) => content.content.id(),
+            Message::Display(display) => &display.id,
+        }
+        .id()
     }
 
     pub fn timestamp(&self) -> TimeStamp {
-        self.timestamp
+        self.timestamped_message.ds_timestamp()
     }
 
     pub fn conversation_id(&self) -> ConversationId {
@@ -45,7 +55,7 @@ impl ConversationMessage {
     }
 
     pub fn message(&self) -> &Message {
-        &self.message
+        &self.timestamped_message.message()
     }
 }
 
@@ -60,18 +70,16 @@ impl Message {
     /// notifications.
     pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
         match self {
-            Message::Content(content) => match &content.content {
-                MessageContentType::Text(text) => match conversation_type {
-                    ConversationType::Group => {
-                        format!(
-                            "{}: {}",
-                            content.sender,
-                            String::from_utf8_lossy(text.message())
-                        )
-                    }
-                    _ => String::from_utf8_lossy(text.message()).to_string(),
-                },
-                MessageContentType::Knock(_) => String::from("Knock"),
+            Message::Content(content_message) => match conversation_type {
+                ConversationType::Group => {
+                    let sender = &content_message.sender;
+                    let content = content_message.content.string_rendering();
+                    format!("{sender}: {content}")
+                }
+                ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
+                    let content = content_message.content.string_rendering();
+                    format!("{content}")
+                }
             },
             Message::Display(display) => match &display.message {
                 DisplayMessageType::System(system) => system.message().to_string(),
@@ -83,44 +91,39 @@ impl Message {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    pub sender: String,
-    pub content: MessageContentType,
+    sender: String,
+    content: MimiContent,
 }
 
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-#[repr(u16)]
-pub enum MessageContentType {
-    Text(TextMessage),
-    Knock(Knock),
-}
-
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-pub struct TextMessage {
-    message: Vec<u8>,
-}
-
-impl TextMessage {
-    pub fn new(message: Vec<u8>) -> Self {
-        Self { message }
+impl ContentMessage {
+    pub fn new(sender: String, content: MimiContent) -> Self {
+        Self { sender, content }
     }
 
-    pub fn message(&self) -> &[u8] {
-        self.message.as_ref()
+    pub fn sender(&self) -> &str {
+        self.sender.as_ref()
+    }
+
+    pub fn content(&self) -> &MimiContent {
+        &self.content
     }
 }
-
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-pub struct Knock {}
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayMessage {
-    pub message: DisplayMessageType,
+    // This ID is only locally consistent
+    id: MessageId,
+    message: DisplayMessageType,
+}
+
+impl DisplayMessage {
+    pub(crate) fn new(id: MessageId, message: DisplayMessageType) -> Self {
+        Self { id, message }
+    }
+
+    pub fn message(&self) -> &DisplayMessageType {
+        &self.message
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]

@@ -2,15 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{group::ProcessedAssistedMessage, openmls::prelude::ProcessedMessageContent};
+use mls_assist::{
+    group::ProcessedAssistedMessage, messages::SerializedMlsMessage,
+    openmls::prelude::ProcessedMessageContent,
+};
 use phnxtypes::{
     errors::JoinGroupError,
     messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinGroupParams},
     time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::{
     api::USER_EXPIRATION_DAYS,
@@ -21,7 +22,7 @@ impl DsGroupState {
     pub(super) fn join_group(
         &mut self,
         params: JoinGroupParams,
-    ) -> Result<DsFanOutPayload, JoinGroupError> {
+    ) -> Result<SerializedMlsMessage, JoinGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -113,11 +114,6 @@ impl DsGroupState {
         };
         self.client_profiles.insert(sender, client_profile);
 
-        // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

@@ -42,6 +42,7 @@ use crate::{
     },
     identifiers::QsClientReference,
     keypackage_batch::{KeyPackageBatch, UNVERIFIED},
+    time::TimeStamp,
 };
 
 use super::{
@@ -78,13 +79,14 @@ pub enum QsQueueMessageType {
     Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize,
 )]
 pub struct QsQueueMessagePayload {
+    pub timestamp: TimeStamp,
     pub message_type: QsQueueMessageType,
     pub payload: Vec<u8>,
 }
 
 impl QsQueueMessagePayload {
-    pub fn extract(self) -> Result<ExtractedQsQueueMessagePayload, tls_codec::Error> {
-        let message = match self.message_type {
+    pub fn extract(self) -> Result<ExtractedQsQueueMessage, tls_codec::Error> {
+        let payload = match self.message_type {
             QsQueueMessageType::WelcomeBundle => {
                 let wb = WelcomeBundle::tls_deserialize_exact_bytes(&self.payload)?;
                 ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
@@ -95,8 +97,17 @@ impl QsQueueMessagePayload {
                 ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };
-        Ok(message)
+        Ok(ExtractedQsQueueMessage {
+            timestamp: self.timestamp,
+            payload,
+        })
     }
+}
+
+#[derive(Debug)]
+pub struct ExtractedQsQueueMessage {
+    pub timestamp: TimeStamp,
+    pub payload: ExtractedQsQueueMessagePayload,
 }
 
 #[derive(Debug)]
@@ -111,6 +122,7 @@ impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
     fn try_from(welcome_bundle: WelcomeBundle) -> Result<Self, Self::Error> {
         let payload = welcome_bundle.tls_serialize_detached()?;
         Ok(Self {
+            timestamp: TimeStamp::now(),
             message_type: QsQueueMessageType::WelcomeBundle,
             payload,
         })
@@ -120,6 +132,7 @@ impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
 impl From<SerializedMlsMessage> for QsQueueMessagePayload {
     fn from(value: SerializedMlsMessage) -> Self {
         Self {
+            timestamp: TimeStamp::now(),
             message_type: QsQueueMessageType::MlsMessage,
             payload: value.0,
         }
@@ -184,6 +197,8 @@ pub struct EventMessage {
     pub group_id: GroupId,
     pub sender_index: LeafNodeIndex,
     pub epoch: GroupEpoch,
+    // Timestamp set by the DS at the time of processing the message.
+    pub timestamp: TimeStamp,
     pub payload: Vec<u8>,
 }
 

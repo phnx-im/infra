@@ -4,6 +4,7 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
@@ -15,12 +16,11 @@ use phnxtypes::{
     errors::ClientAdditionError,
     identifiers::{QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     messages::client_ds::{
-        AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload,
-        QsQueueMessagePayload, QsQueueMessageType, WelcomeBundle,
+        AddClientsParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload, WelcomeBundle,
     },
     time::{Duration, TimeStamp},
 };
-use tls_codec::{DeserializeBytes, Serialize};
+use tls_codec::DeserializeBytes;
 
 use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
 
@@ -33,7 +33,7 @@ impl DsGroupState {
         &mut self,
         params: AddClientsParams,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), ClientAdditionError> {
+    ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), ClientAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -194,23 +194,20 @@ impl DsGroupState {
                 encrypted_attribution_info: params.encrypted_welcome_attribution_infos.clone(),
                 encrypted_joiner_info,
             };
+            let queue_message_payload = welcome_bundle
+                .try_into()
+                .map_err(|_| ClientAdditionError::LibraryError)?;
             let fan_out_message = DsFanOutMessage {
-                payload: DsFanOutPayload::QueueMessage(QsQueueMessagePayload {
-                    payload: welcome_bundle
-                        .tls_serialize_detached()
-                        .map_err(|_| ClientAdditionError::LibraryError)?,
-                    message_type: QsQueueMessageType::WelcomeBundle,
-                }),
+                payload: DsFanOutPayload::QueueMessage(queue_message_payload),
                 client_reference: client_queue_config,
             };
             fan_out_messages.push(fan_out_message);
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok((c2c_message, fan_out_messages))
+        Ok((
+            processed_assisted_message_plus.serialized_mls_message,
+            fan_out_messages,
+        ))
     }
 }

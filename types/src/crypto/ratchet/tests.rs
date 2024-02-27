@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::messages::client_ds::{QsQueueMessagePayload, QsQueueMessageType};
+use crate::{
+    messages::client_ds::{QsQueueMessagePayload, QsQueueMessageType},
+    time::TimeStamp,
+};
 
 use super::*;
 
@@ -13,6 +16,7 @@ fn test_ratchet() {
     let mut sender_ratchet = QueueRatchet::try_from(ratchet_secret.clone()).unwrap();
     let mut receiver_ratchtet = QueueRatchet::try_from(ratchet_secret).unwrap();
     let message = QsQueueMessagePayload {
+        timestamp: TimeStamp::now(),
         message_type: QsQueueMessageType::MlsMessage,
         payload: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     };

@@ -4,6 +4,7 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
@@ -12,8 +13,6 @@ use phnxtypes::{
     time::Duration,
 };
 use tls_codec::DeserializeBytes;
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::{
     api::USER_EXPIRATION_DAYS,
@@ -24,7 +23,7 @@ impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
         params: UpdateClientParams,
-    ) -> Result<DsFanOutPayload, ClientUpdateError> {
+    ) -> Result<SerializedMlsMessage, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -163,11 +162,6 @@ impl DsGroupState {
             }
         }
 
-        // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

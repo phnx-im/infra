@@ -6,14 +6,13 @@ use std::collections::HashSet;
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
     crypto::signatures::keys::UserKeyHash, errors::UserRemovalError,
     messages::client_ds::RemoveUsersParams, time::Duration,
 };
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::api::USER_EXPIRATION_DAYS;
 
@@ -23,7 +22,7 @@ impl DsGroupState {
     pub(crate) fn remove_users(
         &mut self,
         params: RemoveUsersParams,
-    ) -> Result<DsFanOutPayload, UserRemovalError> {
+    ) -> Result<SerializedMlsMessage, UserRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -157,11 +156,6 @@ impl DsGroupState {
             Duration::days(USER_EXPIRATION_DAYS),
         );
 
-        // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

@@ -4,13 +4,12 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
     errors::ClientRemovalError, messages::client_ds::RemoveClientsParams, time::Duration,
 };
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::api::USER_EXPIRATION_DAYS;
 
@@ -20,7 +19,7 @@ impl DsGroupState {
     pub(crate) fn remove_clients(
         &mut self,
         params: RemoveClientsParams,
-    ) -> Result<DsFanOutPayload, ClientRemovalError> {
+    ) -> Result<SerializedMlsMessage, ClientRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -138,10 +137,6 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }
