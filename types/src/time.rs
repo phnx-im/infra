@@ -73,15 +73,16 @@ impl TlsDeserializeBytesTrait for TimeStamp {
     where
         Self: Sized,
     {
-        let time_i64_bytes: [u8; 8] = bytes
-            .get(..8)
+        const I64_SIZE: usize = i64::BITS as usize / 8;
+        let time_i64_bytes: [u8; I64_SIZE] = bytes
+            .get(..I64_SIZE)
             .ok_or(tls_codec::Error::EndOfStream)?
             .try_into()
             .map_err(|_| tls_codec::Error::EndOfStream)?;
         let time_i64 = i64::from_be_bytes(time_i64_bytes);
         let time = TimeStamp::try_from(time_i64)
             .map_err(|_| tls_codec::Error::DecodingError(format!("Invalid timestamp")))?;
-        Ok((time, &bytes[8..]))
+        Ok((time, &bytes[I64_SIZE..]))
     }
 }
 
@@ -129,6 +130,11 @@ mod timestamp_conversion {
         let time_u64 = time.as_u64();
         let time_converted = TimeStamp::try_from(time_u64).unwrap();
         assert_eq!(time, time_converted);
+
+        let time = TimeStamp::now();
+        let time_serialized = time.tls_serialize_detached().unwrap();
+        let time_deserialized = TimeStamp::tls_deserialize_exact_bytes(&time_serialized).unwrap();
+        assert_eq!(time, time_deserialized);
     }
 }
 
