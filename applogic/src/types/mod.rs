@@ -260,7 +260,7 @@ impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
             sender: content_message.sender().to_string(),
-            content: UiMimiContent::from(content_message.serialized_content().clone()),
+            content: UiMimiContent::from(content_message.content().clone()),
         }
     }
 }
