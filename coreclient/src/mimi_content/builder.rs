@@ -10,6 +10,7 @@ pub(super) struct MimiContentBuilder {
     content: MimiContent,
 }
 
+#[allow(dead_code)]
 impl MimiContentBuilder {
     pub(super) fn new(sender_domain: Fqdn, nestable_part: NestablePart) -> Self {
         let content = MimiContent {

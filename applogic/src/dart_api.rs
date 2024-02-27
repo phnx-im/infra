@@ -17,7 +17,7 @@ pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType
 use crate::{
     app_state::AppState,
     notifications::{Notifiable, NotificationHub},
-    types::{ConversationIdBytes, UiContact, UiMimiContent},
+    types::{ConversationIdBytes, UiContact},
 };
 use phnxcoreclient::{
     users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},

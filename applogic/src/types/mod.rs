@@ -229,31 +229,23 @@ pub struct UiMimiContent {
 
 impl From<MimiContent> for UiMimiContent {
     fn from(mimi_content: MimiContent) -> Self {
+        let body = mimi_content.string_rendering();
         Self {
-            id: UiMessageId::from(mimi_content.id()),
-            timestamp: mimi_content.timestamp().as_u64(),
-            replaces: mimi_content.replaces().map(|r| UiMessageId {
-                id: UuidBytes::from(r.as_uuid()),
-                domain: r.sender_domain().to_string(),
-            }),
-            topic_id: mimi_content.topic_id().map(|t| t.id().to_vec()),
-            expires: mimi_content.expires().map(|e| e.as_u64()),
-            in_reply_to: mimi_content.in_reply_to().map(|i| UiReplyToInfo {
-                message_id: UiMessageId {
-                    id: UuidBytes::from(i.message_id().as_uuid()),
-                    domain: i.message_id().sender_domain().to_string(),
-                },
-                hash: i.hash().to_vec(),
+            id: UiMessageId::from(mimi_content.id().clone()),
+            timestamp: mimi_content.timestamp.as_u64(),
+            replaces: mimi_content.replaces.map(|r| UiMessageId::from(r)),
+            topic_id: mimi_content.topic_id.map(|t| t.id.to_vec()),
+            expires: mimi_content.expires.map(|e| e.as_u64()),
+            in_reply_to: mimi_content.in_reply_to.map(|i| UiReplyToInfo {
+                message_id: UiMessageId::from(i.message_id),
+                hash: i.hash.hash,
             }),
             last_seen: mimi_content
-                .last_seen()
-                .iter()
-                .map(|m| UiMessageId {
-                    id: UuidBytes::from(m.as_uuid()),
-                    domain: m.sender_domain().to_string(),
-                })
+                .last_seen
+                .into_iter()
+                .map(|m| UiMessageId::from(m))
                 .collect(),
-            body: mimi_content.body().to_string(),
+            body,
         }
     }
 }
@@ -268,7 +260,7 @@ impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
             sender: content_message.sender().to_string(),
-            content: UiMimiContent::from(content_message.content()),
+            content: UiMimiContent::from(content_message.serialized_content().clone()),
         }
     }
 }

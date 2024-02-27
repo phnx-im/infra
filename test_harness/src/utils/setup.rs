@@ -462,10 +462,10 @@ impl TestBackend {
 
             assert_eq!(
                 messages.last().unwrap().message(),
-                &Message::Content(ContentMessage {
-                    sender: sender_user_name.to_string(),
-                    content: orig_message.clone()
-                })
+                &Message::Content(ContentMessage::new(
+                    sender_user_name.to_string(),
+                    orig_message.clone()
+                ))
             );
         }
     }

@@ -68,7 +68,7 @@ impl MessageId {
     PartialEq, Debug, Clone, Serialize, Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
 pub struct TopicId {
-    id: Vec<u8>,
+    pub id: Vec<u8>,
 }
 
 #[derive(
@@ -84,16 +84,16 @@ pub enum HashAlg {
     PartialEq, Debug, Clone, Serialize, Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
 pub struct ReplyToHash {
-    hash_alg: HashAlg,
-    hash: Vec<u8>,
+    pub hash_alg: HashAlg,
+    pub hash: Vec<u8>,
 }
 
 #[derive(
     PartialEq, Debug, Clone, Serialize, Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
 pub struct ReplyToInfo {
-    message_id: MessageId,
-    hash: ReplyToHash,
+    pub message_id: MessageId,
+    pub hash: ReplyToHash,
 }
 
 /// IANA Media Type
@@ -108,14 +108,6 @@ enum ContentType {
 enum SinglePart {
     TextMarkdown(String),
     // Add more as needed
-}
-
-impl SinglePart {
-    fn template(&self) -> String {
-        match self {
-            SinglePart::TextMarkdown(_) => "text/markdown".to_string(),
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -240,15 +232,15 @@ struct MessageDerivedValues {
     PartialEq, Debug, Clone, Serialize, Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
 pub struct MimiContent {
-    id: MessageId,
-    timestamp: TimeStamp,
-    replaces: Option<MessageId>,
-    topic_id: Option<TopicId>,
+    pub id: MessageId,
+    pub timestamp: TimeStamp,
+    pub replaces: Option<MessageId>,
+    pub topic_id: Option<TopicId>,
     // The point in time when the message expires. If None, the message never
     // expires.
-    expires: Option<TimeStamp>, // This is actually a u32 and needs to be parsed as such. 0 means no expiration, i.e. None.
-    in_reply_to: Option<ReplyToInfo>,
-    last_seen: Vec<MessageId>,
+    pub expires: Option<TimeStamp>, // This is actually a u32 and needs to be parsed as such. 0 means no expiration, i.e. None.
+    pub in_reply_to: Option<ReplyToInfo>,
+    pub last_seen: Vec<MessageId>,
     body: NestablePart,
 }
 
@@ -266,7 +258,7 @@ impl MimiContent {
         MimiContentBuilder::new(sender_domain, nestable_part).build()
     }
 
-    pub(crate) fn string_rendering(&self) -> String {
+    pub fn string_rendering(&self) -> String {
         // For now, we only support SingleParts that contain markdown messages.
         match &self.body.part {
             Part::SinglePart(single_part) => match single_part {
