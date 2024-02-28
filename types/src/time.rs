@@ -33,7 +33,7 @@ impl TryFrom<i64> for TimeStamp {
     fn try_from(time: i64) -> Result<Self, Self::Error> {
         let time_result = Utc.timestamp_millis_opt(time);
         match time_result {
-            chrono::LocalResult::Single(time) => Ok(Self { time }),
+            chrono::LocalResult::Single(time) => Ok(time.into()),
             chrono::LocalResult::None | chrono::LocalResult::Ambiguous(_, _) => {
                 Err(TimeStampError::InvalidInput)
             }
@@ -91,7 +91,7 @@ impl TimeStamp {
     pub fn now() -> Self {
         // We round the subseconds to 3 digits, because we don't need more
         // precision.
-        Utc::now().round_subsecs(3).into()
+        Utc::now().into()
     }
 
     pub fn in_days(days_in_the_future: i64) -> Self {
