@@ -5,7 +5,6 @@
 //! This module contains structs and enums that represent messages that are
 //! passed internally within the backend.
 
-use mls_assist::messages::SerializedMlsMessage;
 use phnxtypes::{
     identifiers::QsClientReference,
     messages::client_ds::{EventMessage, QsQueueMessagePayload},
@@ -27,10 +26,4 @@ pub struct DsFanOutMessage {
 pub enum DsFanOutPayload {
     QueueMessage(QsQueueMessagePayload),
     EventMessage(EventMessage),
-}
-
-impl From<SerializedMlsMessage> for DsFanOutPayload {
-    fn from(value: SerializedMlsMessage) -> Self {
-        Self::QueueMessage(value.into())
-    }
 }

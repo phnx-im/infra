@@ -13,9 +13,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
-pub use crate::types::{
-    UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
-};
+pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType};
 use crate::{
     app_state::AppState,
     notifications::{Notifiable, NotificationHub},
@@ -23,7 +21,7 @@ use crate::{
 };
 use phnxcoreclient::{
     users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
-    ConversationId, ConversationMessage, NotificationType,
+    ConversationId, ConversationMessage, MimiContent, NotificationType,
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -335,10 +333,11 @@ impl RustUser {
     pub async fn send_message(
         &self,
         conversation_id: ConversationIdBytes,
-        message: UiMessageContentType,
+        message: String,
     ) -> Result<UiConversationMessage> {
         let mut user = self.user.lock().unwrap();
-        user.send_message(conversation_id.into(), message.into())
+        let content = MimiContent::simple_markdown_message(user.user_name().domain(), message);
+        user.send_message(conversation_id.into(), content)
             .await
             .map(|m| m.into())
     }

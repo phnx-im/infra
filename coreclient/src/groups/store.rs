@@ -120,10 +120,11 @@ impl PersistableGroup<'_> {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         staged_commit_option: impl Into<Option<StagedCommit>>,
-    ) -> Result<Vec<GroupMessage>> {
-        let result = self
-            .payload
-            .merge_pending_commit(provider, staged_commit_option)?;
+        ds_timestamp: TimeStamp,
+    ) -> Result<Vec<TimestampedMessage>> {
+        let result =
+            self.payload
+                .merge_pending_commit(provider, staged_commit_option, ds_timestamp)?;
         self.persist()?;
         Ok(result)
     }
@@ -141,9 +142,9 @@ impl PersistableGroup<'_> {
     pub fn create_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
-        msg: MessageContentType,
-    ) -> Result<(SendMessageParamsOut, GroupMessage), GroupOperationError> {
-        let result = self.payload.create_message(provider, msg)?;
+        content: MimiContent,
+    ) -> Result<(SendMessageParamsOut, Message), GroupOperationError> {
+        let result = self.payload.create_message(provider, content)?;
         self.persist()?;
         Ok(result)
     }

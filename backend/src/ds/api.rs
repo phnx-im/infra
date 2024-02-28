@@ -149,6 +149,7 @@
 
 use mls_assist::{
     group::Group,
+    messages::SerializedMlsMessage,
     openmls::{
         prelude::{group_info::GroupInfo, GroupId, MlsMessageInBody, Sender},
         treesync::RatchetTree,
@@ -166,8 +167,10 @@ use phnxtypes::{
     errors::DsProcessingError,
     identifiers::QualifiedGroupId,
     messages::client_ds::{
-        CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender, VerifiableClientToDsMessage,
+        CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender, QsQueueMessagePayload,
+        VerifiableClientToDsMessage,
     },
+    time::TimeStamp,
 };
 
 use crate::{
@@ -353,7 +356,7 @@ impl DsApi {
         let mut group_state_has_changed = true;
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (ds_fanout_payload, response_option, fan_out_messages) = match verified_message {
+        let (ds_fanout_payload, response, fan_out_messages) = match verified_message {
             // ======= Non-Commiting Endpoints =======
             DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
@@ -361,35 +364,31 @@ impl DsApi {
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
                 (
                     None,
-                    Some(DsProcessResponse::WelcomeInfo(ratchet_tree.clone())),
-                    None,
+                    DsProcessResponse::WelcomeInfo(ratchet_tree.clone()),
+                    vec![],
                 )
             }
-            DsRequestParams::CreateGroupParams(_) => (None, None, None),
+            DsRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
             DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;
-                (None, None, None)
+                (None, DsProcessResponse::Ok, vec![])
             }
             DsRequestParams::ExternalCommitInfo(_) => {
                 group_state_has_changed = false;
                 (
                     None,
-                    Some(DsProcessResponse::ExternalCommitInfo(
-                        group_state.external_commit_info(),
-                    )),
-                    None,
+                    DsProcessResponse::ExternalCommitInfo(group_state.external_commit_info()),
+                    vec![],
                 )
             }
             DsRequestParams::ConnectionGroupInfo(_) => {
                 group_state_has_changed = false;
                 (
                     None,
-                    Some(DsProcessResponse::ExternalCommitInfo(
-                        group_state.external_commit_info(),
-                    )),
-                    None,
+                    DsProcessResponse::ExternalCommitInfo(group_state.external_commit_info()),
+                    vec![],
                 )
             }
             // ======= Committing Endpoints =======
@@ -397,66 +396,64 @@ impl DsApi {
                 // This function is async and needs the qs provider, because it
                 // needs to fetch the verifying keys from the QS of all added
                 // users.
-                let (c2c_message, welcome_bundles) = group_state
+                let (group_message, welcome_bundles) = group_state
                     .add_users(add_users_params, &ear_key, qs_connector)
                     .await?;
-                (Some(c2c_message), None, Some(welcome_bundles))
+                prepare_result(group_message, welcome_bundles)
             }
             DsRequestParams::RemoveUsers(remove_users_params) => {
-                let c2c_message = group_state.remove_users(remove_users_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.remove_users(remove_users_params)?;
+                prepare_result(group_message, vec![])
             }
             DsRequestParams::UpdateClient(update_client_params) => {
-                let c2c_message = group_state.update_client(update_client_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.update_client(update_client_params)?;
+                prepare_result(group_message, vec![])
             }
             DsRequestParams::AddClients(add_clients_params) => {
-                let (c2c_message, welcome_bundles) =
+                let (group_message, welcome_bundles) =
                     group_state.add_clients(add_clients_params, &ear_key)?;
-                (Some(c2c_message), None, Some(welcome_bundles))
+                prepare_result(group_message, welcome_bundles)
             }
             DsRequestParams::RemoveClients(remove_clients_params) => {
-                let c2c_message = group_state.remove_clients(remove_clients_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.remove_clients(remove_clients_params)?;
+                prepare_result(group_message, vec![])
             }
             // ======= Externally Committing Endpoints =======
             DsRequestParams::JoinGroup(join_group_params) => {
-                let c2c_message = group_state.join_group(join_group_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.join_group(join_group_params)?;
+                prepare_result(group_message, vec![])
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
-                let c2c_message =
+                let group_message =
                     group_state.join_connection_group(join_connection_group_params)?;
-                (Some(c2c_message), None, None)
+                prepare_result(group_message, vec![])
             }
             DsRequestParams::ResyncClient(resync_client_params) => {
-                let c2c_message = group_state.resync_client(resync_client_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.resync_client(resync_client_params)?;
+                prepare_result(group_message, vec![])
             }
             DsRequestParams::DeleteGroup(delete_group) => {
-                let c2c_message = group_state.delete_group(delete_group)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.delete_group(delete_group)?;
+                prepare_result(group_message, vec![])
             }
             // ======= Proposal Endpoints =======
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
-                let c2c_message = group_state.self_remove_client(self_remove_client_params)?;
-                (Some(c2c_message), None, None)
+                let group_message = group_state.self_remove_client(self_remove_client_params)?;
+                prepare_result(group_message, vec![])
             }
             // ======= Sending messages =======
             DsRequestParams::SendMessage(send_message_params) => {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
-                let c2c_message = send_message_params
-                    .message
-                    .into_serialized_mls_message()
-                    .into();
-                (Some(c2c_message), None, None)
+                let group_message = send_message_params.message.into_serialized_mls_message();
+                prepare_result(group_message, vec![])
             }
             // ======= Events =======
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
-                let c2c_message = DsFanOutPayload::EventMessage(dispatch_event_params.event);
-                (Some(c2c_message), None, None)
+                group_state_has_changed = false;
+                let event_message = DsFanOutPayload::EventMessage(dispatch_event_params.event);
+                (Some(event_message.into()), DsProcessResponse::Ok, vec![])
             }
         };
 
@@ -500,17 +497,15 @@ impl DsApi {
             }
         }
 
-        // Distribute WelcomeBundles
-        if let Some(fan_out_messages) = fan_out_messages {
-            for message in fan_out_messages {
-                qs_connector
-                    .dispatch(message)
-                    .await
-                    .map_err(|_| DsProcessingError::DistributionError)?;
-            }
+        // Distribute any WelcomeBundles
+        for message in fan_out_messages {
+            qs_connector
+                .dispatch(message)
+                .await
+                .map_err(|_| DsProcessingError::DistributionError)?;
         }
 
-        Ok(response_option.unwrap_or(DsProcessResponse::Ok))
+        Ok(response)
     }
 
     async fn generate_group_id<Dsp: DsStorageProvider>(ds_storage_provider: &Dsp) -> GroupId {
@@ -545,7 +540,26 @@ pub struct ExternalCommitInfo {
 #[repr(u8)]
 pub enum DsProcessResponse {
     Ok,
+    FanoutTimestamp(TimeStamp),
     WelcomeInfo(RatchetTree),
     ExternalCommitInfo(ExternalCommitInfo),
     GroupId(GroupId),
+}
+
+fn prepare_result(
+    group_message: SerializedMlsMessage,
+    welcome_bundles: Vec<DsFanOutMessage>,
+) -> (
+    Option<DsFanOutPayload>,
+    DsProcessResponse,
+    Vec<DsFanOutMessage>,
+) {
+    let queue_message_payload = QsQueueMessagePayload::from(group_message);
+    let timestamp = queue_message_payload.timestamp;
+    let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
+    (
+        Some(fan_out_payload),
+        DsProcessResponse::FanoutTimestamp(timestamp),
+        welcome_bundles,
+    )
 }

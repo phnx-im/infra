@@ -9,8 +9,8 @@ use phnxtypes::{
     messages::{
         client_as::ExtractedAsQueueMessagePayload,
         client_ds::{
-            ExtractedQsQueueMessagePayload, InfraAadMessage, InfraAadPayload,
-            JoinConnectionGroupParamsAad,
+            ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload, InfraAadMessage,
+            InfraAadPayload, JoinConnectionGroupParamsAad,
         },
         client_ds_out::ExternalCommitInfoIn,
         QueueMessage,
@@ -18,7 +18,7 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::conversations::ConversationType;
+use crate::{conversations::ConversationType, groups::TimestampedMessage};
 
 use self::user_profile::Asset;
 
@@ -34,7 +34,7 @@ impl SelfUser {
     pub fn decrypt_qs_queue_message(
         &self,
         qs_message_ciphertext: QueueMessage,
-    ) -> Result<ExtractedQsQueueMessagePayload> {
+    ) -> Result<ExtractedQsQueueMessage> {
         let queue_ratchet_store = self.queue_ratchet_store();
         let mut qs_queue_ratchet = queue_ratchet_store.get_qs_queue_ratchet()?;
         let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
@@ -60,14 +60,15 @@ impl SelfUser {
     ///   received from the QS as part of the AddInfo download.
     pub async fn process_qs_message(
         &mut self,
-        qs_message_ciphertext: ExtractedQsQueueMessagePayload,
+        qs_queue_message: ExtractedQsQueueMessage,
     ) -> Result<ProcessQsMessageResult> {
         // TODO: We should verify whether the messages are valid infra messages, i.e.
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
         // Keep track of freshly joined groups s.t. we can later update our user auth keys.
-        let processing_result = match qs_message_ciphertext {
+        let ds_timestamp = qs_queue_message.timestamp;
+        let processing_result = match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
                 let group_store = self.group_store();
                 let group = group_store
@@ -128,9 +129,10 @@ impl SelfUser {
                 let aad = processed_message.authenticated_data().to_vec();
                 let group_messages = match processed_message.into_content() {
                     ProcessedMessageContent::ApplicationMessage(application_message) => {
-                        vec![GroupMessage::from_application_message(
-                            &sender_credential,
+                        vec![TimestampedMessage::from_application_message(
                             application_message,
+                            ds_timestamp,
+                            sender_credential.identity().user_name(),
                         )?]
                     }
                     ProcessedMessageContent::ProposalMessage(proposal) => {
@@ -249,7 +251,11 @@ impl SelfUser {
                         if we_were_removed {
                             conversation.set_inactive(group.members().into_iter().collect())?;
                         }
-                        group.merge_pending_commit(&self.crypto_backend(), *staged_commit)?
+                        group.merge_pending_commit(
+                            &self.crypto_backend(),
+                            *staged_commit,
+                            ds_timestamp,
+                        )?
                     }
                     ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                         unimplemented!()

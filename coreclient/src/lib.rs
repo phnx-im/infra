@@ -8,6 +8,7 @@ mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
+mod mimi_content;
 mod providers;
 pub mod users;
 mod utils;
@@ -21,12 +22,12 @@ pub use crate::{
     conversations::{
         messages::{
             ContentMessage, ConversationMessage, DisplayMessage, DisplayMessageType, ErrorMessage,
-            Knock, Message, MessageContentType, NotificationType, SystemMessage, TextMessage,
+            Message, NotificationType, SystemMessage,
         },
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,
     },
-    groups::GroupMessage,
+    mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
 };
 
 pub use crate::utils::persistence::delete_databases;

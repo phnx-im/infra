@@ -6,10 +6,10 @@ mod qs;
 
 use std::fs;
 
-use opaque_ke::rand::{rngs::OsRng, Rng};
+use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
-use phnxcoreclient::{users::SelfUser, MessageContentType};
+use phnxcoreclient::{users::SelfUser, MimiContent};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::{Fqdn, SafeTryInto};
@@ -429,8 +429,13 @@ async fn retrieve_conversation_messages() {
     let number_of_messages = 10;
     let mut messages_sent = vec![];
     for _ in 0..number_of_messages {
-        let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
-        let message_content = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
+        let message: String = OsRng
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect();
+        let message_content =
+            MimiContent::simple_markdown_message(alice.user_name().domain(), message);
         let message = alice
             .send_message(conversation_id, message_content)
             .await
@@ -470,8 +475,13 @@ async fn mark_as_read() {
     let number_of_messages = 10;
     let mut messages_sent = vec![];
     for _ in 0..number_of_messages {
-        let message: Vec<u8> = OsRng.gen::<[u8; 32]>().to_vec();
-        let message_content = MessageContentType::Text(phnxcoreclient::TextMessage::new(message));
+        let message: String = OsRng
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect();
+        let message_content =
+            MimiContent::simple_markdown_message(alice.user_name().domain(), message);
         let message = alice
             .send_message(conversation_id, message_content)
             .await

@@ -4,13 +4,12 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 use phnxtypes::{
     errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
 };
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::api::USER_EXPIRATION_DAYS;
 
@@ -20,7 +19,7 @@ impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
         params: ResyncClientParams,
-    ) -> Result<DsFanOutPayload, ResyncClientError> {
+    ) -> Result<SerializedMlsMessage, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -93,11 +92,6 @@ impl DsGroupState {
         // No need to update the client profile either, since all data (leaf
         // index, credential, qs client ref, etc.) remains the same.
 
-        // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

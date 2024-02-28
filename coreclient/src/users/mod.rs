@@ -51,7 +51,7 @@ use thiserror::Error;
 use crate::{
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
     conversations::{
-        messages::{ConversationMessage, MessageContentType},
+        messages::ConversationMessage,
         store::{ConversationMessageStore, ConversationStore},
         Conversation, ConversationAttributes,
     },
@@ -71,6 +71,8 @@ use crate::{
 use self::{
     api_clients::ApiClients,
     create_user::InitialUserState,
+    groups::TimestampedMessage,
+    mimi_content::MimiContent,
     openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
     user_profile::UserProfileStore,
@@ -356,9 +358,9 @@ impl SelfUser {
             contact_wai_keys,
             client_credentials,
         )?;
-        // We're not getting a response, but if it's not an error, the commit
-        // must have gone through.
-        self.api_clients
+        // The DS responds with the timestamp of the commit.
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_add_users(
                 params,
@@ -368,7 +370,8 @@ impl SelfUser {
             .await?;
 
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -401,7 +404,8 @@ impl SelfUser {
             .flat_map(|user_name| group.user_client_ids(user_name))
             .collect::<Vec<_>>();
         let params = group.remove(&self.crypto_backend(), clients)?;
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&conversation.owner_domain())?
             .ds_remove_users(
                 params,
@@ -410,7 +414,8 @@ impl SelfUser {
             )
             .await?;
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -420,7 +425,7 @@ impl SelfUser {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        message: MessageContentType,
+        content: MimiContent,
     ) -> Result<ConversationMessage> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
@@ -437,18 +442,20 @@ impl SelfUser {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Generate ciphertext
         let (params, message) = group
-            .create_message(&self.crypto_backend(), message.clone())
+            .create_message(&self.crypto_backend(), content.clone())
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
+        let group_message = TimestampedMessage::from_message_and_timestamp(message, ds_timestamp);
         let conversation_message = self
             .message_store()
-            .create(&conversation.id(), message)?
+            .create(&conversation.id(), group_message)?
             .into();
 
         Ok(conversation_message)
@@ -630,11 +637,13 @@ impl SelfUser {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -668,7 +677,8 @@ impl SelfUser {
         let group_messages = if past_members.len() != 1 {
             let params = group.delete(&self.crypto_backend())?;
             let owner_domain = conversation.owner_domain();
-            self.api_clients
+            let ds_timestamp = self
+                .api_clients
                 .get(&owner_domain)?
                 .ds_delete_group(
                     params,
@@ -676,7 +686,7 @@ impl SelfUser {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            group.merge_pending_commit(&self.crypto_backend(), None)?
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?
         } else {
             vec![]
         };
@@ -790,11 +800,13 @@ impl SelfUser {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -905,10 +917,11 @@ impl SelfUser {
     fn store_group_messages(
         &self,
         conversation_id: ConversationId,
-        group_messages: Vec<GroupMessage>,
+        group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
         let message_store = self.message_store();
         let mut stored_messages = vec![];
+        // TODO: This should be done as part of a transaction
         for group_message in group_messages.into_iter() {
             let stored_message = message_store.create(&conversation_id, group_message)?;
             stored_messages.push(stored_message.payload);
