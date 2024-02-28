@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, SubsecRound, TimeZone, Utc};
 
 use super::*;
 
@@ -16,13 +16,14 @@ pub struct TimeStamp {
 
 impl From<DateTime<Utc>> for TimeStamp {
     fn from(time: DateTime<Utc>) -> Self {
+        let time = time.round_subsecs(3);
         Self { time }
     }
 }
 
 impl From<TimeStamp> for i64 {
     fn from(time: TimeStamp) -> Self {
-        time.time.timestamp_micros()
+        time.time.timestamp_millis()
     }
 }
 
@@ -30,7 +31,7 @@ impl TryFrom<i64> for TimeStamp {
     type Error = TimeStampError;
 
     fn try_from(time: i64) -> Result<Self, Self::Error> {
-        let time_result = Utc.timestamp_micros(time);
+        let time_result = Utc.timestamp_millis_opt(time);
         match time_result {
             chrono::LocalResult::Single(time) => Ok(Self { time }),
             chrono::LocalResult::None | chrono::LocalResult::Ambiguous(_, _) => {
@@ -88,12 +89,14 @@ impl TlsDeserializeBytesTrait for TimeStamp {
 
 impl TimeStamp {
     pub fn now() -> Self {
-        Utc::now().into()
+        // We round the subseconds to 3 digits, because we don't need more
+        // precision.
+        Utc::now().round_subsecs(3).into()
     }
 
     pub fn in_days(days_in_the_future: i64) -> Self {
         let time = Utc::now() + Duration::days(days_in_the_future);
-        Self { time }
+        time.into()
     }
 
     /// Checks if this time stamp is more than `expiration_days` in the past.
