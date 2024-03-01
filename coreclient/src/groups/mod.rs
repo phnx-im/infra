@@ -33,9 +33,7 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{
-        AsClientId, Fqdn, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
-    },
+    identifiers::{AsClientId, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
@@ -63,7 +61,7 @@ use crate::{
     },
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
-    mimi_content::{MessageId, MimiContent},
+    mimi_content::MimiContent,
     users::openmls_provider::PhnxOpenMlsProvider,
 };
 use std::collections::{BTreeMap, HashSet};
@@ -1417,11 +1415,10 @@ impl TimestampedMessage {
         }
     }
 
-    fn event_message(sender_domain: Fqdn, event_message: String, ds_timestamp: TimeStamp) -> Self {
-        let message = Message::Display(DisplayMessage::new(
-            MessageId::new(sender_domain),
-            DisplayMessageType::System(SystemMessage::new(event_message)),
-        ));
+    fn event_message(event_message: String, ds_timestamp: TimeStamp) -> Self {
+        let message = Message::Display(DisplayMessage::new(DisplayMessageType::System(
+            SystemMessage::new(event_message),
+        )));
         Self {
             message,
             ds_timestamp,
@@ -1460,7 +1457,7 @@ impl TimestampedMessage {
             } else {
                 format!("{} removed {} from the conversation", remover, removed)
             };
-            TimestampedMessage::event_message(remover.domain(), event_message, ds_timestamp)
+            TimestampedMessage::event_message(event_message, ds_timestamp)
         });
 
         // Collect adder and addee names and filter out duplicates
@@ -1496,7 +1493,7 @@ impl TimestampedMessage {
             } else {
                 format!("{} added {} to the conversation", adder, addee)
             };
-            TimestampedMessage::event_message(adder.domain(), event_message, ds_timestamp)
+            TimestampedMessage::event_message(event_message, ds_timestamp)
         });
 
         let event_messages = remove_messages.chain(add_messages).collect();

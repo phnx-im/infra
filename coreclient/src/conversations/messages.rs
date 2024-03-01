@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    groups::TimestampedMessage,
-    mimi_content::{MessageId, MimiContent},
-};
+use crate::{groups::TimestampedMessage, mimi_content::MimiContent};
 
 use super::*;
 
@@ -14,6 +11,7 @@ pub struct ConversationMessage {
     // The ID is only globally consistent for actual content messages. Event
     // messages have local identifiers only.
     pub(super) conversation_id: ConversationId,
+    local_message_id: Uuid,
     timestamped_message: TimestampedMessage,
 }
 
@@ -26,24 +24,17 @@ impl ConversationMessage {
     ) -> ConversationMessage {
         ConversationMessage {
             conversation_id,
+            local_message_id: Uuid::new_v4(),
             timestamped_message,
         }
     }
 
     pub fn id_ref(&self) -> &Uuid {
-        match self.timestamped_message.message() {
-            Message::Content(content) => content.content.id(),
-            Message::Display(display) => &display.id,
-        }
-        .id_ref()
+        &self.local_message_id
     }
 
     pub fn id(&self) -> Uuid {
-        match self.timestamped_message.message() {
-            Message::Content(content) => content.content.id(),
-            Message::Display(display) => &display.id,
-        }
-        .id()
+        self.local_message_id
     }
 
     pub fn timestamp(&self) -> TimeStamp {
@@ -111,14 +102,12 @@ impl ContentMessage {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayMessage {
-    // This ID is only locally consistent
-    id: MessageId,
     message: DisplayMessageType,
 }
 
 impl DisplayMessage {
-    pub(crate) fn new(id: MessageId, message: DisplayMessageType) -> Self {
-        Self { id, message }
+    pub(crate) fn new(message: DisplayMessageType) -> Self {
+        Self { message }
     }
 
     pub fn message(&self) -> &DisplayMessageType {
