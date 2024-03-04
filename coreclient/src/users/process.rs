@@ -18,7 +18,7 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{conversations::ConversationType, groups::TimestampedMessage};
+use crate::conversations::ConversationType;
 
 use self::user_profile::Asset;
 
@@ -129,8 +129,8 @@ impl SelfUser {
                 let aad = processed_message.authenticated_data().to_vec();
                 let group_messages = match processed_message.into_content() {
                     ProcessedMessageContent::ApplicationMessage(application_message) => {
-                        vec![TimestampedMessage::from_application_message(
-                            application_message,
+                        vec![TimestampedMessage::from_bytes_and_timestamp(
+                            &application_message.into_bytes(),
                             ds_timestamp,
                             sender_credential.identity().user_name(),
                         )?]
@@ -240,10 +240,8 @@ impl SelfUser {
                                 });
                             conversation.set_conversation_picture(conversation_picture_option)?;
                             // Now we can turn the partial contact into a full one.
-                            partial_contact.into_contact_and_persist(
-                                friendship_package,
-                                sender_credential.clone(),
-                            )?;
+                            partial_contact
+                                .mark_as_complete(friendship_package, sender_credential.clone())?;
                             // Finally, we can turn the conversation type to a full connection group
                             conversation.confirm()?;
                         }
@@ -399,7 +397,7 @@ impl SelfUser {
                         &conversation.id(),
                         cep_tbs.friendship_package_ear_key,
                     )?
-                    .into_contact_and_persist(
+                    .mark_as_complete(
                         cep_tbs.friendship_package,
                         cep_tbs.sender_client_credential,
                     )?;

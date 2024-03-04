@@ -355,6 +355,12 @@ impl RustUser {
             .into_iter()
             .map(|m| m.into())
             .collect();
+        let unsent_messages = user
+            .unsent_messages(conversation_id.into())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|m| m.into())
+            .collect();
         messages
     }
 

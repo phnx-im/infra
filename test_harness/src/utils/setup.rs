@@ -1156,8 +1156,8 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
     display_messages
         .into_iter()
         .filter_map(|m| {
-            if let Message::Display(display_message) = m.message() {
-                if let DisplayMessageType::System(system_message) = display_message.message() {
+            if let Message::Display(event_message) = m.message() {
+                if let EventMessage::System(system_message) = event_message {
                     Some(system_message.message().to_string())
                 } else {
                     None

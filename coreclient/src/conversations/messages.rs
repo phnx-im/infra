@@ -2,26 +2,91 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{groups::TimestampedMessage, mimi_content::MimiContent};
+use crate::mimi_content::MimiContent;
 
 use super::*;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TimestampedMessage {
+    timestamp: TimeStamp,
+    message: Message,
+}
+
+impl TimestampedMessage {
+    /// Returns the timestamp of the message. If the message was sent, it's the
+    /// timestamp issues by the DS, otherwise it's the timestamp when the
+    /// message was created.
+    pub(crate) fn timestamp(&self) -> TimeStamp {
+        self.timestamp
+    }
+
+    /// Mark the message as sent and update the timestamp. If the message was
+    /// already marked as sent, nothing happens.  
+    pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
+        if let Message::Content(content) = &mut self.message {
+            self.timestamp = ds_timestamp;
+            content.sent = true
+        }
+    }
+
+    pub(crate) fn from_bytes_and_timestamp(
+        message_bytes: &[u8],
+        ds_timestamp: TimeStamp,
+        sender_name: UserName,
+    ) -> Result<Self, tls_codec::Error> {
+        let content = MimiContent::tls_deserialize_exact_bytes(message_bytes)?;
+        let message = Message::Content(ContentMessage::new(sender_name.to_string(), content));
+        Ok(Self {
+            timestamp: ds_timestamp,
+            message,
+        })
+    }
+
+    pub(crate) fn from_message_and_timestamp(message: Message, ds_timestamp: TimeStamp) -> Self {
+        Self {
+            message,
+            timestamp: ds_timestamp,
+        }
+    }
+
+    pub(crate) fn event_message(event_message: String, ds_timestamp: TimeStamp) -> Self {
+        let message = Message::Event(EventMessage::System(SystemMessage::new(event_message)));
+        Self {
+            message,
+            timestamp: ds_timestamp,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
-    // The ID is only globally consistent for actual content messages. Event
-    // messages have local identifiers only.
     pub(super) conversation_id: ConversationId,
-    local_message_id: Uuid,
-    timestamped_message: TimestampedMessage,
+    pub(super) local_message_id: Uuid,
+    pub(super) timestamped_message: TimestampedMessage,
 }
 
 impl ConversationMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
-    pub(crate) fn new(
+    pub(crate) fn from_timestamped_message(
         conversation_id: ConversationId,
         timestamped_message: TimestampedMessage,
     ) -> ConversationMessage {
+        ConversationMessage {
+            conversation_id,
+            local_message_id: Uuid::new_v4(),
+            timestamped_message,
+        }
+    }
+
+    pub(crate) fn new_unsent_message(
+        sender: String,
+        conversation_id: ConversationId,
+        content: MimiContent,
+    ) -> ConversationMessage {
+        let message = Message::Content(ContentMessage::new(sender, content));
+        let timestamped_message =
+            TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
         ConversationMessage {
             conversation_id,
             local_message_id: Uuid::new_v4(),
@@ -38,7 +103,15 @@ impl ConversationMessage {
     }
 
     pub fn timestamp(&self) -> TimeStamp {
-        self.timestamped_message.ds_timestamp()
+        self.timestamped_message.timestamp()
+    }
+
+    pub fn was_sent(&self) -> bool {
+        if let Message::Content(content) = &self.timestamped_message.message {
+            content.was_sent()
+        } else {
+            true
+        }
     }
 
     pub fn conversation_id(&self) -> ConversationId {
@@ -46,14 +119,14 @@ impl ConversationMessage {
     }
 
     pub fn message(&self) -> &Message {
-        &self.timestamped_message.message()
+        &self.timestamped_message.message
     }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(ContentMessage),
-    Display(DisplayMessage),
+    Event(EventMessage),
 }
 
 impl Message {
@@ -72,9 +145,9 @@ impl Message {
                     format!("{content}")
                 }
             },
-            Message::Display(display) => match &display.message {
-                DisplayMessageType::System(system) => system.message().to_string(),
-                DisplayMessageType::Error(error) => error.message().to_string(),
+            Message::Event(event_message) => match &event_message {
+                EventMessage::System(system) => system.message().to_string(),
+                EventMessage::Error(error) => error.message().to_string(),
             },
         }
     }
@@ -82,13 +155,24 @@ impl Message {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    sender: String,
-    content: MimiContent,
+    pub(super) sender: String,
+    pub(super) sent: bool,
+    pub(super) content: MimiContent,
 }
 
 impl ContentMessage {
+    /// Create a new content message. The message is marked as unsent by
+    /// default.
     pub fn new(sender: String, content: MimiContent) -> Self {
-        Self { sender, content }
+        Self {
+            sender,
+            sent: false,
+            content,
+        }
+    }
+
+    pub fn was_sent(&self) -> bool {
+        self.sent
     }
 
     pub fn sender(&self) -> &str {
@@ -101,22 +185,7 @@ impl ContentMessage {
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct DisplayMessage {
-    message: DisplayMessageType,
-}
-
-impl DisplayMessage {
-    pub(crate) fn new(message: DisplayMessageType) -> Self {
-        Self { message }
-    }
-
-    pub fn message(&self) -> &DisplayMessageType {
-        &self.message
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub enum DisplayMessageType {
+pub enum EventMessage {
     System(SystemMessage),
     Error(ErrorMessage),
 }

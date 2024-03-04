@@ -7,7 +7,7 @@
 
 use phnxtypes::{
     identifiers::QsClientReference,
-    messages::client_ds::{EventMessage, QsQueueMessagePayload},
+    messages::client_ds::{DsEventMessage, QsQueueMessagePayload},
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -25,5 +25,5 @@ pub struct DsFanOutMessage {
 #[repr(u8)]
 pub enum DsFanOutPayload {
     QueueMessage(QsQueueMessagePayload),
-    EventMessage(EventMessage),
+    EventMessage(DsEventMessage),
 }

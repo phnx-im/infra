@@ -5,9 +5,9 @@
 use openmls::group::GroupId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DisplayMessage, DisplayMessageType,
-    ErrorMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
-    SystemMessage,
+    ConversationMessage, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
+    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
+    UnsentMessage,
 };
 use uuid::Uuid;
 
@@ -156,6 +156,31 @@ impl From<Conversation> for UiConversation {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub struct UiUnsentMessage {
+    pub conversation_id: ConversationIdBytes,
+    pub message_id: UuidBytes,
+    pub created_at: u64,
+    pub content: UiMimiContent,
+}
+
+impl From<UnsentMessage> for UiUnsentMessage {
+    fn from(unsent_message: UnsentMessage) -> Self {
+        Self {
+            conversation_id: ConversationIdBytes::from(unsent_message.conversation_id()),
+            message_id: UuidBytes::from(unsent_message.id()),
+            created_at: unsent_message.created_at().as_u64(),
+            content: UiMimiContent::from(unsent_message.content().clone()),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum UiDisplayMessage {
+    ConversationMessage(UiConversationMessage),
+    UnsentMessage(UiUnsentMessage),
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationIdBytes,
     pub id: UuidBytes,
@@ -177,7 +202,8 @@ impl From<ConversationMessage> for UiConversationMessage {
 #[derive(PartialEq, Debug, Clone)]
 pub enum UiMessage {
     Content(UiContentMessage),
-    Display(UiDisplayMessage),
+    Display(UiEventMessage),
+    Unsent(UiMimiContent),
 }
 
 impl From<Message> for UiMessage {
@@ -186,9 +212,10 @@ impl From<Message> for UiMessage {
             Message::Content(content_message) => {
                 UiMessage::Content(UiContentMessage::from(content_message))
             }
-            Message::Display(display_message) => {
-                UiMessage::Display(UiDisplayMessage::from(display_message))
+            Message::Event(display_message) => {
+                UiMessage::Display(UiEventMessage::from(display_message))
             }
+            Message::UnsentContent(content) => UiMessage::Unsent(UiMimiContent::from(content)),
         }
     }
 }
@@ -266,29 +293,16 @@ impl From<ContentMessage> for UiContentMessage {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct UiDisplayMessage {
-    pub message: UiDisplayMessageType,
-}
-
-impl From<DisplayMessage> for UiDisplayMessage {
-    fn from(display_message: DisplayMessage) -> Self {
-        Self {
-            message: UiDisplayMessageType::from(display_message.message().clone()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum UiDisplayMessageType {
+pub enum UiEventMessage {
     System(UiSystemMessage),
     Error(UiErrorMessage),
 }
 
-impl From<DisplayMessageType> for UiDisplayMessageType {
-    fn from(display_message_type: DisplayMessageType) -> Self {
-        match display_message_type {
-            DisplayMessageType::System(message) => UiDisplayMessageType::System(message.into()),
-            DisplayMessageType::Error(message) => UiDisplayMessageType::Error(message.into()),
+impl From<EventMessage> for UiEventMessage {
+    fn from(event_message: EventMessage) -> Self {
+        match event_message {
+            EventMessage::System(message) => UiEventMessage::System(message.into()),
+            EventMessage::Error(message) => UiEventMessage::Error(message.into()),
         }
     }
 }

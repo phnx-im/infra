@@ -35,6 +35,4 @@ pub enum GroupOperationError {
     TlsCodecError(#[from] tls_codec::Error),
     #[error(transparent)]
     GroupStoreError(#[from] PersistenceError),
-    #[error("Invalid group state: Can't find own client information")]
-    InvalidGroupState,
 }

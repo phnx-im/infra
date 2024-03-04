@@ -205,6 +205,7 @@ pub(crate) enum DataType {
     Conversation,
     MlsGroup,
     Message,
+    UnsentMessage,
     AsCredential,
     AsIntermediateCredential,
     LeafKeys,

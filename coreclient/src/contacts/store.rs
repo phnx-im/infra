@@ -96,11 +96,12 @@ impl Persistable for Contact {
 impl PersistableStruct<'_, PartialContact> {
     /// Creates a Contact from this PartialContact and the additional data. Then
     /// persists the resulting contact.
-    pub(crate) fn into_contact_and_persist(
+    pub(crate) fn mark_as_complete(
         self,
         friendship_package: FriendshipPackage,
         client_credential: ClientCredential,
     ) -> Result<()> {
+        // TODO: This should be a transaction
         self.purge()?;
         let payload = Contact {
             user_name: self.payload.user_name,
