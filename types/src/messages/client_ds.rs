@@ -187,13 +187,13 @@ pub enum InfraAadPayload {
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub enum QsWsMessage {
     QueueUpdate,
-    Event(EventMessage),
+    Event(DsEventMessage),
 }
 
 #[derive(
     PartialEq, Eq, Debug, Clone, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct EventMessage {
+pub struct DsEventMessage {
     pub group_id: GroupId,
     pub sender_index: LeafNodeIndex,
     pub epoch: GroupEpoch,
@@ -202,7 +202,7 @@ pub struct EventMessage {
     pub payload: Vec<u8>,
 }
 
-impl EventMessage {
+impl DsEventMessage {
     pub fn group_id(&self) -> &GroupId {
         &self.group_id
     }
@@ -375,7 +375,7 @@ pub struct SendMessageParams {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct DispatchEventParams {
-    pub event: EventMessage,
+    pub event: DsEventMessage,
     pub sender: LeafNodeIndex,
 }
 

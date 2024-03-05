@@ -139,11 +139,11 @@ impl PersistableGroup<'_> {
         Ok(result)
     }
 
-    pub fn create_message<'a>(
+    pub(crate) fn create_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         content: MimiContent,
-    ) -> Result<(SendMessageParamsOut, Message), GroupOperationError> {
+    ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let result = self.payload.create_message(provider, content)?;
         self.persist()?;
         Ok(result)

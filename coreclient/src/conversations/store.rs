@@ -16,15 +16,16 @@ use tls_codec::{DeserializeBytes, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    groups::TimestampedMessage,
     utils::persistence::{
         DataType, Persistable, PersistableStruct, PersistenceError, SqlFieldDefinition, SqlKey,
     },
+    ContentMessage, Message, MimiContent,
 };
 
 use super::{
-    messages::ConversationMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationPayload, ConversationStatus, ConversationType, InactiveConversation,
+    messages::{ConversationMessage, TimestampedMessage},
+    Conversation, ConversationAttributes, ConversationId, ConversationPayload, ConversationStatus,
+    ConversationType, InactiveConversation,
 };
 
 impl Conversation {
@@ -347,7 +348,23 @@ impl<'a> ConversationMessageStore<'a> {
         conversation_id: &ConversationId,
         group_message: TimestampedMessage,
     ) -> Result<PersistableConversationMessage, PersistenceError> {
-        let payload = ConversationMessage::new(conversation_id.clone(), group_message);
+        let payload =
+            ConversationMessage::from_timestamped_message(conversation_id.clone(), group_message);
+        let conversation_message = PersistableConversationMessage::from_connection_and_payload(
+            self.db_connection,
+            payload,
+        );
+        conversation_message.persist()?;
+        Ok(conversation_message)
+    }
+
+    pub(crate) fn create_unsent_message(
+        &self,
+        sender: String,
+        conversation_id: ConversationId,
+        content: MimiContent,
+    ) -> Result<PersistableConversationMessage, PersistenceError> {
+        let payload = ConversationMessage::new_unsent_message(sender, conversation_id, content);
         let conversation_message = PersistableConversationMessage::from_connection_and_payload(
             self.db_connection,
             payload,
@@ -372,6 +389,13 @@ impl<'a> ConversationMessageStore<'a> {
         )?;
         Ok(count)
     }
+
+    pub(crate) fn get(
+        &self,
+        local_message_id: &Uuid,
+    ) -> Result<Option<PersistableConversationMessage>, PersistenceError> {
+        PersistableConversationMessage::load_one(self.db_connection, Some(local_message_id), None)
+    }
 }
 
 pub(crate) type PersistableConversationMessage<'a> = PersistableStruct<'a, ConversationMessage>;
@@ -379,6 +403,25 @@ pub(crate) type PersistableConversationMessage<'a> = PersistableStruct<'a, Conve
 impl From<PersistableConversationMessage<'_>> for ConversationMessage {
     fn from(persistable: PersistableConversationMessage) -> Self {
         persistable.payload
+    }
+}
+
+impl<'a> PersistableConversationMessage<'a> {
+    /// Marks the message as sent if it was previously marked as unsent.
+    pub(crate) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) -> Result<()> {
+        let messages_table_name = DataType::Message.to_sql_key();
+        let statement_str = format!(
+            "UPDATE {messages_table_name} SET sent = :sent, timestamp = :ds_timestamp WHERE primary_key = :local_message_id",
+        );
+        let mut stmt = self.connection.prepare(&statement_str)?;
+        stmt.execute(named_params! {
+            ":sent": true as i32,
+            ":local_message_id": self.key().to_sql_key(),
+            ":ds_timestamp": ds_timestamp.time(),
+        })?;
+        self.payload.timestamped_message.mark_as_sent(ds_timestamp);
+
+        Ok(())
     }
 }
 
@@ -400,21 +443,45 @@ impl Persistable for ConversationMessage {
     }
 
     fn additional_fields() -> Vec<SqlFieldDefinition> {
-        vec![("timestamp", "TEXT").into(), ("message", "BLOB").into()]
+        vec![
+            ("timestamp", "TEXT").into(),
+            // The sender is NULL for event messages. This could probably be
+            // improved by encoding sender and sent together.
+            ("sender", "TEXT").into(),
+            ("sent", "bool").into(),
+            ("message", "BLOB").into(),
+        ]
     }
 
     fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
-        let message_bytes = serde_json::to_vec(&self.message())?;
+        let sent = self.was_sent();
+        // Only content messages have a sender, so we use that to differentiate
+        // between content and event messages.
+        let sender_option = match self.message() {
+            Message::Content(content) => Some(content.sender().to_string()),
+            Message::Event(_) => None,
+        };
+        let message_bytes = match self.message() {
+            Message::Content(content) => serde_json::to_vec(content.content())?,
+            Message::Event(event) => serde_json::to_vec(event)?,
+        };
         Ok(vec![
             Box::new(self.timestamp().time()),
+            Box::new(sender_option),
+            Box::new(sent),
             Box::new(message_bytes),
         ])
     }
 
     fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
-        // We store the ID both as an index and as a field in the message. This
-        // is easier for now as otherwise we'd have take apart the message. In
-        // any case, we don't have to use the result from the table lookup.
+        let local_message_id_text = row.get::<_, String>(1)?;
+        let local_message_id = Uuid::from_str(&local_message_id_text).map_err(|e| {
+            anyhow!(
+                "Error converting message UUID from string to Uuid: {} when reading from SQLite",
+                e
+            )
+        })?;
+
         let conversation_uuid_text = row.get::<_, String>(2)?;
         let conversation_id: ConversationId = Uuid::from_str(&conversation_uuid_text)
             .map_err(|e| {
@@ -426,14 +493,27 @@ impl Persistable for ConversationMessage {
             .into();
         let date_time: DateTime<Utc> = row.get(3)?;
         let timestamp = date_time.into();
+        let sender_option: Option<String> = row.get(4)?;
+        let sent: bool = row.get(5)?;
+        let message_bytes: Vec<u8> = row.get(6)?;
+        let message = match sender_option {
+            Some(sender) => {
+                let content = serde_json::from_slice(&message_bytes)?;
+                Message::Content(ContentMessage {
+                    sender,
+                    sent,
+                    content,
+                })
+            }
+            None => Message::Event(serde_json::from_slice(&message_bytes)?),
+        };
 
-        let message_bytes: Vec<u8> = row.get(4)?;
-        let message = serde_json::from_slice(&message_bytes)?;
         let timestamped_message =
             TimestampedMessage::from_message_and_timestamp(message, timestamp);
-        Ok(ConversationMessage::new(
+        Ok(ConversationMessage {
             conversation_id,
+            local_message_id,
             timestamped_message,
-        ))
+        })
     }
 }

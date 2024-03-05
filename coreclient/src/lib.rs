@@ -21,8 +21,8 @@ pub use crate::{
     contacts::{Contact, PartialContact},
     conversations::{
         messages::{
-            ContentMessage, ConversationMessage, DisplayMessage, DisplayMessageType, ErrorMessage,
-            Message, NotificationType, SystemMessage,
+            ContentMessage, ConversationMessage, ErrorMessage, EventMessage, Message,
+            NotificationType, SystemMessage,
         },
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,

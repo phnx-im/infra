@@ -8,7 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
@@ -47,6 +47,7 @@ use phnxtypes::{
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
@@ -70,8 +71,8 @@ use crate::{
 
 use self::{
     api_clients::ApiClients,
+    conversations::messages::TimestampedMessage,
     create_user::InitialUserState,
-    groups::TimestampedMessage,
     mimi_content::MimiContent,
     openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
@@ -435,14 +436,20 @@ impl SelfUser {
                 conversation_id.as_uuid()
             ))?;
         let group_id = &conversation.group_id();
-        // Generate ciphertext
         let group_store = self.group_store();
+        // Store the message as unsent so that we don't lose it in case
+        // something goes wrong.
+        let message_store = self.message_store();
+        let mut conversation_message = message_store.create_unsent_message(
+            self.user_name().to_string(),
+            conversation_id,
+            content.clone(),
+        )?;
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        // Generate ciphertext
-        let (params, message) = group
-            .create_message(&self.crypto_backend(), content.clone())
+        let params = group
+            .create_message(&self.crypto_backend(), content)
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
@@ -452,13 +459,53 @@ impl SelfUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        let group_message = TimestampedMessage::from_message_and_timestamp(message, ds_timestamp);
-        let conversation_message = self
-            .message_store()
-            .create(&conversation.id(), group_message)?
-            .into();
+        // Mark the message as sent.
+        conversation_message.mark_as_sent(ds_timestamp)?;
 
-        Ok(conversation_message)
+        Ok(conversation_message.into())
+    }
+
+    /// Re-try sending a message, where sending previously failed.
+    pub async fn re_send_message(&mut self, local_message_id: Uuid) -> Result<()> {
+        let message_store = self.message_store();
+        let mut unsent_message = message_store.get(&local_message_id)?.ok_or(anyhow!(
+            "Can't find unsent message with id {}",
+            local_message_id
+        ))?;
+        let content = match unsent_message.message() {
+            Message::Content(content_message) if !content_message.was_sent() => {
+                content_message.content().clone()
+            }
+            _ => bail!("Message with id {} was already sent", local_message_id),
+        };
+        let conversation_id = unsent_message.conversation_id();
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id.as_uuid()
+            ))?;
+        let group_id = &conversation.group_id();
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id)?
+            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
+        let params = group
+            .create_message(&self.crypto_backend(), content)
+            .map_err(CorelibError::Group)?;
+
+        // Send message to DS
+        let ds_timestamp = self
+            .api_clients
+            .get(&conversation.owner_domain())?
+            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
+            .await?;
+
+        // Mark the message as sent.
+        unsent_message.mark_as_sent(ds_timestamp)?;
+
+        Ok(())
     }
 
     /// Create a connection with a new user.

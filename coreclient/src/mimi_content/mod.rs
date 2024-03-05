@@ -55,10 +55,6 @@ impl MessageId {
         self.id
     }
 
-    pub(super) fn id_ref(&self) -> &Uuid {
-        &self.id
-    }
-
     pub fn domain(&self) -> &Fqdn {
         &self.domain
     }

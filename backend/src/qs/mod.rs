@@ -67,7 +67,7 @@ use phnxtypes::{
         signatures::{keys::QsVerifyingKey, traits::SigningKey},
     },
     identifiers::{Fqdn, QsClientId},
-    messages::client_ds::EventMessage,
+    messages::client_ds::DsEventMessage,
 };
 
 use async_trait::*;
@@ -89,7 +89,7 @@ pub mod storage_provider_trait;
 pub mod user_record;
 
 pub enum WsNotification {
-    Event(EventMessage),
+    Event(DsEventMessage),
     QueueUpdate,
 }
 

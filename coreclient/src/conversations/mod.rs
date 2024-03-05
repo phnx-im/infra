@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt::Display;
+
 use openmls::group::GroupId;
 use phnxtypes::{
     identifiers::{QualifiedGroupId, UserName},
@@ -19,6 +21,12 @@ pub(crate) mod store;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConversationId {
     uuid: Uuid,
+}
+
+impl Display for ConversationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.uuid)
+    }
 }
 
 impl SqlKey for ConversationId {
