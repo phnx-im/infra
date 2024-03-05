@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use openmls::framing::ApplicationMessage;
+
 use crate::mimi_content::MimiContent;
 
 use super::*;
@@ -29,13 +31,15 @@ impl TimestampedMessage {
         }
     }
 
-    pub(crate) fn from_bytes_and_timestamp(
-        message_bytes: &[u8],
+    /// Create a new timestamped message from an incoming application message.
+    /// The message is marked as sent.
+    pub(crate) fn from_application_message(
+        application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
         sender_name: UserName,
     ) -> Result<Self, tls_codec::Error> {
-        let content = MimiContent::tls_deserialize_exact_bytes(message_bytes)?;
-        let message = Message::Content(ContentMessage::new(sender_name.to_string(), content));
+        let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
+        let message = Message::Content(ContentMessage::new(sender_name.to_string(), true, content));
         Ok(Self {
             timestamp: ds_timestamp,
             message,
@@ -84,7 +88,7 @@ impl ConversationMessage {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
-        let message = Message::Content(ContentMessage::new(sender, content));
+        let message = Message::Content(ContentMessage::new(sender, false, content));
         let timestamped_message =
             TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
         ConversationMessage {
@@ -161,12 +165,10 @@ pub struct ContentMessage {
 }
 
 impl ContentMessage {
-    /// Create a new content message. The message is marked as unsent by
-    /// default.
-    pub fn new(sender: String, content: MimiContent) -> Self {
+    pub fn new(sender: String, sent: bool, content: MimiContent) -> Self {
         Self {
             sender,
-            sent: false,
+            sent,
             content,
         }
     }

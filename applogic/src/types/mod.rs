@@ -7,7 +7,6 @@ use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
     ConversationMessage, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
     InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
-    UnsentMessage,
 };
 use uuid::Uuid;
 
@@ -156,31 +155,6 @@ impl From<Conversation> for UiConversation {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct UiUnsentMessage {
-    pub conversation_id: ConversationIdBytes,
-    pub message_id: UuidBytes,
-    pub created_at: u64,
-    pub content: UiMimiContent,
-}
-
-impl From<UnsentMessage> for UiUnsentMessage {
-    fn from(unsent_message: UnsentMessage) -> Self {
-        Self {
-            conversation_id: ConversationIdBytes::from(unsent_message.conversation_id()),
-            message_id: UuidBytes::from(unsent_message.id()),
-            created_at: unsent_message.created_at().as_u64(),
-            content: UiMimiContent::from(unsent_message.content().clone()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum UiDisplayMessage {
-    ConversationMessage(UiConversationMessage),
-    UnsentMessage(UiUnsentMessage),
-}
-
-#[derive(PartialEq, Debug, Clone)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationIdBytes,
     pub id: UuidBytes,
@@ -215,7 +189,6 @@ impl From<Message> for UiMessage {
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
             }
-            Message::UnsentContent(content) => UiMessage::Unsent(UiMimiContent::from(content)),
         }
     }
 }
@@ -280,6 +253,7 @@ impl From<MimiContent> for UiMimiContent {
 #[derive(PartialEq, Debug, Clone)]
 pub struct UiContentMessage {
     pub sender: String,
+    pub sent: bool,
     pub content: UiMimiContent,
 }
 
@@ -287,6 +261,7 @@ impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
             sender: content_message.sender().to_string(),
+            sent: content_message.was_sent(),
             content: UiMimiContent::from(content_message.content().clone()),
         }
     }

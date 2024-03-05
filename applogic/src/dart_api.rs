@@ -349,19 +349,11 @@ impl RustUser {
         last_n: usize,
     ) -> Vec<UiConversationMessage> {
         let user = self.user.lock().unwrap();
-        let messages = user
-            .get_messages(conversation_id.into(), last_n)
+        user.get_messages(conversation_id.into(), last_n)
             .unwrap_or_default()
             .into_iter()
             .map(|m| m.into())
-            .collect();
-        let unsent_messages = user
-            .unsent_messages(conversation_id.into())
-            .unwrap_or_default()
-            .into_iter()
-            .map(|m| m.into())
-            .collect();
-        messages
+            .collect()
     }
 
     pub fn get_contacts(&self) -> Vec<UiContact> {

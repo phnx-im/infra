@@ -129,8 +129,8 @@ impl SelfUser {
                 let aad = processed_message.authenticated_data().to_vec();
                 let group_messages = match processed_message.into_content() {
                     ProcessedMessageContent::ApplicationMessage(application_message) => {
-                        vec![TimestampedMessage::from_bytes_and_timestamp(
-                            &application_message.into_bytes(),
+                        vec![TimestampedMessage::from_application_message(
+                            application_message,
                             ds_timestamp,
                             sender_credential.identity().user_name(),
                         )?]
