@@ -411,13 +411,16 @@ impl<'a> PersistableConversationMessage<'a> {
     pub(crate) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) -> Result<()> {
         let messages_table_name = DataType::Message.to_sql_key();
         let statement_str = format!(
-            "UPDATE {messages_table_name} SET sent = 1 WHERE primary_key = :local_message_id",
+            "UPDATE {messages_table_name} SET sent = :sent, timestamp = :ds_timestamp WHERE primary_key = :local_message_id",
         );
         let mut stmt = self.connection.prepare(&statement_str)?;
         stmt.execute(named_params! {
-            ":local_message_id": self.payload.id_ref(),
+            ":sent": true as i32,
+            ":local_message_id": self.key().to_sql_key(),
+            ":ds_timestamp": ds_timestamp.time(),
         })?;
         self.payload.timestamped_message.mark_as_sent(ds_timestamp);
+
         Ok(())
     }
 }
