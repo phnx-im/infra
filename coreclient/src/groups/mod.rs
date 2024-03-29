@@ -68,7 +68,13 @@ use crate::{
 };
 use std::collections::{BTreeMap, HashSet};
 
-use openmls::{prelude::*, treesync::RatchetTree};
+use openmls::{
+    prelude::{
+        tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait},
+        *,
+    },
+    treesync::RatchetTree,
+};
 
 use self::{
     client_information::{ClientInformation, StagedClientInformationDiff},
@@ -164,18 +170,18 @@ impl ClientAuthInfo {
 
     pub(super) fn verify_infra_credential(
         &self,
-        mls_credential_type: &MlsCredentialType,
+        //mls_credential_type: &MlsCredentialType,
+        credential: &Credential,
     ) -> Result<()> {
-        if let MlsCredentialType::Infra(infra_credential) = mls_credential_type {
-            // Verify the leaf credential
-            let credential_plaintext =
-                InfraCredentialPlaintext::decrypt(infra_credential, self.signature_ear_key())?;
-            credential_plaintext
-                .verify::<InfraCredentialTbs>(self.client_credential().verifying_key())?;
-            Ok(())
-        } else {
-            bail!("Invalid credential type")
-        }
+        let infra_credential =
+            InfraCredential::tls_deserialize(&mut credential.serialized_content())?;
+
+        // Verify the leaf credential
+        let credential_plaintext =
+            InfraCredentialPlaintext::decrypt(&infra_credential, self.signature_ear_key())?;
+        credential_plaintext
+            .verify::<InfraCredentialTbs>(self.client_credential().verifying_key())?;
+        Ok(())
     }
 
     fn client_credential(&self) -> &ClientCredential {
@@ -370,12 +376,14 @@ impl Group {
             aad,
         )?;
 
-        let mls_group = MlsGroup::new_from_welcome(
+        let staged_welcome = StagedWelcome::new_from_welcome(
             provider,
             &mls_group_config,
             welcome_bundle.welcome.welcome,
-            None, /* no public tree here, has to be in the extension */
+            None,
         )?;
+
+        let mls_group = staged_welcome.into_group(provider)?;
 
         // Decrypt WelcomeAttributionInfo
         let verifiable_attribution_info = WelcomeAttributionInfo::decrypt(
@@ -408,7 +416,7 @@ impl Group {
 
         // Decrypt and verify the infra credentials.
         for (m, (_, client_auth_info)) in mls_group.members().zip(client_information.iter()) {
-            client_auth_info.verify_infra_credential(m.credential.mls_credential_type())?;
+            client_auth_info.verify_infra_credential(&m.credential)?;
         }
 
         let leaf_keys = leaf_key_store
@@ -503,7 +511,7 @@ impl Group {
 
         // Decrypt and verify the infra credentials.
         for (m, (_, client_auth_info)) in mls_group.members().zip(client_information.iter()) {
-            client_auth_info.verify_infra_credential(m.credential.mls_credential_type())?;
+            client_auth_info.verify_infra_credential(&m.credential)?;
         }
 
         // TODO: Once we support multiple clients, this should be synchronized
@@ -539,295 +547,285 @@ impl Group {
         // Will be set to true if we were removed (or the group was deleted).
         let mut we_were_removed = false;
         let mut diff = GroupDiff::new(self);
-        let sender_index =
-            match processed_message.content() {
-                // For now, we only care about commits.
-                ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                    bail!("Unsupported message type")
-                }
-                ProcessedMessageContent::ApplicationMessage(_) => {
-                    let ClientAuthInfo {
-                        client_credential: sender_credential,
-                        ..
-                    } = if let Sender::Member(index) = processed_message.sender() {
-                        self.client_information
-                            .get(index.usize())
-                            .ok_or(anyhow!("Unknown sender"))?
-                    } else {
-                        bail!("Invalid sender type.")
-                    };
-                    return Ok((processed_message, false, sender_credential.clone()));
-                }
-                ProcessedMessageContent::ProposalMessage(_proposal) => {
-                    // Proposals are just returned and can then be added to the
-                    // proposal store after the caller has inspected them.
-                    let sender_index = if let Sender::Member(index) = processed_message.sender() {
-                        index.usize()
-                    } else {
-                        bail!("Invalid sender type.")
-                    };
-                    sender_index
-                }
-                ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                    // Before we process the AAD payload, we first process the
-                    // proposals by value. Currently only removes are allowed.
-                    for remove_proposal in staged_commit.remove_proposals() {
-                        let removed_member = remove_proposal.remove_proposal().removed();
-                        diff.remove_client_credential(removed_member);
-                        if removed_member == self.mls_group().own_leaf_index() {
-                            we_were_removed = true;
-                        }
+        let sender_index = match processed_message.content() {
+            // For now, we only care about commits.
+            ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                bail!("Unsupported message type")
+            }
+            ProcessedMessageContent::ApplicationMessage(_) => {
+                let ClientAuthInfo {
+                    client_credential: sender_credential,
+                    ..
+                } = if let Sender::Member(index) = processed_message.sender() {
+                    self.client_information
+                        .get(index.usize())
+                        .ok_or(anyhow!("Unknown sender"))?
+                } else {
+                    bail!("Invalid sender type.")
+                };
+                return Ok((processed_message, false, sender_credential.clone()));
+            }
+            ProcessedMessageContent::ProposalMessage(_proposal) => {
+                // Proposals are just returned and can then be added to the
+                // proposal store after the caller has inspected them.
+                let sender_index = if let Sender::Member(index) = processed_message.sender() {
+                    index.usize()
+                } else {
+                    bail!("Invalid sender type.")
+                };
+                sender_index
+            }
+            ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                // Before we process the AAD payload, we first process the
+                // proposals by value. Currently only removes are allowed.
+                for remove_proposal in staged_commit.remove_proposals() {
+                    let removed_member = remove_proposal.remove_proposal().removed();
+                    diff.remove_client_credential(removed_member);
+                    if removed_member == self.mls_group().own_leaf_index() {
+                        we_were_removed = true;
                     }
-                    // Let's figure out which operation this is meant to be.
-                    let aad_payload = InfraAadMessage::tls_deserialize_exact_bytes(
-                        processed_message.authenticated_data(),
-                    )?
-                    .into_payload();
-                    let sender_index = match processed_message.sender() {
-                        Sender::Member(index) => index.to_owned(),
-                        Sender::NewMemberCommit => {
-                            self.mls_group.ext_commit_sender_index(staged_commit)?
-                        }
-                        Sender::External(_) | Sender::NewMemberProposal => {
-                            bail!("Invalid sender type.")
-                        }
-                    }
-                    .usize();
-                    match aad_payload {
-                        InfraAadPayload::AddUsers(add_users_payload) => {
-                            let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
-                                &self.credential_ear_key,
-                                &self.signature_ear_key_wrapper_key,
-                                as_credential_store,
-                                add_users_payload.encrypted_credential_information,
-                            )
-                            .await?;
-
-                            // TODO: Validation:
-                            // * Check that this commit only contains (inline) add proposals
-                            // * Check that the leaf credential is not changed in the path
-                            //   (or maybe if it is, check that it's valid).
-                            // * User names MUST be unique within the group (check both new
-                            //   and existing credentials for duplicates).
-                            // * Client IDs MUST be unique within the group (only need to
-                            //   check new credentials, as client IDs are scoped to user
-                            //   names).
-                            // * Once we do RBAC, check that the adder has sufficient
-                            //   permissions.
-                            // * Maybe check sender type (only Members can add users).
-
-                            // Verify the leaf credentials in all add proposals. We assume
-                            // that leaf credentials are in the same order as client
-                            // credentials.
-                            if staged_commit.add_proposals().count() != client_auth_infos.len() {
-                                bail!("Number of add proposals and client credentials don't match.")
-                            }
-                            for (proposal, client_auth_info) in
-                                staged_commit.add_proposals().zip(client_auth_infos.iter())
-                            {
-                                client_auth_info.verify_infra_credential(
-                                    proposal
-                                        .add_proposal()
-                                        .key_package()
-                                        .leaf_node()
-                                        .credential()
-                                        .mls_credential_type(),
-                                )?;
-                            }
-
-                            // Add the client credentials to the group.
-                            diff.add_client_information(client_auth_infos)
-                        }
-                        InfraAadPayload::UpdateClient(update_client_payload) => {
-                            let sender_index =
-                                if let Sender::Member(index) = processed_message.sender() {
-                                    index.usize()
-                                } else {
-                                    bail!("Unsupported sender type.")
-                                };
-                            // Check if the client has updated its leaf credential.
-                            if let Some(infra_credential) = processed_message
-                                .new_credential_option()
-                                .map(|cred| cred.mls_credential_type())
-                            {
-                                // If so, then there has to be a new signature ear key.
-                                let Some(encrypted_signature_ear_key) =
-                                    update_client_payload.option_encrypted_signature_ear_key
-                                else {
-                                    bail!("Invalid update client payload.")
-                                };
-                                // Optionally, the client could have updated its
-                                // client credential.
-                                let client_auth_info = if let Some(ecc) =
-                                    update_client_payload.option_encrypted_client_credential
-                                {
-                                    ClientAuthInfo::decrypt_and_verify(
-                                        &self.credential_ear_key,
-                                        &self.signature_ear_key_wrapper_key,
-                                        as_credential_store,
-                                        (ecc, encrypted_signature_ear_key),
-                                    )
-                                    .await?
-                                } else {
-                                    // If not, we decrypt the new EAR key and use
-                                    // the existing client credential.
-                                    let signature_ear_key = SignatureEarKey::decrypt(
-                                        &self.signature_ear_key_wrapper_key,
-                                        &encrypted_signature_ear_key,
-                                    )?;
-                                    let client_credential = self
-                                        .client_information
-                                        .get(sender_index)
-                                        .ok_or(anyhow!(
-                                            "Can't find sender information in client credentials"
-                                        ))?
-                                        .client_credential()
-                                        .clone();
-                                    ClientAuthInfo::new(client_credential, signature_ear_key)
-                                };
-                                // Verify the leaf credential
-                                client_auth_info.verify_infra_credential(infra_credential)?;
-                                diff.update_client_information(sender_index, client_auth_info);
-                            };
-                            // TODO: Validation:
-                            // * Check that the sender type fits.
-                            // * Check that the client id is the same as before.
-                            // * Check that the proposals fit the operation (i.e. in this
-                            //   case that there are no proposals at all).
-
-                            // Verify a potential new leaf credential.
-                        }
-                        InfraAadPayload::JoinGroup(join_group_payload) => {
-                            // Decrypt and verify the client credential.
-                            let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                                &self.credential_ear_key,
-                                &self.signature_ear_key_wrapper_key,
-                                as_credential_store,
-                                join_group_payload.encrypted_client_information,
-                            )
-                            .await?;
-                            // Validate the leaf credential.
-                            client_auth_info.verify_infra_credential(
-                                processed_message.credential().mls_credential_type(),
-                            )?;
-                            // Check that the existing user clients match up.
-                            if self.user_client_indices(
-                                client_auth_info.client_credential().identity().user_name(),
-                            ) != join_group_payload
-                                .existing_user_clients
-                                .into_iter()
-                                .map(|index| index.usize())
-                                .collect::<Vec<_>>()
-                            {
-                                bail!("User clients don't match up.")
-                            };
-                            // TODO: (More) validation:
-                            // * Check that the client id is unique.
-                            // * Check that the proposals fit the operation.
-                            // Insert the client credential into the diff.
-                            diff.add_client_information(vec![client_auth_info]);
-                        }
-                        InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
-                            let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                                &self.credential_ear_key,
-                                &self.signature_ear_key_wrapper_key,
-                                as_credential_store,
-                                join_connection_group_payload.encrypted_client_information,
-                            )
-                            .await?;
-                            // Validate the leaf credential.
-                            client_auth_info.verify_infra_credential(
-                                processed_message.credential().mls_credential_type(),
-                            )?;
-                            // TODO: (More) validation:
-                            // * Check that the user name is unique.
-                            // * Check that the proposals fit the operation.
-                            // * Check that the sender type fits the operation.
-                            // * Check that this group is indeed a connection group.
-
-                            // Insert the client credential into the diff.
-                            diff.add_client_information(vec![client_auth_info]);
-                        }
-                        InfraAadPayload::AddClients(add_clients_payload) => {
-                            let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
-                                &self.credential_ear_key,
-                                &self.signature_ear_key_wrapper_key,
-                                as_credential_store,
-                                add_clients_payload.encrypted_client_information,
-                            )
-                            .await?;
-
-                            // TODO: Validation:
-                            // * Check that this commit only contains (inline) add proposals
-                            // * Check that the leaf credential is not changed in the path
-                            //   (or maybe if it is, check that it's valid).
-                            // * Client IDs MUST be unique within the group.
-                            // * Maybe check sender type (only Members can add users).
-
-                            // Verify the leaf credentials in all add proposals. We assume
-                            // that leaf credentials are in the same order as client
-                            // credentials.
-                            if staged_commit.add_proposals().count() != client_auth_infos.len() {
-                                bail!("Number of add proposals and client credentials don't match.")
-                            }
-                            for (proposal, client_auth_info) in
-                                staged_commit.add_proposals().zip(client_auth_infos.iter())
-                            {
-                                client_auth_info.verify_infra_credential(
-                                    proposal
-                                        .add_proposal()
-                                        .key_package()
-                                        .leaf_node()
-                                        .credential()
-                                        .mls_credential_type(),
-                                )?;
-                            }
-
-                            // Add the client credentials to the group.
-                            diff.add_client_information(client_auth_infos)
-                        }
-                        InfraAadPayload::RemoveUsers | InfraAadPayload::RemoveClients => {
-                            // We already processed remove proposals above, so there is nothing to do here.
-                            // TODO: Validation:
-                            // * Check that this commit only contains (inline) remove proposals
-                            // * Check that the sender type is correct.
-                            // * Check that the leaf credential is not changed in the path
-                            // * Check that the remover has sufficient privileges.
-                        }
-                        InfraAadPayload::ResyncClient => {
-                            // TODO: Validation:
-                            // * Check that this commit contains exactly one remove proposal
-                            // * Check that the sender type is correct (external commit).
-
-                            let removed_index = staged_commit
-                                .remove_proposals()
-                                .next()
-                                .ok_or(anyhow!(
-                                    "Resync operation did not contain a remove proposal"
-                                ))?
-                                .remove_proposal()
-                                .removed();
-                            let client_auth_info =
-                                self.client_information.get(removed_index.usize()).ok_or(
-                                    anyhow!("Could not find client credential of resync sender"),
-                                )?;
-                            // Let's verify the new leaf credential.
-                            client_auth_info.verify_infra_credential(
-                                processed_message.credential().mls_credential_type(),
-                            )?;
-
-                            // Move the client credential to the new index.
-                            diff.remove_client_credential(removed_index);
-                            diff.add_client_information(vec![client_auth_info.clone()]);
-                        }
-                        InfraAadPayload::DeleteGroup => {
-                            we_were_removed = true;
-                            // There is nothing else to do at this point.
-                        }
-                    };
-                    sender_index
                 }
-            };
+                // Let's figure out which operation this is meant to be.
+                let aad_payload = InfraAadMessage::tls_deserialize_exact_bytes(
+                    processed_message.authenticated_data(),
+                )?
+                .into_payload();
+                let sender_index = match processed_message.sender() {
+                    Sender::Member(index) => index.to_owned(),
+                    Sender::NewMemberCommit => {
+                        self.mls_group.ext_commit_sender_index(staged_commit)?
+                    }
+                    Sender::External(_) | Sender::NewMemberProposal => {
+                        bail!("Invalid sender type.")
+                    }
+                }
+                .usize();
+                match aad_payload {
+                    InfraAadPayload::AddUsers(add_users_payload) => {
+                        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            as_credential_store,
+                            add_users_payload.encrypted_credential_information,
+                        )
+                        .await?;
+
+                        // TODO: Validation:
+                        // * Check that this commit only contains (inline) add proposals
+                        // * Check that the leaf credential is not changed in the path
+                        //   (or maybe if it is, check that it's valid).
+                        // * User names MUST be unique within the group (check both new
+                        //   and existing credentials for duplicates).
+                        // * Client IDs MUST be unique within the group (only need to
+                        //   check new credentials, as client IDs are scoped to user
+                        //   names).
+                        // * Once we do RBAC, check that the adder has sufficient
+                        //   permissions.
+                        // * Maybe check sender type (only Members can add users).
+
+                        // Verify the leaf credentials in all add proposals. We assume
+                        // that leaf credentials are in the same order as client
+                        // credentials.
+                        if staged_commit.add_proposals().count() != client_auth_infos.len() {
+                            bail!("Number of add proposals and client credentials don't match.")
+                        }
+                        for (proposal, client_auth_info) in
+                            staged_commit.add_proposals().zip(client_auth_infos.iter())
+                        {
+                            client_auth_info.verify_infra_credential(
+                                proposal
+                                    .add_proposal()
+                                    .key_package()
+                                    .leaf_node()
+                                    .credential(),
+                            )?;
+                        }
+
+                        // Add the client credentials to the group.
+                        diff.add_client_information(client_auth_infos)
+                    }
+                    InfraAadPayload::UpdateClient(update_client_payload) => {
+                        let sender_index = if let Sender::Member(index) = processed_message.sender()
+                        {
+                            index.usize()
+                        } else {
+                            bail!("Unsupported sender type.")
+                        };
+                        // Check if the client has updated its leaf credential.
+                        if let Some(infra_credential) = processed_message.new_credential_option() {
+                            // If so, then there has to be a new signature ear key.
+                            let Some(encrypted_signature_ear_key) =
+                                update_client_payload.option_encrypted_signature_ear_key
+                            else {
+                                bail!("Invalid update client payload.")
+                            };
+                            // Optionally, the client could have updated its
+                            // client credential.
+                            let client_auth_info = if let Some(ecc) =
+                                update_client_payload.option_encrypted_client_credential
+                            {
+                                ClientAuthInfo::decrypt_and_verify(
+                                    &self.credential_ear_key,
+                                    &self.signature_ear_key_wrapper_key,
+                                    as_credential_store,
+                                    (ecc, encrypted_signature_ear_key),
+                                )
+                                .await?
+                            } else {
+                                // If not, we decrypt the new EAR key and use
+                                // the existing client credential.
+                                let signature_ear_key = SignatureEarKey::decrypt(
+                                    &self.signature_ear_key_wrapper_key,
+                                    &encrypted_signature_ear_key,
+                                )?;
+                                let client_credential = self
+                                    .client_information
+                                    .get(sender_index)
+                                    .ok_or(anyhow!(
+                                        "Can't find sender information in client credentials"
+                                    ))?
+                                    .client_credential()
+                                    .clone();
+                                ClientAuthInfo::new(client_credential, signature_ear_key)
+                            };
+                            // Verify the leaf credential
+                            client_auth_info.verify_infra_credential(infra_credential)?;
+                            diff.update_client_information(sender_index, client_auth_info);
+                        };
+                        // TODO: Validation:
+                        // * Check that the sender type fits.
+                        // * Check that the client id is the same as before.
+                        // * Check that the proposals fit the operation (i.e. in this
+                        //   case that there are no proposals at all).
+
+                        // Verify a potential new leaf credential.
+                    }
+                    InfraAadPayload::JoinGroup(join_group_payload) => {
+                        // Decrypt and verify the client credential.
+                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            as_credential_store,
+                            join_group_payload.encrypted_client_information,
+                        )
+                        .await?;
+                        // Validate the leaf credential.
+                        client_auth_info.verify_infra_credential(processed_message.credential())?;
+                        // Check that the existing user clients match up.
+                        if self.user_client_indices(
+                            client_auth_info.client_credential().identity().user_name(),
+                        ) != join_group_payload
+                            .existing_user_clients
+                            .into_iter()
+                            .map(|index| index.usize())
+                            .collect::<Vec<_>>()
+                        {
+                            bail!("User clients don't match up.")
+                        };
+                        // TODO: (More) validation:
+                        // * Check that the client id is unique.
+                        // * Check that the proposals fit the operation.
+                        // Insert the client credential into the diff.
+                        diff.add_client_information(vec![client_auth_info]);
+                    }
+                    InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
+                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            as_credential_store,
+                            join_connection_group_payload.encrypted_client_information,
+                        )
+                        .await?;
+                        // Validate the leaf credential.
+                        client_auth_info.verify_infra_credential(processed_message.credential())?;
+                        // TODO: (More) validation:
+                        // * Check that the user name is unique.
+                        // * Check that the proposals fit the operation.
+                        // * Check that the sender type fits the operation.
+                        // * Check that this group is indeed a connection group.
+
+                        // Insert the client credential into the diff.
+                        diff.add_client_information(vec![client_auth_info]);
+                    }
+                    InfraAadPayload::AddClients(add_clients_payload) => {
+                        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+                            &self.credential_ear_key,
+                            &self.signature_ear_key_wrapper_key,
+                            as_credential_store,
+                            add_clients_payload.encrypted_client_information,
+                        )
+                        .await?;
+
+                        // TODO: Validation:
+                        // * Check that this commit only contains (inline) add proposals
+                        // * Check that the leaf credential is not changed in the path
+                        //   (or maybe if it is, check that it's valid).
+                        // * Client IDs MUST be unique within the group.
+                        // * Maybe check sender type (only Members can add users).
+
+                        // Verify the leaf credentials in all add proposals. We assume
+                        // that leaf credentials are in the same order as client
+                        // credentials.
+                        if staged_commit.add_proposals().count() != client_auth_infos.len() {
+                            bail!("Number of add proposals and client credentials don't match.")
+                        }
+                        for (proposal, client_auth_info) in
+                            staged_commit.add_proposals().zip(client_auth_infos.iter())
+                        {
+                            client_auth_info.verify_infra_credential(
+                                proposal
+                                    .add_proposal()
+                                    .key_package()
+                                    .leaf_node()
+                                    .credential(),
+                            )?;
+                        }
+
+                        // Add the client credentials to the group.
+                        diff.add_client_information(client_auth_infos)
+                    }
+                    InfraAadPayload::RemoveUsers | InfraAadPayload::RemoveClients => {
+                        // We already processed remove proposals above, so there is nothing to do here.
+                        // TODO: Validation:
+                        // * Check that this commit only contains (inline) remove proposals
+                        // * Check that the sender type is correct.
+                        // * Check that the leaf credential is not changed in the path
+                        // * Check that the remover has sufficient privileges.
+                    }
+                    InfraAadPayload::ResyncClient => {
+                        // TODO: Validation:
+                        // * Check that this commit contains exactly one remove proposal
+                        // * Check that the sender type is correct (external commit).
+
+                        let removed_index = staged_commit
+                            .remove_proposals()
+                            .next()
+                            .ok_or(anyhow!(
+                                "Resync operation did not contain a remove proposal"
+                            ))?
+                            .remove_proposal()
+                            .removed();
+                        let client_auth_info = self
+                            .client_information
+                            .get(removed_index.usize())
+                            .ok_or(anyhow!(
+                            "Could not find client credential of resync sender"
+                        ))?;
+                        // Let's verify the new leaf credential.
+                        client_auth_info.verify_infra_credential(processed_message.credential())?;
+
+                        // Move the client credential to the new index.
+                        diff.remove_client_credential(removed_index);
+                        diff.add_client_information(vec![client_auth_info.clone()]);
+                    }
+                    InfraAadPayload::DeleteGroup => {
+                        we_were_removed = true;
+                        // There is nothing else to do at this point.
+                    }
+                };
+                sender_index
+            }
+        };
         // Get the sender's credential
         let ClientAuthInfo {
             client_credential: sender_credential,

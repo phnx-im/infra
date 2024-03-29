@@ -6,7 +6,7 @@ use phnxtypes::{
     errors::auth_service::IssueTokensError,
     messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
 };
-use privacypass::batched_tokens::server::Server;
+use privacypass::batched_tokens_ristretto255::server::Server;
 
 use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
 

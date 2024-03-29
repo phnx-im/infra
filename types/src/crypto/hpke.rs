@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::HpkePublicKey,
+    openmls::{key_packages::InitKey, prelude::HpkePublicKey},
     openmls_traits::types::{HpkeCiphertext, HpkePrivateKey},
 };
 use serde::{Deserialize, Serialize};
@@ -73,6 +73,14 @@ impl From<HpkePublicKey> for JoinerInfoEncryptionKey {
     }
 }
 
+impl From<InitKey> for JoinerInfoEncryptionKey {
+    fn from(value: InitKey) -> Self {
+        Self {
+            encryption_key: EncryptionPublicKey::from(value.key().as_slice().to_vec()),
+        }
+    }
+}
+
 impl AsRef<EncryptionPublicKey> for JoinerInfoEncryptionKey {
     fn as_ref(&self) -> &EncryptionPublicKey {
         &self.encryption_key
@@ -104,9 +112,9 @@ impl AsRef<DecryptionPrivateKey> for JoinerInfoDecryptionKey {
 // We need this From trait, because we have to work with the hpke init key from
 // the KeyPackage, which we get as HpkePrivateKey and HpkePublicKey from
 // OpenMLS.
-impl From<(HpkePrivateKey, HpkePublicKey)> for JoinerInfoDecryptionKey {
-    fn from((sk, pk): (HpkePrivateKey, HpkePublicKey)) -> Self {
-        let vec: Vec<u8> = pk.into();
+impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
+    fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
+        let vec: Vec<u8> = init_key.key().as_slice().to_vec();
         Self {
             decryption_key: DecryptionPrivateKey::new(sk, vec.into()),
         }

@@ -5,7 +5,6 @@
 use crate::configurations::DatabaseSettings;
 use async_trait::async_trait;
 use mls_assist::openmls_traits::types::SignatureScheme;
-use num_traits::ToPrimitive;
 use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
 use phnxbackend::auth_service::{
     storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
@@ -22,8 +21,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use privacypass::{
-    batched_tokens::server::BatchedKeyStore,
-    private_tokens::{Ristretto255, VoprfServer},
+    batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TokenKeyId,
 };
 use sqlx::{

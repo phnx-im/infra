@@ -80,6 +80,8 @@ impl EncryptionPublicKey {
         rust_crypto
             .crypto()
             .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
+            // TODO: get rid of unwrap
+            .unwrap()
     }
 }
 
@@ -128,7 +130,8 @@ impl DecryptionPrivateKey {
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         let keypair = provider
             .crypto()
-            .derive_hpke_keypair(HPKE_CONFIG, &key_seed);
+            .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             private_key: keypair.private,
             public_key: EncryptionPublicKey {
