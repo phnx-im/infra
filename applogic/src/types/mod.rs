@@ -4,10 +4,10 @@
 
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DisplayMessage, DisplayMessageType,
-    ErrorMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
-    SystemMessage,
+    users::user_profile::UserProfile, Contact, ContentMessage, Conversation,
+    ConversationAttributes, ConversationId, ConversationMessage, ConversationStatus,
+    ConversationType, DisplayMessage, DisplayMessageType, ErrorMessage, InactiveConversation,
+    Message, MessageId, MimiContent, NotificationType, SystemMessage,
 };
 use uuid::Uuid;
 
@@ -354,6 +354,23 @@ impl From<Contact> for UiContact {
             display_name: display_name_string,
             avatar: contact
                 .user_profile()
+                .profile_picture_option()
+                .and_then(|a| a.value())
+                .map(|a| a.to_vec()),
+        }
+    }
+}
+
+pub struct UiUserProfile {
+    pub display_name: String,
+    pub profile_picture_option: Option<Vec<u8>>,
+}
+
+impl From<UserProfile> for UiUserProfile {
+    fn from(user_profile: UserProfile) -> Self {
+        Self {
+            display_name: user_profile.display_name().as_ref().to_string(),
+            profile_picture_option: user_profile
                 .profile_picture_option()
                 .and_then(|a| a.value())
                 .map(|a| a.to_vec()),
