@@ -69,10 +69,7 @@ use crate::{
 use std::collections::{BTreeMap, HashSet};
 
 use openmls::{
-    prelude::{
-        tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait},
-        *,
-    },
+    prelude::{tls_codec::Serialize as TlsSerializeTrait, *},
     treesync::RatchetTree,
 };
 
@@ -168,13 +165,13 @@ impl ClientAuthInfo {
         })
     }
 
-    pub(super) fn verify_infra_credential(
-        &self,
-        //mls_credential_type: &MlsCredentialType,
-        credential: &Credential,
-    ) -> Result<()> {
+    pub(super) fn verify_infra_credential(&self, credential: &Credential) -> Result<()> {
+        let serialized_infra_credential =
+            VLBytes::tls_deserialize_exact_bytes(&mut credential.serialized_content()).unwrap();
+
         let infra_credential =
-            InfraCredential::tls_deserialize(&mut credential.serialized_content())?;
+            InfraCredential::tls_deserialize_exact_bytes(&serialized_infra_credential.as_ref())
+                .unwrap();
 
         // Verify the leaf credential
         let credential_plaintext =
