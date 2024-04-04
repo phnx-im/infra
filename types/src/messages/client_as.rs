@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
-use privacypass::batched_tokens::{TokenRequest, TokenResponse};
+use privacypass::batched_tokens_ristretto255::{TokenRequest, TokenResponse};
 
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, Size, TlsDeserializeBytes, TlsSerialize,

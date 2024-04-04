@@ -17,7 +17,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use privacypass::Serialize;
+use tls_codec::Serialize;
 
 use crate::auth_service::{
     AsClientRecord, AsEphemeralStorageProvider, AsStorageProvider, AuthService,

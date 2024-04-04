@@ -8,7 +8,7 @@ use super::*;
 use mls_assist::{
     messages::{AssistedGroupInfo, AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
-        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
+        tls_codec::Serialize, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
     },
 };
 use phnxtypes::{

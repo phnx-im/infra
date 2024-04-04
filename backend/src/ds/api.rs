@@ -151,7 +151,7 @@ use mls_assist::{
     group::Group,
     messages::SerializedMlsMessage,
     openmls::{
-        prelude::{group_info::GroupInfo, GroupId, MlsMessageInBody, Sender},
+        prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn, Sender},
         treesync::RatchetTree,
     },
 };
@@ -240,11 +240,11 @@ impl DsApi {
                         group_info,
                     } = create_group_params;
                     let group_info = match group_info.clone().extract() {
-                        MlsMessageInBody::GroupInfo(group_info) => group_info,
-                        MlsMessageInBody::PublicMessage(_)
-                        | MlsMessageInBody::PrivateMessage(_)
-                        | MlsMessageInBody::Welcome(_)
-                        | MlsMessageInBody::KeyPackage(_) => {
+                        MlsMessageBodyIn::GroupInfo(group_info) => group_info,
+                        MlsMessageBodyIn::PublicMessage(_)
+                        | MlsMessageBodyIn::PrivateMessage(_)
+                        | MlsMessageBodyIn::Welcome(_)
+                        | MlsMessageBodyIn::KeyPackage(_) => {
                             return Err(DsProcessingError::InvalidMessage)
                         }
                     };

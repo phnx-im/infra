@@ -36,7 +36,7 @@ use phnxtypes::{
         AsTokenType,
     },
 };
-use privacypass::batched_tokens::TokenRequest;
+use privacypass::batched_tokens_ristretto255::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 
