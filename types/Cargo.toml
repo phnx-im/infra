@@ -29,7 +29,7 @@ url = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "^1.0"
 hex = { version = "0.4" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
+mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 tracing = { version = "0.1.35", features = ["log"] }
 thiserror = "^1.0"
