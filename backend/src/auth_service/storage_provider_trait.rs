@@ -15,7 +15,7 @@ use phnxtypes::{
     identifiers::{AsClientId, UserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
-use privacypass::batched_tokens::server::BatchedKeyStore;
+use privacypass::batched_tokens_ristretto255::server::BatchedKeyStore;
 
 use super::{AsClientRecord, AsUserRecord};
 

@@ -27,7 +27,13 @@ impl DsGroupState {
         let processed_assisted_message_plus = self
             .group()
             .process_assisted_message(params.external_commit)
-            .map_err(|_| JoinConnectionGroupError::ProcessingError)?;
+            .map_err(|e| {
+                tracing::warn!(
+                    "Processing error: Could not process assisted message: {:?}",
+                    e
+                );
+                JoinConnectionGroupError::ProcessingError
+            })?;
 
         // Perform DS-level validation
         // Make sure that we have the right message type.

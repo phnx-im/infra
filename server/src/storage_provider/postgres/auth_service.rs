@@ -22,8 +22,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use privacypass::{
-    batched_tokens::server::BatchedKeyStore,
-    private_tokens::{Ristretto255, VoprfServer},
+    batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TokenKeyId,
 };
 use sqlx::{

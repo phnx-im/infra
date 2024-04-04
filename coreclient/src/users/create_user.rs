@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
 use phnxtypes::{
     credentials::{

@@ -6,9 +6,8 @@
 
 use std::time::Duration;
 
-use http::StatusCode;
 use phnxtypes::{endpoint_paths::ENDPOINT_HEALTH_CHECK, DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS};
-use reqwest::{Client, ClientBuilder, Url};
+use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
 use url::ParseError;
 

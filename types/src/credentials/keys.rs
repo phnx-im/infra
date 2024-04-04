@@ -7,7 +7,7 @@ use mls_assist::openmls::prelude::{
 };
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
-use mls_assist::openmls_traits::{signatures::Signer, types::Error};
+use mls_assist::openmls_traits::signatures::{Signer, SignerError};
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
@@ -229,9 +229,9 @@ impl AsRef<[u8]> for InfraCredentialSigningKey {
 }
 
 impl Signer for InfraCredentialSigningKey {
-    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
+    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
         <Self as SigningKey>::sign(self, payload)
-            .map_err(|_| Error::SigningError)
+            .map_err(|_| SignerError::SigningError)
             .map(|s| s.into_bytes())
     }
 

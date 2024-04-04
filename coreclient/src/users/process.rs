@@ -96,14 +96,14 @@ impl SelfUser {
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 let protocol_message: ProtocolMessage = match mls_message.extract() {
-                        MlsMessageInBody::PublicMessage(handshake_message) =>
+                        MlsMessageBodyIn::PublicMessage(handshake_message) =>
                             handshake_message.into(),
                         // Only application messages are private
-                        MlsMessageInBody::PrivateMessage(app_msg) => app_msg.into(),
+                        MlsMessageBodyIn::PrivateMessage(app_msg) => app_msg.into(),
                         // Welcomes always come as a WelcomeBundle, not as an MLSMessage.
-                        MlsMessageInBody::Welcome(_) |
+                        MlsMessageBodyIn::Welcome(_) |
                         // Neither GroupInfos nor KeyPackages should come from the queue.
-                        MlsMessageInBody::GroupInfo(_) | MlsMessageInBody::KeyPackage(_) => bail!("Unexpected message type"),
+                        MlsMessageBodyIn::GroupInfo(_) | MlsMessageBodyIn::KeyPackage(_) => bail!("Unexpected message type"),
                     };
                 let group_id = protocol_message.group_id();
                 let conversation_store = self.conversation_store();
