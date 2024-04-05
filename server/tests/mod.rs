@@ -355,7 +355,6 @@ async fn exchange_user_profiles() {
             alice_display_name.clone(),
             Some(alice_profile_picture.clone()),
         )
-        .await
         .unwrap();
 
     setup.add_user(BOB).await;
@@ -369,7 +368,6 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .store_user_profile(bob_display_name.clone(), Some(bob_profile_picture.clone()))
-        .await
         .unwrap();
 
     setup.connect_users(ALICE, BOB).await;

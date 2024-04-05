@@ -17,7 +17,7 @@ pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType
 use crate::{
     app_state::AppState,
     notifications::{Notifiable, NotificationHub},
-    types::{ConversationIdBytes, UiContact},
+    types::{ConversationIdBytes, UiContact, UiUserProfile},
 };
 use phnxcoreclient::{
     users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
@@ -365,6 +365,11 @@ impl RustUser {
             .collect()
     }
 
+    pub fn get_user_profile(&self) -> Result<UiUserProfile> {
+        let user = self.user.lock().unwrap();
+        user.load_user_profile().map(|up| up.into())
+    }
+
     #[tokio::main(flavor = "current_thread")]
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
         let mut user = self.user.lock().unwrap();
@@ -436,6 +441,7 @@ impl RustUser {
             .collect())
     }
 
+    // TODO: This does not yet send the new user profile to other clients
     #[tokio::main(flavor = "current_thread")]
     pub async fn set_user_profile(
         &self,
@@ -444,7 +450,6 @@ impl RustUser {
     ) -> Result<()> {
         let user = self.user.lock().unwrap();
         user.store_user_profile(display_name, profile_picture_option)
-            .await
     }
 
     /// This function is called from the flutter side to mark messages as read.

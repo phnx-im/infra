@@ -89,7 +89,7 @@ pub mod process;
 pub mod store;
 #[cfg(test)]
 mod tests;
-pub(crate) mod user_profile;
+pub mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -274,7 +274,15 @@ impl SelfUser {
         Ok(conversation.id())
     }
 
-    pub async fn store_user_profile(
+    pub fn load_user_profile(&self) -> Result<UserProfile> {
+        let user_profile_store = self.user_profile_store();
+        user_profile_store
+            .get()?
+            .ok_or(anyhow!("No user profile found"))
+    }
+
+    /// Store the user profile in the DB.
+    pub fn store_user_profile(
         &self,
         display_name: String,
         profile_picture_option: Option<Vec<u8>>,
