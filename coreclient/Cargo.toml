@@ -17,7 +17,7 @@ openmls_traits = { git = "https://github.com/openmls/openmls", branch = "konrad/
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
 openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
+mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 log = "^0.4.14"
 url = "2.2"
