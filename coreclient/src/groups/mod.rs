@@ -33,9 +33,7 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{
-        AsClientId, Fqdn, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
-    },
+    identifiers::{AsClientId, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
@@ -58,12 +56,10 @@ use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
 use crate::{
     contacts::{store::ContactStore, ContactAddInfos},
-    conversations::messages::{
-        ContentMessage, DisplayMessage, DisplayMessageType, Message, SystemMessage,
-    },
+    conversations::messages::TimestampedMessage,
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
-    mimi_content::{MessageId, MimiContent},
+    mimi_content::MimiContent,
     users::openmls_provider::PhnxOpenMlsProvider,
 };
 use std::collections::{BTreeMap, HashSet};
@@ -1160,11 +1156,11 @@ impl Group {
     }
 
     /// Send an application message to the group.
-    pub fn create_message<'a>(
+    fn create_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         content: MimiContent,
-    ) -> Result<(SendMessageParamsOut, Message), GroupOperationError> {
+    ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let mls_message = self.mls_group.create_message(
             provider,
             &self.leaf_signer,
@@ -1181,17 +1177,7 @@ impl Group {
             message,
         };
 
-        let own_user_name = self
-            .client_information
-            .get(self.mls_group().own_leaf_index().usize())
-            .ok_or(GroupOperationError::InvalidGroupState)?
-            .client_credential()
-            .identity()
-            .user_name();
-
-        let content_message = ContentMessage::new(own_user_name.to_string(), content);
-        let message = Message::Content(content_message);
-        Ok((send_message_params, message))
+        Ok(send_message_params)
     }
 
     /// Get a reference to the group's group id.
@@ -1381,48 +1367,7 @@ impl Group {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct TimestampedMessage {
-    ds_timestamp: TimeStamp,
-    message: Message,
-}
-
 impl TimestampedMessage {
-    pub(crate) fn ds_timestamp(&self) -> TimeStamp {
-        self.ds_timestamp
-    }
-
-    pub(crate) fn from_application_message(
-        application_message: ApplicationMessage,
-        ds_timestamp: TimeStamp,
-        sender_name: UserName,
-    ) -> Result<Self, tls_codec::Error> {
-        let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
-        let message = Message::Content(ContentMessage::new(sender_name.to_string(), content));
-        Ok(Self {
-            ds_timestamp,
-            message,
-        })
-    }
-
-    pub(crate) fn from_message_and_timestamp(message: Message, ds_timestamp: TimeStamp) -> Self {
-        Self {
-            message,
-            ds_timestamp,
-        }
-    }
-
-    fn event_message(sender_domain: Fqdn, event_message: String, ds_timestamp: TimeStamp) -> Self {
-        let message = Message::Display(DisplayMessage::new(
-            MessageId::new(sender_domain),
-            DisplayMessageType::System(SystemMessage::new(event_message)),
-        ));
-        Self {
-            message,
-            ds_timestamp,
-        }
-    }
-
     /// Turn a staged commit into a list of messages based on the proposals it
     /// includes. This function doesn't handle removes, because for the creation
     /// of "remove" messages, we need to know the user names of the removed
@@ -1455,7 +1400,7 @@ impl TimestampedMessage {
             } else {
                 format!("{} removed {} from the conversation", remover, removed)
             };
-            TimestampedMessage::event_message(remover.domain(), event_message, ds_timestamp)
+            TimestampedMessage::event_message(event_message, ds_timestamp)
         });
 
         // Collect adder and addee names and filter out duplicates
@@ -1491,7 +1436,7 @@ impl TimestampedMessage {
             } else {
                 format!("{} added {} to the conversation", adder, addee)
             };
-            TimestampedMessage::event_message(adder.domain(), event_message, ds_timestamp)
+            TimestampedMessage::event_message(event_message, ds_timestamp)
         });
 
         let event_messages = remove_messages.chain(add_messages).collect();
@@ -1514,10 +1459,6 @@ impl TimestampedMessage {
             })?;
 
         Ok(event_messages)
-    }
-
-    pub(crate) fn message(&self) -> &Message {
-        &self.message
     }
 }
 

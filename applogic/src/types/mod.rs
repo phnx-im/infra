@@ -5,9 +5,8 @@
 use openmls::group::GroupId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DisplayMessage, DisplayMessageType,
-    ErrorMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
-    SystemMessage,
+    ConversationMessage, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
+    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
 };
 use uuid::Uuid;
 
@@ -177,7 +176,8 @@ impl From<ConversationMessage> for UiConversationMessage {
 #[derive(PartialEq, Debug, Clone)]
 pub enum UiMessage {
     Content(UiContentMessage),
-    Display(UiDisplayMessage),
+    Display(UiEventMessage),
+    Unsent(UiMimiContent),
 }
 
 impl From<Message> for UiMessage {
@@ -186,8 +186,8 @@ impl From<Message> for UiMessage {
             Message::Content(content_message) => {
                 UiMessage::Content(UiContentMessage::from(content_message))
             }
-            Message::Display(display_message) => {
-                UiMessage::Display(UiDisplayMessage::from(display_message))
+            Message::Event(display_message) => {
+                UiMessage::Display(UiEventMessage::from(display_message))
             }
         }
     }
@@ -253,6 +253,7 @@ impl From<MimiContent> for UiMimiContent {
 #[derive(PartialEq, Debug, Clone)]
 pub struct UiContentMessage {
     pub sender: String,
+    pub sent: bool,
     pub content: UiMimiContent,
 }
 
@@ -260,35 +261,23 @@ impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
             sender: content_message.sender().to_string(),
+            sent: content_message.was_sent(),
             content: UiMimiContent::from(content_message.content().clone()),
         }
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct UiDisplayMessage {
-    pub message: UiDisplayMessageType,
-}
-
-impl From<DisplayMessage> for UiDisplayMessage {
-    fn from(display_message: DisplayMessage) -> Self {
-        Self {
-            message: UiDisplayMessageType::from(display_message.message().clone()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum UiDisplayMessageType {
+pub enum UiEventMessage {
     System(UiSystemMessage),
     Error(UiErrorMessage),
 }
 
-impl From<DisplayMessageType> for UiDisplayMessageType {
-    fn from(display_message_type: DisplayMessageType) -> Self {
-        match display_message_type {
-            DisplayMessageType::System(message) => UiDisplayMessageType::System(message.into()),
-            DisplayMessageType::Error(message) => UiDisplayMessageType::Error(message.into()),
+impl From<EventMessage> for UiEventMessage {
+    fn from(event_message: EventMessage) -> Self {
+        match event_message {
+            EventMessage::System(message) => UiEventMessage::System(message.into()),
+            EventMessage::Error(message) => UiEventMessage::Error(message.into()),
         }
     }
 }

@@ -444,6 +444,7 @@ impl TestBackend {
             message.message(),
             &Message::Content(ContentMessage::new(
                 test_sender.user.user_name().to_string(),
+                true,
                 orig_message.clone()
             ))
         );
@@ -464,6 +465,7 @@ impl TestBackend {
                 messages.last().unwrap().message(),
                 &Message::Content(ContentMessage::new(
                     sender_user_name.to_string(),
+                    true,
                     orig_message.clone()
                 ))
             );
@@ -1156,8 +1158,8 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
     display_messages
         .into_iter()
         .filter_map(|m| {
-            if let Message::Display(display_message) = m.message() {
-                if let DisplayMessageType::System(system_message) = display_message.message() {
+            if let Message::Event(event_message) = m.message() {
+                if let EventMessage::System(system_message) = event_message {
                     Some(system_message.message().to_string())
                 } else {
                     None
