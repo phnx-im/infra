@@ -4,8 +4,10 @@
 
 use crate::utils::persistence::PersistenceError;
 
-use super::*;
-
+use openmls::group::{
+    AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
+    MlsGroupStateError, ProcessMessageError, WelcomeError,
+};
 use openmls_memory_keystore::MemoryKeyStoreError;
 use phnxtypes::crypto::DecryptionError;
 use thiserror::Error;

@@ -5,12 +5,9 @@
 use std::ops::Deref;
 
 use anyhow::Result;
-use openmls::{
-    prelude::{
-        CredentialWithKey, CryptoConfig, Extension, Extensions, KeyPackage, LastResortExtension,
-        SignaturePublicKey, UnknownExtension,
-    },
-    versions::ProtocolVersion,
+use openmls::prelude::{
+    CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
+    UnknownExtension,
 };
 use phnxtypes::{
     credentials::EncryptedClientCredential,
@@ -119,7 +116,7 @@ impl MemoryUserKeyStore {
     ) -> Result<AddPackage> {
         let leaf_keys = leaf_key_store.generate(&self.signing_key)?;
         let credential_with_key = CredentialWithKey {
-            credential: leaf_keys.leaf_signing_key().credential().clone().into(),
+            credential: leaf_keys.leaf_signing_key().credential().try_into()?,
             signature_key: leaf_keys
                 .leaf_signing_key()
                 .credential()
@@ -144,10 +141,7 @@ impl MemoryUserKeyStore {
             .leaf_node_capabilities(capabilities)
             .leaf_node_extensions(leaf_node_extensions)
             .build(
-                CryptoConfig {
-                    ciphersuite: CIPHERSUITE,
-                    version: ProtocolVersion::Mls10,
-                },
+                CIPHERSUITE,
                 crypto_backend,
                 leaf_keys.leaf_signing_key(),
                 credential_with_key,

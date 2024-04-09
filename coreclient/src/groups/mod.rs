@@ -13,10 +13,8 @@ use anyhow::{anyhow, bail, Result};
 use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};
 use phnxtypes::{
     credentials::{
-        keys::{
-            ClientSigningKey, InfraCredentialPlaintext, InfraCredentialSigningKey,
-            InfraCredentialTbs,
-        },
+        infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
+        keys::{ClientSigningKey, InfraCredentialSigningKey},
         ClientCredential, EncryptedClientCredential, VerifiableClientCredential,
     },
     crypto::{
@@ -65,7 +63,15 @@ use crate::{
 use std::collections::{BTreeMap, HashSet};
 
 use openmls::{
-    prelude::{tls_codec::Serialize as TlsSerializeTrait, *},
+    prelude::{
+        tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, Credential,
+        CredentialType, CredentialWithKey, Extension, ExtensionType, Extensions, GroupId,
+        HpkePrivateKey, KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut,
+        OpenMlsKeyStore, OpenMlsProvider, ProcessedMessage, ProcessedMessageContent, Proposal,
+        ProposalType, ProtocolMessage, ProtocolVersion, QueuedProposal,
+        RequiredCapabilitiesExtension, Sender, StagedCommit, StagedWelcome, UnknownExtension,
+        PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+    },
     treesync::RatchetTree,
 };
 
@@ -88,7 +94,7 @@ pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 3] = [
 ];
 pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 1] =
     [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
-pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Infra];
+pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Basic];
 
 pub fn default_required_capabilities() -> RequiredCapabilitiesExtension {
     RequiredCapabilitiesExtension::new(
@@ -162,12 +168,7 @@ impl ClientAuthInfo {
     }
 
     pub(super) fn verify_infra_credential(&self, credential: &Credential) -> Result<()> {
-        let serialized_infra_credential =
-            VLBytes::tls_deserialize_exact_bytes(&mut credential.serialized_content()).unwrap();
-
-        let infra_credential =
-            InfraCredential::tls_deserialize_exact_bytes(&serialized_infra_credential.as_ref())
-                .unwrap();
+        let infra_credential = InfraCredential::try_from(credential.clone())?;
 
         // Verify the leaf credential
         let credential_plaintext =
@@ -277,7 +278,7 @@ impl Group {
         let leaf_node_capabilities = default_capabilities();
 
         let credential_with_key = CredentialWithKey {
-            credential: Credential::from(leaf_signer.credential().clone()),
+            credential: Credential::try_from(leaf_signer.credential())?,
             signature_key: leaf_signer.credential().verifying_key().clone(),
         };
         let group_data_extension = Extension::Unknown(
@@ -458,7 +459,7 @@ impl Group {
         // future.
         let mls_group_config = Self::default_mls_group_join_config();
         let credential_with_key = CredentialWithKey {
-            credential: leaf_signer.credential().clone().into(),
+            credential: leaf_signer.credential().try_into()?,
             signature_key: leaf_signer.credential().verifying_key().clone(),
         };
         let ExternalCommitInfoIn {

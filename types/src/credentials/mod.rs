@@ -31,6 +31,7 @@ mod private_mod {
     pub struct Seal;
 }
 
+pub mod infra_credentials;
 pub mod keys;
 
 use self::keys::ClientVerifyingKey;
