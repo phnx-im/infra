@@ -6,7 +6,7 @@
 
 use super::*;
 use mls_assist::{
-    messages::{AssistedGroupInfo, AssistedMessageOut, AssistedWelcome},
+    messages::{AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
         tls_codec::Serialize, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
     },
@@ -355,10 +355,8 @@ impl ApiClient {
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        let external_commit = AssistedMessageOut {
-            mls_message: commit,
-            group_info_option: Some(AssistedGroupInfo::Full(group_info)),
-        };
+        // We unwrap here, because we know that the group_info is present.
+        let external_commit = AssistedMessageOut::new(commit, Some(group_info)).unwrap();
         let payload = JoinConnectionGroupParamsOut {
             sender: signing_key.verifying_key().clone(),
             external_commit,

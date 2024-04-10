@@ -12,16 +12,12 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
-openmls = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-openmls_traits = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-openmls_memory_keystore = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-openmls_basic_credential = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
-mls-assist = { workspace = true }
-tls_codec = { workspace = true }
+openmls_traits = { git = "https://github.com/openmls/openmls" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
+openmls_memory_keystore = { git = "https://github.com/openmls/openmls" }
+openmls_basic_credential = { git = "https://github.com/openmls/openmls" }
 log = "^0.4.14"
 url = "2.2"
-reqwest = { workspace = true }
 base64 = "0.13"
 pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -41,6 +37,12 @@ serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.30", features = ["bundled", "uuid", "chrono"] }
 serde_json = "1"
 hex = { version = "0.4" }
+
+# Workspace dependencies
+mls-assist = { workspace = true }
+tls_codec = { workspace = true }
+openmls = { workspace = true }
+reqwest = { workspace = true }
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

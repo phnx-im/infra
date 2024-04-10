@@ -10,7 +10,7 @@ pub(crate) mod store;
 pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
-use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};
+use mls_assist::messages::AssistedMessageOut;
 use phnxtypes::{
     credentials::{
         infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
@@ -93,7 +93,7 @@ pub const REQUIRED_EXTENSION_TYPES: [ExtensionType; 3] = [
     ExtensionType::LastResort,
 ];
 pub const REQUIRED_PROPOSAL_TYPES: [ProposalType; 1] =
-    [ProposalType::Unknown(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
+    [ProposalType::Custom(FRIENDSHIP_PACKAGE_PROPOSAL_TYPE)];
 pub const REQUIRED_CREDENTIAL_TYPES: [CredentialType; 1] = [CredentialType::Basic];
 
 pub fn default_required_capabilities() -> RequiredCapabilitiesExtension {
@@ -646,7 +646,16 @@ impl Group {
                             bail!("Unsupported sender type.")
                         };
                         // Check if the client has updated its leaf credential.
-                        if let Some(infra_credential) = processed_message.new_credential_option() {
+                        let sender = self
+                            .mls_group
+                            .members()
+                            .find(|m| m.index.usize() == sender_index)
+                            .ok_or(anyhow!("Could not find sender in group members"))?;
+                        let new_sender_credential = staged_commit
+                            .update_path_leaf_node()
+                            .map(|ln| ln.credential())
+                            .ok_or(anyhow!("Could not find sender leaf node"))?;
+                        if new_sender_credential != &sender.credential {
                             // If so, then there has to be a new signature ear key.
                             let Some(encrypted_signature_ear_key) =
                                 update_client_payload.option_encrypted_signature_ear_key
@@ -683,7 +692,7 @@ impl Group {
                                 ClientAuthInfo::new(client_credential, signature_ear_key)
                             };
                             // Verify the leaf credential
-                            client_auth_info.verify_infra_credential(infra_credential)?;
+                            client_auth_info.verify_infra_credential(new_sender_credential)?;
                             diff.update_client_information(sender_index, client_auth_info);
                         };
                         // TODO: Validation:
@@ -890,12 +899,7 @@ impl Group {
         // Groups should always have the flag set that makes them return groupinfos with every Commit.
         // Or at least with Add commits for now.
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
-        // TODO: For now, we use the full group info, as OpenMLS does not yet allow splitting up a group info.
-        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
-        let commit = AssistedMessageOut {
-            mls_message: mls_commit,
-            group_info_option: Some(assisted_group_info),
-        };
+        let commit = AssistedMessageOut::new(mls_commit, Some(group_info.into()))?;
 
         let encrypted_welcome_attribution_infos = wai_keys
             .iter()
@@ -976,11 +980,7 @@ impl Group {
         // There shouldn't be a welcome
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
-        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
-        let commit = AssistedMessageOut {
-            mls_message,
-            group_info_option: Some(assisted_group_info),
-        };
+        let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
 
         let mut diff = GroupDiff::new(&self);
         diff.apply_pending_removes(
@@ -1031,11 +1031,7 @@ impl Group {
         debug_assert!(_welcome_option.is_none());
         let group_info =
             group_info_option.ok_or(anyhow!("No group info after commit operation"))?;
-        let assisted_group_info = AssistedGroupInfo::Full(group_info.into());
-        let commit = AssistedMessageOut {
-            mls_message,
-            group_info_option: Some(assisted_group_info),
-        };
+        let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
 
         let mut diff = GroupDiff::new(&self);
         diff.apply_pending_removes(
@@ -1168,10 +1164,7 @@ impl Group {
             &content.tls_serialize_detached()?,
         )?;
 
-        let message = AssistedMessageOut {
-            mls_message,
-            group_info_option: None,
-        };
+        let message = AssistedMessageOut::new(mls_message, None)?;
 
         let send_message_params = SendMessageParamsOut {
             sender: self.mls_group.own_leaf_index(),
@@ -1265,10 +1258,7 @@ impl Group {
                 .ok_or(anyhow!("No pending commit after commit operation"))?,
         );
         self.pending_diff = Some(diff.stage());
-        let commit = AssistedMessageOut {
-            mls_message,
-            group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
-        };
+        let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
         Ok(UpdateClientParamsOut {
             commit,
             sender: self.mls_group.own_leaf_index(),
@@ -1306,11 +1296,9 @@ impl Group {
         diff.user_auth_key = Some(user_auth_signing_key);
         self.pending_diff = Some(diff.stage());
 
+        let commit = AssistedMessageOut::new(commit, Some(group_info.into()))?;
         let params = UpdateClientParamsOut {
-            commit: AssistedMessageOut {
-                mls_message: commit,
-                group_info_option: Some(AssistedGroupInfo::Full(group_info.into())),
-            },
+            commit,
             sender: self.mls_group.own_leaf_index(),
             new_user_auth_key_option: Some(verifying_key),
         };
@@ -1326,10 +1314,7 @@ impl Group {
         };
         let proposal = self.mls_group.leave_group(provider, &self.leaf_signer)?;
 
-        let assisted_message = AssistedMessageOut {
-            mls_message: proposal,
-            group_info_option: None,
-        };
+        let assisted_message = AssistedMessageOut::new(proposal, None)?;
         let params = SelfRemoveClientParamsOut {
             remove_proposal: assisted_message,
             sender: user_auth_key.verifying_key().hash(),

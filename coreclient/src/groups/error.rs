@@ -4,6 +4,7 @@
 
 use crate::utils::persistence::PersistenceError;
 
+use mls_assist::messages::AssistedMessageError;
 use openmls::group::{
     AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
     MlsGroupStateError, ProcessMessageError, WelcomeError,
@@ -37,4 +38,6 @@ pub enum GroupOperationError {
     TlsCodecError(#[from] tls_codec::Error),
     #[error(transparent)]
     GroupStoreError(#[from] PersistenceError),
+    #[error(transparent)]
+    AssistedMessageError(#[from] AssistedMessageError),
 }
