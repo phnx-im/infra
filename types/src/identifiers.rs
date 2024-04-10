@@ -4,6 +4,7 @@
 
 use std::{
     fmt::{Display, Formatter},
+    hash::Hash,
     str::FromStr,
 };
 
@@ -330,19 +331,16 @@ pub struct QsClientReference {
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Clone,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
+    Debug, Serialize, Deserialize, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq,
 )]
 pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
+}
+
+impl Hash for SealedClientReference {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.ciphertext.kem_output.hash(state);
+    }
 }
 
 impl From<HpkeCiphertext> for SealedClientReference {
