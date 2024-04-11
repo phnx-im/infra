@@ -23,26 +23,21 @@ use phnxtypes::{
 };
 
 use crate::{
-    key_stores::qs_verifying_keys::QsVerifyingKeyStore,
-    users::{
+    clients::{
         api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, user_profile::UserProfile,
     },
+    key_stores::qs_verifying_keys::QsVerifyingKeyStore,
     ConversationId,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+pub(crate) mod client_credentials;
 pub(crate) mod store;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub user_name: UserName,
-    // These should be in the same order as the KeyPackages in the ContactInfos.
-    // TODO: This is a bit brittle, but as far as I can see, there is no way to
-    // otherwise correlate client credentials with KeyPackages. We might want to
-    // change the signature ciphertext in the InfraCredentials to also include
-    // the fingerprint of the ClientCredential s.t. we can correlate them
-    // without verifying every time.
     pub(crate) client_credentials: Vec<ClientCredential>,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,

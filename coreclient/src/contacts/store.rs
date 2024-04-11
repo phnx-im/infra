@@ -5,7 +5,7 @@
 use rusqlite::Connection;
 
 use crate::{
-    users::connection_establishment::FriendshipPackage,
+    clients::connection_establishment::FriendshipPackage,
     utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError, SqlKey},
     ConversationId,
 };

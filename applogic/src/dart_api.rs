@@ -20,7 +20,7 @@ use crate::{
     types::{ConversationIdBytes, UiContact, UiUserProfile},
 };
 use phnxcoreclient::{
-    users::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
+    clients::{process::ProcessQsMessageResult, store::ClientRecord, InfraClient},
     ConversationId, ConversationMessage, MimiContent, NotificationType,
 };
 
@@ -135,7 +135,7 @@ impl UserBuilder {
 type DartNotificationHub = NotificationHub<DartNotifier>;
 
 pub struct RustUser {
-    user: RustOpaque<Arc<Mutex<SelfUser>>>,
+    user: RustOpaque<Arc<Mutex<InfraClient>>>,
     app_state: RustOpaque<AppState>,
     notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
@@ -165,7 +165,7 @@ impl RustUser {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
-        let user = SelfUser::new(&user_name, &password, address, &path).await?;
+        let user = InfraClient::new(&user_name, &password, address, &path).await?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
         let user = Arc::new(Mutex::new(user));
@@ -188,7 +188,7 @@ impl RustUser {
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let as_client_id = client_record.as_client_id;
-        let user = SelfUser::load(as_client_id.clone(), &path)
+        let user = InfraClient::load(as_client_id.clone(), &path)
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(
@@ -528,7 +528,7 @@ impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn send_desktop_os_message_notifications(
         &self,
-        user: &SelfUser,
+        user: &InfraClient,
         conversation_messages: Vec<ConversationMessage>,
     ) -> Result<()> {
         let (summary, body) = match &conversation_messages[..] {
@@ -568,7 +568,7 @@ impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn send_desktop_os_conversation_notifications(
         &self,
-        user: &SelfUser,
+        user: &InfraClient,
         conversations: Vec<ConversationId>,
     ) -> Result<()> {
         let (summary, body) = match conversations[..] {
@@ -602,7 +602,7 @@ impl RustUser {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn send_desktop_os_connection_notifications(
         &self,
-        user: &SelfUser,
+        user: &InfraClient,
         connection_conversations: Vec<ConversationId>,
     ) -> Result<()> {
         let (summary, body) = match connection_conversations[..] {

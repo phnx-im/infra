@@ -4,7 +4,7 @@
 
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    users::user_profile::UserProfile, Contact, ContentMessage, Conversation,
+    clients::user_profile::UserProfile, Contact, ContentMessage, Conversation,
     ConversationAttributes, ConversationId, ConversationMessage, ConversationStatus,
     ConversationType, ErrorMessage, EventMessage, InactiveConversation, Message, MessageId,
     MimiContent, NotificationType, SystemMessage,

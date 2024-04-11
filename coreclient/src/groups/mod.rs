@@ -53,12 +53,12 @@ use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
 use crate::{
+    clients::openmls_provider::PhnxOpenMlsProvider,
     contacts::{store::ContactStore, ContactAddInfos},
     conversations::messages::TimestampedMessage,
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     mimi_content::MimiContent,
-    users::openmls_provider::PhnxOpenMlsProvider,
 };
 use std::collections::{BTreeMap, HashSet};
 

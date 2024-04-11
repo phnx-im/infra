@@ -50,6 +50,10 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
+    clients::{
+        connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
+        user_profile::UserProfile,
+    },
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
     conversations::{
         messages::ConversationMessage,
@@ -61,10 +65,6 @@ use crate::{
         as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore,
         qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
         queue_ratchets::QueueType, MemoryUserKeyStore,
-    },
-    users::{
-        connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
-        user_profile::UserProfile,
     },
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
@@ -98,7 +98,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-pub struct SelfUser {
+pub struct InfraClient {
     sqlite_connection: Connection,
     api_clients: ApiClients,
     pub(crate) _qs_user_id: QsUserId,
@@ -106,7 +106,7 @@ pub struct SelfUser {
     pub(crate) key_store: MemoryUserKeyStore,
 }
 
-impl SelfUser {
+impl InfraClient {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
@@ -196,7 +196,10 @@ impl SelfUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<SelfUser>> {
+    pub async fn load(
+        as_client_id: AsClientId,
+        client_db_path: &str,
+    ) -> Result<Option<InfraClient>> {
         let phnx_db_connection = open_phnx_db(client_db_path)?;
 
         let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;

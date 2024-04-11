@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 
-use phnxcoreclient::{users::SelfUser, ConversationId};
+use phnxcoreclient::{clients::InfraClient, ConversationId};
 use phnxtypes::time::TimeStamp;
 
 use self::mark_as_read_debouncer::MarkAsReadDebouncer;
@@ -19,7 +19,7 @@ pub(crate) mod mark_as_read_debouncer;
 /// Appstate contains only ephemeral data and does not need to be persisted.
 pub(super) struct AppState {
     mark_as_read_debouncers: MarkAsReadDebouncer,
-    user_mutex: Arc<Mutex<SelfUser>>,
+    user_mutex: Arc<Mutex<InfraClient>>,
 }
 
 impl Drop for AppState {
@@ -31,7 +31,7 @@ impl Drop for AppState {
 impl AppState {
     /// Create a new `AppState` with no current conversation and no ongoing
     /// marking of messages as read.
-    pub(super) fn new(user_mutex: Arc<Mutex<SelfUser>>) -> Self {
+    pub(super) fn new(user_mutex: Arc<Mutex<InfraClient>>) -> Self {
         Self {
             mark_as_read_debouncers: MarkAsReadDebouncer::new(),
             user_mutex,

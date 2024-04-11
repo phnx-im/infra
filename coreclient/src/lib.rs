@@ -4,13 +4,13 @@
 
 #[macro_use]
 mod errors;
+pub mod clients;
 mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
 mod mimi_content;
 mod providers;
-pub mod users;
 mod utils;
 
 use std::collections::HashMap;

@@ -4,7 +4,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{users::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
+use phnxcoreclient::{
+    clients::InfraClient, ConversationId, ConversationStatus, ConversationType, *,
+};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, SafeTryInto, UserName},
@@ -16,17 +18,17 @@ use rand_chacha::rand_core::OsRng;
 use super::spawn_app;
 
 pub struct TestUser {
-    pub user: SelfUser,
+    pub user: InfraClient,
 }
 
-impl AsRef<SelfUser> for TestUser {
-    fn as_ref(&self) -> &SelfUser {
+impl AsRef<InfraClient> for TestUser {
+    fn as_ref(&self) -> &InfraClient {
         &self.user
     }
 }
 
-impl AsMut<SelfUser> for TestUser {
-    fn as_mut(&mut self) -> &mut SelfUser {
+impl AsMut<InfraClient> for TestUser {
+    fn as_mut(&mut self) -> &mut InfraClient {
         &mut self.user
     }
 }
@@ -38,9 +40,10 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = SelfUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
-            .await
-            .unwrap();
+        let user =
+            InfraClient::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
+                .await
+                .unwrap();
         Self { user }
     }
 
@@ -54,7 +57,7 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = SelfUser::new(
+        let user = InfraClient::new(
             user_name.clone(),
             &user_name.to_string(),
             server_url,
@@ -65,7 +68,7 @@ impl TestUser {
         Self { user }
     }
 
-    pub fn user(&self) -> &SelfUser {
+    pub fn user(&self) -> &InfraClient {
         &self.user
     }
 }

@@ -11,7 +11,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::users::store::ClientRecord;
+use crate::clients::store::ClientRecord;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
