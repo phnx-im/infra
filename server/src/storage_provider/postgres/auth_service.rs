@@ -23,7 +23,7 @@ use phnxtypes::{
 };
 use privacypass::{
     batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
-    TokenKeyId,
+    TruncatedTokenKeyId,
 };
 use sqlx::{
     types::{BigDecimal, Uuid},
@@ -112,7 +112,7 @@ impl PostgresAsStorage {
 #[async_trait]
 impl BatchedKeyStore for PostgresAsStorage {
     /// Inserts a keypair with a given `token_key_id` into the key store.
-    async fn insert(&self, token_key_id: TokenKeyId, server: VoprfServer<Ristretto255>) {
+    async fn insert(&self, token_key_id: TruncatedTokenKeyId, server: VoprfServer<Ristretto255>) {
         let Ok(server_bytes) = serde_json::to_vec(&server) else {
             return;
         };
@@ -125,7 +125,7 @@ impl BatchedKeyStore for PostgresAsStorage {
         .await;
     }
     /// Returns a keypair with a given `token_key_id` from the key store.
-    async fn get(&self, token_key_id: &TokenKeyId) -> Option<VoprfServer<Ristretto255>> {
+    async fn get(&self, token_key_id: &TruncatedTokenKeyId) -> Option<VoprfServer<Ristretto255>> {
         let server_bytes_record = sqlx::query!(
             "SELECT voprf_server FROM as_batched_keys WHERE token_key_id = $1",
             *token_key_id as i16,

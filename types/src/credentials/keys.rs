@@ -3,29 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::{
-    InfraCredential, Lifetime, OpenMlsProvider, SignaturePublicKey, SignatureScheme,
+    Lifetime, OpenMlsProvider, SignaturePublicKey, SignatureScheme,
 };
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
 use mls_assist::openmls_traits::signatures::{Signer, SignerError};
 use serde::{Deserialize, Serialize};
-use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
+use super::infra_credentials::{InfraCredential, InfraCredentialTbs};
 use super::{AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey};
 
 use crate::crypto::ear::keys::SignatureEarKey;
-use crate::crypto::ear::{Ciphertext, EarDecryptable, EarEncryptable};
+use crate::crypto::ear::EarEncryptable;
 use crate::crypto::signatures::keys::generate_signature_keypair;
-use crate::crypto::signatures::signable::{
-    Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
-};
+use crate::crypto::signatures::signable::Signable;
 use crate::crypto::signatures::traits::{SigningKey, VerifyingKey};
 
 use thiserror::Error;
 
-use super::{private_mod, ClientCredential, PreliminaryClientSigningKey};
+use super::{ClientCredential, PreliminaryClientSigningKey};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsIntermediateSigningKey {
@@ -195,7 +192,7 @@ impl InfraCredentialSigningKey {
         let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
         let tbs = InfraCredentialTbs {
             identity,
-            lifetime: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
+            expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
             signature_scheme: SignatureScheme::ED25519,
             verifying_key: keypair.1.clone().into(),
         };
@@ -203,7 +200,7 @@ impl InfraCredentialSigningKey {
         let encrypted_signature = plaintext_credential.signature.encrypt(ear_key).unwrap();
         let credential = InfraCredential::new(
             plaintext_credential.payload.identity,
-            plaintext_credential.payload.lifetime,
+            plaintext_credential.payload.expiration_data,
             plaintext_credential.payload.signature_scheme,
             plaintext_credential.payload.verifying_key,
             encrypted_signature.tls_serialize_detached().unwrap().into(),
@@ -236,88 +233,6 @@ impl Signer for InfraCredentialSigningKey {
     }
 
     fn signature_scheme(&self) -> SignatureScheme {
-        self.credential.credential_ciphersuite()
-    }
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
-pub struct InfraCredentialPlaintext {
-    pub(crate) payload: InfraCredentialTbs,
-    pub(crate) signature: Signature,
-}
-
-impl InfraCredentialPlaintext {
-    pub fn decrypt(
-        credential: &InfraCredential,
-        ear_key: &SignatureEarKey,
-    ) -> Result<Self, InfraCredentialDecryptionError> {
-        let encrypted_signature =
-            Ciphertext::tls_deserialize_exact_bytes(credential.encrypted_signature().as_slice())?
-                .into();
-        let signature = Signature::decrypt(&ear_key, &encrypted_signature)
-            .map_err(|_| InfraCredentialDecryptionError::SignatureDecryptionError)?;
-        let payload = InfraCredentialTbs {
-            identity: credential.identity().to_vec(),
-            lifetime: credential.expiration_data(),
-            signature_scheme: credential.credential_ciphersuite(),
-            verifying_key: credential.verifying_key().clone(),
-        };
-        Ok(Self { payload, signature })
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum InfraCredentialDecryptionError {
-    #[error(transparent)]
-    DeserializationError(#[from] tls_codec::Error),
-    #[error("Error decrypting signature")]
-    SignatureDecryptionError,
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
-pub struct InfraCredentialTbs {
-    pub(crate) identity: Vec<u8>,
-    pub(crate) lifetime: Lifetime,
-    pub(crate) signature_scheme: SignatureScheme,
-    pub(crate) verifying_key: SignaturePublicKey,
-}
-
-impl Verifiable for InfraCredentialPlaintext {
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.payload.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        "InfraCredential"
-    }
-}
-
-impl VerifiedStruct<InfraCredentialPlaintext> for InfraCredentialTbs {
-    type SealingType = private_mod::Seal;
-
-    fn from_verifiable(verifiable: InfraCredentialPlaintext, _seal: Self::SealingType) -> Self {
-        verifiable.payload
-    }
-}
-
-impl SignedStruct<InfraCredentialTbs> for InfraCredentialPlaintext {
-    fn from_payload(payload: InfraCredentialTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
-
-impl Signable for InfraCredentialTbs {
-    type SignedOutput = InfraCredentialPlaintext;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        "InfraCredential"
+        self.credential.signature_scheme()
     }
 }
