@@ -59,6 +59,7 @@ use crate::{
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     mimi_content::MimiContent,
+    user_profiles::ConversationParticipation,
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -178,7 +179,7 @@ impl ClientAuthInfo {
         Ok(())
     }
 
-    fn client_credential(&self) -> &ClientCredential {
+    pub(super) fn client_credential(&self) -> &ClientCredential {
         &self.client_credential
     }
 
@@ -1086,9 +1087,9 @@ impl Group {
             .collect();
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
 
-        // Compute the messages we want to emit from the staged commit and the
-        // client info diff.
         let event_messages = if let Some(staged_commit) = staged_commit_option {
+            // Compute the messages we want to emit from the staged commit and the
+            // client info diff.
             let staged_commit_messages = TimestampedMessage::from_staged_commit(
                 free_indices.into_iter().chain((highest_index + 1)..),
                 &self.client_information,
@@ -1096,6 +1097,7 @@ impl Group {
                 &staged_commit,
                 ds_timestamp,
             )?;
+
             self.mls_group
                 .merge_staged_commit(provider, staged_commit)?;
             staged_commit_messages

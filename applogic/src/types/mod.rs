@@ -4,11 +4,12 @@
 
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    clients::user_profile::UserProfile, Contact, ContentMessage, Conversation,
-    ConversationAttributes, ConversationId, ConversationMessage, ConversationStatus,
-    ConversationType, ErrorMessage, EventMessage, InactiveConversation, Message, MessageId,
-    MimiContent, NotificationType, SystemMessage,
+    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationMessage, ConversationStatus, ConversationType, DisplayName, ErrorMessage,
+    EventMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
+    SystemMessage, UserProfile,
 };
+use phnxtypes::identifiers::SafeTryInto;
 use uuid::Uuid;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
@@ -332,38 +333,49 @@ impl From<NotificationType> for UiNotificationType {
 #[derive(Debug, Clone)]
 pub struct UiContact {
     pub user_name: String,
-    pub display_name: String,
-    pub avatar: Option<Vec<u8>>,
 }
 
 impl From<Contact> for UiContact {
     fn from(contact: Contact) -> Self {
-        let display_name_string = contact.user_profile().display_name().as_ref().to_string();
         Self {
             user_name: contact.user_name().to_string(),
-            display_name: display_name_string,
-            avatar: contact
-                .user_profile()
-                .profile_picture_option()
-                .and_then(|a| a.value())
-                .map(|a| a.to_vec()),
         }
     }
 }
 
 pub struct UiUserProfile {
-    pub display_name: String,
+    pub user_name: String,
+    pub display_name: Option<String>,
     pub profile_picture_option: Option<Vec<u8>>,
 }
 
 impl From<UserProfile> for UiUserProfile {
     fn from(user_profile: UserProfile) -> Self {
         Self {
-            display_name: user_profile.display_name().as_ref().to_string(),
+            user_name: user_profile.user_name().to_string(),
+            display_name: user_profile.display_name().map(|a| a.to_string()),
             profile_picture_option: user_profile
-                .profile_picture_option()
+                .profile_picture()
                 .and_then(|a| a.value())
                 .map(|a| a.to_vec()),
         }
+    }
+}
+
+impl TryFrom<UiUserProfile> for UserProfile {
+    type Error = anyhow::Error;
+
+    fn try_from(value: UiUserProfile) -> Result<Self, Self::Error> {
+        let user_name = <String as SafeTryInto<_>>::try_into(value.user_name)?;
+        let display_name = value
+            .display_name
+            .map(|a| DisplayName::try_from(a))
+            .transpose()?;
+        let profile_picture_option = value.profile_picture_option.map(|a| Asset::Value(a));
+        Ok(UserProfile::new(
+            user_name,
+            display_name,
+            profile_picture_option,
+        ))
     }
 }

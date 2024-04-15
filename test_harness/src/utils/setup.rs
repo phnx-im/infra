@@ -126,6 +126,11 @@ impl TestBackend {
         self.users.insert(user_name, user);
     }
 
+    pub fn get_user(&self, user_name: impl SafeTryInto<UserName>) -> &TestUser {
+        let user_name = user_name.try_into().unwrap();
+        self.users.get(&user_name).unwrap()
+    }
+
     /// This has the updater commit an update, but without the checks ensuring
     /// that the group state remains unchanged.
     pub async fn commit_to_proposals(

@@ -18,6 +18,8 @@ use self::{
         queue_ratchets::QualifiedSequenceNumber,
     },
     openmls_provider::KeyStoreValue,
+    user_profiles::ConversationParticipation,
+    utils::persistence::{Storable, Triggerable},
 };
 
 use super::{
@@ -79,12 +81,24 @@ impl UserCreationState {
         client_record.persist()?;
 
         let basic_user_data = BasicUserData {
-            as_client_id,
+            as_client_id: as_client_id.clone(),
             server_url: server_url.to_string(),
             password: password.to_string(),
         };
         // Create all required tables in the client db.
         create_all_tables(client_db_connection)?;
+
+        // Create all db triggers.
+        create_all_triggers(client_db_connection)?;
+
+        // Create user profile entry for own user.
+        UserProfile::store_own_user_profile(
+            client_db_connection,
+            as_client_id.user_name(),
+            None,
+            None,
+        )?;
+
         UserCreationState::BasicUserData(basic_user_data).persist(client_db_connection)
     }
 
@@ -286,7 +300,8 @@ impl Persistable for ClientRecord {
 /// function of all structs that implement `Persistable`.
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
-    <UserProfile as Persistable>::create_table(client_db_connection)?;
+    <UserProfile as Storable>::create_table(client_db_connection)?;
+    <ConversationParticipation as Storable>::create_table(client_db_connection)?;
     <Contact as Persistable>::create_table(client_db_connection)?;
     <PartialContact as Persistable>::create_table(client_db_connection)?;
     <Conversation as Persistable>::create_table(client_db_connection)?;
@@ -302,6 +317,14 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <QualifiedSequenceNumber as Persistable>::create_table(client_db_connection)?;
     <UserCreationState as Persistable>::create_table(client_db_connection)?;
     <[u8; 32] as Persistable>::create_table(client_db_connection)?;
+
+    Ok(())
+}
+
+pub(crate) fn create_all_triggers(
+    client_db_connection: &Connection,
+) -> Result<(), rusqlite::Error> {
+    <ConversationParticipation as Triggerable>::create_trigger(client_db_connection)?;
 
     Ok(())
 }

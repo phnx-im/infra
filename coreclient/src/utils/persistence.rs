@@ -393,3 +393,27 @@ fn load_internal<'a, T: Persistable>(
         }
     }
 }
+
+pub(crate) trait Storable {
+    const CREATE_TABLE_STATEMENT: &'static str;
+
+    /// Helper function that creates a table for the given data type.
+    fn create_table(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
+        let mut stmt = conn.prepare(Self::CREATE_TABLE_STATEMENT)?;
+        stmt.execute([])?;
+
+        Ok(())
+    }
+}
+
+pub(crate) trait Triggerable {
+    const CREATE_TRIGGER_STATEMENT: &'static str;
+
+    /// Helper function that creates a trigger for the given data type.
+    fn create_trigger(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
+        let mut stmt = conn.prepare(Self::CREATE_TRIGGER_STATEMENT)?;
+        stmt.execute([])?;
+
+        Ok(())
+    }
+}

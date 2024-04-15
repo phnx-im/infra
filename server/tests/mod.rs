@@ -9,10 +9,10 @@ use std::fs;
 use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
-use phnxcoreclient::{clients::InfraClient, MimiContent};
+use phnxcoreclient::{clients::InfraClient, Asset, DisplayName, MimiContent, UserProfile};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
-use phnxtypes::identifiers::{Fqdn, SafeTryInto};
+use phnxtypes::identifiers::{Fqdn, SafeTryInto, UserName};
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
@@ -113,9 +113,26 @@ async fn remove_from_group() {
     setup
         .invite_to_group(conversation_id, ALICE, vec![BOB, CHARLIE, DAVE])
         .await;
+    // Check that Charlie has a user profile stored for BOB, even though
+    // he hasn't connected with them.
+    let charlie = setup.get_user(CHARLIE);
+    let bob_user_name = SafeTryInto::try_into(BOB).unwrap();
+    let charlie_user_profile_bob = charlie
+        .user
+        .get_user_profile(&bob_user_name)
+        .unwrap()
+        .unwrap();
+    assert!(charlie_user_profile_bob.user_name() == &bob_user_name);
+
     setup
         .remove_from_group(conversation_id, CHARLIE, vec![ALICE, BOB])
-        .await
+        .await;
+
+    // Now that charlie is not in a group with Bob anymore, the user profile
+    // should be removed.
+    let charlie = setup.get_user(CHARLIE);
+    let charlie_user_profile_bob = charlie.user.get_user_profile(&bob_user_name).unwrap();
+    assert!(charlie_user_profile_bob.is_none());
 }
 
 #[actix_rt::test]
@@ -344,69 +361,74 @@ async fn exchange_user_profiles() {
     setup.add_user(ALICE).await;
 
     // Set a user profile for alice
-    let alice_display_name = "4l1c3".to_string();
-    let alice_profile_picture = vec![0u8, 1, 2, 3, 4, 5];
+    let alice_user_name: UserName = SafeTryInto::try_into(ALICE).unwrap();
+    let alice_display_name = DisplayName::try_from("4l1c3".to_string()).unwrap();
+    let alice_profile_picture = Asset::Value(vec![0u8, 1, 2, 3, 4, 5]);
+    let alice_profile = UserProfile::new(
+        alice_user_name.clone(),
+        Some(alice_display_name.clone()),
+        Some(alice_profile_picture.clone()),
+    );
     setup
         .users
-        .get(&SafeTryInto::try_into(ALICE).unwrap())
+        .get(&alice_user_name)
         .unwrap()
         .user
-        .store_user_profile(
-            alice_display_name.clone(),
-            Some(alice_profile_picture.clone()),
-        )
+        .set_own_user_profile(alice_profile)
         .unwrap();
 
     setup.add_user(BOB).await;
 
     // Set a user profile for
-    let bob_display_name = "B0b".to_string();
-    let bob_profile_picture = vec![6u8, 6, 6];
+    let bob_user_name: UserName = SafeTryInto::try_into(BOB).unwrap();
+    let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
+    let bob_profile_picture = Asset::Value(vec![6u8, 6, 6]);
+    let bob_user_profile = UserProfile::new(
+        bob_user_name.clone(),
+        Some(bob_display_name.clone()),
+        Some(bob_profile_picture.clone()),
+    );
     setup
         .users
-        .get(&SafeTryInto::try_into(BOB).unwrap())
+        .get(&bob_user_name)
         .unwrap()
         .user
-        .store_user_profile(bob_display_name.clone(), Some(bob_profile_picture.clone()))
+        .set_own_user_profile(bob_user_profile)
         .unwrap();
 
     setup.connect_users(ALICE, BOB).await;
 
-    let bob_contact = setup
+    let bob_user_profile = setup
         .users
-        .get(&SafeTryInto::try_into(ALICE).unwrap())
+        .get(&alice_user_name)
         .unwrap()
         .user
-        .contacts()
+        .get_user_profile(&bob_user_name)
         .unwrap()
-        .pop()
-        .unwrap()
-        .clone();
+        .unwrap();
 
-    let profile_picture = bob_contact
-        .user_profile()
-        .profile_picture_option()
+    let profile_picture = bob_user_profile
+        .profile_picture()
         .unwrap()
         .clone()
         .value()
         .unwrap()
         .to_vec();
 
-    assert!(profile_picture == bob_profile_picture);
+    assert!(profile_picture.as_slice() == bob_profile_picture.value().unwrap());
 
-    assert!(bob_contact.user_profile().display_name().as_ref() == &bob_display_name);
+    assert!(bob_user_profile.display_name().unwrap() == &bob_display_name);
 
-    let alice_contact = setup
+    let alice_user_profile = setup
         .users
-        .get(&SafeTryInto::try_into(BOB).unwrap())
+        .get(&bob_user_name)
         .unwrap()
         .user
-        .contacts()
+        .get_user_profile(&alice_user_name)
         .unwrap()
-        .pop()
         .unwrap();
 
-    assert!(alice_contact.user_profile().display_name().as_ref() == &alice_display_name);
+    assert!(alice_user_profile.display_name().unwrap() == &alice_display_name);
 }
 
 #[actix_rt::test]

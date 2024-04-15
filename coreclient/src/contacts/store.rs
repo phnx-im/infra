@@ -104,7 +104,7 @@ impl PersistableStruct<'_, PartialContact> {
         // TODO: This should be a transaction
         self.purge()?;
         let payload = Contact {
-            user_name: self.payload.user_name,
+            user_name: self.payload.user_name.clone(),
             client_credentials: vec![client_credential],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
@@ -112,7 +112,6 @@ impl PersistableStruct<'_, PartialContact> {
             client_credential_ear_key: friendship_package.client_credential_ear_key,
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id: self.payload.conversation_id,
-            user_profile: friendship_package.user_profile,
         };
         let persistable_contact =
             PersistableStruct::from_connection_and_payload(self.connection, payload);

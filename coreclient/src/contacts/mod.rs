@@ -23,16 +23,13 @@ use phnxtypes::{
 };
 
 use crate::{
-    clients::{
-        api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, user_profile::UserProfile,
-    },
+    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider},
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
     ConversationId,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-pub(crate) mod client_credentials;
 pub(crate) mod store;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +44,6 @@ pub struct Contact {
     pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
-    pub(crate) user_profile: UserProfile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,10 +112,6 @@ impl Contact {
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
         &self.wai_ear_key
-    }
-
-    pub fn user_profile(&self) -> &UserProfile {
-        &self.user_profile
     }
 }
 

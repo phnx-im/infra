@@ -26,7 +26,7 @@ use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
-use super::user_profile::UserProfile;
+use crate::user_profiles::UserProfile;
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {

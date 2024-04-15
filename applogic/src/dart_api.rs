@@ -21,7 +21,7 @@ use crate::{
 };
 use phnxcoreclient::{
     clients::{process::ProcessQsMessageResult, store::ClientRecord, InfraClient},
-    ConversationId, ConversationMessage, MimiContent, NotificationType,
+    ConversationId, ConversationMessage, MimiContent, NotificationType, UserProfile,
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -367,7 +367,10 @@ impl RustUser {
 
     pub fn get_user_profile(&self) -> Result<UiUserProfile> {
         let user = self.user.lock().unwrap();
-        user.load_user_profile().map(|up| up.into())
+        let user_profile = user
+            .own_user_profile()
+            .map(|up| UiUserProfile::from(up).into())?;
+        Ok(user_profile)
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -443,21 +446,17 @@ impl RustUser {
 
     // TODO: This does not yet send the new user profile to other clients
     #[tokio::main(flavor = "current_thread")]
-    pub async fn set_user_profile(
-        &self,
-        display_name: String,
-        profile_picture_option: Option<Vec<u8>>,
-    ) -> Result<()> {
+    pub async fn set_user_profile(&self, user_profile: UiUserProfile) -> Result<()> {
         let user = self.user.lock().unwrap();
-        user.store_user_profile(display_name, profile_picture_option)
+        let user_profile = UserProfile::try_from(user_profile)?;
+        user.set_own_user_profile(user_profile)?;
+        Ok(())
     }
 
     /// This function is called from the flutter side to mark messages as read.
     ///
     /// The function is debounced and can be called multiple times in quick
-    /// succession. If there is no debouncing currently in progress, this
-    /// function will start a new debouncing process and may take a short while
-    /// to terminate.
+    /// succession.
     pub fn mark_messages_as_read_debounced(
         &self,
         conversation_id: ConversationIdBytes,
