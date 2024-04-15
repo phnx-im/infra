@@ -56,8 +56,9 @@ setup-flutter:
 setup-rust:
 	rustup upgrade
 	cd ../.. ; cargo clean ; cargo update
-	cargo install flutter_rust_bridge_codegen
-	cargo install cargo-expand
+	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	cargo binstall -y flutter_rust_bridge_codegen@1.82.6
+	cargo binstall -y cargo-expand
 
 # coreclient
 
