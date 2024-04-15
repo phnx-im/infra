@@ -59,6 +59,7 @@ use crate::{
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     mimi_content::MimiContent,
     users::openmls_provider::PhnxOpenMlsProvider,
+    SystemMessage,
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -1381,12 +1382,10 @@ impl TimestampedMessage {
             })
             .collect::<Result<HashSet<_>>>()?;
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {
-            let event_message = if remover == removed {
-                format!("{} left the conversation", remover)
-            } else {
-                format!("{} removed {} from the conversation", remover, removed)
-            };
-            TimestampedMessage::event_message(event_message, ds_timestamp)
+            TimestampedMessage::system_message(
+                SystemMessage::Remove(remover, removed),
+                ds_timestamp,
+            )
         });
 
         // Collect adder and addee names and filter out duplicates
@@ -1417,12 +1416,7 @@ impl TimestampedMessage {
             })
             .collect::<Result<HashSet<_>>>()?;
         let add_messages = adds_set.into_iter().map(|(adder, addee)| {
-            let event_message = if adder == addee {
-                format!("{} joined the conversation", adder)
-            } else {
-                format!("{} added {} to the conversation", adder, addee)
-            };
-            TimestampedMessage::event_message(event_message, ds_timestamp)
+            TimestampedMessage::system_message(SystemMessage::Add(adder, addee), ds_timestamp)
         });
 
         let event_messages = remove_messages.chain(add_messages).collect();
