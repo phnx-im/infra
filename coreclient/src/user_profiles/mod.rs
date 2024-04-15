@@ -16,7 +16,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     utils::persistence::{Storable, Triggerable},
-    ConversationId,
+    ConversationId, SystemMessage,
 };
 
 pub(crate) mod clients;
@@ -156,6 +156,26 @@ pub(crate) struct ConversationParticipation {
 }
 
 impl ConversationParticipation {
+    /// Write changes to the user roster of a conversation to the database.
+    pub(crate) fn process_system_messages(
+        connection: &Connection,
+        system_messages: &[SystemMessage],
+    ) -> Result<(), rusqlite::Error> {
+        for system_message in system_messages {
+            match system_message {
+                SystemMessage::UserJoinedConversation(user_name, conversation_id) => {
+                    ConversationParticipation::new(user_name.clone(), conversation_id.clone())
+                        .store(connection)?;
+                }
+                SystemMessage::UserLeftConversation(user_name, conversation_id) => {
+                    ConversationParticipation::new(user_name.clone(), conversation_id.clone())
+                        .delete(connection)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn new(user_name: UserName, conversation_id: ConversationId) -> Self {
         Self {
             user_name,
