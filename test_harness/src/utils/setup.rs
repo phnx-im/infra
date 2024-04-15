@@ -1160,7 +1160,7 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
         .filter_map(|m| {
             if let Message::Event(event_message) = m.message() {
                 if let EventMessage::System(system_message) = event_message {
-                    Some(system_message.message().to_string())
+                    Some(system_message.to_string())
                 } else {
                     None
                 }
