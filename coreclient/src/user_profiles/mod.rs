@@ -7,7 +7,6 @@
 
 use std::fmt::Display;
 
-use openmls::group::StagedCommit;
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
 use serde::{Deserialize, Serialize};

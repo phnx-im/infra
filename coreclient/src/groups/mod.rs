@@ -59,7 +59,6 @@ use crate::{
     groups::client_information::ClientInformationDiff,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     mimi_content::MimiContent,
-    user_profiles::ConversationParticipation,
     SystemMessage,
 };
 use std::collections::{BTreeMap, HashSet};

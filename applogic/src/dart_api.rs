@@ -446,9 +446,18 @@ impl RustUser {
 
     // TODO: This does not yet send the new user profile to other clients
     #[tokio::main(flavor = "current_thread")]
-    pub async fn set_user_profile(&self, user_profile: UiUserProfile) -> Result<()> {
+    pub async fn set_user_profile(
+        &self,
+        display_name: String,
+        profile_picture_option: Option<Vec<u8>>,
+    ) -> Result<()> {
         let user = self.user.lock().unwrap();
-        let user_profile = UserProfile::try_from(user_profile)?;
+        let ui_user_profile = UiUserProfile {
+            display_name: Some(display_name),
+            user_name: self.user_name(),
+            profile_picture_option,
+        };
+        let user_profile = UserProfile::try_from(ui_user_profile)?;
         user.set_own_user_profile(user_profile)?;
         Ok(())
     }
