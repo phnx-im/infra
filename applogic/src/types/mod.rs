@@ -292,7 +292,7 @@ pub struct UiSystemMessage {
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
         Self {
-            message: system_message.message().to_string(),
+            message: system_message.to_string(),
         }
     }
 }

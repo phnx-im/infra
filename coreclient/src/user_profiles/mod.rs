@@ -15,8 +15,9 @@ use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
+    conversations::messages::TimestampedMessage,
     utils::persistence::{Storable, Triggerable},
-    ConversationId, SystemMessage,
+    ConversationId, EventMessage, Message, SystemMessage,
 };
 
 pub(crate) mod clients;
@@ -159,16 +160,20 @@ impl ConversationParticipation {
     /// Write changes to the user roster of a conversation to the database.
     pub(crate) fn process_system_messages(
         connection: &Connection,
-        system_messages: &[SystemMessage],
+        conversation_id: &ConversationId,
+        messages: &[TimestampedMessage],
     ) -> Result<(), rusqlite::Error> {
-        for system_message in system_messages {
+        for message in messages {
+            let Message::Event(EventMessage::System(system_message)) = message.message() else {
+                continue;
+            };
             match system_message {
-                SystemMessage::UserJoinedConversation(user_name, conversation_id) => {
-                    ConversationParticipation::new(user_name.clone(), conversation_id.clone())
+                SystemMessage::Add(_adder, addee) => {
+                    ConversationParticipation::new(addee.clone(), conversation_id.clone())
                         .store(connection)?;
                 }
-                SystemMessage::UserLeftConversation(user_name, conversation_id) => {
-                    ConversationParticipation::new(user_name.clone(), conversation_id.clone())
+                SystemMessage::Remove(_remover, removed) => {
+                    ConversationParticipation::new(removed.clone(), conversation_id.clone())
                         .delete(connection)?;
                 }
             }

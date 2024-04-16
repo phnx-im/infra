@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt::Formatter;
+
 use openmls::framing::ApplicationMessage;
 
 use crate::mimi_content::MimiContent;
@@ -53,12 +55,16 @@ impl TimestampedMessage {
         }
     }
 
-    pub(crate) fn event_message(event_message: String, ds_timestamp: TimeStamp) -> Self {
-        let message = Message::Event(EventMessage::System(SystemMessage::new(event_message)));
+    pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
+        let message = Message::Event(EventMessage::System(system_message));
         Self {
             message,
             timestamp: ds_timestamp,
         }
+    }
+
+    pub(crate) fn message(&self) -> &Message {
+        &self.message
     }
 }
 
@@ -150,7 +156,7 @@ impl Message {
                 }
             },
             Message::Event(event_message) => match &event_message {
-                EventMessage::System(system) => system.message().to_string(),
+                EventMessage::System(system) => system.to_string(),
                 EventMessage::Error(error) => error.message().to_string(),
             },
         }
@@ -193,17 +199,30 @@ pub enum EventMessage {
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct SystemMessage {
-    message: String,
+pub enum SystemMessage {
+    // The first UserName is the adder/remover the second is the added/removed.
+    Add(UserName, UserName),
+    Remove(UserName, UserName),
 }
 
-impl SystemMessage {
-    pub(crate) fn new(message: String) -> Self {
-        Self { message }
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_ref()
+impl Display for SystemMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SystemMessage::Add(adder, added) => {
+                if adder == added {
+                    write!(f, "{} joined the conversation", adder)
+                } else {
+                    write!(f, "{} added {} to the conversation", adder, added)
+                }
+            }
+            SystemMessage::Remove(remover, removed) => {
+                if remover == removed {
+                    write!(f, "{} left the conversation", remover)
+                } else {
+                    write!(f, "{} removed {} from the conversation", remover, removed)
+                }
+            }
+        }
     }
 }
 

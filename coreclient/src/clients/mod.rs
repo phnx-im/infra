@@ -65,7 +65,7 @@ use crate::{
         queue_ratchets::{QueueRatchetStore, QueueType},
         MemoryUserKeyStore,
     },
-    user_profiles::UserProfile,
+    user_profiles::{ConversationParticipation, UserProfile},
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -375,6 +375,13 @@ impl InfraClient {
         // Now that we know the commit went through, we can merge the commit
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -419,6 +426,14 @@ impl InfraClient {
         // Now that we know the commit went through, we can merge the commit
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -697,6 +712,14 @@ impl InfraClient {
             .await?;
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -743,6 +766,14 @@ impl InfraClient {
         } else {
             vec![]
         };
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         conversation.set_inactive(past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -860,6 +891,14 @@ impl InfraClient {
             .await?;
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
