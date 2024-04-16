@@ -19,8 +19,6 @@ use crate::{
     ConversationId, EventMessage, Message, SystemMessage,
 };
 
-pub(crate) mod clients;
-
 /// A user profile contains information about a user, such as their display name
 /// and profile picture.
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
