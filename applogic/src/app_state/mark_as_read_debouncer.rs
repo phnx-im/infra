@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{clients::InfraClient, ConversationId};
+use phnxcoreclient::{clients::SelfUser, ConversationId};
 use phnxtypes::time::TimeStamp;
 
 use std::{
@@ -206,7 +206,7 @@ pub(crate) trait MarkAsRead {
     ) -> Result<()>;
 }
 
-impl MarkAsRead for Arc<Mutex<InfraClient>> {
+impl MarkAsRead for Arc<Mutex<SelfUser>> {
     fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
         &self,
         mark_as_read_data: T,

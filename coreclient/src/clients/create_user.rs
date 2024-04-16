@@ -485,14 +485,14 @@ impl PersistedUserState {
         self,
         connection: Connection,
         api_clients: ApiClients,
-    ) -> InfraClient {
+    ) -> SelfUser {
         let QsRegisteredUserState {
             key_store,
             server_url: _,
             qs_user_id,
             qs_client_id,
         } = self.state;
-        InfraClient {
+        SelfUser {
             sqlite_connection: connection,
             key_store,
             _qs_user_id: qs_user_id,

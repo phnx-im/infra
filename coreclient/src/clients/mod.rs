@@ -96,7 +96,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-pub struct InfraClient {
+pub struct SelfUser {
     sqlite_connection: Connection,
     api_clients: ApiClients,
     pub(crate) _qs_user_id: QsUserId,
@@ -104,7 +104,7 @@ pub struct InfraClient {
     pub(crate) key_store: MemoryUserKeyStore,
 }
 
-impl InfraClient {
+impl SelfUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
@@ -194,10 +194,7 @@ impl InfraClient {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(
-        as_client_id: AsClientId,
-        client_db_path: &str,
-    ) -> Result<Option<InfraClient>> {
+    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<SelfUser>> {
         let phnx_db_connection = open_phnx_db(client_db_path)?;
 
         let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
