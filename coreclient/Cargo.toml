@@ -30,6 +30,7 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
 chrono = "0.4"
+image = "0.25.1"
 
 # Persistence
 async-trait = "0.1"

@@ -4,8 +4,9 @@
 
 mod qs;
 
-use std::fs;
+use std::{fs, io::Cursor};
 
+use image::{ImageBuffer, Rgba};
 use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
@@ -13,6 +14,7 @@ use phnxcoreclient::{clients::SelfUser, Asset, DisplayName, MimiContent, UserPro
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::{Fqdn, SafeTryInto, UserName};
+use png::Encoder;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
@@ -117,11 +119,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(CHARLIE);
     let bob_user_name = SafeTryInto::try_into(BOB).unwrap();
-    let charlie_user_profile_bob = charlie
-        .user
-        .get_user_profile(&bob_user_name)
-        .unwrap()
-        .unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap().unwrap();
     assert!(charlie_user_profile_bob.user_name() == &bob_user_name);
 
     setup
@@ -131,7 +129,7 @@ async fn remove_from_group() {
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be removed.
     let charlie = setup.get_user(CHARLIE);
-    let charlie_user_profile_bob = charlie.user.get_user_profile(&bob_user_name).unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap();
     assert!(charlie_user_profile_bob.is_none());
 }
 
@@ -363,7 +361,32 @@ async fn exchange_user_profiles() {
     // Set a user profile for alice
     let alice_user_name: UserName = SafeTryInto::try_into(ALICE).unwrap();
     let alice_display_name = DisplayName::try_from("4l1c3".to_string()).unwrap();
-    let alice_profile_picture = Asset::Value(vec![0u8, 1, 2, 3, 4, 5]);
+
+    // Create a new ImgBuf with width: 1px and height: 1px
+    let mut img = ImageBuffer::new(200, 200);
+
+    // Put a single pixel in the image
+    img.put_pixel(0, 0, Rgba([0u8, 0u8, 255u8, 255u8])); // Blue pixel
+
+    // A Cursor for in-memory writing of bytes
+    let mut buffer = Cursor::new(Vec::new());
+
+    {
+        // Create a new PNG encoder
+        let mut encoder = Encoder::new(&mut buffer, 200, 200);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+
+        // Encode the image data.
+        writer.write_image_data(&img).unwrap();
+    }
+
+    // Get the PNG data bytes
+    let png_bytes = buffer.into_inner();
+
+    let alice_profile_picture = Asset::Value(png_bytes.clone());
+
     let alice_profile = UserProfile::new(
         alice_user_name.clone(),
         Some(alice_display_name.clone()),
@@ -382,19 +405,19 @@ async fn exchange_user_profiles() {
     // Set a user profile for
     let bob_user_name: UserName = SafeTryInto::try_into(BOB).unwrap();
     let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
-    let bob_profile_picture = Asset::Value(vec![6u8, 6, 6]);
+    let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile::new(
         bob_user_name.clone(),
         Some(bob_display_name.clone()),
         Some(bob_profile_picture.clone()),
     );
-    setup
-        .users
-        .get(&bob_user_name)
-        .unwrap()
-        .user
-        .set_own_user_profile(bob_user_profile)
-        .unwrap();
+
+    let user = &setup.users.get(&bob_user_name).unwrap().user;
+    user.set_own_user_profile(bob_user_profile).unwrap();
+    let new_profile = user.own_user_profile().unwrap();
+    let compressed_profile_picture = match new_profile.profile_picture().unwrap().clone() {
+        Asset::Value(v) => v,
+    };
 
     setup.connect_users(ALICE, BOB).await;
 
@@ -403,7 +426,7 @@ async fn exchange_user_profiles() {
         .get(&alice_user_name)
         .unwrap()
         .user
-        .get_user_profile(&bob_user_name)
+        .user_profile(&bob_user_name)
         .unwrap()
         .unwrap();
 
@@ -415,7 +438,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .to_vec();
 
-    assert!(profile_picture.as_slice() == bob_profile_picture.value().unwrap());
+    assert_eq!(profile_picture, compressed_profile_picture);
 
     assert!(bob_user_profile.display_name().unwrap() == &bob_display_name);
 
@@ -424,11 +447,14 @@ async fn exchange_user_profiles() {
         .get(&bob_user_name)
         .unwrap()
         .user
-        .get_user_profile(&alice_user_name)
+        .user_profile(&alice_user_name)
         .unwrap()
         .unwrap();
 
-    assert!(alice_user_profile.display_name().unwrap() == &alice_display_name);
+    assert_eq!(
+        alice_user_profile.display_name().unwrap(),
+        &alice_display_name
+    );
 }
 
 #[actix_rt::test]

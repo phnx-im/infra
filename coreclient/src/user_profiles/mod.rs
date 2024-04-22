@@ -138,6 +138,14 @@ impl UserProfile {
     pub fn profile_picture(&self) -> Option<&Asset> {
         self.profile_picture_option.as_ref()
     }
+
+    pub fn set_display_name(&mut self, display_name: Option<DisplayName>) {
+        self.display_name_option = display_name;
+    }
+
+    pub fn set_profile_picture(&mut self, profile_picture: Option<Asset>) {
+        self.profile_picture_option = profile_picture;
+    }
 }
 
 impl Storable for UserProfile {
@@ -295,7 +303,9 @@ impl tls_codec::DeserializeBytes for DisplayName {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, PartialEq, Eq,
+)]
 #[repr(u8)]
 pub enum Asset {
     Value(Vec<u8>),

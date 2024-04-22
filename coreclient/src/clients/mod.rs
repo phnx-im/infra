@@ -272,15 +272,22 @@ impl SelfUser {
         Ok(conversation.id())
     }
 
-    pub fn set_own_user_profile(&self, user_profile: UserProfile) -> Result<()> {
+    pub fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
         if user_profile.user_name() != &self.user_name() {
             bail!("Can't set user profile for users other than the current user.",);
+        }
+        if let Some(profile_picture) = user_profile.profile_picture() {
+            let new_image = match profile_picture {
+                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+            };
+            user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
         user_profile.update(&self.sqlite_connection)?;
         Ok(())
     }
 
-    pub fn get_user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
+    /// Get the user profile of the user with the given [`UserName`].
+    pub fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
         let user = UserProfile::load(&self.sqlite_connection, user_name.clone())?;
         Ok(user)
     }
@@ -297,8 +304,26 @@ impl SelfUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        conversation.set_conversation_picture(conversation_picture_option)?;
+        let resized_picture_option = conversation_picture_option
+            .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
+            .flatten();
+        conversation.set_conversation_picture(resized_picture_option)?;
         Ok(())
+    }
+
+    fn resize_image(&self, image_bytes: &[u8]) -> Result<Vec<u8>> {
+        let image = image::load_from_memory(&image_bytes)?;
+        let image = image.resize(100, 100, image::imageops::FilterType::Nearest);
+        let mut buf = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buf);
+        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 75);
+        encoder.encode_image(&image)?;
+        log::info!(
+            "Resized profile picture from {} to {} bytes",
+            image_bytes.len(),
+            buf.len()
+        );
+        Ok(buf)
     }
 
     /// Invite users to an existing conversation.
@@ -909,6 +934,15 @@ impl SelfUser {
         })
     }
 
+    pub fn contact(&self, user_name: &UserName) -> Option<Contact> {
+        let contact_store = self.contact_store();
+        contact_store
+            .get(user_name)
+            .map(|c| c.map(|c| c.convert_for_export()))
+            .ok()
+            .flatten()
+    }
+
     pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
         let contact_store = self.contact_store();
         contact_store.get_all_partial_contacts().map(|cs| {
@@ -1022,6 +1056,7 @@ impl SelfUser {
         self.api_clients.clone()
     }
 
+    /// Returns the user profile of this [`SelfUser`].
     pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
         UserProfile::load(&self.sqlite_connection, self.user_name())
             // We unwrap here, because we know that the user exists.
