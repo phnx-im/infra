@@ -303,7 +303,9 @@ impl tls_codec::DeserializeBytes for DisplayName {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, PartialEq, Eq,
+)]
 #[repr(u8)]
 pub enum Asset {
     Value(Vec<u8>),
