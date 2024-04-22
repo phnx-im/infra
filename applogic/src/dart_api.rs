@@ -676,7 +676,7 @@ impl RustUser {
     }
 }
 
-pub async fn start_server(domain: String) -> Result<(), std::io::Error> {
+pub async fn start_server(domain: String) -> Result<()> {
     // Fix address and port for now.
     let address = format!("0.0.0.0:8080",);
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
@@ -708,5 +708,7 @@ pub async fn start_server(domain: String) -> Result<(), std::io::Error> {
         qs_connector,
         network_provider,
     )?
-    .await
+    .await?;
+
+    Ok(())
 }
