@@ -287,6 +287,24 @@ impl SelfUser {
         display_name: String,
         profile_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
+        // Resize the image to a maximum of 100x100 pixels
+        let profile_picture_option = profile_picture_option
+            .map(|image_bytes| {
+                let image = image::load_from_memory(&image_bytes)?;
+                let image = image.resize(100, 100, image::imageops::FilterType::Nearest);
+                let mut buf = Vec::new();
+                let mut cursor = std::io::Cursor::new(&mut buf);
+                let mut encoder =
+                    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 75);
+                encoder.encode_image(&image)?;
+                log::info!(
+                    "Resized profile picture from {} to {} bytes",
+                    image_bytes.len(),
+                    buf.len()
+                );
+                Ok(buf)
+            })
+            .and_then(|result: Result<_>| result.ok());
         let user_profile = UserProfile::new(display_name, profile_picture_option);
 
         let user_profile_store = self.user_profile_store();
@@ -873,6 +891,15 @@ impl SelfUser {
                 .map(|c| c.convert_for_export())
                 .collect::<Vec<_>>()
         })
+    }
+
+    pub fn contact(&self, user_name: &UserName) -> Option<Contact> {
+        let contact_store = self.contact_store();
+        contact_store
+            .get(user_name)
+            .map(|c| c.map(|c| c.convert_for_export()))
+            .ok()
+            .flatten()
     }
 
     pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
