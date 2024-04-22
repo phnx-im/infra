@@ -119,11 +119,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(CHARLIE);
     let bob_user_name = SafeTryInto::try_into(BOB).unwrap();
-    let charlie_user_profile_bob = charlie
-        .user
-        .get_user_profile(&bob_user_name)
-        .unwrap()
-        .unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap().unwrap();
     assert!(charlie_user_profile_bob.user_name() == &bob_user_name);
 
     setup
@@ -133,7 +129,7 @@ async fn remove_from_group() {
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be removed.
     let charlie = setup.get_user(CHARLIE);
-    let charlie_user_profile_bob = charlie.user.get_user_profile(&bob_user_name).unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap();
     assert!(charlie_user_profile_bob.is_none());
 }
 
@@ -430,7 +426,7 @@ async fn exchange_user_profiles() {
         .get(&alice_user_name)
         .unwrap()
         .user
-        .get_user_profile(&bob_user_name)
+        .user_profile(&bob_user_name)
         .unwrap()
         .unwrap();
 
@@ -451,7 +447,7 @@ async fn exchange_user_profiles() {
         .get(&bob_user_name)
         .unwrap()
         .user
-        .get_user_profile(&alice_user_name)
+        .user_profile(&alice_user_name)
         .unwrap()
         .unwrap();
 
