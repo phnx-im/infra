@@ -23,10 +23,8 @@ use phnxtypes::{
 };
 
 use crate::{
+    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider},
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
-    users::{
-        api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, user_profile::UserProfile,
-    },
     ConversationId,
 };
 use anyhow::Result;
@@ -37,12 +35,6 @@ pub(crate) mod store;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub user_name: UserName,
-    // These should be in the same order as the KeyPackages in the ContactInfos.
-    // TODO: This is a bit brittle, but as far as I can see, there is no way to
-    // otherwise correlate client credentials with KeyPackages. We might want to
-    // change the signature ciphertext in the InfraCredentials to also include
-    // the fingerprint of the ClientCredential s.t. we can correlate them
-    // without verifying every time.
     pub(crate) client_credentials: Vec<ClientCredential>,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
@@ -52,7 +44,6 @@ pub struct Contact {
     pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
-    pub(crate) user_profile: UserProfile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,10 +112,6 @@ impl Contact {
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
         &self.wai_ear_key
-    }
-
-    pub fn user_profile(&self) -> &UserProfile {
-        &self.user_profile
     }
 }
 

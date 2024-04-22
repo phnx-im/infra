@@ -62,6 +62,10 @@ impl TimestampedMessage {
             timestamp: ds_timestamp,
         }
     }
+
+    pub(crate) fn message(&self) -> &Message {
+        &self.message
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]

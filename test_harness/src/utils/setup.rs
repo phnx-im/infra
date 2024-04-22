@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{users::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
+use phnxcoreclient::{clients::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, SafeTryInto, UserName},
@@ -121,6 +121,11 @@ impl TestBackend {
         tracing::info!("Creating {user_name}");
         let user = TestUser::new(&user_name, self.url()).await;
         self.users.insert(user_name, user);
+    }
+
+    pub fn get_user(&self, user_name: impl SafeTryInto<UserName>) -> &TestUser {
+        let user_name = user_name.try_into().unwrap();
+        self.users.get(&user_name).unwrap()
     }
 
     /// This has the updater commit an update, but without the checks ensuring

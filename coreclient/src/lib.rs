@@ -4,13 +4,14 @@
 
 #[macro_use]
 mod errors;
+pub mod clients;
 mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
 mod mimi_content;
 mod providers;
-pub mod users;
+mod user_profiles;
 mod utils;
 
 use std::collections::HashMap;
@@ -28,6 +29,7 @@ pub use crate::{
         InactiveConversation,
     },
     mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
+    user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
 };
 
 pub use crate::utils::persistence::delete_databases;

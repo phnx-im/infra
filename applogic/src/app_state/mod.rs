@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 
-use phnxcoreclient::{users::SelfUser, ConversationId};
+use phnxcoreclient::{clients::SelfUser, ConversationId};
 use phnxtypes::time::TimeStamp;
 
 use self::mark_as_read_debouncer::MarkAsReadDebouncer;
