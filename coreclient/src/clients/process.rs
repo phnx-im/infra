@@ -20,7 +20,7 @@ use tls_codec::DeserializeBytes;
 
 use crate::conversations::ConversationType;
 
-use self::user_profile::Asset;
+use self::user_profiles::Asset;
 
 use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
@@ -91,6 +91,15 @@ impl SelfUser {
                 let conversation_store = self.conversation_store();
                 let conversation =
                     conversation_store.create_group_conversation(group_id.clone(), attributes)?;
+
+                // Store the user profiles of the group members if they don't
+                // exist yet.
+                group.members().into_iter().try_for_each(|user_name| {
+                    UserProfile::new(user_name, None, None).register_as_conversation_participant(
+                        &self.sqlite_connection,
+                        conversation.id(),
+                    )
+                })?;
 
                 ProcessQsMessageResult::ConversationId(conversation.id())
             }
@@ -231,18 +240,25 @@ impl SelfUser {
                                 };
                                 add_infos.push(add_info);
                             }
+
+                            // Update the user profile of the sender.
+                            friendship_package
+                                .user_profile
+                                .update(&self.sqlite_connection)?;
+
                             // Set the picture of the conversation to the one of the contact.
                             let conversation_picture_option = friendship_package
                                 .user_profile
-                                .profile_picture_option()
+                                .profile_picture()
                                 .map(|asset| match asset {
                                     Asset::Value(value) => value.to_owned(),
                                 });
+
                             conversation.set_conversation_picture(conversation_picture_option)?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact
                                 .mark_as_complete(friendship_package, sender_credential.clone())?;
-                            // Finally, we can turn the conversation type to a full connection group
+
                             conversation.confirm()?;
                         }
                         // If we were removed, we set the group to inactive.
@@ -318,10 +334,7 @@ impl SelfUser {
                 let esek = signature_ear_key
                     .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
 
-                let user_profile = self
-                    .user_profile_store()
-                    .get()?
-                    .unwrap_or_else(|| UserProfile::from(self.user_name()));
+                let own_user_profile = self.own_user_profile()?;
 
                 let encrypted_friendship_package = FriendshipPackage {
                     friendship_token: self.key_store.friendship_token.clone(),
@@ -332,7 +345,7 @@ impl SelfUser {
                         .signature_ear_key_wrapper_key
                         .clone(),
                     wai_ear_key: self.key_store.wai_ear_key.clone(),
-                    user_profile,
+                    user_profile: own_user_profile,
                 }
                 .encrypt(&cep_tbs.friendship_package_ear_key)?;
                 let ecc = self
@@ -379,7 +392,7 @@ impl SelfUser {
                 let conversation_picture_option = cep_tbs
                     .friendship_package
                     .user_profile
-                    .profile_picture_option()
+                    .profile_picture()
                     .map(|asset| match asset {
                         Asset::Value(value) => value.to_owned(),
                     });
@@ -388,6 +401,14 @@ impl SelfUser {
                     user_name.clone(),
                     ConversationAttributes::new(user_name.to_string(), conversation_picture_option),
                 )?;
+                // Store the user profile of the sender.
+                cep_tbs
+                    .friendship_package
+                    .user_profile
+                    .register_as_conversation_participant(
+                        &self.sqlite_connection,
+                        conversation.id(),
+                    )?;
                 // TODO: For now, we automatically confirm conversations.
                 conversation.confirm()?;
                 let contact_store = self.contact_store();

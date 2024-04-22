@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{users::SelfUser, ConversationId};
+use phnxcoreclient::{clients::SelfUser, ConversationId};
 use phnxtypes::time::TimeStamp;
 
 use std::{

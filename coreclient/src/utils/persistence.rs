@@ -11,7 +11,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::users::store::ClientRecord;
+use crate::clients::store::ClientRecord;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
@@ -391,5 +391,29 @@ fn load_internal<'a, T: Persistable>(
             statement_str.push_str(" WHERE primary_key = ? AND secondary_key = ?");
             finalize_query(params![pk.to_sql_key(), sk.to_sql_key()], statement_str)
         }
+    }
+}
+
+pub(crate) trait Storable {
+    const CREATE_TABLE_STATEMENT: &'static str;
+
+    /// Helper function that creates a table for the given data type.
+    fn create_table(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
+        let mut stmt = conn.prepare(Self::CREATE_TABLE_STATEMENT)?;
+        stmt.execute([])?;
+
+        Ok(())
+    }
+}
+
+pub(crate) trait Triggerable {
+    const CREATE_TRIGGER_STATEMENT: &'static str;
+
+    /// Helper function that creates a trigger for the given data type.
+    fn create_trigger(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
+        let mut stmt = conn.prepare(Self::CREATE_TRIGGER_STATEMENT)?;
+        stmt.execute([])?;
+
+        Ok(())
     }
 }

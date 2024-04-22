@@ -24,8 +24,8 @@ use phnxtypes::{
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
+    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, CIPHERSUITE},
     groups::default_capabilities,
-    users::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, CIPHERSUITE},
     utils::persistence::{DataType, Persistable, PersistenceError},
 };
 

@@ -50,6 +50,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
+    clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
     conversations::{
         messages::ConversationMessage,
@@ -58,14 +59,13 @@ use crate::{
     },
     groups::store::GroupStore,
     key_stores::{
-        as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore,
-        qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
-        queue_ratchets::QueueType, MemoryUserKeyStore,
+        as_credentials::AsCredentialStore,
+        leaf_keys::LeafKeyStore,
+        qs_verifying_keys::QsVerifyingKeyStore,
+        queue_ratchets::{QueueRatchetStore, QueueType},
+        MemoryUserKeyStore,
     },
-    users::{
-        connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
-        user_profile::UserProfile,
-    },
+    user_profiles::{ConversationParticipation, UserProfile},
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -76,7 +76,6 @@ use self::{
     mimi_content::MimiContent,
     openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
-    user_profile::UserProfileStore,
 };
 
 use super::*;
@@ -89,7 +88,6 @@ pub mod process;
 pub mod store;
 #[cfg(test)]
 mod tests;
-pub mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -274,24 +272,17 @@ impl SelfUser {
         Ok(conversation.id())
     }
 
-    pub fn load_user_profile(&self) -> Result<UserProfile> {
-        let user_profile_store = self.user_profile_store();
-        user_profile_store
-            .get()?
-            .ok_or(anyhow!("No user profile found"))
+    pub fn set_own_user_profile(&self, user_profile: UserProfile) -> Result<()> {
+        if user_profile.user_name() != &self.user_name() {
+            bail!("Can't set user profile for users other than the current user.",);
+        }
+        user_profile.update(&self.sqlite_connection)?;
+        Ok(())
     }
 
-    /// Store the user profile in the DB.
-    pub fn store_user_profile(
-        &self,
-        display_name: String,
-        profile_picture_option: Option<Vec<u8>>,
-    ) -> Result<()> {
-        let user_profile = UserProfile::new(display_name, profile_picture_option);
-
-        let user_profile_store = self.user_profile_store();
-        user_profile_store.store(user_profile)?;
-        Ok(())
+    pub fn get_user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
+        let user = UserProfile::load(&self.sqlite_connection, user_name.clone())?;
+        Ok(user)
     }
 
     pub fn set_conversation_picture(
@@ -381,6 +372,13 @@ impl SelfUser {
         // Now that we know the commit went through, we can merge the commit
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -425,6 +423,14 @@ impl SelfUser {
         // Now that we know the commit went through, we can merge the commit
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -584,10 +590,8 @@ impl SelfUser {
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
-        let user_profile = self
-            .user_profile_store()
-            .get()?
-            .unwrap_or(UserProfile::from(self.user_name()));
+
+        let own_user_profile = self.own_user_profile()?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.key_store.friendship_token.clone(),
@@ -595,7 +599,7 @@ impl SelfUser {
             client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
             signature_ear_key_wrapper_key: self.key_store.signature_ear_key_wrapper_key.clone(),
             wai_ear_key: self.key_store.wai_ear_key.clone(),
-            user_profile,
+            user_profile: own_user_profile,
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
@@ -648,6 +652,12 @@ impl SelfUser {
             friendship_package_ear_key,
         )?;
 
+        // Store the user profile of the partial contact (we don't have a
+        // display name or a profile picture yet)
+        let new_user_profile = UserProfile::new(user_name, None, None);
+        new_user_profile
+            .register_as_conversation_participant(&self.sqlite_connection, conversation.id())?;
+
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
             let ciphertext = connection_establishment_package.encrypt(
@@ -699,6 +709,14 @@ impl SelfUser {
             .await?;
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -745,6 +763,14 @@ impl SelfUser {
         } else {
             vec![]
         };
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         conversation.set_inactive(past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -862,6 +888,14 @@ impl SelfUser {
             .await?;
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -988,6 +1022,12 @@ impl SelfUser {
         self.api_clients.clone()
     }
 
+    pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
+        UserProfile::load(&self.sqlite_connection, self.user_name())
+            // We unwrap here, because we know that the user exists.
+            .map(|user_option| user_option.unwrap())
+    }
+
     fn conversation_store(&self) -> ConversationStore<'_> {
         (&self.sqlite_connection).into()
     }
@@ -1017,10 +1057,6 @@ impl SelfUser {
     }
 
     fn leaf_key_store(&self) -> LeafKeyStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
-    fn user_profile_store(&self) -> UserProfileStore<'_> {
         (&self.sqlite_connection).into()
     }
 
