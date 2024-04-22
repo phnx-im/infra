@@ -676,6 +676,7 @@ impl RustUser {
     }
 }
 
+#[tokio::main(flavor = "current_thread")]
 pub async fn start_server(domain: String) -> Result<()> {
     // Fix address and port for now.
     let address = format!("0.0.0.0:8080",);
