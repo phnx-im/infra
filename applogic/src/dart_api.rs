@@ -2,13 +2,28 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::{Arc, Mutex};
+use std::{
+    net::TcpListener,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
+use openmls::prelude::SignatureScheme;
 use phnxapiclient::qs_api::ws::WsEvent;
+use phnxserver::{
+    endpoints::qs::ws::DispatchWebsocketNotifier,
+    network_provider::MockNetworkProvider,
+    run,
+    storage_provider::memory::{
+        auth_service::{EphemeralAsStorage, MemoryAsStorage},
+        ds::MemoryDsStorage,
+        qs::MemStorageProvider,
+        qs_connector::MemoryEnqueueProvider,
+    },
+};
 use phnxtypes::{
-    identifiers::{SafeTryInto, UserName},
+    identifiers::{Fqdn, SafeTryInto, UserName},
     messages::client_ds::QsWsMessage,
     time::TimeStamp,
 };
@@ -648,4 +663,39 @@ impl RustUser {
 
         Ok(())
     }
+}
+
+pub async fn start_server(domain: String) -> Result<(), std::io::Error> {
+    // Fix address and port for now.
+    let address = format!("0.0.0.0:8080",);
+    let listener = TcpListener::bind(address).expect("Failed to bind to port.");
+    let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
+    let network_provider = MockNetworkProvider::new();
+
+    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+
+    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
+
+    let as_storage_provider = MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519)
+        .expect("Failed to connect to database.");
+    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
+    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let qs_connector = MemoryEnqueueProvider {
+        storage: qs_storage_provider.clone(),
+        notifier: ws_dispatch_notifier.clone(),
+        network: network_provider.clone(),
+    };
+
+    // Start the server
+    run(
+        listener,
+        ws_dispatch_notifier,
+        ds_storage_provider,
+        qs_storage_provider,
+        as_storage_provider,
+        as_ephemeral_storage_provider,
+        qs_connector,
+        network_provider,
+    )?
+    .await
 }
