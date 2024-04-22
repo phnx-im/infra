@@ -380,7 +380,18 @@ impl RustUser {
             .collect()
     }
 
-    pub fn get_user_profile(&self) -> Result<UiUserProfile> {
+    /// Get the user profile of the user with the given [`UserName`].
+    pub fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
+        let user = self.user.lock().unwrap();
+        let user_name = SafeTryInto::try_into(user_name)?;
+        let user_profile = user
+            .user_profile(&user_name)?
+            .map(|up| UiUserProfile::from(up).into());
+        Ok(user_profile)
+    }
+
+    /// Get the own user profile.
+    pub fn own_user_profile(&self) -> Result<UiUserProfile> {
         let user = self.user.lock().unwrap();
         let user_profile = user
             .own_user_profile()
