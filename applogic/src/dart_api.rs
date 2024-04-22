@@ -365,6 +365,12 @@ impl RustUser {
             .collect()
     }
 
+    pub fn contact(&self, user_name: String) -> Option<UiContact> {
+        let user = self.user.lock().unwrap();
+        let user_name = <String as SafeTryInto<UserName>>::try_into(user_name).unwrap();
+        user.contact(&user_name).map(|c| c.into())
+    }
+
     /// Get the user profile of the user with the given [`UserName`].
     pub fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
         let user = self.user.lock().unwrap();
