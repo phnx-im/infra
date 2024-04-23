@@ -12,7 +12,10 @@ use rusqlite::Transaction;
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
 
 use self::{
-    groups::Group,
+    groups::{
+        client_auth_info::{ClientAuthInfo, GroupMembership},
+        Group,
+    },
     key_stores::{
         leaf_keys::LeafKeys, qs_verifying_keys::QualifiedQsVerifyingKey,
         queue_ratchets::QualifiedSequenceNumber,
@@ -302,6 +305,8 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
     <ConversationParticipation as Storable>::create_table(client_db_connection)?;
+    <ClientAuthInfo as Storable>::create_table(client_db_connection)?;
+    <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Persistable>::create_table(client_db_connection)?;
     <PartialContact as Persistable>::create_table(client_db_connection)?;
     <Conversation as Persistable>::create_table(client_db_connection)?;
@@ -325,6 +330,7 @@ pub(crate) fn create_all_triggers(
     client_db_connection: &Connection,
 ) -> Result<(), rusqlite::Error> {
     <ConversationParticipation as Triggerable>::create_trigger(client_db_connection)?;
+    <GroupMembership as Triggerable>::create_trigger(client_db_connection)?;
 
     Ok(())
 }

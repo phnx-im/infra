@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub(crate) mod client_auth_info;
 pub(crate) mod client_information;
 pub(crate) mod diff;
 pub(crate) mod error;
@@ -122,72 +123,6 @@ pub fn default_capabilities() -> Capabilities {
     )
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ClientAuthInfo {
-    client_credential: ClientCredential,
-    signature_ear_key: SignatureEarKey,
-}
-
-impl ClientAuthInfo {
-    fn new(client_credential: ClientCredential, signature_ear_key: SignatureEarKey) -> Self {
-        Self {
-            client_credential,
-            signature_ear_key,
-        }
-    }
-
-    pub(super) async fn decrypt_and_verify_all(
-        ear_key: &ClientCredentialEarKey,
-        wrapper_key: &SignatureEarKeyWrapperKey,
-        as_credential_store: &AsCredentialStore<'_>,
-        encrypted_client_information: impl IntoIterator<
-            Item = (EncryptedClientCredential, EncryptedSignatureEarKey),
-        >,
-    ) -> Result<Vec<Self>> {
-        let mut client_auth_infos = Vec::new();
-        for ctxt in encrypted_client_information.into_iter() {
-            let client_info =
-                Self::decrypt_and_verify(ear_key, wrapper_key, as_credential_store, ctxt).await?;
-            client_auth_infos.push(client_info);
-        }
-        Ok(client_auth_infos)
-    }
-
-    pub(super) async fn decrypt_and_verify(
-        ear_key: &ClientCredentialEarKey,
-        wrapper_key: &SignatureEarKeyWrapperKey,
-        as_credential_store: &AsCredentialStore<'_>,
-        (ecc, esek): (EncryptedClientCredential, EncryptedSignatureEarKey),
-    ) -> Result<Self> {
-        let client_credential =
-            decrypt_and_verify_client_credential(as_credential_store, ear_key, &ecc).await?;
-        let signature_ear_key = SignatureEarKey::decrypt(wrapper_key, &esek)?;
-        Ok(Self {
-            client_credential,
-            signature_ear_key,
-        })
-    }
-
-    pub(super) fn verify_infra_credential(&self, credential: &Credential) -> Result<()> {
-        let infra_credential = InfraCredential::try_from(credential.clone())?;
-
-        // Verify the leaf credential
-        let credential_plaintext =
-            InfraCredentialPlaintext::decrypt(&infra_credential, self.signature_ear_key())?;
-        credential_plaintext
-            .verify::<InfraCredentialTbs>(self.client_credential().verifying_key())?;
-        Ok(())
-    }
-
-    pub(super) fn client_credential(&self) -> &ClientCredential {
-        &self.client_credential
-    }
-
-    fn signature_ear_key(&self) -> &SignatureEarKey {
-        &self.signature_ear_key
-    }
-}
-
 pub(crate) struct PartialCreateGroupParams {
     group_id: GroupId,
     ratchet_tree: RatchetTree,
@@ -240,7 +175,6 @@ pub(crate) struct Group {
     // This needs to be set after initially joining a group.
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
-    client_information: ClientInformation<ClientAuthInfo>,
     pending_diff: Option<StagedGroupDiff>,
 }
 
