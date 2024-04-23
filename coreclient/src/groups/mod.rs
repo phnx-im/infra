@@ -50,6 +50,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
@@ -78,6 +79,7 @@ use openmls::{
 };
 
 use self::{
+    client_auth_info::{ClientAuthInfo, GroupMembership},
     client_information::{ClientInformation, StagedClientInformationDiff},
     diff::{GroupDiff, StagedGroupDiff},
 };
@@ -196,6 +198,7 @@ impl Group {
     /// Create a group.
     fn create_group(
         provider: &impl OpenMlsProvider,
+        connection: &Connection,
         signer: &ClientSigningKey,
         group_id: GroupId,
         group_data: GroupData,
@@ -245,6 +248,14 @@ impl Group {
             encrypted_signature_ear_key,
         };
 
+        GroupMembership::new(
+            signer.credential().identity(),
+            group_id.clone(),
+            LeafNodeIndex::new(0), // We just created the group so we're at index 0.
+            signature_ear_key,
+        )
+        .store(connection);
+
         let group = Self {
             group_id: group_id.into(),
             leaf_signer,
@@ -253,10 +264,6 @@ impl Group {
             credential_ear_key,
             group_state_ear_key: group_state_ear_key.clone(),
             user_auth_signing_key_option: Some(user_auth_key),
-            client_information: ClientInformation::new(ClientAuthInfo::new(
-                signer.credential().clone(),
-                signature_ear_key,
-            )),
             pending_diff: None,
         };
 
@@ -270,6 +277,7 @@ impl Group {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
+        connection: &Connection,
         leaf_key_store: LeafKeyStore<'_>,
         as_credential_store: AsCredentialStore<'_>,
         contact_store: ContactStore<'_>,
@@ -330,7 +338,8 @@ impl Group {
         let welcome_attribution_info: WelcomeAttributionInfoPayload =
             verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
 
-        let client_information = ClientInformation::decrypt_and_verify(
+        let client_information = ClientAuthInfo::decrypt_and_verify(
+            mls_group.group_id(),
             welcome_attribution_info.client_credential_encryption_key(),
             welcome_attribution_info.signature_ear_key_wrapper_key(),
             &as_credential_store,
@@ -344,8 +353,9 @@ impl Group {
             .signature_key();
 
         // Decrypt and verify the infra credentials.
-        for (m, (_, client_auth_info)) in mls_group.members().zip(client_information.iter()) {
+        for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
+            client_auth_info.store(&connection)?;
         }
 
         let leaf_keys = leaf_key_store
@@ -369,7 +379,6 @@ impl Group {
             group_state_ear_key: joiner_info.group_state_ear_key,
             // This one needs to be rolled fresh.
             user_auth_signing_key_option: None,
-            client_information,
             pending_diff: None,
         };
 

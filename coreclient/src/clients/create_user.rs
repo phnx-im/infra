@@ -18,7 +18,7 @@ use phnxtypes::{
 };
 use rand_chacha::rand_core::OsRng;
 
-use self::groups::client_auth_info::ClientAuthInfo;
+use self::groups::client_auth_info::StorableClientCredential;
 
 use super::{openmls_provider::PersistableSeed, *};
 
@@ -213,6 +213,10 @@ impl PostRegistrationInitState {
             .verify(as_intermediate_credential.verifying_key())?;
         let signing_key = ClientSigningKey::from_prelim_key(prelim_signing_key, client_credential)?;
 
+        // Store the own client credential in the DB
+        let own_client_auth_info =
+            StorableClientCredential::new(client_credential.clone()).store(connection)?;
+
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
         let queue_ratchet_store = QueueRatchetStore::from(connection);
@@ -235,11 +239,6 @@ impl PostRegistrationInitState {
         let push_token_ear_key = PushTokenEarKey::random()?;
 
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
-
-        // Store the own client auth info in the DB
-        let own_client_auth_info =
-            ClientAuthInfo::new(client_credential.clone(), client_credential_ear_key)
-                .store(connection)?;
 
         let key_store = MemoryUserKeyStore {
             signing_key,

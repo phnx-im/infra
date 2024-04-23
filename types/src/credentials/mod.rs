@@ -61,9 +61,10 @@ impl std::fmt::Display for CredentialFingerprint {
 
 impl CredentialFingerprint {
     fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
+        let hash_label = format!("Infra Credential Fingerprint {}", label);
         let rust_crypto = OpenMlsRustCrypto::default();
         let payload = credential.tls_serialize_detached().unwrap_or_default();
-        let input = [label.as_bytes().to_vec(), payload].concat();
+        let input = [hash_label.as_bytes().to_vec(), payload].concat();
         let value = rust_crypto
             .crypto()
             .hash(HashType::Sha2_256, &input)
@@ -450,6 +451,10 @@ impl ClientCredential {
 
     pub fn verifying_key(&self) -> &ClientVerifyingKey {
         &self.payload.csr.verifying_key
+    }
+
+    pub fn hash(&self) -> CredentialFingerprint {
+        CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
     }
 }
 

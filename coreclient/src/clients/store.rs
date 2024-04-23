@@ -13,7 +13,7 @@ use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
 
 use self::{
     groups::{
-        client_auth_info::{ClientAuthInfo, GroupMembership},
+        client_auth_info::{GroupMembership, StorableClientCredential},
         Group,
     },
     key_stores::{
@@ -305,7 +305,7 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
     <ConversationParticipation as Storable>::create_table(client_db_connection)?;
-    <ClientAuthInfo as Storable>::create_table(client_db_connection)?;
+    <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Persistable>::create_table(client_db_connection)?;
     <PartialContact as Persistable>::create_table(client_db_connection)?;
