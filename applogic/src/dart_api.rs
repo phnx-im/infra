@@ -2,28 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    net::TcpListener,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
-use openmls::prelude::SignatureScheme;
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxserver::{
-    endpoints::qs::ws::DispatchWebsocketNotifier,
-    network_provider::MockNetworkProvider,
-    run,
-    storage_provider::memory::{
-        auth_service::{EphemeralAsStorage, MemoryAsStorage},
-        ds::MemoryDsStorage,
-        qs::MemStorageProvider,
-        qs_connector::MemoryEnqueueProvider,
-    },
-};
 use phnxtypes::{
-    identifiers::{Fqdn, SafeTryInto, UserName},
+    identifiers::{SafeTryInto, UserName},
     messages::client_ds::QsWsMessage,
     time::TimeStamp,
 };
@@ -682,8 +667,23 @@ impl RustUser {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
-pub async fn start_server(domain: String) -> Result<()> {
+#[cfg(feature = "server")]
+async fn start_server_internal(domain: String) -> Result<()> {
+    use openmls::prelude::SignatureScheme;
+    use phnxserver::{
+        endpoints::qs::ws::DispatchWebsocketNotifier,
+        network_provider::MockNetworkProvider,
+        run,
+        storage_provider::memory::{
+            auth_service::{EphemeralAsStorage, MemoryAsStorage},
+            ds::MemoryDsStorage,
+            qs::MemStorageProvider,
+            qs_connector::MemoryEnqueueProvider,
+        },
+    };
+    use phnxtypes::identifiers::Fqdn;
+    use std::net::TcpListener;
+
     // Fix address and port for now.
     let address = format!("0.0.0.0:8080",);
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
@@ -716,6 +716,15 @@ pub async fn start_server(domain: String) -> Result<()> {
         network_provider,
     )?
     .await?;
+
+    Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
+pub async fn start_server(domain: String) -> Result<()> {
+    #[cfg(feature = "embedded_server")]
+    start_server_internal(domain).await?;
 
     Ok(())
 }

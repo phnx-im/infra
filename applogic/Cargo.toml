@@ -18,7 +18,7 @@ simple_logger = { version = "4.2.0" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
-phnxserver = { path = "../server" }
+phnxserver = { path = "../server", optional = true }
 phnxtypes = { path = "../types" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
@@ -28,3 +28,6 @@ notify-rust = "4"
 # Workspace dependencies
 openmls = { workspace = true }
 tls_codec = { workspace = true }
+
+[features]
+embedded_server = ["phnxserver"]
