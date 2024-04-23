@@ -154,5 +154,4 @@ dart-bridge:
 		--inline-rust \
         --class-name=RustBridge \
         --skip-add-mod-to-lib
-	cd .. ; cargo clean
 	

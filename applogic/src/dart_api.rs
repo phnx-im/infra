@@ -486,7 +486,7 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         let ui_user_profile = UiUserProfile {
             display_name: Some(display_name),
-            user_name: self.user_name(),
+            user_name: user.user_name().to_string(),
             profile_picture_option,
         };
         let user_profile = UserProfile::try_from(ui_user_profile)?;
