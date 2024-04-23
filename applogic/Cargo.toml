@@ -18,6 +18,7 @@ simple_logger = { version = "4.2.0" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
+phnxserver = { path = "../server" }
 phnxtypes = { path = "../types" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
