@@ -318,28 +318,32 @@ impl SelfUser {
         // Read EXIF data
         let exif_reader = Reader::new();
         let mut image_bytes_cursor = std::io::Cursor::new(&mut image_bytes);
-        let exif = exif_reader.read_from_container(&mut image_bytes_cursor)?;
-
-        // Determine the orientation
-        let orientation = exif
-            .get_field(Tag::Orientation, exif::In::PRIMARY)
-            .and_then(|field| field.value.get_uint(0))
-            .unwrap_or(1);
+        let exif = exif_reader
+            .read_from_container(&mut image_bytes_cursor)
+            .ok();
 
         // Resize the image
         let image = image.resize(256, 256, image::imageops::FilterType::Nearest);
 
-        // Rotate/flip the image according to the orientation
-        let image = match orientation {
-            1 => image,
-            2 => image.fliph(),
-            3 => image.rotate180(),
-            4 => image.flipv(),
-            5 => image.rotate90().fliph(),
-            6 => image.rotate90(),
-            7 => image.rotate270().fliph(),
-            8 => image.rotate270(),
-            _ => image,
+        // Rotate/flip the image according to the orientation if necessary
+        let image = if let Some(exif) = exif {
+            let orientation = exif
+                .get_field(Tag::Orientation, exif::In::PRIMARY)
+                .and_then(|field| field.value.get_uint(0))
+                .unwrap_or(1);
+            match orientation {
+                1 => image,
+                2 => image.fliph(),
+                3 => image.rotate180(),
+                4 => image.flipv(),
+                5 => image.rotate90().fliph(),
+                6 => image.rotate90(),
+                7 => image.rotate270().fliph(),
+                8 => image.rotate270(),
+                _ => image,
+            }
+        } else {
+            image
         };
 
         // Save the resized image
