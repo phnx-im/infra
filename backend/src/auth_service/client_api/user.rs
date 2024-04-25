@@ -49,7 +49,12 @@ impl AuthService {
 
         // Validate the client_csr
         if !client_payload.validate() {
-            return Err(InitUserRegistrationError::InvalidCsr);
+            let now = TimeStamp::now();
+            let not_before = client_payload.expiration_data().not_before();
+            let not_after = client_payload.expiration_data().not_after();
+            return Err(InitUserRegistrationError::InvalidCsr(
+                now, not_before, not_after,
+            ));
         }
 
         // Load the signature key from storage.

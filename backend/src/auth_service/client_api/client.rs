@@ -85,7 +85,12 @@ impl AuthService {
 
         // Validate the client credential payload
         if !client_credential_payload.validate() {
-            return Err(InitClientAdditionError::InvalidCsr);
+            let now = TimeStamp::now();
+            let not_before = client_credential_payload.expiration_data().not_before();
+            let not_after = client_credential_payload.expiration_data().not_after();
+            return Err(InitClientAdditionError::InvalidCsr(
+                now, not_before, not_after,
+            ));
         }
 
         // Load the signature key from storage.
