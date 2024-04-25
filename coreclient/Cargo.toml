@@ -31,6 +31,7 @@ rand = "0.8.4"
 rand_chacha = "0.3.1"
 chrono = "0.4"
 image = "0.25.1"
+kamadak-exif = "0.5.5"
 
 # Persistence
 async-trait = "0.1"
