@@ -25,6 +25,7 @@ use self::user_profiles::Asset;
 use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
 pub enum ProcessQsMessageResult {
+    NewConversation(ConversationId),
     ConversationChanged(ConversationId, Vec<ConversationMessage>),
     ConversationMessages(Vec<ConversationMessage>),
 }
@@ -101,7 +102,7 @@ impl SelfUser {
                     )
                 })?;
 
-                ProcessQsMessageResult::ConversationChanged(conversation.id(), vec![])
+                ProcessQsMessageResult::NewConversation(conversation.id())
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -494,10 +495,12 @@ impl SelfUser {
                     collected_conversation_messages.extend(conversation_messages);
                 }
                 ProcessQsMessageResult::ConversationChanged(
-                    conversation_id,
+                    _conversation_id,
                     conversation_messages,
                 ) => {
                     collected_conversation_messages.extend(conversation_messages);
+                }
+                ProcessQsMessageResult::NewConversation(conversation_id) => {
                     new_conversations.push(conversation_id)
                 }
             };

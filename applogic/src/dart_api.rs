@@ -282,6 +282,7 @@ impl RustUser {
         let qs_messages = user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
         let mut new_conversations = vec![];
+        let mut changed_conversations = vec![];
         let mut new_messages = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
@@ -296,11 +297,15 @@ impl RustUser {
                     new_messages.extend(conversation_messages);
                     new_conversations.push(conversation_id)
                 }
+                ProcessQsMessageResult::NewConversation(conversation_id) => {
+                    changed_conversations.push(conversation_id)
+                }
             };
         }
         // Let the UI know there is new stuff
         self.dispatch_message_notifications(new_messages.clone());
         self.dispatch_conversation_notifications(new_conversations.clone());
+        self.dispatch_conversation_notifications(changed_conversations.clone());
 
         // Send a notification to the OS (desktop only)
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
