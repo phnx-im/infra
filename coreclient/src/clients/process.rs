@@ -25,7 +25,7 @@ use self::user_profiles::Asset;
 use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
 
 pub enum ProcessQsMessageResult {
-    ConversationId(ConversationId),
+    ConversationChanged(ConversationId, Vec<ConversationMessage>),
     ConversationMessages(Vec<ConversationMessage>),
 }
 
@@ -101,7 +101,7 @@ impl SelfUser {
                     )
                 })?;
 
-                ProcessQsMessageResult::ConversationId(conversation.id())
+                ProcessQsMessageResult::ConversationChanged(conversation.id(), vec![])
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 let protocol_message: ProtocolMessage = match mls_message.extract() {
@@ -136,20 +136,23 @@ impl SelfUser {
 
                 let sender = processed_message.sender().clone();
                 let aad = processed_message.authenticated_data().to_vec();
-                let group_messages = match processed_message.into_content() {
+                // `conversation_changed` indicates whether the state of the conversation was updated
+                let (group_messages, conversation_changed) = match processed_message.into_content()
+                {
                     ProcessedMessageContent::ApplicationMessage(application_message) => {
-                        vec![TimestampedMessage::from_application_message(
+                        let group_messages = vec![TimestampedMessage::from_application_message(
                             application_message,
                             ds_timestamp,
                             sender_credential.identity().user_name(),
-                        )?]
+                        )?];
+                        (group_messages, false)
                     }
                     ProcessedMessageContent::ProposalMessage(proposal) => {
                         // For now, we don't to anything here. The proposal
                         // was processed by the MLS group and will be
                         // committed with the next commit.
                         group.store_proposal(*proposal)?;
-                        vec![]
+                        (vec![], false)
                     }
                     ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                         // If a client joined externally, we check if the
@@ -161,6 +164,8 @@ impl SelfUser {
                                 "No conversation found for conversation ID {}",
                                 conversation_id.as_uuid()
                             ))?;
+                        let mut conversation_changed = false;
+
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
                             conversation.conversation_type()
                         {
@@ -260,16 +265,18 @@ impl SelfUser {
                                 .mark_as_complete(friendship_package, sender_credential.clone())?;
 
                             conversation.confirm()?;
+                            conversation_changed = true;
                         }
                         // If we were removed, we set the group to inactive.
                         if we_were_removed {
                             conversation.set_inactive(group.members().into_iter().collect())?;
                         }
-                        group.merge_pending_commit(
+                        let group_messages = group.merge_pending_commit(
                             &self.crypto_backend(),
                             *staged_commit,
                             ds_timestamp,
-                        )?
+                        )?;
+                        (group_messages, conversation_changed)
                     }
                     ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                         unimplemented!()
@@ -277,7 +284,12 @@ impl SelfUser {
                 };
                 let conversation_messages =
                     self.store_group_messages(conversation_id, group_messages)?;
-                ProcessQsMessageResult::ConversationMessages(conversation_messages)
+                match (conversation_messages, conversation_changed) {
+                    (messages, true) => {
+                        ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
+                    }
+                    (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
+                }
             }
         };
 
@@ -481,7 +493,11 @@ impl SelfUser {
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
                     collected_conversation_messages.extend(conversation_messages);
                 }
-                ProcessQsMessageResult::ConversationId(conversation_id) => {
+                ProcessQsMessageResult::ConversationChanged(
+                    conversation_id,
+                    conversation_messages,
+                ) => {
+                    collected_conversation_messages.extend(conversation_messages);
                     new_conversations.push(conversation_id)
                 }
             };

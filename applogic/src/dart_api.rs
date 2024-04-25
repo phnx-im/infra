@@ -286,11 +286,15 @@ impl RustUser {
         for qs_message in qs_messages {
             let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
             match user.process_qs_message(qs_message_plaintext).await? {
-                ProcessQsMessageResult::ConversationId(conversation_id) => {
-                    new_conversations.push(conversation_id);
-                }
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
                     new_messages.extend(conversation_messages);
+                }
+                ProcessQsMessageResult::ConversationChanged(
+                    conversation_id,
+                    conversation_messages,
+                ) => {
+                    new_messages.extend(conversation_messages);
+                    new_conversations.push(conversation_id)
                 }
             };
         }
