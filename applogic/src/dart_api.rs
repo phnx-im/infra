@@ -16,6 +16,7 @@ use phnxtypes::{
 pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType};
 use crate::{
     app_state::AppState,
+    mobile_logging::{init_logger, LogEntry, SendToDartLogger},
     notifications::{Notifiable, NotificationHub},
     types::{ConversationIdBytes, UiContact, UiUserProfile},
 };
@@ -45,6 +46,15 @@ pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNot
 
 pub fn delete_databases(client_db_path: String) -> Result<()> {
     phnxcoreclient::delete_databases(client_db_path.as_str())
+}
+
+pub fn create_log_stream(s: StreamSink<LogEntry>) -> Result<()> {
+    SendToDartLogger::set_stream_sink(s);
+    Ok(())
+}
+
+pub fn rust_set_up() {
+    init_logger();
 }
 
 pub enum WsNotification {
@@ -77,7 +87,8 @@ pub struct UserBuilder {
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
-        let _ = simple_logger::init_with_level(log::Level::Info);
+        rust_set_up();
+        //let _ = simple_logger::init_with_level(log::Level::Info);
         Self {
             stream_sink: RustOpaque::new(Mutex::new(None)),
         }
@@ -676,7 +687,7 @@ impl RustUser {
     }
 }
 
-#[cfg(feature = "server")]
+#[cfg(feature = "embedded_server")]
 async fn start_server_internal(domain: String) -> Result<()> {
     use openmls::prelude::SignatureScheme;
     use phnxserver::{
@@ -694,9 +705,11 @@ async fn start_server_internal(domain: String) -> Result<()> {
     use std::net::TcpListener;
 
     // Fix address and port for now.
+    log::info!("Starting server...");
     let address = format!("0.0.0.0:8080",);
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
     let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
+    log::info!("Domain is valid");
     let network_provider = MockNetworkProvider::new();
 
     let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
@@ -706,6 +719,7 @@ async fn start_server_internal(domain: String) -> Result<()> {
     let as_storage_provider = MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519)
         .expect("Failed to connect to database.");
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
+    log::info!("Initialized storage providers.");
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
@@ -713,6 +727,7 @@ async fn start_server_internal(domain: String) -> Result<()> {
         network: network_provider.clone(),
     };
 
+    log::info!("Running server");
     // Start the server
     run(
         listener,
@@ -729,7 +744,7 @@ async fn start_server_internal(domain: String) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[actix_web::main]
 #[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
 pub async fn start_server(domain: String) -> Result<()> {
     #[cfg(feature = "embedded_server")]

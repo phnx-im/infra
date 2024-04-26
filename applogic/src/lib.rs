@@ -6,4 +6,5 @@ mod dart_api;
 mod notifications;
 
 mod app_state;
+mod mobile_logging;
 mod types;

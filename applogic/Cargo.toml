@@ -13,8 +13,9 @@ crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 thiserror = "1.0"
-log = "^0.4.14"
-simple_logger = { version = "4.2.0" }
+log = { version = "0.4", features = ["kv"] }
+android_logger = { version = "0.7" }
+simplelog = { version = "0.12" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
@@ -24,7 +25,9 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.29.0", features = ["rt", "macros"] }
 flutter_rust_bridge = { version = "1.82.6" }
+actix-web = { version = "4.0" }
 notify-rust = "4"
+lazy_static = "1.4"
 # Workspace dependencies
 openmls = { workspace = true }
 tls_codec = { workspace = true }
