@@ -15,6 +15,7 @@ crate-type = ["cdylib", "staticlib", "lib"]
 thiserror = "1.0"
 log = { version = "0.4", features = ["kv"] }
 android_logger = { version = "0.7" }
+oslog = { version = "0.2" }
 simplelog = { version = "0.12" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
