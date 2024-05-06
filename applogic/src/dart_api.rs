@@ -173,7 +173,12 @@ impl RustUser {
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<RustUser> {
-        let address = "http://android.local:8080";
+        #[cfg(target_os = "android")]
+        let address = "http://android.local:9420";
+        #[cfg(target_os = "macos")]
+        let address = "http://mbpk.local:9420";
+        #[cfg(target_os = "ios")]
+        let address = "http://iphonek.local:9420";
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
@@ -712,13 +717,13 @@ async fn start_server_internal(domain: String) -> Result<()> {
         #[cfg(target_os = "ios")]
         return "iPhoneK.local".to_string();
 
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(target_os = "macos")]
         "mbpk.local".to_string()
     }
 
     // Fix address and port for now.
     log::info!("Starting server...");
-    let address = format!("0.0.0.0:8080",);
+    let address = format!("0.0.0.0:9420",);
     let domain = get_domain();
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
     let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
