@@ -39,4 +39,4 @@ openmls = { workspace = true }
 tls_codec = { workspace = true }
 
 [features]
-embedded_server = ["phnxserver"]
+embedded_server = ["phnxserver/sqlite_provider"]

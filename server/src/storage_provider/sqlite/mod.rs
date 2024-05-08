@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pub mod memory;
-pub mod postgres;
-#[cfg(feature = "sqlite_provider")]
-pub mod sqlite;
+pub mod auth_service;
+pub mod ds;
+pub mod qs;

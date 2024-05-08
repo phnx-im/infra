@@ -38,6 +38,7 @@ impl AuthService {
         } = params;
 
         // Check if a user entry with the name given in the client_csr already exists
+        tracing::info!("Checking if user already exists");
         let client_id_exists = storage_provider
             .load_user(&client_payload.identity().user_name())
             .await
@@ -59,7 +60,7 @@ impl AuthService {
 
         // Load the signature key from storage.
         let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
+            tracing::error!("Error loading signing key: {:?}", e);
             InitUserRegistrationError::StorageError
         })?;
 
@@ -73,7 +74,7 @@ impl AuthService {
             .store_credential(client_credential.identity(), &client_credential)
             .await
             .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
+                tracing::error!("Error storing credential: {:?}", e);
                 InitUserRegistrationError::StorageError
             })?;
 
@@ -81,7 +82,7 @@ impl AuthService {
 
         // Load server key material
         let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
+            tracing::error!("Error loading opaque setup: {:?}", e);
             InitUserRegistrationError::StorageError
         })?;
 

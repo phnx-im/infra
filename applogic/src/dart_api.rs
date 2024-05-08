@@ -45,7 +45,10 @@ pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNot
 }
 
 pub fn delete_databases(client_db_path: String) -> Result<()> {
-    phnxcoreclient::delete_databases(client_db_path.as_str())
+    phnxcoreclient::delete_databases(client_db_path.as_str())?;
+    #[cfg(feature = "embedded_server")]
+    delete_server_database(client_db_path.as_str())?;
+    Ok(())
 }
 
 pub fn create_log_stream(s: StreamSink<LogEntry>) -> Result<()> {
@@ -694,17 +697,15 @@ impl RustUser {
 }
 
 #[cfg(feature = "embedded_server")]
-async fn start_server_internal(domain: String) -> Result<()> {
+async fn start_server_internal(domain: String, path: &str) -> Result<()> {
     use openmls::prelude::SignatureScheme;
     use phnxserver::{
         endpoints::qs::ws::DispatchWebsocketNotifier,
         network_provider::MockNetworkProvider,
         run,
-        storage_provider::memory::{
-            auth_service::{EphemeralAsStorage, MemoryAsStorage},
-            ds::MemoryDsStorage,
-            qs::MemStorageProvider,
-            qs_connector::MemoryEnqueueProvider,
+        storage_provider::{
+            memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
+            sqlite::{auth_service::SqliteAsStorage, ds::SqliteDsStorage, qs::SqliteQsStorage},
         },
     };
     use phnxtypes::identifiers::Fqdn;
@@ -730,11 +731,13 @@ async fn start_server_internal(domain: String) -> Result<()> {
     log::info!("Domain is valid");
     let network_provider = MockNetworkProvider::new();
 
-    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+    let path = format!("{}/embedded_server.db", path);
+    let qs_storage_provider = Arc::new(SqliteQsStorage::new(&path, domain.clone()).await.unwrap());
 
-    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
+    let ds_storage_provider = SqliteDsStorage::new(&path, domain.clone()).unwrap();
 
-    let as_storage_provider = MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519)
+    let as_storage_provider = SqliteAsStorage::new(domain.clone(), SignatureScheme::ED25519, &path)
+        .await
         .expect("Failed to connect to database.");
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     log::info!("Initialized storage providers.");
@@ -764,9 +767,22 @@ async fn start_server_internal(domain: String) -> Result<()> {
 
 #[actix_web::main]
 #[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
-pub async fn start_server(domain: String) -> Result<()> {
+pub async fn start_server(domain: String, path: String) -> Result<()> {
     #[cfg(feature = "embedded_server")]
-    start_server_internal(domain).await?;
+    start_server_internal(domain, &path).await?;
 
+    Ok(())
+}
+
+#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
+fn delete_server_database(path: &str) -> Result<()> {
+    #[cfg(feature = "embedded_server")]
+    {
+        let path = format!("{}/embedded_server.db", path);
+        match std::fs::remove_file(path) {
+            Ok(_) => (),
+            Err(e) => log::info!("Error deleting embedded server db: {:?}", e),
+        }
+    }
     Ok(())
 }
