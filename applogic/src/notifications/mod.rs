@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    conversations::messages::{DispatchedConversationMessage, NotificationType},
-    ConversationId,
-};
+use phnxcoreclient::{ConversationId, ConversationMessage, NotificationType};
 
 trait NotificationProvider {
     fn notify(&self, notification_type: NotificationType) -> bool;
@@ -49,9 +46,9 @@ impl<T: Notifiable> NotificationHub<T> {
 
     pub(crate) fn dispatch_message_notification(
         &mut self,
-        dispatched_conversation_message: DispatchedConversationMessage,
+        conversation_message: ConversationMessage,
     ) {
-        self.dispatch_notification(NotificationType::Message(dispatched_conversation_message));
+        self.dispatch_notification(NotificationType::Message(conversation_message));
     }
 
     pub(crate) fn dispatch_conversation_notification(&mut self, conversation_id: ConversationId) {

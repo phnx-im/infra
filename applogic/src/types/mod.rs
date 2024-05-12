@@ -4,11 +4,12 @@
 
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DispatchedConversationMessage,
-    DisplayMessage, DisplayMessageType, ErrorMessage, InactiveConversation, Knock, Message,
-    MessageContentType, NotificationType, SystemMessage, TextMessage,
+    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationMessage, ConversationStatus, ConversationType, DisplayName, ErrorMessage,
+    EventMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
+    SystemMessage, UserProfile,
 };
+use phnxtypes::identifiers::SafeTryInto;
 use uuid::Uuid;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
@@ -166,10 +167,10 @@ pub struct UiConversationMessage {
 impl From<ConversationMessage> for UiConversationMessage {
     fn from(conversation_message: ConversationMessage) -> Self {
         Self {
-            conversation_id: ConversationIdBytes::from(conversation_message.conversation_id),
-            id: UuidBytes::from(conversation_message.id),
-            timestamp: conversation_message.timestamp.as_u64(),
-            message: UiMessage::from(conversation_message.message),
+            conversation_id: ConversationIdBytes::from(conversation_message.conversation_id()),
+            id: UuidBytes::from(conversation_message.id()),
+            timestamp: conversation_message.timestamp().as_u64(),
+            message: UiMessage::from(conversation_message.message().clone()),
         }
     }
 }
@@ -177,7 +178,8 @@ impl From<ConversationMessage> for UiConversationMessage {
 #[derive(PartialEq, Debug, Clone)]
 pub enum UiMessage {
     Content(UiContentMessage),
-    Display(UiDisplayMessage),
+    Display(UiEventMessage),
+    Unsent(UiMimiContent),
 }
 
 impl From<Message> for UiMessage {
@@ -186,9 +188,66 @@ impl From<Message> for UiMessage {
             Message::Content(content_message) => {
                 UiMessage::Content(UiContentMessage::from(content_message))
             }
-            Message::Display(display_message) => {
-                UiMessage::Display(UiDisplayMessage::from(display_message))
+            Message::Event(display_message) => {
+                UiMessage::Display(UiEventMessage::from(display_message))
             }
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UiMessageId {
+    pub id: UuidBytes,
+    pub domain: String,
+}
+
+impl From<MessageId> for UiMessageId {
+    fn from(message_id: MessageId) -> Self {
+        Self {
+            id: UuidBytes::from(message_id.id()),
+            domain: message_id.domain().to_string(),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UiReplyToInfo {
+    pub message_id: UiMessageId,
+    pub hash: Vec<u8>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UiMimiContent {
+    pub id: UiMessageId,
+    pub timestamp: u64,
+    pub replaces: Option<UiMessageId>,
+    pub topic_id: Option<Vec<u8>>,
+    pub expires: Option<u64>,
+    pub in_reply_to: Option<UiReplyToInfo>,
+    pub last_seen: Vec<UiMessageId>,
+    // This will need to become more complex.
+    pub body: String,
+}
+
+impl From<MimiContent> for UiMimiContent {
+    fn from(mimi_content: MimiContent) -> Self {
+        let body = mimi_content.string_rendering();
+        Self {
+            id: UiMessageId::from(mimi_content.id().clone()),
+            timestamp: mimi_content.timestamp.as_u64(),
+            replaces: mimi_content.replaces.map(|r| UiMessageId::from(r)),
+            topic_id: mimi_content.topic_id.map(|t| t.id.to_vec()),
+            expires: mimi_content.expires.map(|e| e.as_u64()),
+            in_reply_to: mimi_content.in_reply_to.map(|i| UiReplyToInfo {
+                message_id: UiMessageId::from(i.message_id),
+                hash: i.hash.hash,
+            }),
+            last_seen: mimi_content
+                .last_seen
+                .into_iter()
+                .map(|m| UiMessageId::from(m))
+                .collect(),
+            body,
         }
     }
 }
@@ -196,105 +255,31 @@ impl From<Message> for UiMessage {
 #[derive(PartialEq, Debug, Clone)]
 pub struct UiContentMessage {
     pub sender: String,
-    pub content: UiMessageContentType,
+    pub sent: bool,
+    pub content: UiMimiContent,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         Self {
-            sender: content_message.sender.to_string(),
-            content: UiMessageContentType::from(content_message.content),
+            sender: content_message.sender().to_string(),
+            sent: content_message.was_sent(),
+            content: UiMimiContent::from(content_message.content().clone()),
         }
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
-#[repr(u16)]
-pub enum UiMessageContentType {
-    Text(UiTextMessage),
-    Knock(UiKnock),
-}
-
-impl From<UiMessageContentType> for MessageContentType {
-    fn from(ui_message_content_type: UiMessageContentType) -> Self {
-        match ui_message_content_type {
-            UiMessageContentType::Text(text_message) => {
-                MessageContentType::Text(TextMessage::from(text_message))
-            }
-            UiMessageContentType::Knock(knock) => MessageContentType::Knock(knock.into()),
-        }
-    }
-}
-
-impl From<MessageContentType> for UiMessageContentType {
-    fn from(message_content_type: MessageContentType) -> Self {
-        match message_content_type {
-            MessageContentType::Text(text_message) => {
-                UiMessageContentType::Text(UiTextMessage::from(text_message))
-            }
-            MessageContentType::Knock(knock) => UiMessageContentType::Knock(knock.into()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiTextMessage {
-    pub message: Vec<u8>,
-}
-
-impl From<TextMessage> for UiTextMessage {
-    fn from(text_message: TextMessage) -> Self {
-        Self {
-            message: text_message.message().to_vec(),
-        }
-    }
-}
-
-impl From<UiTextMessage> for TextMessage {
-    fn from(ui_text_message: UiTextMessage) -> Self {
-        TextMessage::new(ui_text_message.message)
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiKnock {}
-
-impl From<Knock> for UiKnock {
-    fn from(_: Knock) -> Self {
-        Self {}
-    }
-}
-
-impl From<UiKnock> for Knock {
-    fn from(_: UiKnock) -> Self {
-        Self {}
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiDisplayMessage {
-    pub message: UiDisplayMessageType,
-}
-
-impl From<DisplayMessage> for UiDisplayMessage {
-    fn from(display_message: DisplayMessage) -> Self {
-        Self {
-            message: UiDisplayMessageType::from(display_message.message),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum UiDisplayMessageType {
+pub enum UiEventMessage {
     System(UiSystemMessage),
     Error(UiErrorMessage),
 }
 
-impl From<DisplayMessageType> for UiDisplayMessageType {
-    fn from(display_message_type: DisplayMessageType) -> Self {
-        match display_message_type {
-            DisplayMessageType::System(message) => UiDisplayMessageType::System(message.into()),
-            DisplayMessageType::Error(message) => UiDisplayMessageType::Error(message.into()),
+impl From<EventMessage> for UiEventMessage {
+    fn from(event_message: EventMessage) -> Self {
+        match event_message {
+            EventMessage::System(message) => UiEventMessage::System(message.into()),
+            EventMessage::Error(message) => UiEventMessage::Error(message.into()),
         }
     }
 }
@@ -307,7 +292,7 @@ pub struct UiSystemMessage {
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
         Self {
-            message: system_message.message().to_string(),
+            message: system_message.to_string(),
         }
     }
 }
@@ -325,32 +310,13 @@ impl From<ErrorMessage> for UiErrorMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct UiDispatchedConversationMessage {
-    pub conversation_id: ConversationIdBytes,
-    pub conversation_message: UiConversationMessage,
-}
-
-impl From<DispatchedConversationMessage> for UiDispatchedConversationMessage {
-    fn from(dispatched_conversation_message: DispatchedConversationMessage) -> Self {
-        Self {
-            conversation_id: ConversationIdBytes::from(
-                dispatched_conversation_message.conversation_id,
-            ),
-            conversation_message: UiConversationMessage::from(
-                dispatched_conversation_message.conversation_message,
-            ),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct UiNotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum UiNotificationType {
     ConversationChange(ConversationIdBytes), // The id of the changed conversation.
-    Message(UiDispatchedConversationMessage),
+    Message(UiConversationMessage),
 }
 
 impl From<NotificationType> for UiNotificationType {
@@ -367,21 +333,49 @@ impl From<NotificationType> for UiNotificationType {
 #[derive(Debug, Clone)]
 pub struct UiContact {
     pub user_name: String,
-    pub display_name: String,
-    pub avatar: Option<Vec<u8>>,
 }
 
 impl From<Contact> for UiContact {
     fn from(contact: Contact) -> Self {
-        let display_name_string = contact.user_profile().display_name().as_ref().to_string();
         Self {
             user_name: contact.user_name().to_string(),
-            display_name: display_name_string,
-            avatar: contact
-                .user_profile()
-                .profile_picture_option()
+        }
+    }
+}
+
+pub struct UiUserProfile {
+    pub user_name: String,
+    pub display_name: Option<String>,
+    pub profile_picture_option: Option<Vec<u8>>,
+}
+
+impl From<UserProfile> for UiUserProfile {
+    fn from(user_profile: UserProfile) -> Self {
+        Self {
+            user_name: user_profile.user_name().to_string(),
+            display_name: user_profile.display_name().map(|a| a.to_string()),
+            profile_picture_option: user_profile
+                .profile_picture()
                 .and_then(|a| a.value())
                 .map(|a| a.to_vec()),
         }
+    }
+}
+
+impl TryFrom<UiUserProfile> for UserProfile {
+    type Error = anyhow::Error;
+
+    fn try_from(value: UiUserProfile) -> Result<Self, Self::Error> {
+        let user_name = <String as SafeTryInto<_>>::try_into(value.user_name)?;
+        let display_name = value
+            .display_name
+            .map(|a| DisplayName::try_from(a))
+            .transpose()?;
+        let profile_picture_option = value.profile_picture_option.map(|a| Asset::Value(a));
+        Ok(UserProfile::new(
+            user_name,
+            display_name,
+            profile_picture_option,
+        ))
     }
 }

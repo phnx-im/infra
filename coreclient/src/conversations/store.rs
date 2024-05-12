@@ -2,24 +2,30 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
+use std::str::FromStr;
+
+use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
 use openmls::prelude::GroupId;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, UserName},
     time::TimeStamp,
 };
-use rusqlite::Connection;
-use tls_codec::DeserializeBytes;
+use rusqlite::{named_params, params, Connection};
+use tls_codec::{DeserializeBytes, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    groups::GroupMessage,
-    utils::persistence::{DataType, Persistable, PersistableStruct, PersistenceError},
+    utils::persistence::{
+        DataType, Persistable, PersistableStruct, PersistenceError, SqlFieldDefinition, SqlKey,
+    },
+    ContentMessage, Message, MimiContent,
 };
 
 use super::{
-    messages::ConversationMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationStatus, ConversationType, InactiveConversation,
+    messages::{ConversationMessage, TimestampedMessage},
+    Conversation, ConversationAttributes, ConversationId, ConversationPayload, ConversationStatus,
+    ConversationType, InactiveConversation,
 };
 
 impl Conversation {
@@ -30,13 +36,17 @@ impl Conversation {
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
+        let conversation_payload = ConversationPayload {
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            attributes,
+        };
         let conversation = Conversation {
             id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            conversation_payload,
             last_used: TimeStamp::now(),
-            attributes,
+            last_read: TimeStamp::now(),
         };
         Ok(conversation)
     }
@@ -45,13 +55,17 @@ impl Conversation {
         group_id: GroupId,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
+        let conversation_payload = ConversationPayload {
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::Group,
+            attributes,
+        };
         let conversation = Conversation {
             id: ConversationId::try_from(group_id.clone())?,
             group_id: group_id.into(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Group,
+            conversation_payload,
             last_used: TimeStamp::now(),
-            attributes,
+            last_read: TimeStamp::now(),
         };
         Ok(conversation)
     }
@@ -63,14 +77,16 @@ impl Conversation {
     }
 
     fn confirm(&mut self) {
-        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
-            self.conversation_type = ConversationType::Connection(user_name);
+        if let ConversationType::UnconfirmedConnection(user_name) =
+            self.conversation_payload.conversation_type.clone()
+        {
+            self.conversation_payload.conversation_type = ConversationType::Connection(user_name);
         }
     }
 
-    fn set_inactive(&mut self, past_members: &[UserName]) {
-        self.status = ConversationStatus::Inactive(InactiveConversation {
-            past_members: past_members.to_vec(),
+    fn set_inactive(&mut self, past_members: Vec<UserName>) {
+        self.conversation_payload.status = ConversationStatus::Inactive(InactiveConversation {
+            past_members: past_members,
         })
     }
 
@@ -105,7 +121,7 @@ impl<'a> ConversationStore<'a> {
     }
 
     pub(crate) fn get_all(&self) -> Result<Vec<PersistableStruct<Conversation>>, PersistenceError> {
-        PersistableStruct::load_all(self.db_connection)
+        PersistableStruct::load_all_unfiltered(self.db_connection)
     }
 
     pub(crate) fn create_connection_conversation(
@@ -133,6 +149,43 @@ impl<'a> ConversationStore<'a> {
         conversation.persist()?;
         Ok(conversation)
     }
+
+    /// Count the number of unread messages in the conversation and return the
+    /// result.
+    pub(crate) fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let conversation_message_store = ConversationMessageStore::from(self.db_connection);
+        conversation_message_store.unread_message_count(conversation_id)
+    }
+
+    /// Set the `last_read` marker of all conversations with the given
+    /// [`ConversationId`]s to the given timestamps. This is used to mark all
+    /// messages up to this timestamp as read.
+    pub(crate) fn mark_as_read<
+        'b,
+        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
+    >(
+        &self,
+        mark_as_read_data: T,
+    ) -> Result<(), PersistenceError> {
+        // TOOD: This should be a transaction
+        let transaction = self.db_connection;
+        for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
+            let statement_str = format!(
+                "UPDATE {} SET last_read = :timestamp WHERE primary_key = :conversation_id",
+                DataType::Conversation.to_sql_key()
+            );
+            let mut stmt = transaction.prepare(&statement_str)?;
+            stmt.execute(named_params! {
+                ":timestamp": timestamp.time(),
+                ":conversation_id": conversation_id.to_sql_key(),
+            })?;
+        }
+        //transaction.commit()?;
+        Ok(())
+    }
 }
 
 impl Persistable for Conversation {
@@ -148,6 +201,65 @@ impl Persistable for Conversation {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         self.group_id()
     }
+
+    fn additional_fields() -> Vec<SqlFieldDefinition> {
+        vec![
+            ("last_used", "TEXT").into(),
+            ("last_read", "TEXT").into(),
+            ("payload", "BLOB").into(),
+        ]
+    }
+
+    fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
+        let conversation_payload = serde_json::to_vec(&self.conversation_payload)?;
+        Ok(vec![
+            Box::new(self.last_used.time()),
+            Box::new(self.last_read.time()),
+            Box::new(conversation_payload),
+        ])
+    }
+
+    fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
+        let id_text = row.get::<_, String>(1)?;
+        let id = Uuid::from_str(&id_text)
+            .map_err(|e| {
+                anyhow!(
+                "Error converting message UUID from string to Uuid: {} when reading from SQLite",
+                e
+            )
+            })?
+            .into();
+
+        let qgid_text = row.get::<_, String>(2)?;
+        let qualified_group_id = QualifiedGroupId::try_from(qgid_text).map_err(|e| {
+            anyhow!(
+                "Invalid string representation of qualified group id: {} when reading from SQLite",
+                e
+            )
+        })?;
+        let group_id =
+            GroupId::from_slice(&qualified_group_id.tls_serialize_detached().map_err(|e| {
+                PersistenceError::ConversionError(anyhow!(
+                    "Failed to serialize qualified group id : {:?}",
+                    e
+                ))
+            })?);
+
+        let last_used_date_time: DateTime<Utc> = row.get(3)?;
+        let last_used = last_used_date_time.into();
+        let last_read_date_time: DateTime<Utc> = row.get(4)?;
+        let last_read = last_read_date_time.into();
+
+        let conversation_payload_bytes: Vec<u8> = row.get(5)?;
+        let conversation_payload = serde_json::from_slice(&conversation_payload_bytes)?;
+        Ok(Conversation {
+            id,
+            group_id,
+            last_used,
+            last_read,
+            conversation_payload,
+        })
+    }
 }
 
 impl PersistableStruct<'_, Conversation> {
@@ -158,7 +270,7 @@ impl PersistableStruct<'_, Conversation> {
 
     pub(crate) fn set_inactive(
         &mut self,
-        past_members: &[UserName],
+        past_members: Vec<UserName>,
     ) -> Result<(), PersistenceError> {
         self.payload.set_inactive(past_members);
         self.persist()
@@ -176,7 +288,10 @@ impl PersistableStruct<'_, Conversation> {
         &mut self,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<(), PersistenceError> {
-        self.payload.attributes.conversation_picture_option = conversation_picture;
+        self.payload
+            .conversation_payload
+            .attributes
+            .conversation_picture_option = conversation_picture;
         self.persist()
     }
 }
@@ -192,25 +307,94 @@ impl<'a> From<&'a Connection> for ConversationMessageStore<'a> {
 }
 
 impl<'a> ConversationMessageStore<'a> {
+    /// Get the last `number_of_messages` messages from the conversation with
+    /// the given [`ConversationId`]. If `number_of_messages` is `None`, all
+    /// messages are loaded and returned.
     pub(crate) fn get_by_conversation_id(
         &self,
         conversation_id: &ConversationId,
+        number_of_messages: Option<u32>,
     ) -> Result<Vec<PersistableConversationMessage>, PersistenceError> {
-        PersistableConversationMessage::load(self.db_connection, None, Some(&conversation_id))
+        // We start with the wrapper query that later re-orders the messages we get out of the DB.
+        let mut statement_str =
+            "SELECT * FROM (SELECT rowid, primary_key, secondary_key".to_string();
+        // We add all the fields we want to select from the message table.
+        for field in ConversationMessage::additional_fields() {
+            statement_str.push_str(", ");
+            statement_str.push_str(field.field_name);
+        }
+        // Finally, we add the rest of the query.
+        statement_str.push_str(" FROM Message WHERE secondary_key = ? ORDER BY timestamp DESC LIMIT ?) ORDER BY timestamp ASC");
+
+        let params = params![
+            conversation_id.to_sql_key(),
+            number_of_messages.unwrap_or(u32::MAX)
+        ];
+
+        self.db_connection
+            .prepare(&statement_str)?
+            .query(params)?
+            .and_then(|row| {
+                let payload = ConversationMessage::try_from_row(row)?;
+                let value =
+                    PersistableStruct::from_connection_and_payload(&self.db_connection, payload);
+                Ok(value)
+            })
+            .collect()
     }
 
     pub(crate) fn create(
         &self,
         conversation_id: &ConversationId,
-        group_message: GroupMessage,
+        group_message: TimestampedMessage,
     ) -> Result<PersistableConversationMessage, PersistenceError> {
-        let payload = ConversationMessage::new(conversation_id.clone(), group_message);
+        let payload =
+            ConversationMessage::from_timestamped_message(conversation_id.clone(), group_message);
         let conversation_message = PersistableConversationMessage::from_connection_and_payload(
             self.db_connection,
             payload,
         );
         conversation_message.persist()?;
         Ok(conversation_message)
+    }
+
+    pub(crate) fn create_unsent_message(
+        &self,
+        sender: String,
+        conversation_id: ConversationId,
+        content: MimiContent,
+    ) -> Result<PersistableConversationMessage, PersistenceError> {
+        let payload = ConversationMessage::new_unsent_message(sender, conversation_id, content);
+        let conversation_message = PersistableConversationMessage::from_connection_and_payload(
+            self.db_connection,
+            payload,
+        );
+        conversation_message.persist()?;
+        Ok(conversation_message)
+    }
+
+    fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let messages_table_name = DataType::Message.to_sql_key();
+        let conversations_table_name = DataType::Conversation.to_sql_key();
+        let statement_str = format!(
+            "SELECT COUNT(*) FROM {messages_table_name} WHERE secondary_key = :conversation_id AND timestamp > (SELECT last_read FROM {conversations_table_name} WHERE primary_key = :conversation_id)",
+        );
+        let mut stmt = self.db_connection.prepare(&statement_str)?;
+        let count: u32 = stmt.query_row(
+            named_params! {":conversation_id": conversation_id.to_sql_key()},
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
+    pub(crate) fn get(
+        &self,
+        local_message_id: &Uuid,
+    ) -> Result<Option<PersistableConversationMessage>, PersistenceError> {
+        PersistableConversationMessage::load_one(self.db_connection, Some(local_message_id), None)
     }
 }
 
@@ -219,6 +403,25 @@ pub(crate) type PersistableConversationMessage<'a> = PersistableStruct<'a, Conve
 impl From<PersistableConversationMessage<'_>> for ConversationMessage {
     fn from(persistable: PersistableConversationMessage) -> Self {
         persistable.payload
+    }
+}
+
+impl<'a> PersistableConversationMessage<'a> {
+    /// Marks the message as sent if it was previously marked as unsent.
+    pub(crate) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) -> Result<()> {
+        let messages_table_name = DataType::Message.to_sql_key();
+        let statement_str = format!(
+            "UPDATE {messages_table_name} SET sent = :sent, timestamp = :ds_timestamp WHERE primary_key = :local_message_id",
+        );
+        let mut stmt = self.connection.prepare(&statement_str)?;
+        stmt.execute(named_params! {
+            ":sent": true as i32,
+            ":local_message_id": self.key().to_sql_key(),
+            ":ds_timestamp": ds_timestamp.time(),
+        })?;
+        self.payload.timestamped_message.mark_as_sent(ds_timestamp);
+
+        Ok(())
     }
 }
 
@@ -232,10 +435,85 @@ impl Persistable for ConversationMessage {
     const DATA_TYPE: DataType = DataType::Message;
 
     fn key(&self) -> &Self::Key {
-        &self.id
+        self.id_ref()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.conversation_id
+    }
+
+    fn additional_fields() -> Vec<SqlFieldDefinition> {
+        vec![
+            ("timestamp", "TEXT").into(),
+            // The sender is NULL for event messages. This could probably be
+            // improved by encoding sender and sent together.
+            ("sender", "TEXT").into(),
+            ("sent", "bool").into(),
+            ("message", "BLOB").into(),
+        ]
+    }
+
+    fn get_sql_values(&self) -> Result<Vec<Box<dyn rusqlite::ToSql>>, PersistenceError> {
+        let sent = self.was_sent();
+        // Only content messages have a sender, so we use that to differentiate
+        // between content and event messages.
+        let sender_option = match self.message() {
+            Message::Content(content) => Some(content.sender().to_string()),
+            Message::Event(_) => None,
+        };
+        let message_bytes = match self.message() {
+            Message::Content(content) => serde_json::to_vec(content.content())?,
+            Message::Event(event) => serde_json::to_vec(event)?,
+        };
+        Ok(vec![
+            Box::new(self.timestamp().time()),
+            Box::new(sender_option),
+            Box::new(sent),
+            Box::new(message_bytes),
+        ])
+    }
+
+    fn try_from_row(row: &rusqlite::Row) -> Result<Self, PersistenceError> {
+        let local_message_id_text = row.get::<_, String>(1)?;
+        let local_message_id = Uuid::from_str(&local_message_id_text).map_err(|e| {
+            anyhow!(
+                "Error converting message UUID from string to Uuid: {} when reading from SQLite",
+                e
+            )
+        })?;
+
+        let conversation_uuid_text = row.get::<_, String>(2)?;
+        let conversation_id: ConversationId = Uuid::from_str(&conversation_uuid_text)
+            .map_err(|e| {
+                anyhow!(
+            "Error converting conversation UUID from string to Uuid: {} when reading from SQLite",
+            e
+        )
+            })?
+            .into();
+        let date_time: DateTime<Utc> = row.get(3)?;
+        let timestamp = date_time.into();
+        let sender_option: Option<String> = row.get(4)?;
+        let sent: bool = row.get(5)?;
+        let message_bytes: Vec<u8> = row.get(6)?;
+        let message = match sender_option {
+            Some(sender) => {
+                let content = serde_json::from_slice(&message_bytes)?;
+                Message::Content(ContentMessage {
+                    sender,
+                    sent,
+                    content,
+                })
+            }
+            None => Message::Event(serde_json::from_slice(&message_bytes)?),
+        };
+
+        let timestamped_message =
+            TimestampedMessage::from_message_and_timestamp(message, timestamp);
+        Ok(ConversationMessage {
+            conversation_id,
+            local_message_id,
+            timestamped_message,
+        })
     }
 }

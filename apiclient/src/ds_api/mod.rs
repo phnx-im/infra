@@ -6,9 +6,9 @@
 
 use super::*;
 use mls_assist::{
-    messages::{AssistedGroupInfo, AssistedMessageOut, AssistedWelcome},
+    messages::{AssistedMessageOut, AssistedWelcome},
     openmls::prelude::{
-        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, TlsSerializeTrait,
+        tls_codec::Serialize, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
     },
 };
 use phnxtypes::{
@@ -39,6 +39,7 @@ use phnxtypes::{
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
+    time::TimeStamp,
 };
 
 use tls_codec::DeserializeBytes;
@@ -173,7 +174,7 @@ impl ApiClient {
         payload: AddUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::AddUsers(payload),
             signing_key,
@@ -182,8 +183,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -196,7 +197,7 @@ impl ApiClient {
         params: RemoveUsersParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::RemoveUsers(params),
             signing_key,
@@ -205,8 +206,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -299,7 +300,7 @@ impl ApiClient {
         params: UpdateClientParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &InfraCredentialSigningKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::UpdateClient(params),
             signing_key,
@@ -308,8 +309,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -323,7 +324,7 @@ impl ApiClient {
         qs_client_reference: QsClientReference,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         let payload = JoinGroupParamsOut {
             sender: signing_key.verifying_key().hash(),
             external_commit,
@@ -337,8 +338,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -353,11 +354,9 @@ impl ApiClient {
         qs_client_reference: QsClientReference,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
-        let external_commit = AssistedMessageOut {
-            mls_message: commit,
-            group_info_option: Some(AssistedGroupInfo::Full(group_info)),
-        };
+    ) -> Result<TimeStamp, DsRequestError> {
+        // We unwrap here, because we know that the group_info is present.
+        let external_commit = AssistedMessageOut::new(commit, Some(group_info)).unwrap();
         let payload = JoinConnectionGroupParamsOut {
             sender: signing_key.verifying_key().clone(),
             external_commit,
@@ -371,8 +370,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -387,7 +386,7 @@ impl ApiClient {
         encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         let payload = AddClientsParamsOut {
             sender: signing_key.verifying_key().hash(),
             commit,
@@ -402,8 +401,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -417,7 +416,7 @@ impl ApiClient {
         new_auth_key: UserAuthVerifyingKey,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         let payload = RemoveClientsParamsOut {
             commit,
             sender: signing_key.verifying_key().hash(),
@@ -431,8 +430,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -445,7 +444,7 @@ impl ApiClient {
         external_commit: AssistedMessageOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         let payload = ResyncClientParamsOut {
             external_commit,
             sender: signing_key.verifying_key().hash(),
@@ -458,8 +457,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -472,7 +471,7 @@ impl ApiClient {
         params: SelfRemoveClientParamsOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::SelfRemoveClient(params),
             signing_key,
@@ -481,8 +480,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -495,7 +494,7 @@ impl ApiClient {
         params: SendMessageParamsOut,
         signing_key: &InfraCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::SendMessage(params),
             signing_key,
@@ -504,8 +503,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }
@@ -518,7 +517,7 @@ impl ApiClient {
         params: DeleteGroupParamsOut,
         signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
+    ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::DeleteGroup(params),
             signing_key,
@@ -527,8 +526,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }

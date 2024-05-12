@@ -2,101 +2,227 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use std::fmt::Formatter;
 
-use crate::GroupMessage;
+use openmls::framing::ApplicationMessage;
+
+use crate::mimi_content::MimiContent;
 
 use super::*;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TimestampedMessage {
+    timestamp: TimeStamp,
+    message: Message,
+}
+
+impl TimestampedMessage {
+    /// Returns the timestamp of the message. If the message was sent, it's the
+    /// timestamp issues by the DS, otherwise it's the timestamp when the
+    /// message was created.
+    pub(crate) fn timestamp(&self) -> TimeStamp {
+        self.timestamp
+    }
+
+    /// Mark the message as sent and update the timestamp. If the message was
+    /// already marked as sent, nothing happens.  
+    pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
+        if let Message::Content(content) = &mut self.message {
+            self.timestamp = ds_timestamp;
+            content.sent = true
+        }
+    }
+
+    /// Create a new timestamped message from an incoming application message.
+    /// The message is marked as sent.
+    pub(crate) fn from_application_message(
+        application_message: ApplicationMessage,
+        ds_timestamp: TimeStamp,
+        sender_name: UserName,
+    ) -> Result<Self, tls_codec::Error> {
+        let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
+        let message = Message::Content(ContentMessage::new(sender_name.to_string(), true, content));
+        Ok(Self {
+            timestamp: ds_timestamp,
+            message,
+        })
+    }
+
+    pub(crate) fn from_message_and_timestamp(message: Message, ds_timestamp: TimeStamp) -> Self {
+        Self {
+            message,
+            timestamp: ds_timestamp,
+        }
+    }
+
+    pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
+        let message = Message::Event(EventMessage::System(system_message));
+        Self {
+            message,
+            timestamp: ds_timestamp,
+        }
+    }
+
+    pub(crate) fn message(&self) -> &Message {
+        &self.message
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
-    pub conversation_id: ConversationId,
-    pub id: Uuid,
-    pub timestamp: TimeStamp,
-    pub message: Message,
+    pub(super) conversation_id: ConversationId,
+    pub(super) local_message_id: Uuid,
+    pub(super) timestamped_message: TimestampedMessage,
 }
 
 impl ConversationMessage {
-    pub(crate) fn new(
+    /// Create a new conversation message from a group message. New messages are
+    /// marked as unread by default.
+    pub(crate) fn from_timestamped_message(
         conversation_id: ConversationId,
-        group_message: GroupMessage,
+        timestamped_message: TimestampedMessage,
     ) -> ConversationMessage {
-        let (id, timestamp, message) = group_message.into_parts();
         ConversationMessage {
             conversation_id,
-            id: id.into(),
-            timestamp,
-            message,
+            local_message_id: Uuid::new_v4(),
+            timestamped_message,
         }
+    }
+
+    pub(crate) fn new_unsent_message(
+        sender: String,
+        conversation_id: ConversationId,
+        content: MimiContent,
+    ) -> ConversationMessage {
+        let message = Message::Content(ContentMessage::new(sender, false, content));
+        let timestamped_message =
+            TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
+        ConversationMessage {
+            conversation_id,
+            local_message_id: Uuid::new_v4(),
+            timestamped_message,
+        }
+    }
+
+    pub fn id_ref(&self) -> &Uuid {
+        &self.local_message_id
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.local_message_id
+    }
+
+    pub fn timestamp(&self) -> TimeStamp {
+        self.timestamped_message.timestamp()
+    }
+
+    pub fn was_sent(&self) -> bool {
+        if let Message::Content(content) = &self.timestamped_message.message {
+            content.was_sent()
+        } else {
+            true
+        }
+    }
+
+    pub fn conversation_id(&self) -> ConversationId {
+        self.conversation_id
+    }
+
+    pub fn message(&self) -> &Message {
+        &self.timestamped_message.message
     }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(ContentMessage),
-    Display(DisplayMessage),
+    Event(EventMessage),
+}
+
+impl Message {
+    /// Returns a string representation of the message for use in UI
+    /// notifications.
+    pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
+        match self {
+            Message::Content(content_message) => match conversation_type {
+                ConversationType::Group => {
+                    let sender = &content_message.sender;
+                    let content = content_message.content.string_rendering();
+                    format!("{sender}: {content}")
+                }
+                ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
+                    let content = content_message.content.string_rendering();
+                    format!("{content}")
+                }
+            },
+            Message::Event(event_message) => match &event_message {
+                EventMessage::System(system) => system.to_string(),
+                EventMessage::Error(error) => error.message().to_string(),
+            },
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    pub sender: String,
-    pub content: MessageContentType,
+    pub(super) sender: String,
+    pub(super) sent: bool,
+    pub(super) content: MimiContent,
 }
 
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-#[repr(u16)]
-pub enum MessageContentType {
-    Text(TextMessage),
-    Knock(Knock),
-}
-
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-pub struct TextMessage {
-    message: Vec<u8>,
-}
-
-impl TextMessage {
-    pub fn new(message: Vec<u8>) -> Self {
-        Self { message }
+impl ContentMessage {
+    pub fn new(sender: String, sent: bool, content: MimiContent) -> Self {
+        Self {
+            sender,
+            sent,
+            content,
+        }
     }
 
-    pub fn message(&self) -> &[u8] {
-        self.message.as_ref()
+    pub fn was_sent(&self) -> bool {
+        self.sent
+    }
+
+    pub fn sender(&self) -> &str {
+        self.sender.as_ref()
+    }
+
+    pub fn content(&self) -> &MimiContent {
+        &self.content
     }
 }
 
-#[derive(
-    PartialEq, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
-)]
-pub struct Knock {}
-
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct DisplayMessage {
-    pub message: DisplayMessageType,
-}
-
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub enum DisplayMessageType {
+pub enum EventMessage {
     System(SystemMessage),
     Error(ErrorMessage),
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct SystemMessage {
-    message: String,
+pub enum SystemMessage {
+    // The first UserName is the adder/remover the second is the added/removed.
+    Add(UserName, UserName),
+    Remove(UserName, UserName),
 }
 
-impl SystemMessage {
-    pub(crate) fn new(message: String) -> Self {
-        Self { message }
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_ref()
+impl Display for SystemMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SystemMessage::Add(adder, added) => {
+                if adder == added {
+                    write!(f, "{} joined the conversation", adder)
+                } else {
+                    write!(f, "{} added {} to the conversation", adder, added)
+                }
+            }
+            SystemMessage::Remove(remover, removed) => {
+                if remover == removed {
+                    write!(f, "{} left the conversation", remover)
+                } else {
+                    write!(f, "{} removed {} from the conversation", remover, removed)
+                }
+            }
+        }
     }
 }
 
@@ -115,17 +241,11 @@ impl ErrorMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct DispatchedConversationMessage {
-    pub conversation_id: ConversationId,
-    pub conversation_message: ConversationMessage,
-}
-
 #[derive(Debug, Clone)]
 pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(DispatchedConversationMessage),
+    Message(ConversationMessage),
 }

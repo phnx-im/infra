@@ -18,11 +18,16 @@ simple_logger = { version = "4.2.0" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
+phnxserver = { path = "../server", optional = true }
 phnxtypes = { path = "../types" }
 anyhow = { version = "1.0", features = ["backtrace"] }
-openmls = { git = "https://github.com/openmls/openmls", branch = "konrad/pgi_2" }
 serde = { version = "1", features = ["derive"] }
-tls_codec = { workspace = true }
 tokio = { version = "1.29.0", features = ["rt", "macros"] }
-flutter_rust_bridge = { version = "1.82.4" }
+flutter_rust_bridge = { version = "1.82.6" }
 notify-rust = "4"
+# Workspace dependencies
+openmls = { workspace = true }
+tls_codec = { workspace = true }
+
+[features]
+embedded_server = ["phnxserver"]

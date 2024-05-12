@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    openmls::prelude::Extension,
+    messages::SerializedMlsMessage,
     openmls::prelude::{
-        KeyPackage, KeyPackageRef, OpenMlsProvider, ProcessedMessageContent, Sender,
+        Extension, KeyPackage, KeyPackageRef, OpenMlsProvider, ProcessedMessageContent, Sender,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
@@ -45,7 +45,7 @@ impl DsGroupState {
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
-    ) -> Result<(DsFanOutPayload, Vec<DsFanOutMessage>), AddUsersError> {
+    ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), AddUsersError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -311,10 +311,9 @@ impl DsGroupState {
         }
 
         // Finally, we create the message for distribution.
-        let c2c_message = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok((c2c_message, fan_out_messages))
+        Ok((
+            processed_assisted_message_plus.serialized_mls_message,
+            fan_out_messages,
+        ))
     }
 }

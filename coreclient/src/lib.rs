@@ -4,13 +4,14 @@
 
 #[macro_use]
 mod errors;
+pub mod clients;
 mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
-pub mod notifications;
+mod mimi_content;
 mod providers;
-pub mod users;
+mod user_profiles;
 mod utils;
 
 use std::collections::HashMap;
@@ -21,15 +22,16 @@ pub use crate::{
     contacts::{Contact, PartialContact},
     conversations::{
         messages::{
-            ContentMessage, ConversationMessage, DispatchedConversationMessage, DisplayMessage,
-            DisplayMessageType, ErrorMessage, Knock, Message, MessageContentType, NotificationType,
-            SystemMessage, TextMessage,
+            ContentMessage, ConversationMessage, ErrorMessage, EventMessage, Message,
+            NotificationType, SystemMessage,
         },
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,
     },
-    groups::GroupMessage,
+    mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
+    user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
 };
 
-use notifications::{Notifiable, NotificationHub};
+pub use crate::utils::persistence::delete_databases;
+
 pub(crate) use openmls::prelude::*;

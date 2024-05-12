@@ -16,7 +16,7 @@ use phnxtypes::{
 use thiserror::Error;
 
 use crate::{
-    users::api_clients::ApiClientsError,
+    clients::api_clients::ApiClientsError,
     utils::persistence::{PersistableStruct, PersistenceError, SqlKey},
 };
 

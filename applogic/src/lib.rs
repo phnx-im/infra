@@ -3,5 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 mod dart_api;
+mod notifications;
 
+mod app_state;
 mod types;

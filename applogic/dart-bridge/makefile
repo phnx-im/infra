@@ -56,8 +56,9 @@ setup-flutter:
 setup-rust:
 	rustup upgrade
 	cd ../.. ; cargo clean ; cargo update
-	cargo install flutter_rust_bridge_codegen
-	cargo install cargo-expand
+	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	cargo binstall -y flutter_rust_bridge_codegen@1.82.6
+	cargo binstall -y cargo-expand
 
 # coreclient
 
@@ -121,6 +122,34 @@ android-production:
 	cp $(RUST_TARGET_DIR)/aarch64-linux-android/production/libphnx$(LIB_NAME).so \
 		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
+android-armv7a-debug:
+	cd $(RUST_BASE_DIR) ; \
+		cargo ndk -t armv7-linux-androideabi build
+	mkdir -p android/app/src/main/jniLibs/armeabi-v7a
+	cp $(RUST_TARGET_DIR)/armv7-linux-androideabi/debug/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so
+
+android-armv7a-production:
+	cd $(RUST_BASE_DIR) ; \
+		cargo ndk -t armv7-linux-androideabi build --profile production
+	mkdir -p android/app/src/main/jniLibs/armeabi-v7a
+	cp $(RUST_TARGET_DIR)/armv7-linux-androideabi/production/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so
+
+android-embedded-server-debug:
+	cd $(RUST_BASE_DIR) ; \
+		cargo ndk -t arm64-v8a build --features embedded_server
+	mkdir -p android/app/src/main/jniLibs/arm64-v8a
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
+
+android-embedded-server-production:
+	cd $(RUST_BASE_DIR) ; \
+		cargo ndk -t arm64-v8a build --profile production --features embedded_server
+	mkdir -p android/app/src/main/jniLibs/arm64-v8a
+	cp $(RUST_TARGET_DIR)/aarch64-linux-android/production/libphnx$(LIB_NAME).so \
+		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
+
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --target x86_64-unknown-linux-gnu
@@ -139,5 +168,4 @@ dart-bridge:
 		--inline-rust \
         --class-name=RustBridge \
         --skip-add-mod-to-lib
-	cd .. ; cargo clean
 	

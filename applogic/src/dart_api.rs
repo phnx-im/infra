@@ -2,26 +2,31 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
 use notify_rust::{error::NotificationError, Notification};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{
     identifiers::{SafeTryInto, UserName},
     messages::client_ds::QsWsMessage,
+    time::TimeStamp,
 };
 
-use crate::types::{ConversationIdBytes, UiContact};
-pub use crate::types::{
-    UiConversation, UiConversationMessage, UiMessageContentType, UiNotificationType,
+pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType};
+use crate::{
+    app_state::AppState,
+    notifications::{Notifiable, NotificationHub},
+    types::{ConversationIdBytes, UiContact, UiUserProfile},
 };
 use phnxcoreclient::{
-    notifications::{Notifiable, NotificationHub},
-    users::{store::ClientRecord, SelfUser},
-    NotificationType,
+    clients::{process::ProcessQsMessageResult, store::ClientRecord, SelfUser},
+    ConversationId, ConversationMessage, MimiContent, NotificationType, UserProfile,
 };
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+use notify_rust::Notification;
 
 lazy_static! {
     static ref FLUTTER_RUST_BRIDGE_HANDLER: DefaultHandler = DefaultHandler::default();
@@ -37,6 +42,10 @@ pub fn _expose_conversation(conversation: UiConversation) -> UiConversation {
 }
 pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNotificationType {
     notification_type
+}
+
+pub fn delete_databases(client_db_path: String) -> Result<()> {
+    phnxcoreclient::delete_databases(client_db_path.as_str())
 }
 
 pub enum WsNotification {
@@ -64,33 +73,44 @@ impl From<StreamSink<UiNotificationType>> for DartNotifier {
 }
 
 pub struct UserBuilder {
-    pub user: RustOpaque<Mutex<Option<RustUser>>>,
+    stream_sink: RustOpaque<Mutex<Option<StreamSink<UiNotificationType>>>>,
 }
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
         let _ = simple_logger::init_with_level(log::Level::Info);
         Self {
-            user: RustOpaque::new(Mutex::new(None)),
+            stream_sink: RustOpaque::new(Mutex::new(None)),
         }
     }
 
-    pub fn load_default(
-        &self,
-        path: String,
-        stream_sink: StreamSink<UiNotificationType>,
-    ) -> Result<()> {
-        let user = RustUser::load_default(path, stream_sink.clone())?;
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            let _ = inner_user.insert(user);
-            // Send an initial notification to the flutter side, since this
-            // function cannot be async
-            stream_sink.add(UiNotificationType::ConversationChange(
-                ConversationIdBytes { bytes: [0; 16] },
-            ));
-            Ok(())
+    /// Set the stream sink that will be used to send notifications to Dart. On
+    /// the Dart side, this doesn't wait for the stream sink to be set
+    /// internally, but immediately returns a stream. To confirm that the stream
+    /// sink is set, this function sends a first notification to the Dart side.
+    pub fn get_stream(&self, stream_sink: StreamSink<UiNotificationType>) -> Result<()> {
+        let mut stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        let stream_sink = stream_sink_option.insert(stream_sink);
+        // Since the function will return immediately we send a first
+        // notification to the Dart side so we can wait for it there.
+        stream_sink.add(UiNotificationType::ConversationChange(
+            ConversationIdBytes { bytes: [0; 16] },
+        ));
+        Ok(())
+    }
+
+    pub fn load_default(&self, path: String) -> Result<RustUser> {
+        let mut stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        if let Some(stream_sink) = stream_sink_option.take() {
+            RustUser::load_default(path, stream_sink)
         } else {
-            return Err(anyhow::anyhow!("Could not acquire lock"));
+            return Err(anyhow::anyhow!("Please set a stream sink first."));
         }
     }
 
@@ -100,40 +120,41 @@ impl UserBuilder {
         password: String,
         address: String,
         path: String,
-        stream_sink: StreamSink<UiNotificationType>,
-    ) -> Result<()> {
-        let user = RustUser::new(user_name, password, address, path, stream_sink.clone())?;
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            let _ = inner_user.insert(user);
-            // Send an initial notification to the flutter side, since this
-            // function cannot be async
-            stream_sink.add(UiNotificationType::ConversationChange(
-                ConversationIdBytes { bytes: [0; 16] },
-            ));
-            Ok(())
+    ) -> Result<RustUser> {
+        let mut stream_sink_option = self
+            .stream_sink
+            .lock()
+            .map_err(|e| anyhow!("Lock error: {:?}", e))?;
+        if let Some(stream_sink) = stream_sink_option.take() {
+            RustUser::new(user_name, password, address, path, stream_sink.clone())
         } else {
-            return Err(anyhow::anyhow!("Could not acquire lock"));
-        }
-    }
-
-    pub fn into_user(&self) -> Result<RustUser> {
-        if let Ok(mut inner_user) = self.user.try_lock() {
-            if let Some(user) = inner_user.take() {
-                return Ok(user);
-            } else {
-                return Err(anyhow::anyhow!("User not created"));
-            }
-        } else {
-            Err(anyhow::anyhow!("Could not acquire lock"))
+            return Err(anyhow::anyhow!("Please set a stream sink first."));
         }
     }
 }
 
+type DartNotificationHub = NotificationHub<DartNotifier>;
+
 pub struct RustUser {
-    user: RustOpaque<Mutex<SelfUser<DartNotifier>>>,
+    user: RustOpaque<Arc<Mutex<SelfUser>>>,
+    app_state: RustOpaque<AppState>,
+    notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
 }
 
 impl RustUser {
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            let res = notify_rust::set_application(&"im.phnx.prototype");
+            if res.is_err() {
+                log::warn!("Could not set application for desktop notifications");
+            }
+        }
+
+        Ok(())
+    }
+
     #[tokio::main(flavor = "current_thread")]
     async fn new(
         user_name: String,
@@ -145,9 +166,14 @@ impl RustUser {
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
-        let user = SelfUser::new(&user_name, &password, address, &path, notification_hub).await?;
+        let user = SelfUser::new(&user_name, &password, address, &path).await?;
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
+            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
 
@@ -163,7 +189,7 @@ impl RustUser {
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
         let as_client_id = client_record.as_client_id;
-        let user = SelfUser::load(as_client_id.clone(), &path, notification_hub)
+        let user = SelfUser::load(as_client_id.clone(), &path)
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(
@@ -171,8 +197,13 @@ impl RustUser {
                     as_client_id.to_string()
                 )
             })?;
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        Self::init_desktop_os_notifications()?;
+        let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(Mutex::new(user)),
+            user: RustOpaque::new(user.clone()),
+            app_state: RustOpaque::new(AppState::new(user)),
+            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
         })
     }
 
@@ -220,7 +251,8 @@ impl RustUser {
     #[tokio::main(flavor = "current_thread")]
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.add_contact(&user_name).await?;
+        let conversation_id = user.add_contact(&user_name).await?;
+        self.dispatch_conversation_notifications(vec![conversation_id.into()]);
         Ok(())
     }
 
@@ -231,10 +263,70 @@ impl RustUser {
         Notification::new().summary("Fetching messages").show()?;
 
         let as_messages = user.as_fetch_messages().await?;
-        user.process_as_messages(as_messages).await?;
 
+        // Process each as message individually and dispatch conversation
+        // notifications to the UI in case a new conversation is created.
+        let mut new_connections = vec![];
+        for as_message in as_messages {
+            let as_message_plaintext = user.decrypt_as_queue_message(as_message)?;
+            let conversation_id = user.process_as_message(as_message_plaintext).await?;
+            // Let the UI know that there'a s new conversation
+            self.dispatch_conversation_notifications(vec![conversation_id]);
+            new_connections.push(conversation_id);
+        }
+
+        // Send a notification to the OS (desktop only), the UI deals with
+        // mobile notifications
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        self.send_desktop_os_connection_notifications(&user, new_connections)?;
+
+        // Fetch QS messages
         let qs_messages = user.qs_fetch_messages().await?;
-        user.process_qs_messages(qs_messages).await?;
+        // Process each qs message individually and dispatch conversation message notifications
+        let mut new_conversations = vec![];
+        let mut changed_conversations = vec![];
+        let mut new_messages = vec![];
+        for qs_message in qs_messages {
+            let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
+            match user.process_qs_message(qs_message_plaintext).await? {
+                ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
+                    new_messages.extend(conversation_messages);
+                }
+                ProcessQsMessageResult::ConversationChanged(
+                    conversation_id,
+                    conversation_messages,
+                ) => {
+                    new_messages.extend(conversation_messages);
+                    new_conversations.push(conversation_id)
+                }
+                ProcessQsMessageResult::NewConversation(conversation_id) => {
+                    changed_conversations.push(conversation_id)
+                }
+            };
+        }
+        // Let the UI know there is new stuff
+        self.dispatch_message_notifications(new_messages.clone());
+        self.dispatch_conversation_notifications(new_conversations.clone());
+        self.dispatch_conversation_notifications(changed_conversations.clone());
+
+        // Send a notification to the OS (desktop only)
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        {
+            self.send_desktop_os_message_notifications(&user, new_messages)?;
+            self.send_desktop_os_conversation_notifications(&user, new_conversations.clone())?;
+        }
+
+        // Update user auth keys of newly created conversations.
+        let mut new_messages = vec![];
+        for conversation_id in new_conversations {
+            let messages = user.update_user_key(conversation_id).await?;
+            new_messages.extend(messages);
+        }
+
+        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+        {
+            self.send_desktop_os_message_notifications(&user, new_messages)?;
+        }
 
         Ok(())
     }
@@ -252,10 +344,11 @@ impl RustUser {
     pub async fn send_message(
         &self,
         conversation_id: ConversationIdBytes,
-        message: UiMessageContentType,
+        message: String,
     ) -> Result<UiConversationMessage> {
         let mut user = self.user.lock().unwrap();
-        user.send_message(conversation_id.into(), message.into())
+        let content = MimiContent::simple_markdown_message(user.user_name().domain(), message);
+        user.send_message(conversation_id.into(), content)
             .await
             .map(|m| m.into())
     }
@@ -267,13 +360,11 @@ impl RustUser {
         last_n: usize,
     ) -> Vec<UiConversationMessage> {
         let user = self.user.lock().unwrap();
-        let messages = user
-            .get_messages(conversation_id.into(), last_n)
+        user.get_messages(conversation_id.into(), last_n)
             .unwrap_or_default()
             .into_iter()
             .map(|m| m.into())
-            .collect();
-        messages
+            .collect()
     }
 
     pub fn get_contacts(&self) -> Vec<UiContact> {
@@ -283,6 +374,31 @@ impl RustUser {
             .into_iter()
             .map(|c| c.into())
             .collect()
+    }
+
+    pub fn contact(&self, user_name: String) -> Option<UiContact> {
+        let user = self.user.lock().unwrap();
+        let user_name = <String as SafeTryInto<UserName>>::try_into(user_name).unwrap();
+        user.contact(&user_name).map(|c| c.into())
+    }
+
+    /// Get the user profile of the user with the given [`UserName`].
+    pub fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
+        let user = self.user.lock().unwrap();
+        let user_name = SafeTryInto::try_into(user_name)?;
+        let user_profile = user
+            .user_profile(&user_name)?
+            .map(|up| UiUserProfile::from(up).into());
+        Ok(user_profile)
+    }
+
+    /// Get the own user profile.
+    pub fn own_user_profile(&self) -> Result<UiUserProfile> {
+        let user = self.user.lock().unwrap();
+        let user_profile = user
+            .own_user_profile()
+            .map(|up| UiUserProfile::from(up).into())?;
+        Ok(user_profile)
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -310,14 +426,17 @@ impl RustUser {
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.invite_users(
-            conversation_id.into(),
-            &user_names
-                .into_iter()
-                .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
-                .collect::<Result<Vec<UserName>, _>>()?,
-        )
-        .await
+        let conversation_messages = user
+            .invite_users(
+                conversation_id.into(),
+                &user_names
+                    .into_iter()
+                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .collect::<Result<Vec<UserName>, _>>()?,
+            )
+            .await?;
+        self.dispatch_message_notifications(conversation_messages);
+        Ok(())
     }
 
     #[tokio::main(flavor = "current_thread")]
@@ -327,14 +446,17 @@ impl RustUser {
         user_names: Vec<String>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        user.remove_users(
-            conversation_id.into(),
-            &user_names
-                .into_iter()
-                .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
-                .collect::<Result<Vec<UserName>, _>>()?,
-        )
-        .await
+        let conversation_messages = user
+            .remove_users(
+                conversation_id.into(),
+                &user_names
+                    .into_iter()
+                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .collect::<Result<Vec<UserName>, _>>()?,
+            )
+            .await?;
+        self.dispatch_message_notifications(conversation_messages);
+        Ok(())
     }
 
     pub fn members_of_conversation(
@@ -344,12 +466,13 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         Ok(user
             .group_members(conversation_id.into())
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .into_iter()
             .map(|c| c.to_string())
             .collect())
     }
 
+    // TODO: This does not yet send the new user profile to other clients
     #[tokio::main(flavor = "current_thread")]
     pub async fn set_user_profile(
         &self,
@@ -357,8 +480,201 @@ impl RustUser {
         profile_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
         let user = self.user.lock().unwrap();
-        user.store_user_profile(display_name, profile_picture_option)
-            .await
+        let ui_user_profile = UiUserProfile {
+            display_name: Some(display_name),
+            user_name: user.user_name().to_string(),
+            profile_picture_option,
+        };
+        let user_profile = UserProfile::try_from(ui_user_profile)?;
+        user.set_own_user_profile(user_profile)?;
+        Ok(())
+    }
+
+    /// This function is called from the flutter side to mark messages as read.
+    ///
+    /// The function is debounced and can be called multiple times in quick
+    /// succession.
+    pub fn mark_messages_as_read_debounced(
+        &self,
+        conversation_id: ConversationIdBytes,
+        timestamp: u64,
+    ) -> Result<()> {
+        let timestamp = TimeStamp::try_from(timestamp)?;
+        self.app_state
+            .mark_messages_read_debounced(conversation_id.into(), timestamp)
+    }
+
+    /// This function is called from the flutter side to flush the debouncer
+    /// state, immediately terminating the debouncer and marking all pending
+    /// messages as read.
+    pub fn flush_debouncer_state(&self) -> Result<()> {
+        self.app_state.flush_debouncer_state()
+    }
+
+    /// Get a list of contacts to be added to the conversation with the given
+    /// [`ConversationId`].
+    pub fn member_candidates(
+        &self,
+        conversation_id: ConversationIdBytes,
+    ) -> Result<Vec<UiContact>> {
+        let user = self.user.lock().unwrap();
+        let group_members = user
+            .group_members(conversation_id.into())
+            .ok_or(anyhow!("Conversation not found"))?;
+        let add_candidates = user
+            .contacts()?
+            .into_iter()
+            .filter_map(|c| {
+                if !group_members.contains(&c.user_name) {
+                    Some(c.into())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok(add_candidates)
+    }
+
+    /// Dispatch a notification to the flutter side if and only if a
+    /// notification hub is set.
+    fn dispatch_conversation_notifications(
+        &self,
+        conversation_ids: impl IntoIterator<Item = ConversationId>,
+    ) {
+        let mut notification_hub = self.notification_hub_option.lock().unwrap();
+        conversation_ids.into_iter().for_each(|conversation_id| {
+            notification_hub.dispatch_conversation_notification(conversation_id.into())
+        });
+    }
+
+    /// Dispatch conversation message notifications to the flutter side if and
+    /// only if a notification hub is set.
+    fn dispatch_message_notifications(
+        &self,
+        conversation_messages: impl IntoIterator<Item = ConversationMessage>,
+    ) {
+        let mut notification_hub = self.notification_hub_option.lock().unwrap();
+        conversation_messages
+            .into_iter()
+            .for_each(|conversation_message| {
+                notification_hub.dispatch_message_notification(conversation_message.into())
+            });
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_message_notifications(
+        &self,
+        user: &SelfUser,
+        conversation_messages: Vec<ConversationMessage>,
+    ) -> Result<()> {
+        let (summary, body) = match &conversation_messages[..] {
+            [] => return Ok(()),
+            [conversation_message] => {
+                let conversation = user
+                    .conversation(conversation_message.conversation_id())
+                    .ok_or(anyhow!("Conversation not found"))?;
+                let summary = match conversation.conversation_type() {
+                    phnxcoreclient::ConversationType::UnconfirmedConnection(username)
+                    | phnxcoreclient::ConversationType::Connection(username) => {
+                        username.to_string()
+                    }
+                    phnxcoreclient::ConversationType::Group => {
+                        conversation.attributes().title().to_string()
+                    }
+                };
+                let body = conversation_message
+                    .message()
+                    .string_representation(conversation.conversation_type());
+                (summary, body)
+            }
+            _ => (
+                "New messages".to_owned(),
+                "You have received new messages.".to_owned(),
+            ),
+        };
+
+        Notification::new()
+            .summary(summary.as_str())
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_conversation_notifications(
+        &self,
+        user: &SelfUser,
+        conversations: Vec<ConversationId>,
+    ) -> Result<()> {
+        let (summary, body) = match conversations[..] {
+            [] => return Ok(()),
+            [conversation] => {
+                let conversation_title = user
+                    .conversation(conversation)
+                    .ok_or(anyhow!("Conversation not found"))?
+                    .attributes()
+                    .title()
+                    .to_string();
+                let summary = "New conversation";
+                let body = format!("You have been added to {}", conversation_title);
+                (summary, body)
+            }
+            _ => {
+                let summary = "New conversations";
+                let body = "You have been added to new conversations.".to_owned();
+                (summary, body)
+            }
+        };
+
+        Notification::new()
+            .summary(summary)
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn send_desktop_os_connection_notifications(
+        &self,
+        user: &SelfUser,
+        connection_conversations: Vec<ConversationId>,
+    ) -> Result<()> {
+        let (summary, body) = match connection_conversations[..] {
+            [] => return Ok(()),
+            [conversation] => {
+                let conversation = user
+                    .conversation(conversation)
+                    .ok_or(anyhow!("Conversation not found"))?;
+                let contact_name = match conversation.conversation_type() {
+                    phnxcoreclient::ConversationType::UnconfirmedConnection(username)
+                    | phnxcoreclient::ConversationType::Connection(username) => {
+                        username.to_string()
+                    }
+                    phnxcoreclient::ConversationType::Group => {
+                        return Err(anyhow!(
+                            "Conversation is a regular group, not a connection."
+                        ))
+                    }
+                };
+                let summary = "New connection";
+                let body = format!("{} has created a new connection with you.", contact_name);
+                (summary, body)
+            }
+            _ => {
+                let summary = "New connections";
+                let body = "Multiple new connections have been created.".to_owned();
+                (summary, body)
+            }
+        };
+
+        Notification::new()
+            .summary(summary)
+            .body(body.as_str())
+            .show()?;
+
+        Ok(())
     }
 
     fn trigger_notification(
@@ -375,4 +691,66 @@ impl RustUser {
 struct NotificationInfo {
     sender: UserName,
     message_content: String,
+}
+
+#[cfg(feature = "server")]
+async fn start_server_internal(domain: String) -> Result<()> {
+    use openmls::prelude::SignatureScheme;
+    use phnxserver::{
+        endpoints::qs::ws::DispatchWebsocketNotifier,
+        network_provider::MockNetworkProvider,
+        run,
+        storage_provider::memory::{
+            auth_service::{EphemeralAsStorage, MemoryAsStorage},
+            ds::MemoryDsStorage,
+            qs::MemStorageProvider,
+            qs_connector::MemoryEnqueueProvider,
+        },
+    };
+    use phnxtypes::identifiers::Fqdn;
+    use std::net::TcpListener;
+
+    // Fix address and port for now.
+    let address = format!("0.0.0.0:8080",);
+    let listener = TcpListener::bind(address).expect("Failed to bind to port.");
+    let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
+    let network_provider = MockNetworkProvider::new();
+
+    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+
+    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
+
+    let as_storage_provider = MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519)
+        .expect("Failed to connect to database.");
+    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
+    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let qs_connector = MemoryEnqueueProvider {
+        storage: qs_storage_provider.clone(),
+        notifier: ws_dispatch_notifier.clone(),
+        network: network_provider.clone(),
+    };
+
+    // Start the server
+    run(
+        listener,
+        ws_dispatch_notifier,
+        ds_storage_provider,
+        qs_storage_provider,
+        as_storage_provider,
+        as_ephemeral_storage_provider,
+        qs_connector,
+        network_provider,
+    )?
+    .await?;
+
+    Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
+pub async fn start_server(domain: String) -> Result<()> {
+    #[cfg(feature = "embedded_server")]
+    start_server_internal(domain).await?;
+
+    Ok(())
 }

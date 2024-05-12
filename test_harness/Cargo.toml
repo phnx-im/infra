@@ -19,8 +19,6 @@ phnxserver = { path = "../server" }
 phnxapiclient = { path = "../apiclient" }
 phnxcoreclient = { path = "../coreclient" }
 phnxbackend = { path = "../backend" }
-phnxtypes = { path = "../types" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/interface_changes" }
 tokio = { version = "1", features = ["process"] }
 once_cell = "1"
 rand = "0.8"
@@ -30,3 +28,7 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"
+
+# Workspace dependencies
+phnxtypes = { workspace = true }
+mls-assist = { workspace = true }

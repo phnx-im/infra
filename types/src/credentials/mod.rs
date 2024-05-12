@@ -31,6 +31,7 @@ mod private_mod {
     pub struct Seal;
 }
 
+pub mod infra_credentials;
 pub mod keys;
 
 use self::keys::ClientVerifyingKey;
@@ -390,6 +391,10 @@ impl ClientCredentialPayload {
             expiration_data,
             signer_fingerprint,
         }
+    }
+
+    pub fn expiration_data(&self) -> &ExpirationData {
+        &self.expiration_data
     }
 
     pub fn validate(&self) -> bool {

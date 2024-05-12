@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::{
+    collections::HashSet,
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
+use exif::{Reader, Tag};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
@@ -41,37 +43,40 @@ use phnxtypes::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
+    time::TimeStamp,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
+    clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
     conversations::{
-        messages::{ConversationMessage, DispatchedConversationMessage, MessageContentType},
+        messages::ConversationMessage,
         store::{ConversationMessageStore, ConversationStore},
         Conversation, ConversationAttributes,
     },
     groups::store::GroupStore,
     key_stores::{
-        as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore,
-        qs_verifying_keys::QsVerifyingKeyStore, queue_ratchets::QueueRatchetStore,
-        queue_ratchets::QueueType, MemoryUserKeyStore,
+        as_credentials::AsCredentialStore,
+        leaf_keys::LeafKeyStore,
+        qs_verifying_keys::QsVerifyingKeyStore,
+        queue_ratchets::{QueueRatchetStore, QueueType},
+        MemoryUserKeyStore,
     },
-    users::{
-        connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
-        user_profile::UserProfile,
-    },
+    user_profiles::{ConversationParticipation, UserProfile},
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
 use self::{
     api_clients::ApiClients,
+    conversations::messages::TimestampedMessage,
     create_user::InitialUserState,
+    mimi_content::MimiContent,
     openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
-    user_profile::UserProfileStore,
 };
 
 use super::*;
@@ -84,7 +89,6 @@ pub mod process;
 pub mod store;
 #[cfg(test)]
 mod tests;
-pub(crate) mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -93,16 +97,15 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-pub struct SelfUser<T: Notifiable> {
+pub struct SelfUser {
     sqlite_connection: Connection,
-    pub(crate) notification_hub_option: Mutex<Option<NotificationHub<T>>>,
     api_clients: ApiClients,
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) key_store: MemoryUserKeyStore,
 }
 
-impl<T: Notifiable> SelfUser<T> {
+impl SelfUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
@@ -110,7 +113,6 @@ impl<T: Notifiable> SelfUser<T> {
         password: &str,
         server_url: impl ToString,
         client_db_path: &str,
-        notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
@@ -124,7 +126,6 @@ impl<T: Notifiable> SelfUser<T> {
             as_client_id,
             password,
             server_url,
-            notification_hub,
             phnx_db_connection,
             client_db_connection,
         )
@@ -135,7 +136,6 @@ impl<T: Notifiable> SelfUser<T> {
         as_client_id: AsClientId,
         password: &str,
         server_url: impl ToString,
-        notification_hub: NotificationHub<T>,
         phnx_db_connection: Connection,
         mut client_db_connection: Connection,
     ) -> Result<Self> {
@@ -162,8 +162,7 @@ impl<T: Notifiable> SelfUser<T> {
 
         client_db_transaction.commit()?;
 
-        let self_user =
-            final_state.into_self_user(client_db_connection, api_clients, Some(notification_hub));
+        let self_user = final_state.into_self_user(client_db_connection, api_clients);
 
         Ok(self_user)
     }
@@ -174,7 +173,6 @@ impl<T: Notifiable> SelfUser<T> {
         user_name: impl Into<UserName>,
         password: &str,
         server_url: impl ToString,
-        notification_hub: NotificationHub<T>,
     ) -> Result<Self> {
         let user_name = user_name.into();
         let as_client_id = AsClientId::random(user_name)?;
@@ -188,7 +186,6 @@ impl<T: Notifiable> SelfUser<T> {
             as_client_id,
             password,
             server_url,
-            notification_hub,
             phnx_db_connection,
             client_db_connection,
         )
@@ -198,11 +195,7 @@ impl<T: Notifiable> SelfUser<T> {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(
-        as_client_id: AsClientId,
-        client_db_path: &str,
-        notification_hub_option: impl Into<Option<NotificationHub<T>>>,
-    ) -> Result<Option<SelfUser<T>>> {
+    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<SelfUser>> {
         let phnx_db_connection = open_phnx_db(client_db_path)?;
 
         let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
@@ -230,13 +223,14 @@ impl<T: Notifiable> SelfUser<T> {
 
         client_db_transaction.commit()?;
 
-        let self_user =
-            final_state.into_self_user(client_db_connection, api_clients, notification_hub_option);
+        let self_user = final_state.into_self_user(client_db_connection, api_clients);
 
         Ok(Some(self_user))
     }
 
-    /// Create new group
+    /// Create new conversation.
+    ///
+    /// Returns the id of the newly created conversation.
     pub async fn create_conversation(
         &mut self,
         title: &str,
@@ -280,16 +274,24 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(conversation.id())
     }
 
-    pub async fn store_user_profile(
-        &self,
-        display_name: String,
-        profile_picture_option: Option<Vec<u8>>,
-    ) -> Result<()> {
-        let user_profile = UserProfile::new(display_name, profile_picture_option);
-
-        let user_profile_store = self.user_profile_store();
-        user_profile_store.store(user_profile)?;
+    pub fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
+        if user_profile.user_name() != &self.user_name() {
+            bail!("Can't set user profile for users other than the current user.",);
+        }
+        if let Some(profile_picture) = user_profile.profile_picture() {
+            let new_image = match profile_picture {
+                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+            };
+            user_profile.set_profile_picture(Some(Asset::Value(new_image)));
+        }
+        user_profile.update(&self.sqlite_connection)?;
         Ok(())
+    }
+
+    /// Get the user profile of the user with the given [`UserName`].
+    pub fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
+        let user = UserProfile::load(&self.sqlite_connection, user_name.clone())?;
+        Ok(user)
     }
 
     pub fn set_conversation_picture(
@@ -304,16 +306,71 @@ impl<T: Notifiable> SelfUser<T> {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        conversation.set_conversation_picture(conversation_picture_option)?;
+        let resized_picture_option = conversation_picture_option
+            .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
+            .flatten();
+        conversation.set_conversation_picture(resized_picture_option)?;
         Ok(())
     }
 
-    /// Invite users to an existing group
+    fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
+        let image = image::load_from_memory(&image_bytes)?;
+
+        // Read EXIF data
+        let exif_reader = Reader::new();
+        let mut image_bytes_cursor = std::io::Cursor::new(&mut image_bytes);
+        let exif = exif_reader
+            .read_from_container(&mut image_bytes_cursor)
+            .ok();
+
+        // Resize the image
+        let image = image.resize(256, 256, image::imageops::FilterType::Nearest);
+
+        // Rotate/flip the image according to the orientation if necessary
+        let image = if let Some(exif) = exif {
+            let orientation = exif
+                .get_field(Tag::Orientation, exif::In::PRIMARY)
+                .and_then(|field| field.value.get_uint(0))
+                .unwrap_or(1);
+            match orientation {
+                1 => image,
+                2 => image.fliph(),
+                3 => image.rotate180(),
+                4 => image.flipv(),
+                5 => image.rotate90().fliph(),
+                6 => image.rotate90(),
+                7 => image.rotate270().fliph(),
+                8 => image.rotate270(),
+                _ => image,
+            }
+        } else {
+            image
+        };
+
+        // Save the resized image
+        let mut buf = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buf);
+        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 90);
+        encoder.encode_image(&image)?;
+        log::info!(
+            "Resized profile picture from {} to {} bytes",
+            image_bytes.len(),
+            buf.len()
+        );
+        Ok(buf)
+    }
+
+    /// Invite users to an existing conversation.
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
     pub async fn invite_users(
         &mut self,
         conversation_id: ConversationId,
         invited_users: &[UserName],
-    ) -> Result<()> {
+    ) -> Result<Vec<ConversationMessage>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
@@ -323,19 +380,26 @@ impl<T: Notifiable> SelfUser<T> {
             ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
+
+        // Fetch fresh KeyPackages and a fresh KeyPackageBatch from the QS for
+        // each invited user.
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         let mut contact_wai_keys = vec![];
         let mut client_credentials = vec![];
         for invited_user in invited_users {
-            let mut contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+            // Get the WAI keys and client credentials for the invited users.
+            let contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
             client_credentials.push(contact.client_credentials());
-            let add_info = self
-                .contact_store()
-                .add_infos(self.crypto_backend().crypto(), &mut contact)
+            let add_info = contact
+                .fetch_add_infos(
+                    self.api_clients(),
+                    self.qs_verifying_key_store(),
+                    self.crypto_backend().crypto(),
+                )
                 .await?;
             contact_add_infos.push(add_info);
         }
@@ -353,9 +417,9 @@ impl<T: Notifiable> SelfUser<T> {
             contact_wai_keys,
             client_credentials,
         )?;
-        // We're not getting a response, but if it's not an error, the commit
-        // must have gone through.
-        self.api_clients
+        // The DS responds with the timestamp of the commit.
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_add_users(
                 params,
@@ -364,19 +428,31 @@ impl<T: Notifiable> SelfUser<T> {
             )
             .await?;
 
-        // Now that we know the commit went through, we can merge the commit and
-        // create the events.
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-        // Send off the notifications
-        self.dispatch_message_notifications(conversation_id, conversation_messages)?;
-        Ok(())
+        // Now that we know the commit went through, we can merge the commit
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        Ok(conversation_messages)
     }
 
+    /// Remove users from the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
     pub async fn remove_users(
         &mut self,
         conversation_id: ConversationId,
         target_users: &[UserName],
-    ) -> Result<()> {
+    ) -> Result<Vec<ConversationMessage>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
@@ -394,7 +470,8 @@ impl<T: Notifiable> SelfUser<T> {
             .flat_map(|user_name| group.user_client_ids(user_name))
             .collect::<Vec<_>>();
         let params = group.remove(&self.crypto_backend(), clients)?;
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&conversation.owner_domain())?
             .ds_remove_users(
                 params,
@@ -402,42 +479,19 @@ impl<T: Notifiable> SelfUser<T> {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        // Now that we know the commit went through, we can merge the commit and
-        // create the events.
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-        // Send off the notifications
-        self.dispatch_message_notifications(conversation_id, conversation_messages)?;
-        Ok(())
-    }
+        // Now that we know the commit went through, we can merge the commit
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-    fn dispatch_message_notifications(
-        &self,
-        conversation_id: ConversationId,
-        group_messages: Vec<GroupMessage>,
-    ) -> Result<()> {
-        let message_store = self.message_store();
-        for group_message in group_messages.into_iter() {
-            let conversation_message = message_store.create(&conversation_id, group_message)?;
-            let dispatched_conversation_message = DispatchedConversationMessage {
-                conversation_id,
-                conversation_message: conversation_message.clone(),
-            };
-            // TODO: Unwrapping a mutex poisoning error here for now.
-            let mut notification_hub_option = self.notification_hub_option.lock().unwrap();
-            if let Some(ref mut notification_hub) = *notification_hub_option {
-                notification_hub.dispatch_message_notification(dispatched_conversation_message);
-            }
-        }
-        Ok(())
-    }
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
 
-    fn dispatch_conversation_notification(&self, conversation_id: ConversationId) -> Result<()> {
-        // TODO: Unwrapping a mutex poisoning error here for now.
-        let mut notification_hub_option = self.notification_hub_option.lock().unwrap();
-        if let Some(ref mut notification_hub) = *notification_hub_option {
-            notification_hub.dispatch_conversation_notification(conversation_id);
-        }
-        Ok(())
+        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        Ok(conversation_messages)
     }
 
     /// Send a message and return it. Note that the message has already been
@@ -445,7 +499,7 @@ impl<T: Notifiable> SelfUser<T> {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        message: MessageContentType,
+        content: MimiContent,
     ) -> Result<ConversationMessage> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
@@ -455,31 +509,86 @@ impl<T: Notifiable> SelfUser<T> {
                 conversation_id.as_uuid()
             ))?;
         let group_id = &conversation.group_id();
-        // Generate ciphertext
         let group_store = self.group_store();
+        // Store the message as unsent so that we don't lose it in case
+        // something goes wrong.
+        let message_store = self.message_store();
+        let mut conversation_message = message_store.create_unsent_message(
+            self.user_name().to_string(),
+            conversation_id,
+            content.clone(),
+        )?;
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        // Generate ciphertext
-        let (params, message) = group
-            .create_message(&self.crypto_backend(), message.clone())
+        let params = group
+            .create_message(&self.crypto_backend(), content)
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        let conversation_message = self
-            .message_store()
-            .create(&conversation.id(), message)?
-            .into();
+        // Mark the message as sent.
+        conversation_message.mark_as_sent(ds_timestamp)?;
 
-        Ok(conversation_message)
+        Ok(conversation_message.into())
     }
 
-    pub async fn add_contact(&mut self, user_name: impl SafeTryInto<UserName>) -> Result<()> {
+    /// Re-try sending a message, where sending previously failed.
+    pub async fn re_send_message(&mut self, local_message_id: Uuid) -> Result<()> {
+        let message_store = self.message_store();
+        let mut unsent_message = message_store.get(&local_message_id)?.ok_or(anyhow!(
+            "Can't find unsent message with id {}",
+            local_message_id
+        ))?;
+        let content = match unsent_message.message() {
+            Message::Content(content_message) if !content_message.was_sent() => {
+                content_message.content().clone()
+            }
+            _ => bail!("Message with id {} was already sent", local_message_id),
+        };
+        let conversation_id = unsent_message.conversation_id();
+        let conversation_store = self.conversation_store();
+        let conversation = conversation_store
+            .get_by_conversation_id(&conversation_id)?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id.as_uuid()
+            ))?;
+        let group_id = &conversation.group_id();
+        let group_store = self.group_store();
+        let mut group = group_store
+            .get(&group_id)?
+            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
+        let params = group
+            .create_message(&self.crypto_backend(), content)
+            .map_err(CorelibError::Group)?;
+
+        // Send message to DS
+        let ds_timestamp = self
+            .api_clients
+            .get(&conversation.owner_domain())?
+            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
+            .await?;
+
+        // Mark the message as sent.
+        unsent_message.mark_as_sent(ds_timestamp)?;
+
+        Ok(())
+    }
+
+    /// Create a connection with a new user.
+    ///
+    /// Returns the [`ConversationId`] of the newly created connection
+    /// conversation.
+    pub async fn add_contact(
+        &mut self,
+        user_name: impl SafeTryInto<UserName>,
+    ) -> Result<ConversationId> {
         let user_name = user_name.try_into()?;
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
@@ -493,6 +602,12 @@ impl<T: Notifiable> SelfUser<T> {
             .get(&user_domain)?
             .as_user_connection_packages(params)
             .await?;
+
+        // The AS should return an error if the user does not exist, but we
+        // check here locally just to be sure.
+        if user_key_packages.connection_packages.is_empty() {
+            return Err(anyhow!("User {} does not exist", user_name));
+        }
         // Verify the connection key packages
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
@@ -534,10 +649,8 @@ impl<T: Notifiable> SelfUser<T> {
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
-        let user_profile = self
-            .user_profile_store()
-            .get()?
-            .unwrap_or(UserProfile::from(self.user_name()));
+
+        let own_user_profile = self.own_user_profile()?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.key_store.friendship_token.clone(),
@@ -545,7 +658,7 @@ impl<T: Notifiable> SelfUser<T> {
             client_credential_ear_key: self.key_store.client_credential_ear_key.clone(),
             signature_ear_key_wrapper_key: self.key_store.signature_ear_key_wrapper_key.clone(),
             wai_ear_key: self.key_store.wai_ear_key.clone(),
-            user_profile,
+            user_profile: own_user_profile,
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
@@ -598,6 +711,12 @@ impl<T: Notifiable> SelfUser<T> {
             friendship_package_ear_key,
         )?;
 
+        // Store the user profile of the partial contact (we don't have a
+        // display name or a profile picture yet)
+        let new_user_profile = UserProfile::new(user_name, None, None);
+        new_user_profile
+            .register_as_conversation_participant(&self.sqlite_connection, conversation.id())?;
+
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
             let ciphertext = connection_establishment_package.encrypt(
@@ -613,12 +732,20 @@ impl<T: Notifiable> SelfUser<T> {
                 .await?;
         }
 
-        self.dispatch_conversation_notification(conversation.id())?;
-
-        Ok(())
+        Ok(conversation.id())
     }
 
-    pub async fn update_user_key(&mut self, conversation_id: ConversationId) -> Result<()> {
+    /// Update the user's user auth key in the conversation with the given
+    /// [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    pub async fn update_user_key(
+        &mut self,
+        conversation_id: ConversationId,
+    ) -> Result<Vec<ConversationMessage>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
@@ -634,16 +761,35 @@ impl<T: Notifiable> SelfUser<T> {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-        self.dispatch_message_notifications(conversation_id, conversation_messages)?;
-        Ok(())
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
+        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        Ok(conversation_messages)
     }
 
-    pub async fn delete_group(&mut self, conversation_id: ConversationId) -> Result<()> {
+    /// Delete the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    pub async fn delete_group(
+        &mut self,
+        conversation_id: ConversationId,
+    ) -> Result<Vec<ConversationMessage>> {
         let conversation_store = self.conversation_store();
         let mut conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
@@ -660,10 +806,11 @@ impl<T: Notifiable> SelfUser<T> {
         let past_members = group.members();
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
-        if past_members.len() != 1 {
+        let group_messages = if past_members.len() != 1 {
             let params = group.delete(&self.crypto_backend())?;
             let owner_domain = conversation.owner_domain();
-            self.api_clients
+            let ds_timestamp = self
+                .api_clients
                 .get(&owner_domain)?
                 .ds_delete_group(
                     params,
@@ -671,11 +818,21 @@ impl<T: Notifiable> SelfUser<T> {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-            self.dispatch_message_notifications(conversation_id, conversation_messages)?;
-        }
-        conversation.set_inactive(&past_members)?;
-        Ok(())
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?
+        } else {
+            vec![]
+        };
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
+        conversation.set_inactive(past_members.into_iter().collect())?;
+        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        Ok(conversation_messages)
     }
 
     async fn fetch_messages_from_queue(
@@ -758,7 +915,17 @@ impl<T: Notifiable> SelfUser<T> {
         Ok(())
     }
 
-    pub async fn update(&mut self, conversation_id: ConversationId) -> Result<()> {
+    /// Update the user's key material in the conversation with the given
+    /// [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    pub async fn update(
+        &mut self,
+        conversation_id: ConversationId,
+    ) -> Result<Vec<ConversationMessage>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)?
@@ -773,13 +940,23 @@ impl<T: Notifiable> SelfUser<T> {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
-        self.api_clients
+        let ds_timestamp = self
+            .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let conversation_messages = group.merge_pending_commit(&self.crypto_backend(), None)?;
-        self.dispatch_message_notifications(conversation_id, conversation_messages)?;
-        Ok(())
+        let group_messages =
+            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+
+        // Update the conversation participations.
+        ConversationParticipation::process_system_messages(
+            &self.sqlite_connection,
+            &conversation_id,
+            &group_messages,
+        )?;
+
+        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        Ok(conversation_messages)
     }
 
     pub fn contacts(&self) -> Result<Vec<Contact>, PersistenceError> {
@@ -789,6 +966,15 @@ impl<T: Notifiable> SelfUser<T> {
                 .map(|c| c.convert_for_export())
                 .collect::<Vec<_>>()
         })
+    }
+
+    pub fn contact(&self, user_name: &UserName) -> Option<Contact> {
+        let contact_store = self.contact_store();
+        contact_store
+            .get(user_name)
+            .map(|c| c.map(|c| c.convert_for_export()))
+            .ok()
+            .flatten()
     }
 
     pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
@@ -821,7 +1007,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub fn group_members(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
+    pub fn group_members(&self, conversation_id: ConversationId) -> Option<HashSet<UserName>> {
         let conversation_store = self.conversation_store();
         let conversation = conversation_store
             .get_by_conversation_id(&conversation_id)
@@ -831,7 +1017,7 @@ impl<T: Notifiable> SelfUser<T> {
         group_store
             .get(&conversation.group_id())
             .ok()?
-            .map(|g| g.members().iter().map(|member| member.clone()).collect())
+            .map(|g| g.members())
     }
 
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
@@ -861,8 +1047,54 @@ impl<T: Notifiable> SelfUser<T> {
             .await?)
     }
 
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+        &self,
+        mark_as_read_data: T,
+    ) -> Result<(), PersistenceError> {
+        let conversation_store = self.conversation_store();
+        conversation_store.mark_as_read(mark_as_read_data)
+    }
+
+    /// Returns how many messages in the conversation with the given ID are
+    /// marked as unread.
+    pub fn unread_message_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<u32, PersistenceError> {
+        let conversation_store = self.conversation_store();
+        conversation_store.unread_message_count(conversation_id)
+    }
+
+    pub fn as_client_id(&self) -> AsClientId {
+        self.key_store.signing_key.credential().identity().clone()
+    }
+
+    fn store_group_messages(
+        &self,
+        conversation_id: ConversationId,
+        group_messages: Vec<TimestampedMessage>,
+    ) -> Result<Vec<ConversationMessage>> {
+        let message_store = self.message_store();
+        let mut stored_messages = vec![];
+        // TODO: This should be done as part of a transaction
+        for group_message in group_messages.into_iter() {
+            let stored_message = message_store.create(&conversation_id, group_message)?;
+            stored_messages.push(stored_message.payload);
+        }
+        Ok(stored_messages)
+    }
+
     fn api_clients(&self) -> ApiClients {
         self.api_clients.clone()
+    }
+
+    /// Returns the user profile of this [`SelfUser`].
+    pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
+        UserProfile::load(&self.sqlite_connection, self.user_name())
+            // We unwrap here, because we know that the user exists.
+            .map(|user_option| user_option.unwrap())
     }
 
     fn conversation_store(&self) -> ConversationStore<'_> {
@@ -878,11 +1110,7 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     fn contact_store(&self) -> ContactStore<'_> {
-        ContactStore::new(
-            &self.sqlite_connection,
-            self.qs_verifying_key_store(),
-            self.api_clients(),
-        )
+        ContactStore::new(&self.sqlite_connection)
     }
 
     fn group_store(&self) -> GroupStore<'_> {
@@ -898,10 +1126,6 @@ impl<T: Notifiable> SelfUser<T> {
     }
 
     fn leaf_key_store(&self) -> LeafKeyStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
-    fn user_profile_store(&self) -> UserProfileStore<'_> {
         (&self.sqlite_connection).into()
     }
 

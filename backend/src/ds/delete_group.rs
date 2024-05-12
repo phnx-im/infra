@@ -4,11 +4,10 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
 };
 use phnxtypes::{errors::GroupDeletionError, messages::client_ds::DeleteGroupParams};
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::group_state::DsGroupState;
 
@@ -16,7 +15,7 @@ impl DsGroupState {
     pub(crate) fn delete_group(
         &mut self,
         params: DeleteGroupParams,
-    ) -> Result<DsFanOutPayload, GroupDeletionError> {
+    ) -> Result<SerializedMlsMessage, GroupDeletionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
@@ -91,11 +90,6 @@ impl DsGroupState {
         // No need to do anything else here, since the group is getting deleted
         // anyway.
 
-        // Finally, we create the message for distribution.
-        let c2c_message = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(c2c_message)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

@@ -4,13 +4,12 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
+    messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
 };
 use phnxtypes::{
     errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
 };
-
-use crate::messages::intra_backend::DsFanOutPayload;
 
 use super::api::USER_EXPIRATION_DAYS;
 
@@ -20,7 +19,7 @@ impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
         params: SelfRemoveClientParams,
-    ) -> Result<DsFanOutPayload, ClientSelfRemovalError> {
+    ) -> Result<SerializedMlsMessage, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs
         // mls-assist-level validations and puts the proposal into mls-assist's
         // proposal store.
@@ -86,10 +85,6 @@ impl DsGroupState {
         // We remove the user and client profile only when the proposal is committed.
 
         // Finally, we create the message for distribution.
-        let payload = processed_assisted_message_plus
-            .serialized_mls_message
-            .into();
-
-        Ok(payload)
+        Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }

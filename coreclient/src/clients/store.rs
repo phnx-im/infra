@@ -3,9 +3,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use phnxtypes::{
+    credentials::{AsCredential, AsIntermediateCredential},
+    messages::client_as::AsQueueRatchet,
+};
 use rusqlite::Transaction;
 
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
+
+use self::{
+    groups::Group,
+    key_stores::{
+        leaf_keys::LeafKeys, qs_verifying_keys::QualifiedQsVerifyingKey,
+        queue_ratchets::QualifiedSequenceNumber,
+    },
+    openmls_provider::KeyStoreValue,
+    user_profiles::ConversationParticipation,
+    utils::persistence::{Storable, Triggerable},
+};
 
 use super::{
     create_user::{
@@ -58,14 +73,32 @@ impl UserCreationState {
         server_url: impl ToString,
         password: &str,
     ) -> Result<Self> {
+        // Create a table for the client records in the phnx db if one doesn't
+        // exist.
+        <ClientRecord as Persistable>::create_table(phnx_db_connection)?;
+
         let client_record = PersistableClientRecord::new(&phnx_db_connection, as_client_id.clone());
         client_record.persist()?;
 
         let basic_user_data = BasicUserData {
-            as_client_id,
+            as_client_id: as_client_id.clone(),
             server_url: server_url.to_string(),
             password: password.to_string(),
         };
+        // Create all required tables in the client db.
+        create_all_tables(client_db_connection)?;
+
+        // Create all db triggers.
+        create_all_triggers(client_db_connection)?;
+
+        // Create user profile entry for own user.
+        UserProfile::store_own_user_profile(
+            client_db_connection,
+            as_client_id.user_name(),
+            None,
+            None,
+        )?;
+
         UserCreationState::BasicUserData(basic_user_data).persist(client_db_connection)
     }
 
@@ -240,11 +273,10 @@ impl ClientRecord {
     }
 
     pub fn load_all_from_db(connection: &Connection) -> Result<Vec<Self>, PersistenceError> {
-        let records = PersistableClientRecord::load_all(&connection)?
+        PersistableStruct::<'_, ClientRecord>::load_all_unfiltered(&connection)?
             .into_iter()
-            .map(|record| record.into_payload())
-            .collect();
-        Ok(records)
+            .map(|record| Ok(record.into_payload()))
+            .collect()
     }
 }
 
@@ -262,4 +294,37 @@ impl Persistable for ClientRecord {
     fn secondary_key(&self) -> &Self::SecondaryKey {
         &self.as_client_id
     }
+}
+
+/// Create all tables for a client database by calling the `create_table`
+/// function of all structs that implement `Persistable`.
+pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
+    <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
+    <UserProfile as Storable>::create_table(client_db_connection)?;
+    <ConversationParticipation as Storable>::create_table(client_db_connection)?;
+    <Contact as Persistable>::create_table(client_db_connection)?;
+    <PartialContact as Persistable>::create_table(client_db_connection)?;
+    <Conversation as Persistable>::create_table(client_db_connection)?;
+    <Group as Persistable>::create_table(client_db_connection)?;
+    <ConversationMessage as Persistable>::create_table(client_db_connection)?;
+    <AsCredential as Persistable>::create_table(client_db_connection)?;
+    <AsIntermediateCredential as Persistable>::create_table(client_db_connection)?;
+    <LeafKeys as Persistable>::create_table(client_db_connection)?;
+    <QualifiedQsVerifyingKey as Persistable>::create_table(client_db_connection)?;
+    // The table for queue ratchets contains both the AsQueueRatchet and the
+    // QsQueueRatchet.
+    <AsQueueRatchet as Persistable>::create_table(client_db_connection)?;
+    <QualifiedSequenceNumber as Persistable>::create_table(client_db_connection)?;
+    <UserCreationState as Persistable>::create_table(client_db_connection)?;
+    <[u8; 32] as Persistable>::create_table(client_db_connection)?;
+
+    Ok(())
+}
+
+pub(crate) fn create_all_triggers(
+    client_db_connection: &Connection,
+) -> Result<(), rusqlite::Error> {
+    <ConversationParticipation as Triggerable>::create_trigger(client_db_connection)?;
+
+    Ok(())
 }

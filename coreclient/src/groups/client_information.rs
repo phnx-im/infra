@@ -174,3 +174,13 @@ impl<T: Serialize + DeserializeOwned> StagedClientInformationDiff<T> {
         self.client_information.get(&index)
     }
 }
+
+impl StagedClientInformationDiff<ClientAuthInfo> {
+    pub(super) fn get_user_name(&self, index: usize) -> Option<Option<UserName>> {
+        self.client_information.get(&index).map(|client_info| {
+            client_info
+                .as_ref()
+                .map(|client_info| client_info.client_credential().identity().user_name())
+        })
+    }
+}

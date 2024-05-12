@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    hash::Hash,
+    str::FromStr,
+};
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 use url::Host;
@@ -108,6 +112,55 @@ impl std::fmt::Display for QualifiedGroupId {
     }
 }
 
+#[derive(Debug, Clone, Error)]
+pub enum QualifiedGroupIdError {
+    #[error(transparent)]
+    FqdnError(#[from] FqdnError),
+    #[error("The given string does not represent a valid qualified group id.")]
+    InvalidQualifiedGroupId,
+}
+
+impl TryFrom<String> for QualifiedGroupId {
+    type Error = QualifiedGroupIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for QualifiedGroupId {
+    type Error = QualifiedGroupIdError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut split_string = value.split('@');
+        let group_id = split_string.next().ok_or_else(|| {
+            tracing::debug!("The given string is empty.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+
+        let group_id_uuid = Uuid::from_str(group_id).map_err(|_| {
+            tracing::debug!("The given group id is not a valid UUID.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+        let group_id = group_id_uuid.into_bytes();
+        // GroupIds MUST be qualified
+        let domain = split_string.next().ok_or_else(|| {
+            tracing::debug!("The given group id is not qualified.");
+            QualifiedGroupIdError::InvalidQualifiedGroupId
+        })?;
+        let owning_domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
+        if split_string.next().is_some() {
+            tracing::debug!("The domain name may not contain a '@'.");
+            return Err(QualifiedGroupIdError::InvalidQualifiedGroupId);
+        }
+
+        Ok(Self {
+            group_id,
+            owning_domain,
+        })
+    }
+}
+
 #[derive(
     Clone,
     Debug,
@@ -123,6 +176,14 @@ impl std::fmt::Display for QualifiedGroupId {
 pub struct UserName {
     pub(crate) user_name: Vec<u8>,
     pub(crate) domain: Fqdn,
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum UserNameError {
+    #[error("The given string does not represent a valid user name.")]
+    InvalidUserName,
+    #[error(transparent)]
+    FqdnError(#[from] FqdnError),
 }
 
 impl<T> SafeTryInto<T> for T {
@@ -141,14 +202,16 @@ pub trait SafeTryInto<T>: Sized {
 
 // TODO: This string processing is way too simplistic, but it should do for now.
 impl SafeTryInto<UserName> for &str {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
     fn try_into(self) -> Result<UserName, Self::Error> {
         let mut split_name = self.split('@');
-        let name = split_name.next().unwrap();
+        let name = split_name.next().ok_or(UserNameError::InvalidUserName)?;
         // UserNames MUST be qualified
-        let domain = split_name.next().unwrap();
-        assert!(split_name.next().is_none());
+        let domain = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        if split_name.next().is_some() {
+            return Err(UserNameError::InvalidUserName);
+        }
         let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
         let user_name = name.as_bytes().to_vec();
         Ok(UserName { user_name, domain })
@@ -156,17 +219,17 @@ impl SafeTryInto<UserName> for &str {
 }
 
 impl SafeTryInto<UserName> for String {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
-    fn try_into(self) -> Result<UserName, FqdnError> {
+    fn try_into(self) -> Result<UserName, UserNameError> {
         <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
 
 impl SafeTryInto<UserName> for &String {
-    type Error = FqdnError;
+    type Error = UserNameError;
 
-    fn try_into(self) -> Result<UserName, FqdnError> {
+    fn try_into(self) -> Result<UserName, UserNameError> {
         <&str as SafeTryInto<UserName>>::try_into(self.as_str())
     }
 }
@@ -268,19 +331,16 @@ pub struct QsClientReference {
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Clone,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
+    Debug, Serialize, Deserialize, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq,
 )]
 pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
+}
+
+impl Hash for SealedClientReference {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.ciphertext.kem_output.hash(state);
+    }
 }
 
 impl From<HpkeCiphertext> for SealedClientReference {
@@ -394,5 +454,36 @@ impl tls_codec::DeserializeBytes for QsUserId {
 impl tls_codec::Size for QsUserId {
     fn tls_serialized_len(&self) -> usize {
         self.user_id.as_bytes().len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_fqdn() {
+        let fqdn_str = "example.com";
+        let fqdn = Fqdn::try_from(fqdn_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_str.to_string()));
+
+        let fqdn_subdomain_str = "sub.example.com";
+        let fqdn = Fqdn::try_from(fqdn_subdomain_str).unwrap();
+        assert_eq!(fqdn.domain, Host::Domain(fqdn_subdomain_str.to_string()));
+    }
+
+    #[test]
+    fn invalid_fqdn() {
+        let fqdn_str = "invalid#domain#character";
+        let result = Fqdn::try_from(fqdn_str);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), FqdnError::UrlError(_)));
+    }
+
+    #[test]
+    fn ip_address_fqdn() {
+        let fqdn_str = "192.168.0.1";
+        let result = Fqdn::try_from(fqdn_str);
+        assert!(matches!(result.unwrap_err(), FqdnError::NotADomainName));
     }
 }

@@ -29,6 +29,7 @@ use crate::{
     },
     identifiers::QsClientReference,
     keypackage_batch::{KeyPackageBatch, VERIFIED},
+    time::TimeStamp,
 };
 
 use super::{
@@ -51,6 +52,7 @@ pub struct ExternalCommitInfoIn {
 #[repr(u8)]
 pub enum DsProcessResponseIn {
     Ok,
+    FanoutTimestamp(TimeStamp),
     WelcomeInfo(RatchetTreeIn),
     ExternalCommitInfo(ExternalCommitInfoIn),
     GroupId(GroupId),

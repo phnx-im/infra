@@ -5,6 +5,8 @@
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
+use crate::time::TimeStamp;
+
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
@@ -30,8 +32,8 @@ pub enum InitUserRegistrationError {
     #[error("User already exists")]
     UserAlreadyExists,
     /// Invalid CSR
-    #[error("Invalid CSR")]
-    InvalidCsr,
+    #[error("Invalid CSR: Time now: {0:?}, not valid before: {1:?}, not valid after: {2:?}")]
+    InvalidCsr(TimeStamp, TimeStamp, TimeStamp),
     /// Error during OPAQUE registration
     #[error("Error during OPAQUE registration")]
     OpaqueRegistrationFailed,
@@ -83,8 +85,8 @@ pub enum InitClientAdditionError {
     #[error("Client already exists")]
     ClientAlreadyExists,
     /// Invalid CSR
-    #[error("Invalid CSR")]
-    InvalidCsr,
+    #[error("Invalid CSR: Time now: {0:?}, not valid before: {1:?}, not valid after: {2:?}")]
+    InvalidCsr(TimeStamp, TimeStamp, TimeStamp),
     /// Error during OPAQUE login handshake
     #[error("Error during OPAQUE login handshake")]
     OpaqueLoginFailed,
@@ -130,7 +132,10 @@ pub enum ClientKeyPackageError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UserKeyPackagesError {
+pub enum UserConnectionPackagesError {
+    /// User could not be found
+    #[error("User could not be found")]
+    UnknownUser,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -230,7 +235,7 @@ pub enum AsProcessingError {
     #[error(transparent)]
     ClientKeyPackageError(#[from] ClientKeyPackageError),
     #[error(transparent)]
-    UserKeyPackagesError(#[from] UserKeyPackagesError),
+    UserKeyPackagesError(#[from] UserConnectionPackagesError),
     #[error(transparent)]
     EnqueueMessageError(#[from] EnqueueMessageError),
     #[error(transparent)]

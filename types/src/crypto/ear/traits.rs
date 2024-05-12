@@ -8,7 +8,7 @@
 
 use aes_gcm::{
     aead::{Aead as AesGcmAead, Key, Nonce},
-    NewAead,
+    KeyInit,
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;
