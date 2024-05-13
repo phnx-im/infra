@@ -34,6 +34,7 @@ flutter_rust_bridge = { version = "1.82.6" }
 actix-web = { version = "4.0" }
 notify-rust = "4"
 lazy_static = "1.4"
+hostname = "0.4"
 # Workspace dependencies
 openmls = { workspace = true }
 tls_codec = { workspace = true }

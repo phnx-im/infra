@@ -719,13 +719,15 @@ async fn start_server_internal(domain: String, path: &str) -> Result<()> {
         return "iPhoneK.local".to_string();
 
         #[cfg(target_os = "macos")]
-        "mbpk.local".to_string()
+        //"mbpk.local".to_string()
+        hostname::get().unwrap().to_string_lossy().to_string()
     }
 
     // Fix address and port for now.
     log::info!("Starting server...");
     let address = format!("0.0.0.0:9420",);
     let domain = get_domain();
+    log::info!("Domain is {}", domain);
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
     let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
     log::info!("Domain is valid");
