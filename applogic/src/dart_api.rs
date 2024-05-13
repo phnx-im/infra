@@ -176,12 +176,8 @@ impl RustUser {
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<RustUser> {
-        #[cfg(target_os = "android")]
-        let address = "http://android.local:9420";
-        #[cfg(target_os = "macos")]
-        let address = "http://mbpk.local:9420";
-        #[cfg(target_os = "ios")]
-        let address = "http://iphonek.local:9420";
+        let domain = get_domain();
+        let address = format!("http://{}:9420", domain);
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
@@ -696,6 +692,17 @@ impl RustUser {
     }
 }
 
+fn get_domain() -> String {
+    #[cfg(target_os = "android")]
+    return "android.local".to_string();
+
+    #[cfg(target_os = "ios")]
+    return "iPhoneK.local".to_string();
+
+    #[cfg(target_os = "macos")]
+    hostname::get().unwrap().to_string_lossy().to_string()
+}
+
 #[cfg(feature = "embedded_server")]
 async fn start_server_internal(domain: String, path: &str) -> Result<()> {
     use openmls::prelude::SignatureScheme;
@@ -710,18 +717,6 @@ async fn start_server_internal(domain: String, path: &str) -> Result<()> {
     };
     use phnxtypes::identifiers::Fqdn;
     use std::net::TcpListener;
-
-    fn get_domain() -> String {
-        #[cfg(target_os = "android")]
-        return "android.local".to_string();
-
-        #[cfg(target_os = "ios")]
-        return "iPhoneK.local".to_string();
-
-        #[cfg(target_os = "macos")]
-        //"mbpk.local".to_string()
-        hostname::get().unwrap().to_string_lossy().to_string()
-    }
 
     // Fix address and port for now.
     log::info!("Starting server...");
