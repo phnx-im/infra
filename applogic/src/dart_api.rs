@@ -311,10 +311,10 @@ impl RustUser {
                     conversation_messages,
                 ) => {
                     new_messages.extend(conversation_messages);
-                    new_conversations.push(conversation_id)
+                    changed_conversations.push(conversation_id)
                 }
                 ProcessQsMessageResult::NewConversation(conversation_id) => {
-                    changed_conversations.push(conversation_id)
+                    new_conversations.push(conversation_id)
                 }
             };
         }
