@@ -91,7 +91,6 @@ pub struct UserBuilder {
 impl UserBuilder {
     pub fn new() -> UserBuilder {
         rust_set_up();
-        //let _ = simple_logger::init_with_level(log::Level::Info);
         Self {
             stream_sink: RustOpaque::new(Mutex::new(None)),
         }
