@@ -17,7 +17,6 @@ android_logger = { version = "0.7" }
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = { version = "0.2" }
 
-
 [dependencies]
 thiserror = "1.0"
 log = { version = "0.4", features = ["kv"] }
@@ -25,7 +24,6 @@ simplelog = { version = "0.12" }
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
-phnxserver = { path = "../server", optional = true }
 phnxtypes = { path = "../types" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
@@ -38,6 +36,3 @@ hostname = "0.4"
 # Workspace dependencies
 openmls = { workspace = true }
 tls_codec = { workspace = true }
-
-[features]
-embedded_server = ["phnxserver/sqlite_provider"]

@@ -175,8 +175,6 @@ impl RustUser {
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<RustUser> {
-        let domain = get_domain();
-        let address = format!("http://{}:9420", domain);
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());
@@ -689,96 +687,4 @@ impl RustUser {
 
         Ok(())
     }
-}
-
-fn get_domain() -> String {
-    #[cfg(target_os = "android")]
-    return "android.local".to_string();
-
-    #[cfg(target_os = "ios")]
-    return "iPhoneK.local".to_string();
-
-    #[cfg(target_os = "macos")]
-    hostname::get().unwrap().to_string_lossy().to_string()
-}
-
-#[cfg(feature = "embedded_server")]
-async fn start_server_internal(domain: String, path: &str) -> Result<()> {
-    use openmls::prelude::SignatureScheme;
-    use phnxserver::{
-        endpoints::qs::ws::DispatchWebsocketNotifier,
-        network_provider::MockNetworkProvider,
-        run,
-        storage_provider::{
-            memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
-            sqlite::{auth_service::SqliteAsStorage, ds::SqliteDsStorage, qs::SqliteQsStorage},
-        },
-    };
-    use phnxtypes::identifiers::Fqdn;
-    use std::net::TcpListener;
-
-    // Fix address and port for now.
-    log::info!("Starting server...");
-    let address = format!("0.0.0.0:9420",);
-    let domain = get_domain();
-    log::info!("Domain is {}", domain);
-    let listener = TcpListener::bind(address).expect("Failed to bind to port.");
-    let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
-    log::info!("Domain is valid");
-    let network_provider = MockNetworkProvider::new();
-
-    let path = format!("{}/embedded_server.db", path);
-    let qs_storage_provider = Arc::new(SqliteQsStorage::new(&path, domain.clone()).await.unwrap());
-
-    let ds_storage_provider = SqliteDsStorage::new(&path, domain.clone()).unwrap();
-
-    let as_storage_provider = SqliteAsStorage::new(domain.clone(), SignatureScheme::ED25519, &path)
-        .await
-        .expect("Failed to connect to database.");
-    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
-    log::info!("Initialized storage providers.");
-    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
-    let qs_connector = MemoryEnqueueProvider {
-        storage: qs_storage_provider.clone(),
-        notifier: ws_dispatch_notifier.clone(),
-        network: network_provider.clone(),
-    };
-
-    log::info!("Running server");
-    // Start the server
-    run(
-        listener,
-        ws_dispatch_notifier,
-        ds_storage_provider,
-        qs_storage_provider,
-        as_storage_provider,
-        as_ephemeral_storage_provider,
-        qs_connector,
-        network_provider,
-    )?
-    .await?;
-
-    Ok(())
-}
-
-#[actix_web::main]
-#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
-pub async fn start_server(domain: String, path: String) -> Result<()> {
-    #[cfg(feature = "embedded_server")]
-    start_server_internal(domain, &path).await?;
-
-    Ok(())
-}
-
-#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
-fn delete_server_database(path: &str) -> Result<()> {
-    #[cfg(feature = "embedded_server")]
-    {
-        let path = format!("{}/embedded_server.db", path);
-        match std::fs::remove_file(path) {
-            Ok(_) => (),
-            Err(e) => log::info!("Error deleting embedded server db: {:?}", e),
-        }
-    }
-    Ok(())
 }
