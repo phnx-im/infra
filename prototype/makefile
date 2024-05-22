@@ -29,12 +29,13 @@ clean:
 	cd $(RUST_BASE_DIR) ; cargo clean
 
 setup-flutter:
-	flutter upgrade
+	# Install Flutter using git.
+	git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter
+	export PATH="$PATH:$HOME/flutter/bin"
+	flutter channel stable
 	flutter pub get
-	flutter doctor
-	export PATH="$$PATH:$$HOME/.pub-cache/bin"
 
-setup-ci:
+setup-ci: setup-flutter
 	cd $(DART_BRIDGE_DIR) ; make setup-ci
 
 dart-bridge:
