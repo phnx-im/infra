@@ -433,13 +433,11 @@ impl TestBackend {
 
         let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
 
-        tracing::info!("Sender processing messages");
         sender
             .fully_process_qs_messages(sender_qs_messages)
             .await
             .unwrap();
 
-        tracing::info!("Sender sending message");
         let message = test_sender
             .user
             .send_message(conversation_id, orig_message.clone())
@@ -456,14 +454,11 @@ impl TestBackend {
             ))
         );
 
-        tracing::info!("Recipients fetching and processing messages");
         for recipient_name in &recipient_names {
             let recipient = self.users.get_mut(recipient_name).unwrap();
             let recipient_user = &mut recipient.user;
-            // Flush notifications
-            //let _recipient_notifications = recipient.notifier.notifications();
+
             let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
-            tracing::info!("Fetched messages for {recipient_name}. Processing ...");
 
             let messages = recipient_user
                 .fully_process_qs_messages(recipient_qs_messages)

@@ -72,16 +72,6 @@ macos-debug:
 		$(RUST_TARGET_DIR)/aarch64-apple-darwin/debug/libphnx$(LIB_NAME).a \
 		-output macos/libphnx$(LIB_NAME).a
 
-macos-embedded-server-debug:
-	cd $(RUST_BASE_DIR) ; \
-		cargo build --target x86_64-apple-darwin --features embedded_server && \
-		cargo build --target aarch64-apple-darwin --features embedded_server
-	mkdir -p macos
-	lipo -create \
-		$(RUST_TARGET_DIR)/x86_64-apple-darwin/debug/libphnx$(LIB_NAME).a \
-		$(RUST_TARGET_DIR)/aarch64-apple-darwin/debug/libphnx$(LIB_NAME).a \
-		-output macos/libphnx$(LIB_NAME).a
-
 macos-production:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --target x86_64-apple-darwin --profile production && \
@@ -97,23 +87,6 @@ ios-debug:
 		cargo build --target aarch64-apple-ios && \
 		cargo build --target aarch64-apple-ios-sim && \
 		cargo build --target x86_64-apple-ios
-	mkdir -p ios
-	lipo -create \
-		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/debug/libphnx$(LIB_NAME).a \
-		$(RUST_TARGET_DIR)/x86_64-apple-ios/debug/libphnx$(LIB_NAME).a \
-		-output ios/libphnx$(LIB_NAME).a
-	rm -rf ios/libphnx$(LIB_NAME).xcframework
-	xcodebuild -create-xcframework \
-		-library $(RUST_TARGET_DIR)/aarch64-apple-ios/debug/libphnx$(LIB_NAME).a \
-		-library ios/libphnx$(LIB_NAME).a \
-		-output ios/libphnx$(LIB_NAME).xcframework
-	rm -rf ios/libphnx$(LIB_NAME).a
-
-ios-embedded-server-debug:
-	cd $(RUST_BASE_DIR) ; \
-		cargo build --target aarch64-apple-ios --features embedded_server && \
-		cargo build --target aarch64-apple-ios-sim --features embedded_server && \
-		cargo build --target x86_64-apple-ios --features embedded_server
 	mkdir -p ios
 	lipo -create \
 		$(RUST_TARGET_DIR)/aarch64-apple-ios-sim/debug/libphnx$(LIB_NAME).a \
@@ -162,20 +135,6 @@ android-armv7a-production:
 	mkdir -p android/app/src/main/jniLibs/armeabi-v7a
 	cp $(RUST_TARGET_DIR)/armv7-linux-androideabi/production/libphnx$(LIB_NAME).so \
 		android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so
-
-android-embedded-server-debug:
-	cd $(RUST_BASE_DIR) ; \
-		cargo ndk -t arm64-v8a build --features embedded_server
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so \
-		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
-
-android-embedded-server-production:
-	cd $(RUST_BASE_DIR) ; \
-		cargo ndk -t arm64-v8a build --profile production --features embedded_server
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/production/libphnx$(LIB_NAME).so \
-		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
 
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \

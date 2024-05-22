@@ -24,36 +24,26 @@ impl Qs {
     ) -> Result<QsProcessResponse, QsProcessError> {
         let request_params = match message.sender() {
             QsSender::User(user_id) => {
-                let res = storage_provider.load_user(&user_id).await;
-                match res {
-                    Some(user) => {
-                        let signature_public_key = user.verifying_key;
-                        message.verify(&signature_public_key).map_err(|e| {
-                            tracing::warn!("Failed to verify message: {:?}", e);
-                            QsProcessError::AuthenticationError
-                        })?
-                    }
-                    None => {
-                        tracing::warn!("User not found: {:?}", user_id);
-                        return Err(QsProcessError::AuthenticationError);
-                    }
-                }
+                let Some(user) = storage_provider.load_user(&user_id).await else {
+                    tracing::warn!("User not found: {:?}", user_id);
+                    return Err(QsProcessError::AuthenticationError);
+                };
+                let signature_public_key = user.verifying_key;
+                message.verify(&signature_public_key).map_err(|e| {
+                    tracing::warn!("Failed to verify message: {:?}", e);
+                    QsProcessError::AuthenticationError
+                })?
             }
             QsSender::Client(client_id) => {
-                let res = storage_provider.load_client(&client_id).await;
-                match res {
-                    Some(client) => {
-                        let signature_public_key = client.owner_signature_key;
-                        message.verify(&signature_public_key).map_err(|e| {
-                            tracing::warn!("Failed to verify message: {:?}", e);
-                            QsProcessError::AuthenticationError
-                        })?
-                    }
-                    None => {
-                        tracing::warn!("Client not found: {:?}", client_id);
-                        return Err(QsProcessError::AuthenticationError);
-                    }
-                }
+                let Some(client) = storage_provider.load_client(&client_id).await else {
+                    tracing::warn!("Client not found: {:?}", client_id);
+                    return Err(QsProcessError::AuthenticationError);
+                };
+                let signature_public_key = client.owner_signature_key;
+                message.verify(&signature_public_key).map_err(|e| {
+                    tracing::warn!("Failed to verify message: {:?}", e);
+                    QsProcessError::AuthenticationError
+                })?
             }
             QsSender::FriendshipToken(token) => message.verify_with_token(token).map_err(|e| {
                 tracing::warn!("Failed to verify message: {:?}", e);

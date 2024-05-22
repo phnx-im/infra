@@ -122,10 +122,8 @@ impl<'a> AsCredentialStore<'a> {
             None,
         )?;
         let credential = if let Some(credential) = credential_option {
-            log::info!("Found a credential!");
             credential
         } else {
-            log::info!("Couldn't find credential, fetching ...");
             self.fetch_credentials(domain)
                 .await?
                 .into_iter()

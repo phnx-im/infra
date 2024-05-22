@@ -46,8 +46,6 @@ pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNot
 
 pub fn delete_databases(client_db_path: String) -> Result<()> {
     phnxcoreclient::delete_databases(client_db_path.as_str())?;
-    #[cfg(feature = "embedded_server")]
-    delete_server_database(client_db_path.as_str())?;
     Ok(())
 }
 

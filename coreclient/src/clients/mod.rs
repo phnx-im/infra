@@ -618,7 +618,6 @@ impl SelfUser {
                     connection_package.client_credential_signer_fingerprint(),
                 )
                 .await?;
-            log::info!("Got intermediate credential, verifying ...");
             let verifying_key = as_intermediate_credential.verifying_key();
             verified_connection_packages.push(connection_package.verify(verifying_key)?)
         }
