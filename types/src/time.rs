@@ -163,4 +163,12 @@ impl ExpirationData {
         let now = TimeStamp::now();
         now.is_between(&self.not_before, &self.not_after)
     }
+
+    pub fn not_before(&self) -> TimeStamp {
+        self.not_before
+    }
+
+    pub fn not_after(&self) -> TimeStamp {
+        self.not_after
+    }
 }

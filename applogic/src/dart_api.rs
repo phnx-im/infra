@@ -2,28 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    net::TcpListener,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
-use openmls::prelude::SignatureScheme;
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxserver::{
-    endpoints::qs::ws::DispatchWebsocketNotifier,
-    network_provider::MockNetworkProvider,
-    run,
-    storage_provider::memory::{
-        auth_service::{EphemeralAsStorage, MemoryAsStorage},
-        ds::MemoryDsStorage,
-        qs::MemStorageProvider,
-        qs_connector::MemoryEnqueueProvider,
-    },
-};
 use phnxtypes::{
-    identifiers::{Fqdn, SafeTryInto, UserName},
+    identifiers::{SafeTryInto, UserName},
     messages::client_ds::QsWsMessage,
     time::TimeStamp,
 };
@@ -297,21 +282,30 @@ impl RustUser {
         let qs_messages = user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
         let mut new_conversations = vec![];
+        let mut changed_conversations = vec![];
         let mut new_messages = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = user.decrypt_qs_queue_message(qs_message)?;
             match user.process_qs_message(qs_message_plaintext).await? {
-                ProcessQsMessageResult::ConversationId(conversation_id) => {
-                    new_conversations.push(conversation_id);
-                }
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
                     new_messages.extend(conversation_messages);
+                }
+                ProcessQsMessageResult::ConversationChanged(
+                    conversation_id,
+                    conversation_messages,
+                ) => {
+                    new_messages.extend(conversation_messages);
+                    new_conversations.push(conversation_id)
+                }
+                ProcessQsMessageResult::NewConversation(conversation_id) => {
+                    changed_conversations.push(conversation_id)
                 }
             };
         }
         // Let the UI know there is new stuff
         self.dispatch_message_notifications(new_messages.clone());
         self.dispatch_conversation_notifications(new_conversations.clone());
+        self.dispatch_conversation_notifications(changed_conversations.clone());
 
         // Send a notification to the OS (desktop only)
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -486,7 +480,7 @@ impl RustUser {
         let user = self.user.lock().unwrap();
         let ui_user_profile = UiUserProfile {
             display_name: Some(display_name),
-            user_name: self.user_name(),
+            user_name: user.user_name().to_string(),
             profile_picture_option,
         };
         let user_profile = UserProfile::try_from(ui_user_profile)?;
@@ -682,8 +676,23 @@ impl RustUser {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
-pub async fn start_server(domain: String) -> Result<()> {
+#[cfg(feature = "server")]
+async fn start_server_internal(domain: String) -> Result<()> {
+    use openmls::prelude::SignatureScheme;
+    use phnxserver::{
+        endpoints::qs::ws::DispatchWebsocketNotifier,
+        network_provider::MockNetworkProvider,
+        run,
+        storage_provider::memory::{
+            auth_service::{EphemeralAsStorage, MemoryAsStorage},
+            ds::MemoryDsStorage,
+            qs::MemStorageProvider,
+            qs_connector::MemoryEnqueueProvider,
+        },
+    };
+    use phnxtypes::identifiers::Fqdn;
+    use std::net::TcpListener;
+
     // Fix address and port for now.
     let address = format!("0.0.0.0:8080",);
     let listener = TcpListener::bind(address).expect("Failed to bind to port.");
@@ -716,6 +725,15 @@ pub async fn start_server(domain: String) -> Result<()> {
         network_provider,
     )?
     .await?;
+
+    Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
+pub async fn start_server(domain: String) -> Result<()> {
+    #[cfg(feature = "embedded_server")]
+    start_server_internal(domain).await?;
 
     Ok(())
 }

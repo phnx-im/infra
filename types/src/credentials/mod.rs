@@ -394,6 +394,10 @@ impl ClientCredentialPayload {
         }
     }
 
+    pub fn expiration_data(&self) -> &ExpirationData {
+        &self.expiration_data
+    }
+
     pub fn validate(&self) -> bool {
         // TODO: Check uniqueness of client id
         self.expiration_data.validate()
