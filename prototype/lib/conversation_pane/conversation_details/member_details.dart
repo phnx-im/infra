@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // New widget that shows conversation details
 import 'dart:async';
 
