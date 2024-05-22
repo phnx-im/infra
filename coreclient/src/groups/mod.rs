@@ -485,6 +485,7 @@ impl Group {
     async fn process_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        connection: &Connection,
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
@@ -499,10 +500,8 @@ impl Group {
                 bail!("Unsupported message type")
             }
             ProcessedMessageContent::ApplicationMessage(_) => {
-                let ClientAuthInfo {
-                    client_credential: sender_credential,
-                    ..
-                } = if let Sender::Member(index) = processed_message.sender() {
+                let client_auth_info = if let Sender::Member(index) = processed_message.sender() {
+                    ClientAuthInfo::load(connection, client_id, group_id);
                     self.client_information
                         .get(index.usize())
                         .ok_or(anyhow!("Unknown sender"))?

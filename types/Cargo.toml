@@ -24,6 +24,7 @@ opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
 argon2 = { version = "0.5.0" }
 uuid = { version = "1", features = ["v4", "serde"] }
 url = { version = "2", features = ["serde"] }
+rusqlite = { version = "0.31", optional = true }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "^1.0"
@@ -36,3 +37,6 @@ chrono = { version = "0.4", features = ["serde"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
+
+[features]
+sqlite = ["rusqlite"]

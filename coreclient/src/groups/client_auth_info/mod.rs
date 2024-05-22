@@ -9,7 +9,7 @@ use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{
         infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
-        ClientCredential, EncryptedClientCredential,
+        ClientCredential, CredentialFingerprint, EncryptedClientCredential,
     },
     crypto::{
         ear::{
@@ -125,6 +125,7 @@ impl Storable for StorableClientCredential {
 
 pub(crate) struct GroupMembership {
     client_id: AsClientId,
+    client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
     signature_ear_key: SignatureEarKey,
     leaf_index: LeafNodeIndex,
@@ -136,9 +137,11 @@ impl GroupMembership {
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
         signature_ear_key: SignatureEarKey,
+        client_credential_fingerprint: CredentialFingerprint,
     ) -> Self {
         Self {
             client_id,
+            client_credential_fingerprint,
             group_id,
             leaf_index,
             signature_ear_key,
@@ -167,8 +170,51 @@ impl GroupMembership {
         Ok(())
     }
 
-    pub(super) fn load(connection: &Connection, client_id: &AsClientId) -> Result<Vec<Self>> {
-        let mut stmt = connection.prepare("SELECT group_id, leaf_index, signature_ear_key FROM group_membership WHERE client_id = ?")?;
+    pub(super) fn load_by_index(
+        connection: &Connection,
+        group_id: &GroupId,
+        leaf_index: LeafNodeIndex,
+    ) -> Result<Self> {
+        let mut stmt = connection.prepare("SELECT group_id, client_id, leaf_index, signature_ear_key, client_credential_fingerprint FROM group_membership WHERE group_id = ? AND leaf_index = leaf_index")?;
+        let group_membership = stmt.query_row(params![group_id, leaf_index.u32()], |row| {
+            let group_id: String = row.get(0)?;
+            let client_id = row.get(1)?;
+            let leaf_index: i64 = row.get(2)?;
+            let signature_ear_key: Vec<u8> = row.get(3)?;
+            let client_credential_fingerprint: Vec<u8> = row.get(4)?;
+            Ok(Self {
+                client_id: client_id.clone(),
+                group_id: group_id.parse()?,
+                leaf_index: LeafNodeIndex::from(leaf_index as usize),
+                signature_ear_key: SignatureEarKey::from(signature_ear_key),
+                client_credential_fingerprint: todo!(),
+            })
+        })?;
+        Ok(group_membership)
+    }
+
+    pub(super) fn load(
+        connection: &Connection,
+        client_id: &AsClientId,
+        group_id: &GroupId,
+    ) -> Result<Self> {
+        let mut stmt = connection.prepare("SELECT group_id, leaf_index, signature_ear_key FROM group_membership WHERE client_id = ? AND group_id = ?")?;
+        let group_membership = stmt.query_row(params![client_id.to_string(), group_id], |row| {
+            let group_id: String = row.get(0)?;
+            let leaf_index: i64 = row.get(1)?;
+            let signature_ear_key: Vec<u8> = row.get(2)?;
+            Ok(Self {
+                client_id: client_id.clone(),
+                group_id: group_id.parse()?,
+                leaf_index: LeafNodeIndex::from(leaf_index as usize),
+                signature_ear_key: SignatureEarKey::from(signature_ear_key),
+            })
+        })?;
+        Ok(group_membership)
+    }
+
+    pub(super) fn load_all(connection: &Connection, client_id: &AsClientId) -> Result<Vec<Self>> {
+        let mut stmt = connection.prepare("SELECT client_id, client_credential_fingerprint signature_ear_key FROM group_membership WHERE client_id = ?")?;
         let group_memberships = stmt.query_map(params![client_id.to_string()], |row| {
             let group_id: String = row.get(0)?;
             let leaf_index: i64 = row.get(1)?;
@@ -276,5 +322,29 @@ impl ClientAuthInfo {
         self.client_credential.store(connection)?;
         self.group_membership.store(connection)?;
         Ok(())
+    }
+
+    pub(super) fn load_by_index(
+        connection: &Connection,
+        group_id: &GroupId,
+        leaf_index: LeafNodeIndex,
+    ) -> Result<Self> {
+        let group_membership = GroupMembership::load(connection, client_id, group_id)?;
+    }
+
+    pub(super) fn load(
+        connection: &Connection,
+        client_id: &AsClientId,
+        group_id: &GroupId,
+    ) -> Result<Self> {
+        let client_credential = StorableClientCredential::load(connection, client_id)?.ok_or(
+            anyhow::anyhow!("No client credential found for client_id: {}", client_id),
+        )?;
+        let group_membership = GroupMembership::load(connection, client_id, group_id)?;
+        Ok(Self::new(client_credential, group_membership))
+    }
+
+    pub(super) fn client_credential(&self) -> &StorableClientCredential {
+        &self.client_credential
     }
 }
