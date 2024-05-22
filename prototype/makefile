@@ -29,10 +29,8 @@ clean:
 	cd $(RUST_BASE_DIR) ; cargo clean
 
 setup-flutter:
-	# Install Flutter using git.
 	git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter
 	export PATH="$PATH:$HOME/flutter/bin"
-	flutter channel stable
 	flutter pub get
 
 setup-ci: setup-flutter
