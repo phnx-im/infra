@@ -48,6 +48,7 @@ setup-ci: setup-rust
 
 setup-rust:
 	rustup upgrade
+	rustup target install aarch64-linux-android
 	cd ../.. ; cargo clean ; cargo update
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@1.82.6
