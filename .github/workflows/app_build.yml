@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Prototype build
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: [self-hosted, macos, ARM64]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Set CI
+        run: cd prototype && make setup-ci
+      - name: Build Android app
+        run: cd prototype && make android-debug
