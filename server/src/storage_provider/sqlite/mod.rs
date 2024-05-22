@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-mod dart_api;
-mod notifications;
-
-mod app_state;
-mod mobile_logging;
-mod types;
+pub mod auth_service;
+pub mod ds;
+pub mod qs;

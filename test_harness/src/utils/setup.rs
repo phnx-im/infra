@@ -457,8 +457,7 @@ impl TestBackend {
         for recipient_name in &recipient_names {
             let recipient = self.users.get_mut(recipient_name).unwrap();
             let recipient_user = &mut recipient.user;
-            // Flush notifications
-            //let _recipient_notifications = recipient.notifier.notifications();
+
             let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
 
             let messages = recipient_user

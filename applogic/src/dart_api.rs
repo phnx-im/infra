@@ -16,6 +16,7 @@ use phnxtypes::{
 pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType};
 use crate::{
     app_state::AppState,
+    mobile_logging::{init_logger, LogEntry, SendToDartLogger},
     notifications::{Notifiable, NotificationHub},
     types::{ConversationIdBytes, UiContact, UiUserProfile},
 };
@@ -44,7 +45,17 @@ pub fn _expose_notification_type(notification_type: UiNotificationType) -> UiNot
 }
 
 pub fn delete_databases(client_db_path: String) -> Result<()> {
-    phnxcoreclient::delete_databases(client_db_path.as_str())
+    phnxcoreclient::delete_databases(client_db_path.as_str())?;
+    Ok(())
+}
+
+pub fn create_log_stream(s: StreamSink<LogEntry>) -> Result<()> {
+    SendToDartLogger::set_stream_sink(s);
+    Ok(())
+}
+
+pub fn rust_set_up() {
+    init_logger();
 }
 
 pub enum WsNotification {
@@ -77,7 +88,7 @@ pub struct UserBuilder {
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
-        let _ = simple_logger::init_with_level(log::Level::Info);
+        rust_set_up();
         Self {
             stream_sink: RustOpaque::new(Mutex::new(None)),
         }
@@ -295,10 +306,10 @@ impl RustUser {
                     conversation_messages,
                 ) => {
                     new_messages.extend(conversation_messages);
-                    new_conversations.push(conversation_id)
+                    changed_conversations.push(conversation_id)
                 }
                 ProcessQsMessageResult::NewConversation(conversation_id) => {
-                    changed_conversations.push(conversation_id)
+                    new_conversations.push(conversation_id)
                 }
             };
         }
@@ -674,66 +685,4 @@ impl RustUser {
 
         Ok(())
     }
-}
-
-#[cfg(feature = "server")]
-async fn start_server_internal(domain: String) -> Result<()> {
-    use openmls::prelude::SignatureScheme;
-    use phnxserver::{
-        endpoints::qs::ws::DispatchWebsocketNotifier,
-        network_provider::MockNetworkProvider,
-        run,
-        storage_provider::memory::{
-            auth_service::{EphemeralAsStorage, MemoryAsStorage},
-            ds::MemoryDsStorage,
-            qs::MemStorageProvider,
-            qs_connector::MemoryEnqueueProvider,
-        },
-    };
-    use phnxtypes::identifiers::Fqdn;
-    use std::net::TcpListener;
-
-    // Fix address and port for now.
-    let address = format!("0.0.0.0:8080",);
-    let listener = TcpListener::bind(address).expect("Failed to bind to port.");
-    let domain: Fqdn = TryInto::try_into(domain).expect("Invalid domain.");
-    let network_provider = MockNetworkProvider::new();
-
-    let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
-
-    let ds_storage_provider = MemoryDsStorage::new(domain.clone());
-
-    let as_storage_provider = MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519)
-        .expect("Failed to connect to database.");
-    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
-    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
-    let qs_connector = MemoryEnqueueProvider {
-        storage: qs_storage_provider.clone(),
-        notifier: ws_dispatch_notifier.clone(),
-        network: network_provider.clone(),
-    };
-
-    // Start the server
-    run(
-        listener,
-        ws_dispatch_notifier,
-        ds_storage_provider,
-        qs_storage_provider,
-        as_storage_provider,
-        as_ephemeral_storage_provider,
-        qs_connector,
-        network_provider,
-    )?
-    .await?;
-
-    Ok(())
-}
-
-#[tokio::main(flavor = "current_thread")]
-#[cfg_attr(not(feature = "embedded_server"), allow(unused_variables))]
-pub async fn start_server(domain: String) -> Result<()> {
-    #[cfg(feature = "embedded_server")]
-    start_server_internal(domain).await?;
-
-    Ok(())
 }

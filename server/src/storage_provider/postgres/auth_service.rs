@@ -25,6 +25,8 @@ use privacypass::{
     batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
+#[cfg(feature = "sqlite_provider")]
+use rusqlite::{types::FromSql, ToSql};
 use sqlx::{
     types::{BigDecimal, Uuid},
     PgPool,
@@ -51,7 +53,7 @@ impl PostgresAsStorage {
         let (as_creds, _as_inter_creds, _) = provider.load_as_credentials().await?;
         if as_creds.is_empty() {
             let (as_signing_key, as_inter_signing_key) =
-                Self::generate_fresh_credentials(as_domain, signature_scheme)?;
+                generate_fresh_credentials(as_domain, signature_scheme)?;
             let _ = sqlx::query!(
                 r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
                 Uuid::new_v4(),
@@ -86,27 +88,24 @@ impl PostgresAsStorage {
         };
         Ok(provider)
     }
+}
 
-    fn generate_fresh_credentials(
-        as_domain: Fqdn,
-        signature_scheme: SignatureScheme,
-    ) -> Result<(AsSigningKey, AsIntermediateSigningKey), CreateAsStorageError> {
-        let (_credential, as_signing_key) =
-            AsCredential::new(signature_scheme, as_domain.clone(), None)
-                .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-        let (csr, prelim_signing_key) =
-            AsIntermediateCredentialCsr::new(signature_scheme, as_domain)
-                .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-        let as_intermediate_credential = csr
-            .sign(&as_signing_key, None)
+pub(crate) fn generate_fresh_credentials(
+    as_domain: Fqdn,
+    signature_scheme: SignatureScheme,
+) -> Result<(AsSigningKey, AsIntermediateSigningKey), CreateAsStorageError> {
+    let (_credential, as_signing_key) =
+        AsCredential::new(signature_scheme, as_domain.clone(), None)
             .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-        let as_intermediate_signing_key = AsIntermediateSigningKey::from_prelim_key(
-            prelim_signing_key,
-            as_intermediate_credential,
-        )
+    let (csr, prelim_signing_key) = AsIntermediateCredentialCsr::new(signature_scheme, as_domain)
         .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-        Ok((as_signing_key, as_intermediate_signing_key))
-    }
+    let as_intermediate_credential = csr
+        .sign(&as_signing_key, None)
+        .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+    let as_intermediate_signing_key =
+        AsIntermediateSigningKey::from_prelim_key(prelim_signing_key, as_intermediate_credential)
+            .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
+    Ok((as_signing_key, as_intermediate_signing_key))
 }
 
 #[async_trait]
@@ -140,9 +139,31 @@ impl BatchedKeyStore for PostgresAsStorage {
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "credential_type", rename_all = "lowercase")]
-enum CredentialType {
+pub(crate) enum CredentialType {
     As,
     Intermediate,
+}
+
+#[cfg(feature = "sqlite_provider")]
+impl FromSql for CredentialType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = i16::column_result(value)?;
+        match value {
+            0 => Ok(CredentialType::As),
+            1 => Ok(CredentialType::Intermediate),
+            _ => Err(rusqlite::types::FromSqlError::InvalidType),
+        }
+    }
+}
+
+#[cfg(feature = "sqlite_provider")]
+impl ToSql for CredentialType {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        match self {
+            CredentialType::As => 0.to_sql(),
+            CredentialType::Intermediate => 1.to_sql(),
+        }
+    }
 }
 
 #[async_trait]

@@ -24,32 +24,39 @@ impl Qs {
     ) -> Result<QsProcessResponse, QsProcessError> {
         let request_params = match message.sender() {
             QsSender::User(user_id) => {
-                let user = storage_provider
-                    .load_user(&user_id)
-                    .await
-                    .ok_or(QsProcessError::AuthenticationError)?;
+                let Some(user) = storage_provider.load_user(&user_id).await else {
+                    tracing::warn!("User not found: {:?}", user_id);
+                    return Err(QsProcessError::AuthenticationError);
+                };
                 let signature_public_key = user.verifying_key;
-                message
-                    .verify(&signature_public_key)
-                    .map_err(|_| QsProcessError::AuthenticationError)?
+                message.verify(&signature_public_key).map_err(|e| {
+                    tracing::warn!("Failed to verify message: {:?}", e);
+                    QsProcessError::AuthenticationError
+                })?
             }
             QsSender::Client(client_id) => {
-                let client = storage_provider
-                    .load_client(&client_id)
-                    .await
-                    .ok_or(QsProcessError::AuthenticationError)?;
+                let Some(client) = storage_provider.load_client(&client_id).await else {
+                    tracing::warn!("Client not found: {:?}", client_id);
+                    return Err(QsProcessError::AuthenticationError);
+                };
                 let signature_public_key = client.owner_signature_key;
-                message.verify(&signature_public_key).unwrap()
+                message.verify(&signature_public_key).map_err(|e| {
+                    tracing::warn!("Failed to verify message: {:?}", e);
+                    QsProcessError::AuthenticationError
+                })?
             }
-            QsSender::FriendshipToken(token) => message
-                .verify_with_token(token)
-                .map_err(|_| QsProcessError::AuthenticationError)?,
-            QsSender::QsUserVerifyingKey(key) => message
-                .verify(&key)
-                .map_err(|_| QsProcessError::AuthenticationError)?,
-            QsSender::Anonymous => message
-                .extract_without_verification()
-                .map_err(|_| QsProcessError::AuthenticationError)?,
+            QsSender::FriendshipToken(token) => message.verify_with_token(token).map_err(|e| {
+                tracing::warn!("Failed to verify message: {:?}", e);
+                QsProcessError::AuthenticationError
+            })?,
+            QsSender::QsUserVerifyingKey(key) => message.verify(&key).map_err(|e| {
+                tracing::warn!("Failed to verify message: {:?}", e);
+                QsProcessError::AuthenticationError
+            })?,
+            QsSender::Anonymous => message.extract_without_verification().map_err(|e| {
+                tracing::warn!("Failed to verify message: {:?}", e);
+                QsProcessError::AuthenticationError
+            })?,
         };
 
         Ok(match request_params {
