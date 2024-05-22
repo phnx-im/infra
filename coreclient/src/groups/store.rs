@@ -33,7 +33,8 @@ impl<'a> GroupStore<'a> {
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(PersistableGroup, PartialCreateGroupParams)> {
-        let (payload, params) = Group::create_group(provider, signer, group_id, group_data)?;
+        let (payload, params) =
+            Group::create_group(provider, &self.db_connection, signer, group_id, group_data)?;
         let group = PersistableGroup::from_connection_and_payload(&self.db_connection, payload);
         group.persist()?;
         Ok((group, params))
@@ -54,6 +55,7 @@ impl<'a> GroupStore<'a> {
             provider,
             welcome_bundle,
             welcome_attribution_info_ear_key,
+            &self.db_connection,
             leaf_key_store,
             as_credential_store,
             contact_store,

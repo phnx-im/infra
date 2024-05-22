@@ -82,15 +82,13 @@ impl ClientInformation<ClientAuthInfo> {
 }
 
 pub(super) struct ClientInformationDiff<'a, T: Serialize + DeserializeOwned> {
-    original_client_information: &'a ClientInformation<T>,
     client_information: BTreeMap<usize, Option<T>>,
     new_number_of_leaves: usize,
 }
 
 impl<'a, T: Serialize + DeserializeOwned> ClientInformationDiff<'a, T> {
-    pub(crate) fn new(client_information: &'a ClientInformation<T>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            original_client_information: client_information,
             client_information: BTreeMap::new(),
             new_number_of_leaves: client_information
                 .client_information

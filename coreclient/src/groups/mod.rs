@@ -11,7 +11,7 @@ pub(crate) mod store;
 pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
-use mls_assist::messages::AssistedMessageOut;
+use mls_assist::{group, messages::AssistedMessageOut};
 use phnxtypes::{
     credentials::{
         infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
@@ -177,7 +177,6 @@ pub(crate) struct Group {
     // This needs to be set after initially joining a group.
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
-    pending_diff: Option<StagedGroupDiff>,
 }
 
 impl Group {
@@ -256,6 +255,8 @@ impl Group {
         )
         .store(connection);
 
+        GroupMembership::merge_for_group(connection, &group_id);
+
         let group = Self {
             group_id: group_id.into(),
             leaf_signer,
@@ -264,7 +265,6 @@ impl Group {
             credential_ear_key,
             group_state_ear_key: group_state_ear_key.clone(),
             user_auth_signing_key_option: Some(user_auth_key),
-            pending_diff: None,
         };
 
         Ok((group, params))
@@ -379,7 +379,6 @@ impl Group {
             group_state_ear_key: joiner_info.group_state_ear_key,
             // This one needs to be rolled fresh.
             user_auth_signing_key_option: None,
-            pending_diff: None,
         };
 
         Ok(group)
@@ -388,6 +387,7 @@ impl Group {
     /// Join a group using an external commit.
     async fn join_group_externally<'a>(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        connection: &Connection,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
@@ -426,8 +426,10 @@ impl Group {
         mls_group.merge_pending_commit(provider)?;
 
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
+        let group_id = group_info.group_context().group_id();
 
-        let mut client_information = ClientInformation::decrypt_and_verify(
+        let mut client_information = ClientAuthInfo::decrypt_and_verify(
+            group_id,
             &credential_ear_key,
             &signature_ear_key_wrapper_key,
             as_credential_store,
@@ -439,16 +441,24 @@ impl Group {
         let own_client_credential = own_client_credential.clone();
         let own_signature_ear_key = signature_ear_key.clone();
         let own_index = mls_group.own_leaf_index().usize();
-        debug_assert!(client_information.get(own_index).is_none());
-        let mut diff = ClientInformationDiff::new(&client_information);
-        diff.update_client_information(
-            own_index,
-            ClientAuthInfo::new(own_client_credential, own_signature_ear_key),
+        let own_group_membership = GroupMembership::new(
+            own_client_credential.identity(),
+            group_info.group_context().group_id().clone(),
+            LeafNodeIndex::new(own_index as u32),
+            own_signature_ear_key,
         );
-        client_information.merge_diff(diff.stage());
+
+        let own_auth_info = ClientAuthInfo::new(own_client_credential.into(), own_group_membership);
+        client_information.push(own_auth_info);
+
+        // Store and merge all client auth infos.
+        for client_auth_info in &client_information {
+            client_auth_info.store(&connection)?;
+        }
+        GroupMembership::merge_for_group(connection, group_id);
 
         // Decrypt and verify the infra credentials.
-        for (m, (_, client_auth_info)) in mls_group.members().zip(client_information.iter()) {
+        for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
         }
 
@@ -464,8 +474,6 @@ impl Group {
             credential_ear_key,
             group_state_ear_key,
             user_auth_signing_key_option: Some(user_auth_key),
-            client_information,
-            pending_diff: None,
         };
 
         Ok((group, commit, group_info.into()))

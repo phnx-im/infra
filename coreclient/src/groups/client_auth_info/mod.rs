@@ -145,6 +145,15 @@ impl GroupMembership {
         }
     }
 
+    /// Merge all unmerged group memberships for the given group id.
+    pub(super) fn merge_for_group(connection: &Connection, group_id: &GroupId) -> Result<()> {
+        connection.execute(
+            "UPDATE group_membership SET merged = 1 WHERE group_id = ?",
+            params![group_id],
+        )?;
+        Ok(())
+    }
+
     pub(super) fn store(&self, connection: &Connection) -> Result<()> {
         connection.execute(
             "INSERT INTO group_membership (client_id, group_id, leaf_index, signature_ear_key) VALUES (?, ?, ?, ?)",
@@ -184,6 +193,7 @@ impl Storable for GroupMembership {
                 client_id TEXT NOT NULL,
                 leaf_index INTEGER NOT NULL,
                 signature_ear_key BLOB NOT NULL,
+                merged BOOLEAN DEFAULT 0,
                 FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
                 FOREIGN KEY (group_id) REFERENCES mlsgroup(primary_key),
                 PRIMARY KEY (client_id, group_id)
@@ -206,6 +216,17 @@ pub(super) struct ClientAuthInfo {
 }
 
 impl ClientAuthInfo {
+    pub(super) fn new(
+        client_credential: StorableClientCredential,
+        group_membership: GroupMembership,
+    ) -> Self {
+        Self {
+            client_credential,
+            group_membership,
+        }
+    }
+
+    /// Decrypt, verify and store the client information for the given group.
     pub(super) async fn decrypt_and_verify(
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,
