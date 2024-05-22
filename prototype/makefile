@@ -33,7 +33,7 @@ setup-flutter:
 	export PATH="$PATH:$HOME/flutter/bin"
 	flutter pub get
 
-setup-ci: setup-flutter
+setup-ci:
 	cd $(DART_BRIDGE_DIR) ; make setup-ci
 
 dart-bridge:
