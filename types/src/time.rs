@@ -151,8 +151,9 @@ impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
     pub fn new(lifetime: i64) -> Self {
+        let not_before = Utc::now() - Duration::minutes(15);
         Self {
-            not_before: TimeStamp::now(),
+            not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::in_days(lifetime),
         }
     }

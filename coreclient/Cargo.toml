@@ -12,10 +12,10 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
-openmls_traits = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_memory_keystore = { git = "https://github.com/openmls/openmls" }
-openmls_basic_credential = { git = "https://github.com/openmls/openmls" }
+openmls_traits = { git = "https://github.com/openmls/openmls", rev = "e2cba3268da7b90419bba3170ff76f9ba1427507" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "e2cba3268da7b90419bba3170ff76f9ba1427507" }
+openmls_memory_keystore = { git = "https://github.com/openmls/openmls", rev = "e2cba3268da7b90419bba3170ff76f9ba1427507" }
+openmls_basic_credential = { git = "https://github.com/openmls/openmls", rev = "e2cba3268da7b90419bba3170ff76f9ba1427507" }
 log = "^0.4.14"
 url = "2.2"
 base64 = "0.13"

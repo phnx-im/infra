@@ -18,14 +18,22 @@ use phnxserver::{
     endpoints::qs::ws::DispatchWebsocketNotifier,
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::{
-        memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
-        postgres::{auth_service::PostgresAsStorage, ds::PostgresDsStorage, qs::PostgresQsStorage},
+    storage_provider::memory::{
+        auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
 use uuid::Uuid;
+
+#[cfg(not(feature = "sqlite_provider"))]
+use phnxserver::storage_provider::postgres::{
+    auth_service::PostgresAsStorage, ds::PostgresDsStorage, qs::PostgresQsStorage,
+};
+#[cfg(feature = "sqlite_provider")]
+use phnxserver::storage_provider::sqlite::{
+    auth_service::SqliteAsStorage, ds::SqliteDsStorage, qs::SqliteQsStorage,
+};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -69,6 +77,9 @@ pub async fn spawn_app(
     // DS storage provider
     // Uncomment to use memory provider instead of postgres
     // let ds_storage_provider = MemoryDsStorage::new(domain.clone());
+    #[cfg(feature = "sqlite_provider")]
+    let ds_storage_provider = SqliteDsStorage::new_in_memory(domain.clone()).unwrap();
+    #[cfg(not(feature = "sqlite_provider"))]
     let ds_storage_provider = PostgresDsStorage::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");
@@ -77,6 +88,13 @@ pub async fn spawn_app(
     configuration.database.database_name = Uuid::new_v4().to_string();
     // QS storage provider
     // let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
+    #[cfg(feature = "sqlite_provider")]
+    let qs_storage_provider = Arc::new(
+        SqliteQsStorage::new_in_memory(domain.clone())
+            .await
+            .unwrap(),
+    );
+    #[cfg(not(feature = "sqlite_provider"))]
     let qs_storage_provider = Arc::new(
         PostgresQsStorage::new(&configuration.database, domain.clone())
             .await
@@ -85,6 +103,12 @@ pub async fn spawn_app(
 
     // New database name for the AS provider
     configuration.database.database_name = Uuid::new_v4().to_string();
+    #[cfg(feature = "sqlite_provider")]
+    let as_storage_provider =
+        SqliteAsStorage::new_in_memory(domain.clone(), SignatureScheme::ED25519)
+            .await
+            .unwrap();
+    #[cfg(not(feature = "sqlite_provider"))]
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
         SignatureScheme::ED25519,

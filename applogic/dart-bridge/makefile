@@ -136,20 +136,6 @@ android-armv7a-production:
 	cp $(RUST_TARGET_DIR)/armv7-linux-androideabi/production/libphnx$(LIB_NAME).so \
 		android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so
 
-android-embedded-server-debug:
-	cd $(RUST_BASE_DIR) ; \
-		cargo ndk -t arm64-v8a build --features embedded_server
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/debug/libphnx$(LIB_NAME).so \
-		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
-
-android-embedded-server-production:
-	cd $(RUST_BASE_DIR) ; \
-		cargo ndk -t arm64-v8a build --profile production --features embedded_server
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a
-	cp $(RUST_TARGET_DIR)/aarch64-linux-android/production/libphnx$(LIB_NAME).so \
-		android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so
-
 linux-debug:
 	cd $(RUST_BASE_DIR) ; \
 		cargo build --target x86_64-unknown-linux-gnu
