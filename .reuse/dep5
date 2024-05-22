@@ -10,3 +10,7 @@ License: AGPL-3.0-or-later
 Files: *.md
 Copyright: 2023 Phoenix R&D GmbH <hello@phnx.im>
 License: CC-BY-4.0
+
+Files: *.png
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: CC-BY-4.0
