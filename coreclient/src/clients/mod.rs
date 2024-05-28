@@ -466,7 +466,7 @@ impl SelfUser {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let clients = target_users
             .iter()
-            .flat_map(|user_name| group.user_client_ids(user_name))
+            .flat_map(|user_name| group.user_client_ids(&self.sqlite_connection, user_name))
             .collect::<Vec<_>>();
         let params = group.remove(&self.crypto_backend(), clients)?;
         let ds_timestamp = self
@@ -634,17 +634,18 @@ impl SelfUser {
             .ds_request_group_id()
             .await?;
         // Create the connection group
-        log::info!("Creating local connection group");
         let group_store = self.group_store();
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
+        log::info!("Creating local connection group");
         let (connection_group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
             group_data,
         )?;
+        log::info!("Connection group created");
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -802,7 +803,7 @@ impl SelfUser {
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let past_members = group.members();
+        let past_members = group.members(&self.sqlite_connection);
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         let group_messages = if past_members.len() != 1 {
@@ -1016,7 +1017,7 @@ impl SelfUser {
         group_store
             .get(&conversation.group_id())
             .ok()?
-            .map(|g| g.members())
+            .map(|g| g.members(&self.sqlite_connection))
     }
 
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
@@ -1029,7 +1030,7 @@ impl SelfUser {
         group_store
             .get(&conversation.group_id())
             .ok()?
-            .map(|group| group.pending_removes())
+            .map(|group| group.pending_removes(&self.sqlite_connection))
     }
 
     pub fn conversations(&self) -> Result<Vec<Conversation>, PersistenceError> {

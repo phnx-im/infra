@@ -8,6 +8,7 @@ use crate::utils::persistence::{DataType, Persistable, PersistableStruct, Persis
 
 use super::*;
 
+// TODO: When removing this, re-instate the foreign key constraints for GroupMembership!
 pub(crate) struct GroupStore<'a> {
     db_connection: &'a Connection,
 }
@@ -81,6 +82,7 @@ impl<'a> GroupStore<'a> {
     ) -> Result<(PersistableGroup, MlsMessageOut, MlsMessageOut)> {
         let (payload, mls_message_out, mls_message_out_option) = Group::join_group_externally(
             provider,
+            self.db_connection,
             external_commit_info,
             leaf_signer,
             signature_ear_key,
@@ -111,9 +113,14 @@ impl PersistableGroup<'_> {
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<Vec<ClientCredential>>,
     ) -> Result<AddUsersParamsOut> {
-        let result =
-            self.payload
-                .invite(provider, signer, add_infos, wai_keys, client_credentials)?;
+        let result = self.payload.invite(
+            provider,
+            self.connection,
+            signer,
+            add_infos,
+            wai_keys,
+            client_credentials,
+        )?;
         self.persist()?;
         Ok(result)
     }
@@ -124,9 +131,12 @@ impl PersistableGroup<'_> {
         staged_commit_option: impl Into<Option<StagedCommit>>,
         ds_timestamp: TimeStamp,
     ) -> Result<Vec<TimestampedMessage>> {
-        let result =
-            self.payload
-                .merge_pending_commit(provider, staged_commit_option, ds_timestamp)?;
+        let result = self.payload.merge_pending_commit(
+            provider,
+            self.connection,
+            staged_commit_option,
+            ds_timestamp,
+        )?;
         self.persist()?;
         Ok(result)
     }
@@ -136,7 +146,7 @@ impl PersistableGroup<'_> {
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut> {
-        let result = self.payload.remove(provider, members)?;
+        let result = self.payload.remove(provider, self.connection, members)?;
         self.persist()?;
         Ok(result)
     }
@@ -159,7 +169,7 @@ impl PersistableGroup<'_> {
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
         let result = self
             .payload
-            .process_message(provider, message, as_credential_store)
+            .process_message(provider, self.connection, message, as_credential_store)
             .await?;
         self.persist()?;
         Ok(result)
@@ -175,7 +185,7 @@ impl PersistableGroup<'_> {
         &mut self,
         provider: &impl OpenMlsProvider,
     ) -> Result<UpdateClientParamsOut> {
-        let result = self.payload.update_user_key(provider)?;
+        let result = self.payload.update_user_key(provider, self.connection)?;
         self.persist()?;
         Ok(result)
     }
@@ -184,7 +194,7 @@ impl PersistableGroup<'_> {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
     ) -> Result<DeleteGroupParamsOut> {
-        let result = self.payload.delete(provider)?;
+        let result = self.payload.delete(provider, self.connection)?;
         self.persist()?;
         Ok(result)
     }
@@ -202,7 +212,7 @@ impl PersistableGroup<'_> {
         &mut self,
         provider: &impl OpenMlsProvider,
     ) -> Result<UpdateClientParamsOut> {
-        let result = self.payload.update(provider)?;
+        let result = self.payload.update(provider, self.connection)?;
         self.persist()?;
         Ok(result)
     }

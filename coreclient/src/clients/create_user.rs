@@ -211,11 +211,13 @@ impl PostRegistrationInitState {
         let client_credential: ClientCredential = self
             .client_credential
             .verify(as_intermediate_credential.verifying_key())?;
-        let signing_key = ClientSigningKey::from_prelim_key(prelim_signing_key, client_credential)?;
+        StorableClientCredential::new(client_credential.clone()).store(connection)?;
+
+        let signing_key =
+            ClientSigningKey::from_prelim_key(prelim_signing_key, client_credential.clone())?;
 
         // Store the own client credential in the DB
-        let own_client_auth_info =
-            StorableClientCredential::new(client_credential.clone()).store(connection)?;
+        StorableClientCredential::new(client_credential.clone()).store(connection)?;
 
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;

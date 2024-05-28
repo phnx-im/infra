@@ -54,7 +54,7 @@ impl PostgresAsStorage {
         if as_creds.is_empty() {
             let (as_signing_key, as_inter_signing_key) =
                 generate_fresh_credentials(as_domain, signature_scheme)?;
-            let _ = sqlx::query!(
+            let _ = sqlx::query!( 
                 r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
                 Uuid::new_v4(),
                 CredentialType::As as _,

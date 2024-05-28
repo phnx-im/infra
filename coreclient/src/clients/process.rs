@@ -95,12 +95,16 @@ impl SelfUser {
 
                 // Store the user profiles of the group members if they don't
                 // exist yet.
-                group.members().into_iter().try_for_each(|user_name| {
-                    UserProfile::new(user_name, None, None).register_as_conversation_participant(
-                        &self.sqlite_connection,
-                        conversation.id(),
-                    )
-                })?;
+                group
+                    .members(&self.sqlite_connection)
+                    .into_iter()
+                    .try_for_each(|user_name| {
+                        UserProfile::new(user_name, None, None)
+                            .register_as_conversation_participant(
+                                &self.sqlite_connection,
+                                conversation.id(),
+                            )
+                    })?;
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
             }
@@ -270,7 +274,9 @@ impl SelfUser {
                         }
                         // If we were removed, we set the group to inactive.
                         if we_were_removed {
-                            conversation.set_inactive(group.members().into_iter().collect())?;
+                            conversation.set_inactive(
+                                group.members(&self.sqlite_connection).into_iter().collect(),
+                            )?;
                         }
                         let group_messages = group.merge_pending_commit(
                             &self.crypto_backend(),

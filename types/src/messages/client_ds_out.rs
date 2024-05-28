@@ -45,7 +45,7 @@ use super::{
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
-    pub encrypted_client_info: Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
+    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
 }
 
 #[derive(TlsDeserializeBytes, TlsSize)]

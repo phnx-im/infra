@@ -694,8 +694,7 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
 #[derive(TlsSerialize, TlsSize, Clone)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_credentials:
-        Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
+    pub encrypted_client_credentials: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
     pub ratchet_tree: RatchetTree,
 }
 
@@ -732,8 +731,7 @@ impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_information:
-        Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
+    pub encrypted_client_information: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
     pub ratchet_tree: RatchetTreeIn,
 }
 
