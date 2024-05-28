@@ -115,7 +115,7 @@ impl<'a> AsCredentialStore<'a> {
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<PersistableAsIntermediateCredential<'a>, AsCredentialStoreError> {
-        log::info!("Loading credential from db.");
+        log::info!("Loading AS credential from db.");
         let credential_option = PersistableAsIntermediateCredential::load_one(
             self.db_connection,
             Some(fingerprint),

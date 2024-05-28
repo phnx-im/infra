@@ -9,6 +9,8 @@
 use std::fmt::Display;
 
 use rand::{RngCore, SeedableRng};
+#[cfg(feature = "sqlite")]
+use rusqlite::{types::FromSql, ToSql};
 use secrecy::Zeroize;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -57,5 +59,24 @@ impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
 impl<const LENGTH: usize> Display for Secret<LENGTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[[REDACTED]]")
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for Secret<32> {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::from(self.secret.to_vec()))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for Secret<32> {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let secret = value.as_blob()?;
+        let mut secret_bytes = [0u8; 32];
+        secret_bytes.copy_from_slice(secret);
+        Ok(Secret {
+            secret: secret_bytes,
+        })
     }
 }

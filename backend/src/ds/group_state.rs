@@ -243,13 +243,10 @@ impl DsGroupState {
     /// list of client records.
     pub(super) fn client_information(
         &self,
-    ) -> Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>> {
+    ) -> Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)> {
         let mut client_information = vec![];
-        for (client_index, client_profile) in self.client_profiles.iter() {
-            while client_information.len() < client_index.usize() {
-                client_information.push(None);
-            }
-            client_information.push(Some(client_profile.encrypted_client_information.clone()));
+        for (_client_index, client_profile) in self.client_profiles.iter() {
+            client_information.push(client_profile.encrypted_client_information.clone());
         }
         client_information
     }

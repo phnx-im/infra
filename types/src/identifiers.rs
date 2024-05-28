@@ -9,6 +9,11 @@ use std::{
 };
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
+#[cfg(feature = "sqlite")]
+use rusqlite::{
+    types::{FromSql, FromSqlError},
+    ToSql,
+};
 use url::Host;
 use uuid::Uuid;
 
@@ -310,6 +315,52 @@ impl AsClientId {
 
     pub fn client_id(&self) -> Uuid {
         self.client_id
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum AsClientIdError {
+    #[error("The given string does not represent a valid client id")]
+    InvalidClientId,
+    #[error("The UUID of this client id is invalid: {0}")]
+    InvalidClientUuid(#[from] uuid::Error),
+    #[error("The user name of the client id is invalid: {0}")]
+    UserNameError(#[from] UserNameError),
+}
+
+impl TryFrom<String> for AsClientId {
+    type Error = AsClientIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let Some((client_id_str, user_name_str)) = value.split_once('.') else {
+            return Err(AsClientIdError::InvalidClientId);
+        };
+        let client_id = Uuid::parse_str(client_id_str)?;
+        let user_name = <&str as SafeTryInto<UserName>>::try_into(user_name_str)?;
+        Ok(Self {
+            user_name,
+            client_id,
+        })
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for AsClientId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let string = self.to_string();
+        Ok(rusqlite::types::ToSqlOutput::from(string))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for AsClientId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let string = value.as_str()?.to_owned();
+        let as_client_id = AsClientId::try_from(string).map_err(|e| {
+            tracing::error!("Error parsing AsClientId: {}", e);
+            FromSqlError::InvalidType
+        })?;
+        Ok(as_client_id)
     }
 }
 

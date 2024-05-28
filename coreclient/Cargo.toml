@@ -22,7 +22,7 @@ base64 = "0.13"
 pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
-phnxtypes = { path = "../types" }
+phnxtypes = { path = "../types", features = ["sqlite"] }
 opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
 futures = { version = "0.3.28", features = ["executor"] }
 anyhow = { version = "1.0", features = ["backtrace"] }

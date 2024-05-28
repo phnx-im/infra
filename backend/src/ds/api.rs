@@ -533,7 +533,7 @@ impl DsApi {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_info: Vec<Option<(EncryptedClientCredential, EncryptedSignatureEarKey)>>,
+    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]

@@ -6,6 +6,11 @@ use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
+#[cfg(feature = "sqlite")]
+use rusqlite::{
+    types::{FromSql, FromSqlError},
+    ToSql,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -61,9 +66,10 @@ impl std::fmt::Display for CredentialFingerprint {
 
 impl CredentialFingerprint {
     fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
+        let hash_label = format!("Infra Credential Fingerprint {}", label);
         let rust_crypto = OpenMlsRustCrypto::default();
         let payload = credential.tls_serialize_detached().unwrap_or_default();
-        let input = [label.as_bytes().to_vec(), payload].concat();
+        let input = [hash_label.as_bytes().to_vec(), payload].concat();
         let value = rust_crypto
             .crypto()
             .hash(HashType::Sha2_256, &input)
@@ -73,6 +79,25 @@ impl CredentialFingerprint {
 
     pub fn as_bytes(&self) -> &[u8] {
         &self.value
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for CredentialFingerprint {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Borrowed(
+            rusqlite::types::ValueRef::Blob(&self.value),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for CredentialFingerprint {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_blob()?;
+        Ok(Self {
+            value: value.to_vec(),
+        })
     }
 }
 
@@ -454,6 +479,27 @@ impl ClientCredential {
 
     pub fn verifying_key(&self) -> &ClientVerifyingKey {
         &self.payload.csr.verifying_key
+    }
+
+    pub fn fingerprint(&self) -> CredentialFingerprint {
+        CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for ClientCredential {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(self.tls_serialize_detached().unwrap_or_default()),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for ClientCredential {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_blob()?;
+        Ok(serde_json::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))?)
     }
 }
 
