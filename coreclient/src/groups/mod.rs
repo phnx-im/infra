@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub(crate) mod client_auth_info;
-//pub(crate) mod client_information;
 pub(crate) mod diff;
 pub(crate) mod error;
 pub(crate) mod store;
@@ -172,9 +171,9 @@ pub(crate) struct Group {
     credential_ear_key: ClientCredentialEarKey,
     group_state_ear_key: GroupStateEarKey,
     // This needs to be set after initially joining a group.
-    pending_diff: Option<StagedGroupDiff>,
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
+    pending_diff: Option<StagedGroupDiff>,
 }
 
 impl Group {
@@ -495,7 +494,6 @@ impl Group {
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
-        log::info!("Processing message.");
         let processed_message = self.mls_group.process_message(provider, message)?;
         let group_id = self.group_id();
 
@@ -812,7 +810,6 @@ impl Group {
         // Get the sender's credential
         // If the sender is added to the group with this commit, we have to load
         // it from the DB with status "staged".
-        log::info!("Loading client credential of sender based on index.");
         let sender_credential = if matches!(processed_message.sender(), Sender::NewMemberCommit) {
             ClientAuthInfo::load_staged(connection, group_id, sender_index)?
         } else {
@@ -1118,17 +1115,18 @@ impl Group {
         GroupMembership::merge_for_group(connection, self.group_id())?;
         self.pending_diff = None;
         // Debug sanity checks after merging.
-        //#[cfg(debug_assertions)]
-        //{
-        //    let mls_group_members = self.mls_group.members().count();
-        //    let infra_group_members = GroupMembership::;
-        //    debug_assert_eq!(mls_group_members, infra_group_members);
-        //    self.mls_group.members().for_each(|m| {
-        //        let index = m.index.usize();
-        //        let client_information = self.client_information.get(index);
-        //        debug_assert!(client_information.is_some())
-        //    });
-        //}
+        #[cfg(debug_assertions)]
+        {
+            let mls_group_members = self.mls_group.members().count();
+            let infra_group_members = GroupMembership::group_members(connection, self.group_id())?;
+            debug_assert_eq!(mls_group_members, infra_group_members.len());
+            let infra_indices =
+                GroupMembership::client_indices(connection, self.group_id(), &infra_group_members)?;
+            self.mls_group.members().for_each(|m| {
+                let index = m.index;
+                debug_assert!(infra_indices.contains(&index));
+            });
+        }
         Ok(event_messages)
     }
 

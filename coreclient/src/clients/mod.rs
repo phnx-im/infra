@@ -634,18 +634,17 @@ impl SelfUser {
             .ds_request_group_id()
             .await?;
         // Create the connection group
+        log::info!("Creating local connection group");
         let group_store = self.group_store();
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
-        log::info!("Creating local connection group");
         let (connection_group, partial_params) = group_store.create_group(
             &self.crypto_backend(),
             &self.key_store.signing_key,
             group_id.clone(),
             group_data,
         )?;
-        log::info!("Connection group created");
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.

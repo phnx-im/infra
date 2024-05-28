@@ -99,20 +99,6 @@ impl StorableClientCredential {
         Self { client_credential }
     }
 
-    //pub(super) async fn decrypt_and_verify_all(
-    //    ear_key: &ClientCredentialEarKey,
-    //    as_credential_store: &AsCredentialStore<'_>,
-    //    encrypted_client_credentials: impl IntoIterator<Item = EncryptedClientCredential>,
-    //) -> Result<Vec<Self>> {
-    //    let mut client_credentials = Vec::new();
-    //    for ctxt in encrypted_client_credentials.into_iter() {
-    //        let client_credential =
-    //            Self::decrypt_and_verify(ear_key, as_credential_store, ctxt).await?;
-    //        client_credentials.push(client_credential);
-    //    }
-    //    Ok(client_credentials)
-    //}
-
     pub(super) async fn decrypt_and_verify(
         ear_key: &ClientCredentialEarKey,
         as_credential_store: &AsCredentialStore<'_>,
