@@ -1117,9 +1117,23 @@ impl Group {
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
         {
-            let mls_group_members = self.mls_group.members().count();
+            let mls_group_members = self
+                .mls_group
+                .members()
+                .map(|m| m.index)
+                .collect::<Vec<_>>();
             let infra_group_members = GroupMembership::group_members(connection, self.group_id())?;
-            debug_assert_eq!(mls_group_members, infra_group_members.len());
+            if mls_group_members.len() != infra_group_members.len() {
+                log::info!(
+                    "Group members according to OpenMLS: {:?}",
+                    mls_group_members
+                );
+                log::info!(
+                    "Group members according to Infra: {:?}",
+                    infra_group_members
+                );
+                panic!("Group members don't match up.");
+            }
             let infra_indices =
                 GroupMembership::client_indices(connection, self.group_id(), &infra_group_members)?;
             self.mls_group.members().for_each(|m| {
