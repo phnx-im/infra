@@ -44,21 +44,16 @@ setup-linux:
 	flutter config --enable-linux-desktop
 	make setup-rust
 
-setup-ci: setup-flutter setup-rust
-
-setup-flutter:
-	flutter channel stable
-	flutter upgrade
-	flutter pub get
-	flutter doctor
-	export PATH="$$PATH:$$HOME/.pub-cache/bin"
+setup-ci: setup-rust
 
 setup-rust:
 	rustup upgrade
+	rustup target install aarch64-linux-android
 	cd ../.. ; cargo clean ; cargo update
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@1.82.6
 	cargo binstall -y cargo-expand
+	cargo binstall -y cargo-ndk
 
 # coreclient
 
