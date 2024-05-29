@@ -57,6 +57,8 @@ jobs:
           flutter-version: "3.x"
           channel: "stable"
           cache: true
+      - name: Generate bridge
+        run: cd prototype && make setup-ci && make dart-bridge
       - name: Build 
         run: cargo build --verbose
       - name: Run tests
