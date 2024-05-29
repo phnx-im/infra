@@ -36,6 +36,7 @@ setup-ci:
 	cargo binstall -y cargo-ndk
 
 dart-bridge:
+	touch $(RUST_BASE_DIR)/src/frb_generated.rs
 	 flutter_rust_bridge_codegen generate
 
 android-debug:
