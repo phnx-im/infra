@@ -1,0 +1,7 @@
+# Original parameters
+# rust_input: rust/src/api/**/*.rs
+# dart_output: lib/src/rust
+rust_root: ../applogic
+rust_input: ../applogic/src/dart_api.rs
+dart_output: lib/core
+add_mod_to_lib: false

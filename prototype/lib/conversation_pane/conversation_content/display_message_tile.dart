@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:applogic/applogic.dart';
+import 'package:prototype/core/types.dart';
 import 'package:prototype/styles.dart';
 import 'tile_timestamp.dart';
 
 class DisplayMessageTile extends StatefulWidget {
   final UiEventMessage eventMessage;
-  final int timestamp;
+  final DateTime timestamp;
   const DisplayMessageTile(this.eventMessage, this.timestamp, {super.key});
 
   @override
@@ -58,8 +58,7 @@ class _DisplayMessageTileState extends State<DisplayMessageTile> {
               )),
             ),
           ),
-          TileTimestamp(
-              hovering: _hovering, timestamp: widget.timestamp.toInt())
+          TileTimestamp(hovering: _hovering, timestamp: widget.timestamp)
         ],
       ),
     );

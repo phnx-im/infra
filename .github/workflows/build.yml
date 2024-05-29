@@ -57,8 +57,6 @@ jobs:
           flutter-version: "3.x"
           channel: "stable"
           cache: true
-      - name: Set up bridge
-        run: cd applogic/dart-bridge && make setup-ci && make dart-bridge
       - name: Build 
         run: cargo build --verbose
       - name: Run tests

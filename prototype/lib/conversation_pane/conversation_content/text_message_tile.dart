@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:applogic/applogic.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
+import 'package:prototype/core/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
@@ -12,7 +12,7 @@ import 'tile_timestamp.dart';
 
 class TextMessageTile extends StatefulWidget {
   final UiContentMessage contentMessage;
-  final int timestamp;
+  final DateTime timestamp;
   const TextMessageTile(this.contentMessage, this.timestamp, {super.key});
 
   @override
@@ -127,7 +127,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
             SelectionContainer.disabled(
               child: TileTimestamp(
                 hovering: _hovering,
-                timestamp: widget.timestamp.toInt(),
+                timestamp: widget.timestamp,
               ),
             )
           ],

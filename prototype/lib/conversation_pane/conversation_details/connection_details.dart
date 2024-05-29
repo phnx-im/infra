@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // New widget that shows conversation details
-import 'package:applogic/applogic.dart';
 import 'package:flutter/material.dart';
+import 'package:prototype/core/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';

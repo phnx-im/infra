@@ -30,5 +30,7 @@ jobs:
           channel: stable
       - name: Setup CI
         run: cd prototype && make setup-ci
+      - name: Generate bridge
+        run: cd prototype && make dart-bridge
       - name: Build Android app
         run: cd prototype && make android-debug
