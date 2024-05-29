@@ -33,11 +33,6 @@ use phnxcoreclient::{
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 use notify_rust::Notification;
 
-#[flutter_rust_bridge::frb(sync)] // Synchronous mode for simplicity of the demo
-pub fn greet(name: String) -> String {
-    format!("Hello, {name}!")
-}
-
 /// This is only to tell flutter_rust_bridge that it should expose the types
 /// used in the parameters
 pub fn _expose_conversation(conversation: UiConversation) -> UiConversation {
