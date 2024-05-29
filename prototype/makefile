@@ -37,7 +37,8 @@ setup-ci:
 
 dart-bridge:
 	touch $(RUST_BASE_DIR)/src/frb_generated.rs
-	 flutter_rust_bridge_codegen generate
+	flutter pub get
+	flutter_rust_bridge_codegen generate
 
 android-debug:
 	flutter build apk --debug
