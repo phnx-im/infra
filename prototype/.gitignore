@@ -60,7 +60,7 @@ target
 **/*.so
 
 # FRB related
-# lib/core/*
+lib/core/*
 
 # Other platforms
 ios/
