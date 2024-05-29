@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 SET(cargokit_cmake_root "${CMAKE_CURRENT_LIST_DIR}/..")
 
 # Workaround for https://github.com/dart-lang/pub/issues/4010

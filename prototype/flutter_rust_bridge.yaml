@@ -1,6 +1,11 @@
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Original parameters
 # rust_input: rust/src/api/**/*.rs
 # dart_output: lib/src/rust
+
 rust_root: ../applogic
 rust_input: ../applogic/src/dart_api.rs
 dart_output: lib/core
