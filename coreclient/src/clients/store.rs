@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use own_client_info::OwnClientInfo;
 use phnxtypes::{
     credentials::{AsCredential, AsIntermediateCredential},
     messages::client_as::AsQueueRatchet,
@@ -304,6 +305,8 @@ impl Persistable for ClientRecord {
 /// function of all structs that implement `Persistable`.
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
     <SchemaVersion as Storable>::create_table(client_db_connection)?;
+    <UserCreationState as Persistable>::create_table(client_db_connection)?;
+    <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
     <ConversationParticipation as Storable>::create_table(client_db_connection)?;
@@ -322,7 +325,6 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     // QsQueueRatchet.
     <AsQueueRatchet as Persistable>::create_table(client_db_connection)?;
     <QualifiedSequenceNumber as Persistable>::create_table(client_db_connection)?;
-    <UserCreationState as Persistable>::create_table(client_db_connection)?;
     <[u8; 32] as Persistable>::create_table(client_db_connection)?;
 
     Ok(())

@@ -467,6 +467,21 @@ impl tls_codec::DeserializeBytes for QsClientId {
     }
 }
 
+#[cfg(feature = "sqlite")]
+impl ToSql for QsClientId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.client_id.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for QsClientId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let client_id = Uuid::column_result(value)?;
+        Ok(QsClientId { client_id })
+    }
+}
+
 impl tls_codec::Size for QsClientId {
     fn tls_serialized_len(&self) -> usize {
         self.client_id.as_bytes().len()
@@ -493,6 +508,21 @@ impl From<Uuid> for QsClientId {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct QsUserId {
     pub(crate) user_id: Uuid,
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for QsUserId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.user_id.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for QsUserId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let user_id = Uuid::column_result(value)?;
+        Ok(QsUserId { user_id })
+    }
 }
 
 impl From<Uuid> for QsUserId {

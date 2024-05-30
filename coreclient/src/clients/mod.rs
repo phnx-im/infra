@@ -14,6 +14,7 @@ use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
+use own_client_info::OwnClientInfo;
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     credentials::{
@@ -85,6 +86,7 @@ pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 mod create_user;
 pub(crate) mod openmls_provider;
+pub(crate) mod own_client_info;
 pub mod process;
 pub mod store;
 #[cfg(test)]
@@ -148,7 +150,7 @@ impl SelfUser {
             &client_db_transaction,
             &phnx_db_connection,
             as_client_id,
-            server_url,
+            server_url.clone(),
             password,
         )?;
 
@@ -159,6 +161,14 @@ impl SelfUser {
                 &api_clients,
             )
             .await?;
+
+        OwnClientInfo {
+            server_url,
+            qs_user_id: final_state.qs_user_id().clone(),
+            qs_client_id: final_state.qs_client_id().clone(),
+            as_client_id: final_state.client_id().clone(),
+        }
+        .store(&client_db_transaction)?;
 
         client_db_transaction.commit()?;
 

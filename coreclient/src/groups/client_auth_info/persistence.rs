@@ -380,7 +380,7 @@ impl Storable for GroupMembership {
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS group_membership (
                 client_credential_fingerprint BLOB NOT NULL,
                 group_id BLOB NOT NULL,
-                client_uuid TEXT NOT NULL,
+                client_uuid BLOB NOT NULL,
                 user_name TEXT NOT NULL,
                 leaf_index INTEGER NOT NULL,
                 signature_ear_key BLOB NOT NULL,
@@ -391,11 +391,14 @@ impl Storable for GroupMembership {
 }
 
 impl Triggerable for GroupMembership {
+    // Delete client credentials if their not our own and not used in any group.
     const CREATE_TRIGGER_STATEMENT: &'static str = "CREATE TRIGGER IF NOT EXISTS delete_orphaned_client_credentials AFTER DELETE ON group_membership
         BEGIN
             DELETE FROM client_credentials
             WHERE fingerprint = OLD.client_credential_fingerprint AND NOT EXISTS (
                 SELECT 1 FROM group_membership WHERE client_credential_fingerprint = OLD.client_credential_fingerprint
+            ) AND NOT EXISTS (
+                SELECT 1 FROM own_client_info WHERE as_client_uuid = OLD.client_uuid
             );
         END";
 }

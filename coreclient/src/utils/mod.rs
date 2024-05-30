@@ -4,6 +4,7 @@
 
 use persistence::Storable;
 use rusqlite::{types::FromSql, Connection, ToSql};
+use thiserror::Error;
 
 pub(crate) mod persistence;
 pub(crate) mod versioning;
@@ -39,11 +40,57 @@ impl Storable for SchemaVersion {
         );";
 }
 
+#[derive(Debug, Error)]
+pub(crate) enum MigrationError {
+    #[error("Error migrating the database: {0}")]
+    DatabaseError(#[from] rusqlite::Error),
+    #[error("The code is older than the database schema version")]
+    CodeTooOld,
+}
+
 impl SchemaVersion {
     fn db_schema_version(connection: &Connection) -> Result<SchemaVersion, rusqlite::Error> {
         connection.query_row("SELECT version FROM schema_version", [], |row| {
             let version = row.get(0)?;
             Ok(version)
         })
+    }
+
+    pub(crate) fn migrate(connection: &Connection) -> Result<(), MigrationError> {
+        // Migrate until we reach the current schema version
+        loop {
+            let db_schema_version = Self::db_schema_version(connection)?;
+
+            // Perform the migration
+            match db_schema_version.version {
+                db_schema_version if db_schema_version > CODE_SCHEMA_VERSION => {
+                    log::error!("The code is older than the database schema version. Code: {}, Database: {}", CODE_SCHEMA_VERSION, db_schema_version);
+                    return Err(MigrationError::CodeTooOld);
+                }
+                db_schema_version if db_schema_version == CODE_SCHEMA_VERSION => {
+                    log::info!("Database schema is up to date");
+                    return Ok(());
+                }
+                db_schema_version => {
+                    log::info!(
+                        "Migrating database from version {} to {}",
+                        db_schema_version,
+                        db_schema_version + 1
+                    );
+                    // Perform the migration by calling the appropriate
+                    // migration function for the given `db_schema_version`
+                }
+            }
+
+            // Update the schema version
+            connection.execute(
+                "UPDATE schema_version SET version = ?",
+                [CODE_SCHEMA_VERSION],
+            )?;
+            log::info!(
+                "Database migration to version {} complete",
+                CODE_SCHEMA_VERSION
+            )
+        }
     }
 }

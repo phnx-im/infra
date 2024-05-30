@@ -222,11 +222,15 @@ impl Storable for ConversationParticipation {
 }
 
 impl Triggerable for ConversationParticipation {
+    // Delete orphaned user profiles when a user leaves all conversations and if
+    // the user profile is not our own.
     const CREATE_TRIGGER_STATEMENT: &'static str = "CREATE TRIGGER IF NOT EXISTS delete_orphaned_user_profiles AFTER DELETE ON conversation_participation
         BEGIN
             DELETE FROM users 
             WHERE user_name = OLD.user_name AND NOT EXISTS (
                 SELECT 1 FROM conversation_participation WHERE user_name = OLD.user_name
+            ) AND NOT EXISTS (
+                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
             );
         END";
 }
