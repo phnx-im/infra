@@ -59,6 +59,9 @@ target
 **/*.a
 **/*.so
 
+# FRB related
+lib/core/*
+
 # Other platforms
 ios/
 macos/

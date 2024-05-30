@@ -5,24 +5,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
-import 'dart:ffi';
-import 'dart:io';
-import 'package:applogic/applogic.dart';
 import 'package:path_provider/path_provider.dart';
-
-DynamicLibrary loadLibForFlutter(String path) =>
-    Platform.isIOS || Platform.isMacOS
-        ? DynamicLibrary.process()
-        : DynamicLibrary.open(path);
-
-const base = 'phnxapplogic';
-final path = Platform.isWindows
-    ? 'windows/$base.dll'
-    : Platform.isAndroid
-        ? 'lib$base.so'
-        : 'linux/lib$base.so';
-final dylib = loadLibForFlutter(path);
-final bridge = RustBridgeImpl(dylib);
+import 'package:prototype/core/dart_api.dart';
+import 'package:prototype/core/frb_generated.dart';
+import 'package:prototype/core/types.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -72,12 +58,14 @@ class CoreClient {
 
   Stream<UiUserProfile> get onOwnProfileUpdate => ownProfileUpdate.stream;
 
-  // Logging
-  void setupLogging() async {
-    /*  createLogStream().listen((event) {
+  Future<void> init() async {
+    // FRB
+    await RustLib.init();
+    // Logging
+    createLogStream().listen((event) {
       print(
-          'log from rust: ${event.level} ${event.tag} ${event.msg} ${event.timeMillis}');
-    }); */
+          'Rust: ${event.level} ${event.tag} ${event.msg} ${event.timeMillis}');
+    });
   }
 
   String get username {
@@ -92,13 +80,13 @@ class CoreClient {
     return path;
   }
 
-  Future<void> deleteDatabases() async {
-    await bridge.deleteDatabases(clientDbPath: await dbPath());
+  Future<void> deleteDatabase() async {
+    await deleteDatabases(clientDbPath: await dbPath());
   }
 
   Future<bool> loadUser() async {
     try {
-      final userBuilder = await UserBuilder.newUserBuilder(bridge: bridge);
+      final userBuilder = await UserBuilder.newInstance();
       final stream = userBuilder.getStream().asBroadcastStream();
 
       // We wait for the first element to be received
@@ -124,7 +112,7 @@ class CoreClient {
   Future<void> createUser(
       String userName, String password, String address) async {
     final fqun = userName;
-    final userBuilder = await UserBuilder.newUserBuilder(bridge: bridge);
+    final userBuilder = await UserBuilder.newInstance();
     final stream = userBuilder.getStream().asBroadcastStream();
 
     await stream.firstWhere((UiNotificationType event) {
@@ -163,15 +151,15 @@ class CoreClient {
     websocket.listen((WsNotification event) async {
       print("Event: $event");
       switch (event) {
-        case WsNotification.Connected:
+        case WsNotification.connected:
           print("Connected to the websocket");
           startPolling();
           break;
-        case WsNotification.Disconnected:
+        case WsNotification.disconnected:
           print("Disconnected from the websocket");
           cancelPolling();
           break;
-        case WsNotification.QueueUpdate:
+        case WsNotification.queueUpdate:
           print("Queue update");
           await fetchMessages();
           break;

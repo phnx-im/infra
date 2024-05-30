@@ -5,8 +5,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:applogic/applogic.dart';
 import 'package:prototype/conversation_pane/conversation_content/display_message_tile.dart';
+import 'package:prototype/core/types.dart';
 import 'package:prototype/core_client.dart';
 import 'text_message_tile.dart';
 import 'package:flutter/scheduler.dart';

@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[path = "frb_generated.rs"]
+pub(crate) mod frb_generated;
+
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
-use flutter_rust_bridge::{handler::DefaultHandler, support::lazy_static, RustOpaque, StreamSink};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxtypes::{
     identifiers::{SafeTryInto, UserName},
@@ -13,7 +15,10 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
+use frb_generated::*;
+
 pub use crate::types::{UiConversation, UiConversationMessage, UiNotificationType};
+
 use crate::{
     app_state::AppState,
     mobile_logging::{init_logger, LogEntry, SendToDartLogger},
@@ -27,13 +32,6 @@ use phnxcoreclient::{
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 use notify_rust::Notification;
-
-lazy_static! {
-    static ref FLUTTER_RUST_BRIDGE_HANDLER: DefaultHandler = DefaultHandler::default();
-}
-
-#[path = "../dart-bridge/bridge_generated.rs"]
-mod bridge_generated;
 
 /// This is only to tell flutter_rust_bridge that it should expose the types
 /// used in the parameters
@@ -72,7 +70,7 @@ pub struct DartNotifier {
 impl Notifiable for DartNotifier {
     fn notify(&self, notification_type: NotificationType) -> bool {
         let ui_notification_type = UiNotificationType::from(notification_type);
-        self.stream_sink.add(ui_notification_type)
+        self.stream_sink.add(ui_notification_type).is_ok()
     }
 }
 
@@ -83,14 +81,14 @@ impl From<StreamSink<UiNotificationType>> for DartNotifier {
 }
 
 pub struct UserBuilder {
-    stream_sink: RustOpaque<Mutex<Option<StreamSink<UiNotificationType>>>>,
+    stream_sink: Mutex<Option<StreamSink<UiNotificationType>>>,
 }
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
         rust_set_up();
         Self {
-            stream_sink: RustOpaque::new(Mutex::new(None)),
+            stream_sink: Mutex::new(None),
         }
     }
 
@@ -106,10 +104,11 @@ impl UserBuilder {
         let stream_sink = stream_sink_option.insert(stream_sink);
         // Since the function will return immediately we send a first
         // notification to the Dart side so we can wait for it there.
-        stream_sink.add(UiNotificationType::ConversationChange(
-            ConversationIdBytes { bytes: [0; 16] },
-        ));
-        Ok(())
+        stream_sink
+            .add(UiNotificationType::ConversationChange(
+                ConversationIdBytes { bytes: [0; 16] },
+            ))
+            .map_err(|e| anyhow!("Error sending notification: {:?}", e))
     }
 
     pub fn load_default(&self, path: String) -> Result<RustUser> {
@@ -146,9 +145,9 @@ impl UserBuilder {
 type DartNotificationHub = NotificationHub<DartNotifier>;
 
 pub struct RustUser {
-    user: RustOpaque<Arc<Mutex<SelfUser>>>,
-    app_state: RustOpaque<AppState>,
-    notification_hub_option: RustOpaque<Mutex<DartNotificationHub>>,
+    user: Arc<Mutex<SelfUser>>,
+    app_state: AppState,
+    notification_hub_option: Mutex<DartNotificationHub>,
 }
 
 impl RustUser {
@@ -181,9 +180,9 @@ impl RustUser {
         Self::init_desktop_os_notifications()?;
         let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(user.clone()),
-            app_state: RustOpaque::new(AppState::new(user)),
-            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
+            user: user.clone(),
+            app_state: AppState::new(user),
+            notification_hub_option: Mutex::new(notification_hub),
         })
     }
 
@@ -211,9 +210,9 @@ impl RustUser {
         Self::init_desktop_os_notifications()?;
         let user = Arc::new(Mutex::new(user));
         Ok(Self {
-            user: RustOpaque::new(user.clone()),
-            app_state: RustOpaque::new(AppState::new(user)),
-            notification_hub_option: RustOpaque::new(Mutex::new(notification_hub)),
+            user: user.clone(),
+            app_state: AppState::new(user),
+            notification_hub_option: Mutex::new(notification_hub),
         })
     }
 
@@ -225,32 +224,42 @@ impl RustUser {
     #[tokio::main(flavor = "current_thread")]
     pub async fn websocket(
         &self,
-        timeout: u64,
-        retry_interval: u64,
+        timeout: u32,
+        retry_interval: u32,
         stream_sink: StreamSink<WsNotification>,
     ) -> Result<()> {
         let mut user = self.user.lock().unwrap();
-        let mut qs_websocket = user.websocket(timeout, retry_interval).await?;
+        let mut qs_websocket = user
+            .websocket(timeout as u64, retry_interval as u64)
+            .await?;
         drop(user);
 
         loop {
             match qs_websocket.next().await {
                 Some(event) => match event {
                     WsEvent::ConnectedEvent => {
-                        stream_sink.add(WsNotification::Connected);
+                        stream_sink
+                            .add(WsNotification::Connected)
+                            .map_err(|e| anyhow!(e))?;
                     }
                     WsEvent::DisconnectedEvent => {
-                        stream_sink.add(WsNotification::Disconnected);
+                        stream_sink
+                            .add(WsNotification::Disconnected)
+                            .map_err(|e| anyhow!(e))?;
                     }
                     WsEvent::MessageEvent(e) => match e {
                         QsWsMessage::QueueUpdate => {
-                            stream_sink.add(WsNotification::QueueUpdate);
+                            stream_sink
+                                .add(WsNotification::QueueUpdate)
+                                .map_err(|e| anyhow!(e))?;
                         }
                         _ => {}
                     },
                 },
                 None => {
-                    stream_sink.add(WsNotification::Disconnected);
+                    stream_sink
+                        .add(WsNotification::Disconnected)
+                        .map_err(|e| anyhow!(e))?;
                     break;
                 }
             }
@@ -366,10 +375,10 @@ impl RustUser {
     pub async fn get_messages(
         &self,
         conversation_id: ConversationIdBytes,
-        last_n: usize,
+        last_n: u32,
     ) -> Vec<UiConversationMessage> {
         let user = self.user.lock().unwrap();
-        user.get_messages(conversation_id.into(), last_n)
+        user.get_messages(conversation_id.into(), last_n as usize)
             .unwrap_or_default()
             .into_iter()
             .map(|m| m.into())

@@ -47,7 +47,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                           onPressed: () {
                             // Perform database erase operation
                             try {
-                              coreClient.deleteDatabases().then((value) {
+                              coreClient.deleteDatabase().then((value) {
                                 if (appNavigator.currentState != null) {
                                   // Remove all routes from the navigator stack and push the HomeScreen
                                   Navigator.pushAndRemoveUntil(

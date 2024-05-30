@@ -4,8 +4,8 @@
 
 import 'dart:async';
 
-import 'package:applogic/applogic.dart';
 import 'package:flutter/material.dart';
+import 'package:prototype/core/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/elements.dart';
