@@ -14,15 +14,15 @@ impl Storable for OwnClientInfo {
             server_url TEXT NOT NULL,
             qs_user_id BLOB NOT NULL,
             qs_client_id BLOB NOT NULL,
-            as_user_name TEXT NOT NULL
-            as_client_uuid BLOB NOT NULL,
+            as_user_name TEXT NOT NULL,
+            as_client_uuid BLOB NOT NULL
         );";
 }
 
 impl OwnClientInfo {
     pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
         connection.execute(
-            "INSERT INTO own_client_info (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO own_client_info (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid) VALUES (?, ?, ?, ?, ?)",
             params![
                 self.server_url,
                 self.qs_user_id, 

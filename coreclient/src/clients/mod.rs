@@ -49,6 +49,7 @@ use phnxtypes::{
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use utils::set_up_database;
 use uuid::Uuid;
 
 use crate::{
@@ -114,15 +115,15 @@ impl SelfUser {
         user_name: impl SafeTryInto<UserName>,
         password: &str,
         server_url: impl ToString,
-        client_db_path: &str,
+        db_path: &str,
     ) -> Result<Self> {
         let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
-        let phnx_db_connection = open_phnx_db(client_db_path)?;
+        let phnx_db_connection = open_phnx_db(db_path)?;
 
         // Open client specific db
-        let client_db_connection = open_client_db(&as_client_id, client_db_path)?;
+        let client_db_connection = open_client_db(&as_client_id, db_path)?;
 
         Self::new_with_connections(
             as_client_id,
@@ -143,6 +144,8 @@ impl SelfUser {
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
+
+        set_up_database(&mut client_db_connection)?;
 
         let mut client_db_transaction = client_db_connection.transaction()?;
 
@@ -205,10 +208,13 @@ impl SelfUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<SelfUser>> {
-        let phnx_db_connection = open_phnx_db(client_db_path)?;
+    pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<Option<SelfUser>> {
+        let phnx_db_connection = open_phnx_db(db_path)?;
 
-        let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
+        let mut client_db_connection = open_client_db(&as_client_id, db_path)?;
+
+        set_up_database(&mut client_db_connection)?;
+
         let mut client_db_transaction = client_db_connection.transaction()?;
 
         let Some(user_creation_state) =

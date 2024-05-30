@@ -9,7 +9,7 @@ use phnxtypes::{
     messages::client_as::AsQueueRatchet,
 };
 use rusqlite::Transaction;
-use utils::SchemaVersion;
+use utils::versioning::SchemaVersion;
 
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
 
@@ -90,11 +90,6 @@ impl UserCreationState {
             server_url: server_url.to_string(),
             password: password.to_string(),
         };
-        // Create all required tables in the client db.
-        create_all_tables(client_db_connection)?;
-
-        // Create all db triggers.
-        create_all_triggers(client_db_connection)?;
 
         // Create user profile entry for own user.
         UserProfile::store_own_user_profile(
