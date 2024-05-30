@@ -100,7 +100,6 @@ impl GroupMembership {
         connection: &Connection,
         group_id: &GroupId,
     ) -> Result<(), rusqlite::Error> {
-        log::info!("Merging");
         let group_id = GroupIdRefWrapper::from(group_id);
         // Delete all 'staged_removal' rows.
         connection.execute(
@@ -142,7 +141,6 @@ impl GroupMembership {
     }
 
     pub(in crate::groups) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        log::info!("Storing");
         connection.execute(
             "INSERT OR IGNORE INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
             params![
@@ -158,7 +156,6 @@ impl GroupMembership {
     }
 
     pub(super) fn stage_update(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        log::info!("Staging update");
         connection.execute(
             "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
             params![
@@ -174,7 +171,6 @@ impl GroupMembership {
     }
 
     pub(super) fn stage_add(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        log::info!("Staging add");
         connection.execute(
             "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
             params![
@@ -194,7 +190,6 @@ impl GroupMembership {
         group_id: &GroupId,
         removed_index: LeafNodeIndex,
     ) -> Result<(), rusqlite::Error> {
-        log::info!("Staging removal");
         connection.execute(
             "UPDATE group_membership SET status = 'staged_removal' WHERE group_id = ? AND leaf_index = ?",
             params![GroupIdRefWrapper::from(group_id), removed_index.u32()],
@@ -210,7 +205,6 @@ impl GroupMembership {
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
     ) -> Result<Option<Self>, rusqlite::Error> {
-        log::info!("Loading");
         Self::load_internal(connection, group_id, leaf_index, true)
     }
 
@@ -222,7 +216,6 @@ impl GroupMembership {
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
     ) -> Result<Option<Self>, rusqlite::Error> {
-        log::info!("Loading staged");
         Self::load_internal(connection, group_id, leaf_index, false)
     }
 
@@ -269,7 +262,6 @@ impl GroupMembership {
         connection: &Connection,
         group_id: &GroupId,
     ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        log::info!("Getting member indices");
         let mut stmt = connection.prepare(
             "SELECT leaf_index FROM group_membership WHERE group_id = ? AND NOT (status = 'staged_removal' OR status = 'staged_add' OR status = 'staged_update')",
         )?;
@@ -287,7 +279,6 @@ impl GroupMembership {
         group_id: &GroupId,
         client_ids: &[AsClientId],
     ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        log::info!("Getting client indices");
         let client_infos = client_ids
             .into_iter()
             .map(|client_id| (client_id.client_id(), client_id.user_name()))
@@ -314,7 +305,6 @@ impl GroupMembership {
                 Ok(leaf_index)
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("Done getting client indices");
         Ok(rows)
     }
 
@@ -323,7 +313,6 @@ impl GroupMembership {
         group_id: &GroupId,
         user_name: &UserName,
     ) -> Result<Vec<AsClientId>, rusqlite::Error> {
-        log::info!("Getting user client ids");
         let mut stmt = connection.prepare(
             "SELECT client_uuid FROM group_membership WHERE group_id = ? AND user_name = ?",
         )?;
@@ -347,7 +336,6 @@ impl GroupMembership {
         group_id: &GroupId,
         user_name: UserName,
     ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        log::info!("Getting user client indices");
         let mut stmt = connection.prepare(
             "SELECT leaf_index FROM group_membership WHERE group_id = ? AND user_name = ?",
         )?;
@@ -367,9 +355,8 @@ impl GroupMembership {
         connection: &Connection,
         group_id: &GroupId,
     ) -> Result<Vec<AsClientId>, rusqlite::Error> {
-        log::info!("Getting group members");
         let mut stmt = connection
-            .prepare("SELECT (client_uuid, user_name) FROM group_membership WHERE group_id = ?")?;
+            .prepare("SELECT client_uuid, user_name FROM group_membership WHERE group_id = ?")?;
         let group_members = stmt
             .query_map(params![GroupIdRefWrapper::from(group_id)], |row| {
                 let client_uuid = row.get(0)?;

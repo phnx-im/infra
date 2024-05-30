@@ -72,6 +72,7 @@ impl StorableClientCredential {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct GroupMembership {
     client_id: AsClientId,
     client_credential_fingerprint: CredentialFingerprint,
