@@ -28,8 +28,6 @@ clean:
 	cd $(RUST_BASE_DIR) ; cargo clean
 
 setup-ci:
-	rustup upgrade
-	rustup target install aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@2.0.0-dev.36
 	cargo binstall -y cargo-expand
