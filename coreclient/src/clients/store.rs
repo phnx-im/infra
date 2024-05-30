@@ -8,6 +8,7 @@ use phnxtypes::{
     messages::client_as::AsQueueRatchet,
 };
 use rusqlite::Transaction;
+use utils::SchemaVersion;
 
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
 
@@ -302,6 +303,7 @@ impl Persistable for ClientRecord {
 /// Create all tables for a client database by calling the `create_table`
 /// function of all structs that implement `Persistable`.
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
+    <SchemaVersion as Storable>::create_table(client_db_connection)?;
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
     <ConversationParticipation as Storable>::create_table(client_db_connection)?;
