@@ -4,17 +4,13 @@
 
 use rusqlite::Connection;
 use thiserror::Error;
-use versioning::{MigrationError, SchemaVersion};
 
 use crate::clients::store::{create_all_tables, create_all_triggers};
 
 pub(crate) mod persistence;
-pub(crate) mod versioning;
 
 #[derive(Debug, Error)]
 pub enum DatabaseSetupError {
-    #[error(transparent)]
-    MigrationError(#[from] MigrationError),
     #[error("Error setting up tables in the database: {0}")]
     TableCreationError(#[from] rusqlite::Error),
 }
@@ -26,6 +22,5 @@ pub(crate) fn set_up_database(
 ) -> Result<(), DatabaseSetupError> {
     create_all_tables(&client_db_connection)?;
     create_all_triggers(&client_db_connection)?;
-    SchemaVersion::migrate(client_db_connection)?;
     Ok(())
 }
