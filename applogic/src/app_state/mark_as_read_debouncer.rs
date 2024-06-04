@@ -2,15 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use tokio::{sync::Mutex, time::sleep};
+
 use phnxcoreclient::{clients::SelfUser, ConversationId};
 use phnxtypes::time::TimeStamp;
-
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    thread::{self, sleep},
-    time::Duration,
-};
 
 use anyhow::{anyhow, Result};
 
@@ -78,13 +75,15 @@ impl MarkAsReadDebouncer {
         }
     }
 
+    /*
+     Commented out for now, until https://github.com/rust-lang/rust/issues/100013 is resolved.
     #[cfg(test)]
-    fn new_with_duration(duration: u64) -> Self {
-        Self {
-            conversation_debouncer_states_option: Arc::new(Mutex::new(None)),
-            default_duration: duration,
-        }
-    }
+     fn new_with_duration(duration: u64) -> Self {
+         Self {
+             conversation_debouncer_states_option: Arc::new(Mutex::new(None)),
+             default_duration: duration,
+         }
+     } */
 
     /// If there is a debouncer state for the given conversation id, immediately
     /// flush the state by marking all messages in the conversation older then
@@ -92,13 +91,11 @@ impl MarkAsReadDebouncer {
     ///
     /// If there is no debouncer state for the given conversation id, this
     /// function does nothing.
-    pub(crate) fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
-        let mut debouncer_state_option = self
-            .conversation_debouncer_states_option
-            .lock()
-            .map_err(|e| anyhow!("Mark as read debouncer mutex poisoned: {}", e))?;
+    pub(crate) async fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
+        let mut debouncer_state_option = self.conversation_debouncer_states_option.lock().await;
         if let Some(debouncer_state) = debouncer_state_option.take() {
-            user.mark_as_read(&debouncer_state.conversation_timestamps)?;
+            user.mark_as_read(&debouncer_state.conversation_timestamps)
+                .await?;
             debouncer_state_option.take();
         }
         Ok(())
@@ -121,16 +118,14 @@ impl MarkAsReadDebouncer {
     ///
     /// The timer will stop if the duration of all debouncer instances has
     /// reached zero.
-    pub(crate) fn mark_as_read_debounced<T: MarkAsRead + Sync + Send + 'static>(
+    pub(crate) async fn mark_as_read_debounced(
         &self,
-        user: T,
+        user: Arc<Mutex<SelfUser>>, // impl MarkAsRead + Sync + Send + 'static
         conversation_id: ConversationId,
         timestamp: TimeStamp,
-    ) -> Result<()> {
-        let mut conversation_debouncer_state_option = self
-            .conversation_debouncer_states_option
-            .lock()
-            .map_err(|e| anyhow!("Mark as read debouncer mutex poisoned: {}", e))?;
+    ) {
+        let mut conversation_debouncer_state_option =
+            self.conversation_debouncer_states_option.lock().await;
         // Check if there is already a debouncer state.
         if let Some(ref mut debouncer_state) = *conversation_debouncer_state_option {
             // As there is a debouncer state, there must already be a thread
@@ -140,7 +135,7 @@ impl MarkAsReadDebouncer {
                 .conversation_timestamps
                 .insert(conversation_id, timestamp);
             debouncer_state.reset_duration();
-            return Ok(());
+            return;
         }
 
         // Since there is no thread running we create a new state and start a new thread.
@@ -158,26 +153,19 @@ impl MarkAsReadDebouncer {
         // the thread, we log it and return.
         let debouncer_state_mutex = self.conversation_debouncer_states_option.clone();
 
-        thread::spawn(move || debouncing_timer(debouncer_state_mutex, user));
-        Ok(())
+        tokio::spawn(async move { debouncing_timer(debouncer_state_mutex.clone(), user).await });
     }
 }
 
-fn debouncing_timer<T: MarkAsRead + Sync + Send>(
+async fn debouncing_timer(
     debouncer_state_mutex: Arc<Mutex<Option<DebouncerState>>>,
-    user: T,
+    user: Arc<Mutex<SelfUser>>, // impl MarkAsRead + Sync + Send + 'static
 ) {
     loop {
         // Wait for a bit.
-        sleep(Duration::from_millis(DURATION_CHECK_INTERVAL));
+        sleep(Duration::from_millis(DURATION_CHECK_INTERVAL)).await;
         // Re-acquire the lock.
-        let mut debouncer_state_option = match debouncer_state_mutex.lock() {
-            Ok(states) => states,
-            Err(e) => {
-                log::error!("Mark as read debouncer mutex poisoned: {}", e);
-                return;
-            }
-        };
+        let mut debouncer_state_option = debouncer_state_mutex.lock().await;
 
         // If the debouncer state was removed while the debouncer thread was
         // running (e.g. because the debouncer state was flushed), there is
@@ -190,7 +178,10 @@ fn debouncing_timer<T: MarkAsRead + Sync + Send>(
         // If the duration has reached zero, we mark the messages as read
         // and remove the debouncer state.
         if debouncer_state.duration == 0 {
-            if let Err(e) = user.mark_as_read(&debouncer_state.conversation_timestamps) {
+            if let Err(e) = user
+                .mark_as_read(&debouncer_state.conversation_timestamps)
+                .await
+            {
                 log::error!("Failed to mark messages as read: {}", e);
             };
             debouncer_state_option.take();
@@ -200,37 +191,41 @@ fn debouncing_timer<T: MarkAsRead + Sync + Send>(
 }
 
 pub(crate) trait MarkAsRead {
-    fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+    async fn mark_as_read<
+        'b,
+        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
+    >(
         &self,
         mark_as_read_data: T,
     ) -> Result<()>;
 }
 
 impl MarkAsRead for Arc<Mutex<SelfUser>> {
-    fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+    async fn mark_as_read<
+        'b,
+        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
+    >(
         &self,
         mark_as_read_data: T,
     ) -> Result<()> {
-        let user = self
-            .lock()
-            .map_err(|e| anyhow!("User mutex poisoned: {}", e))?;
-        user.mark_as_read(mark_as_read_data)?;
+        let user = self.lock().await;
+        user.mark_as_read(mark_as_read_data)
+            .map_err(|e| anyhow!("Error: {:?}", e))
+            .unwrap();
         Ok(())
     }
 }
-
+/*
+Commented out for now, until https://github.com/rust-lang/rust/issues/100013 is resolved.
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashMap,
-        sync::{Arc, Mutex},
-        thread::sleep,
-        time::Duration,
-    };
+    use std::{collections::HashMap, sync::Arc, time::Duration};
 
     use anyhow::Result;
     use phnxcoreclient::ConversationId;
     use phnxtypes::time::TimeStamp;
+    use tokio::sync::Mutex;
+    use tokio::time::sleep;
     use uuid::Uuid;
 
     use super::MarkAsRead;
@@ -259,11 +254,14 @@ mod tests {
     }
 
     impl MarkAsRead for Arc<Mutex<TestUser>> {
-        fn mark_as_read<'b, T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>>(
+        async fn mark_as_read<
+            'b,
+            T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
+        >(
             &self,
             mark_as_read_data: T,
         ) -> Result<()> {
-            let mut user = self.lock().unwrap();
+            let mut user = self.lock().await;
             for (conversation_id, timestamp) in mark_as_read_data {
                 let conversation = user.conversations.get_mut(&conversation_id).unwrap();
                 *conversation = *timestamp;
@@ -275,8 +273,8 @@ mod tests {
     // Test the debouncer mechanism by issuing repeated calls to mark messages
     // as read in multiple conversations and checking if the messages are marked
     // as read after the debouncing process has finished.
-    #[test]
-    fn mark_as_read_debouncer() {
+    #[tokio::test]
+    async fn mark_as_read_debouncer() {
         // Let's make the duration sligtly shorter to speed up the test.
         let test_duration = 1000;
         let mut user = TestUser::new();
@@ -291,12 +289,12 @@ mod tests {
         let user_mutex = Arc::new(Mutex::new(user));
         mark_as_read_debouncers
             .mark_as_read_debounced(user_mutex.clone(), conversation_id, new_timestamp)
-            .unwrap();
+            .await;
 
         // Wait for debouncer to finish
         sleep(std::time::Duration::from_millis(test_duration * 3));
 
-        let mut user = user_mutex.lock().unwrap();
+        let mut user = user_mutex.lock().await;
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             new_timestamp
@@ -312,9 +310,9 @@ mod tests {
         // First call
         mark_as_read_debouncers
             .mark_as_read_debounced(user_mutex.clone(), conversation_id, timestamp_2)
-            .unwrap();
+            .await;
         // Check that it wasn't set immediately
-        let user = user_mutex.lock().unwrap();
+        let user = user_mutex.lock().await;
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_1
@@ -326,9 +324,9 @@ mod tests {
         let timestamp_3 = TimeStamp::now();
         mark_as_read_debouncers
             .mark_as_read_debounced(user_mutex.clone(), conversation_id, timestamp_3)
-            .unwrap();
+            .await;
         // Check that it wasn't set immediately
-        let user = user_mutex.lock().unwrap();
+        let user = user_mutex.lock().await;
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_1
@@ -336,10 +334,11 @@ mod tests {
         drop(user);
         // Wait for debouncer to finish
         sleep(Duration::from_millis(test_duration * 4));
-        let user = user_mutex.lock().unwrap();
+        let user = user_mutex.lock().await;
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_3
         );
     }
 }
+ */
