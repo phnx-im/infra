@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::Deref, path::Path};
+use std::{fmt::Display, ops::Deref, path::Path};
 
 use anyhow::{bail, Result};
+use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{named_params, params, Connection, Row, ToSql};
+use rusqlite::{named_params, params, types::FromSql, Connection, Row, ToSql};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -404,16 +405,58 @@ pub(crate) trait Storable {
 
         Ok(())
     }
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>
+    where
+        Self: Sized;
 }
 
 pub(crate) trait Triggerable {
-    const CREATE_TRIGGER_STATEMENT: &'static str;
+    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str];
 
     /// Helper function that creates a trigger for the given data type.
     fn create_trigger(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
-        let mut stmt = conn.prepare(Self::CREATE_TRIGGER_STATEMENT)?;
-        stmt.execute([])?;
+        for statement in Self::CREATE_TRIGGER_STATEMENTS.iter() {
+            let mut stmt = conn.prepare(statement)?;
+            stmt.execute([])?;
+        }
 
         Ok(())
+    }
+}
+
+/// Helper struct that allows us to use GroupId as sqlite input.
+pub(crate) struct GroupIdRefWrapper<'a>(&'a GroupId);
+
+impl<'a> From<&'a GroupId> for GroupIdRefWrapper<'a> {
+    fn from(group_id: &'a GroupId) -> Self {
+        Self(group_id)
+    }
+}
+
+impl<'a> ToSql for GroupIdRefWrapper<'a> {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.0.as_slice().to_sql()
+    }
+}
+
+impl Display for GroupIdRefWrapper<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
+    }
+}
+
+pub(crate) struct GroupIdWrapper(GroupId);
+
+impl From<GroupIdWrapper> for GroupId {
+    fn from(group_id: GroupIdWrapper) -> Self {
+        group_id.0
+    }
+}
+
+impl FromSql for GroupIdWrapper {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let group_id = GroupId::from_slice(value.as_blob()?);
+        Ok(GroupIdWrapper(group_id))
     }
 }

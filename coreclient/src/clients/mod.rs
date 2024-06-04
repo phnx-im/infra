@@ -305,7 +305,7 @@ impl SelfUser {
 
     /// Get the user profile of the user with the given [`UserName`].
     pub fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
-        let user = UserProfile::load(&self.sqlite_connection, user_name.clone())?;
+        let user = UserProfile::load(&self.sqlite_connection, user_name)?;
         Ok(user)
     }
 
@@ -1107,7 +1107,7 @@ impl SelfUser {
 
     /// Returns the user profile of this [`SelfUser`].
     pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
-        UserProfile::load(&self.sqlite_connection, self.user_name())
+        UserProfile::load(&self.sqlite_connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
     }

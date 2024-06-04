@@ -2,55 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Display;
-
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
     crypto::ear::keys::{SignatureEarKey, SignatureEarKeySecret},
     identifiers::{AsClientId, UserName},
 };
-use rusqlite::{params, params_from_iter, types::FromSql, Connection, OptionalExtension, ToSql};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
 
-use crate::utils::persistence::{Storable, Triggerable};
+use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable, Triggerable};
 
 use super::{GroupMembership, StorableClientCredential};
-
-/// Helper struct that allows us to use GroupId as sqlite input.
-struct GroupIdRefWrapper<'a>(&'a GroupId);
-
-impl<'a> From<&'a GroupId> for GroupIdRefWrapper<'a> {
-    fn from(group_id: &'a GroupId) -> Self {
-        Self(group_id)
-    }
-}
-
-impl<'a> ToSql for GroupIdRefWrapper<'a> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.as_slice().to_sql()
-    }
-}
-
-impl Display for GroupIdRefWrapper<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
-    }
-}
-
-struct GroupIdWrapper(GroupId);
-
-impl From<GroupIdWrapper> for GroupId {
-    fn from(group_id: GroupIdWrapper) -> Self {
-        group_id.0
-    }
-}
-
-impl FromSql for GroupIdWrapper {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let group_id = GroupId::from_slice(value.as_blob()?);
-        Ok(GroupIdWrapper(group_id))
-    }
-}
 
 impl StorableClientCredential {
     /// Load the [`StorableClientCredential`] with the given
@@ -62,10 +24,7 @@ impl StorableClientCredential {
         let mut stmt = connection
             .prepare("SELECT client_credential FROM client_credentials WHERE fingerprint = ?")?;
         let client_credential_option = stmt
-            .query_row(params![credential_fingerprint], |row| {
-                let client_credential = row.get(0)?;
-                Ok(Self::new(client_credential))
-            })
+            .query_row(params![credential_fingerprint], Self::from_row)
             .optional()?;
 
         Ok(client_credential_option)
@@ -92,6 +51,11 @@ impl Storable for StorableClientCredential {
                 client_id TEXT NOT NULL,
                 client_credential BLOB NOT NULL
             )";
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        let client_credential = row.get(0)?;
+        Ok(Self::new(client_credential))
+    }
 }
 
 impl GroupMembership {
@@ -225,7 +189,7 @@ impl GroupMembership {
         leaf_index: LeafNodeIndex,
         merged: bool,
     ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut query_string = "SELECT group_id, client_uuid, user_name, leaf_index, signature_ear_key, client_credential_fingerprint FROM group_membership WHERE group_id = ? AND leaf_index = ?".to_owned();
+        let mut query_string = "SELECT client_credential_fingerprint, group_id, client_uuid, user_name, leaf_index, signature_ear_key, FROM group_membership WHERE group_id = ? AND leaf_index = ?".to_owned();
         if merged {
             query_string += " AND status = 'merged'";
         } else {
@@ -235,22 +199,7 @@ impl GroupMembership {
         let group_membership = stmt
             .query_row(
                 params![GroupIdRefWrapper::from(group_id), leaf_index.u32()],
-                |row| {
-                    let group_id: GroupIdWrapper = row.get(0)?;
-                    let client_uuid = row.get(1)?;
-                    let user_name = row.get(2)?;
-                    let leaf_index: i64 = row.get(3)?;
-                    let signature_ear_key: SignatureEarKeySecret = row.get(4)?;
-                    let client_credential_fingerprint = row.get(5)?;
-                    let client_id = AsClientId::compose(user_name, client_uuid);
-                    Ok(Self {
-                        client_id,
-                        group_id: group_id.into(),
-                        leaf_index: LeafNodeIndex::new(leaf_index as u32),
-                        signature_ear_key: SignatureEarKey::from(signature_ear_key),
-                        client_credential_fingerprint,
-                    })
-                },
+                Self::from_row,
             )
             .optional()?;
         Ok(group_membership)
@@ -388,11 +337,30 @@ impl Storable for GroupMembership {
                 FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
                 PRIMARY KEY (group_id, leaf_index, status)
             )";
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        let client_credential_fingerprint = row.get(0)?;
+        let group_id: GroupIdWrapper = row.get(1)?;
+        let client_uuid = row.get(2)?;
+        let user_name = row.get(3)?;
+        let leaf_index: i64 = row.get(4)?;
+        let signature_ear_key: SignatureEarKeySecret = row.get(5)?;
+        let client_id = AsClientId::compose(user_name, client_uuid);
+        Ok(Self {
+            client_id,
+            group_id: group_id.into(),
+            leaf_index: LeafNodeIndex::new(leaf_index as u32),
+            signature_ear_key: SignatureEarKey::from(signature_ear_key),
+            client_credential_fingerprint,
+        })
+    }
 }
 
 impl Triggerable for GroupMembership {
     // Delete client credentials if their not our own and not used in any group.
-    const CREATE_TRIGGER_STATEMENT: &'static str = "CREATE TRIGGER IF NOT EXISTS delete_orphaned_client_credentials AFTER DELETE ON group_membership
+    // Also delete any user profiles of users that are not in any group.
+    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &[
+        "CREATE TRIGGER IF NOT EXISTS delete_orphaned_client_credentials AFTER DELETE ON group_membership
         BEGIN
             DELETE FROM client_credentials
             WHERE fingerprint = OLD.client_credential_fingerprint AND NOT EXISTS (
@@ -400,5 +368,14 @@ impl Triggerable for GroupMembership {
             ) AND NOT EXISTS (
                 SELECT 1 FROM own_client_info WHERE as_client_uuid = OLD.client_uuid
             );
-        END";
+        END",
+        "CREATE TRIGGER IF NOT EXISTS delete_orphaned_user_profiles AFTER DELETE ON group_membership
+        BEGIN
+            DELETE FROM users
+            WHERE user_name = OLD.user_name AND NOT EXISTS (
+                SELECT 1 FROM group_membership WHERE user_name = OLD.user_name
+            ) AND NOT EXISTS (
+                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
+            );
+        END"];
 }

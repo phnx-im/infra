@@ -43,30 +43,25 @@ impl UserProfile {
 
     pub(crate) fn load(
         connection: &Connection,
-        user_name: UserName,
+        user_name: &UserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT user_name, display_name, profile_picture FROM users WHERE user_name = ?",
         )?;
         let user = statement
-            .query_row(params![user_name.to_string()], |row| {
-                let db_user_name = <String as SafeTryInto<UserName>>::try_into(row.get(0)?)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-                if user_name != db_user_name {
-                    // This should never happen, but if it does, we want to know about it.
-                    log::error!(
-                        "User name mismatch: Expected {}, got {}",
-                        user_name,
-                        db_user_name
-                    );
-                }
-                Ok(UserProfile {
-                    user_name,
-                    display_name_option: row.get(1)?,
-                    profile_picture_option: row.get(2)?,
-                })
-            })
+            .query_row(params![user_name.to_string()], Self::from_row)
             .optional()?;
+
+        if let Some(user_profile) = &user {
+            if user_name != user_profile.user_name() {
+                // This should never happen, but if it does, we want to know about it.
+                log::error!(
+                    "User name mismatch: Expected {}, got {}",
+                    user_name,
+                    user_profile.user_name()
+                );
+            }
+        }
         Ok(user)
     }
 
@@ -154,6 +149,17 @@ impl Storable for UserProfile {
                 display_name TEXT,
                 profile_picture BLOB
             )";
+
+    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
+        let user_name = row.get(0)?;
+        let display_name_option = row.get(1)?;
+        let profile_picture_option = row.get(2)?;
+        Ok(UserProfile {
+            user_name,
+            display_name_option,
+            profile_picture_option,
+        })
+    }
 }
 
 pub(crate) struct ConversationParticipation {
@@ -219,12 +225,21 @@ impl Storable for ConversationParticipation {
                 FOREIGN KEY (conversation_id) REFERENCES conversation(primary_key),
                 PRIMARY KEY (user_name, conversation_id)
             )";
+
+    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
+        let user_name = row.get(0)?;
+        let conversation_id = row.get(1)?;
+        Ok(ConversationParticipation {
+            user_name,
+            conversation_od: conversation_id,
+        })
+    }
 }
 
 impl Triggerable for ConversationParticipation {
     // Delete orphaned user profiles when a user leaves all conversations and if
     // the user profile is not our own.
-    const CREATE_TRIGGER_STATEMENT: &'static str = "CREATE TRIGGER IF NOT EXISTS delete_orphaned_user_profiles AFTER DELETE ON conversation_participation
+    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &["CREATE TRIGGER IF NOT EXISTS delete_orphaned_user_profiles AFTER DELETE ON conversation_participation
         BEGIN
             DELETE FROM users 
             WHERE user_name = OLD.user_name AND NOT EXISTS (
@@ -232,7 +247,7 @@ impl Triggerable for ConversationParticipation {
             ) AND NOT EXISTS (
                 SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
             );
-        END";
+        END"];
 }
 
 /// A display name is a human-readable name that can be used to identify a user.
