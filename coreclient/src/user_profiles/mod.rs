@@ -100,15 +100,8 @@ impl UserProfile {
         Ok(())
     }
 
-    /// Register the user as a member of a group. This creates and stores a new
-    /// [`UserProfile`] if one doesn't already exist. It also registers the
-    /// membership of this user in this conversation s.t. the user can be
-    /// cleaned up if they left all conversations.
-    pub(crate) fn register_as_conversation_participant(
-        &self,
-        connection: &Connection,
-        conversation_id: ConversationId,
-    ) -> Result<(), rusqlite::Error> {
+    /// Stores this new [`UserProfile`] if one doesn't already exist.
+    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
             params![
@@ -117,8 +110,6 @@ impl UserProfile {
                 self.profile_picture_option
             ],
         )?;
-        ConversationParticipation::new(self.user_name.clone(), conversation_id)
-            .store(connection)?;
         Ok(())
     }
 
@@ -160,94 +151,6 @@ impl Storable for UserProfile {
             profile_picture_option,
         })
     }
-}
-
-pub(crate) struct ConversationParticipation {
-    user_name: UserName,
-    conversation_od: ConversationId,
-}
-
-impl ConversationParticipation {
-    /// Write changes to the user roster of a conversation to the database.
-    pub(crate) fn process_system_messages(
-        connection: &Connection,
-        conversation_id: &ConversationId,
-        messages: &[TimestampedMessage],
-    ) -> Result<(), rusqlite::Error> {
-        for message in messages {
-            let Message::Event(EventMessage::System(system_message)) = message.message() else {
-                continue;
-            };
-            match system_message {
-                SystemMessage::Add(_adder, addee) => {
-                    ConversationParticipation::new(addee.clone(), conversation_id.clone())
-                        .store(connection)?;
-                }
-                SystemMessage::Remove(_remover, removed) => {
-                    ConversationParticipation::new(removed.clone(), conversation_id.clone())
-                        .delete(connection)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn new(user_name: UserName, conversation_id: ConversationId) -> Self {
-        Self {
-            user_name,
-            conversation_od: conversation_id,
-        }
-    }
-
-    fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR REPLACE INTO conversation_participation (user_name, conversation_id) VALUES (?, ?)",
-            params![self.user_name.to_string(), self.conversation_od.to_string()],
-        )?;
-        Ok(())
-    }
-
-    fn delete(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "DELETE FROM conversation_participation WHERE user_name = ? AND conversation_id = ?",
-            params![self.user_name.to_string(), self.conversation_od.to_string()],
-        )?;
-        Ok(())
-    }
-}
-
-impl Storable for ConversationParticipation {
-    const CREATE_TABLE_STATEMENT: &'static str =
-        "CREATE TABLE IF NOT EXISTS conversation_participation (
-                user_name TEXT NOT NULL,
-                conversation_id TEXT NOT NULL,
-                FOREIGN KEY (user_name) REFERENCES users(user_name),
-                FOREIGN KEY (conversation_id) REFERENCES conversation(primary_key),
-                PRIMARY KEY (user_name, conversation_id)
-            )";
-
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let conversation_id = row.get(1)?;
-        Ok(ConversationParticipation {
-            user_name,
-            conversation_od: conversation_id,
-        })
-    }
-}
-
-impl Triggerable for ConversationParticipation {
-    // Delete orphaned user profiles when a user leaves all conversations and if
-    // the user profile is not our own.
-    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &["CREATE TRIGGER IF NOT EXISTS delete_orphaned_user_profiles AFTER DELETE ON conversation_participation
-        BEGIN
-            DELETE FROM users 
-            WHERE user_name = OLD.user_name AND NOT EXISTS (
-                SELECT 1 FROM conversation_participation WHERE user_name = OLD.user_name
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
-            );
-        END"];
 }
 
 /// A display name is a human-readable name that can be used to identify a user.

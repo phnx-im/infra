@@ -99,11 +99,7 @@ impl SelfUser {
                     .members(&self.sqlite_connection)
                     .into_iter()
                     .try_for_each(|user_name| {
-                        UserProfile::new(user_name, None, None)
-                            .register_as_conversation_participant(
-                                &self.sqlite_connection,
-                                conversation.id(),
-                            )
+                        UserProfile::new(user_name, None, None).store(&self.sqlite_connection)
                     })?;
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
@@ -424,10 +420,7 @@ impl SelfUser {
                 cep_tbs
                     .friendship_package
                     .user_profile
-                    .register_as_conversation_participant(
-                        &self.sqlite_connection,
-                        conversation.id(),
-                    )?;
+                    .store(&self.sqlite_connection)?;
                 // TODO: For now, we automatically confirm conversations.
                 conversation.confirm()?;
                 let contact_store = self.contact_store();

@@ -68,7 +68,7 @@ use crate::{
         queue_ratchets::{QueueRatchetStore, QueueType},
         MemoryUserKeyStore,
     },
-    user_profiles::{ConversationParticipation, UserProfile},
+    user_profiles::UserProfile,
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -447,12 +447,6 @@ impl SelfUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -497,13 +491,6 @@ impl SelfUser {
         // Now that we know the commit went through, we can merge the commit
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
-
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
 
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -728,9 +715,7 @@ impl SelfUser {
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
-        let new_user_profile = UserProfile::new(user_name, None, None);
-        new_user_profile
-            .register_as_conversation_participant(&self.sqlite_connection, conversation.id())?;
+        UserProfile::new(user_name, None, None).store(&self.sqlite_connection)?;
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -784,13 +769,6 @@ impl SelfUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
-
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -837,13 +815,6 @@ impl SelfUser {
         } else {
             vec![]
         };
-
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
 
         conversation.set_inactive(past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
@@ -962,13 +933,6 @@ impl SelfUser {
             .await?;
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
-
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
 
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
