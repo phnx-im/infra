@@ -6,7 +6,6 @@ use std::ops::Deref;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use phnxtypes::{
-    credentials::ClientCredential,
     crypto::{
         ear::{
             keys::{
@@ -30,12 +29,13 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+pub(crate) mod persistence;
 pub(crate) mod store;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub user_name: UserName,
-    pub(crate) client_credentials: Vec<ClientCredential>,
+    pub(crate) clients: Vec<AsClientId>,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -56,12 +56,6 @@ impl Contact {
     /// Get the user name of this contact.
     pub fn user_name(&self) -> &UserName {
         &self.user_name
-    }
-
-    pub(crate) fn client_credential(&self, client_id: &AsClientId) -> Option<&ClientCredential> {
-        self.client_credentials
-            .iter()
-            .find(|cred| &cred.identity() == client_id)
     }
 
     pub(crate) async fn fetch_add_infos(
@@ -106,8 +100,8 @@ impl Contact {
         Ok(add_info)
     }
 
-    pub(crate) fn client_credentials(&self) -> Vec<ClientCredential> {
-        self.client_credentials.clone()
+    pub(crate) fn clients(&self) -> &[AsClientId] {
+        &self.clients
     }
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {

@@ -7,17 +7,13 @@
 
 use std::fmt::Display;
 
-use phnxtypes::identifiers::{SafeTryInto, UserName};
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
+use phnxtypes::identifiers::UserName;
+use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{
-    conversations::messages::TimestampedMessage,
-    utils::persistence::{Storable, Triggerable},
-    ConversationId, EventMessage, Message, SystemMessage,
-};
+pub(crate) mod persistence;
 
 /// A user profile contains information about a user, such as their display name
 /// and profile picture.
@@ -41,78 +37,6 @@ impl UserProfile {
         }
     }
 
-    pub(crate) fn load(
-        connection: &Connection,
-        user_name: &UserName,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT user_name, display_name, profile_picture FROM users WHERE user_name = ?",
-        )?;
-        let user = statement
-            .query_row(params![user_name.to_string()], Self::from_row)
-            .optional()?;
-
-        if let Some(user_profile) = &user {
-            if user_name != user_profile.user_name() {
-                // This should never happen, but if it does, we want to know about it.
-                log::error!(
-                    "User name mismatch: Expected {}, got {}",
-                    user_name,
-                    user_profile.user_name()
-                );
-            }
-        }
-        Ok(user)
-    }
-
-    /// Store the user's profile in the database. This will overwrite any existing profile.
-    ///
-    /// This function is intended to be used for storing the user's own profile. To store a user
-    /// profile as a member of a group, use [`register_as_conversation_participant`] instead.
-    pub(crate) fn store_own_user_profile(
-        connection: &Connection,
-        user_name: UserName,
-        display_name_option: Option<DisplayName>,
-        profile_picture_option: Option<Asset>,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                user_name.to_string(),
-                display_name_option,
-                profile_picture_option
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Update the user's display name and profile picture in the database. To store a new profile,
-    /// use [`register_as_conversation_participant`] instead.
-    pub(crate) fn update(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "UPDATE users SET display_name = ?2, profile_picture = ?3 WHERE user_name = ?1",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        Ok(())
-    }
-
     pub fn user_name(&self) -> &UserName {
         &self.user_name
     }
@@ -131,25 +55,6 @@ impl UserProfile {
 
     pub fn set_profile_picture(&mut self, profile_picture: Option<Asset>) {
         self.profile_picture_option = profile_picture;
-    }
-}
-
-impl Storable for UserProfile {
-    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (
-                user_name TEXT PRIMARY KEY,
-                display_name TEXT,
-                profile_picture BLOB
-            )";
-
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let display_name_option = row.get(1)?;
-        let profile_picture_option = row.get(2)?;
-        Ok(UserProfile {
-            user_name,
-            display_name_option,
-            profile_picture_option,
-        })
     }
 }
 

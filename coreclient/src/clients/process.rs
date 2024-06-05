@@ -127,7 +127,7 @@ impl SelfUser {
                     .get(group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
                 let as_credential_store = self.as_credential_store();
-                let (processed_message, we_were_removed, sender_credential) = group
+                let (processed_message, we_were_removed, sender_client_id) = group
                     .process_message(
                         &self.crypto_backend(),
                         protocol_message,
@@ -144,7 +144,7 @@ impl SelfUser {
                         let group_messages = vec![TimestampedMessage::from_application_message(
                             application_message,
                             ds_timestamp,
-                            sender_credential.identity().user_name(),
+                            sender_client_id.user_name(),
                         )?];
                         (group_messages, false)
                     }
@@ -173,7 +173,7 @@ impl SelfUser {
                             let user_name = user_name.clone().into();
                             // Check if it was an external commit and if the user name matches
                             if !matches!(sender, Sender::NewMemberCommit)
-                                && sender_credential.identity().user_name() == user_name
+                                && sender_client_id.user_name() == user_name
                             {
                                 // TODO: Handle the fact that an unexpected user joined the connection group.
                             }
@@ -263,7 +263,7 @@ impl SelfUser {
                             conversation.set_conversation_picture(conversation_picture_option)?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact
-                                .mark_as_complete(friendship_package, sender_credential.clone())?;
+                                .mark_as_complete(friendship_package, sender_client_id.clone())?;
 
                             conversation.confirm()?;
                             conversation_changed = true;
@@ -432,7 +432,7 @@ impl SelfUser {
                     )?
                     .mark_as_complete(
                         cep_tbs.friendship_package,
-                        cep_tbs.sender_client_credential,
+                        cep_tbs.sender_client_credential.identity(),
                     )?;
 
                 let qs_client_reference = self.create_own_client_reference();

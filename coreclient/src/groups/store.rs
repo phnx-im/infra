@@ -166,7 +166,7 @@ impl PersistableGroup<'_> {
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
-    ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
+    ) -> Result<(ProcessedMessage, bool, AsClientId)> {
         let result = self
             .payload
             .process_message(provider, self.connection, message, as_credential_store)

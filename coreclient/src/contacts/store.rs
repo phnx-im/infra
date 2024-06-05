@@ -99,13 +99,13 @@ impl PersistableStruct<'_, PartialContact> {
     pub(crate) fn mark_as_complete(
         self,
         friendship_package: FriendshipPackage,
-        client_credential: ClientCredential,
+        client: AsClientId,
     ) -> Result<()> {
         // TODO: This should be a transaction
         self.purge()?;
         let payload = Contact {
             user_name: self.payload.user_name.clone(),
-            client_credentials: vec![client_credential],
+            clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             add_package_ear_key: friendship_package.add_package_ear_key,

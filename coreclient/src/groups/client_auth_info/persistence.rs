@@ -14,6 +14,19 @@ use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable, Tri
 
 use super::{GroupMembership, StorableClientCredential};
 
+impl Storable for StorableClientCredential {
+    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS client_credentials (
+                fingerprint BLOB PRIMARY KEY,
+                client_id TEXT NOT NULL,
+                client_credential BLOB NOT NULL
+            )";
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        let client_credential = row.get(0)?;
+        Ok(Self::new(client_credential))
+    }
+}
+
 impl StorableClientCredential {
     /// Load the [`StorableClientCredential`] with the given
     /// [`CredentialFingerprint`] from the database.
@@ -25,6 +38,19 @@ impl StorableClientCredential {
             .prepare("SELECT client_credential FROM client_credentials WHERE fingerprint = ?")?;
         let client_credential_option = stmt
             .query_row(params![credential_fingerprint], Self::from_row)
+            .optional()?;
+
+        Ok(client_credential_option)
+    }
+
+    pub(crate) fn load_by_client_id(
+        connection: &Connection,
+        client_id: &AsClientId,
+    ) -> Result<Option<Self>, rusqlite::Error> {
+        let mut stmt = connection
+            .prepare("SELECT client_credential FROM client_credentials WHERE client_id = ?")?;
+        let client_credential_option = stmt
+            .query_row(params![client_id], Self::from_row)
             .optional()?;
 
         Ok(client_credential_option)
@@ -42,19 +68,6 @@ impl StorableClientCredential {
             ],
         )?;
         Ok(())
-    }
-}
-
-impl Storable for StorableClientCredential {
-    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS client_credentials (
-                fingerprint BLOB PRIMARY KEY,
-                client_id TEXT NOT NULL,
-                client_credential BLOB NOT NULL
-            )";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let client_credential = row.get(0)?;
-        Ok(Self::new(client_credential))
     }
 }
 

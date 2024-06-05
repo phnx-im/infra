@@ -27,6 +27,24 @@ pub struct FriendshipToken {
     token: Vec<u8>,
 }
 
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for FriendshipToken {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(self.token.clone()),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for FriendshipToken {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        Ok(Self {
+            token: value.as_blob()?.to_vec(),
+        })
+    }
+}
+
 impl FriendshipToken {
     pub fn random() -> Result<Self, RandomnessError> {
         let token = OpenMlsRustCrypto::default()

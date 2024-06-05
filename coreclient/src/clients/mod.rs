@@ -10,6 +10,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use exif::{Reader, Tag};
+use groups::client_auth_info::StorableClientCredential;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
@@ -408,7 +409,23 @@ impl SelfUser {
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
-            client_credentials.push(contact.client_credentials());
+            let contact_client_credentials = contact
+                .clients()
+                .iter()
+                .filter_map(|client_id| {
+                    match StorableClientCredential::load_by_client_id(
+                        &self.sqlite_connection,
+                        client_id,
+                    ) {
+                        Ok(Some(client_credential)) => {
+                            Some(Ok(ClientCredential::from(client_credential)))
+                        }
+                        Ok(None) => None,
+                        Err(e) => Some(Err(e)),
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            client_credentials.push(contact_client_credentials);
             let add_info = contact
                 .fetch_add_infos(
                     self.api_clients(),

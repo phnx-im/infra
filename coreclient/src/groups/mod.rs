@@ -327,10 +327,10 @@ impl Group {
         .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
         let sender_client_id = verifiable_attribution_info.sender();
-        let sender_client_credential = contact_store
-            .get(&sender_client_id.user_name())?
-            .and_then(|c| c.client_credential(&sender_client_id).cloned())
-            .ok_or(anyhow!("Unknown sender."))?;
+        let sender_client_credential =
+            StorableClientCredential::load_by_client_id(connection, &sender_client_id)?.ok_or(
+                anyhow!("Could not find client credential of sender in database."),
+            )?;
 
         let welcome_attribution_info: WelcomeAttributionInfoPayload =
             verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
@@ -493,7 +493,7 @@ impl Group {
         connection: &Connection,
         message: impl Into<ProtocolMessage>,
         as_credential_store: &AsCredentialStore<'_>,
-    ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
+    ) -> Result<(ProcessedMessage, bool, AsClientId)> {
         let processed_message = self.mls_group.process_message(provider, message)?;
         let group_id = self.group_id();
 
@@ -506,16 +506,16 @@ impl Group {
             }
             ProcessedMessageContent::ApplicationMessage(_) => {
                 log::info!("Message type: application.");
-                let sender_credential = if let Sender::Member(index) = processed_message.sender() {
+                let sender_client_id = if let Sender::Member(index) = processed_message.sender() {
                     ClientAuthInfo::load(connection, group_id, *index)?
-                        .map(|info| info.client_credential().clone().into())
+                        .map(|info| info.client_credential().identity())
                         .ok_or(anyhow!(
                             "Could not find client credential of message sender"
                         ))?
                 } else {
                     bail!("Invalid sender type.")
                 };
-                return Ok((processed_message, false, sender_credential));
+                return Ok((processed_message, false, sender_client_id));
             }
             ProcessedMessageContent::ProposalMessage(_proposal) => {
                 // Proposals are just returned and can then be added to the
@@ -810,7 +810,7 @@ impl Group {
         // Get the sender's credential
         // If the sender is added to the group with this commit, we have to load
         // it from the DB with status "staged".
-        let sender_credential = if matches!(processed_message.sender(), Sender::NewMemberCommit) {
+        let sender_client_id = if matches!(processed_message.sender(), Sender::NewMemberCommit) {
             ClientAuthInfo::load_staged(connection, group_id, sender_index)?
         } else {
             ClientAuthInfo::load(connection, group_id, sender_index)?
@@ -819,10 +819,9 @@ impl Group {
             "Could not find client credential of message sender"
         ))?
         .client_credential()
-        .clone()
-        .into();
+        .identity();
 
-        Ok((processed_message, we_were_removed, sender_credential))
+        Ok((processed_message, we_were_removed, sender_client_id))
     }
 
     /// Invite the given list of contacts to join the group.
