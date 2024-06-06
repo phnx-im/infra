@@ -183,6 +183,26 @@ pub struct UserName {
     pub(crate) domain: Fqdn,
 }
 
+#[cfg(feature = "sqlite")]
+impl ToSql for UserName {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let string = self.to_string();
+        Ok(rusqlite::types::ToSqlOutput::from(string))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for UserName {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let user_name =
+            <&str as SafeTryInto<UserName>>::try_into(value.as_str()?).map_err(|e| {
+                tracing::error!("Error parsing UserName: {}", e);
+                FromSqlError::InvalidType
+            })?;
+        Ok(user_name)
+    }
+}
+
 #[derive(Debug, Clone, Error)]
 pub enum UserNameError {
     #[error("The given string does not represent a valid user name.")]
@@ -302,6 +322,13 @@ impl std::fmt::Display for AsClientId {
 }
 
 impl AsClientId {
+    pub fn compose(user_name: UserName, client_id: Uuid) -> Self {
+        Self {
+            user_name,
+            client_id,
+        }
+    }
+
     pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
         Ok(Self {
             user_name,
@@ -440,6 +467,21 @@ impl tls_codec::DeserializeBytes for QsClientId {
     }
 }
 
+#[cfg(feature = "sqlite")]
+impl ToSql for QsClientId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.client_id.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for QsClientId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let client_id = Uuid::column_result(value)?;
+        Ok(QsClientId { client_id })
+    }
+}
+
 impl tls_codec::Size for QsClientId {
     fn tls_serialized_len(&self) -> usize {
         self.client_id.as_bytes().len()
@@ -466,6 +508,21 @@ impl From<Uuid> for QsClientId {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct QsUserId {
     pub(crate) user_id: Uuid,
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for QsUserId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.user_id.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for QsUserId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let user_id = Uuid::column_result(value)?;
+        Ok(QsUserId { user_id })
+    }
 }
 
 impl From<Uuid> for QsUserId {

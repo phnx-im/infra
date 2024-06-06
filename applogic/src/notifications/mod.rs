@@ -4,10 +4,6 @@
 
 use phnxcoreclient::{ConversationId, ConversationMessage, NotificationType};
 
-trait NotificationProvider {
-    fn notify(&self, notification_type: NotificationType) -> bool;
-}
-
 pub trait Notifiable
 where
     Self: Clone,
