@@ -304,8 +304,8 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <Group as Persistable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
-    <Contact as Persistable>::create_table(client_db_connection)?;
-    <PartialContact as Persistable>::create_table(client_db_connection)?;
+    <Contact as Storable>::create_table(client_db_connection)?;
+    <PartialContact as Storable>::create_table(client_db_connection)?;
     <Conversation as Persistable>::create_table(client_db_connection)?;
     <ConversationMessage as Persistable>::create_table(client_db_connection)?;
     <AsCredential as Persistable>::create_table(client_db_connection)?;
@@ -325,6 +325,8 @@ pub(crate) fn create_all_triggers(
     client_db_connection: &Connection,
 ) -> Result<(), rusqlite::Error> {
     <GroupMembership as Triggerable>::create_trigger(client_db_connection)?;
+    <Contact as Triggerable>::create_trigger(client_db_connection)?;
+    <PartialContact as Triggerable>::create_trigger(client_db_connection)?;
 
     Ok(())
 }

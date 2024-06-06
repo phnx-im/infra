@@ -55,7 +55,7 @@ use uuid::Uuid;
 
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
-    contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
+    contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{
         messages::ConversationMessage,
         store::{ConversationMessageStore, ConversationStore},
@@ -404,7 +404,7 @@ impl SelfUser {
         let mut client_credentials = vec![];
         for invited_user in invited_users {
             // Get the WAI keys and client credentials for the invited users.
-            let contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+            let contact = Contact::load(&self.sqlite_connection, invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
@@ -724,11 +724,12 @@ impl SelfUser {
         )?;
 
         // Create and persist a new partial contact
-        self.contact_store().store_partial_contact(
-            &user_name,
-            &conversation.id(),
+        PartialContact::new(
+            user_name.clone(),
+            conversation.id(),
             friendship_package_ear_key,
-        )?;
+        )
+        .store(&self.sqlite_connection)?;
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
@@ -956,30 +957,19 @@ impl SelfUser {
     }
 
     pub fn contacts(&self) -> Result<Vec<Contact>, PersistenceError> {
-        let contact_store = self.contact_store();
-        contact_store.get_all_contacts().map(|cs| {
-            cs.into_iter()
-                .map(|c| c.convert_for_export())
-                .collect::<Vec<_>>()
-        })
+        let contacts = Contact::load_all(&self.sqlite_connection)?;
+        Ok(contacts)
     }
 
     pub fn contact(&self, user_name: &UserName) -> Option<Contact> {
-        let contact_store = self.contact_store();
-        contact_store
-            .get(user_name)
-            .map(|c| c.map(|c| c.convert_for_export()))
+        Contact::load(&self.sqlite_connection, user_name)
             .ok()
             .flatten()
     }
 
     pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
-        let contact_store = self.contact_store();
-        contact_store.get_all_partial_contacts().map(|cs| {
-            cs.into_iter()
-                .map(|c| c.convert_for_export())
-                .collect::<Vec<_>>()
-        })
+        let partial_contact = PartialContact::load_all(&self.sqlite_connection)?;
+        Ok(partial_contact)
     }
 
     fn create_own_client_reference(&self) -> QsClientReference {
@@ -1103,10 +1093,6 @@ impl SelfUser {
 
     fn as_credential_store(&self) -> AsCredentialStore<'_> {
         AsCredentialStore::new(&self.sqlite_connection, self.api_clients())
-    }
-
-    fn contact_store(&self) -> ContactStore<'_> {
-        ContactStore::new(&self.sqlite_connection)
     }
 
     fn group_store(&self) -> GroupStore<'_> {

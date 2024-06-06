@@ -79,7 +79,6 @@ impl SelfUser {
                         &self.key_store.wai_ear_key,
                         self.leaf_key_store(),
                         self.as_credential_store(),
-                        self.contact_store(),
                     )
                     .await?;
                 let group_id = group.group_id().clone();
@@ -179,13 +178,10 @@ impl SelfUser {
                             }
                             // Load up the partial contact and decrypt the
                             // friendship package
-                            let contact_store = self.contact_store();
-                            let partial_contact = contact_store
-                                .get_partial_contact(&user_name)?
-                                .ok_or(anyhow!(
-                                    "No partial contact found for user name {}",
-                                    user_name
-                                ))?;
+                            let partial_contact =
+                                PartialContact::load(&self.sqlite_connection, &user_name)?.ok_or(
+                                    anyhow!("No partial contact found for user name {}", user_name),
+                                )?;
 
                             // This is a bit annoying, since we already
                             // de-serialized this in the group processing
@@ -262,8 +258,11 @@ impl SelfUser {
 
                             conversation.set_conversation_picture(conversation_picture_option)?;
                             // Now we can turn the partial contact into a full one.
-                            partial_contact
-                                .mark_as_complete(friendship_package, sender_client_id.clone())?;
+                            partial_contact.mark_as_complete(
+                                &self.sqlite_connection,
+                                friendship_package,
+                                sender_client_id.clone(),
+                            )?;
 
                             conversation.confirm()?;
                             conversation_changed = true;
@@ -402,7 +401,7 @@ impl SelfUser {
                         self.key_store.signing_key.credential(),
                     )
                     .await?;
-                let user_name = cep_tbs.sender_client_credential.identity().user_name();
+                let sender_client_id = cep_tbs.sender_client_credential.identity();
                 let conversation_store = self.conversation_store();
                 let conversation_picture_option = cep_tbs
                     .friendship_package
@@ -413,8 +412,11 @@ impl SelfUser {
                     });
                 let mut conversation = conversation_store.create_connection_conversation(
                     group.group_id().clone(),
-                    user_name.clone(),
-                    ConversationAttributes::new(user_name.to_string(), conversation_picture_option),
+                    sender_client_id.user_name().clone(),
+                    ConversationAttributes::new(
+                        sender_client_id.to_string(),
+                        conversation_picture_option,
+                    ),
                 )?;
                 // Store the user profile of the sender.
                 cep_tbs
@@ -423,17 +425,13 @@ impl SelfUser {
                     .store(&self.sqlite_connection)?;
                 // TODO: For now, we automatically confirm conversations.
                 conversation.confirm()?;
-                let contact_store = self.contact_store();
-                contact_store
-                    .store_partial_contact(
-                        &user_name,
-                        &conversation.id(),
-                        cep_tbs.friendship_package_ear_key,
-                    )?
-                    .mark_as_complete(
-                        cep_tbs.friendship_package,
-                        cep_tbs.sender_client_credential.identity(),
-                    )?;
+                // TODO: Here, we want to store a contact
+                Contact::from_friendship_package(
+                    sender_client_id,
+                    conversation.id(),
+                    cep_tbs.friendship_package,
+                )
+                .store(&self.sqlite_connection)?;
 
                 let qs_client_reference = self.create_own_client_reference();
 

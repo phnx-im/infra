@@ -3,24 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::{AsClientId, UserName};
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
     clients::connection_establishment::FriendshipPackage,
     utils::persistence::{Storable, Triggerable},
     Contact, PartialContact,
 };
-
-//pub user_name: UserName,
-//pub(crate) client_credentials: Vec<ClientCredential>,
-//// Encryption key for WelcomeAttributionInfos
-//pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
-//pub(crate) friendship_token: FriendshipToken,
-//pub(crate) add_package_ear_key: AddPackageEarKey,
-//pub(crate) client_credential_ear_key: ClientCredentialEarKey,
-//pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-//// ID of the connection conversation with this contact.
-//pub(crate) conversation_id: ConversationId,
 
 impl Storable for Contact {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -94,9 +83,10 @@ impl Contact {
     pub(crate) fn load(
         connection: &Connection,
         user_name: &UserName,
-    ) -> Result<Self, rusqlite::Error> {
+    ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM contacts WHERE user_name = ?")?;
         stmt.query_row([user_name], |row| Self::from_row(row))
+            .optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
@@ -155,9 +145,10 @@ impl PartialContact {
     pub(crate) fn load(
         connection: &Connection,
         user_name: &UserName,
-    ) -> Result<Self, rusqlite::Error> {
+    ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?;
         stmt.query_row([user_name], |row| Self::from_row(row))
+            .optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
@@ -166,15 +157,27 @@ impl PartialContact {
         rows.collect()
     }
 
+    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+        connection.execute(
+            "INSERT INTO partial_contacts (user_name, conversation_id, friendship_package_ear_key) VALUES (?, ?, ?)",
+            params![
+                self.user_name,
+                self.conversation_id,
+                self.friendship_package_ear_key,
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Creates a Contact from this PartialContact and the additional data. Then
     /// persists the resulting contact.
     pub(crate) fn mark_as_complete(
         self,
-        transaction: &mut Transaction,
+        connection: &Connection,
         friendship_package: FriendshipPackage,
         client: AsClientId,
     ) -> Result<(), rusqlite::Error> {
-        let savepoint = transaction.savepoint()?;
+        //let savepoint = transaction.savepoint()?;
 
         let contact = Contact {
             user_name: self.user_name,
@@ -187,9 +190,9 @@ impl PartialContact {
             conversation_id: self.conversation_id,
         };
 
-        contact.store(&savepoint)?;
+        contact.store(connection)?;
 
-        savepoint.commit()?;
+        //savepoint.commit()?;
 
         Ok(())
     }

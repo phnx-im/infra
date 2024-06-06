@@ -22,7 +22,10 @@ use phnxtypes::{
 };
 
 use crate::{
-    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider},
+    clients::{
+        api_clients::ApiClients, connection_establishment::FriendshipPackage,
+        openmls_provider::PhnxOpenMlsProvider,
+    },
     key_stores::qs_verifying_keys::QsVerifyingKeyStore,
     ConversationId,
 };
@@ -30,7 +33,6 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod persistence;
-pub(crate) mod store;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
@@ -53,6 +55,23 @@ pub(crate) struct ContactAddInfos {
 }
 
 impl Contact {
+    pub(crate) fn from_friendship_package(
+        client_id: AsClientId,
+        conversation_id: ConversationId,
+        friendship_package: FriendshipPackage,
+    ) -> Self {
+        Self {
+            user_name: client_id.user_name(),
+            clients: vec![client_id],
+            wai_ear_key: friendship_package.wai_ear_key,
+            friendship_token: friendship_package.friendship_token,
+            add_package_ear_key: friendship_package.add_package_ear_key,
+            client_credential_ear_key: friendship_package.client_credential_ear_key,
+            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
+            conversation_id,
+        }
+    }
+
     /// Get the user name of this contact.
     pub fn user_name(&self) -> &UserName {
         &self.user_name
@@ -65,14 +84,13 @@ impl Contact {
         crypto_provider: &<PhnxOpenMlsProvider<'_> as openmls_traits::OpenMlsProvider>::CryptoProvider,
     ) -> Result<ContactAddInfos> {
         let invited_user = self.user_name.clone();
-        let contact = self;
         let invited_user_domain = invited_user.domain();
 
         let key_package_batch_response = api_clients
             .get(&invited_user_domain)?
             .qs_key_package_batch(
-                contact.friendship_token.clone(),
-                contact.add_package_ear_key.clone(),
+                self.friendship_token.clone(),
+                self.add_package_ear_key.clone(),
             )
             .await?;
         let key_packages: Vec<(KeyPackage, SignatureEarKey)> = key_package_batch_response
@@ -83,7 +101,7 @@ impl Contact {
                     add_package.validate(crypto_provider, ProtocolVersion::default())?;
                 let key_package = verified_add_package.key_package().clone();
                 let sek = SignatureEarKey::decrypt(
-                    &contact.signature_ear_key_wrapper_key,
+                    &self.signature_ear_key_wrapper_key,
                     verified_add_package.encrypted_signature_ear_key(),
                 )?;
                 Ok((key_package, sek))
@@ -123,11 +141,11 @@ impl PartialContact {
         user_name: UserName,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             user_name,
             conversation_id,
             friendship_package_ear_key,
-        })
+        }
     }
 }

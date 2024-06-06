@@ -50,7 +50,6 @@ impl<'a> GroupStore<'a> {
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         leaf_key_store: LeafKeyStore<'_>,
         as_credential_store: AsCredentialStore<'_>,
-        contact_store: ContactStore<'_>,
     ) -> Result<PersistableGroup> {
         let payload = Group::join_group(
             provider,
@@ -59,7 +58,6 @@ impl<'a> GroupStore<'a> {
             &self.db_connection,
             leaf_key_store,
             as_credential_store,
-            contact_store,
         )
         .await?;
         let group = PersistableGroup::from_connection_and_payload(self.db_connection, payload);

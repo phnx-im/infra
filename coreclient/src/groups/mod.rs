@@ -54,7 +54,7 @@ use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
 use crate::{
     clients::openmls_provider::PhnxOpenMlsProvider,
-    contacts::{store::ContactStore, ContactAddInfos},
+    contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage,
     key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
     mimi_content::MimiContent,
@@ -277,7 +277,6 @@ impl Group {
         connection: &Connection,
         leaf_key_store: LeafKeyStore<'_>,
         as_credential_store: AsCredentialStore<'_>,
-        contact_store: ContactStore<'_>,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
