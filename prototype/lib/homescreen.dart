@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
       statusText = "Initializing core client...";
     });
 
-    coreClient.setupLogging();
+    await coreClient.init();
 
     await coreClient.loadUser().then((exists) {
       if (exists) {

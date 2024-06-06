@@ -1,0 +1,17 @@
+<!--
+SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+/// This is copied from Cargokit (which is the official way to use it currently)
+/// Details: https://fzyzcjy.github.io/flutter_rust_bridge/manual/integrate/builtin
+
+Experimental repository to provide glue for seamlessly integrating cargo build
+with flutter plugins and packages.
+
+See https://matejknopp.com/post/flutter_plugin_in_rust_with_no_prebuilt_binaries/
+for a tutorial on how to use Cargokit.
+
+Example plugin available at https://github.com/irondash/hello_rust_ffi_plugin.
+

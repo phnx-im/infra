@@ -10,7 +10,6 @@ OS_NAME=$(shell uname | tr '[:upper:]' '[:lower:]')
 
 LIB_NAME := applogic
 RUST_BASE_DIR := ../$(LIB_NAME)
-DART_BRIDGE_DIR := ../$(LIB_NAME)/dart-bridge
 
 .PHONY: help
 help: makefile
@@ -28,38 +27,24 @@ clean:
 	dart pub upgrade
 	cd $(RUST_BASE_DIR) ; cargo clean
 
-setup-flutter:
-	git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter
-	export PATH="$PATH:$HOME/flutter/bin"
-	flutter pub get
-
 setup-ci:
-	cd $(DART_BRIDGE_DIR) ; make setup-ci
+	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	cargo binstall -y flutter_rust_bridge_codegen@2.0.0-dev.37
+	cargo binstall -y cargo-expand
+	cargo binstall -y cargo-ndk
 
 dart-bridge:
-	 cd $(DART_BRIDGE_DIR) ; make dart-bridge
+	rm -f $(RUST_BASE_DIR)/src/frb_*.rs
+	touch $(RUST_BASE_DIR)/src/frb_generated.rs
+	mkdir -p lib/core
+	flutter pub get
+	flutter_rust_bridge_codegen generate
 
 android-debug:
-	cd $(DART_BRIDGE_DIR) ; make dart-bridge && make android-debug
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a/
-	cp $(DART_BRIDGE_DIR)/android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/arm64-v8a/
-	flutter build apk
+	flutter build apk --debug
 
-android-production:
-	cd $(DART_BRIDGE_DIR) ; make dart-bridge && make android-production
-	mkdir -p android/app/src/main/jniLibs/arm64-v8a/
-	cp $(DART_BRIDGE_DIR)/android/app/src/main/jniLibs/arm64-v8a/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/arm64-v8a/
+android-release:
 	flutter build apk --release
 
-android-armv7a-debug:
-	cd $(DART_BRIDGE_DIR) ; make dart-bridge && make android-armv7a-debug
-	mkdir -p android/app/src/main/jniLibs/armeabi-v7a/
-	cp $(DART_BRIDGE_DIR)/android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/armeabi-v7a/
-	flutter build apk
 
-android-armv7a-production:
-	cd $(DART_BRIDGE_DIR) ; make dart-bridge && make android-armv7a-production
-	mkdir -p android/app/src/main/jniLibs/armeabi-v7a/
-	cp $(DART_BRIDGE_DIR)/android/app/src/main/jniLibs/armeabi-v7a/libphnx$(LIB_NAME).so android/app/src/main/jniLibs/armeabi-v7a/
-	flutter build apk --release
 

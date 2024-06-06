@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use flutter_rust_bridge::StreamSink;
+use crate::dart_api::frb_generated::StreamSink;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, SharedLogger, TermLogger, TerminalMode,
 };
@@ -131,7 +131,7 @@ impl Log for SendToDartLogger {
     fn log(&self, record: &Record) {
         let entry = Self::record_to_entry(record);
         if let Some(sink) = &*SEND_TO_DART_LOGGER_STREAM_SINK.read().unwrap() {
-            sink.add(entry);
+            let _ = sink.add(entry);
         }
     }
 

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
@@ -160,7 +161,7 @@ impl From<Conversation> for UiConversation {
 pub struct UiConversationMessage {
     pub conversation_id: ConversationIdBytes,
     pub id: UuidBytes,
-    pub timestamp: u64,
+    pub timestamp: DateTime<Utc>,
     pub message: UiMessage,
 }
 
@@ -169,7 +170,7 @@ impl From<ConversationMessage> for UiConversationMessage {
         Self {
             conversation_id: ConversationIdBytes::from(conversation_message.conversation_id()),
             id: UuidBytes::from(conversation_message.id()),
-            timestamp: conversation_message.timestamp().as_u64(),
+            timestamp: conversation_message.timestamp().time(),
             message: UiMessage::from(conversation_message.message().clone()),
         }
     }

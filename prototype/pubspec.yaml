@@ -28,10 +28,10 @@ dependencies:
   flutter:
     sdk: flutter
   convert: ^3.0.0
-  flutter_rust_bridge: ^1.82.6
+  flutter_rust_bridge: 2.0.0-dev.37
   freezed_annotation: ^2.2.0
-  applogic:
-    path: ../applogic/dart-bridge
+  #applogic:
+  #  path: ../applogic/dart-bridge
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -40,6 +40,9 @@ dependencies:
   image_picker: ^1.0.7
 
   collection: any
+  rust_lib_prototype:
+    path: rust_builder
+
 dev_dependencies:
   build_runner: ^2.4.9
   flutter_lints: ^3.0.2
@@ -47,6 +50,8 @@ dev_dependencies:
     sdk: flutter
   freezed: ^2.3.4
   flutter_launcher_icons: ^0.13.1
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
