@@ -64,10 +64,6 @@ impl TimestampedMessage {
             timestamp: ds_timestamp,
         }
     }
-
-    pub(crate) fn message(&self) -> &Message {
-        &self.message
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -252,9 +248,6 @@ impl ErrorMessage {
         self.message.as_ref()
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {

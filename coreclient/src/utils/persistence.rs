@@ -173,14 +173,6 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
         Ok(())
     }
 
-    /// Purges this value from the database.
-    ///
-    /// Returns an error either if the underlying database query fails.
-    pub(crate) fn purge(&self) -> Result<(), PersistenceError> {
-        let key = self.key();
-        Self::purge_key(self.connection(), key)
-    }
-
     /// Purges a value of this data type and with the given key from the
     /// database.
     ///
