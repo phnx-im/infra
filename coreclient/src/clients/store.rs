@@ -306,8 +306,8 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Storable>::create_table(client_db_connection)?;
     <PartialContact as Storable>::create_table(client_db_connection)?;
-    <Conversation as Persistable>::create_table(client_db_connection)?;
-    <ConversationMessage as Persistable>::create_table(client_db_connection)?;
+    <Conversation as Storable>::create_table(client_db_connection)?;
+    <ConversationMessage as Storable>::create_table(client_db_connection)?;
     <AsCredential as Persistable>::create_table(client_db_connection)?;
     <AsIntermediateCredential as Persistable>::create_table(client_db_connection)?;
     <LeafKeys as Persistable>::create_table(client_db_connection)?;

@@ -6,12 +6,12 @@ use std::fmt::Display;
 
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{QualifiedGroupId, SafeTryInto, UserName},
+    identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, UserName},
     time::TimeStamp,
 };
 use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
-    ToSql,
+    Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
@@ -21,7 +21,7 @@ use crate::utils::persistence::SqlKey;
 
 pub(crate) mod messages;
 pub(crate) mod persistence;
-pub(crate) mod store;
+//pub(crate) mod store;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConversationId {
@@ -65,10 +65,10 @@ impl From<Uuid> for ConversationId {
     }
 }
 
-impl TryFrom<GroupId> for ConversationId {
+impl TryFrom<&GroupId> for ConversationId {
     type Error = tls_codec::Error;
 
-    fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+    fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
         let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(value.as_slice())?;
         let conversation_id = Self {
             uuid: Uuid::from_bytes(qgid.group_id),
@@ -104,6 +104,50 @@ pub struct Conversation {
 }
 
 impl Conversation {
+    pub(crate) fn new_connection_conversation(
+        group_id: GroupId,
+        user_name: UserName,
+        attributes: ConversationAttributes,
+    ) -> Result<Self, tls_codec::Error> {
+        // To keep things simple and to make sure that conversation ids are the
+        // same across users, we derive the conversation id from the group id.
+        let conversation_payload = ConversationPayload {
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            attributes,
+        };
+        let conversation = Conversation {
+            id: ConversationId::try_from(&group_id)?,
+            group_id,
+            conversation_payload,
+            last_used: TimeStamp::now(),
+            last_read: TimeStamp::now(),
+        };
+        Ok(conversation)
+    }
+
+    pub(crate) fn new_group_conversation(
+        group_id: GroupId,
+        attributes: ConversationAttributes,
+    ) -> Self {
+        let id = ConversationId::try_from(&group_id).unwrap();
+        Self {
+            id,
+            group_id,
+            last_used: TimeStamp::now(),
+            last_read: TimeStamp::now(),
+            conversation_payload: ConversationPayload {
+                status: ConversationStatus::Active,
+                conversation_type: ConversationType::Group,
+                attributes,
+            },
+        }
+    }
+
+    pub fn id(&self) -> ConversationId {
+        self.id
+    }
+
     pub fn group_id(&self) -> &GroupId {
         &self.group_id
     }
@@ -122,6 +166,51 @@ impl Conversation {
 
     pub fn last_used(&self) -> &TimeStamp {
         &self.last_used
+    }
+
+    pub(crate) fn owner_domain(&self) -> Fqdn {
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact_bytes(&self.group_id.as_slice()).unwrap();
+        qgid.owning_domain
+    }
+
+    pub(crate) fn set_conversation_picture(
+        &mut self,
+        connection: &Connection,
+        conversation_picture: Option<Vec<u8>>,
+    ) -> Result<(), rusqlite::Error> {
+        self.update_conversation_picture(
+            connection,
+            conversation_picture.as_ref().map(|b| b.as_slice()),
+        )?;
+        self.conversation_payload
+            .attributes
+            .set_conversation_picture_option(conversation_picture);
+        Ok(())
+    }
+
+    pub(crate) fn set_inactive(
+        &mut self,
+        connection: &Connection,
+        past_members: Vec<UserName>,
+    ) -> Result<(), rusqlite::Error> {
+        let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
+        self.update_status(connection, &new_status)?;
+        self.conversation_payload.status = new_status;
+        Ok(())
+    }
+
+    /// Confirm a connection conversation by setting the conversation type to
+    /// `Connection`.
+    pub(crate) fn confirm(&mut self, connection: &Connection) -> Result<(), rusqlite::Error> {
+        if let ConversationType::UnconfirmedConnection(user_name) =
+            self.conversation_payload.conversation_type.clone()
+        {
+            let conversation_type = ConversationType::Connection(user_name);
+            self.set_conversation_type(connection, &conversation_type)?;
+            self.conversation_payload.conversation_type = conversation_type;
+        }
+        Ok(())
     }
 }
 

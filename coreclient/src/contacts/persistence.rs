@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::{AsClientId, UserName};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::{
     clients::connection_establishment::FriendshipPackage,
@@ -61,20 +61,28 @@ impl Storable for Contact {
 
 impl Triggerable for Contact {
     const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &["
-        CREATE TRIGGER IF NOT EXISTS no_partial_contact_overlap_on_insert
+        DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_insert;
+
+        CREATE TRIGGER no_partial_contact_overlap_on_insert
         BEFORE INSERT ON contacts
         FOR EACH ROW
         BEGIN
-            SELECT RAISE(FAIL, 'Can't insert Contact: There already exists a partial contact with this user_name') 
-            WHERE EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name);
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
+                THEN RAISE(FAIL, 'Can''t insert Contact: There already exists a partial contact with this user_name')
+            END;
         END;",
         "
-        CREATE TRIGGER IF NOT EXISTS no_partial_contact_overlap_on_update
+        DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_update;
+
+        CREATE TRIGGER no_partial_contact_overlap_on_update
         BEFORE UPDATE ON contacts
         FOR EACH ROW
         BEGIN
-            SELECT RAISE(FAIL, 'Can't update Contact: There already exists a partial contact with this user_name') 
-            WHERE EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name);
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
+                THEN RAISE(FAIL, 'Can''t update Contact: There already exists a partial contact with this user_name')
+            END;
         END;",
         ];
 }
@@ -147,13 +155,12 @@ impl PartialContact {
         user_name: &UserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?;
-        stmt.query_row([user_name], |row| Self::from_row(row))
-            .optional()
+        stmt.query_row([user_name], Self::from_row).optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM partial_contacts")?;
-        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }
 
@@ -169,6 +176,14 @@ impl PartialContact {
         Ok(())
     }
 
+    fn delete(self, connection: &Connection) -> Result<(), rusqlite::Error> {
+        connection.execute(
+            "DELETE FROM partial_contacts WHERE user_name = ?",
+            params![self.user_name],
+        )?;
+        Ok(())
+    }
+
     /// Creates a Contact from this PartialContact and the additional data. Then
     /// persists the resulting contact.
     pub(crate) fn mark_as_complete(
@@ -179,17 +194,19 @@ impl PartialContact {
     ) -> Result<(), rusqlite::Error> {
         //let savepoint = transaction.savepoint()?;
 
+        let conversation_id = self.conversation_id;
+        let user_name = self.user_name.clone();
+        self.delete(connection)?;
         let contact = Contact {
-            user_name: self.user_name,
+            user_name,
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             add_package_ear_key: friendship_package.add_package_ear_key,
             client_credential_ear_key: friendship_package.client_credential_ear_key,
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
-            conversation_id: self.conversation_id,
+            conversation_id,
         };
-
         contact.store(connection)?;
 
         //savepoint.commit()?;
@@ -200,20 +217,28 @@ impl PartialContact {
 
 impl Triggerable for PartialContact {
     const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &["
-        CREATE TRIGGER IF NOT EXISTS no_contact_overlap_on_insert
+        DROP TRIGGER IF EXISTS no_contact_overlap_on_insert;
+
+        CREATE TRIGGER no_contact_overlap_on_insert
         BEFORE INSERT ON partial_contacts
         FOR EACH ROW
         BEGIN
-            SELECT RAISE(FAIL, 'Can't insert PartialContact: There already exists a contact with this user_name') 
-            WHERE EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name);
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
+                THEN RAISE(FAIL, 'Can''t insert PartialContact: There already exists a contact with this user_name')
+            END;
         END;",
         "
-        CREATE TRIGGER IF NOT EXISTS no_contact_overlap_on_update
+        DROP TRIGGER IF EXISTS no_contact_overlap_on_update;
+
+        CREATE TRIGGER no_contact_overlap_on_update
         BEFORE UPDATE ON partial_contacts
         FOR EACH ROW
         BEGIN
-            SELECT RAISE(FAIL, 'Can't update PartialContact: There already exists a contact with this user_name') 
-            WHERE EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name);
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
+                THEN RAISE(FAIL, 'Can''t update PartialContact: There already exists a contact with this user_name')
+            END;
         END;",
         ];
 }

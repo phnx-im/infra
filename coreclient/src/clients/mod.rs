@@ -56,11 +56,7 @@ use uuid::Uuid;
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
-    conversations::{
-        messages::ConversationMessage,
-        store::{ConversationMessageStore, ConversationStore},
-        Conversation, ConversationAttributes,
-    },
+    conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     groups::store::GroupStore,
     key_stores::{
         as_credentials::AsCredentialStore,
@@ -284,9 +280,8 @@ impl SelfUser {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        let conversation_store = self.conversation_store();
-        let conversation =
-            conversation_store.create_group_conversation(group_id, conversation_attributes)?;
+        let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
+        conversation.store(&self.sqlite_connection)?;
         Ok(conversation.id())
     }
 
@@ -315,9 +310,7 @@ impl SelfUser {
         conversation_id: ConversationId,
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
-        let conversation_store = self.conversation_store();
-        let mut conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
+        let mut conversation = Conversation::load(&self.sqlite_connection, &conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
@@ -325,7 +318,7 @@ impl SelfUser {
         let resized_picture_option = conversation_picture_option
             .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
             .flatten();
-        conversation.set_conversation_picture(resized_picture_option)?;
+        conversation.set_conversation_picture(&self.sqlite_connection, resized_picture_option)?;
         Ok(())
     }
 
@@ -387,10 +380,8 @@ impl SelfUser {
         conversation_id: ConversationId,
         invited_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -479,10 +470,8 @@ impl SelfUser {
         conversation_id: ConversationId,
         target_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -520,10 +509,8 @@ impl SelfUser {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> Result<ConversationMessage> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -531,12 +518,12 @@ impl SelfUser {
         let group_store = self.group_store();
         // Store the message as unsent so that we don't lose it in case
         // something goes wrong.
-        let message_store = self.message_store();
-        let mut conversation_message = message_store.create_unsent_message(
+        let mut conversation_message = ConversationMessage::new_unsent_message(
             self.user_name().to_string(),
             conversation_id,
             content.clone(),
-        )?;
+        );
+        conversation_message.store(&self.sqlite_connection)?;
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
@@ -552,18 +539,17 @@ impl SelfUser {
             .await?;
 
         // Mark the message as sent.
-        conversation_message.mark_as_sent(ds_timestamp)?;
+        conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
         Ok(conversation_message.into())
     }
 
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&mut self, local_message_id: Uuid) -> Result<()> {
-        let message_store = self.message_store();
-        let mut unsent_message = message_store.get(&local_message_id)?.ok_or(anyhow!(
-            "Can't find unsent message with id {}",
-            local_message_id
-        ))?;
+        let mut unsent_message =
+            ConversationMessage::load(&self.sqlite_connection, &local_message_id)?.ok_or(
+                anyhow!("Can't find unsent message with id {}", local_message_id),
+            )?;
         let content = match unsent_message.message() {
             Message::Content(content_message) if !content_message.was_sent() => {
                 content_message.content().clone()
@@ -571,10 +557,8 @@ impl SelfUser {
             _ => bail!("Message with id {} was already sent", local_message_id),
         };
         let conversation_id = unsent_message.conversation_id();
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -595,7 +579,7 @@ impl SelfUser {
             .await?;
 
         // Mark the message as sent.
-        unsent_message.mark_as_sent(ds_timestamp)?;
+        unsent_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
         Ok(())
     }
@@ -716,12 +700,12 @@ impl SelfUser {
             .await?;
 
         // Create the connection conversation
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store.create_connection_conversation(
+        let conversation = Conversation::new_connection_conversation(
             group_id,
             user_name.clone(),
             conversation_attributes,
         )?;
+        conversation.store(&self.sqlite_connection)?;
 
         // Create and persist a new partial contact
         PartialContact::new(
@@ -764,10 +748,8 @@ impl SelfUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -801,9 +783,7 @@ impl SelfUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let mut conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
+        let mut conversation = Conversation::load(&self.sqlite_connection, &conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
@@ -834,7 +814,7 @@ impl SelfUser {
             vec![]
         };
 
-        conversation.set_inactive(past_members.into_iter().collect())?;
+        conversation.set_inactive(&self.sqlite_connection, past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -894,10 +874,8 @@ impl SelfUser {
     }
 
     pub async fn leave_group(&mut self, conversation_id: ConversationId) -> Result<()> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -930,10 +908,8 @@ impl SelfUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -994,10 +970,7 @@ impl SelfUser {
 
     /// Returns None if there is no conversation with the given id.
     pub fn group_members(&self, conversation_id: ConversationId) -> Option<HashSet<UserName>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)
-            .ok()??;
+        let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
         let group_store = self.group_store();
         group_store
@@ -1007,10 +980,7 @@ impl SelfUser {
     }
 
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)
-            .ok()??;
+        let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
         let group_store = self.group_store();
         group_store
@@ -1020,10 +990,8 @@ impl SelfUser {
     }
 
     pub fn conversations(&self) -> Result<Vec<Conversation>, PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store
-            .get_all()
-            .map(|cs| cs.into_iter().map(|c| c.convert_for_export()).collect())
+        let conversations = Conversation::load_all(&self.sqlite_connection)?;
+        Ok(conversations)
     }
 
     pub async fn websocket(&mut self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
@@ -1039,8 +1007,8 @@ impl SelfUser {
         &self,
         mark_as_read_data: T,
     ) -> Result<(), PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store.mark_as_read(mark_as_read_data)
+        Conversation::mark_as_read(&self.sqlite_connection, mark_as_read_data)?;
+        Ok(())
     }
 
     /// Returns how many messages in the conversation with the given ID are
@@ -1049,8 +1017,8 @@ impl SelfUser {
         &self,
         conversation_id: ConversationId,
     ) -> Result<u32, PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store.unread_message_count(conversation_id)
+        let count = Conversation::unread_message_count(&self.sqlite_connection, conversation_id)?;
+        Ok(count)
     }
 
     pub fn as_client_id(&self) -> AsClientId {
@@ -1062,12 +1030,13 @@ impl SelfUser {
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
-        let message_store = self.message_store();
         let mut stored_messages = vec![];
         // TODO: This should be done as part of a transaction
-        for group_message in group_messages.into_iter() {
-            let stored_message = message_store.create(&conversation_id, group_message)?;
-            stored_messages.push(stored_message.payload);
+        for timestamped_message in group_messages.into_iter() {
+            let message =
+                ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
+            message.store(&self.sqlite_connection)?;
+            stored_messages.push(message);
         }
         Ok(stored_messages)
     }
@@ -1083,10 +1052,6 @@ impl SelfUser {
             .map(|user_option| user_option.unwrap())
     }
 
-    fn conversation_store(&self) -> ConversationStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
     fn qs_verifying_key_store(&self) -> QsVerifyingKeyStore<'_> {
         QsVerifyingKeyStore::new(&self.sqlite_connection, self.api_clients())
     }
@@ -1096,10 +1061,6 @@ impl SelfUser {
     }
 
     fn group_store(&self) -> GroupStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
-    fn message_store(&self) -> ConversationMessageStore<'_> {
         (&self.sqlite_connection).into()
     }
 

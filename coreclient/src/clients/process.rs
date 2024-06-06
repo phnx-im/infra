@@ -83,15 +83,6 @@ impl SelfUser {
                     .await?;
                 let group_id = group.group_id().clone();
 
-                // Set the conversation attributes according to the group's
-                // group data.
-                let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
-                let attributes: ConversationAttributes =
-                    serde_json::from_slice(group_data.bytes())?;
-                let conversation_store = self.conversation_store();
-                let conversation =
-                    conversation_store.create_group_conversation(group_id.clone(), attributes)?;
-
                 // Store the user profiles of the group members if they don't
                 // exist yet.
                 group
@@ -100,6 +91,22 @@ impl SelfUser {
                     .try_for_each(|user_name| {
                         UserProfile::new(user_name, None, None).store(&self.sqlite_connection)
                     })?;
+
+                // Set the conversation attributes according to the group's
+                // group data.
+                let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
+                let attributes: ConversationAttributes =
+                    serde_json::from_slice(group_data.bytes())?;
+
+                let conversation =
+                    Conversation::new_group_conversation(group_id.clone(), attributes);
+                // If we've been in that conversation before, we delete the old
+                // conversation first and then create a new one. We do leave the
+                // messages intact, though.
+                let transaction = self.sqlite_connection.transaction()?;
+                Conversation::delete(&transaction, conversation.id())?;
+                conversation.store(&transaction)?;
+                transaction.commit()?;
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
             }
@@ -115,10 +122,9 @@ impl SelfUser {
                         MlsMessageBodyIn::GroupInfo(_) | MlsMessageBodyIn::KeyPackage(_) => bail!("Unexpected message type"),
                     };
                 let group_id = protocol_message.group_id();
-                let conversation_store = self.conversation_store();
-                let conversation = conversation_store
-                    .get_by_group_id(group_id)?
-                    .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
+                let conversation =
+                    Conversation::load_by_group_id(&self.sqlite_connection, group_id)?
+                        .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
 
                 let group_store = self.group_store();
@@ -157,13 +163,13 @@ impl SelfUser {
                     ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                         // If a client joined externally, we check if the
                         // group belongs to an unconfirmed conversation.
-                        let conversation_store = self.conversation_store();
-                        let mut conversation = conversation_store
-                            .get_by_conversation_id(&conversation_id)?
-                            .ok_or(anyhow!(
-                                "No conversation found for conversation ID {}",
-                                conversation_id.as_uuid()
-                            ))?;
+                        let mut conversation =
+                            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(
+                                anyhow!(
+                                    "Can't find conversation with id {}",
+                                    conversation_id.as_uuid()
+                                ),
+                            )?;
                         let mut conversation_changed = false;
 
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
@@ -256,7 +262,10 @@ impl SelfUser {
                                     Asset::Value(value) => value.to_owned(),
                                 });
 
-                            conversation.set_conversation_picture(conversation_picture_option)?;
+                            conversation.set_conversation_picture(
+                                &self.sqlite_connection,
+                                conversation_picture_option,
+                            )?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact.mark_as_complete(
                                 &self.sqlite_connection,
@@ -264,14 +273,14 @@ impl SelfUser {
                                 sender_client_id.clone(),
                             )?;
 
-                            conversation.confirm()?;
+                            conversation.confirm(&self.sqlite_connection)?;
                             conversation_changed = true;
                         }
                         // If we were removed, we set the group to inactive.
                         if we_were_removed {
-                            conversation.set_inactive(
-                                group.members(&self.sqlite_connection).into_iter().collect(),
-                            )?;
+                            let past_members =
+                                group.members(&self.sqlite_connection).into_iter().collect();
+                            conversation.set_inactive(&self.sqlite_connection, past_members)?;
                         }
                         let group_messages = group.merge_pending_commit(
                             &self.crypto_backend(),
@@ -402,7 +411,6 @@ impl SelfUser {
                     )
                     .await?;
                 let sender_client_id = cep_tbs.sender_client_credential.identity();
-                let conversation_store = self.conversation_store();
                 let conversation_picture_option = cep_tbs
                     .friendship_package
                     .user_profile
@@ -410,21 +418,22 @@ impl SelfUser {
                     .map(|asset| match asset {
                         Asset::Value(value) => value.to_owned(),
                     });
-                let mut conversation = conversation_store.create_connection_conversation(
+                let mut conversation = Conversation::new_connection_conversation(
                     group.group_id().clone(),
                     sender_client_id.user_name().clone(),
                     ConversationAttributes::new(
-                        sender_client_id.to_string(),
+                        sender_client_id.user_name().to_string(),
                         conversation_picture_option,
                     ),
                 )?;
+                conversation.store(&self.sqlite_connection)?;
                 // Store the user profile of the sender.
                 cep_tbs
                     .friendship_package
                     .user_profile
                     .store(&self.sqlite_connection)?;
                 // TODO: For now, we automatically confirm conversations.
-                conversation.confirm()?;
+                conversation.confirm(&self.sqlite_connection)?;
                 // TODO: Here, we want to store a contact
                 Contact::from_friendship_package(
                     sender_client_id,
@@ -453,11 +462,9 @@ impl SelfUser {
     }
 
     pub fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
-        let conversation_store = self.conversation_store();
-        conversation_store
-            .get_by_conversation_id(&conversation_id)
-            .ok()?
-            .map(|c| c.convert_for_export())
+        Conversation::load(&self.sqlite_connection, &conversation_id)
+            .ok()
+            .flatten()
     }
 
     /// Get the most recent `number_of_messages` messages from the conversation
@@ -467,13 +474,11 @@ impl SelfUser {
         conversation_id: ConversationId,
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let message_store = self.message_store();
-        let messages = message_store
-            // We don't support architectures lower than 32 bit.
-            .get_by_conversation_id(&conversation_id, Some(number_of_messages as u32))?
-            .into_iter()
-            .map(|pm| pm.payload)
-            .collect();
+        let messages = ConversationMessage::load_multiple(
+            &self.sqlite_connection,
+            conversation_id,
+            number_of_messages as u32,
+        )?;
         Ok(messages)
     }
 
