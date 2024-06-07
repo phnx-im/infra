@@ -254,7 +254,7 @@ impl Group {
         .store(connection)?;
 
         let group = Self {
-            group_id: group_id.into(),
+            group_id,
             leaf_signer,
             signature_ear_key_wrapper_key,
             mls_group,
@@ -355,7 +355,7 @@ impl Group {
         // Decrypt and verify the infra credentials.
         for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
-            client_auth_info.store(&connection)?;
+            client_auth_info.store(connection)?;
         }
 
         let leaf_keys = leaf_key_store
@@ -367,7 +367,7 @@ impl Group {
         leaf_key_store.delete(verifying_key)?;
 
         let group = Self {
-            group_id: mls_group.group_id().clone().into(),
+            group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key: welcome_attribution_info
@@ -461,7 +461,7 @@ impl Group {
         for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
             // Store client auth info.
-            client_auth_info.store(&connection)?;
+            client_auth_info.store(connection)?;
         }
 
         // TODO: Once we support multiple clients, this should be synchronized
@@ -469,7 +469,7 @@ impl Group {
         let user_auth_key = UserAuthSigningKey::generate()?;
 
         let group = Self {
-            group_id: mls_group.group_id().clone().into(),
+            group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
             signature_ear_key_wrapper_key,
@@ -1166,7 +1166,7 @@ impl Group {
 
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> &GroupId {
-        &self.mls_group().group_id()
+        self.mls_group().group_id()
     }
 
     pub(crate) fn user_auth_key(&self) -> Option<&UserAuthSigningKey> {

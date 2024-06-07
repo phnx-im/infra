@@ -161,10 +161,10 @@ enum PartSemantics {
 )]
 #[repr(u16)]
 enum Part {
-    NullPart,
-    SinglePart(SinglePart),
-    ExternalPart(ExternalPart),
-    MultiParts(MultiParts),
+    Null,
+    Single(SinglePart),
+    External(ExternalPart),
+    Multi(MultiParts),
 }
 
 #[derive(
@@ -208,7 +208,7 @@ impl Default for NestablePart {
             languages: Vec::new(),
             part_index: 0,
             part_semantic: PartSemantics::NullPart,
-            part: Part::NullPart,
+            part: Part::Null,
         }
     }
 }
@@ -249,7 +249,7 @@ impl MimiContent {
             languages: Vec::new(),
             part_index: 0,
             part_semantic: PartSemantics::SinglePart,
-            part: Part::SinglePart(single_part),
+            part: Part::Single(single_part),
         };
         MimiContentBuilder::new(sender_domain, nestable_part).build()
     }
@@ -257,7 +257,7 @@ impl MimiContent {
     pub fn string_rendering(&self) -> String {
         // For now, we only support SingleParts that contain markdown messages.
         match &self.body.part {
-            Part::SinglePart(single_part) => match single_part {
+            Part::Single(single_part) => match single_part {
                 SinglePart::TextMarkdown(text) => text.clone(),
             },
             _ => "Unsupported content type".to_string(),

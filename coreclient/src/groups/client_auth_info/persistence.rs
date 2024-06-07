@@ -242,7 +242,7 @@ impl GroupMembership {
         client_ids: &[AsClientId],
     ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
         let client_infos = client_ids
-            .into_iter()
+            .iter()
             .map(|client_id| (client_id.client_id(), client_id.user_name()))
             .collect::<Vec<_>>();
         let placeholders = client_infos

@@ -31,6 +31,12 @@ pub struct MockNetworkProvider {
     transport_encryption: TransportEncryption,
 }
 
+impl Default for MockNetworkProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockNetworkProvider {
     pub fn new() -> Self {
         Self {

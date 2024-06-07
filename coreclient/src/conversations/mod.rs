@@ -170,7 +170,7 @@ impl Conversation {
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
         let qgid =
-            QualifiedGroupId::tls_deserialize_exact_bytes(&self.group_id.as_slice()).unwrap();
+            QualifiedGroupId::tls_deserialize_exact_bytes(self.group_id.as_slice()).unwrap();
         qgid.owning_domain
     }
 
@@ -181,7 +181,7 @@ impl Conversation {
     ) -> Result<(), rusqlite::Error> {
         self.update_conversation_picture(
             connection,
-            conversation_picture.as_ref().map(|b| b.as_slice()),
+            conversation_picture.as_deref(),
         )?;
         self.conversation_payload
             .attributes
@@ -315,9 +315,9 @@ impl ToSql for ConversationType {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         let conversation_type = match self {
             Self::UnconfirmedConnection(user_name) => {
-                format!("unconfirmed_connection:{}", user_name.to_string())
+                format!("unconfirmed_connection:{}", user_name)
             }
-            Self::Connection(user_name) => format!("connection:{}", user_name.to_string()),
+            Self::Connection(user_name) => format!("connection:{}", user_name),
             Self::Group => "group".to_string(),
         };
         Ok(ToSqlOutput::Owned(Value::Text(conversation_type)))
@@ -343,9 +343,7 @@ impl ConversationAttributes {
     }
 
     pub fn conversation_picture_option(&self) -> Option<&[u8]> {
-        self.conversation_picture_option
-            .as_ref()
-            .map(|v| v.as_slice())
+        self.conversation_picture_option.as_deref()
     }
 
     pub fn set_conversation_picture_option(

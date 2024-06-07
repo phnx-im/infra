@@ -540,7 +540,7 @@ impl SelfUser {
         // Mark the message as sent.
         conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
-        Ok(conversation_message.into())
+        Ok(conversation_message)
     }
 
     /// Re-try sending a message, where sending previously failed.
@@ -564,7 +564,7 @@ impl SelfUser {
         let group_id = &conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)
@@ -756,7 +756,7 @@ impl SelfUser {
         // Generate ciphertext
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -791,7 +791,7 @@ impl SelfUser {
         // Generate ciphertext
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let past_members = group.members(&self.sqlite_connection);
         // No need to send a message to the server if we are the only member.
@@ -881,7 +881,7 @@ impl SelfUser {
         let group_id = conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.leave_group(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -915,7 +915,7 @@ impl SelfUser {
         let group_id = conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -973,7 +973,7 @@ impl SelfUser {
 
         let group_store = self.group_store();
         group_store
-            .get(&conversation.group_id())
+            .get(conversation.group_id())
             .ok()?
             .map(|g| g.members(&self.sqlite_connection))
     }
@@ -983,7 +983,7 @@ impl SelfUser {
 
         let group_store = self.group_store();
         group_store
-            .get(&conversation.group_id())
+            .get(conversation.group_id())
             .ok()?
             .map(|group| group.pending_removes(&self.sqlite_connection))
     }

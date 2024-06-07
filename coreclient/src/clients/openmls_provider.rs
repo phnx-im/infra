@@ -79,7 +79,7 @@ impl<'a> OpenMlsKeyStore for PhnxOpenMlsProvider<'a> {
     ///
     /// Returns an error if storing fails.
     fn store<V: MlsEntity>(&self, k: &[u8], v: &V) -> Result<(), Self::Error> {
-        let value = serde_json::to_vec(v).map_err(|e| PersistenceError::SerdeError(e))?;
+        let value = serde_json::to_vec(v).map_err(PersistenceError::Serde)?;
 
         let key_store_value = KeyStoreValue {
             key: hex::encode(k),

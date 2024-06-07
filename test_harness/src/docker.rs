@@ -47,7 +47,6 @@ impl DockerTestBed {
         // Create docker network
         create_network(&network_name);
         let servers = (0..scenario.number_of_servers())
-            .into_iter()
             .map(|index| {
                 let domain = format!("{}{}.com", scenario, index)
                     .try_into()
@@ -145,7 +144,7 @@ fn run_docker_container(
     }
     command.args(["--name", container_name]);
     if let Some(port) = port_option {
-        command.args(["-p", format!("{}", port).as_str()]);
+        command.args(["-p", port.to_string().as_str()]);
     }
     command.args(["--rm"]);
     if detach {
@@ -186,7 +185,7 @@ fn create_and_start_server_container(
     let db_name_env_variable = format!("POSTGRES_DB={db_name}");
 
     let db = run_docker_container(
-        &db_image_name,
+        db_image_name,
         &db_container_name,
         &[
             db_domain_env_variable,
@@ -204,7 +203,7 @@ fn create_and_start_server_container(
     let server_image_name = "phnxserver_image";
     let server_container_name = format!("{server_domain}_server_container");
 
-    build_docker_image("server/Dockerfile", &server_image_name);
+    build_docker_image("server/Dockerfile", server_image_name);
 
     let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
     let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
@@ -212,9 +211,9 @@ fn create_and_start_server_container(
     let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
     let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
     let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
-    let server_sqlx_offline_env_variable = format!("SQLX_OFFLINE=true");
+    let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
     let server = run_docker_container(
-        &server_image_name,
+        server_image_name,
         &server_container_name,
         &[
             server_domain_env_variable,
@@ -254,17 +253,13 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> boo
     while !domains.is_empty() && counter < 10 {
         for (domain, client) in &clients {
             if client.health_check().await {
-                domains.remove(&domain);
+                domains.remove(domain);
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(2));
         counter += 1;
     }
-    if counter == 10 {
-        return false;
-    } else {
-        return true;
-    }
+    counter != 10
 }
 
 fn create_network(network_name: &str) {
@@ -342,7 +337,7 @@ pub async fn run_server_restart_test() {
     let db_name_env_variable = format!("POSTGRES_DB={db_name}");
 
     let _db = run_docker_container(
-        &db_image_name,
+        db_image_name,
         &db_container_name,
         &[
             db_domain_env_variable,
@@ -360,7 +355,7 @@ pub async fn run_server_restart_test() {
     let server_image_name = "phnxserver_image";
     let server_container_name = format!("{server_domain}_server_container");
 
-    build_docker_image("server/Dockerfile", &server_image_name);
+    build_docker_image("server/Dockerfile", server_image_name);
 
     let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
     let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
@@ -368,11 +363,11 @@ pub async fn run_server_restart_test() {
     let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
     let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
     let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
-    let server_sqlx_offline_env_variable = format!("SQLX_OFFLINE=true");
+    let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
 
     tracing::info!("Starting phnx server");
     let _server = run_docker_container(
-        &server_image_name,
+        server_image_name,
         &server_container_name,
         &[
             server_domain_env_variable.clone(),
@@ -383,7 +378,7 @@ pub async fn run_server_restart_test() {
             server_db_port_env_variable.clone(),
             server_sqlx_offline_env_variable.clone(),
         ],
-        Some(&server_domain.to_string()),
+        Some(server_domain),
         Some(network_name),
         None,
         &[],
@@ -403,7 +398,7 @@ pub async fn run_server_restart_test() {
 
     // Start server container again
     let _server = run_docker_container(
-        &server_image_name,
+        server_image_name,
         &server_container_name,
         &[
             server_domain_env_variable,
@@ -414,7 +409,7 @@ pub async fn run_server_restart_test() {
             server_db_port_env_variable,
             server_sqlx_offline_env_variable,
         ],
-        Some(&server_domain.to_string()),
+        Some(server_domain),
         Some(network_name),
         None,
         &[],

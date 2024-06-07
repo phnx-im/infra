@@ -147,7 +147,7 @@ impl DsStorageProvider for PostgresDsStorage {
             group_uuid
         ).fetch_optional(&self.pool).await?;
 
-        if matches!(existing_entry, Some(_)) {
+        if existing_entry.is_some() {
             return Ok(false);
         }
 

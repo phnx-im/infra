@@ -34,7 +34,7 @@ impl AsMut<SelfUser> for TestUser {
 impl TestUser {
     pub async fn new(user_name: &UserName, address_option: Option<String>) -> Self {
         let hostname_str = address_option
-            .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
+            .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
@@ -50,7 +50,7 @@ impl TestUser {
         db_dir: &str,
     ) -> Self {
         let hostname_str = address_option
-            .unwrap_or_else(|| format!("{}:{}", user_name.domain().to_string(), DEFAULT_PORT_HTTP));
+            .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
@@ -142,7 +142,7 @@ impl TestBackend {
             conversation_id.as_uuid()
         );
 
-        let test_updater = self.users.get_mut(&updater_name).unwrap();
+        let test_updater = self.users.get_mut(updater_name).unwrap();
         let updater = &mut test_updater.user;
 
         let pending_removes =
@@ -288,7 +288,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let user1_conversation_id = conversation.id().clone();
+        let user1_conversation_id = conversation.id();
 
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
@@ -504,7 +504,7 @@ impl TestBackend {
         assert_eq!(conversation.attributes().title(), &group_name);
         assert_eq!(
             conversation.attributes().conversation_picture_option(),
-            group_picture_bytes_option.as_ref().map(|b| b.as_slice())
+            group_picture_bytes_option.as_deref()
         );
         user_conversations_before
             .into_iter()
@@ -607,7 +607,7 @@ impl TestBackend {
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id() == conversation_id)
-                .expect(&format!("{invitee_name} should have created a new conversation titles {conversation_uuid}"));
+                .unwrap_or_else(|| panic!("{invitee_name} should have created a new conversation titles {conversation_uuid}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
@@ -673,7 +673,7 @@ impl TestBackend {
 
         for invitee_name in &invitee_names {
             let unique_member = group_members.insert(invitee_name.clone());
-            assert!(unique_member == true);
+            assert!(unique_member);
         }
 
         // Now send messages to check that the group works properly. This also
@@ -791,10 +791,12 @@ impl TestBackend {
             let conversation = removed_conversations_after
                 .iter()
                 .find(|c| c.id() == conversation_id)
-                .expect(&format!(
-                    "{removed_name} should have the conversation with id {}",
-                    conversation_id.as_uuid()
-                ));
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{removed_name} should have the conversation with id {}",
+                        conversation_id.as_uuid()
+                    )
+                });
             assert!(conversation.id() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status() {
                 let inactive_status_members =
@@ -813,7 +815,7 @@ impl TestBackend {
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for removed_name in &removed_names {
             let remove_successful = group_members.remove(removed_name);
-            assert!(remove_successful == true);
+            assert!(remove_successful);
         }
         // Now have the rest of the group pick up and process their messages.
         for group_member_name in group_members.iter() {
@@ -1079,7 +1081,7 @@ impl TestBackend {
                         .cloned()
                         .choose_multiple(rng, number_of_invitees);
                     // It can happen that there are no suitable users to invite
-                    if invitee_names.len() > 0 {
+                    if !invitee_names.is_empty() {
                         let invitee_strings = invitee_names
                             .iter()
                             .map(|invitee| invitee.to_string())
@@ -1118,7 +1120,7 @@ impl TestBackend {
                         .filter(|&member| member != &random_user)
                         .cloned()
                         .choose_multiple(rng, number_of_removals);
-                    if members_to_remove.len() > 0 {
+                    if !members_to_remove.is_empty() {
                         let removed_strings = members_to_remove
                             .iter()
                             .map(|removed| removed.to_string())
@@ -1166,12 +1168,8 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
     display_messages
         .into_iter()
         .filter_map(|m| {
-            if let Message::Event(event_message) = m.message() {
-                if let EventMessage::System(system_message) = event_message {
-                    Some(system_message.to_string())
-                } else {
-                    None
-                }
+            if let Message::Event(EventMessage::System(system_message)) = m.message() {
+                Some(system_message.to_string())
             } else {
                 None
             }
