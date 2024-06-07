@@ -6,7 +6,10 @@ use openmls::group::GroupId;
 use phnxtypes::time::TimeStamp;
 use rusqlite::{named_params, params, Connection, OptionalExtension};
 
-use crate::{utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable}, Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType};
+use crate::{
+    utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
+    Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+};
 
 use super::ConversationPayload;
 
@@ -22,9 +25,8 @@ impl Storable for Conversation {
             conversation_status TEXT NOT NULL CHECK (conversation_status LIKE 'active' OR conversation_status LIKE 'inactive:%'),
             conversation_type TEXT NOT NULL CHECK (conversation_type LIKE 'group' OR conversation_type LIKE 'unconfirmed_connection:%' OR conversation_type LIKE 'connection:%')
         );";
-        
-            fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>
-         {
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let id = row.get(0)?;
         let conversation_title = row.get(1)?;
         let conversation_picture_option = row.get(2)?;
@@ -50,8 +52,7 @@ impl Storable for Conversation {
             last_read,
             conversation_payload,
         })
-
-            }
+    }
 }
 
 impl Conversation {
@@ -68,19 +69,26 @@ impl Conversation {
                 group_id,
                 self.last_used,
                 self.last_read,
-                self.status(), 
+                self.status(),
                 self.conversation_type(),
             ],
         )?;
         Ok(())
     }
 
-    pub(crate) fn load(connection: &Connection, conversation_id: &ConversationId) -> Result<Option<Conversation>, rusqlite::Error> {
+    pub(crate) fn load(
+        connection: &Connection,
+        conversation_id: &ConversationId,
+    ) -> Result<Option<Conversation>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations WHERE conversation_id = ?")?;
-        stmt.query_row(params![conversation_id], Self::from_row).optional()
+        stmt.query_row(params![conversation_id], Self::from_row)
+            .optional()
     }
 
-    pub(crate) fn load_by_group_id(connection: &Connection, group_id: &GroupId) -> Result<Option<Conversation>, rusqlite::Error> {
+    pub(crate) fn load_by_group_id(
+        connection: &Connection,
+        group_id: &GroupId,
+    ) -> Result<Option<Conversation>, rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(group_id);
         let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations WHERE group_id = ?")?;
         stmt.query_row(params![group_id], Self::from_row).optional()
@@ -92,7 +100,11 @@ impl Conversation {
         rows.collect()
     }
 
-    pub(super) fn update_conversation_picture(&self, connection: &Connection, conversation_picture: Option<&[u8]>) -> rusqlite::Result<()> {
+    pub(super) fn update_conversation_picture(
+        &self,
+        connection: &Connection,
+        conversation_picture: Option<&[u8]>,
+    ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
             params![conversation_picture, self.id],
@@ -100,7 +112,11 @@ impl Conversation {
         Ok(())
     }
 
-    pub(super) fn update_status(&self, connection: &Connection, status: &ConversationStatus) -> rusqlite::Result<()> {
+    pub(super) fn update_status(
+        &self,
+        connection: &Connection,
+        status: &ConversationStatus,
+    ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
             params![status, self.id],
@@ -108,7 +124,10 @@ impl Conversation {
         Ok(())
     }
 
-    pub(crate) fn delete(connection: &Connection, conversation_id: ConversationId) -> Result<(), rusqlite::Error> {
+    pub(crate) fn delete(
+        connection: &Connection,
+        conversation_id: ConversationId,
+    ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM conversations WHERE conversation_id = ?",
             params![conversation_id],
@@ -147,7 +166,11 @@ impl Conversation {
         )
     }
 
-    pub(super) fn set_conversation_type(&self, connection: &Connection, conversation_type: &ConversationType) -> rusqlite::Result<()> {
+    pub(super) fn set_conversation_type(
+        &self,
+        connection: &Connection,
+        conversation_type: &ConversationType,
+    ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],

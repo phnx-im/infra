@@ -291,7 +291,7 @@ impl SelfUser {
         }
         if let Some(profile_picture) = user_profile.profile_picture() {
             let new_image = match profile_picture {
-                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+                Asset::Value(image_bytes) => self.resize_image(image_bytes)?,
             };
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
@@ -316,14 +316,13 @@ impl SelfUser {
                 conversation_id.as_uuid()
             ))?;
         let resized_picture_option = conversation_picture_option
-            .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
-            .flatten();
+            .and_then(|conversation_picture| self.resize_image(&conversation_picture).ok());
         conversation.set_conversation_picture(&self.sqlite_connection, resized_picture_option)?;
         Ok(())
     }
 
     fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
-        let image = image::load_from_memory(&image_bytes)?;
+        let image = image::load_from_memory(image_bytes)?;
 
         // Read EXIF data
         let exif_reader = Reader::new();
@@ -525,7 +524,7 @@ impl SelfUser {
         );
         conversation_message.store(&self.sqlite_connection)?;
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)

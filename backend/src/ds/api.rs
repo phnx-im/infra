@@ -453,7 +453,7 @@ impl DsApi {
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 group_state_has_changed = false;
                 let event_message = DsFanOutPayload::EventMessage(dispatch_event_params.event);
-                (Some(event_message.into()), DsProcessResponse::Ok, vec![])
+                (Some(event_message), DsProcessResponse::Ok, vec![])
             }
         };
 

@@ -10,7 +10,7 @@ use phnxbackend::ds::{
 };
 use phnxtypes::{
     crypto::ear::Ciphertext,
-    identifiers::{Fqdn, SealedClientReference, QualifiedGroupId},
+    identifiers::{Fqdn, QualifiedGroupId, SealedClientReference},
     time::TimeStamp,
 };
 use sqlx::{types::Uuid, PgPool};
@@ -27,14 +27,13 @@ pub struct PostgresDsStorage {
 }
 
 impl PostgresDsStorage {
-    pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, PostgresStorageError> {
-
+    pub async fn new(
+        settings: &DatabaseSettings,
+        own_domain: Fqdn,
+    ) -> Result<Self, PostgresStorageError> {
         let pool = connect_to_database(settings).await?;
 
-        let provider = Self {
-            pool,
-            own_domain,
-        };
+        let provider = Self { pool, own_domain };
         Ok(provider)
     }
 }
@@ -63,10 +62,10 @@ impl DsStorageProvider for PostgresDsStorage {
 
         let record = sqlx::query!(
             "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
-            group_uuid 
+            group_uuid
         ).fetch_one(&self.pool).await.map_err(|e| {
             tracing::warn!("Error loading group state: {:?}", e);
-            e 
+            e
         }
         )?;
         // A group id is reserved if it is in the database but has an empty
@@ -77,7 +76,7 @@ impl DsStorageProvider for PostgresDsStorage {
         // reserved. I think we can just pass an option in, but then we'd have
         // to remove the NON NULL requirement for ciphertexts. Also leave a TODO
         // that there is probably a better way of doing this.
-        
+
         let result = match (ciphertext_bytes.as_slice(), deleted_queues_bytes.as_slice()) {
             ([], []) => Ok(LoadState::Reserved(TimeStamp::from(record.last_used))),
             (ciphertext_bytes, deleted_queues_bytes) => {
@@ -106,10 +105,10 @@ impl DsStorageProvider for PostgresDsStorage {
         group_id: &GroupId,
         encrypted_group_state: EncryptedDsGroupState,
     ) -> Result<(), Self::StorageError> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice())
-            .map_err(|e| { 
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact_bytes(group_id.as_slice()).map_err(|e| {
                 tracing::warn!("Error parsing group id: {:?}", e);
-                PostgresStorageError::InvalidInput 
+                PostgresStorageError::InvalidInput
             })?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
         let last_used = Utc::now();
@@ -125,9 +124,9 @@ impl DsStorageProvider for PostgresDsStorage {
             deleted_queues
         )
         .execute(&self.pool)
-        .await.map_err(|e| { 
+        .await.map_err(|e| {
             tracing::warn!("Error saving group state: {:?}", e);
-            e 
+            e
         }
         )?;
 
