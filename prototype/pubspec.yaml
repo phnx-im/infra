@@ -40,7 +40,7 @@ dependencies:
   image_picker: ^1.0.7
 
   collection: any
-  rust_lib_prototype:
+  phnxapplogic:
     path: rust_builder
 
 dev_dependencies:

@@ -27,6 +27,9 @@ clean:
 	dart pub upgrade
 	cd $(RUST_BASE_DIR) ; cargo clean
 
+frb-integrate:
+	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
+
 setup-ci:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@2.0.0-dev.37

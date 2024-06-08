@@ -1,10 +1,11 @@
+
 // SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // The Android Gradle Plugin builds the native code with the Android NDK.
 
-group 'com.flutter_rust_bridge.rust_lib_prototype'
+group 'com.flutter_rust_bridge.phnxapplogic'
 version '1.0'
 
 buildscript {
@@ -30,7 +31,7 @@ apply plugin: 'com.android.library'
 
 android {
     if (project.android.hasProperty("namespace")) {
-        namespace 'com.flutter_rust_bridge.rust_lib_prototype'
+        namespace 'com.flutter_rust_bridge.phnxapplogic'
     }
 
     // Bumping the plugin compileSdkVersion requires all clients of this plugin
@@ -55,6 +56,6 @@ android {
 
 apply from: "../cargokit/gradle/plugin.gradle"
 cargokit {
-    manifestDir = "../../rust"
-    libname = "rust_lib_prototype"
+    manifestDir = "../../../applogic"
+    libname = "phnxapplogic"
 }
