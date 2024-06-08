@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::dart_api::frb_generated::StreamSink;
+use crate::api::simple::frb_generated::StreamSink;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, SharedLogger, TermLogger, TerminalMode,
 };
