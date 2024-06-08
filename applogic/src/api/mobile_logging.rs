@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::dart_api::frb_generated::StreamSink;
+use std::sync::{Once, RwLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use lazy_static::lazy_static;
+use log::{error, info, warn, Level, LevelFilter, Log, Metadata, Record};
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, SharedLogger, TermLogger, TerminalMode,
 };
 
-use std::sync::{Once, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::StreamSink;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
-use lazy_static::lazy_static;
-use log::{error, info, warn, Level, LevelFilter, Log, Metadata, Record};
 
 pub struct LogEntry {
     pub time_millis: i64,

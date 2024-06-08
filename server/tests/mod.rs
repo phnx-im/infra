@@ -10,7 +10,7 @@ use image::{ImageBuffer, Rgba};
 use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
-use phnxcoreclient::{clients::SelfUser, Asset, DisplayName, MimiContent, UserProfile};
+use phnxcoreclient::{clients::CoreUser, Asset, DisplayName, MimiContent, UserProfile};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::{Fqdn, SafeTryInto, UserName};
@@ -568,7 +568,7 @@ async fn client_persistence() {
         .as_client_id();
 
     // Try to load the user from the database.
-    let user_result = SelfUser::load(client_id.clone(), "./").await.unwrap();
+    let user_result = CoreUser::load(client_id.clone(), "./").await.unwrap();
 
     assert!(user_result.is_some());
 

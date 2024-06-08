@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{clients::SelfUser, ConversationId, ConversationStatus, ConversationType, *};
+use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, SafeTryInto, UserName},
@@ -16,17 +16,17 @@ use rand_chacha::rand_core::OsRng;
 use super::spawn_app;
 
 pub struct TestUser {
-    pub user: SelfUser,
+    pub user: CoreUser,
 }
 
-impl AsRef<SelfUser> for TestUser {
-    fn as_ref(&self) -> &SelfUser {
+impl AsRef<CoreUser> for TestUser {
+    fn as_ref(&self) -> &CoreUser {
         &self.user
     }
 }
 
-impl AsMut<SelfUser> for TestUser {
-    fn as_mut(&mut self) -> &mut SelfUser {
+impl AsMut<CoreUser> for TestUser {
+    fn as_mut(&mut self) -> &mut CoreUser {
         &mut self.user
     }
 }
@@ -38,7 +38,7 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = SelfUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
+        let user = CoreUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
             .await
             .unwrap();
         Self { user }
@@ -54,7 +54,7 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = SelfUser::new(
+        let user = CoreUser::new(
             user_name.clone(),
             &user_name.to_string(),
             server_url,
@@ -65,7 +65,7 @@ impl TestUser {
         Self { user }
     }
 
-    pub fn user(&self) -> &SelfUser {
+    pub fn user(&self) -> &CoreUser {
         &self.user
     }
 }

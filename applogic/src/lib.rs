@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-mod dart_api;
-mod notifications;
+//#[path = "frb_generated.rs"]
+pub(crate) mod frb_generated;
+pub(crate) use frb_generated::*;
 
-mod app_state;
-mod mobile_logging;
-mod types;
+pub mod api;

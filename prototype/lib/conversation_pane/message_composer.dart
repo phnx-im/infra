@@ -7,7 +7,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/core/types.dart';
+import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
 import 'package:prototype/styles.dart';

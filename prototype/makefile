@@ -36,6 +36,7 @@ setup-ci:
 dart-bridge:
 	touch $(RUST_BASE_DIR)/src/frb_generated.rs
 	mkdir -p lib/core
+	rm -Rf lib/core/*
 	flutter pub get
 	flutter_rust_bridge_codegen generate
 

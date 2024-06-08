@@ -97,7 +97,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
 
-pub struct SelfUser {
+pub struct CoreUser {
     sqlite_connection: Connection,
     api_clients: ApiClients,
     pub(crate) _qs_user_id: QsUserId,
@@ -105,7 +105,7 @@ pub struct SelfUser {
     pub(crate) key_store: MemoryUserKeyStore,
 }
 
-impl SelfUser {
+impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
@@ -168,7 +168,7 @@ impl SelfUser {
     }
 
     /// The same as [`Self::new()`], except that databases ephemeral and dropped
-    /// together with this instance of SelfUser.
+    /// together with this instance of CoreUser.
     pub async fn new_ephemeral(
         user_name: impl Into<UserName>,
         password: &str,
@@ -195,7 +195,7 @@ impl SelfUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<SelfUser>> {
+    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<CoreUser>> {
         let phnx_db_connection = open_phnx_db(client_db_path)?;
 
         let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
@@ -1089,7 +1089,7 @@ impl SelfUser {
         self.api_clients.clone()
     }
 
-    /// Returns the user profile of this [`SelfUser`].
+    /// Returns the user profile of this [`CoreUser`].
     pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
         UserProfile::load(&self.sqlite_connection, self.user_name())
             // We unwrap here, because we know that the user exists.
