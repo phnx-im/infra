@@ -312,9 +312,6 @@ impl From<ErrorMessage> for UiErrorMessage {
 }
 
 #[derive(Debug, Clone)]
-pub struct UiNotificationsRequest {}
-
-#[derive(Debug, Clone)]
 pub enum UiNotificationType {
     ConversationChange(ConversationIdBytes), // The id of the changed conversation.
     Message(UiConversationMessage),

@@ -490,7 +490,10 @@ impl ClientCredential {
 impl ToSql for ClientCredential {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(self.tls_serialize_detached().unwrap_or_default()),
+            rusqlite::types::Value::Blob(
+                serde_json::to_vec(self)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            ),
         ))
     }
 }

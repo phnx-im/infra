@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::Result;
+use tokio::sync::Mutex;
 
 use phnxcoreclient::{clients::SelfUser, ConversationId};
 use phnxtypes::time::TimeStamp;
@@ -45,23 +46,22 @@ impl AppState {
     /// If there is no debouncing currently in progress, this function will
     /// start a new debouncing process and return only after it has finished.
     /// Otherwise it will return immediately.
-    pub(super) fn mark_messages_read_debounced(
+    pub(super) async fn mark_messages_read_debounced(
         &self,
         conversation_id: ConversationId,
         timestamp: TimeStamp,
-    ) -> Result<()> {
-        self.mark_as_read_debouncers.mark_as_read_debounced(
-            self.user_mutex.clone(),
-            conversation_id,
-            timestamp,
-        )
+    ) {
+        self.mark_as_read_debouncers
+            .mark_as_read_debounced(self.user_mutex.clone(), conversation_id, timestamp)
+            .await
     }
 
     /// If there is a debouncing process going on for the conversation with the
     /// given [`ConversationId`], immediately stop it and mark all messages as
     /// read.
-    pub(super) fn flush_debouncer_state(&self) -> Result<()> {
+    pub(super) async fn flush_debouncer_state(&self) -> Result<()> {
         self.mark_as_read_debouncers
             .flush_debouncer_state(self.user_mutex.clone())
+            .await
     }
 }

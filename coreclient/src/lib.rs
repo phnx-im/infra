@@ -10,7 +10,6 @@ mod conversations;
 mod groups;
 mod key_stores;
 mod mimi_content;
-mod providers;
 mod user_profiles;
 mod utils;
 

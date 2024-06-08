@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use own_client_info::OwnClientInfo;
 use phnxtypes::{
     credentials::{AsCredential, AsIntermediateCredential},
     messages::client_as::AsQueueRatchet,
@@ -21,7 +22,6 @@ use self::{
         queue_ratchets::QualifiedSequenceNumber,
     },
     openmls_provider::KeyStoreValue,
-    user_profiles::ConversationParticipation,
     utils::persistence::{Storable, Triggerable},
 };
 
@@ -88,11 +88,6 @@ impl UserCreationState {
             server_url: server_url.to_string(),
             password: password.to_string(),
         };
-        // Create all required tables in the client db.
-        create_all_tables(client_db_connection)?;
-
-        // Create all db triggers.
-        create_all_triggers(client_db_connection)?;
 
         // Create user profile entry for own user.
         UserProfile::store_own_user_profile(
@@ -302,16 +297,17 @@ impl Persistable for ClientRecord {
 /// Create all tables for a client database by calling the `create_table`
 /// function of all structs that implement `Persistable`.
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
+    <UserCreationState as Persistable>::create_table(client_db_connection)?;
+    <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
-    <ConversationParticipation as Storable>::create_table(client_db_connection)?;
     <Group as Persistable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
-    <Contact as Persistable>::create_table(client_db_connection)?;
-    <PartialContact as Persistable>::create_table(client_db_connection)?;
-    <Conversation as Persistable>::create_table(client_db_connection)?;
-    <ConversationMessage as Persistable>::create_table(client_db_connection)?;
+    <Contact as Storable>::create_table(client_db_connection)?;
+    <PartialContact as Storable>::create_table(client_db_connection)?;
+    <Conversation as Storable>::create_table(client_db_connection)?;
+    <ConversationMessage as Storable>::create_table(client_db_connection)?;
     <AsCredential as Persistable>::create_table(client_db_connection)?;
     <AsIntermediateCredential as Persistable>::create_table(client_db_connection)?;
     <LeafKeys as Persistable>::create_table(client_db_connection)?;
@@ -320,7 +316,6 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     // QsQueueRatchet.
     <AsQueueRatchet as Persistable>::create_table(client_db_connection)?;
     <QualifiedSequenceNumber as Persistable>::create_table(client_db_connection)?;
-    <UserCreationState as Persistable>::create_table(client_db_connection)?;
     <[u8; 32] as Persistable>::create_table(client_db_connection)?;
 
     Ok(())
@@ -329,8 +324,9 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
 pub(crate) fn create_all_triggers(
     client_db_connection: &Connection,
 ) -> Result<(), rusqlite::Error> {
-    <ConversationParticipation as Triggerable>::create_trigger(client_db_connection)?;
     <GroupMembership as Triggerable>::create_trigger(client_db_connection)?;
+    <Contact as Triggerable>::create_trigger(client_db_connection)?;
+    <PartialContact as Triggerable>::create_trigger(client_db_connection)?;
 
     Ok(())
 }

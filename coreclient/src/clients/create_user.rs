@@ -516,4 +516,12 @@ impl PersistedUserState {
     pub(super) fn server_url(&self) -> &str {
         &self.state.server_url
     }
+
+    pub(super) fn qs_user_id(&self) -> &QsUserId {
+        &self.state.qs_user_id
+    }
+
+    pub(super) fn qs_client_id(&self) -> &QsClientId {
+        &self.state.qs_client_id
+    }
 }

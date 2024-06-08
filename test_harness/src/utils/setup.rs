@@ -314,6 +314,10 @@ impl TestBackend {
             });
         // User 2 should have created a connection group.
         let mut user2_conversations_after = user2.conversations().unwrap();
+        tracing::info!(
+            "User 2 conversations after: {:?}",
+            user2_conversations_after
+        );
         let new_conversation_position = user2_conversations_after
             .iter()
             .position(|c| c.attributes().title() == user1_name.to_string())

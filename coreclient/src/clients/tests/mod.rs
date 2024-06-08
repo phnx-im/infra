@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::api_clients::ApiClients;
-use crate::clients::store::{ClientRecord, ClientRecordState, UserCreationState};
+use crate::{
+    clients::store::{ClientRecord, ClientRecordState, UserCreationState},
+    utils::set_up_database,
+};
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::identifiers::{AsClientId, SafeTryInto};
 use rusqlite::Connection;
@@ -18,6 +21,9 @@ async fn user_stages() {
 
     let phnx_db_connection = Connection::open_in_memory().unwrap();
     let mut client_db_connection = Connection::open_in_memory().unwrap();
+
+    // Set up the client db
+    set_up_database(&mut client_db_connection).unwrap();
 
     let server_url = setup.url().unwrap();
     let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());

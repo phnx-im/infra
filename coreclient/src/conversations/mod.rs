@@ -6,8 +6,12 @@ use std::fmt::Display;
 
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{QualifiedGroupId, UserName},
+    identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, UserName},
     time::TimeStamp,
+};
+use rusqlite::{
+    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
+    Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
@@ -16,7 +20,8 @@ use uuid::Uuid;
 use crate::utils::persistence::SqlKey;
 
 pub(crate) mod messages;
-pub(crate) mod store;
+pub(crate) mod persistence;
+//pub(crate) mod store;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConversationId {
@@ -26,6 +31,19 @@ pub struct ConversationId {
 impl Display for ConversationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.uuid)
+    }
+}
+
+impl ToSql for ConversationId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.uuid.to_sql()
+    }
+}
+
+impl FromSql for ConversationId {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let uuid = Uuid::column_result(value)?;
+        Ok(Self { uuid })
     }
 }
 
@@ -47,10 +65,10 @@ impl From<Uuid> for ConversationId {
     }
 }
 
-impl TryFrom<GroupId> for ConversationId {
+impl TryFrom<&GroupId> for ConversationId {
     type Error = tls_codec::Error;
 
-    fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+    fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
         let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(value.as_slice())?;
         let conversation_id = Self {
             uuid: Uuid::from_bytes(qgid.group_id),
@@ -86,6 +104,50 @@ pub struct Conversation {
 }
 
 impl Conversation {
+    pub(crate) fn new_connection_conversation(
+        group_id: GroupId,
+        user_name: UserName,
+        attributes: ConversationAttributes,
+    ) -> Result<Self, tls_codec::Error> {
+        // To keep things simple and to make sure that conversation ids are the
+        // same across users, we derive the conversation id from the group id.
+        let conversation_payload = ConversationPayload {
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            attributes,
+        };
+        let conversation = Conversation {
+            id: ConversationId::try_from(&group_id)?,
+            group_id,
+            conversation_payload,
+            last_used: TimeStamp::now(),
+            last_read: TimeStamp::now(),
+        };
+        Ok(conversation)
+    }
+
+    pub(crate) fn new_group_conversation(
+        group_id: GroupId,
+        attributes: ConversationAttributes,
+    ) -> Self {
+        let id = ConversationId::try_from(&group_id).unwrap();
+        Self {
+            id,
+            group_id,
+            last_used: TimeStamp::now(),
+            last_read: TimeStamp::now(),
+            conversation_payload: ConversationPayload {
+                status: ConversationStatus::Active,
+                conversation_type: ConversationType::Group,
+                attributes,
+            },
+        }
+    }
+
+    pub fn id(&self) -> ConversationId {
+        self.id
+    }
+
     pub fn group_id(&self) -> &GroupId {
         &self.group_id
     }
@@ -105,12 +167,96 @@ impl Conversation {
     pub fn last_used(&self) -> &TimeStamp {
         &self.last_used
     }
+
+    pub(crate) fn owner_domain(&self) -> Fqdn {
+        let qgid =
+            QualifiedGroupId::tls_deserialize_exact_bytes(&self.group_id.as_slice()).unwrap();
+        qgid.owning_domain
+    }
+
+    pub(crate) fn set_conversation_picture(
+        &mut self,
+        connection: &Connection,
+        conversation_picture: Option<Vec<u8>>,
+    ) -> Result<(), rusqlite::Error> {
+        self.update_conversation_picture(
+            connection,
+            conversation_picture.as_ref().map(|b| b.as_slice()),
+        )?;
+        self.conversation_payload
+            .attributes
+            .set_conversation_picture_option(conversation_picture);
+        Ok(())
+    }
+
+    pub(crate) fn set_inactive(
+        &mut self,
+        connection: &Connection,
+        past_members: Vec<UserName>,
+    ) -> Result<(), rusqlite::Error> {
+        let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
+        self.update_status(connection, &new_status)?;
+        self.conversation_payload.status = new_status;
+        Ok(())
+    }
+
+    /// Confirm a connection conversation by setting the conversation type to
+    /// `Connection`.
+    pub(crate) fn confirm(&mut self, connection: &Connection) -> Result<(), rusqlite::Error> {
+        if let ConversationType::UnconfirmedConnection(user_name) =
+            self.conversation_payload.conversation_type.clone()
+        {
+            let conversation_type = ConversationType::Connection(user_name);
+            self.set_conversation_type(connection, &conversation_type)?;
+            self.conversation_payload.conversation_type = conversation_type;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationStatus {
     Inactive(InactiveConversation),
     Active,
+}
+
+impl FromSql for ConversationStatus {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let status = String::column_result(value)?;
+        if status.starts_with("active") {
+            return Ok(Self::Active);
+        }
+        let Some(user_names) = status.strip_prefix("inactive:") else {
+            return Err(FromSqlError::InvalidType);
+        };
+        let user_names = user_names
+            .split(',')
+            .map(<&str as SafeTryInto<UserName>>::try_into)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| {
+                log::error!("Failed to parse user names from database: {:?}", e);
+                FromSqlError::Other(Box::new(e))
+            })?;
+        Ok(Self::Inactive(InactiveConversation::new(user_names)))
+    }
+}
+
+impl ToSql for ConversationStatus {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        let status = match self {
+            Self::Active => "active".to_string(),
+            Self::Inactive(inactive_conversation) => {
+                let user_names = inactive_conversation
+                    .past_members()
+                    .iter()
+                    .map(|user_name| user_name.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("inactive:{}", user_names)
+            }
+        };
+        Ok(ToSqlOutput::Owned(Value::Text(status)))
+    }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
@@ -136,6 +282,46 @@ pub enum ConversationType {
     // which we have received the necessary secrets.
     Connection(UserName),
     Group,
+}
+
+impl FromSql for ConversationType {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let conversation_type = String::column_result(value)?;
+        if conversation_type.starts_with("group") {
+            return Ok(Self::Group);
+        }
+        let Some((conversation_type, user_name)) = conversation_type.split_once(':') else {
+            return Err(FromSqlError::InvalidType);
+        };
+        match conversation_type {
+            "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
+                <&str as SafeTryInto<UserName>>::try_into(user_name).map_err(|e| {
+                    log::error!("Failed to parse user name from database: {:?}", e);
+                    FromSqlError::Other(Box::new(e))
+                })?,
+            )),
+            "connection" => Ok(Self::Connection(
+                <&str as SafeTryInto<UserName>>::try_into(user_name).map_err(|e| {
+                    log::error!("Failed to parse user name from database: {:?}", e);
+                    FromSqlError::Other(Box::new(e))
+                })?,
+            )),
+            _ => Err(FromSqlError::InvalidType),
+        }
+    }
+}
+
+impl ToSql for ConversationType {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        let conversation_type = match self {
+            Self::UnconfirmedConnection(user_name) => {
+                format!("unconfirmed_connection:{}", user_name.to_string())
+            }
+            Self::Connection(user_name) => format!("connection:{}", user_name.to_string()),
+            Self::Group => "group".to_string(),
+        };
+        Ok(ToSqlOutput::Owned(Value::Text(conversation_type)))
+    }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

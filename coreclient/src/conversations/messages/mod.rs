@@ -10,6 +10,8 @@ use crate::mimi_content::MimiContent;
 
 use super::*;
 
+pub(crate) mod persistence;
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TimestampedMessage {
     timestamp: TimeStamp,
@@ -62,10 +64,6 @@ impl TimestampedMessage {
             timestamp: ds_timestamp,
         }
     }
-
-    pub(crate) fn message(&self) -> &Message {
-        &self.message
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -102,6 +100,16 @@ impl ConversationMessage {
             local_message_id: Uuid::new_v4(),
             timestamped_message,
         }
+    }
+
+    /// Mark the message as sent and update the timestamp.
+    pub(crate) fn mark_as_sent(
+        &mut self,
+        connection: &Connection,
+        ds_timestamp: TimeStamp,
+    ) -> Result<(), rusqlite::Error> {
+        self.timestamped_message.mark_as_sent(ds_timestamp);
+        self.update_sent_status(connection, ds_timestamp, true)
     }
 
     pub fn id_ref(&self) -> &Uuid {
@@ -240,9 +248,6 @@ impl ErrorMessage {
         self.message.as_ref()
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct NotificationsRequest {}
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {

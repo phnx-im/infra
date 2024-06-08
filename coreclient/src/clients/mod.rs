@@ -10,10 +10,12 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use exif::{Reader, Tag};
+use groups::client_auth_info::StorableClientCredential;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
+use own_client_info::OwnClientInfo;
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     credentials::{
@@ -48,16 +50,13 @@ use phnxtypes::{
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use utils::set_up_database;
 use uuid::Uuid;
 
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
-    contacts::{store::ContactStore, Contact, ContactAddInfos, PartialContact},
-    conversations::{
-        messages::ConversationMessage,
-        store::{ConversationMessageStore, ConversationStore},
-        Conversation, ConversationAttributes,
-    },
+    contacts::{Contact, ContactAddInfos, PartialContact},
+    conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     groups::store::GroupStore,
     key_stores::{
         as_credentials::AsCredentialStore,
@@ -66,7 +65,7 @@ use crate::{
         queue_ratchets::{QueueRatchetStore, QueueType},
         MemoryUserKeyStore,
     },
-    user_profiles::{ConversationParticipation, UserProfile},
+    user_profiles::UserProfile,
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
 
@@ -85,6 +84,7 @@ pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 mod create_user;
 pub(crate) mod openmls_provider;
+pub(crate) mod own_client_info;
 pub mod process;
 pub mod store;
 #[cfg(test)]
@@ -112,15 +112,15 @@ impl CoreUser {
         user_name: impl SafeTryInto<UserName>,
         password: &str,
         server_url: impl ToString,
-        client_db_path: &str,
+        db_path: &str,
     ) -> Result<Self> {
         let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
-        let phnx_db_connection = open_phnx_db(client_db_path)?;
+        let phnx_db_connection = open_phnx_db(db_path)?;
 
         // Open client specific db
-        let client_db_connection = open_client_db(&as_client_id, client_db_path)?;
+        let client_db_connection = open_client_db(&as_client_id, db_path)?;
 
         Self::new_with_connections(
             as_client_id,
@@ -142,13 +142,15 @@ impl CoreUser {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
+        set_up_database(&mut client_db_connection)?;
+
         let mut client_db_transaction = client_db_connection.transaction()?;
 
         let user_creation_state = UserCreationState::new(
             &client_db_transaction,
             &phnx_db_connection,
             as_client_id,
-            server_url,
+            server_url.clone(),
             password,
         )?;
 
@@ -159,6 +161,14 @@ impl CoreUser {
                 &api_clients,
             )
             .await?;
+
+        OwnClientInfo {
+            server_url,
+            qs_user_id: final_state.qs_user_id().clone(),
+            qs_client_id: final_state.qs_client_id().clone(),
+            as_client_id: final_state.client_id().clone(),
+        }
+        .store(&client_db_transaction)?;
 
         client_db_transaction.commit()?;
 
@@ -195,10 +205,13 @@ impl CoreUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, client_db_path: &str) -> Result<Option<CoreUser>> {
-        let phnx_db_connection = open_phnx_db(client_db_path)?;
+    pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<Option<CoreUser>> {
+        let phnx_db_connection = open_phnx_db(db_path)?;
 
-        let mut client_db_connection = open_client_db(&as_client_id, client_db_path)?;
+        let mut client_db_connection = open_client_db(&as_client_id, db_path)?;
+
+        set_up_database(&mut client_db_connection)?;
+
         let mut client_db_transaction = client_db_connection.transaction()?;
 
         let Some(user_creation_state) =
@@ -267,9 +280,8 @@ impl CoreUser {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        let conversation_store = self.conversation_store();
-        let conversation =
-            conversation_store.create_group_conversation(group_id, conversation_attributes)?;
+        let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
+        conversation.store(&self.sqlite_connection)?;
         Ok(conversation.id())
     }
 
@@ -289,7 +301,7 @@ impl CoreUser {
 
     /// Get the user profile of the user with the given [`UserName`].
     pub fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
-        let user = UserProfile::load(&self.sqlite_connection, user_name.clone())?;
+        let user = UserProfile::load(&self.sqlite_connection, user_name)?;
         Ok(user)
     }
 
@@ -298,9 +310,7 @@ impl CoreUser {
         conversation_id: ConversationId,
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
-        let conversation_store = self.conversation_store();
-        let mut conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
+        let mut conversation = Conversation::load(&self.sqlite_connection, &conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
@@ -308,7 +318,7 @@ impl CoreUser {
         let resized_picture_option = conversation_picture_option
             .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
             .flatten();
-        conversation.set_conversation_picture(resized_picture_option)?;
+        conversation.set_conversation_picture(&self.sqlite_connection, resized_picture_option)?;
         Ok(())
     }
 
@@ -370,10 +380,8 @@ impl CoreUser {
         conversation_id: ConversationId,
         invited_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -387,12 +395,28 @@ impl CoreUser {
         let mut client_credentials = vec![];
         for invited_user in invited_users {
             // Get the WAI keys and client credentials for the invited users.
-            let contact = self.contact_store().get(invited_user)?.ok_or(anyhow!(
+            let contact = Contact::load(&self.sqlite_connection, invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
-            client_credentials.push(contact.client_credentials());
+            let contact_client_credentials = contact
+                .clients()
+                .iter()
+                .filter_map(|client_id| {
+                    match StorableClientCredential::load_by_client_id(
+                        &self.sqlite_connection,
+                        client_id,
+                    ) {
+                        Ok(Some(client_credential)) => {
+                            Some(Ok(ClientCredential::from(client_credential)))
+                        }
+                        Ok(None) => None,
+                        Err(e) => Some(Err(e)),
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            client_credentials.push(contact_client_credentials);
             let add_info = contact
                 .fetch_add_infos(
                     self.api_clients(),
@@ -431,12 +455,6 @@ impl CoreUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -452,10 +470,8 @@ impl CoreUser {
         conversation_id: ConversationId,
         target_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -482,13 +498,6 @@ impl CoreUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
-
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -500,10 +509,8 @@ impl CoreUser {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> Result<ConversationMessage> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -511,12 +518,12 @@ impl CoreUser {
         let group_store = self.group_store();
         // Store the message as unsent so that we don't lose it in case
         // something goes wrong.
-        let message_store = self.message_store();
-        let mut conversation_message = message_store.create_unsent_message(
+        let mut conversation_message = ConversationMessage::new_unsent_message(
             self.user_name().to_string(),
             conversation_id,
             content.clone(),
-        )?;
+        );
+        conversation_message.store(&self.sqlite_connection)?;
         let mut group = group_store
             .get(&group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
@@ -532,18 +539,17 @@ impl CoreUser {
             .await?;
 
         // Mark the message as sent.
-        conversation_message.mark_as_sent(ds_timestamp)?;
+        conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
         Ok(conversation_message.into())
     }
 
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&mut self, local_message_id: Uuid) -> Result<()> {
-        let message_store = self.message_store();
-        let mut unsent_message = message_store.get(&local_message_id)?.ok_or(anyhow!(
-            "Can't find unsent message with id {}",
-            local_message_id
-        ))?;
+        let mut unsent_message =
+            ConversationMessage::load(&self.sqlite_connection, &local_message_id)?.ok_or(
+                anyhow!("Can't find unsent message with id {}", local_message_id),
+            )?;
         let content = match unsent_message.message() {
             Message::Content(content_message) if !content_message.was_sent() => {
                 content_message.content().clone()
@@ -551,10 +557,8 @@ impl CoreUser {
             _ => bail!("Message with id {} was already sent", local_message_id),
         };
         let conversation_id = unsent_message.conversation_id();
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -575,7 +579,7 @@ impl CoreUser {
             .await?;
 
         // Mark the message as sent.
-        unsent_message.mark_as_sent(ds_timestamp)?;
+        unsent_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
         Ok(())
     }
@@ -696,25 +700,24 @@ impl CoreUser {
             .await?;
 
         // Create the connection conversation
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store.create_connection_conversation(
+        let conversation = Conversation::new_connection_conversation(
             group_id,
             user_name.clone(),
             conversation_attributes,
         )?;
+        conversation.store(&self.sqlite_connection)?;
 
         // Create and persist a new partial contact
-        self.contact_store().store_partial_contact(
-            &user_name,
-            &conversation.id(),
+        PartialContact::new(
+            user_name.clone(),
+            conversation.id(),
             friendship_package_ear_key,
-        )?;
+        )
+        .store(&self.sqlite_connection)?;
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
-        let new_user_profile = UserProfile::new(user_name, None, None);
-        new_user_profile
-            .register_as_conversation_participant(&self.sqlite_connection, conversation.id())?;
+        UserProfile::new(user_name, None, None).store(&self.sqlite_connection)?;
 
         // Encrypt the connection establishment package for each connection and send it off.
         for connection_package in verified_connection_packages {
@@ -745,10 +748,8 @@ impl CoreUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -768,13 +769,6 @@ impl CoreUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
-
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -789,9 +783,7 @@ impl CoreUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let mut conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
+        let mut conversation = Conversation::load(&self.sqlite_connection, &conversation_id)?
             .ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
@@ -822,14 +814,7 @@ impl CoreUser {
             vec![]
         };
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
-
-        conversation.set_inactive(past_members.into_iter().collect())?;
+        conversation.set_inactive(&self.sqlite_connection, past_members.into_iter().collect())?;
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
@@ -889,10 +874,8 @@ impl CoreUser {
     }
 
     pub async fn leave_group(&mut self, conversation_id: ConversationId) -> Result<()> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -925,10 +908,8 @@ impl CoreUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)?
-            .ok_or(anyhow!(
+        let conversation =
+            Conversation::load(&self.sqlite_connection, &conversation_id)?.ok_or(anyhow!(
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
@@ -947,42 +928,24 @@ impl CoreUser {
         let group_messages =
             group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
 
-        // Update the conversation participations.
-        ConversationParticipation::process_system_messages(
-            &self.sqlite_connection,
-            &conversation_id,
-            &group_messages,
-        )?;
-
         let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
 
     pub fn contacts(&self) -> Result<Vec<Contact>, PersistenceError> {
-        let contact_store = self.contact_store();
-        contact_store.get_all_contacts().map(|cs| {
-            cs.into_iter()
-                .map(|c| c.convert_for_export())
-                .collect::<Vec<_>>()
-        })
+        let contacts = Contact::load_all(&self.sqlite_connection)?;
+        Ok(contacts)
     }
 
     pub fn contact(&self, user_name: &UserName) -> Option<Contact> {
-        let contact_store = self.contact_store();
-        contact_store
-            .get(user_name)
-            .map(|c| c.map(|c| c.convert_for_export()))
+        Contact::load(&self.sqlite_connection, user_name)
             .ok()
             .flatten()
     }
 
     pub fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
-        let contact_store = self.contact_store();
-        contact_store.get_all_partial_contacts().map(|cs| {
-            cs.into_iter()
-                .map(|c| c.convert_for_export())
-                .collect::<Vec<_>>()
-        })
+        let partial_contact = PartialContact::load_all(&self.sqlite_connection)?;
+        Ok(partial_contact)
     }
 
     fn create_own_client_reference(&self) -> QsClientReference {
@@ -1007,10 +970,7 @@ impl CoreUser {
 
     /// Returns None if there is no conversation with the given id.
     pub fn group_members(&self, conversation_id: ConversationId) -> Option<HashSet<UserName>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)
-            .ok()??;
+        let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
         let group_store = self.group_store();
         group_store
@@ -1020,10 +980,7 @@ impl CoreUser {
     }
 
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
-        let conversation_store = self.conversation_store();
-        let conversation = conversation_store
-            .get_by_conversation_id(&conversation_id)
-            .ok()??;
+        let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
         let group_store = self.group_store();
         group_store
@@ -1033,10 +990,8 @@ impl CoreUser {
     }
 
     pub fn conversations(&self) -> Result<Vec<Conversation>, PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store
-            .get_all()
-            .map(|cs| cs.into_iter().map(|c| c.convert_for_export()).collect())
+        let conversations = Conversation::load_all(&self.sqlite_connection)?;
+        Ok(conversations)
     }
 
     pub async fn websocket(&mut self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
@@ -1052,8 +1007,8 @@ impl CoreUser {
         &self,
         mark_as_read_data: T,
     ) -> Result<(), PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store.mark_as_read(mark_as_read_data)
+        Conversation::mark_as_read(&self.sqlite_connection, mark_as_read_data)?;
+        Ok(())
     }
 
     /// Returns how many messages in the conversation with the given ID are
@@ -1062,8 +1017,8 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> Result<u32, PersistenceError> {
-        let conversation_store = self.conversation_store();
-        conversation_store.unread_message_count(conversation_id)
+        let count = Conversation::unread_message_count(&self.sqlite_connection, conversation_id)?;
+        Ok(count)
     }
 
     pub fn as_client_id(&self) -> AsClientId {
@@ -1075,12 +1030,13 @@ impl CoreUser {
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
-        let message_store = self.message_store();
         let mut stored_messages = vec![];
         // TODO: This should be done as part of a transaction
-        for group_message in group_messages.into_iter() {
-            let stored_message = message_store.create(&conversation_id, group_message)?;
-            stored_messages.push(stored_message.payload);
+        for timestamped_message in group_messages.into_iter() {
+            let message =
+                ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
+            message.store(&self.sqlite_connection)?;
+            stored_messages.push(message);
         }
         Ok(stored_messages)
     }
@@ -1091,13 +1047,9 @@ impl CoreUser {
 
     /// Returns the user profile of this [`CoreUser`].
     pub fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
-        UserProfile::load(&self.sqlite_connection, self.user_name())
+        UserProfile::load(&self.sqlite_connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
-    }
-
-    fn conversation_store(&self) -> ConversationStore<'_> {
-        (&self.sqlite_connection).into()
     }
 
     fn qs_verifying_key_store(&self) -> QsVerifyingKeyStore<'_> {
@@ -1108,15 +1060,7 @@ impl CoreUser {
         AsCredentialStore::new(&self.sqlite_connection, self.api_clients())
     }
 
-    fn contact_store(&self) -> ContactStore<'_> {
-        ContactStore::new(&self.sqlite_connection)
-    }
-
     fn group_store(&self) -> GroupStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
-    fn message_store(&self) -> ConversationMessageStore<'_> {
         (&self.sqlite_connection).into()
     }
 
