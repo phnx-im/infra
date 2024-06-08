@@ -291,7 +291,7 @@ impl SelfUser {
         }
         if let Some(profile_picture) = user_profile.profile_picture() {
             let new_image = match profile_picture {
-                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+                Asset::Value(image_bytes) => self.resize_image(image_bytes)?,
             };
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
@@ -316,14 +316,13 @@ impl SelfUser {
                 conversation_id.as_uuid()
             ))?;
         let resized_picture_option = conversation_picture_option
-            .map(|conversation_picture| self.resize_image(&conversation_picture).ok())
-            .flatten();
+            .and_then(|conversation_picture| self.resize_image(&conversation_picture).ok());
         conversation.set_conversation_picture(&self.sqlite_connection, resized_picture_option)?;
         Ok(())
     }
 
     fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
-        let image = image::load_from_memory(&image_bytes)?;
+        let image = image::load_from_memory(image_bytes)?;
 
         // Read EXIF data
         let exif_reader = Reader::new();
@@ -525,7 +524,7 @@ impl SelfUser {
         );
         conversation_message.store(&self.sqlite_connection)?;
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)
@@ -541,7 +540,7 @@ impl SelfUser {
         // Mark the message as sent.
         conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
 
-        Ok(conversation_message.into())
+        Ok(conversation_message)
     }
 
     /// Re-try sending a message, where sending previously failed.
@@ -565,7 +564,7 @@ impl SelfUser {
         let group_id = &conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)
@@ -757,7 +756,7 @@ impl SelfUser {
         // Generate ciphertext
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update_user_key(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -792,7 +791,7 @@ impl SelfUser {
         // Generate ciphertext
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let past_members = group.members(&self.sqlite_connection);
         // No need to send a message to the server if we are the only member.
@@ -882,7 +881,7 @@ impl SelfUser {
         let group_id = conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.leave_group(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -916,7 +915,7 @@ impl SelfUser {
         let group_id = conversation.group_id();
         let group_store = self.group_store();
         let mut group = group_store
-            .get(&group_id)?
+            .get(group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -974,7 +973,7 @@ impl SelfUser {
 
         let group_store = self.group_store();
         group_store
-            .get(&conversation.group_id())
+            .get(conversation.group_id())
             .ok()?
             .map(|g| g.members(&self.sqlite_connection))
     }
@@ -984,7 +983,7 @@ impl SelfUser {
 
         let group_store = self.group_store();
         group_store
-            .get(&conversation.group_id())
+            .get(conversation.group_id())
             .ok()?
             .map(|group| group.pending_removes(&self.sqlite_connection))
     }

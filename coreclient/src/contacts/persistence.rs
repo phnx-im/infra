@@ -93,13 +93,13 @@ impl Contact {
         user_name: &UserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM contacts WHERE user_name = ?")?;
-        stmt.query_row([user_name], |row| Self::from_row(row))
+        stmt.query_row([user_name], Self::from_row)
             .optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM contacts")?;
-        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }
 

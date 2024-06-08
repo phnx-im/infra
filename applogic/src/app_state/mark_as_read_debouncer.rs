@@ -40,9 +40,7 @@ impl DebouncerState {
         // We use `checked_sub` to avoid underflow and set the duration to zero
         // if underflow would occur.
         self.duration = self
-            .duration
-            .checked_sub(DURATION_CHECK_INTERVAL)
-            .unwrap_or(0);
+            .duration.saturating_sub(DURATION_CHECK_INTERVAL);
     }
 
     /// Create a new [`DebouncerState`] with the given `timestamp` and

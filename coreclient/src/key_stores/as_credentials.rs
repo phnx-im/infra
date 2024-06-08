@@ -44,7 +44,7 @@ impl Persistable for AsCredential {
     const DATA_TYPE: DataType = DataType::AsCredential;
 
     fn key(&self) -> &Self::Key {
-        &self.fingerprint()
+        self.fingerprint()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
@@ -80,11 +80,11 @@ impl<'a> AsCredentialStore<'a> {
         &self,
         domain: &Fqdn,
     ) -> Result<Vec<PersistableAsIntermediateCredential<'a>>, AsCredentialStoreError> {
-        let as_credentials_response = self.api_clients.get(&domain)?.as_as_credentials().await?;
+        let as_credentials_response = self.api_clients.get(domain)?.as_as_credentials().await?;
         let as_credentials: HashMap<CredentialFingerprint, AsCredential> = as_credentials_response
             .as_credentials
             .into_iter()
-            .filter_map(|credential| Some((credential.fingerprint().clone(), credential)))
+            .map(|credential| (credential.fingerprint().clone(), credential))
             .collect::<HashMap<_, _>>();
         let mut as_inter_creds = vec![];
         for as_inter_cred in as_credentials_response.as_intermediate_credentials {

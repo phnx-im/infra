@@ -80,7 +80,7 @@ impl UserCreationState {
         // exist.
         <ClientRecord as Persistable>::create_table(phnx_db_connection)?;
 
-        let client_record = PersistableClientRecord::new(&phnx_db_connection, as_client_id.clone());
+        let client_record = PersistableClientRecord::new(phnx_db_connection, as_client_id.clone());
         client_record.persist()?;
 
         let basic_user_data = BasicUserData {
@@ -172,7 +172,7 @@ impl UserCreationState {
     ) -> Result<PersistedUserState> {
         while !matches!(self, UserCreationState::FinalUserState(_)) {
             self = self
-                .step(phnx_db_connection, client_db_transaction, &api_clients)
+                .step(phnx_db_connection, client_db_transaction, api_clients)
                 .await?
         }
 
@@ -221,11 +221,11 @@ impl Persistable for UserCreationState {
     const DATA_TYPE: DataType = DataType::ClientData;
 
     fn key(&self) -> &Self::Key {
-        &self.client_id()
+        self.client_id()
     }
 
     fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.client_id()
+        self.client_id()
     }
 }
 
@@ -271,7 +271,7 @@ impl ClientRecord {
     }
 
     pub fn load_all_from_db(connection: &Connection) -> Result<Vec<Self>, PersistenceError> {
-        PersistableStruct::<'_, ClientRecord>::load_all_unfiltered(&connection)?
+        PersistableStruct::<'_, ClientRecord>::load_all_unfiltered(connection)?
             .into_iter()
             .map(|record| Ok(record.into_payload()))
             .collect()

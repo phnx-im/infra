@@ -83,7 +83,7 @@ impl TlsDeserializeBytesTrait for TimeStamp {
             .map_err(|_| tls_codec::Error::EndOfStream)?;
         let time_i64 = i64::from_be_bytes(time_i64_bytes);
         let time = TimeStamp::try_from(time_i64)
-            .map_err(|_| tls_codec::Error::DecodingError(format!("Invalid timestamp")))?;
+            .map_err(|_| tls_codec::Error::DecodingError("Invalid timestamp".to_string()))?;
         Ok((time, &bytes[I64_SIZE..]))
     }
 }

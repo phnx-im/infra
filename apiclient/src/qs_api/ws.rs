@@ -167,24 +167,19 @@ impl QsWebSocket {
                                     return;
                                 }
                                 // Try to deserialize the message
-                                if let Ok(qs_ws_message) =
+                                if let Ok(QsWsMessage::QueueUpdate) =
                                     serde_json::from_slice::<QsWsMessage>(&data)
                                 {
-                                    match qs_ws_message {
-                                        // We received a new message notification from the QS
-                                        QsWsMessage::QueueUpdate => {
-                                            // Send the event to the channel
-                                            if tx.send(WsEvent::MessageEvent(QsWsMessage::QueueUpdate)).is_err() {
-                                                log::info!("Closing the connection because all subscribers are dropped");
-                                                // Close the stream if all subscribers of the watch have been dropped
-                                                let _ = ws_stream.close().await;
-                                                return;
-                                            }
-                                        }
-                                        _ => {}
+                                    // We received a new message notification from the QS
+                                    // Send the event to the channel
+                                    if tx.send(WsEvent::MessageEvent(QsWsMessage::QueueUpdate)).is_err() {
+                                        log::info!("Closing the connection because all subscribers are dropped");
+                                        // Close the stream if all subscribers of the watch have been dropped
+                                        let _ = ws_stream.close().await;
+                                        return;
                                     }
                                 }
-                            }
+                            },
                             // We received a ping
                             Message::Ping(_) => {
                                 // We update the last ping time
@@ -277,7 +272,7 @@ impl ApiClient {
         let qs_ws_open_params = QsOpenWsParams { queue_id };
         let serialized =
             serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
-        let encoded = base64::encode(&serialized);
+        let encoded = base64::encode(serialized);
         // Format the URL
         let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly

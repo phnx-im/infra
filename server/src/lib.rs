@@ -82,7 +82,8 @@ pub fn run<
 
     // Create & run the server
     let server = HttpServer::new(move || {
-        let app = App::new()
+        
+        App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_storage_provider_data.clone())
@@ -107,8 +108,7 @@ pub fn run<
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))
             // WS endpoint
-            .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection));
-        app
+            .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
     })
     .listen(listener)?
     .run();

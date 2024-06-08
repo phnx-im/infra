@@ -20,7 +20,7 @@ pub enum DatabaseSetupError {
 pub(crate) fn set_up_database(
     client_db_connection: &mut Connection,
 ) -> Result<(), DatabaseSetupError> {
-    create_all_tables(&client_db_connection)?;
-    create_all_triggers(&client_db_connection)?;
+    create_all_tables(client_db_connection)?;
+    create_all_triggers(client_db_connection)?;
     Ok(())
 }

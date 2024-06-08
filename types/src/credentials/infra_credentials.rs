@@ -125,7 +125,7 @@ impl InfraCredentialPlaintext {
         let encrypted_signature =
             Ciphertext::tls_deserialize_exact_bytes(credential.encrypted_signature().as_slice())?
                 .into();
-        let signature = Signature::decrypt(&ear_key, &encrypted_signature)
+        let signature = Signature::decrypt(ear_key, &encrypted_signature)
             .map_err(|_| InfraCredentialDecryptionError::SignatureDecryptionError)?;
         let payload = InfraCredentialTbs {
             identity: credential.identity().to_vec(),

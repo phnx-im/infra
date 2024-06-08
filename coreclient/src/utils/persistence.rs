@@ -160,7 +160,7 @@ impl<'a, T: Persistable> PersistableStruct<'a, T> {
             statement_str.push_str(", ?");
             statement_str.push_str((index + 3).to_string().as_str());
         }
-        statement_str.push_str(")");
+        statement_str.push(')');
         let mut stmt = self.connection().prepare(&statement_str)?;
         let mut fields: Vec<Box<dyn ToSql>> = vec![
             Box::new(self.payload().key().to_sql_key()),
@@ -306,7 +306,7 @@ pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
             let sql_field_statement = format!("{} {}", field.field_name, field.field_keywords);
             statement_str.push_str(&sql_field_statement);
         }
-        statement_str.push_str(")");
+        statement_str.push(')');
         let mut stmt = conn.prepare(&statement_str)?;
         stmt.execute([])?;
 
@@ -317,11 +317,11 @@ pub(crate) trait Persistable: Sized + Serialize + DeserializeOwned {
 #[derive(Debug, Error)]
 pub enum PersistenceError {
     #[error(transparent)]
-    SqliteError(#[from] rusqlite::Error),
+    Sqlite(#[from] rusqlite::Error),
     #[error(transparent)]
-    SerdeError(#[from] serde_json::Error),
+    Serde(#[from] serde_json::Error),
     #[error("Failed to convert value from row")]
-    ConversionError(#[from] anyhow::Error),
+    ConversionFailed(#[from] anyhow::Error),
 }
 
 /// Helper function to read one or more values from the database. If

@@ -502,7 +502,7 @@ impl ToSql for ClientCredential {
 impl FromSql for ClientCredential {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        Ok(serde_json::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))?)
+        serde_json::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
     }
 }
 

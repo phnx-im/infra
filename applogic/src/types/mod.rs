@@ -236,7 +236,7 @@ impl From<MimiContent> for UiMimiContent {
         Self {
             id: UiMessageId::from(mimi_content.id().clone()),
             timestamp: mimi_content.timestamp.as_u64(),
-            replaces: mimi_content.replaces.map(|r| UiMessageId::from(r)),
+            replaces: mimi_content.replaces.map(UiMessageId::from),
             topic_id: mimi_content.topic_id.map(|t| t.id.to_vec()),
             expires: mimi_content.expires.map(|e| e.as_u64()),
             in_reply_to: mimi_content.in_reply_to.map(|i| UiReplyToInfo {
@@ -246,7 +246,7 @@ impl From<MimiContent> for UiMimiContent {
             last_seen: mimi_content
                 .last_seen
                 .into_iter()
-                .map(|m| UiMessageId::from(m))
+                .map(UiMessageId::from)
                 .collect(),
             body,
         }
@@ -365,11 +365,8 @@ impl TryFrom<UiUserProfile> for UserProfile {
 
     fn try_from(value: UiUserProfile) -> Result<Self, Self::Error> {
         let user_name = <String as SafeTryInto<_>>::try_into(value.user_name)?;
-        let display_name = value
-            .display_name
-            .map(|a| DisplayName::try_from(a))
-            .transpose()?;
-        let profile_picture_option = value.profile_picture_option.map(|a| Asset::Value(a));
+        let display_name = value.display_name.map(DisplayName::try_from).transpose()?;
+        let profile_picture_option = value.profile_picture_option.map(Asset::Value);
         Ok(UserProfile::new(
             user_name,
             display_name,

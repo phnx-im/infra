@@ -93,7 +93,7 @@ impl QsQueueMessagePayload {
             }
             QsQueueMessageType::MlsMessage => {
                 let message =
-                    MlsMessageIn::tls_deserialize_exact_bytes(&mut self.payload.as_slice())?;
+                    MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
                 ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };

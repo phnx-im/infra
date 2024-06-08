@@ -32,7 +32,7 @@ async fn ws_lifecycle() {
     let server = run_server(listener).expect("Could not initialize server.");
 
     // Execute the server in the background
-    let _ = tokio::spawn(server);
+    tokio::spawn(server);
 
     let queue_id = QsClientId::from(QUEUE_ID_VALUE);
 

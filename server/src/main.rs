@@ -27,7 +27,7 @@ async fn main() -> std::io::Result<()> {
     // Load configuration
     let mut configuration = get_configuration("server/").expect("Could not load configuration.");
 
-    if configuration.application.domain == "" {
+    if configuration.application.domain.is_empty() {
         panic!("No domain name configured.");
     }
 
