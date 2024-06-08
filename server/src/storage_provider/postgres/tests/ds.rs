@@ -29,7 +29,7 @@ async fn reserve_group_id() {
     let storage_provider = initialize_test_provider().await;
 
     // Sample a random group id and reserve it
-    let group_uuid = Uuid::new_v4().as_bytes().clone();
+    let group_uuid = *Uuid::new_v4().as_bytes();
     let qgid = QualifiedGroupId {
         group_id: group_uuid,
         owning_domain: Fqdn::try_from("example.com").unwrap(),

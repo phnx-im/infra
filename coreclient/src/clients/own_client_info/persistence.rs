@@ -18,14 +18,14 @@ impl Storable for OwnClientInfo {
             as_user_name TEXT NOT NULL,
             as_client_uuid BLOB NOT NULL
         );";
-        
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> { 
+
+    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let server_url = row.get(0)?;
         let qs_user_id = row.get(1)?;
         let qs_client_id = row.get(2)?;
         let as_user_name = row.get(3)?;
         let as_client_uuid = row.get(4)?;
-        
+
         Ok(OwnClientInfo {
             server_url,
             qs_user_id,
@@ -33,7 +33,6 @@ impl Storable for OwnClientInfo {
             as_client_id: AsClientId::compose(as_user_name, as_client_uuid),
         })
     }
-
 }
 
 impl OwnClientInfo {
@@ -42,7 +41,7 @@ impl OwnClientInfo {
             "INSERT INTO own_client_info (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid) VALUES (?, ?, ?, ?, ?)",
             params![
                 self.server_url,
-                self.qs_user_id, 
+                self.qs_user_id,
                 self.qs_client_id,
                 self.as_client_id.user_name(),
                 self.as_client_id.client_id(),

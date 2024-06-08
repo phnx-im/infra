@@ -112,7 +112,7 @@ impl GroupMembership {
         let free_indices = (0..highest_index.u32())
             .filter(move |index| !leaf_indices.contains(&LeafNodeIndex::new(*index)))
             .chain(highest_index.u32() + 1..)
-            .map(|e| LeafNodeIndex::new(e));
+            .map(LeafNodeIndex::new);
         Ok(free_indices)
     }
 

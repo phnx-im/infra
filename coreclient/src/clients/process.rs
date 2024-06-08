@@ -175,7 +175,7 @@ impl CoreUser {
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
                             conversation.conversation_type()
                         {
-                            let user_name = user_name.clone().into();
+                            let user_name = user_name.clone();
                             // Check if it was an external commit and if the user name matches
                             if !matches!(sender, Sender::NewMemberCommit)
                                 && sender_client_id.user_name() == user_name

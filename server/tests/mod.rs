@@ -415,9 +415,7 @@ async fn exchange_user_profiles() {
     let user = &setup.users.get(&bob_user_name).unwrap().user;
     user.set_own_user_profile(bob_user_profile).unwrap();
     let new_profile = user.own_user_profile().unwrap();
-    let compressed_profile_picture = match new_profile.profile_picture().unwrap().clone() {
-        Asset::Value(v) => v,
-    };
+    let Asset::Value(compressed_profile_picture) = new_profile.profile_picture().unwrap().clone();
 
     setup.connect_users(ALICE, BOB).await;
 

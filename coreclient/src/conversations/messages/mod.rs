@@ -160,7 +160,7 @@ impl Message {
                 }
                 ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
                     let content = content_message.content.string_rendering();
-                    format!("{content}")
+                    content.to_string()
                 }
             },
             Message::Event(event_message) => match &event_message {

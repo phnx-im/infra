@@ -95,7 +95,7 @@ impl TryFrom<&str> for Fqdn {
     type Error = FqdnError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let domain = Host::<String>::parse(&value)?;
+        let domain = Host::<String>::parse(value)?;
         // Fqdns can't be IP addresses.
         if !matches!(domain, Host::Domain(_)) {
             return Err(FqdnError::NotADomainName);
@@ -287,7 +287,7 @@ impl TlsDeserializeBytesTrait for AsClientId {
     where
         Self: Sized,
     {
-        let (user_name, rest) = <UserName>::tls_deserialize_bytes(bytes.as_ref())?;
+        let (user_name, rest) = <UserName>::tls_deserialize_bytes(bytes)?;
         let (client_id_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(rest)?;
         let client_id = Uuid::from_bytes(client_id_bytes);
         Ok((

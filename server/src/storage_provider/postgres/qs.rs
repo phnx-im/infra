@@ -9,16 +9,19 @@ use phnxbackend::qs::{
     user_record::QsUserRecord, QsConfig, QsSigningKey,
 };
 use phnxtypes::{
-    crypto::{hpke::ClientIdDecryptionKey, signatures::keys::QsUserVerifyingKey, errors::RandomnessError},
+    crypto::{
+        errors::RandomnessError, hpke::ClientIdDecryptionKey, signatures::keys::QsUserVerifyingKey,
+    },
     identifiers::{Fqdn, QsClientId, QsUserId},
     keypackage_batch::QsEncryptedAddPackage,
-    messages::{FriendshipToken, QueueMessage}, time::TimeStamp,
+    messages::{FriendshipToken, QueueMessage},
+    time::TimeStamp,
 };
 use sqlx::{
     types::{BigDecimal, Uuid},
     PgPool,
 };
-use thiserror::Error; 
+use thiserror::Error;
 
 use crate::configurations::DatabaseSettings;
 
@@ -31,13 +34,13 @@ pub struct PostgresQsStorage {
 }
 
 impl PostgresQsStorage {
-    pub async fn new(settings: &DatabaseSettings, own_domain: Fqdn) -> Result<Self, CreateQsStorageError> {
+    pub async fn new(
+        settings: &DatabaseSettings,
+        own_domain: Fqdn,
+    ) -> Result<Self, CreateQsStorageError> {
         let pool = connect_to_database(settings).await?;
 
-        let provider = Self {
-            pool,
-            own_domain,
-        };
+        let provider = Self { pool, own_domain };
 
         // Check if the database has been initialized.
 
@@ -50,7 +53,11 @@ impl PostgresQsStorage {
             provider.generate_fresh_signing_key().await?;
         }
         if provider.load_config().await.is_err() {
-            provider.store_config(QsConfig { domain: provider.own_domain.clone() }).await?;
+            provider
+                .store_config(QsConfig {
+                    domain: provider.own_domain.clone(),
+                })
+                .await?;
         }
 
         Ok(provider)
@@ -60,10 +67,10 @@ impl PostgresQsStorage {
     // TODO: All the functions below use two queries. This can probably be optimized.
 
     async fn generate_fresh_signing_key(&self) -> Result<(), GenerateKeyError> {
-        // Delete the existing key. 
+        // Delete the existing key.
         sqlx::query!("DELETE FROM qs_signing_key")
-        .execute(&self.pool)
-        .await?;
+            .execute(&self.pool)
+            .await?;
 
         // Generate a new one and add it to the table
         let signing_key = QsSigningKey::generate()?;
@@ -79,9 +86,9 @@ impl PostgresQsStorage {
 
     async fn generate_fresh_decryption_key(&self) -> Result<(), GenerateKeyError> {
         // Delete the existing key.
-        sqlx::query!( "DELETE FROM qs_decryption_key")
-        .execute(&self.pool)
-        .await?;
+        sqlx::query!("DELETE FROM qs_decryption_key")
+            .execute(&self.pool)
+            .await?;
 
         // Generate a new one and add it to the table
         let decryption_key = ClientIdDecryptionKey::generate()?;
@@ -97,9 +104,9 @@ impl PostgresQsStorage {
 
     async fn store_config(&self, config: QsConfig) -> Result<(), StoreConfigError> {
         // Delete the existing config.
-        sqlx::query!( "DELETE FROM qs_config")
-        .execute(&self.pool)
-        .await?;
+        sqlx::query!("DELETE FROM qs_config")
+            .execute(&self.pool)
+            .await?;
 
         // Store the new config.
         sqlx::query!(
@@ -145,7 +152,7 @@ impl QsStorageProvider for PostgresQsStorage {
             user_record.friendship_token().token(),
             user_record.verifying_key().as_ref(),
         )
-        .execute(&self.pool) 
+        .execute(&self.pool)
         .await?;
         Ok(user_id)
     }
@@ -156,7 +163,8 @@ impl QsStorageProvider for PostgresQsStorage {
             user_id.as_uuid(),
         )
         .fetch_one(&self.pool)
-        .await.ok()?;
+        .await
+        .ok()?;
         let qs_user_record = QsUserRecord::new(
             QsUserVerifyingKey::from_bytes(user_record.verifying_key),
             FriendshipToken::from_bytes(user_record.friendship_token),
@@ -216,7 +224,7 @@ impl QsStorageProvider for PostgresQsStorage {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
 
@@ -235,8 +243,8 @@ impl QsStorageProvider for PostgresQsStorage {
         let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
         let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
         let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
-        let activity_time  = client_record.activity_time().time();
-        sqlx::query!( 
+        let activity_time = client_record.activity_time().time();
+        sqlx::query!(
             "INSERT INTO qs_client_records (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time) VALUES ($1, $2, $3, $4, $5, $6, $7)", 
             client_id.as_uuid(),
             client_record.user_id().as_uuid(),
@@ -246,16 +254,16 @@ impl QsStorageProvider for PostgresQsStorage {
             ratchet,
             activity_time,
         )
-        .execute(&self.pool) 
+        .execute(&self.pool)
         .await?;
 
         // Initialize the client's queue
-        sqlx::query!( 
-            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)", 
+        sqlx::query!(
+            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)",
             client_id.as_uuid(),
             BigDecimal::from(0u64),
         )
-        .execute(&self.pool) 
+        .execute(&self.pool)
         .await?;
 
         Ok(client_id)
@@ -267,7 +275,8 @@ impl QsStorageProvider for PostgresQsStorage {
             client_id.as_uuid(),
         )
         .fetch_one(&self.pool)
-        .await.ok()?;
+        .await
+        .ok()?;
         let user_id = QsUserId::from(client_record.user_id);
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token {
             Some(serde_json::from_slice(&ept).ok()?)
@@ -275,10 +284,18 @@ impl QsStorageProvider for PostgresQsStorage {
             None
         };
         let owner_public_key = serde_json::from_slice(&client_record.owner_public_key).ok()?;
-        let owner_signature_key = serde_json::from_slice(&client_record.owner_signature_key).ok()?; 
+        let owner_signature_key =
+            serde_json::from_slice(&client_record.owner_signature_key).ok()?;
         let ratchet = serde_json::from_slice(&client_record.ratchet).ok()?;
         let activity_time = TimeStamp::from(client_record.activity_time);
-        let result = QsClientRecord::from_db_values(user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time);
+        let result = QsClientRecord::from_db_values(
+            user_id,
+            encrypted_push_token,
+            owner_public_key,
+            owner_signature_key,
+            ratchet,
+            activity_time,
+        );
         Some(result)
     }
 
@@ -295,9 +312,9 @@ impl QsStorageProvider for PostgresQsStorage {
         let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
         let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
         let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
-        let activity_time  = client_record.activity_time().time();
+        let activity_time = client_record.activity_time().time();
 
-        sqlx::query!( 
+        sqlx::query!(
             "UPDATE qs_client_records SET user_id = $2, encrypted_push_token = $3, owner_public_key = $4, owner_signature_key = $5, ratchet = $6, activity_time = $7 WHERE client_id = $1", 
             client_id.as_uuid(),
             client_record.user_id().as_uuid(),
@@ -307,7 +324,7 @@ impl QsStorageProvider for PostgresQsStorage {
             ratchet,
             activity_time,
         )
-        .execute(&self.pool) 
+        .execute(&self.pool)
         .await?;
         Ok(())
     }
@@ -368,21 +385,24 @@ impl QsStorageProvider for PostgresQsStorage {
             user_id.as_uuid(),
         )
         .fetch_one(&self.pool)
-        .await.ok()?;
+        .await
+        .ok()?;
 
         let add_package_record = sqlx::query!(
             "SELECT id, encrypted_add_package FROM key_packages WHERE client_id = $1",
             client_id.as_uuid(),
         )
         .fetch_optional(&self.pool)
-        .await.ok()??;
+        .await
+        .ok()??;
 
         sqlx::query!(
             "DELETE FROM key_packages WHERE id = $1",
             add_package_record.id,
         )
         .execute(&self.pool)
-        .await.ok()?;
+        .await
+        .ok()?;
 
         let result = serde_json::from_slice(&add_package_record.encrypted_add_package).ok()?;
         Some(result)
@@ -400,8 +420,9 @@ impl QsStorageProvider for PostgresQsStorage {
             friendship_token.token(),
         )
         .fetch_one(&self.pool)
-        .await else {
-            return vec![]
+        .await
+        else {
+            return vec![];
         };
 
         // Figure out which clients the user has
@@ -410,11 +431,12 @@ impl QsStorageProvider for PostgresQsStorage {
             user_record.user_id,
         )
         .fetch_all(&self.pool)
-        .await else {
-            return vec![]
+        .await
+        else {
+            return vec![];
         };
 
-        // Get a key package for each client. 
+        // Get a key package for each client.
         // TODO: Again, this can probably be optimized
         let mut add_packages: Vec<QsEncryptedAddPackage> = vec![];
         for client_id in client_records.iter().map(|r| r.client_id) {
@@ -423,8 +445,9 @@ impl QsStorageProvider for PostgresQsStorage {
                 client_id,
             )
             .fetch_one(&self.pool)
-            .await else {
-                return vec![]
+            .await
+            else {
+                return vec![];
             };
             let _ = sqlx::query!(
                 "DELETE FROM key_packages WHERE id = $1",
@@ -435,7 +458,7 @@ impl QsStorageProvider for PostgresQsStorage {
 
             let Ok(add_package) = serde_json::from_slice(&add_package_record.encrypted_add_package)
             else {
-                return vec![]
+                return vec![];
             };
             add_packages.push(add_package);
         }
@@ -559,11 +582,9 @@ impl QsStorageProvider for PostgresQsStorage {
     }
 
     async fn load_signing_key(&self) -> Result<QsSigningKey, Self::LoadSigningKeyError> {
-        let signing_key_record = sqlx::query!(
-            "SELECT * FROM qs_signing_key", 
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let signing_key_record = sqlx::query!("SELECT * FROM qs_signing_key",)
+            .fetch_one(&self.pool)
+            .await?;
         let signing_key = serde_json::from_slice(&signing_key_record.signing_key)?;
         Ok(signing_key)
     }
@@ -571,21 +592,17 @@ impl QsStorageProvider for PostgresQsStorage {
     async fn load_decryption_key(
         &self,
     ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError> {
-        let decryption_key_record = sqlx::query!(
-            "SELECT * FROM qs_decryption_key", 
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let decryption_key_record = sqlx::query!("SELECT * FROM qs_decryption_key",)
+            .fetch_one(&self.pool)
+            .await?;
         let decryption_key = serde_json::from_slice(&decryption_key_record.decryption_key)?;
         Ok(decryption_key)
     }
 
     async fn load_config(&self) -> Result<QsConfig, Self::LoadConfigError> {
-        let config_record = sqlx::query!(
-            "SELECT * FROM qs_config", 
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let config_record = sqlx::query!("SELECT * FROM qs_config",)
+            .fetch_one(&self.pool)
+            .await?;
         let config = serde_json::from_slice(&config_record.config)?;
         Ok(config)
     }
@@ -608,7 +625,7 @@ async fn store_key_package(
         client_uuid,
         ciphertext_bytes,
         is_last_resort,
-    ) 
+    )
     .execute(pool)
     .await?;
     Ok(())

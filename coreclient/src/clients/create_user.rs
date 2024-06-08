@@ -49,7 +49,7 @@ impl BasicUserData {
         // Let's turn TLS off for now.
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
-        let as_credential_store = AsCredentialStore::new(&connection, api_clients.clone());
+        let as_credential_store = AsCredentialStore::new(connection, api_clients.clone());
         let as_intermediate_credential = as_credential_store
             .get_intermediate_credential(&domain)
             .await?;
@@ -442,7 +442,7 @@ impl QsRegisteredUserState {
             let add_package = key_store.generate_add_package(
                 &leaf_key_store,
                 &crypto_backend,
-                &qs_client_id,
+                qs_client_id,
                 &encrypted_client_credential,
                 false,
             )?;
@@ -451,7 +451,7 @@ impl QsRegisteredUserState {
         let last_resort_add_package = key_store.generate_add_package(
             &leaf_key_store,
             &crypto_backend,
-            &qs_client_id,
+            qs_client_id,
             &encrypted_client_credential,
             true,
         )?;
@@ -504,7 +504,7 @@ impl PersistedUserState {
             sqlite_connection: connection,
             key_store,
             _qs_user_id: qs_user_id,
-            qs_client_id: qs_client_id,
+            qs_client_id,
             api_clients: api_clients.clone(),
         }
     }

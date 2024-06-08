@@ -86,13 +86,13 @@ impl ApiClient {
         .to_string();
         let tls_enabled = self.url.scheme() == "https";
         if tls_enabled {
-            protocol_str.push_str("s")
+            protocol_str.push('s')
         };
         let url = format!(
             "{}://{}:{}{}",
             protocol_str,
             self.url.host_str().unwrap_or_default(),
-            self.url.port().unwrap_or_else(|| if tls_enabled {
+            self.url.port().unwrap_or(if tls_enabled {
                 DEFAULT_PORT_HTTPS
             } else {
                 DEFAULT_PORT_HTTP

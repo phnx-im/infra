@@ -115,7 +115,7 @@ impl UserBuilder {
         if let Some(stream_sink) = stream_sink_option.take() {
             RustUser::load_default(path, stream_sink)
         } else {
-            return Err(anyhow::anyhow!("Please set a stream sink first."));
+            Err(anyhow::anyhow!("Please set a stream sink first."))
         }
     }
 
@@ -149,7 +149,7 @@ impl RustUser {
     fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
         #[cfg(target_os = "macos")]
         {
-            let res = notify_rust::set_application(&"im.phnx.prototype");
+            let res = notify_rust::set_application("im.phnx.prototype");
             if res.is_err() {
                 log::warn!("Could not set application for desktop notifications");
             }
@@ -239,14 +239,13 @@ impl RustUser {
                             .add(WsNotification::Disconnected)
                             .map_err(|e| anyhow!(e))?;
                     }
-                    WsEvent::MessageEvent(e) => match e {
-                        QsWsMessage::QueueUpdate => {
+                    WsEvent::MessageEvent(e) => {
+                        if matches!(e, QsWsMessage::QueueUpdate) {
                             stream_sink
                                 .add(WsNotification::QueueUpdate)
                                 .map_err(|e| anyhow!(e))?;
                         }
-                        _ => {}
-                    },
+                    }
                 },
                 None => {
                     stream_sink
@@ -263,7 +262,7 @@ impl RustUser {
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().await;
         let conversation_id = user.add_contact(&user_name).await?;
-        self.dispatch_conversation_notifications(vec![conversation_id.into()])
+        self.dispatch_conversation_notifications(vec![conversation_id])
             .await;
         Ok(())
     }
@@ -399,18 +398,14 @@ impl RustUser {
     pub async fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
         let user = self.user.lock().await;
         let user_name = SafeTryInto::try_into(user_name)?;
-        let user_profile = user
-            .user_profile(&user_name)?
-            .map(|up| UiUserProfile::from(up).into());
+        let user_profile = user.user_profile(&user_name)?.map(UiUserProfile::from);
         Ok(user_profile)
     }
 
     /// Get the own user profile.
     pub async fn own_user_profile(&self) -> Result<UiUserProfile> {
         let user = self.user.lock().await;
-        let user_profile = user
-            .own_user_profile()
-            .map(|up| UiUserProfile::from(up).into())?;
+        let user_profile = user.own_user_profile().map(UiUserProfile::from)?;
         Ok(user_profile)
     }
 
@@ -444,7 +439,7 @@ impl RustUser {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
@@ -465,7 +460,7 @@ impl RustUser {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
@@ -560,7 +555,7 @@ impl RustUser {
     ) {
         let mut notification_hub = self.notification_hub_option.lock().await;
         conversation_ids.into_iter().for_each(|conversation_id| {
-            notification_hub.dispatch_conversation_notification(conversation_id.into())
+            notification_hub.dispatch_conversation_notification(conversation_id)
         });
     }
 
@@ -574,7 +569,7 @@ impl RustUser {
         conversation_messages
             .into_iter()
             .for_each(|conversation_message| {
-                notification_hub.dispatch_message_notification(conversation_message.into())
+                notification_hub.dispatch_message_notification(conversation_message)
             });
     }
 

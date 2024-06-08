@@ -60,7 +60,7 @@ impl DsStorageProvider for MemoryDsStorage {
                     }
                 }
                 Some(StorageState::Reserved(timestamp)) => {
-                    Ok(LoadState::Reserved(timestamp.clone()))
+                    Ok(LoadState::Reserved(*timestamp))
                 }
                 None => Ok(LoadState::NotFound),
             },
