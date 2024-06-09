@@ -1,15 +1,11 @@
-# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
-#
-# SPDX-License-Identifier: AGPL-3.0-or-later
-
 name: phnxapplogic
 description: "Utility to build Rust code"
 version: 0.0.1
 publish_to: none
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
-  flutter: ">=3.3.0"
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.3.0'
 
 dependencies:
   flutter:
