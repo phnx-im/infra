@@ -19,31 +19,11 @@ Files: prototype/rust_builder/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-Files: prototype/rust_builder/android/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
-Files: prototype/rust_builder/cargo-kit/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
-Files: prototype/rust_builder/cargo-kit/build-tool/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
-Files: prototype/rust_builder/cargo-kit/build-tool/lib/src/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
-Files: prototype/rust_builder/cargo-kit/cmake/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
-Files: prototype/rust_builder/cargo-kit/gradle/*
-Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
-License: AGPL-3.0-or-later
-
 Files: prototype/test_driver/*
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
+
+Files: prototype/flutter_rust_bridge.yaml.generated
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
