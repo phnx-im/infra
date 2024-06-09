@@ -27,9 +27,21 @@ clean:
 	dart pub upgrade
 	cd $(RUST_BASE_DIR) ; cargo clean
 
-frb-integrate:
-	rm -Rf flutter_rust_bridge.yaml rust_builder test_driver
+# Define a target that checks for uncommitted changes
+check-git-clean:
+	@if ! git diff-index --quiet HEAD --; then \
+		echo "Error: You have uncommitted changes. Please commit or stash them before proceeding."; \
+		exit 1; \
+	fi
+
+frb-integrate: check-git-clean
+	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
+	rm -Rf  rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
+	git restore --source=HEAD --staged --worktree applogic lib
+	git clean -fd applogic lib
+	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated
+	mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
 
 setup-ci:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
