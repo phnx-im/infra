@@ -41,7 +41,8 @@ frb-integrate: check-git-clean
 	git restore --source=HEAD --staged --worktree ../applogic lib
 	git clean -fd ../applogic lib
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated
-	mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
+	echo "# This is only to inspect the generated flutter_rust_bridge.yaml file. Remove if not needed." > /tmp/header.tmp
+	cat /tmp/header.tmp flutter_rust_bridge.yaml.generated >> flutter_rust_bridge.yaml
 
 setup-ci:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
