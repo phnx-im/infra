@@ -14,10 +14,7 @@ use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::Mutex;
 
 use crate::{
-    api::{
-        types::{ConversationIdBytes, UiNotificationType, UiUserProfile},
-        utils::rust_set_up,
-    },
+    api::types::{ConversationIdBytes, UiNotificationType, UiUserProfile},
     app_state::app_state::AppState,
     notifications::{Notifiable, NotificationHub},
     StreamSink,
@@ -61,7 +58,6 @@ pub struct User {
 
 impl UserBuilder {
     pub fn new() -> UserBuilder {
-        rust_set_up();
         Self {
             stream_sink: Mutex::new(None),
         }
@@ -83,6 +79,7 @@ impl UserBuilder {
             .map_err(|e| anyhow!("Error sending notification: {:?}", e))
     }
 
+    #[tokio::main(flavor = "current_thread")]
     pub async fn load_default(&self, path: String) -> Result<User> {
         let mut stream_sink_option = self.stream_sink.lock().await;
         if let Some(stream_sink) = stream_sink_option.take() {

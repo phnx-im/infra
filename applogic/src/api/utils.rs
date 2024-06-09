@@ -10,7 +10,10 @@ use crate::StreamSink;
 
 use super::mobile_logging::{init_logger, LogEntry, SendToDartLogger};
 
-pub fn rust_set_up() {
+#[flutter_rust_bridge::frb(init)]
+pub fn init_app() {
+    // Default utilities - feel free to customize
+    flutter_rust_bridge::setup_default_user_utils();
     init_logger();
 }
 
