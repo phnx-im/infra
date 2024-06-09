@@ -6,12 +6,14 @@ use std::sync::{Once, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use lazy_static::lazy_static;
-use log::{error, info, warn, Level, LevelFilter, Log, Metadata, Record};
+use log::{error, info, warn, Level, Log, Metadata, Record};
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, SharedLogger, TermLogger, TerminalMode,
 };
 
 use crate::StreamSink;
+
+pub use log::LevelFilter;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 

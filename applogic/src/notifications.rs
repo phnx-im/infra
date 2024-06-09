@@ -7,7 +7,7 @@ use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationMessage, Not
 
 use anyhow::{anyhow, Result};
 
-use super::User;
+use crate::api::user::creation::User;
 
 pub trait Notifiable
 where
@@ -36,7 +36,7 @@ impl<T: Notifiable> Notifier<T> {
     }
 }
 
-pub struct NotificationHub<T: Notifiable> {
+pub(crate) struct NotificationHub<T: Notifiable> {
     pub(crate) sinks: Vec<Notifier<T>>,
 }
 

@@ -7,7 +7,7 @@ use phnxtypes::identifiers::{SafeTryInto, UserName};
 
 use super::{
     types::{ConversationIdBytes, UiContact, UiConversation},
-    User,
+    user::creation::User,
 };
 
 impl User {

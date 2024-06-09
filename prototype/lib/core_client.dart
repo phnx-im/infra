@@ -6,9 +6,10 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/api.dart';
+import 'package:prototype/core/api/conversations.dart';
 import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core/api/user.dart';
+import 'package:prototype/core/api/user/creation.dart';
+import 'package:prototype/core/api/utils.dart';
 import 'package:prototype/core/frb_generated.dart';
 
 // Helper definitions

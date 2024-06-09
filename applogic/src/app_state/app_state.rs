@@ -10,9 +10,7 @@ use tokio::sync::Mutex;
 use phnxcoreclient::{clients::CoreUser, ConversationId};
 use phnxtypes::time::TimeStamp;
 
-use self::mark_as_read_debouncer::MarkAsReadDebouncer;
-
-pub(crate) mod mark_as_read_debouncer;
+use super::mark_as_read_debouncer::MarkAsReadDebouncer;
 
 /// Application state that's opaque to Dart, but that is used to keep various
 /// pieces of state pertaining to the application logic.
@@ -32,7 +30,7 @@ impl Drop for AppState {
 impl AppState {
     /// Create a new `AppState` with no current conversation and no ongoing
     /// marking of messages as read.
-    pub(super) fn new(user_mutex: Arc<Mutex<CoreUser>>) -> Self {
+    pub(crate) fn new(user_mutex: Arc<Mutex<CoreUser>>) -> Self {
         Self {
             mark_as_read_debouncers: MarkAsReadDebouncer::new(),
             user_mutex,
@@ -46,7 +44,7 @@ impl AppState {
     /// If there is no debouncing currently in progress, this function will
     /// start a new debouncing process and return only after it has finished.
     /// Otherwise it will return immediately.
-    pub(super) async fn mark_messages_read_debounced(
+    pub(crate) async fn mark_messages_read_debounced(
         &self,
         conversation_id: ConversationId,
         timestamp: TimeStamp,
@@ -59,7 +57,7 @@ impl AppState {
     /// If there is a debouncing process going on for the conversation with the
     /// given [`ConversationId`], immediately stop it and mark all messages as
     /// read.
-    pub(super) async fn flush_debouncer_state(&self) -> Result<()> {
+    pub(crate) async fn flush_debouncer_state(&self) -> Result<()> {
         self.mark_as_read_debouncers
             .flush_debouncer_state(self.user_mutex.clone())
             .await

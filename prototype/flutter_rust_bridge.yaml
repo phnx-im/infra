@@ -6,11 +6,6 @@
 # rust_input: ../applogic/src/api/**/*.rs
 # dart_output: lib/src/rust
 
-<<<<<<< HEAD
-rust_root: ../applogic
-rust_input: ../applogic/src/api
-=======
 rust_input: ../applogic/src/api/**/*.rs
->>>>>>> aded681 (Add prototype)
 dart_output: lib/core
 add_mod_to_lib: false

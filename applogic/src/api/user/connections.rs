@@ -5,10 +5,9 @@
 use anyhow::Result;
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 
-use super::{
-    types::{UiContact, UiUserProfile},
-    User,
-};
+use crate::api::types::{UiContact, UiUserProfile};
+
+use super::creation::User;
 
 impl User {
     #[tokio::main(flavor = "current_thread")]

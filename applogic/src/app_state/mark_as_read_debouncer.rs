@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use tokio::{sync::Mutex, time::sleep};
 
-use phnxcoreclient::{clients::SelfUser, ConversationId};
+use phnxcoreclient::{clients::CoreUser, ConversationId};
 use phnxtypes::time::TimeStamp;
 
 use anyhow::{anyhow, Result};
@@ -40,7 +40,9 @@ impl DebouncerState {
         // We use `checked_sub` to avoid underflow and set the duration to zero
         // if underflow would occur.
         self.duration = self
-            .duration.saturating_sub(DURATION_CHECK_INTERVAL);
+            .duration
+            .checked_sub(DURATION_CHECK_INTERVAL)
+            .unwrap_or(0);
     }
 
     /// Create a new [`DebouncerState`] with the given `timestamp` and
@@ -118,7 +120,7 @@ impl MarkAsReadDebouncer {
     /// reached zero.
     pub(crate) async fn mark_as_read_debounced(
         &self,
-        user: Arc<Mutex<SelfUser>>, // impl MarkAsRead + Sync + Send + 'static
+        user: Arc<Mutex<CoreUser>>, // impl MarkAsRead + Sync + Send + 'static
         conversation_id: ConversationId,
         timestamp: TimeStamp,
     ) {
@@ -157,7 +159,7 @@ impl MarkAsReadDebouncer {
 
 async fn debouncing_timer(
     debouncer_state_mutex: Arc<Mutex<Option<DebouncerState>>>,
-    user: Arc<Mutex<SelfUser>>, // impl MarkAsRead + Sync + Send + 'static
+    user: Arc<Mutex<CoreUser>>, // impl MarkAsRead + Sync + Send + 'static
 ) {
     loop {
         // Wait for a bit.
@@ -198,7 +200,7 @@ pub(crate) trait MarkAsRead {
     ) -> Result<()>;
 }
 
-impl MarkAsRead for Arc<Mutex<SelfUser>> {
+impl MarkAsRead for Arc<Mutex<CoreUser>> {
     async fn mark_as_read<
         'b,
         T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,

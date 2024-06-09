@@ -7,3 +7,5 @@ pub(crate) mod frb_generated;
 pub(crate) use frb_generated::*;
 
 pub mod api;
+pub(crate) mod app_state;
+pub(crate) mod notifications;

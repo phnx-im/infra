@@ -8,7 +8,7 @@ use phnxtypes::time::TimeStamp;
 
 use super::{
     types::{ConversationIdBytes, UiConversationMessage},
-    User,
+    user::creation::User,
 };
 
 impl User {
