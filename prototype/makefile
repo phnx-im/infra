@@ -28,6 +28,7 @@ clean:
 	cd $(RUST_BASE_DIR) ; cargo clean
 
 frb-integrate:
+	rm -Rf flutter_rust_bridge.yaml rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
 
 setup-ci:
