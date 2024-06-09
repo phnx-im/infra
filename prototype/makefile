@@ -38,8 +38,8 @@ frb-integrate: check-git-clean
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
 	rm -Rf  rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
-	git restore --source=HEAD --staged --worktree applogic lib
-	git clean -fd applogic lib
+	git restore --source=HEAD --staged --worktree ../applogic lib
+	git clean -fd ../applogic lib
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated
 	mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
 
