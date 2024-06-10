@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use exif::{Reader, Tag};
-use groups::client_auth_info::StorableClientCredential;
+use groups::{client_auth_info::StorableClientCredential, Group};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
@@ -57,7 +57,6 @@ use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
-    groups::store::GroupStore,
     key_stores::{
         as_credentials::AsCredentialStore,
         leaf_keys::LeafKeyStore,
@@ -255,13 +254,13 @@ impl CoreUser {
             .ds_request_group_id()
             .await?;
         let client_reference = self.create_own_client_reference();
-        let group_store = self.group_store();
         // Store the conversation attributes in the group's aad
         let conversation_attributes =
             ConversationAttributes::new(title.to_string(), conversation_picture_option);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
-        let (group, partial_params) = group_store.create_group(
+        let (group, partial_params) = Group::create_group(
             &self.crypto_backend(),
+            &self.sqlite_connection,
             &self.key_store.signing_key,
             group_id.clone(),
             group_data,
@@ -427,13 +426,12 @@ impl CoreUser {
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
 
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(&group_id)?
+        let mut group = Group::load(&self.sqlite_connection, &group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
         let params = group.invite(
             &self.crypto_backend(),
+            &self.sqlite_connection,
             &self.key_store.signing_key,
             contact_add_infos,
             contact_wai_keys,
@@ -451,10 +449,15 @@ impl CoreUser {
             .await?;
 
         // Now that we know the commit went through, we can merge the commit
-        let group_messages =
-            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(
+            &self.crypto_backend(),
+            &self.sqlite_connection,
+            None,
+            ds_timestamp,
+        )?;
+        group.store(&self.sqlite_connection)?;
 
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
 
@@ -474,16 +477,14 @@ impl CoreUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        let group_id = &conversation.group_id();
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let group_id = conversation.group_id();
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let clients = target_users
             .iter()
             .flat_map(|user_name| group.user_client_ids(&self.sqlite_connection, user_name))
             .collect::<Vec<_>>();
-        let params = group.remove(&self.crypto_backend(), clients)?;
+        let params = group.remove(&self.crypto_backend(), &self.sqlite_connection, clients)?;
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
@@ -494,10 +495,15 @@ impl CoreUser {
             )
             .await?;
         // Now that we know the commit went through, we can merge the commit
-        let group_messages =
-            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(
+            &self.crypto_backend(),
+            &self.sqlite_connection,
+            None,
+            ds_timestamp,
+        )?;
+        group.store(&self.sqlite_connection)?;
 
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
 
@@ -513,8 +519,7 @@ impl CoreUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        let group_id = &conversation.group_id();
-        let group_store = self.group_store();
+        let group_id = conversation.group_id();
         // Store the message as unsent so that we don't lose it in case
         // something goes wrong.
         let mut conversation_message = ConversationMessage::new_unsent_message(
@@ -523,8 +528,7 @@ impl CoreUser {
             content.clone(),
         );
         conversation_message.store(&self.sqlite_connection)?;
-        let mut group = group_store
-            .get(group_id)?
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)
@@ -536,6 +540,8 @@ impl CoreUser {
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
+
+        group.store(&self.sqlite_connection)?;
 
         // Mark the message as sent.
         conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
@@ -561,10 +567,8 @@ impl CoreUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        let group_id = &conversation.group_id();
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let group_id = conversation.group_id();
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
             .create_message(&self.crypto_backend(), content)
@@ -576,6 +580,8 @@ impl CoreUser {
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
+
+        group.store(&self.sqlite_connection)?;
 
         // Mark the message as sent.
         unsent_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
@@ -638,12 +644,12 @@ impl CoreUser {
             .await?;
         // Create the connection group
         log::info!("Creating local connection group");
-        let group_store = self.group_store();
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
-        let (connection_group, partial_params) = group_store.create_group(
+        let (connection_group, partial_params) = Group::create_group(
             &self.crypto_backend(),
+            &self.sqlite_connection,
             &self.key_store.signing_key,
             group_id.clone(),
             group_data,
@@ -754,21 +760,25 @@ impl CoreUser {
             ))?;
         let group_id = conversation.group_id();
         // Generate ciphertext
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update_user_key(&self.crypto_backend())?;
+        let params = group.update_user_key(&self.crypto_backend(), &self.sqlite_connection)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages =
-            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(
+            &self.crypto_backend(),
+            &self.sqlite_connection,
+            None,
+            ds_timestamp,
+        )?;
 
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        group.store(&self.sqlite_connection)?;
+
+        let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
 
@@ -789,15 +799,13 @@ impl CoreUser {
             ))?;
         let group_id = conversation.group_id();
         // Generate ciphertext
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let past_members = group.members(&self.sqlite_connection);
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
-        let group_messages = if past_members.len() != 1 {
-            let params = group.delete(&self.crypto_backend())?;
+        let messages = if past_members.len() != 1 {
+            let params = group.delete(&self.crypto_backend(), &self.sqlite_connection)?;
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = self
                 .api_clients
@@ -808,13 +816,20 @@ impl CoreUser {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?
+            let messages = group.merge_pending_commit(
+                &self.crypto_backend(),
+                &self.sqlite_connection,
+                None,
+                ds_timestamp,
+            )?;
+            group.store(&self.sqlite_connection)?;
+            messages
         } else {
             vec![]
         };
 
         conversation.set_inactive(&self.sqlite_connection, past_members.into_iter().collect())?;
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        let conversation_messages = self.store_messages(conversation_id, messages)?;
         Ok(conversation_messages)
     }
 
@@ -879,9 +894,7 @@ impl CoreUser {
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.leave_group(&self.crypto_backend())?;
         let owner_domain = conversation.owner_domain();
@@ -893,6 +906,7 @@ impl CoreUser {
                 group.group_state_ear_key(),
             )
             .await?;
+        group.store(&self.sqlite_connection)?;
         Ok(())
     }
 
@@ -913,21 +927,25 @@ impl CoreUser {
                 conversation_id.as_uuid()
             ))?;
         let group_id = conversation.group_id();
-        let group_store = self.group_store();
-        let mut group = group_store
-            .get(group_id)?
+        let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update(&self.crypto_backend())?;
+        let params = group.update(&self.crypto_backend(), &self.sqlite_connection)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages =
-            group.merge_pending_commit(&self.crypto_backend(), None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(
+            &self.crypto_backend(),
+            &self.sqlite_connection,
+            None,
+            ds_timestamp,
+        )?;
 
-        let conversation_messages = self.store_group_messages(conversation_id, group_messages)?;
+        group.store(&self.sqlite_connection)?;
+
+        let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
     }
 
@@ -971,9 +989,7 @@ impl CoreUser {
     pub fn group_members(&self, conversation_id: ConversationId) -> Option<HashSet<UserName>> {
         let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
-        let group_store = self.group_store();
-        group_store
-            .get(conversation.group_id())
+        Group::load(&self.sqlite_connection, conversation.group_id())
             .ok()?
             .map(|g| g.members(&self.sqlite_connection))
     }
@@ -981,9 +997,7 @@ impl CoreUser {
     pub fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
         let conversation = Conversation::load(&self.sqlite_connection, &conversation_id).ok()??;
 
-        let group_store = self.group_store();
-        group_store
-            .get(conversation.group_id())
+        Group::load(&self.sqlite_connection, conversation.group_id())
             .ok()?
             .map(|group| group.pending_removes(&self.sqlite_connection))
     }
@@ -1024,7 +1038,7 @@ impl CoreUser {
         self.key_store.signing_key.credential().identity().clone()
     }
 
-    fn store_group_messages(
+    fn store_messages(
         &self,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
@@ -1057,10 +1071,6 @@ impl CoreUser {
 
     fn as_credential_store(&self) -> AsCredentialStore<'_> {
         AsCredentialStore::new(&self.sqlite_connection, self.api_clients())
-    }
-
-    fn group_store(&self) -> GroupStore<'_> {
-        (&self.sqlite_connection).into()
     }
 
     fn queue_ratchet_store(&self) -> QueueRatchetStore<'_> {

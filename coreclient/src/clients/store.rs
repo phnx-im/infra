@@ -301,7 +301,7 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
-    <Group as Persistable>::create_table(client_db_connection)?;
+    <Group as Storable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Storable>::create_table(client_db_connection)?;

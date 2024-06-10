@@ -7,6 +7,7 @@
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
 use mls_assist::openmls::prelude::GroupId;
+use rusqlite::types::FromSql;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -29,6 +30,21 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for GroupStateEarKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for GroupStateEarKey {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        let key = GroupStateEarKeySecret::column_result(value)?;
+        Ok(Self { key })
+    }
 }
 
 impl GroupStateEarKey {

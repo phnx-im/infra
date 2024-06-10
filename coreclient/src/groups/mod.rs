@@ -5,7 +5,7 @@
 pub(crate) mod client_auth_info;
 pub(crate) mod diff;
 pub(crate) mod error;
-pub(crate) mod store;
+pub(crate) mod persistence;
 
 pub(crate) use error::*;
 
@@ -192,7 +192,7 @@ impl Group {
     }
 
     /// Create a group.
-    fn create_group(
+    pub(super) fn create_group(
         provider: &impl OpenMlsProvider,
         connection: &Connection,
         signer: &ClientSigningKey,
@@ -268,7 +268,7 @@ impl Group {
     }
 
     /// Join a group with the provided welcome message. Returns the group name.
-    async fn join_group<'a>(
+    pub(super) async fn join_group<'a>(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
@@ -386,7 +386,7 @@ impl Group {
     }
 
     /// Join a group using an external commit.
-    async fn join_group_externally<'a>(
+    pub(super) async fn join_group_externally<'a>(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         external_commit_info: ExternalCommitInfoIn,
@@ -486,7 +486,7 @@ impl Group {
     ///
     /// Returns the processed message, whether the group was deleted, as well as
     /// the sender's client credential.
-    async fn process_message<'a>(
+    pub(super) async fn process_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
@@ -826,7 +826,7 @@ impl Group {
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    fn invite<'a>(
+    pub(super) fn invite<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
@@ -944,7 +944,7 @@ impl Group {
         Ok(params)
     }
 
-    fn remove<'a>(
+    pub(super) fn remove<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
@@ -989,7 +989,7 @@ impl Group {
         Ok(params)
     }
 
-    fn delete<'a>(
+    pub(super) fn delete<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
@@ -1047,7 +1047,7 @@ impl Group {
     /// If a [`StagedCommit`] is given, merge it and apply the pending group
     /// diff. If no [`StagedCommit`] is given, merge any pending commit and
     /// apply the pending group diff.
-    fn merge_pending_commit<'a>(
+    pub(super) fn merge_pending_commit<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
@@ -1143,7 +1143,7 @@ impl Group {
     }
 
     /// Send an application message to the group.
-    fn create_message<'a>(
+    pub(super) fn create_message<'a>(
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         content: MimiContent,
@@ -1224,7 +1224,7 @@ impl Group {
             .collect::<HashSet<UserName>>()
     }
 
-    fn update(
+    pub(super) fn update(
         &mut self,
         provider: &impl OpenMlsProvider,
         connection: &Connection,
@@ -1265,7 +1265,7 @@ impl Group {
     }
 
     /// Update or set the user's auth key in this group.
-    fn update_user_key(
+    pub(super) fn update_user_key(
         &mut self,
         provider: &impl OpenMlsProvider,
         connection: &Connection,
@@ -1314,7 +1314,7 @@ impl Group {
         Ok(params)
     }
 
-    fn leave_group(
+    pub(super) fn leave_group(
         &mut self,
         provider: &impl OpenMlsProvider,
     ) -> Result<SelfRemoveClientParamsOut> {
@@ -1335,7 +1335,7 @@ impl Group {
         &self.leaf_signer
     }
 
-    fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
+    pub(super) fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
         self.mls_group.store_pending_proposal(proposal);
         Ok(())
     }

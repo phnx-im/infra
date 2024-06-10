@@ -8,6 +8,8 @@ use mls_assist::openmls::prelude::{
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
 use mls_assist::openmls_traits::signatures::{Signer, SignerError};
+use rusqlite::types::ToSqlOutput;
+use rusqlite::ToSql;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -181,6 +183,28 @@ impl AsRef<[u8]> for ClientVerifyingKey {
 pub struct InfraCredentialSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: InfraCredential,
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for InfraCredentialSigningKey {
+    fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
+        let bytes = serde_json::to_vec(self).map_err(|e| {
+            tracing::error!("Error serializing InfraCredentialSigningKey: {:?}", e);
+            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
+        })?;
+        Ok(ToSqlOutput::from(bytes))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for InfraCredentialSigningKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let bytes = value.as_blob()?;
+        serde_json::from_slice(bytes).map_err(|e| {
+            tracing::error!("Error deserializing InfraCredentialSigningKey: {:?}", e);
+            rusqlite::types::FromSqlError::Other(Box::new(e))
+        })
+    }
 }
 
 // 30 days lifetime in seconds

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{bail, Result};
+use groups::Group;
 use phnxtypes::{
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
     identifiers::QualifiedGroupId,
@@ -71,16 +72,16 @@ impl CoreUser {
         let ds_timestamp = qs_queue_message.timestamp;
         let processing_result = match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                let group_store = self.group_store();
-                let group = group_store
-                    .join_group(
-                        &self.crypto_backend(),
-                        welcome_bundle,
-                        &self.key_store.wai_ear_key,
-                        self.leaf_key_store(),
-                        self.as_credential_store(),
-                    )
-                    .await?;
+                let group = Group::join_group(
+                    &self.crypto_backend(),
+                    welcome_bundle,
+                    &self.key_store.wai_ear_key,
+                    &self.sqlite_connection,
+                    self.leaf_key_store(),
+                    self.as_credential_store(),
+                )
+                .await?;
+                group.store(&self.sqlite_connection)?;
                 let group_id = group.group_id().clone();
 
                 // Store the user profiles of the group members if they don't
@@ -127,14 +128,13 @@ impl CoreUser {
                         .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
 
-                let group_store = self.group_store();
-                let mut group = group_store
-                    .get(group_id)?
+                let mut group = Group::load(&self.sqlite_connection, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
                 let as_credential_store = self.as_credential_store();
                 let (processed_message, we_were_removed, sender_client_id) = group
                     .process_message(
                         &self.crypto_backend(),
+                        &self.sqlite_connection,
                         protocol_message,
                         &as_credential_store,
                     )
@@ -284,6 +284,7 @@ impl CoreUser {
                         }
                         let group_messages = group.merge_pending_commit(
                             &self.crypto_backend(),
+                            &self.sqlite_connection,
                             *staged_commit,
                             ds_timestamp,
                         )?;
@@ -293,8 +294,7 @@ impl CoreUser {
                         unimplemented!()
                     }
                 };
-                let conversation_messages =
-                    self.store_group_messages(conversation_id, group_messages)?;
+                let conversation_messages = self.store_messages(conversation_id, group_messages)?;
                 match (conversation_messages, conversation_changed) {
                     (messages, true) => {
                         ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
@@ -395,21 +395,20 @@ impl CoreUser {
                         &cep_tbs.connection_group_ear_key,
                     )
                     .await?;
-                let group_store = self.group_store();
-                let (group, commit, group_info) = group_store
-                    .join_group_externally(
-                        &self.crypto_backend(),
-                        eci,
-                        leaf_signer,
-                        signature_ear_key,
-                        cep_tbs.connection_group_ear_key.clone(),
-                        cep_tbs.connection_group_signature_ear_key_wrapper_key,
-                        cep_tbs.connection_group_credential_key,
-                        &self.as_credential_store(),
-                        aad,
-                        self.key_store.signing_key.credential(),
-                    )
-                    .await?;
+                let (group, commit, group_info) = Group::join_group_externally(
+                    &self.crypto_backend(),
+                    &self.sqlite_connection,
+                    eci,
+                    leaf_signer,
+                    signature_ear_key,
+                    cep_tbs.connection_group_ear_key.clone(),
+                    cep_tbs.connection_group_signature_ear_key_wrapper_key,
+                    cep_tbs.connection_group_credential_key,
+                    &self.as_credential_store(),
+                    aad,
+                    self.key_store.signing_key.credential(),
+                )
+                .await?;
                 let sender_client_id = cep_tbs.sender_client_credential.identity();
                 let conversation_picture_option = cep_tbs
                     .friendship_package
