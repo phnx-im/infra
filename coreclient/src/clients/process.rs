@@ -30,7 +30,7 @@ pub enum ProcessQsMessageResult {
     ConversationMessages(Vec<ConversationMessage>),
 }
 
-impl SelfUser {
+impl CoreUser {
     /// Decrypt a `QueueMessage` received from the QS queue.
     pub fn decrypt_qs_queue_message(
         &self,

@@ -6,9 +6,11 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/dart_api.dart';
+import 'package:prototype/core/api/conversations.dart';
+import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/api/user/creation.dart';
+import 'package:prototype/core/api/utils.dart';
 import 'package:prototype/core/frb_generated.dart';
-import 'package:prototype/core/types.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -23,7 +25,7 @@ class CoreClient {
   CoreClient._internal();
 
   List<UiConversation> _conversations = [];
-  late RustUser user;
+  late User user;
   Timer pollingTimer = Timer(Duration.zero, () => {});
   UiConversation? _currentConversation;
 

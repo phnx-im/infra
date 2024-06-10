@@ -66,6 +66,7 @@ pub(crate) trait KdfDerivable<
 
 /// A trait that allows the extraction of the struct from the two given input
 /// key types. The output length is fixed to [`KDF_KEY_SIZE`].
+#[allow(dead_code)]
 pub(crate) trait KdfExtractable<
     FirstInput: AsRef<Secret<KDF_KEY_SIZE>> + std::fmt::Debug,
     SecondInput: AsRef<Secret<KDF_KEY_SIZE>> + std::fmt::Debug,

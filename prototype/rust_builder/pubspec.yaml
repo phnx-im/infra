@@ -1,8 +1,4 @@
-# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
-#
-# SPDX-License-Identifier: AGPL-3.0-or-later
-
-name: rust_lib_prototype
+name: phnxapplogic
 description: "Utility to build Rust code"
 version: 0.0.1
 publish_to: none

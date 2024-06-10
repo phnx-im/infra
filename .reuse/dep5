@@ -14,3 +14,19 @@ License: CC-BY-4.0
 Files: *.png
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: CC-BY-4.0
+
+Files: prototype/rust_builder/*
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
+
+Files: prototype/test_driver/*
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
+
+Files: prototype/flutter_rust_bridge.yaml.generated
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
+
+
+
+

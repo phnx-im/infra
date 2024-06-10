@@ -5,7 +5,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/types.dart';
+import 'package:prototype/core/api/types.dart';
 import 'package:prototype/styles.dart';
 
 IconButton appBarBackButton(BuildContext context) {
