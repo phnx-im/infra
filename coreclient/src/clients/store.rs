@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use own_client_info::OwnClientInfo;
-use phnxtypes::{
-    credentials::{AsCredential, AsIntermediateCredential},
-    messages::client_as::AsQueueRatchet,
+use key_stores::{
+    qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
 };
+use own_client_info::OwnClientInfo;
 use rusqlite::Transaction;
 
 use crate::utils::persistence::{open_phnx_db, PersistableStruct, SqlKey};
@@ -17,10 +16,7 @@ use self::{
         client_auth_info::{GroupMembership, StorableClientCredential},
         Group,
     },
-    key_stores::{
-        leaf_keys::LeafKeys, qs_verifying_keys::QualifiedQsVerifyingKey,
-        queue_ratchets::QualifiedSequenceNumber,
-    },
+    key_stores::leaf_keys::LeafKeys,
     openmls_provider::KeyStoreValue,
     utils::persistence::{Storable, Triggerable},
 };
@@ -308,14 +304,12 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <PartialContact as Storable>::create_table(client_db_connection)?;
     <Conversation as Storable>::create_table(client_db_connection)?;
     <ConversationMessage as Storable>::create_table(client_db_connection)?;
-    <AsCredential as Persistable>::create_table(client_db_connection)?;
-    <AsIntermediateCredential as Persistable>::create_table(client_db_connection)?;
-    <LeafKeys as Persistable>::create_table(client_db_connection)?;
-    <QualifiedQsVerifyingKey as Persistable>::create_table(client_db_connection)?;
+    <AsCredentials as Storable>::create_table(client_db_connection)?;
+    <LeafKeys as Storable>::create_table(client_db_connection)?;
+    <StorableQsVerifyingKey as Storable>::create_table(client_db_connection)?;
     // The table for queue ratchets contains both the AsQueueRatchet and the
     // QsQueueRatchet.
-    <AsQueueRatchet as Persistable>::create_table(client_db_connection)?;
-    <QualifiedSequenceNumber as Persistable>::create_table(client_db_connection)?;
+    <StorableAsQueueRatchet as Storable>::create_table(client_db_connection)?;
     <[u8; 32] as Persistable>::create_table(client_db_connection)?;
 
     Ok(())

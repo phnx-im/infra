@@ -2,15 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    collections::HashSet,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
 use exif::{Reader, Tag};
 use groups::{client_auth_info::StorableClientCredential, Group};
+use key_stores::as_credentials::AsCredentials;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
@@ -57,13 +54,7 @@ use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
-    key_stores::{
-        as_credentials::AsCredentialStore,
-        leaf_keys::LeafKeyStore,
-        qs_verifying_keys::QsVerifyingKeyStore,
-        queue_ratchets::{QueueRatchetStore, QueueType},
-        MemoryUserKeyStore,
-    },
+    key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     user_profiles::UserProfile,
     utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
 };
@@ -279,6 +270,8 @@ impl CoreUser {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
+
+        group.store(&self.sqlite_connection)?;
         let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
         conversation.store(&self.sqlite_connection)?;
         Ok(conversation.id())
@@ -417,8 +410,8 @@ impl CoreUser {
             client_credentials.push(contact_client_credentials);
             let add_info = contact
                 .fetch_add_infos(
+                    &self.sqlite_connection,
                     self.api_clients(),
-                    self.qs_verifying_key_store(),
                     self.crypto_backend().crypto(),
                 )
                 .await?;
@@ -455,7 +448,7 @@ impl CoreUser {
             None,
             ds_timestamp,
         )?;
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -501,7 +494,7 @@ impl CoreUser {
             None,
             ds_timestamp,
         )?;
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -541,7 +534,7 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         // Mark the message as sent.
         conversation_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
@@ -581,7 +574,7 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         // Mark the message as sent.
         unsent_message.mark_as_sent(&self.sqlite_connection, ds_timestamp)?;
@@ -619,14 +612,14 @@ impl CoreUser {
         // Verify the connection key packages
         log::info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
-        let as_credential_store = self.as_credential_store();
         for connection_package in user_key_packages.connection_packages.into_iter() {
-            let as_intermediate_credential = as_credential_store
-                .get(
-                    &user_domain,
-                    connection_package.client_credential_signer_fingerprint(),
-                )
-                .await?;
+            let as_intermediate_credential = AsCredentials::get(
+                &self.sqlite_connection,
+                &self.api_clients,
+                &user_domain,
+                connection_package.client_credential_signer_fingerprint(),
+            )
+            .await?;
             let verifying_key = as_intermediate_credential.verifying_key();
             verified_connection_packages.push(connection_package.verify(verifying_key)?)
         }
@@ -704,6 +697,8 @@ impl CoreUser {
             )
             .await?;
 
+        connection_group.store(&self.sqlite_connection)?;
+
         // Create the connection conversation
         let conversation = Conversation::new_connection_conversation(
             group_id,
@@ -776,7 +771,7 @@ impl CoreUser {
             ds_timestamp,
         )?;
 
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -822,7 +817,7 @@ impl CoreUser {
                 None,
                 ds_timestamp,
             )?;
-            group.store(&self.sqlite_connection)?;
+            group.store_update(&self.sqlite_connection)?;
             messages
         } else {
             vec![]
@@ -839,15 +834,14 @@ impl CoreUser {
     ) -> Result<Vec<QueueMessage>> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
-        let queue_ratchet_store = self.queue_ratchet_store();
-        let mut sequence_number = queue_ratchet_store.get_sequence_number(queue_type)?;
+        let mut sequence_number = queue_type.load_sequence_number(&self.sqlite_connection)?;
         while remaining_messages > 0 {
             let api_client = self.api_clients.default_client()?;
             let mut response = match &queue_type {
                 QueueType::As => {
                     api_client
                         .as_dequeue_messages(
-                            **sequence_number,
+                            sequence_number,
                             1_000_000,
                             &self.key_store.signing_key,
                         )
@@ -857,7 +851,7 @@ impl CoreUser {
                     api_client
                         .qs_dequeue_messages(
                             &self.qs_client_id,
-                            **sequence_number,
+                            sequence_number,
                             1_000_000,
                             &self.key_store.qs_client_signing_key,
                         )
@@ -865,15 +859,12 @@ impl CoreUser {
                 }
             };
 
-            if let Some(message) = messages.last() {
-                sequence_number.set(message.sequence_number)?;
-            }
-
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
 
             if let Some(message) = messages.last() {
-                sequence_number.set(message.sequence_number + 1)?;
+                sequence_number = message.sequence_number + 1;
+                queue_type.update_sequence_number(&self.sqlite_connection, sequence_number)?;
             }
         }
         Ok(messages)
@@ -906,7 +897,7 @@ impl CoreUser {
                 group.group_state_ear_key(),
             )
             .await?;
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
         Ok(())
     }
 
@@ -943,7 +934,7 @@ impl CoreUser {
             ds_timestamp,
         )?;
 
-        group.store(&self.sqlite_connection)?;
+        group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
         Ok(conversation_messages)
@@ -1063,22 +1054,6 @@ impl CoreUser {
         UserProfile::load(&self.sqlite_connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
-    }
-
-    fn qs_verifying_key_store(&self) -> QsVerifyingKeyStore<'_> {
-        QsVerifyingKeyStore::new(&self.sqlite_connection, self.api_clients())
-    }
-
-    fn as_credential_store(&self) -> AsCredentialStore<'_> {
-        AsCredentialStore::new(&self.sqlite_connection, self.api_clients())
-    }
-
-    fn queue_ratchet_store(&self) -> QueueRatchetStore<'_> {
-        (&self.sqlite_connection).into()
-    }
-
-    fn leaf_key_store(&self) -> LeafKeyStore<'_> {
-        (&self.sqlite_connection).into()
     }
 
     fn crypto_backend(&self) -> PhnxOpenMlsProvider<'_> {

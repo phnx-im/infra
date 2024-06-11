@@ -50,7 +50,7 @@ impl User {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
@@ -71,7 +71,7 @@ impl User {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;

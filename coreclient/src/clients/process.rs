@@ -2,8 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::ops::Deref;
+
 use anyhow::{bail, Result};
 use groups::Group;
+use key_stores::{
+    qs_verifying_keys::StorableQsVerifyingKey,
+    queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+};
 use phnxtypes::{
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
     identifiers::QualifiedGroupId,
@@ -34,12 +40,17 @@ pub enum ProcessQsMessageResult {
 impl CoreUser {
     /// Decrypt a `QueueMessage` received from the QS queue.
     pub fn decrypt_qs_queue_message(
-        &self,
+        &mut self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
-        let queue_ratchet_store = self.queue_ratchet_store();
-        let mut qs_queue_ratchet = queue_ratchet_store.get_qs_queue_ratchet()?;
+        let transaction = self.sqlite_connection.transaction()?;
+        let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&transaction)?;
+
         let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
+
+        qs_queue_ratchet.update_ratchet(&transaction)?;
+        transaction.commit()?;
+
         Ok(payload.extract()?)
     }
 
@@ -77,11 +88,9 @@ impl CoreUser {
                     welcome_bundle,
                     &self.key_store.wai_ear_key,
                     &self.sqlite_connection,
-                    self.leaf_key_store(),
-                    self.as_credential_store(),
+                    &self.api_clients,
                 )
                 .await?;
-                group.store(&self.sqlite_connection)?;
                 let group_id = group.group_id().clone();
 
                 // Store the user profiles of the group members if they don't
@@ -102,10 +111,12 @@ impl CoreUser {
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
                 // If we've been in that conversation before, we delete the old
-                // conversation first and then create a new one. We do leave the
-                // messages intact, though.
+                // conversation (and the corresponding MLS group) first and then
+                // create a new one. We do leave the messages intact, though.
                 let transaction = self.sqlite_connection.transaction()?;
                 Conversation::delete(&transaction, conversation.id())?;
+                Group::delete_from_db(&transaction, &group_id)?;
+                group.store(&transaction)?;
                 conversation.store(&transaction)?;
                 transaction.commit()?;
 
@@ -130,13 +141,12 @@ impl CoreUser {
 
                 let mut group = Group::load(&self.sqlite_connection, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
-                let as_credential_store = self.as_credential_store();
                 let (processed_message, we_were_removed, sender_client_id) = group
                     .process_message(
                         &self.crypto_backend(),
                         &self.sqlite_connection,
+                        &self.api_clients,
                         protocol_message,
-                        &as_credential_store,
                     )
                     .await?;
 
@@ -236,12 +246,15 @@ impl CoreUser {
                                             Ok((key_package, sek))
                                         })
                                         .collect::<Result<Vec<_>>>()?;
-                                let qs_verifying_key_store = self.qs_verifying_key_store();
-                                let qs_verifying_key =
-                                    qs_verifying_key_store.get(&user_name.domain()).await?;
+                                let qs_verifying_key = StorableQsVerifyingKey::get(
+                                    &self.sqlite_connection,
+                                    &user_name.domain(),
+                                    &self.api_clients,
+                                )
+                                .await?;
                                 let key_package_batch = key_package_batch_response
                                     .key_package_batch
-                                    .verify(qs_verifying_key.deref().deref())?;
+                                    .verify(qs_verifying_key.deref())?;
                                 let add_info = ContactAddInfos {
                                     key_package_batch,
                                     key_packages,
@@ -294,6 +307,7 @@ impl CoreUser {
                         unimplemented!()
                     }
                 };
+                group.store_update(&self.sqlite_connection)?;
                 let conversation_messages = self.store_messages(conversation_id, group_messages)?;
                 match (conversation_messages, conversation_changed) {
                     (messages, true) => {
@@ -309,12 +323,17 @@ impl CoreUser {
 
     /// Decrypt a `QueueMessage` received from the AS queue.
     pub fn decrypt_as_queue_message(
-        &self,
+        &mut self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        let queue_ratchet_store = self.queue_ratchet_store();
-        let mut as_queue_ratchet = queue_ratchet_store.get_as_queue_ratchet()?;
+        let transaction = self.sqlite_connection.transaction()?;
+        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&transaction)?;
+
         let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
+
+        as_queue_ratchet.update_ratchet(&transaction)?;
+        transaction.commit()?;
+
         Ok(payload.extract()?)
     }
 
@@ -337,13 +356,13 @@ impl CoreUser {
                 // don't have them already.
                 let sender_domain = cep_in.sender_credential().domain();
 
-                let as_credential_store = self.as_credential_store();
-                let as_intermediate_credential = as_credential_store
-                    .get(
-                        &sender_domain,
-                        cep_in.sender_credential().signer_fingerprint(),
-                    )
-                    .await?;
+                let as_intermediate_credential = AsCredentials::get(
+                    &self.sqlite_connection,
+                    &self.api_clients,
+                    &sender_domain,
+                    cep_in.sender_credential().signer_fingerprint(),
+                )
+                .await?;
                 let cep_tbs = cep_in.verify(as_intermediate_credential.verifying_key());
                 // We create a new group and signal that fact to the user,
                 // so the user can decide if they want to accept the
@@ -398,17 +417,18 @@ impl CoreUser {
                 let (group, commit, group_info) = Group::join_group_externally(
                     &self.crypto_backend(),
                     &self.sqlite_connection,
+                    &self.api_clients,
                     eci,
                     leaf_signer,
                     signature_ear_key,
                     cep_tbs.connection_group_ear_key.clone(),
                     cep_tbs.connection_group_signature_ear_key_wrapper_key,
                     cep_tbs.connection_group_credential_key,
-                    &self.as_credential_store(),
                     aad,
                     self.key_store.signing_key.credential(),
                 )
                 .await?;
+                group.store(&self.sqlite_connection)?;
                 let sender_client_id = cep_tbs.sender_client_credential.identity();
                 let conversation_picture_option = cep_tbs
                     .friendship_package

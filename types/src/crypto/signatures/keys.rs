@@ -250,6 +250,24 @@ pub struct QsVerifyingKey {
     verifying_key: Vec<u8>,
 }
 
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for QsVerifyingKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Borrowed(
+            rusqlite::types::ValueRef::Blob(&self.verifying_key),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for QsVerifyingKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        Ok(Self {
+            verifying_key: value.as_blob()?.to_vec(),
+        })
+    }
+}
+
 impl QsVerifyingKey {
     pub fn new(verifying_key: Vec<u8>) -> Self {
         Self { verifying_key }

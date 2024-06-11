@@ -5,6 +5,7 @@
 use std::ops::Deref;
 
 use anyhow::Result;
+use leaf_keys::LeafKeys;
 use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
     UnknownExtension,
@@ -19,36 +20,28 @@ use phnxtypes::{
         ClientConfig, QsClientId, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
     },
     keypackage_batch::AddPackage,
-    messages::{client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload},
 };
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
     clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, CIPHERSUITE},
     groups::default_capabilities,
-    utils::persistence::{DataType, Persistable, PersistenceError},
 };
 
-use anyhow::anyhow;
 use phnxtypes::{
-    credentials::keys::{ClientSigningKey, InfraCredentialSigningKey},
+    credentials::keys::ClientSigningKey,
     crypto::{
         ear::keys::{
-            AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKey,
-            SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+            AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKeyWrapperKey,
+            WelcomeAttributionInfoEarKey,
         },
-        kdf::keys::RatchetSecret,
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
         ConnectionDecryptionKey, RatchetDecryptionKey,
     },
-    messages::{
-        client_as::AsQueueRatchet, client_ds::QsQueueRatchet, FriendshipToken, QueueMessage,
-    },
+    messages::FriendshipToken,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-
-use self::leaf_keys::LeafKeyStore;
 
 pub(crate) mod as_credentials;
 pub(crate) mod leaf_keys;
@@ -108,21 +101,15 @@ impl MemoryUserKeyStore {
 
     pub(crate) fn generate_add_package(
         &self,
-        leaf_key_store: &LeafKeyStore<'_>,
+        connection: &Connection,
         crypto_backend: &PhnxOpenMlsProvider,
         qs_client_id: &QsClientId,
         encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
     ) -> Result<AddPackage> {
-        let leaf_keys = leaf_key_store.generate(&self.signing_key)?;
-        let credential_with_key = CredentialWithKey {
-            credential: leaf_keys.leaf_signing_key().credential().try_into()?,
-            signature_key: leaf_keys
-                .leaf_signing_key()
-                .credential()
-                .verifying_key()
-                .clone(),
-        };
+        let leaf_keys = LeafKeys::generate(&self.signing_key)?;
+        leaf_keys.store(connection)?;
+        let credential_with_key = leaf_keys.credential()?;
         let capabilities = default_capabilities();
         let client_reference = self.create_own_client_reference(qs_client_id);
         let client_ref_extension = Extension::Unknown(
@@ -136,6 +123,10 @@ impl MemoryUserKeyStore {
         } else {
             Extensions::default()
         };
+        let esek = leaf_keys
+            .signature_ear_key()
+            .encrypt(&self.signature_ear_key_wrapper_key)?;
+
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)
@@ -143,12 +134,9 @@ impl MemoryUserKeyStore {
             .build(
                 CIPHERSUITE,
                 crypto_backend,
-                leaf_keys.leaf_signing_key(),
+                &leaf_keys.into_leaf_signer(),
                 credential_with_key,
             )?;
-        let esek = leaf_keys
-            .signature_ear_key()
-            .encrypt(&self.signature_ear_key_wrapper_key)?;
 
         let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
         Ok(add_package)

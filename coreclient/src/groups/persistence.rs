@@ -108,4 +108,37 @@ impl Group {
         let mut stmt = connection.prepare("SELECT * FROM groups WHERE group_id = ?")?;
         stmt.query_row(params![group_id], Self::from_row).optional()
     }
+
+    pub(crate) fn store_update(
+        &self,
+        connection: &rusqlite::Connection,
+    ) -> Result<(), rusqlite::Error> {
+        let group_id = GroupIdRefWrapper::from(&self.group_id);
+        let mls_group = MlsGroupRefWrapper {
+            mls_group: &self.mls_group,
+        };
+        connection.execute(
+            "UPDATE groups SET leaf_signer = ?, signature_ear_key_wrapper_key = ?, credential_ear_key = ?, group_state_ear_key = ?, user_auth_signing_key_option = ?, mls_group = ?, pending_diff = ? WHERE group_id = ?",
+            params![
+                self.leaf_signer,
+                self.signature_ear_key_wrapper_key,
+                self.credential_ear_key,
+                self.group_state_ear_key,
+                self.user_auth_signing_key_option,
+                mls_group,
+                self.pending_diff,
+                group_id,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn delete_from_db(
+        connection: &rusqlite::Connection,
+        group_id: &GroupId,
+    ) -> Result<(), rusqlite::Error> {
+        let group_id = GroupIdRefWrapper::from(group_id);
+        connection.execute("DELETE FROM groups WHERE group_id = ?", params![group_id])?;
+        Ok(())
+    }
 }

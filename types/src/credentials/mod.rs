@@ -110,13 +110,40 @@ pub struct AsCredential {
     fingerprint: CredentialFingerprint,
 }
 
+impl From<AsCredentialBody> for AsCredential {
+    fn from(body: AsCredentialBody) -> Self {
+        let fingerprint = body.hash();
+        Self { body, fingerprint }
+    }
+}
+
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
-struct AsCredentialBody {
+pub struct AsCredentialBody {
     version: MlsInfraVersion,
     as_domain: Fqdn,
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
     verifying_key: AsVerifyingKey,
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for AsCredentialBody {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(
+                serde_json::to_vec(self)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            ),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for AsCredentialBody {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_blob()?;
+        serde_json::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+    }
 }
 
 impl AsCredentialBody {
@@ -165,6 +192,10 @@ impl AsCredential {
 
     pub fn domain(&self) -> &Fqdn {
         &self.body.as_domain
+    }
+
+    pub fn body(&self) -> &AsCredentialBody {
+        &self.body
     }
 }
 
@@ -269,6 +300,26 @@ pub struct AsIntermediateCredentialBody {
     signature: Signature,
 }
 
+#[cfg(feature = "sqlite")]
+impl ToSql for AsIntermediateCredentialBody {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(
+                serde_json::to_vec(self)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            ),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for AsIntermediateCredentialBody {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_blob()?;
+        serde_json::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+    }
+}
+
 impl AsIntermediateCredentialBody {
     fn hash(&self) -> CredentialFingerprint {
         CredentialFingerprint::with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
@@ -279,6 +330,13 @@ impl AsIntermediateCredentialBody {
 pub struct AsIntermediateCredential {
     body: AsIntermediateCredentialBody,
     fingerprint: CredentialFingerprint,
+}
+
+impl From<AsIntermediateCredentialBody> for AsIntermediateCredential {
+    fn from(body: AsIntermediateCredentialBody) -> Self {
+        let fingerprint = body.hash();
+        Self { body, fingerprint }
+    }
 }
 
 impl tls_codec::Serialize for AsIntermediateCredential {
@@ -304,6 +362,10 @@ impl AsIntermediateCredential {
 
     pub fn domain(&self) -> &Fqdn {
         &self.body.credential.csr.as_domain
+    }
+
+    pub fn body(&self) -> &AsIntermediateCredentialBody {
+        &self.body
     }
 }
 

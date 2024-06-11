@@ -235,6 +235,21 @@ pub struct SignatureEarKey {
     key: SignatureEarKeySecret,
 }
 
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for SignatureEarKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for SignatureEarKey {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        let key = SignatureEarKeySecret::column_result(value)?;
+        Ok(Self { key })
+    }
+}
+
 impl SignatureEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {

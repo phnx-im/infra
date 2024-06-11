@@ -3,72 +3,76 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
+use rusqlite::{params, OptionalExtension};
 
-use crate::utils::persistence::PersistableStruct;
+use crate::utils::persistence::Storable;
 
 use super::*;
 
-pub(crate) struct QsVerifyingKeyStore<'a> {
-    db_connection: &'a Connection,
-    api_clients: ApiClients,
-}
-
-impl<'a> QsVerifyingKeyStore<'a> {
-    pub(crate) fn new(db_connection: &'a Connection, api_clients: ApiClients) -> Self {
-        Self {
-            db_connection,
-            api_clients,
-        }
-    }
-
-    pub(crate) async fn get(&self, domain: &Fqdn) -> Result<PersistableQsVerifyingKey> {
-        if let Some(verifying_key) =
-            PersistableQsVerifyingKey::load_one(self.db_connection, Some(domain), None)?
-        {
-            Ok(verifying_key)
-        } else {
-            let verifying_key_response = self.api_clients.get(domain)?.qs_verifying_key().await?;
-            let verifying_key = PersistableQsVerifyingKey::from_connection_and_payload(
-                self.db_connection,
-                QualifiedQsVerifyingKey {
-                    qs_verifying_key: verifying_key_response.verifying_key,
-                    domain: domain.clone(),
-                },
-            );
-            verifying_key.persist()?;
-            Ok(verifying_key)
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct QualifiedQsVerifyingKey {
-    qs_verifying_key: QsVerifyingKey,
+pub(crate) struct StorableQsVerifyingKey {
     domain: Fqdn,
+    verifying_key: QsVerifyingKey,
 }
 
-impl Deref for QualifiedQsVerifyingKey {
+impl Storable for StorableQsVerifyingKey {
+    const CREATE_TABLE_STATEMENT: &'static str = "
+        CREATE TABLE IF NOT EXISTS qs_verifying_keys (
+            domain TEXT PRIMARY KEY,
+            verifying_key BLOB NOT NULL
+        );";
+
+    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let domain = row.get(0)?;
+        let verifying_key = row.get(1)?;
+        Ok(StorableQsVerifyingKey {
+            domain,
+            verifying_key,
+        })
+    }
+}
+
+impl Deref for StorableQsVerifyingKey {
     type Target = QsVerifyingKey;
 
     fn deref(&self) -> &Self::Target {
-        &self.qs_verifying_key
+        &self.verifying_key
     }
 }
 
-pub(crate) type PersistableQsVerifyingKey<'a> = PersistableStruct<'a, QualifiedQsVerifyingKey>;
-
-impl Persistable for QualifiedQsVerifyingKey {
-    type Key = Fqdn;
-
-    type SecondaryKey = Fqdn;
-
-    const DATA_TYPE: DataType = DataType::QsVerifyingKey;
-
-    fn key(&self) -> &Self::Key {
-        &self.domain
+impl StorableQsVerifyingKey {
+    fn load(connection: &Connection, domain: &Fqdn) -> Result<Option<Self>, rusqlite::Error> {
+        let mut statement = connection
+            .prepare("SELECT domain, verifying_key FROM qs_verifying_keys WHERE domain = ?")?;
+        statement
+            .query_row(params![domain], StorableQsVerifyingKey::from_row)
+            .optional()
     }
 
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.domain
+    fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
+        connection.execute(
+            "INSERT OR REPLACE INTO qs_verifying_keys (domain, verifying_key) VALUES (?, ?)",
+            params![self.domain, self.verifying_key],
+        )?;
+        Ok(())
+    }
+}
+
+impl StorableQsVerifyingKey {
+    pub(crate) async fn get(
+        connection: &Connection,
+        domain: &Fqdn,
+        api_clients: &ApiClients,
+    ) -> Result<StorableQsVerifyingKey> {
+        if let Some(verifying_key) = Self::load(connection, domain)? {
+            Ok(verifying_key)
+        } else {
+            let verifying_key_response = api_clients.get(domain)?.qs_verifying_key().await?;
+            let verifying_key = Self {
+                domain: domain.clone(),
+                verifying_key: verifying_key_response.verifying_key,
+            };
+            verifying_key.store(connection)?;
+            Ok(verifying_key)
+        }
     }
 }

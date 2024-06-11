@@ -25,7 +25,7 @@ use phnxtypes::{
 };
 use rusqlite::Connection;
 
-use crate::key_stores::as_credentials::AsCredentialStore;
+use crate::clients::api_clients::ApiClients;
 
 use super::decrypt_and_verify_client_credential;
 
@@ -62,12 +62,13 @@ impl StorableClientCredential {
     }
 
     pub(super) async fn decrypt_and_verify(
+        connection: &Connection,
+        api_clients: &ApiClients,
         ear_key: &ClientCredentialEarKey,
-        as_credential_store: &AsCredentialStore<'_>,
         ecc: EncryptedClientCredential,
     ) -> Result<Self> {
         let client_credential =
-            decrypt_and_verify_client_credential(as_credential_store, ear_key, &ecc).await?;
+            decrypt_and_verify_client_credential(connection, api_clients, ear_key, &ecc).await?;
         Ok(Self { client_credential })
     }
 }
@@ -156,10 +157,11 @@ impl ClientAuthInfo {
     /// client auth info needs to be given s.t. the index of the client in the
     /// group corresponds to the index in the iterator.
     pub(super) async fn decrypt_and_verify_all(
+        connection: &Connection,
+        api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,
         wrapper_key: &SignatureEarKeyWrapperKey,
-        as_credential_store: &AsCredentialStore<'_>,
         encrypted_client_information: impl Iterator<
             Item = (
                 LeafNodeIndex,
@@ -170,10 +172,11 @@ impl ClientAuthInfo {
         let mut client_information = Vec::new();
         for (leaf_index, encrypted_client_info) in encrypted_client_information {
             let client_auth_info = Self::decrypt_and_verify(
+                connection,
+                api_clients,
                 group_id,
                 ear_key,
                 wrapper_key,
-                as_credential_store,
                 encrypted_client_info,
                 leaf_index,
             )
@@ -185,15 +188,17 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given encrypted client auth info.
     pub(super) async fn decrypt_and_verify(
+        connection: &Connection,
+        api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,
         wrapper_key: &SignatureEarKeyWrapperKey,
-        as_credential_store: &AsCredentialStore<'_>,
         (ecc, esek): (EncryptedClientCredential, EncryptedSignatureEarKey),
         leaf_index: LeafNodeIndex,
     ) -> Result<Self> {
         let client_credential =
-            StorableClientCredential::decrypt_and_verify(ear_key, as_credential_store, ecc).await?;
+            StorableClientCredential::decrypt_and_verify(connection, api_clients, ear_key, ecc)
+                .await?;
         let signature_ear_key = SignatureEarKey::decrypt(wrapper_key, &esek)?;
         let group_membership = GroupMembership::new(
             client_credential.identity(),

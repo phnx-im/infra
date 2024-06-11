@@ -2,95 +2,101 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::utils::persistence::PersistableStruct;
+use phnxtypes::{
+    credentials::keys::InfraCredentialSigningKey,
+    crypto::{ear::keys::SignatureEarKey, errors::RandomnessError},
+};
+use rusqlite::{params, OptionalExtension};
+
+use crate::utils::persistence::Storable;
 
 use super::*;
 
-pub(crate) struct LeafKeyStore<'a> {
-    db_connection: &'a Connection,
-}
+impl Storable for LeafKeys {
+    const CREATE_TABLE_STATEMENT: &'static str = "
+        CREATE TABLE IF NOT EXISTS leaf_keys (
+            verifying_key BLOB PRIMARY KEY,
+            leaf_signing_key BLOB NOT NULL,
+            signature_ear_key BLOB NOT NULL
+        );";
 
-impl<'a> From<&'a Connection> for LeafKeyStore<'a> {
-    fn from(db_connection: &'a Connection) -> Self {
-        Self { db_connection }
-    }
-}
-
-impl<'a> LeafKeyStore<'a> {
-    pub(crate) fn get(
-        &self,
-        verifying_key: &SignaturePublicKey,
-    ) -> Result<Option<PersistableLeafKeys>, PersistenceError> {
-        let verifying_key_str = hex::encode(verifying_key.as_slice());
-        PersistableLeafKeys::load_one(self.db_connection, Some(&verifying_key_str), None)
-    }
-
-    pub(crate) fn generate(&self, signing_key: &ClientSigningKey) -> Result<PersistableLeafKeys> {
-        let signature_ear_key = SignatureEarKey::random()?;
-        let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
-        let keys = PersistableLeafKeys::from_connection_and_payload(
-            self.db_connection,
-            LeafKeys::new(leaf_signing_key, signature_ear_key),
-        );
-        keys.persist()?;
-        Ok(keys)
-    }
-
-    pub(crate) fn delete(
-        &self,
-        verifying_key: &SignaturePublicKey,
-    ) -> Result<(), PersistenceError> {
-        let verifying_key_str = hex::encode(verifying_key.as_slice());
-        PersistableLeafKeys::purge_key(self.db_connection, &verifying_key_str)
+    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let verifying_key_bytes: Vec<u8> = row.get(0)?;
+        let verifying_key = SignaturePublicKey::from(verifying_key_bytes);
+        Ok(Self {
+            verifying_key,
+            leaf_signing_key: row.get(1)?,
+            signature_ear_key: row.get(2)?,
+        })
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeafKeys {
-    verifying_key_str: String,
+    verifying_key: SignaturePublicKey,
     leaf_signing_key: InfraCredentialSigningKey,
     signature_ear_key: SignatureEarKey,
 }
 
 impl LeafKeys {
-    fn new(
-        leaf_signing_key: InfraCredentialSigningKey,
-        signature_ear_key: SignatureEarKey,
-    ) -> Self {
-        Self {
-            verifying_key_str: hex::encode(
-                leaf_signing_key.credential().verifying_key().as_slice(),
-            ),
+    pub(crate) fn generate(signing_key: &ClientSigningKey) -> Result<Self, RandomnessError> {
+        let signature_ear_key = SignatureEarKey::random()?;
+        let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+        let keys = Self {
+            verifying_key: leaf_signing_key.credential().verifying_key().clone(),
             leaf_signing_key,
             signature_ear_key,
-        }
+        };
+        Ok(keys)
     }
-}
 
-pub(crate) type PersistableLeafKeys<'a> = PersistableStruct<'a, LeafKeys>;
+    pub(crate) fn credential(&self) -> Result<CredentialWithKey, tls_codec::Error> {
+        let credential = CredentialWithKey {
+            credential: self.leaf_signing_key.credential().try_into()?,
+            signature_key: self.verifying_key.clone(),
+        };
+        Ok(credential)
+    }
 
-impl PersistableLeafKeys<'_> {
-    pub(crate) fn leaf_signing_key(&self) -> &InfraCredentialSigningKey {
-        &self.payload.leaf_signing_key
+    pub(crate) fn into_leaf_signer(self) -> InfraCredentialSigningKey {
+        self.leaf_signing_key
     }
 
     pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
-        &self.payload.signature_ear_key
+        &self.signature_ear_key
     }
 }
 
-impl Persistable for LeafKeys {
-    type Key = String;
-
-    type SecondaryKey = String;
-
-    const DATA_TYPE: DataType = DataType::LeafKeys;
-
-    fn key(&self) -> &Self::Key {
-        &self.verifying_key_str
+impl LeafKeys {
+    pub(crate) fn load(
+        connection: &Connection,
+        verifying_key: &SignaturePublicKey,
+    ) -> Result<Option<LeafKeys>, rusqlite::Error> {
+        let mut stmt = connection.prepare(
+            "SELECT verifying_key, leaf_signing_key, signature_ear_key FROM leaf_keys WHERE verifying_key = ?",
+        )?;
+        stmt.query_row(params![verifying_key.as_slice()], Self::from_row)
+            .optional()
     }
 
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &self.verifying_key_str
+    pub(crate) fn delete(
+        connection: &Connection,
+        verifying_key: &SignaturePublicKey,
+    ) -> Result<(), rusqlite::Error> {
+        let mut stmt = connection.prepare("DELETE FROM leaf_keys WHERE verifying_key = ?")?;
+        stmt.execute(params![verifying_key.as_slice()])?;
+        Ok(())
+    }
+
+    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+        connection.execute(
+            "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, signature_ear_key) VALUES (?, ?, ?)",
+            params![
+                self.verifying_key.as_slice(),
+                self.leaf_signing_key,
+                self.signature_ear_key
+            ],
+        )?;
+        Ok(())
     }
 }

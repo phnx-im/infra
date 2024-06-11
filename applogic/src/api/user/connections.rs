@@ -14,7 +14,7 @@ impl User {
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let mut user = self.user.lock().await;
         let conversation_id = user.add_contact(&user_name).await?;
-        self.dispatch_conversation_notifications(vec![conversation_id.into()])
+        self.dispatch_conversation_notifications(vec![conversation_id])
             .await;
         Ok(())
     }
@@ -38,9 +38,7 @@ impl User {
     pub async fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
         let user = self.user.lock().await;
         let user_name = SafeTryInto::try_into(user_name)?;
-        let user_profile = user
-            .user_profile(&user_name)?
-            .map(|up| UiUserProfile::from(up).into());
+        let user_profile = user.user_profile(&user_name)?.map(UiUserProfile::from);
         Ok(user_profile)
     }
 }

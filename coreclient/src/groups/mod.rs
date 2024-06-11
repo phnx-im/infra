@@ -53,10 +53,10 @@ use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
 use crate::{
-    clients::openmls_provider::PhnxOpenMlsProvider,
+    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider},
     contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage,
-    key_stores::{as_credentials::AsCredentialStore, leaf_keys::LeafKeyStore},
+    key_stores::{as_credentials::AsCredentials, leaf_keys::LeafKeys},
     mimi_content::MimiContent,
     SystemMessage,
 };
@@ -275,8 +275,7 @@ impl Group {
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         connection: &Connection,
-        leaf_key_store: LeafKeyStore<'_>,
-        as_credential_store: AsCredentialStore<'_>,
+        api_clients: &ApiClients,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
@@ -339,10 +338,11 @@ impl Group {
             .map(|m| m.index)
             .zip(joiner_info.encrypted_client_information.into_iter());
         let client_information = ClientAuthInfo::decrypt_and_verify_all(
+            connection,
+            api_clients,
             mls_group.group_id(),
             welcome_attribution_info.client_credential_encryption_key(),
             welcome_attribution_info.signature_ear_key_wrapper_key(),
-            &as_credential_store,
             encrypted_client_information,
         )
         .await?;
@@ -358,13 +358,12 @@ impl Group {
             client_auth_info.store(connection)?;
         }
 
-        let leaf_keys = leaf_key_store
-            .get(verifying_key)?
+        let leaf_keys = LeafKeys::load(connection, verifying_key)?
             .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
-        let leaf_signer = leaf_keys.leaf_signing_key().clone();
+        LeafKeys::delete(connection, verifying_key)?;
+        let leaf_signer = leaf_keys.into_leaf_signer();
 
         // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        leaf_key_store.delete(verifying_key)?;
 
         let group = Self {
             group_id: mls_group.group_id().clone(),
@@ -389,13 +388,13 @@ impl Group {
     pub(super) async fn join_group_externally<'a>(
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
+        api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
-        as_credential_store: &AsCredentialStore<'_>,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
@@ -434,10 +433,11 @@ impl Group {
             .map(|m| m.index)
             .zip(encrypted_client_info.into_iter());
         let mut client_information = ClientAuthInfo::decrypt_and_verify_all(
+            connection,
+            api_clients,
             group_id,
             &credential_ear_key,
             &signature_ear_key_wrapper_key,
-            as_credential_store,
             encrypted_client_information,
         )
         .await?;
@@ -490,8 +490,8 @@ impl Group {
         &mut self,
         provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
+        api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
-        as_credential_store: &AsCredentialStore<'_>,
     ) -> Result<(ProcessedMessage, bool, AsClientId)> {
         let processed_message = self.mls_group.process_message(provider, message)?;
         let group_id = self.group_id();
@@ -557,10 +557,11 @@ impl Group {
                                     .into_iter(),
                             );
                         let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+                            connection,
+                            api_clients,
                             group_id,
                             &self.credential_ear_key,
                             self.signature_ear_key_wrapper_key(),
-                            as_credential_store,
                             encrypted_client_information,
                         )
                         .await?;
@@ -628,10 +629,11 @@ impl Group {
                                 update_client_payload.option_encrypted_client_credential
                             {
                                 ClientAuthInfo::decrypt_and_verify(
+                                    connection,
+                                    api_clients,
                                     group_id,
                                     &self.credential_ear_key,
                                     &self.signature_ear_key_wrapper_key,
-                                    as_credential_store,
                                     (ecc, encrypted_signature_ear_key),
                                     *sender_index,
                                 )
@@ -675,10 +677,11 @@ impl Group {
                     InfraAadPayload::JoinGroup(join_group_payload) => {
                         // Decrypt and verify the client credential.
                         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            connection,
+                            api_clients,
                             group_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
-                            as_credential_store,
                             join_group_payload.encrypted_client_information,
                             sender_index,
                         )
@@ -705,10 +708,11 @@ impl Group {
                     }
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            connection,
+                            api_clients,
                             group_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
-                            as_credential_store,
                             join_connection_group_payload.encrypted_client_information,
                             sender_index,
                         )
@@ -729,10 +733,11 @@ impl Group {
                             GroupMembership::free_indices(connection, group_id)?
                                 .zip(add_clients_payload.encrypted_client_information.into_iter());
                         let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+                            connection,
+                            api_clients,
                             group_id,
                             &self.credential_ear_key,
                             &self.signature_ear_key_wrapper_key,
-                            as_credential_store,
                             encrypted_client_information,
                         )
                         .await?;
@@ -1468,14 +1473,15 @@ impl TimestampedMessage {
 
 /// Helper function to decrypt and verify an encrypted client credential
 async fn decrypt_and_verify_client_credential(
-    as_credential_store: &AsCredentialStore<'_>,
+    connection: &Connection,
+    api_clients: &ApiClients,
     ear_key: &ClientCredentialEarKey,
     ciphertext: &EncryptedClientCredential,
 ) -> Result<ClientCredential> {
     let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)?;
 
-    let client_credential = as_credential_store
-        .verify_client_credential(verifiable_credential)
-        .await?;
+    let client_credential =
+        AsCredentials::verify_client_credential(connection, api_clients, verifiable_credential)
+            .await?;
     Ok(client_credential)
 }

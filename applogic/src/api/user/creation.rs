@@ -88,7 +88,7 @@ impl UserBuilder {
         if let Some(stream_sink) = stream_sink_option.take() {
             User::load_default(path, stream_sink)
         } else {
-            return Err(anyhow::anyhow!("Please set a stream sink first."));
+            Err(anyhow::anyhow!("Please set a stream sink first."))
         }
     }
 
@@ -106,6 +106,12 @@ impl UserBuilder {
         } else {
             return Err(anyhow::anyhow!("Please set a stream sink first."));
         }
+    }
+}
+
+impl Default for UserBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

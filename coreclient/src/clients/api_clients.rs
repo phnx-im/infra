@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::Mutex;
+
 use phnxtypes::identifiers::Fqdn;
 
 use super::*;
