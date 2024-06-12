@@ -310,7 +310,6 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     // The table for queue ratchets contains both the AsQueueRatchet and the
     // QsQueueRatchet.
     <StorableAsQueueRatchet as Storable>::create_table(client_db_connection)?;
-    <[u8; 32] as Persistable>::create_table(client_db_connection)?;
 
     Ok(())
 }

@@ -7,7 +7,7 @@ use openmls_traits::key_store::MlsEntity;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use crate::utils::persistence::{PersistableStruct, PersistenceError, SqlKey};
+use crate::utils::persistence::{PersistableStruct, PersistenceError};
 
 use super::*;
 
@@ -120,34 +120,18 @@ impl<'a> OpenMlsRand for PhnxOpenMlsProvider<'a> {
     type Error = PhnxRandomnessError;
 
     fn random_array<const N: usize>(&self) -> std::result::Result<[u8; N], Self::Error> {
-        // Load seed from DB.
-        let seed = PersistableSeed::load_one(self.connection, Some(&0), None);
-        let mut rng = if let Ok(Some(seed)) = seed {
-            ChaCha20Rng::from_seed(seed.payload)
-        } else {
-            ChaCha20Rng::from_entropy()
-        };
+        let mut rng = ChaCha20Rng::from_entropy();
         let mut out = [0u8; N];
         rng.try_fill_bytes(&mut out)
             .map_err(|_| Self::Error::NotEnoughRandomness)?;
-        // Write fresh seed to DB.
-        PersistableSeed::from_rng(self.connection, &mut rng)?;
         Ok(out)
     }
 
     fn random_vec(&self, len: usize) -> std::result::Result<Vec<u8>, Self::Error> {
-        // Load seed from DB.
-        let seed = PersistableSeed::load_one(self.connection, Some(&0), None);
-        let mut rng = if let Ok(Some(seed)) = seed {
-            ChaCha20Rng::from_seed(seed.payload)
-        } else {
-            ChaCha20Rng::from_entropy()
-        };
+        let mut rng = ChaCha20Rng::from_entropy();
         let mut out = vec![0u8; len];
         rng.try_fill_bytes(&mut out)
             .map_err(|_| Self::Error::NotEnoughRandomness)?;
-        // Write fresh seed to DB.
-        PersistableSeed::from_rng(self.connection, &mut rng)?;
         Ok(out)
     }
 }
@@ -155,62 +139,15 @@ impl<'a> OpenMlsRand for PhnxOpenMlsProvider<'a> {
 #[derive(Debug, Error)]
 pub(crate) enum PhnxRandomnessError {
     #[error(transparent)]
-    StorageError(#[from] PersistenceError),
+    StorageError(#[from] rusqlite::Error),
     #[error("Unable to collect enough randomness.")]
     NotEnoughRandomness,
-}
-
-pub(super) type PersistableSeed<'a> = PersistableStruct<'a, [u8; 32]>;
-
-impl<'a> PersistableSeed<'a> {
-    /// Store a new random seed in the database.
-    pub(super) fn new_random(conn: &'a Connection) -> Result<(), PhnxRandomnessError> {
-        let mut rng = ChaCha20Rng::from_entropy();
-        let mut payload = [0u8; 32];
-        rng.try_fill_bytes(&mut payload)
-            .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
-        Ok(Self::from_connection_and_payload(conn, payload).persist()?)
-    }
-
-    /// Generate a new seed from the given RNG and store it in the database.
-    pub(super) fn from_rng(
-        conn: &'a Connection,
-        rng: &mut ChaCha20Rng,
-    ) -> Result<(), PhnxRandomnessError> {
-        let mut payload = [0u8; 32];
-        rng.try_fill_bytes(&mut payload)
-            .map_err(|_| PhnxRandomnessError::NotEnoughRandomness)?;
-        Ok(Self::from_connection_and_payload(conn, payload).persist()?)
-    }
-}
-
-impl SqlKey for u64 {
-    fn to_sql_key(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl Persistable for [u8; 32] {
-    type Key = u64;
-
-    type SecondaryKey = u64;
-
-    const DATA_TYPE: DataType = DataType::RandomnessSeed;
-
-    fn key(&self) -> &Self::Key {
-        &0
-    }
-
-    fn secondary_key(&self) -> &Self::SecondaryKey {
-        &0
-    }
 }
 
 #[test]
 fn randomness() {
     use std::collections::HashSet;
     let connection = Connection::open_in_memory().unwrap();
-    <[u8; 32] as Persistable>::create_table(&connection).unwrap();
 
     let provider = PhnxOpenMlsProvider::new(&connection);
     let random_vec_1 = provider.random_vec(32).unwrap();

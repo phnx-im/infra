@@ -24,7 +24,7 @@ use rand_chacha::rand_core::OsRng;
 
 use self::groups::client_auth_info::StorableClientCredential;
 
-use super::{openmls_provider::PersistableSeed, *};
+use super::*;
 
 // State before any network queries
 #[derive(Serialize, Deserialize)]
@@ -429,7 +429,6 @@ impl QsRegisteredUserState {
         } = self;
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
-        PersistableSeed::new_random(connection)?;
         let crypto_backend = PhnxOpenMlsProvider::new(connection);
 
         let mut qs_add_packages = vec![];
