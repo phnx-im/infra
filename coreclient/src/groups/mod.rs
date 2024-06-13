@@ -5,12 +5,15 @@
 pub(crate) mod client_auth_info;
 pub(crate) mod diff;
 pub(crate) mod error;
+pub(crate) mod openmls_provider;
 pub(crate) mod persistence;
 
 pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
 use mls_assist::messages::AssistedMessageOut;
+use openmls_provider::PhnxOpenMlsProvider;
+use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
         keys::{ClientSigningKey, InfraCredentialSigningKey},
@@ -53,7 +56,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
 use crate::{
-    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider},
+    clients::api_clients::ApiClients,
     contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage,
     key_stores::{as_credentials::AsCredentials, leaf_keys::LeafKeys},
@@ -63,14 +66,14 @@ use crate::{
 use std::collections::HashSet;
 
 use openmls::{
+    key_packages::KeyPackageBundle,
     prelude::{
         tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, Credential,
         CredentialType, CredentialWithKey, Extension, ExtensionType, Extensions, GroupId,
-        HpkePrivateKey, KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut,
-        OpenMlsKeyStore, OpenMlsProvider, ProcessedMessage, ProcessedMessageContent, Proposal,
-        ProposalType, ProtocolMessage, ProtocolVersion, QueuedProposal,
-        RequiredCapabilitiesExtension, Sender, StagedCommit, StagedWelcome, UnknownExtension,
-        PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
+        ProcessedMessage, ProcessedMessageContent, Proposal, ProposalType, ProtocolMessage,
+        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
+        StagedWelcome, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
     },
     treesync::RatchetTree,
 };
@@ -193,12 +196,12 @@ impl Group {
 
     /// Create a group.
     pub(super) fn create_group(
-        provider: &impl OpenMlsProvider,
         connection: &Connection,
         signer: &ClientSigningKey,
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, PartialCreateGroupParams)> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let credential_ear_key = ClientCredentialEarKey::random()?;
         let user_auth_key = UserAuthSigningKey::generate()?;
         let group_state_ear_key = GroupStateEarKey::random()?;
@@ -239,7 +242,11 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider.crypto(), &leaf_signer, true)?,
+            group_info: mls_group.export_group_info::<PhnxOpenMlsProvider>(
+                provider,
+                &leaf_signer,
+                true,
+            )?,
             user_auth_key: user_auth_key.verifying_key().clone(),
             encrypted_signature_ear_key,
         };
@@ -269,7 +276,6 @@ impl Group {
 
     /// Join a group with the provided welcome message. Returns the group name.
     pub(super) async fn join_group<'a>(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -277,30 +283,31 @@ impl Group {
         connection: &Connection,
         api_clients: &ApiClients,
     ) -> Result<Self> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
         let mls_group_config = Self::default_mls_group_join_config();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
-        let key_package: KeyPackage = welcome_bundle
+        let key_package_bundle: KeyPackageBundle = welcome_bundle
             .welcome
             .welcome
             .secrets()
             .iter()
             .find_map(|egs| {
-                let hash_ref = egs.new_member().as_slice().to_vec();
-                provider.key_store().read(&hash_ref)
+                let hash_ref = egs.new_member();
+                provider.storage().key_package(&hash_ref).ok()
             })
+            .flatten()
             .ok_or(GroupOperationError::MissingKeyPackage)?;
 
-        let private_key = provider
-            .key_store()
-            .read::<HpkePrivateKey>(key_package.hpke_init_key().as_slice())
-            .ok_or(GroupOperationError::MissingKeyPackage)?;
+        let private_key = key_package_bundle.init_private_key();
         let info = &[];
         let aad = &[];
-        let decryption_key =
-            JoinerInfoDecryptionKey::from((private_key, key_package.hpke_init_key().clone()));
+        let decryption_key = JoinerInfoDecryptionKey::from((
+            private_key.clone(),
+            key_package_bundle.key_package().hpke_init_key().clone(),
+        ));
         let joiner_info = DsJoinerInformationIn::decrypt(
             welcome_bundle.encrypted_joiner_info,
             &decryption_key,
@@ -386,7 +393,6 @@ impl Group {
 
     /// Join a group using an external commit.
     pub(super) async fn join_group_externally<'a>(
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
@@ -398,6 +404,7 @@ impl Group {
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         // TODO: We set the ratchet tree extension for now, as it is the only
         // way to make OpenMLS return a GroupInfo. This should change in the
         // future.
@@ -422,7 +429,7 @@ impl Group {
             &aad.tls_serialize_detached()?,
             credential_with_key,
         )?;
-        mls_group.set_aad(&[]);
+        mls_group.set_aad(provider.storage(), &[])?;
         mls_group.merge_pending_commit(provider)?;
 
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
@@ -488,11 +495,11 @@ impl Group {
     /// the sender's client credential.
     pub(super) async fn process_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
     ) -> Result<(ProcessedMessage, bool, AsClientId)> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let processed_message = self.mls_group.process_message(provider, message)?;
         let group_id = self.group_id();
 
@@ -831,9 +838,8 @@ impl Group {
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    pub(super) fn invite<'a>(
+    pub(super) fn invite(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
@@ -842,6 +848,7 @@ impl Group {
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<Vec<ClientCredential>>,
     ) -> Result<AddUsersParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key");
         };
@@ -874,12 +881,12 @@ impl Group {
         .into();
         // Set Aad to contain the encrypted client credentials.
         self.mls_group
-            .set_aad(&aad_message.tls_serialize_detached()?);
+            .set_aad(provider.storage(), &aad_message.tls_serialize_detached()?);
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
                 .add_members(provider, &self.leaf_signer, key_packages.as_slice())?;
         // Reset Aad to empty.
-        self.mls_group.set_aad(&[]);
+        self.mls_group.set_aad(provider.storage(), &[]);
 
         // Groups should always have the flag set that makes them return groupinfos with every Commit.
         // Or at least with Add commits for now.
@@ -951,10 +958,10 @@ impl Group {
 
     pub(super) fn remove<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         members: Vec<AsClientId>,
     ) -> Result<RemoveUsersParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key")
         };
@@ -962,13 +969,13 @@ impl Group {
             GroupMembership::client_indices(connection, self.group_id(), &members)?;
         let aad_payload = InfraAadPayload::RemoveUsers;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
-        self.mls_group.set_aad(aad.as_slice());
+        self.mls_group.set_aad(provider.storage(), aad.as_slice());
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
             provider,
             &self.leaf_signer,
             remove_indices.as_slice(),
         )?;
-        self.mls_group.set_aad(&[]);
+        self.mls_group.set_aad(provider.storage(), &[]);
         // There shouldn't be a welcome
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
@@ -994,11 +1001,8 @@ impl Group {
         Ok(params)
     }
 
-    pub(super) fn delete<'a>(
-        &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
-        connection: &Connection,
-    ) -> Result<DeleteGroupParamsOut> {
+    pub(super) fn delete<'a>(&mut self, connection: &Connection) -> Result<DeleteGroupParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key")
         };
@@ -1017,13 +1021,13 @@ impl Group {
         // There shouldn't be a welcome
         let aad_payload = InfraAadPayload::DeleteGroup;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
-        self.mls_group.set_aad(aad.as_slice());
+        self.mls_group.set_aad(provider.storage(), aad.as_slice());
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
             provider,
             &self.leaf_signer,
             remove_indices.as_slice(),
         )?;
-        self.mls_group.set_aad(&[]);
+        self.mls_group.set_aad(provider.storage(), &[]);
         debug_assert!(_welcome_option.is_none());
         let group_info =
             group_info_option.ok_or(anyhow!("No group info after commit operation"))?;
@@ -1054,11 +1058,11 @@ impl Group {
     /// apply the pending group diff.
     pub(super) fn merge_pending_commit<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
         connection: &Connection,
         staged_commit_option: impl Into<Option<StagedCommit>>,
         ds_timestamp: TimeStamp,
     ) -> Result<Vec<TimestampedMessage>> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let free_indices = GroupMembership::free_indices(connection, self.group_id())?;
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
 
@@ -1150,9 +1154,10 @@ impl Group {
     /// Send an application message to the group.
     pub(super) fn create_message<'a>(
         &mut self,
-        provider: &impl OpenMlsProvider<KeyStoreProvider = PhnxOpenMlsProvider<'a>>,
+        connection: &Connection,
         content: MimiContent,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let mls_message = self.mls_group.create_message(
             provider,
             &self.leaf_signer,
@@ -1229,11 +1234,8 @@ impl Group {
             .collect::<HashSet<UserName>>()
     }
 
-    pub(super) fn update(
-        &mut self,
-        provider: &impl OpenMlsProvider,
-        connection: &Connection,
-    ) -> Result<UpdateClientParamsOut> {
+    pub(super) fn update(&mut self, connection: &Connection) -> Result<UpdateClientParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         // We don't expect there to be a welcome.
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
@@ -1241,12 +1243,12 @@ impl Group {
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
-        self.mls_group.set_aad(&aad);
+        self.mls_group.set_aad(provider.storage(), &aad);
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer)
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
-        self.mls_group.set_aad(&[]);
+        self.mls_group.set_aad(provider.storage(), &[]);
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self
@@ -1272,21 +1274,21 @@ impl Group {
     /// Update or set the user's auth key in this group.
     pub(super) fn update_user_key(
         &mut self,
-        provider: &impl OpenMlsProvider,
         connection: &Connection,
     ) -> Result<UpdateClientParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let aad_payload = UpdateClientParamsAad {
             option_encrypted_signature_ear_key: None,
             option_encrypted_client_credential: None,
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
-        self.mls_group.set_aad(&aad);
+        self.mls_group.set_aad(provider.storage(), &aad);
         let (commit, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer)
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
-        self.mls_group.set_aad(&[]);
+        self.mls_group.set_aad(provider.storage(), &[]);
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self
@@ -1321,8 +1323,9 @@ impl Group {
 
     pub(super) fn leave_group(
         &mut self,
-        provider: &impl OpenMlsProvider,
+        connection: &Connection,
     ) -> Result<SelfRemoveClientParamsOut> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("User auth key not set")
         };
@@ -1340,8 +1343,14 @@ impl Group {
         &self.leaf_signer
     }
 
-    pub(super) fn store_proposal(&mut self, proposal: QueuedProposal) -> Result<()> {
-        self.mls_group.store_pending_proposal(proposal);
+    pub(super) fn store_proposal(
+        &mut self,
+        connection: &Connection,
+        proposal: QueuedProposal,
+    ) -> Result<()> {
+        let provider = &PhnxOpenMlsProvider::new(connection);
+        self.mls_group
+            .store_pending_proposal(provider.storage(), proposal);
         Ok(())
     }
 

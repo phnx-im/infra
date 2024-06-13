@@ -24,8 +24,8 @@ use phnxtypes::{
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
-    clients::{api_clients::ApiClients, openmls_provider::PhnxOpenMlsProvider, CIPHERSUITE},
-    groups::default_capabilities,
+    clients::{api_clients::ApiClients, CIPHERSUITE},
+    groups::{default_capabilities, openmls_provider::PhnxOpenMlsProvider},
 };
 
 use phnxtypes::{
@@ -102,11 +102,11 @@ impl MemoryUserKeyStore {
     pub(crate) fn generate_add_package(
         &self,
         connection: &Connection,
-        crypto_backend: &PhnxOpenMlsProvider,
         qs_client_id: &QsClientId,
         encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
     ) -> Result<AddPackage> {
+        let provider = PhnxOpenMlsProvider::new(connection);
         let leaf_keys = LeafKeys::generate(&self.signing_key)?;
         leaf_keys.store(connection)?;
         let credential_with_key = leaf_keys.credential()?;
@@ -133,12 +133,16 @@ impl MemoryUserKeyStore {
             .leaf_node_extensions(leaf_node_extensions)
             .build(
                 CIPHERSUITE,
-                crypto_backend,
+                &provider,
                 &leaf_keys.into_leaf_signer(),
                 credential_with_key,
             )?;
 
-        let add_package = AddPackage::new(kp.clone(), esek, encrypted_client_credential.clone());
+        let add_package = AddPackage::new(
+            kp.key_package().clone(),
+            esek,
+            encrypted_client_credential.clone(),
+        );
         Ok(add_package)
     }
 }

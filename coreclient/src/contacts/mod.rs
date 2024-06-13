@@ -5,6 +5,7 @@
 use std::ops::Deref;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
+use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     crypto::{
         ear::{
@@ -23,10 +24,8 @@ use phnxtypes::{
 use rusqlite::Connection;
 
 use crate::{
-    clients::{
-        api_clients::ApiClients, connection_establishment::FriendshipPackage,
-        openmls_provider::PhnxOpenMlsProvider,
-    },
+    clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::qs_verifying_keys::StorableQsVerifyingKey,
     ConversationId,
 };
@@ -82,8 +81,8 @@ impl Contact {
         &self,
         connection: &Connection,
         api_clients: ApiClients,
-        crypto_provider: &<PhnxOpenMlsProvider<'_> as openmls_traits::OpenMlsProvider>::CryptoProvider,
     ) -> Result<ContactAddInfos> {
+        let provider = PhnxOpenMlsProvider::new(connection);
         let invited_user = self.user_name.clone();
         let invited_user_domain = invited_user.domain();
 
@@ -99,7 +98,7 @@ impl Contact {
             .into_iter()
             .map(|add_package| {
                 let verified_add_package =
-                    add_package.validate(crypto_provider, ProtocolVersion::default())?;
+                    add_package.validate(provider.crypto(), ProtocolVersion::default())?;
                 let key_package = verified_add_package.key_package().clone();
                 let sek = SignatureEarKey::decrypt(
                     &self.signature_ear_key_wrapper_key,

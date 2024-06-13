@@ -23,7 +23,7 @@ hex = { version = "0.4" }
 opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
 
 phnxtypes = { workspace = true }
-mls-assist = { workspace = true }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/old_openmls_main" }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
 privacypass-middleware = { workspace = true }

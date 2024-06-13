@@ -429,7 +429,6 @@ impl QsRegisteredUserState {
         } = self;
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
-        let crypto_backend = PhnxOpenMlsProvider::new(connection);
 
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
@@ -438,7 +437,6 @@ impl QsRegisteredUserState {
             // decrypt it. We might want to use a separate key, though.
             let add_package = key_store.generate_add_package(
                 connection,
-                &crypto_backend,
                 qs_client_id,
                 &encrypted_client_credential,
                 false,
@@ -447,7 +445,6 @@ impl QsRegisteredUserState {
         }
         let last_resort_add_package = key_store.generate_add_package(
             connection,
-            &crypto_backend,
             qs_client_id,
             &encrypted_client_credential,
             true,

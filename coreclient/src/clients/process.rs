@@ -84,7 +84,6 @@ impl CoreUser {
         let processing_result = match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
                 let group = Group::join_group(
-                    &self.crypto_backend(),
                     welcome_bundle,
                     &self.key_store.wai_ear_key,
                     &self.sqlite_connection,
@@ -142,12 +141,7 @@ impl CoreUser {
                 let mut group = Group::load(&self.sqlite_connection, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
                 let (processed_message, we_were_removed, sender_client_id) = group
-                    .process_message(
-                        &self.crypto_backend(),
-                        &self.sqlite_connection,
-                        &self.api_clients,
-                        protocol_message,
-                    )
+                    .process_message(&self.sqlite_connection, &self.api_clients, protocol_message)
                     .await?;
 
                 let sender = processed_message.sender().clone();
@@ -167,7 +161,7 @@ impl CoreUser {
                         // For now, we don't to anything here. The proposal
                         // was processed by the MLS group and will be
                         // committed with the next commit.
-                        group.store_proposal(*proposal)?;
+                        group.store_proposal(&self.sqlite_connection, *proposal)?;
                         (vec![], false)
                     }
                     ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
@@ -219,6 +213,7 @@ impl CoreUser {
                             )?;
                             // We also need to get the add infos
                             let mut add_infos = vec![];
+                            let provider = &PhnxOpenMlsProvider::new(&self.sqlite_connection);
                             for _ in 0..5 {
                                 let key_package_batch_response = self
                                     .api_clients
@@ -234,7 +229,7 @@ impl CoreUser {
                                         .into_iter()
                                         .map(|add_package| {
                                             let verified_add_package = add_package.validate(
-                                                self.crypto_backend().crypto(),
+                                                provider.crypto(),
                                                 ProtocolVersion::default(),
                                             )?;
                                             let key_package =
@@ -296,7 +291,6 @@ impl CoreUser {
                             conversation.set_inactive(&self.sqlite_connection, past_members)?;
                         }
                         let group_messages = group.merge_pending_commit(
-                            &self.crypto_backend(),
                             &self.sqlite_connection,
                             *staged_commit,
                             ds_timestamp,
@@ -415,7 +409,6 @@ impl CoreUser {
                     )
                     .await?;
                 let (group, commit, group_info) = Group::join_group_externally(
-                    &self.crypto_backend(),
                     &self.sqlite_connection,
                     &self.api_clients,
                     eci,

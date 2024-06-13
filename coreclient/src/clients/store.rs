@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use groups::openmls_provider::{
+    OwnLeafNode, StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData,
+    StorableProposal, StorableSignatureKeyPairs,
+};
 use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
 };
@@ -17,7 +21,6 @@ use self::{
         Group,
     },
     key_stores::leaf_keys::LeafKeys,
-    openmls_provider::KeyStoreValue,
     utils::persistence::{Storable, Triggerable},
 };
 
@@ -295,7 +298,6 @@ impl Persistable for ClientRecord {
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
     <UserCreationState as Persistable>::create_table(client_db_connection)?;
     <OwnClientInfo as Storable>::create_table(client_db_connection)?;
-    <KeyStoreValue as Persistable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
     <Group as Storable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
@@ -310,6 +312,15 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     // The table for queue ratchets contains both the AsQueueRatchet and the
     // QsQueueRatchet.
     <StorableAsQueueRatchet as Storable>::create_table(client_db_connection)?;
+
+    // OpenMLS provider data
+    <StorableGroupData<u8> as Storable>::create_table(client_db_connection)?;
+    <OwnLeafNode as Storable>::create_table(client_db_connection)?;
+    <StorableProposal as Storable>::create_table(client_db_connection)?;
+    <StorableSignatureKeyPairs as Storable>::create_table(client_db_connection)?;
+    <StorableEpochKeyPairs as Storable>::create_table(client_db_connection)?;
+    <StorableEncryptionKeyPair as Storable>::create_table(client_db_connection)?;
+    <KeyPackageBundle as Storable>::create_table(client_db_connection)?;
 
     Ok(())
 }

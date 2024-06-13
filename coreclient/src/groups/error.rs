@@ -9,27 +9,28 @@ use openmls::group::{
     AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
     MlsGroupStateError, ProcessMessageError, WelcomeError,
 };
-use openmls_memory_keystore::MemoryKeyStoreError;
 use phnxtypes::crypto::DecryptionError;
 use thiserror::Error;
+
+use super::openmls_provider::storage_provider::SqliteStorageProviderError;
 
 #[derive(Error, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum GroupOperationError {
     #[error(transparent)]
-    MergeCommitError(#[from] MergeCommitError<MemoryKeyStoreError>),
+    MergeCommitError(#[from] MergeCommitError<SqliteStorageProviderError>),
     #[error(transparent)]
-    WelcomeError(#[from] WelcomeError<MemoryKeyStoreError>),
+    WelcomeError(#[from] WelcomeError<SqliteStorageProviderError>),
     #[error(transparent)]
-    MlsGroupStateError(#[from] MlsGroupStateError),
+    MlsGroupStateError(#[from] MlsGroupStateError<SqliteStorageProviderError>),
     #[error(transparent)]
-    CreateMessageError(#[from] CreateMessageError),
+    CreateMessageError(#[from] CreateMessageError<SqliteStorageProviderError>),
     #[error(transparent)]
-    ProcessMessageError(#[from] ProcessMessageError),
+    ProcessMessageError(#[from] ProcessMessageError<SqliteStorageProviderError>),
     #[error(transparent)]
-    AddMembersError(#[from] AddMembersError<MemoryKeyStoreError>),
+    AddMembersError(#[from] AddMembersError<SqliteStorageProviderError>),
     #[error(transparent)]
-    MergePendingCommitError(#[from] MergePendingCommitError<MemoryKeyStoreError>),
+    MergePendingCommitError(#[from] MergePendingCommitError<SqliteStorageProviderError>),
     #[error("Missing key package in key store")]
     MissingKeyPackage,
     #[error(transparent)]

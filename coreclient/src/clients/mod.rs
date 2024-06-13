@@ -6,7 +6,9 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
 use exif::{Reader, Tag};
-use groups::{client_auth_info::StorableClientCredential, Group};
+use groups::{
+    client_auth_info::StorableClientCredential, openmls_provider::PhnxOpenMlsProvider, Group,
+};
 use key_stores::as_credentials::AsCredentials;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -64,7 +66,6 @@ use self::{
     conversations::messages::TimestampedMessage,
     create_user::InitialUserState,
     mimi_content::MimiContent,
-    openmls_provider::PhnxOpenMlsProvider,
     store::{PersistableUserData, UserCreationState},
 };
 
@@ -73,7 +74,6 @@ use super::*;
 pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 mod create_user;
-pub(crate) mod openmls_provider;
 pub(crate) mod own_client_info;
 pub mod process;
 pub mod store;
@@ -250,7 +250,6 @@ impl CoreUser {
             ConversationAttributes::new(title.to_string(), conversation_picture_option);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
         let (group, partial_params) = Group::create_group(
-            &self.crypto_backend(),
             &self.sqlite_connection,
             &self.key_store.signing_key,
             group_id.clone(),
@@ -409,11 +408,7 @@ impl CoreUser {
                 .collect::<Result<Vec<_>, _>>()?;
             client_credentials.push(contact_client_credentials);
             let add_info = contact
-                .fetch_add_infos(
-                    &self.sqlite_connection,
-                    self.api_clients(),
-                    self.crypto_backend().crypto(),
-                )
+                .fetch_add_infos(&self.sqlite_connection, self.api_clients())
                 .await?;
             contact_add_infos.push(add_info);
         }
@@ -423,7 +418,6 @@ impl CoreUser {
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
         let params = group.invite(
-            &self.crypto_backend(),
             &self.sqlite_connection,
             &self.key_store.signing_key,
             contact_add_infos,
@@ -442,12 +436,8 @@ impl CoreUser {
             .await?;
 
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(
-            &self.crypto_backend(),
-            &self.sqlite_connection,
-            None,
-            ds_timestamp,
-        )?;
+        let group_messages =
+            group.merge_pending_commit(&self.sqlite_connection, None, ds_timestamp)?;
         group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
@@ -477,7 +467,7 @@ impl CoreUser {
             .iter()
             .flat_map(|user_name| group.user_client_ids(&self.sqlite_connection, user_name))
             .collect::<Vec<_>>();
-        let params = group.remove(&self.crypto_backend(), &self.sqlite_connection, clients)?;
+        let params = group.remove(&self.sqlite_connection, clients)?;
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
@@ -488,12 +478,8 @@ impl CoreUser {
             )
             .await?;
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(
-            &self.crypto_backend(),
-            &self.sqlite_connection,
-            None,
-            ds_timestamp,
-        )?;
+        let group_messages =
+            group.merge_pending_commit(&self.sqlite_connection, None, ds_timestamp)?;
         group.store_update(&self.sqlite_connection)?;
 
         let conversation_messages = self.store_messages(conversation_id, group_messages)?;
@@ -524,7 +510,7 @@ impl CoreUser {
         let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
-            .create_message(&self.crypto_backend(), content)
+            .create_message(&self.sqlite_connection, content)
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
@@ -564,7 +550,7 @@ impl CoreUser {
         let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
-            .create_message(&self.crypto_backend(), content)
+            .create_message(&self.sqlite_connection, content)
             .map_err(CorelibError::Group)?;
 
         // Send message to DS
@@ -641,7 +627,6 @@ impl CoreUser {
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = Group::create_group(
-            &self.crypto_backend(),
             &self.sqlite_connection,
             &self.key_store.signing_key,
             group_id.clone(),
@@ -757,19 +742,15 @@ impl CoreUser {
         // Generate ciphertext
         let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update_user_key(&self.crypto_backend(), &self.sqlite_connection)?;
+        let params = group.update_user_key(&self.sqlite_connection)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(
-            &self.crypto_backend(),
-            &self.sqlite_connection,
-            None,
-            ds_timestamp,
-        )?;
+        let group_messages =
+            group.merge_pending_commit(&self.sqlite_connection, None, ds_timestamp)?;
 
         group.store_update(&self.sqlite_connection)?;
 
@@ -800,7 +781,7 @@ impl CoreUser {
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         let messages = if past_members.len() != 1 {
-            let params = group.delete(&self.crypto_backend(), &self.sqlite_connection)?;
+            let params = group.delete(&self.sqlite_connection)?;
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = self
                 .api_clients
@@ -811,12 +792,8 @@ impl CoreUser {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            let messages = group.merge_pending_commit(
-                &self.crypto_backend(),
-                &self.sqlite_connection,
-                None,
-                ds_timestamp,
-            )?;
+            let messages =
+                group.merge_pending_commit(&self.sqlite_connection, None, ds_timestamp)?;
             group.store_update(&self.sqlite_connection)?;
             messages
         } else {
@@ -887,7 +864,7 @@ impl CoreUser {
         let group_id = conversation.group_id();
         let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.leave_group(&self.crypto_backend())?;
+        let params = group.leave_group(&self.sqlite_connection)?;
         let owner_domain = conversation.owner_domain();
         self.api_clients
             .get(&owner_domain)?
@@ -920,19 +897,15 @@ impl CoreUser {
         let group_id = conversation.group_id();
         let mut group = Group::load(&self.sqlite_connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update(&self.crypto_backend(), &self.sqlite_connection)?;
+        let params = group.update(&self.sqlite_connection)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(
-            &self.crypto_backend(),
-            &self.sqlite_connection,
-            None,
-            ds_timestamp,
-        )?;
+        let group_messages =
+            group.merge_pending_commit(&self.sqlite_connection, None, ds_timestamp)?;
 
         group.store_update(&self.sqlite_connection)?;
 
@@ -1054,9 +1027,5 @@ impl CoreUser {
         UserProfile::load(&self.sqlite_connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
-    }
-
-    fn crypto_backend(&self) -> PhnxOpenMlsProvider<'_> {
-        PhnxOpenMlsProvider::new(&self.sqlite_connection)
     }
 }
