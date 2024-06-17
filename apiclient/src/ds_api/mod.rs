@@ -22,7 +22,6 @@ use phnxtypes::{
         },
     },
     endpoint_paths::ENDPOINT_DS_GROUPS,
-    errors::DsProcessingError,
     identifiers::QsClientReference,
     messages::{
         client_ds::{
@@ -54,8 +53,8 @@ pub enum DsRequestError {
     UnexpectedResponse,
     #[error("Network error: {0}")]
     NetworkError(String),
-    #[error(transparent)]
-    DsError(#[from] DsProcessingError),
+    #[error("DS Error: {0}")]
+    DsError(String),
 }
 
 pub enum AuthenticationMethod<'a, T: SigningKey> {
@@ -106,11 +105,10 @@ impl ApiClient {
                             DsRequestError::BadResponse
                         })?;
                         let ds_proc_err =
-                            DsProcessingError::tls_deserialize_exact_bytes(&ds_proc_err_bytes)
-                                .map_err(|_| {
-                                    log::warn!("Couldn't deserialize DS-error response body.");
-                                    DsRequestError::BadResponse
-                                })?;
+                            String::from_utf8(ds_proc_err_bytes.to_vec()).map_err(|_| {
+                                log::warn!("Couldn't deserialize DS-error response body.");
+                                DsRequestError::BadResponse
+                            })?;
                         Err(DsRequestError::DsError(ds_proc_err))
                     }
                     // All other errors

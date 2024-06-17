@@ -4,8 +4,8 @@
 
 use anyhow::bail;
 use groups::openmls_provider::{
-    OwnLeafNode, StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData,
-    StorableProposal, StorableSignatureKeyPairs,
+    StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData, StorableKeyPackage,
+    StorableLeafNode, StorableProposal, StorablePskBundle, StorableSignatureKeyPairs,
 };
 use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
@@ -315,12 +315,13 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
 
     // OpenMLS provider data
     <StorableGroupData<u8> as Storable>::create_table(client_db_connection)?;
-    <OwnLeafNode as Storable>::create_table(client_db_connection)?;
-    <StorableProposal as Storable>::create_table(client_db_connection)?;
-    <StorableSignatureKeyPairs as Storable>::create_table(client_db_connection)?;
-    <StorableEpochKeyPairs as Storable>::create_table(client_db_connection)?;
-    <StorableEncryptionKeyPair as Storable>::create_table(client_db_connection)?;
-    <KeyPackageBundle as Storable>::create_table(client_db_connection)?;
+    <StorableLeafNode<u8> as Storable>::create_table(client_db_connection)?;
+    <StorableProposal<u8, u8> as Storable>::create_table(client_db_connection)?;
+    <StorableSignatureKeyPairs<u8> as Storable>::create_table(client_db_connection)?;
+    <StorableEpochKeyPairs<u8> as Storable>::create_table(client_db_connection)?;
+    <StorableEncryptionKeyPair<u8> as Storable>::create_table(client_db_connection)?;
+    <StorableKeyPackage<u8> as Storable>::create_table(client_db_connection)?;
+    <StorablePskBundle<u8> as Storable>::create_table(client_db_connection)?;
 
     Ok(())
 }

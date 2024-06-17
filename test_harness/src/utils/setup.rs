@@ -366,7 +366,7 @@ impl TestBackend {
         let mut user1_conversations_after = user1.conversations().unwrap();
         let new_conversation_position = user1_conversations_after
             .iter()
-            .position(|c| &c.attributes().title() == &test_title)
+            .position(|c| c.attributes().title() == test_title)
             .expect("User 1 should have created a new conversation");
         let conversation = user1_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);

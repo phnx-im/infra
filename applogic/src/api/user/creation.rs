@@ -18,7 +18,7 @@ use crate::{
         types::{ConversationIdBytes, UiNotificationType, UiUserProfile},
         utils::rust_set_up,
     },
-    app_state::app_state::AppState,
+    app_state::state::AppState,
     notifications::{Notifiable, NotificationHub},
     StreamSink,
 };
@@ -197,14 +197,12 @@ impl User {
                             .add(WsNotification::Disconnected)
                             .map_err(|e| anyhow!(e))?;
                     }
-                    WsEvent::MessageEvent(e) => match e {
-                        QsWsMessage::QueueUpdate => {
-                            stream_sink
-                                .add(WsNotification::QueueUpdate)
-                                .map_err(|e| anyhow!(e))?;
-                        }
-                        _ => {}
-                    },
+                    WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
+                        stream_sink
+                            .add(WsNotification::QueueUpdate)
+                            .map_err(|e| anyhow!(e))?;
+                    }
+                    _ => {}
                 },
                 None => {
                     stream_sink
@@ -220,9 +218,7 @@ impl User {
     /// Get the own user profile.
     pub async fn own_user_profile(&self) -> Result<UiUserProfile> {
         let user = self.user.lock().await;
-        let user_profile = user
-            .own_user_profile()
-            .map(|up| UiUserProfile::from(up).into())?;
+        let user_profile = user.own_user_profile().map(UiUserProfile::from)?;
         Ok(user_profile)
     }
 

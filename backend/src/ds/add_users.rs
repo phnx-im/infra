@@ -42,6 +42,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) async fn add_users<Q: QsConnector>(
         &mut self,
+        provider: &OpenMlsRustCrypto,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
@@ -49,7 +50,7 @@ impl DsGroupState {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(params.commit)
+            .process_assisted_message(provider, params.commit)
             .map_err(|e| {
                 tracing::warn!("Error processing assisted message: {:?}", e);
                 AddUsersError::ProcessingError
@@ -216,9 +217,10 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
+            provider,
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
-        );
+        )?;
 
         // ... s.t. it's easier to update the user and client profiles.
 

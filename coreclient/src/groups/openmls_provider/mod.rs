@@ -14,8 +14,10 @@ use super::*;
 pub(crate) use encryption_key_pairs::StorableEncryptionKeyPair;
 pub(crate) use epoch_key_pairs::StorableEpochKeyPairs;
 pub(crate) use group_data::StorableGroupData;
-pub(crate) use own_leaf_nodes::OwnLeafNode;
+pub(crate) use key_packages::StorableKeyPackage;
+pub(crate) use own_leaf_nodes::StorableLeafNode;
 pub(crate) use proposals::StorableProposal;
+pub(crate) use psks::StorablePskBundle;
 pub(crate) use signature_key_pairs::StorableSignatureKeyPairs;
 
 mod encryption_key_pairs;

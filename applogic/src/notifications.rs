@@ -77,7 +77,7 @@ impl User {
     ) {
         let mut notification_hub = self.notification_hub_option.lock().await;
         conversation_ids.into_iter().for_each(|conversation_id| {
-            notification_hub.dispatch_conversation_notification(conversation_id.into())
+            notification_hub.dispatch_conversation_notification(conversation_id)
         });
     }
 
@@ -91,7 +91,7 @@ impl User {
         conversation_messages
             .into_iter()
             .for_each(|conversation_message| {
-                notification_hub.dispatch_message_notification(conversation_message.into())
+                notification_hub.dispatch_message_notification(conversation_message)
             });
     }
 
@@ -99,7 +99,7 @@ impl User {
     pub(crate) fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
         #[cfg(target_os = "macos")]
         {
-            let res = notify_rust::set_application(&"im.phnx.prototype");
+            let res = notify_rust::set_application("im.phnx.prototype");
             if res.is_err() {
                 log::warn!("Could not set application for desktop notifications");
             }

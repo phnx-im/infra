@@ -2,16 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{traits::GroupId as GroupIdTrait, Entity, CURRENT_VERSION};
+use openmls_traits::storage::{Entity, Key, CURRENT_VERSION};
 use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
 
 use crate::utils::persistence::Storable;
 
-use super::storage_provider::{EntityRefWrapper, EntityWrapper, KeyRefWrapper};
-
-pub(crate) struct StorableGroupData<GroupData: Entity<CURRENT_VERSION>> {
-    payload: GroupData,
-}
+use super::storage_provider::{EntityRefWrapper, EntityWrapper, KeyRefWrapper, StorableGroupIdRef};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) enum GroupDataType {
@@ -69,6 +65,8 @@ impl FromSql for GroupDataType {
     }
 }
 
+pub(crate) struct StorableGroupData<GroupData: Entity<CURRENT_VERSION>>(pub GroupData);
+
 impl<GroupData: Entity<CURRENT_VERSION>> Storable for StorableGroupData<GroupData> {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS group_data (
@@ -82,10 +80,10 @@ impl<GroupData: Entity<CURRENT_VERSION>> Storable for StorableGroupData<GroupDat
                 'confirmation_tag', 
                 'group_state', 
                 'message_secrets', 
-                'resumption_psk_store'
+                'resumption_psk_store',
                 'own_leaf_index',
                 'use_ratchet_tree_extension',
-                'group_epoch_secrets',
+                'group_epoch_secrets'
             )),
             group_data BLOB NOT NULL,
             PRIMARY KEY (group_id, data_type)
@@ -93,74 +91,50 @@ impl<GroupData: Entity<CURRENT_VERSION>> Storable for StorableGroupData<GroupDat
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(payload) = row.get(0)?;
-        Ok(Self { payload })
+        Ok(Self(payload))
     }
 }
 
+pub(super) struct StorableGroupDataRef<'a, GroupData: Entity<CURRENT_VERSION>>(pub &'a GroupData);
+
 impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupData<GroupData> {
-    pub(super) fn load<GroupId: GroupIdTrait<CURRENT_VERSION>>(
+    pub(super) fn load<GroupId: Key<CURRENT_VERSION>>(
         connection: &Connection,
         group_id: &GroupId,
         data_type: GroupDataType,
-    ) -> Result<Option<Self>, rusqlite::Error> {
+    ) -> Result<Option<GroupData>, rusqlite::Error> {
         let mut stmt = connection
             .prepare("SELECT group_data FROM group_data WHERE group_id = ? AND data_type = ?")?;
-        let result = stmt
-            .query_row(params![KeyRefWrapper(group_id), data_type], Self::from_row)
-            .optional()?;
-        Ok(result)
+        stmt.query_row(params![KeyRefWrapper(group_id), data_type], Self::from_row)
+            .map(|x| x.0)
+            .optional()
     }
+}
 
-    pub(super) fn delete<GroupId: GroupIdTrait<CURRENT_VERSION>>(
+impl<'a, GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'a, GroupData> {
+    pub(super) fn store<GroupId: Key<CURRENT_VERSION>>(
+        &self,
         connection: &Connection,
         group_id: &GroupId,
         data_type: GroupDataType,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "DELETE FROM group_data WHERE group_id = ? AND data_type = ?",
-            params![KeyRefWrapper(group_id), data_type],
+            "INSERT OR REPLACE INTO group_data (group_id, data_type, group_data) VALUES (?, ?, ?)",
+            params![KeyRefWrapper(group_id), data_type, EntityRefWrapper(self.0)],
         )?;
         Ok(())
     }
-
-    pub(super) fn into_payload(self) -> GroupData {
-        self.payload
-    }
 }
 
-pub(crate) struct StorableGroupDataRef<
-    'a,
-    GroupId: GroupIdTrait<CURRENT_VERSION>,
-    GroupData: Entity<CURRENT_VERSION>,
-> {
-    group_id: &'a GroupId,
-    data_type: GroupDataType,
-    payload: &'a GroupData,
-}
-
-impl<'a, GroupId: GroupIdTrait<CURRENT_VERSION>, GroupData: Entity<CURRENT_VERSION>>
-    StorableGroupDataRef<'a, GroupId, GroupData>
-{
-    pub(super) fn new(
-        group_id: &'a GroupId,
+impl<'a, GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'a, GroupId> {
+    pub(super) fn delete_group_data(
+        &self,
+        connection: &Connection,
         data_type: GroupDataType,
-        payload: &'a GroupData,
-    ) -> Self {
-        Self {
-            group_id,
-            data_type,
-            payload,
-        }
-    }
-
-    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    ) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT OR REPLACE INTO group_data (group_id, data_type, group_data) VALUES (?, ?, ?)",
-            params![
-                KeyRefWrapper(self.group_id),
-                self.data_type,
-                EntityRefWrapper(self.payload)
-            ],
+            "DELETE FROM group_data WHERE group_id = ? AND data_type = ?",
+            params![KeyRefWrapper(self.0), data_type],
         )?;
         Ok(())
     }

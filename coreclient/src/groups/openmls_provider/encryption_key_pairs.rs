@@ -2,83 +2,78 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{
-    traits::{EncryptionKey as EncryptionKeyTrait, HpkeKeyPair},
-    CURRENT_VERSION,
-};
+use openmls_traits::storage::{Entity, Key, CURRENT_VERSION};
 use rusqlite::{params, OptionalExtension};
 
 use crate::utils::persistence::Storable;
 
-use super::storage_provider::{EntityWrapper, KeyRefWrapper, SqliteStorageProviderError};
+use super::storage_provider::{EntityRefWrapper, EntityWrapper, KeyRefWrapper};
 
-pub(crate) struct StorableEncryptionKeyPair {
-    encryption_key_pair_bytes: Vec<u8>,
-}
+pub(crate) struct StorableEncryptionKeyPair<EncryptionKeyPair: Entity<CURRENT_VERSION>>(
+    pub EncryptionKeyPair,
+);
 
-impl Storable for StorableEncryptionKeyPair {
+impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> Storable
+    for StorableEncryptionKeyPair<EncryptionKeyPair>
+{
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS encryption_keys (
         public_key BLOB PRIMARY KEY,
-        key_pair BLOB NOT NULL,
+        key_pair BLOB NOT NULL
     )";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let encryption_key_pair_bytes = row.get(0)?;
-        Ok(Self {
-            encryption_key_pair_bytes,
-        })
+        let EntityWrapper(encryption_key_pair) = row.get(0)?;
+        Ok(Self(encryption_key_pair))
     }
 }
 
-impl StorableEncryptionKeyPair {
-    pub(super) fn new<EncryptionKeyPair: HpkeKeyPair<CURRENT_VERSION>>(
-        encryption_key_pair: &EncryptionKeyPair,
-    ) -> Result<Self, SqliteStorageProviderError> {
-        let encryption_key_pair_bytes = serde_json::to_vec(encryption_key_pair)?;
-        Ok(Self {
-            encryption_key_pair_bytes,
-        })
-    }
-
-    pub(super) fn store<EncryptionKey: EncryptionKeyTrait<CURRENT_VERSION>>(
-        &self,
+impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> StorableEncryptionKeyPair<EncryptionKeyPair> {
+    pub(super) fn load<EncryptionKey: Key<CURRENT_VERSION>>(
         connection: &rusqlite::Connection,
         public_key: &EncryptionKey,
-    ) -> Result<(), SqliteStorageProviderError> {
-        connection.execute(
-            "INSERT INTO encryption_keys (public_key, key_pair) VALUES (?1, ?2)",
-            params![KeyRefWrapper(public_key), self.encryption_key_pair_bytes],
-        )?;
-        Ok(())
-    }
-
-    pub(super) fn load<
-        EncryptionKey: EncryptionKeyTrait<CURRENT_VERSION>,
-        EncryptionKeyPair: HpkeKeyPair<CURRENT_VERSION>,
-    >(
-        connection: &rusqlite::Connection,
-        public_key: &EncryptionKey,
-    ) -> Result<Option<EncryptionKeyPair>, SqliteStorageProviderError> {
-        let row = connection
+    ) -> Result<Option<EncryptionKeyPair>, rusqlite::Error> {
+        connection
             .query_row(
                 "SELECT key_pair FROM encryption_keys WHERE public_key = ?1",
                 params![KeyRefWrapper(public_key)],
-                |row| {
-                    let EntityWrapper(encryption_key_pair) = row.get(0)?;
-                    Ok(encryption_key_pair)
-                },
+                Self::from_row,
             )
-            .optional()?;
-        Ok(row)
+            .map(|x| x.0)
+            .optional()
     }
+}
 
-    pub(super) fn delete<EncryptionKey: EncryptionKeyTrait<CURRENT_VERSION>>(
+pub(crate) struct StorableEncryptionKeyPairRef<'a, EncryptionKeyPair: Entity<CURRENT_VERSION>>(
+    pub &'a EncryptionKeyPair,
+);
+
+impl<'a, EncryptionKeyPair: Entity<CURRENT_VERSION>>
+    StorableEncryptionKeyPairRef<'a, EncryptionKeyPair>
+{
+    pub(super) fn store<EncryptionKey: Key<CURRENT_VERSION>>(
+        &self,
         connection: &rusqlite::Connection,
         public_key: &EncryptionKey,
-    ) -> Result<(), SqliteStorageProviderError> {
+    ) -> Result<(), rusqlite::Error> {
+        connection.execute(
+            "INSERT INTO encryption_keys (public_key, key_pair) VALUES (?1, ?2)",
+            params![KeyRefWrapper(public_key), EntityRefWrapper(self.0)],
+        )?;
+        Ok(())
+    }
+}
+
+pub(crate) struct StorableEncryptionPublicKeyRef<'a, EncryptionPublicKey: Key<CURRENT_VERSION>>(
+    pub &'a EncryptionPublicKey,
+);
+
+impl<'a, EncryptionPublicKey: Key<CURRENT_VERSION>>
+    StorableEncryptionPublicKeyRef<'a, EncryptionPublicKey>
+{
+    pub(super) fn delete(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM encryption_keys WHERE public_key = ?1",
-            params![KeyRefWrapper(public_key)],
+            params![KeyRefWrapper(self.0)],
         )?;
         Ok(())
     }

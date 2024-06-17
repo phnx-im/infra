@@ -12,25 +12,23 @@ use openmls::group::{
 use phnxtypes::crypto::DecryptionError;
 use thiserror::Error;
 
-use super::openmls_provider::storage_provider::SqliteStorageProviderError;
-
 #[derive(Error, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum GroupOperationError {
     #[error(transparent)]
-    MergeCommitError(#[from] MergeCommitError<SqliteStorageProviderError>),
+    MergeCommitError(#[from] MergeCommitError<rusqlite::Error>),
     #[error(transparent)]
-    WelcomeError(#[from] WelcomeError<SqliteStorageProviderError>),
+    WelcomeError(#[from] WelcomeError<rusqlite::Error>),
     #[error(transparent)]
-    MlsGroupStateError(#[from] MlsGroupStateError<SqliteStorageProviderError>),
+    MlsGroupStateError(#[from] MlsGroupStateError<rusqlite::Error>),
     #[error(transparent)]
-    CreateMessageError(#[from] CreateMessageError<SqliteStorageProviderError>),
+    CreateMessageError(#[from] CreateMessageError<rusqlite::Error>),
     #[error(transparent)]
-    ProcessMessageError(#[from] ProcessMessageError<SqliteStorageProviderError>),
+    ProcessMessageError(#[from] ProcessMessageError<rusqlite::Error>),
     #[error(transparent)]
-    AddMembersError(#[from] AddMembersError<SqliteStorageProviderError>),
+    AddMembersError(#[from] AddMembersError<rusqlite::Error>),
     #[error(transparent)]
-    MergePendingCommitError(#[from] MergePendingCommitError<SqliteStorageProviderError>),
+    MergePendingCommitError(#[from] MergePendingCommitError<rusqlite::Error>),
     #[error("Missing key package in key store")]
     MissingKeyPackage,
     #[error(transparent)]

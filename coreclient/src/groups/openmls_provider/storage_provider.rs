@@ -2,22 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::key_packages::KeyPackageBundle;
 use openmls_traits::storage::{Entity, Key, StorageProvider, CURRENT_VERSION};
 use rusqlite::{
     types::{FromSql, ToSqlOutput},
     Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use super::{
-    encryption_key_pairs::StorableEncryptionKeyPair,
-    epoch_key_pairs::StorableEpochKeyPairs,
+    encryption_key_pairs::{
+        StorableEncryptionKeyPair, StorableEncryptionKeyPairRef, StorableEncryptionPublicKeyRef,
+    },
+    epoch_key_pairs::{StorableEpochKeyPairs, StorableEpochKeyPairsRef},
     group_data::{GroupDataType, StorableGroupData, StorableGroupDataRef},
-    key_packages::StorableKeyPackage,
-    psks::StorablePskBundle,
-    OwnLeafNode, StorableProposal, StorableSignatureKeyPairs,
+    key_packages::{StorableHashRef, StorableKeyPackage, StorableKeyPackageRef},
+    own_leaf_nodes::StorableLeafNodeRef,
+    proposals::StorableProposalRef,
+    psks::{StorablePskBundle, StorablePskBundleRef, StorablePskIdRef},
+    signature_key_pairs::{StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef},
+    StorableLeafNode, StorableProposal, StorableSignatureKeyPairs,
 };
 
 pub(crate) struct SqliteStorageProvider<'a> {
@@ -27,20 +30,6 @@ pub(crate) struct SqliteStorageProvider<'a> {
 impl<'a> SqliteStorageProvider<'a> {
     pub(crate) fn new(connection: &'a Connection) -> Self {
         Self { connection }
-    }
-}
-
-#[derive(Debug, Error, PartialEq)]
-pub(crate) enum SqliteStorageProviderError {
-    #[error("Sqlite error: {0}")]
-    SqliteError(#[from] rusqlite::Error),
-    #[error("Serde error")]
-    SerdeError, //(#[from] serde_json::Error),
-}
-
-impl From<serde_json::Error> for SqliteStorageProviderError {
-    fn from(_: serde_json::Error) -> Self {
-        Self::SerdeError
     }
 }
 
@@ -83,8 +72,36 @@ impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntityRefWrapper<'a, T> {
     }
 }
 
+pub(super) struct EntitySliceWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a [T]);
+
+impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntitySliceWrapper<'a, T> {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let entity_bytes = serde_json::to_vec(&self.0).map_err(|e| {
+            log::error!("Failed to serialize entity: {}", e);
+            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
+        })?;
+        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
+            entity_bytes,
+        )))
+    }
+}
+
+pub(super) struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
+
+impl<T: Entity<CURRENT_VERSION>> FromSql for EntityVecWrapper<T> {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let entities = serde_json::from_slice(value.as_blob()?).map_err(|e| {
+            log::error!("Failed to deserialize entity: {}", e);
+            rusqlite::types::FromSqlError::Other(Box::new(e))
+        })?;
+        Ok(Self(entities))
+    }
+}
+
+pub(super) struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
+
 impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
-    type Error = SqliteStorageProviderError;
+    type Error = rusqlite::Error;
 
     fn write_mls_join_config<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
@@ -94,9 +111,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         config: &MlsGroupJoinConfig,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::JoinGroupConfig, config)
-            .store(self.connection)?;
-        Ok(())
+        StorableGroupDataRef(config).store(
+            self.connection,
+            group_id,
+            GroupDataType::JoinGroupConfig,
+        )
     }
 
     fn write_aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
@@ -104,8 +123,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         aad: &[u8],
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::Aad, &Aad(aad.to_vec()))
-            .store(self.connection)?;
+        StorableGroupDataRef(&Aad(aad.to_vec())).store(
+            self.connection,
+            group_id,
+            GroupDataType::Aad,
+        )?;
         Ok(())
     }
 
@@ -117,16 +139,14 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         leaf_node: &LeafNode,
     ) -> Result<(), Self::Error> {
-        OwnLeafNode::new(leaf_node)?.store(self.connection, group_id)?;
-        Ok(())
+        StorableLeafNodeRef(leaf_node).store(self.connection, group_id)
     }
 
     fn clear_own_leaf_nodes<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        OwnLeafNode::delete(self.connection, group_id)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_leaf_nodes(self.connection)
     }
 
     fn queue_proposal<
@@ -139,8 +159,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         proposal_ref: &ProposalRef,
         proposal: &QueuedProposal,
     ) -> Result<(), Self::Error> {
-        StorableProposal::new(proposal_ref, proposal)?.store(self.connection, group_id)?;
-        Ok(())
+        StorableProposalRef(proposal_ref, proposal).store(self.connection, group_id)
     }
 
     fn write_tree<
@@ -151,8 +170,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         tree: &TreeSync,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::Tree, tree).store(self.connection)?;
-        Ok(())
+        StorableGroupDataRef(tree).store(self.connection, group_id, GroupDataType::Tree)
     }
 
     fn write_interim_transcript_hash<
@@ -163,13 +181,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         interim_transcript_hash: &InterimTranscriptHash,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(
+        StorableGroupDataRef(interim_transcript_hash).store(
+            self.connection,
             group_id,
             GroupDataType::InterimTranscriptHash,
-            interim_transcript_hash,
         )
-        .store(self.connection)?;
-        Ok(())
     }
 
     fn write_context<
@@ -180,9 +196,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         group_context: &GroupContext,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::Context, group_context)
-            .store(self.connection)?;
-        Ok(())
+        StorableGroupDataRef(group_context).store(self.connection, group_id, GroupDataType::Context)
     }
 
     fn write_confirmation_tag<
@@ -193,9 +207,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         confirmation_tag: &ConfirmationTag,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::ConfirmationTag, confirmation_tag)
-            .store(self.connection)?;
-        Ok(())
+        StorableGroupDataRef(confirmation_tag).store(
+            self.connection,
+            group_id,
+            GroupDataType::ConfirmationTag,
+        )
     }
 
     fn write_group_state<
@@ -206,9 +222,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         group_state: &GroupState,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::GroupState, group_state)
-            .store(self.connection)?;
-        Ok(())
+        StorableGroupDataRef(group_state).store(
+            self.connection,
+            group_id,
+            GroupDataType::GroupState,
+        )
     }
 
     fn write_message_secrets<
@@ -219,8 +237,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         message_secrets: &MessageSecrets,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::MessageSecrets, message_secrets)
-            .store(self.connection)?;
+        StorableGroupDataRef(message_secrets).store(
+            self.connection,
+            group_id,
+            GroupDataType::MessageSecrets,
+        )?;
         Ok(())
     }
 
@@ -232,13 +253,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         resumption_psk_store: &ResumptionPskStore,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(
+        StorableGroupDataRef(resumption_psk_store).store(
+            self.connection,
             group_id,
             GroupDataType::ResumptionPskStore,
-            resumption_psk_store,
         )
-        .store(self.connection)?;
-        Ok(())
     }
 
     fn write_own_leaf_index<
@@ -249,8 +268,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         own_leaf_index: &LeafNodeIndex,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::OwnLeafIndex, own_leaf_index)
-            .store(self.connection)?;
+        StorableGroupDataRef(own_leaf_index).store(
+            self.connection,
+            group_id,
+            GroupDataType::OwnLeafIndex,
+        )?;
         Ok(())
     }
 
@@ -261,8 +283,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         value: bool,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(group_id, GroupDataType::UseRatchetTreeExtension, &value)
-            .store(self.connection)?;
+        StorableGroupDataRef(&value).store(
+            self.connection,
+            group_id,
+            GroupDataType::UseRatchetTreeExtension,
+        )?;
         Ok(())
     }
 
@@ -274,12 +299,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         group_epoch_secrets: &GroupEpochSecrets,
     ) -> Result<(), Self::Error> {
-        StorableGroupDataRef::new(
+        StorableGroupDataRef(group_epoch_secrets).store(
+            self.connection,
             group_id,
             GroupDataType::GroupEpochSecrets,
-            group_epoch_secrets,
-        )
-        .store(self.connection)?;
+        )?;
         Ok(())
     }
 
@@ -291,7 +315,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         public_key: &SignaturePublicKey,
         signature_key_pair: &SignatureKeyPair,
     ) -> Result<(), Self::Error> {
-        StorableSignatureKeyPairs::new(signature_key_pair)?.store(self.connection, public_key)
+        StorableSignatureKeyPairsRef(signature_key_pair).store(self.connection, public_key)
     }
 
     fn write_encryption_key_pair<
@@ -302,7 +326,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         public_key: &EncryptionKey,
         key_pair: &HpkeKeyPair,
     ) -> Result<(), Self::Error> {
-        StorableEncryptionKeyPair::new(key_pair)?.store(self.connection, public_key)
+        StorableEncryptionKeyPairRef(key_pair).store(self.connection, public_key)
     }
 
     fn write_encryption_epoch_key_pairs<
@@ -316,7 +340,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         leaf_index: u32,
         key_pairs: &[HpkeKeyPair],
     ) -> Result<(), Self::Error> {
-        StorableEpochKeyPairs::new(key_pairs)?.store(self.connection, group_id, epoch, leaf_index)
+        StorableEpochKeyPairsRef(key_pairs).store(self.connection, group_id, epoch, leaf_index)
     }
 
     fn write_key_package<
@@ -327,7 +351,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         hash_ref: &HashReference,
         key_package: &KeyPackage,
     ) -> Result<(), Self::Error> {
-        key_package.store(self.connection, hash_ref)
+        StorableKeyPackageRef(key_package).store(self.connection, hash_ref)
     }
 
     fn write_psk<
@@ -338,7 +362,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         psk_id: &PskId,
         psk: &PskBundle,
     ) -> Result<(), Self::Error> {
-        StorablePskBundle::store(self.connection, psk_id, psk)
+        StorablePskBundleRef(psk).store(self.connection, psk_id)
     }
 
     fn mls_group_join_config<
@@ -348,10 +372,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<MlsGroupJoinConfig>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::JoinGroupConfig)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::JoinGroupConfig)
     }
 
     fn own_leaf_nodes<
@@ -361,21 +382,15 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Vec<LeafNode>, Self::Error> {
-        let own_leaf_nodes = OwnLeafNode::load(self.connection, group_id)?
-            .into_iter()
-            .map(|node| node.into_inner())
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(own_leaf_nodes)
+        StorableLeafNode::load(self.connection, group_id)
     }
 
     fn aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<Vec<u8>, Self::Error> {
-        let payload = StorableGroupData::load(self.connection, group_id, GroupDataType::Aad)?
-            .map(|data| data.into_payload())
-            .unwrap_or_default();
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::Aad)
+            .map(|data| data.unwrap_or_default())
     }
 
     fn queued_proposal_refs<
@@ -385,8 +400,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Vec<ProposalRef>, Self::Error> {
-        let refs = StorableProposal::load_refs(self.connection, group_id)?;
-        Ok(refs)
+        StorableProposal::<u8, ProposalRef>::load_refs(self.connection, group_id)
     }
 
     fn queued_proposals<
@@ -397,11 +411,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Vec<(ProposalRef, QueuedProposal)>, Self::Error> {
-        let proposals = StorableProposal::load(self.connection, group_id)?
-            .into_iter()
-            .map(|p| p.into_tuple())
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(proposals)
+        StorableProposal::load(self.connection, group_id)
     }
 
     fn treesync<
@@ -411,9 +421,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<TreeSync>, Self::Error> {
-        let payload = StorableGroupData::load(self.connection, group_id, GroupDataType::Tree)?
-            .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::Tree)
     }
 
     fn group_context<
@@ -423,9 +431,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<GroupContext>, Self::Error> {
-        let payload = StorableGroupData::load(self.connection, group_id, GroupDataType::Context)?
-            .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::Context)
     }
 
     fn interim_transcript_hash<
@@ -435,13 +441,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<InterimTranscriptHash>, Self::Error> {
-        let payload = StorableGroupData::load(
+        StorableGroupData::load(
             self.connection,
             group_id,
             GroupDataType::InterimTranscriptHash,
-        )?
-        .map(|data| data.into_payload());
-        Ok(payload)
+        )
     }
 
     fn confirmation_tag<
@@ -451,10 +455,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<ConfirmationTag>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::ConfirmationTag)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::ConfirmationTag)
     }
 
     fn group_state<
@@ -464,10 +465,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<GroupState>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::GroupState)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::GroupState)
     }
 
     fn message_secrets<
@@ -477,10 +475,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<MessageSecrets>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::MessageSecrets)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::MessageSecrets)
     }
 
     fn resumption_psk_store<
@@ -490,10 +485,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<ResumptionPskStore>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::ResumptionPskStore)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::ResumptionPskStore)
     }
 
     fn own_leaf_index<
@@ -503,10 +495,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<LeafNodeIndex>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::OwnLeafIndex)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::OwnLeafIndex)
     }
 
     fn use_ratchet_tree_extension<
@@ -515,13 +504,11 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<bool>, Self::Error> {
-        let payload = StorableGroupData::load(
+        StorableGroupData::load(
             self.connection,
             group_id,
             GroupDataType::UseRatchetTreeExtension,
-        )?
-        .map(|data| data.into_payload());
-        Ok(payload)
+        )
     }
 
     fn group_epoch_secrets<
@@ -531,10 +518,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<Option<GroupEpochSecrets>, Self::Error> {
-        let payload =
-            StorableGroupData::load(self.connection, group_id, GroupDataType::GroupEpochSecrets)?
-                .map(|data| data.into_payload());
-        Ok(payload)
+        StorableGroupData::load(self.connection, group_id, GroupDataType::GroupEpochSecrets)
     }
 
     fn signature_key_pair<
@@ -577,7 +561,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         hash_ref: &KeyPackageRef,
     ) -> Result<Option<KeyPackage>, Self::Error> {
-        KeyPackage::load(self.connection, hash_ref)
+        StorableKeyPackage::load(self.connection, hash_ref)
     }
 
     fn psk<
@@ -598,40 +582,36 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
         proposal_ref: &ProposalRef,
     ) -> Result<(), Self::Error> {
-        StorableProposal::delete(self.connection, group_id, proposal_ref)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_proposal(self.connection, proposal_ref)
     }
 
     fn delete_aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::Aad)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::Aad)
     }
 
     fn delete_own_leaf_nodes<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        OwnLeafNode::delete(self.connection, group_id)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_leaf_nodes(self.connection)
     }
 
     fn delete_group_config<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::JoinGroupConfig)?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::JoinGroupConfig)
     }
 
     fn delete_tree<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::Tree)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::Tree)
     }
 
     fn delete_confirmation_tag<
@@ -640,24 +620,22 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::ConfirmationTag)?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::ConfirmationTag)
     }
 
     fn delete_group_state<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::GroupState)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::GroupState)
     }
 
     fn delete_context<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::Context)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::Context)
     }
 
     fn delete_interim_transcript_hash<
@@ -666,12 +644,8 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(
-            self.connection,
-            group_id,
-            GroupDataType::InterimTranscriptHash,
-        )?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::InterimTranscriptHash)
     }
 
     fn delete_message_secrets<
@@ -680,8 +654,8 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::MessageSecrets)?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::MessageSecrets)
     }
 
     fn delete_all_resumption_psk_secrets<
@@ -690,20 +664,15 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(
-            self.connection,
-            group_id,
-            GroupDataType::ResumptionPskStore,
-        )?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::ResumptionPskStore)
     }
 
     fn delete_own_leaf_index<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(self.connection, group_id, GroupDataType::OwnLeafIndex)?;
-        Ok(())
+        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::OwnLeafIndex)
     }
 
     fn delete_use_ratchet_tree_extension<
@@ -712,12 +681,8 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(
-            self.connection,
-            group_id,
-            GroupDataType::UseRatchetTreeExtension,
-        )?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::UseRatchetTreeExtension)
     }
 
     fn delete_group_epoch_secrets<
@@ -726,12 +691,8 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableGroupData::<u8>::delete(
-            self.connection,
-            group_id,
-            GroupDataType::GroupEpochSecrets,
-        )?;
-        Ok(())
+        StorableGroupIdRef(group_id)
+            .delete_group_data(self.connection, GroupDataType::GroupEpochSecrets)
     }
 
     fn clear_proposal_queue<
@@ -741,7 +702,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        StorableProposal::delete_all(self.connection, group_id)?;
+        StorableGroupIdRef(group_id).delete_all_proposals(self.connection)?;
         Ok(())
     }
 
@@ -751,7 +712,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         public_key: &SignaturePublicKey,
     ) -> Result<(), Self::Error> {
-        StorableSignatureKeyPairs::delete(self.connection, public_key)
+        StorableSignaturePublicKeyRef(public_key).delete(self.connection)
     }
 
     fn delete_encryption_key_pair<
@@ -760,7 +721,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         public_key: &EncryptionKey,
     ) -> Result<(), Self::Error> {
-        StorableEncryptionKeyPair::delete(self.connection, public_key)
+        StorableEncryptionPublicKeyRef(public_key).delete(self.connection)
     }
 
     fn delete_encryption_epoch_key_pairs<
@@ -772,7 +733,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         epoch: &EpochKey,
         leaf_index: u32,
     ) -> Result<(), Self::Error> {
-        StorableEpochKeyPairs::delete(self.connection, group_id, epoch, leaf_index)
+        StorableGroupIdRef(group_id).delete_epoch_key_pair(self.connection, epoch, leaf_index)
     }
 
     fn delete_key_package<
@@ -781,14 +742,14 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         &self,
         hash_ref: &KeyPackageRef,
     ) -> Result<(), Self::Error> {
-        KeyPackageBundle::delete(self.connection, hash_ref)
+        StorableHashRef(hash_ref).delete_key_package(self.connection)
     }
 
     fn delete_psk<PskKey: openmls_traits::storage::traits::PskId<CURRENT_VERSION>>(
         &self,
         psk_id: &PskKey,
     ) -> Result<(), Self::Error> {
-        StorablePskBundle::delete(self.connection, psk_id)
+        StorablePskIdRef(psk_id).delete(self.connection)
     }
 }
 
