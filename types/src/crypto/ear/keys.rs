@@ -7,6 +7,8 @@
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
 use mls_assist::openmls::prelude::GroupId;
+
+#[cfg(feature = "sqlite")]
 use rusqlite::types::FromSql;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[cfg(feature = "sqlite")]
 use rusqlite::ToSql;
 
 use super::{errors::RandomnessError, *};

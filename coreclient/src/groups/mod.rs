@@ -275,7 +275,7 @@ impl Group {
     }
 
     /// Join a group with the provided welcome message. Returns the group name.
-    pub(super) async fn join_group<'a>(
+    pub(super) async fn join_group(
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
@@ -289,23 +289,19 @@ impl Group {
         let mls_group_config = Self::default_mls_group_join_config();
 
         // Decrypt encrypted credentials s.t. we can afterwards consume the welcome.
-        let mut own_kpb = None;
-        for kp_hash in welcome_bundle
+        let key_package_bundle: KeyPackageBundle = welcome_bundle
             .welcome
             .welcome
             .secrets()
             .iter()
-            .map(|egs| egs.new_member())
-        {
-            let Some(kpb): Option<KeyPackageBundle> = provider.storage().key_package(&kp_hash)?
-            else {
-                continue;
-            };
-            own_kpb = Some(kpb);
-            break;
-        }
-        let key_package_bundle =
-            own_kpb.ok_or(anyhow!("Could not find own key package in welcome."))?;
+            .find_map(|egs| {
+                let kp_hash = egs.new_member();
+                match provider.storage().key_package(&kp_hash) {
+                    Ok(Some(kpb)) => Some(kpb),
+                    _ => None,
+                }
+            })
+            .ok_or(GroupOperationError::MissingKeyPackage)?;
 
         let private_key = key_package_bundle.init_private_key();
         let info = &[];
@@ -499,7 +495,7 @@ impl Group {
     ///
     /// Returns the processed message, whether the group was deleted, as well as
     /// the sender's client credential.
-    pub(super) async fn process_message<'a>(
+    pub(super) async fn process_message(
         &mut self,
         connection: &Connection,
         api_clients: &ApiClients,

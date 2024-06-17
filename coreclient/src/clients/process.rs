@@ -82,13 +82,14 @@ impl CoreUser {
 
         // Keep track of freshly joined groups s.t. we can later update our user auth keys.
         let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
         let ds_timestamp = qs_queue_message.timestamp;
         let processing_result = match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
                 let group = Group::join_group(
                     welcome_bundle,
                     &self.key_store.wai_ear_key,
-                    &connection,
+                    &transaction,
                     &self.api_clients,
                 )
                 .await?;
@@ -97,10 +98,10 @@ impl CoreUser {
                 // Store the user profiles of the group members if they don't
                 // exist yet.
                 group
-                    .members(&connection)
+                    .members(&transaction)
                     .into_iter()
                     .try_for_each(|user_name| {
-                        UserProfile::new(user_name, None, None).store(&connection)
+                        UserProfile::new(user_name, None, None).store(&transaction)
                     })?;
 
                 // Set the conversation attributes according to the group's
@@ -114,12 +115,10 @@ impl CoreUser {
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                let transaction = connection.transaction()?;
                 Conversation::delete(&transaction, conversation.id())?;
                 Group::delete_from_db(&transaction, &group_id)?;
                 group.store(&transaction)?;
                 conversation.store(&transaction)?;
-                transaction.commit()?;
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
             }
@@ -135,14 +134,14 @@ impl CoreUser {
                         MlsMessageBodyIn::GroupInfo(_) | MlsMessageBodyIn::KeyPackage(_) => bail!("Unexpected message type"),
                     };
                 let group_id = protocol_message.group_id();
-                let conversation = Conversation::load_by_group_id(&connection, group_id)?
+                let conversation = Conversation::load_by_group_id(&transaction, group_id)?
                     .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
 
-                let mut group = Group::load(&connection, group_id)?
+                let mut group = Group::load(&transaction, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
                 let (processed_message, we_were_removed, sender_client_id) = group
-                    .process_message(&connection, &self.api_clients, protocol_message)
+                    .process_message(&transaction, &self.api_clients, protocol_message)
                     .await?;
 
                 let sender = processed_message.sender().clone();
@@ -162,17 +161,17 @@ impl CoreUser {
                         // For now, we don't to anything here. The proposal
                         // was processed by the MLS group and will be
                         // committed with the next commit.
-                        group.store_proposal(&connection, *proposal)?;
+                        group.store_proposal(&transaction, *proposal)?;
                         (vec![], false)
                     }
                     ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                         // If a client joined externally, we check if the
                         // group belongs to an unconfirmed conversation.
-                        let mut conversation = Conversation::load(&connection, &conversation_id)?
+                        let mut conversation = Conversation::load(&transaction, &conversation_id)?
                             .ok_or(anyhow!(
-                            "Can't find conversation with id {}",
-                            conversation_id.as_uuid()
-                        ))?;
+                                "Can't find conversation with id {}",
+                                conversation_id.as_uuid()
+                            ))?;
                         let mut conversation_changed = false;
 
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
@@ -187,11 +186,11 @@ impl CoreUser {
                             }
                             // Load up the partial contact and decrypt the
                             // friendship package
-                            let partial_contact = PartialContact::load(&connection, &user_name)?
+                            let partial_contact = PartialContact::load(&transaction, &user_name)?
                                 .ok_or(anyhow!(
-                                    "No partial contact found for user name {}",
-                                    user_name
-                                ))?;
+                                "No partial contact found for user name {}",
+                                user_name
+                            ))?;
 
                             // This is a bit annoying, since we already
                             // de-serialized this in the group processing
@@ -213,7 +212,7 @@ impl CoreUser {
                             )?;
                             // We also need to get the add infos
                             let mut add_infos = vec![];
-                            let provider = &PhnxOpenMlsProvider::new(&connection);
+                            let provider = &PhnxOpenMlsProvider::new(&transaction);
                             for _ in 0..5 {
                                 let key_package_batch_response = self
                                     .api_clients
@@ -242,7 +241,7 @@ impl CoreUser {
                                         })
                                         .collect::<Result<Vec<_>>>()?;
                                 let qs_verifying_key = StorableQsVerifyingKey::get(
-                                    &connection,
+                                    &transaction,
                                     &user_name.domain(),
                                     &self.api_clients,
                                 )
@@ -258,7 +257,7 @@ impl CoreUser {
                             }
 
                             // Update the user profile of the sender.
-                            friendship_package.user_profile.update(&connection)?;
+                            friendship_package.user_profile.update(&transaction)?;
 
                             // Set the picture of the conversation to the one of the contact.
                             let conversation_picture_option = friendship_package
@@ -269,26 +268,26 @@ impl CoreUser {
                                 });
 
                             conversation.set_conversation_picture(
-                                &connection,
+                                &transaction,
                                 conversation_picture_option,
                             )?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact.mark_as_complete(
-                                &connection,
+                                &mut transaction,
                                 friendship_package,
                                 sender_client_id.clone(),
                             )?;
 
-                            conversation.confirm(&connection)?;
+                            conversation.confirm(&transaction)?;
                             conversation_changed = true;
                         }
                         // If we were removed, we set the group to inactive.
                         if we_were_removed {
-                            let past_members = group.members(&connection).into_iter().collect();
-                            conversation.set_inactive(&connection, past_members)?;
+                            let past_members = group.members(&transaction).into_iter().collect();
+                            conversation.set_inactive(&transaction, past_members)?;
                         }
                         let group_messages = group.merge_pending_commit(
-                            &connection,
+                            &transaction,
                             *staged_commit,
                             ds_timestamp,
                         )?;
@@ -298,9 +297,9 @@ impl CoreUser {
                         unimplemented!()
                     }
                 };
-                group.store_update(&connection)?;
+                group.store_update(&transaction)?;
                 let conversation_messages =
-                    Self::store_messages(&connection, conversation_id, group_messages)?;
+                    Self::store_messages(&mut transaction, conversation_id, group_messages)?;
                 match (conversation_messages, conversation_changed) {
                     (messages, true) => {
                         ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
@@ -309,6 +308,8 @@ impl CoreUser {
                 }
             }
         };
+
+        transaction.commit()?;
 
         Ok(processing_result)
     }

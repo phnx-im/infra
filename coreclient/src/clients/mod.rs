@@ -46,7 +46,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -375,8 +375,9 @@ impl CoreUser {
         conversation_id: ConversationId,
         invited_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = &self.sqlite_connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
@@ -390,7 +391,7 @@ impl CoreUser {
         let mut client_credentials = vec![];
         for invited_user in invited_users {
             // Get the WAI keys and client credentials for the invited users.
-            let contact = Contact::load(connection, invited_user)?.ok_or(anyhow!(
+            let contact = Contact::load(&transaction, invited_user)?.ok_or(anyhow!(
                 "Can't find contact with user name {}",
                 invited_user
             ))?;
@@ -399,7 +400,7 @@ impl CoreUser {
                 .clients()
                 .iter()
                 .filter_map(|client_id| {
-                    match StorableClientCredential::load_by_client_id(connection, client_id) {
+                    match StorableClientCredential::load_by_client_id(&transaction, client_id) {
                         Ok(Some(client_credential)) => {
                             Some(Ok(ClientCredential::from(client_credential)))
                         }
@@ -410,17 +411,17 @@ impl CoreUser {
                 .collect::<Result<Vec<_>, _>>()?;
             client_credentials.push(contact_client_credentials);
             let add_info = contact
-                .fetch_add_infos(connection, self.api_clients())
+                .fetch_add_infos(&transaction, self.api_clients())
                 .await?;
             contact_add_infos.push(add_info);
         }
         debug_assert!(contact_add_infos.len() == invited_users.len());
 
-        let mut group = Group::load(connection, &group_id)?
+        let mut group = Group::load(&transaction, &group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
         let params = group.invite(
-            connection,
+            &transaction,
             &self.key_store.signing_key,
             contact_add_infos,
             contact_wai_keys,
@@ -438,11 +439,12 @@ impl CoreUser {
             .await?;
 
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(connection, None, ds_timestamp)?;
-        group.store_update(connection)?;
+        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
+        group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(connection, conversation_id, group_messages)?;
+            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+        transaction.commit()?;
         Ok(conversation_messages)
     }
 
@@ -457,19 +459,20 @@ impl CoreUser {
         conversation_id: ConversationId,
         target_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = &self.sqlite_connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(connection, group_id)?
+        let mut group = Group::load(&transaction, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let clients = target_users
             .iter()
-            .flat_map(|user_name| group.user_client_ids(connection, user_name))
+            .flat_map(|user_name| group.user_client_ids(&transaction, user_name))
             .collect::<Vec<_>>();
-        let params = group.remove(connection, clients)?;
+        let params = group.remove(&transaction, clients)?;
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
@@ -480,11 +483,12 @@ impl CoreUser {
             )
             .await?;
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(connection, None, ds_timestamp)?;
-        group.store_update(connection)?;
+        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
+        group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(connection, conversation_id, group_messages)?;
+            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+        transaction.commit()?;
         Ok(conversation_messages)
     }
 
@@ -737,28 +741,30 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = &self.sqlite_connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let group_id = conversation.group_id();
         // Generate ciphertext
-        let mut group = Group::load(connection, group_id)?
+        let mut group = Group::load(&transaction, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update_user_key(connection)?;
+        let params = group.update_user_key(&transaction)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(connection, None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
 
-        group.store_update(connection)?;
+        group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(connection, conversation_id, group_messages)?;
+            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+        transaction.commit()?;
         Ok(conversation_messages)
     }
 
@@ -772,20 +778,22 @@ impl CoreUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = &self.sqlite_connection.lock().await;
-        let mut conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let mut conversation =
+            Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id.as_uuid()
+            ))?;
         let group_id = conversation.group_id();
         // Generate ciphertext
-        let mut group = Group::load(connection, group_id)?
+        let mut group = Group::load(&transaction, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let past_members = group.members(connection);
+        let past_members = group.members(&transaction);
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         let messages = if past_members.len() != 1 {
-            let params = group.delete(connection)?;
+            let params = group.delete(&transaction)?;
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = self
                 .api_clients
@@ -796,15 +804,17 @@ impl CoreUser {
                     group.group_state_ear_key(),
                 )
                 .await?;
-            let messages = group.merge_pending_commit(connection, None, ds_timestamp)?;
-            group.store_update(connection)?;
+            let messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
+            group.store_update(&transaction)?;
             messages
         } else {
             vec![]
         };
 
-        conversation.set_inactive(connection, past_members.into_iter().collect())?;
-        let conversation_messages = Self::store_messages(connection, conversation_id, messages)?;
+        conversation.set_inactive(&transaction, past_members.into_iter().collect())?;
+        let conversation_messages =
+            Self::store_messages(&mut transaction, conversation_id, messages)?;
+        transaction.commit()?;
         Ok(conversation_messages)
     }
 
@@ -890,27 +900,29 @@ impl CoreUser {
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = &self.sqlite_connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(connection, group_id)?
+        let mut group = Group::load(&transaction, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update(connection)?;
+        let params = group.update(&transaction)?;
         let owner_domain = conversation.owner_domain();
         let ds_timestamp = self
             .api_clients
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(connection, None, ds_timestamp)?;
+        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
 
-        group.store_update(connection)?;
+        group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(connection, conversation_id, group_messages)?;
+            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+        transaction.commit()?;
         Ok(conversation_messages)
     }
 
@@ -995,8 +1007,10 @@ impl CoreUser {
         &self,
         mark_as_read_data: T,
     ) -> Result<(), PersistenceError> {
-        let connection = &self.sqlite_connection.lock().await;
-        Conversation::mark_as_read(connection, mark_as_read_data)?;
+        let mut connection = self.sqlite_connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        Conversation::mark_as_read(&mut transaction, mark_as_read_data)?;
+        transaction.commit()?;
         Ok(())
     }
 
@@ -1016,18 +1030,19 @@ impl CoreUser {
     }
 
     fn store_messages(
-        connection: &Connection,
+        transaction: &mut Transaction,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
+        let savepoint = transaction.savepoint()?;
         let mut stored_messages = vec![];
-        // TODO: This should be done as part of a transaction
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
-            message.store(connection)?;
+            message.store(&savepoint)?;
             stored_messages.push(message);
         }
+        savepoint.commit()?;
         Ok(stored_messages)
     }
 

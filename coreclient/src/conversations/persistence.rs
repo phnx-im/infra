@@ -4,14 +4,12 @@
 
 use openmls::group::GroupId;
 use phnxtypes::time::TimeStamp;
-use rusqlite::{named_params, params, Connection, OptionalExtension};
+use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 
 use crate::{
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
 };
-
-use super::ConversationPayload;
 
 impl Storable for Conversation {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -36,21 +34,17 @@ impl Storable for Conversation {
         let status = row.get(6)?;
         let conversation_type = row.get(7)?;
 
-        let conversation_payload = ConversationPayload {
+        Ok(Conversation {
+            id,
+            group_id: group_id.into(),
+            last_used,
+            last_read,
             status,
             conversation_type,
             attributes: ConversationAttributes {
                 title: conversation_title,
                 conversation_picture_option,
             },
-        };
-
-        Ok(Conversation {
-            id,
-            group_id: group_id.into(),
-            last_used,
-            last_read,
-            conversation_payload,
         })
     }
 }
@@ -142,12 +136,11 @@ impl Conversation {
         'b,
         T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
     >(
-        // TOOD: This should be a transaction
-        connection: &Connection,
+        transaction: &mut Transaction,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {
         for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
-            connection.execute(
+            transaction.execute(
                 "UPDATE conversations SET last_read = ? WHERE conversation_id = ?",
                 params![timestamp, conversation_id],
             )?;

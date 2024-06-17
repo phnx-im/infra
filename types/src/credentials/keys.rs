@@ -8,8 +8,8 @@ use mls_assist::openmls::prelude::{
 use mls_assist::openmls_rust_crypto::OpenMlsRustCrypto;
 use mls_assist::openmls_traits::random::OpenMlsRand;
 use mls_assist::openmls_traits::signatures::{Signer, SignerError};
-use rusqlite::types::ToSqlOutput;
-use rusqlite::ToSql;
+#[cfg(feature = "sqlite")]
+use rusqlite::{types::ToSqlOutput, ToSql};
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 

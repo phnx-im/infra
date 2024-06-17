@@ -99,8 +99,9 @@ pub struct Conversation {
     last_used: TimeStamp,
     // The timestamp of the last message that was (marked as) read by the user.
     last_read: TimeStamp,
-    // Payload encoded as a byte array when communicating with the DB.
-    pub(super) conversation_payload: ConversationPayload,
+    status: ConversationStatus,
+    conversation_type: ConversationType,
+    attributes: ConversationAttributes,
 }
 
 impl Conversation {
@@ -111,17 +112,14 @@ impl Conversation {
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
         // same across users, we derive the conversation id from the group id.
-        let conversation_payload = ConversationPayload {
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name),
-            attributes,
-        };
         let conversation = Conversation {
             id: ConversationId::try_from(&group_id)?,
             group_id,
-            conversation_payload,
             last_used: TimeStamp::now(),
             last_read: TimeStamp::now(),
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            attributes,
         };
         Ok(conversation)
     }
@@ -136,11 +134,9 @@ impl Conversation {
             group_id,
             last_used: TimeStamp::now(),
             last_read: TimeStamp::now(),
-            conversation_payload: ConversationPayload {
-                status: ConversationStatus::Active,
-                conversation_type: ConversationType::Group,
-                attributes,
-            },
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::Group,
+            attributes,
         }
     }
 
@@ -153,15 +149,15 @@ impl Conversation {
     }
 
     pub fn conversation_type(&self) -> &ConversationType {
-        &self.conversation_payload.conversation_type
+        &self.conversation_type
     }
 
     pub fn status(&self) -> &ConversationStatus {
-        &self.conversation_payload.status
+        &self.status
     }
 
     pub fn attributes(&self) -> &ConversationAttributes {
-        &self.conversation_payload.attributes
+        &self.attributes
     }
 
     pub fn last_used(&self) -> &TimeStamp {
@@ -169,8 +165,7 @@ impl Conversation {
     }
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
-        let qgid =
-            QualifiedGroupId::tls_deserialize_exact_bytes(self.group_id.as_slice()).unwrap();
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(self.group_id.as_slice()).unwrap();
         qgid.owning_domain
     }
 
@@ -179,12 +174,8 @@ impl Conversation {
         connection: &Connection,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<(), rusqlite::Error> {
-        self.update_conversation_picture(
-            connection,
-            conversation_picture.as_deref(),
-        )?;
-        self.conversation_payload
-            .attributes
+        self.update_conversation_picture(connection, conversation_picture.as_deref())?;
+        self.attributes
             .set_conversation_picture_option(conversation_picture);
         Ok(())
     }
@@ -196,19 +187,17 @@ impl Conversation {
     ) -> Result<(), rusqlite::Error> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
         self.update_status(connection, &new_status)?;
-        self.conversation_payload.status = new_status;
+        self.status = new_status;
         Ok(())
     }
 
     /// Confirm a connection conversation by setting the conversation type to
     /// `Connection`.
     pub(crate) fn confirm(&mut self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        if let ConversationType::UnconfirmedConnection(user_name) =
-            self.conversation_payload.conversation_type.clone()
-        {
+        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
             let conversation_type = ConversationType::Connection(user_name);
             self.set_conversation_type(connection, &conversation_type)?;
-            self.conversation_payload.conversation_type = conversation_type;
+            self.conversation_type = conversation_type;
         }
         Ok(())
     }
