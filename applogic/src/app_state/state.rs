@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
 use anyhow::Result;
-use tokio::sync::Mutex;
 
 use phnxcoreclient::{clients::CoreUser, ConversationId};
 use phnxtypes::time::TimeStamp;
@@ -18,7 +15,7 @@ use super::mark_as_read_debouncer::MarkAsReadDebouncer;
 /// Appstate contains only ephemeral data and does not need to be persisted.
 pub(crate) struct AppState {
     mark_as_read_debouncers: MarkAsReadDebouncer,
-    user_mutex: Arc<Mutex<CoreUser>>,
+    user: CoreUser,
 }
 
 impl Drop for AppState {
@@ -30,10 +27,10 @@ impl Drop for AppState {
 impl AppState {
     /// Create a new `AppState` with no current conversation and no ongoing
     /// marking of messages as read.
-    pub(crate) fn new(user_mutex: Arc<Mutex<CoreUser>>) -> Self {
+    pub(crate) fn new(user: CoreUser) -> Self {
         Self {
             mark_as_read_debouncers: MarkAsReadDebouncer::new(),
-            user_mutex,
+            user,
         }
     }
 
@@ -50,7 +47,7 @@ impl AppState {
         timestamp: TimeStamp,
     ) {
         self.mark_as_read_debouncers
-            .mark_as_read_debounced(self.user_mutex.clone(), conversation_id, timestamp)
+            .mark_as_read_debounced(self.user.clone(), conversation_id, timestamp)
             .await
     }
 
@@ -59,7 +56,7 @@ impl AppState {
     /// read.
     pub(crate) async fn flush_debouncer_state(&self) -> Result<()> {
         self.mark_as_read_debouncers
-            .flush_debouncer_state(self.user_mutex.clone())
+            .flush_debouncer_state(self.user.clone())
             .await
     }
 }

@@ -495,7 +495,7 @@ impl PersistedUserState {
             qs_client_id,
         } = self.state;
         CoreUser {
-            sqlite_connection: connection,
+            sqlite_connection: Arc::new(Mutex::new(connection)),
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id,

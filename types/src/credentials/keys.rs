@@ -131,7 +131,7 @@ impl AsRef<[u8]> for AsIntermediateVerifyingKey {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {
     signing_key_bytes: Vec<u8>,
     credential: ClientCredential,

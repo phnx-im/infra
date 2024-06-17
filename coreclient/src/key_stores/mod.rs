@@ -49,7 +49,7 @@ pub(crate) mod qs_verifying_keys;
 pub(crate) mod queue_ratchets;
 
 // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct MemoryUserKeyStore {
     // Client credential secret key
     pub(super) signing_key: ClientSigningKey,

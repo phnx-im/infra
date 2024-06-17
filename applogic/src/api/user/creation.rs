@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
 use anyhow::{anyhow, Result};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxcoreclient::{
@@ -54,7 +52,7 @@ pub struct UserBuilder {
 type DartNotificationHub = NotificationHub<DartNotifier>;
 
 pub struct User {
-    pub(crate) user: Arc<Mutex<CoreUser>>,
+    pub(crate) user: CoreUser,
     pub(crate) app_state: AppState,
     pub(crate) notification_hub_option: Mutex<DartNotificationHub>,
 }
@@ -129,7 +127,6 @@ impl User {
         let user = CoreUser::new(&user_name, &password, address, &path).await?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
-        let user = Arc::new(Mutex::new(user));
         Ok(Self {
             user: user.clone(),
             app_state: AppState::new(user),
@@ -159,7 +156,6 @@ impl User {
             })?;
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         Self::init_desktop_os_notifications()?;
-        let user = Arc::new(Mutex::new(user));
         Ok(Self {
             user: user.clone(),
             app_state: AppState::new(user),
@@ -168,8 +164,7 @@ impl User {
     }
 
     pub async fn user_name(&self) -> String {
-        let user = self.user.lock().await;
-        user.user_name().to_string()
+        self.user.user_name().to_string()
     }
 
     pub async fn websocket(
@@ -178,11 +173,10 @@ impl User {
         retry_interval: u32,
         stream_sink: StreamSink<WsNotification>,
     ) -> Result<()> {
-        let mut user = self.user.lock().await;
-        let mut qs_websocket = user
+        let mut qs_websocket = self
+            .user
             .websocket(timeout as u64, retry_interval as u64)
             .await?;
-        drop(user);
 
         loop {
             match qs_websocket.next().await {
@@ -217,8 +211,11 @@ impl User {
 
     /// Get the own user profile.
     pub async fn own_user_profile(&self) -> Result<UiUserProfile> {
-        let user = self.user.lock().await;
-        let user_profile = user.own_user_profile().map(UiUserProfile::from)?;
+        let user_profile = self
+            .user
+            .own_user_profile()
+            .await
+            .map(UiUserProfile::from)?;
         Ok(user_profile)
     }
 
@@ -228,14 +225,13 @@ impl User {
         display_name: String,
         profile_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
-        let user = self.user.lock().await;
         let ui_user_profile = UiUserProfile {
             display_name: Some(display_name),
-            user_name: user.user_name().to_string(),
+            user_name: self.user.user_name().to_string(),
             profile_picture_option,
         };
         let user_profile = UserProfile::try_from(ui_user_profile)?;
-        user.set_own_user_profile(user_profile)?;
+        self.user.set_own_user_profile(user_profile).await?;
         Ok(())
     }
 }

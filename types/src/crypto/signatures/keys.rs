@@ -158,7 +158,7 @@ impl AsRef<[u8]> for QsClientVerifyingKey {
 
 impl VerifyingKey for QsClientVerifyingKey {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QsClientSigningKey {
     signing_key: Vec<u8>,
     verifying_key: QsClientVerifyingKey,
@@ -213,7 +213,7 @@ impl QsUserVerifyingKey {
 
 impl VerifyingKey for QsUserVerifyingKey {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QsUserSigningKey {
     signing_key: Vec<u8>,
     verifying_key: QsUserVerifyingKey,

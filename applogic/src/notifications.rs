@@ -109,7 +109,7 @@ impl User {
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    pub(crate) fn send_desktop_os_message_notifications(
+    pub(crate) async fn send_desktop_os_message_notifications(
         &self,
         user: &CoreUser,
         conversation_messages: Vec<ConversationMessage>,
@@ -119,6 +119,7 @@ impl User {
             [conversation_message] => {
                 let conversation = user
                     .conversation(conversation_message.conversation_id())
+                    .await
                     .ok_or(anyhow!("Conversation not found"))?;
                 let summary = match conversation.conversation_type() {
                     phnxcoreclient::ConversationType::UnconfirmedConnection(username)
@@ -149,7 +150,7 @@ impl User {
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    pub(crate) fn send_desktop_os_conversation_notifications(
+    pub(crate) async fn send_desktop_os_conversation_notifications(
         &self,
         user: &CoreUser,
         conversations: Vec<ConversationId>,
@@ -159,6 +160,7 @@ impl User {
             [conversation] => {
                 let conversation_title = user
                     .conversation(conversation)
+                    .await
                     .ok_or(anyhow!("Conversation not found"))?
                     .attributes()
                     .title()
@@ -183,7 +185,7 @@ impl User {
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    pub(crate) fn send_desktop_os_connection_notifications(
+    pub(crate) async fn send_desktop_os_connection_notifications(
         &self,
         user: &CoreUser,
         connection_conversations: Vec<ConversationId>,
@@ -193,6 +195,7 @@ impl User {
             [conversation] => {
                 let conversation = user
                     .conversation(conversation)
+                    .await
                     .ok_or(anyhow!("Conversation not found"))?;
                 let contact_name = match conversation.conversation_type() {
                     phnxcoreclient::ConversationType::UnconfirmedConnection(username)

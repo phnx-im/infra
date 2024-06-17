@@ -152,7 +152,7 @@ pub struct RatchetEncryptionKey {
     encryption_key: EncryptionPublicKey,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RatchetDecryptionKey {
     decryption_key: DecryptionPrivateKey,
 }
@@ -184,7 +184,7 @@ impl AsRef<EncryptionPublicKey> for ConnectionEncryptionKey {
 
 impl HpkeEncryptionKey for ConnectionEncryptionKey {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ConnectionDecryptionKey {
     decryption_key: DecryptionPrivateKey,
 }
