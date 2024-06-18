@@ -45,6 +45,11 @@ frb-integrate: check-git-clean
 	cat /tmp/header.tmp flutter_rust_bridge.yaml.generated.tmp >> flutter_rust_bridge.yaml.generated
 	mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
 	rm flutter_rust_bridge.yaml.generated.tmp
+	make dart-bridge
+
+flutter-create-macos:
+	flutter create --platforms=macos .
+	./conf-macos.sh
 
 setup-ci:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
