@@ -52,6 +52,7 @@ flutter-create-macos:
 	./conf-macos.sh
 
 setup-ci:
+	rustup update
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@2.0.0-dev.37
 	cargo binstall -y cargo-expand
