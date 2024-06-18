@@ -28,7 +28,9 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Generate bridge
-        run: cd prototype && make setup-ci && make dart-bridge
+      - name: Set up CI
+        run: cd prototype && make setup-ci
+      - name: Integrate bridge
+        run: cd prototype && make frb-integrate
       - name: Build Android app
         run: cd prototype && make android-release
