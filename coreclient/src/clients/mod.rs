@@ -251,13 +251,14 @@ impl CoreUser {
         let conversation_attributes =
             ConversationAttributes::new(title.to_string(), conversation_picture_option);
         let group_data = serde_json::to_vec(&conversation_attributes)?.into();
-        let connection = &self.sqlite_connection.lock().await;
+        let connection = self.sqlite_connection.lock().await;
         let (group, partial_params) = Group::create_group(
-            connection,
+            &connection,
             &self.key_store.signing_key,
             group_id.clone(),
             group_data,
         )?;
+        drop(connection);
         let encrypted_client_credential = self
             .key_store
             .signing_key
@@ -273,9 +274,10 @@ impl CoreUser {
             )
             .await?;
 
-        group.store(connection)?;
+        let connection = self.sqlite_connection.lock().await;
+        group.store(&connection)?;
         let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
-        conversation.store(connection)?;
+        conversation.store(&connection)?;
         Ok(conversation.id())
     }
 

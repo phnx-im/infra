@@ -21,7 +21,6 @@ impl User {
             .collect()
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
         Ok(ConversationIdBytes::from(
             self.user.create_conversation(&name, None).await?,
