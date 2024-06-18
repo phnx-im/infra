@@ -84,7 +84,7 @@ impl UserBuilder {
     pub async fn load_default(&self, path: String) -> Result<User> {
         let mut stream_sink_option = self.stream_sink.lock().await;
         if let Some(stream_sink) = stream_sink_option.take() {
-            User::load_default(path, stream_sink)
+            User::load_default(path, stream_sink).await
         } else {
             Err(anyhow::anyhow!("Please set a stream sink first."))
         }
@@ -134,7 +134,6 @@ impl User {
         })
     }
 
-    #[tokio::main(flavor = "current_thread")]
     async fn load_default(
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
