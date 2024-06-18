@@ -119,7 +119,12 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(CHARLIE);
     let bob_user_name = SafeTryInto::try_into(BOB).unwrap();
-    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap().unwrap();
+    let charlie_user_profile_bob = charlie
+        .user
+        .user_profile(&bob_user_name)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(charlie_user_profile_bob.user_name() == &bob_user_name);
 
     setup
@@ -129,7 +134,7 @@ async fn remove_from_group() {
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be removed.
     let charlie = setup.get_user(CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).await.unwrap();
     assert!(charlie_user_profile_bob.is_none());
 }
 
@@ -398,6 +403,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .set_own_user_profile(alice_profile)
+        .await
         .unwrap();
 
     setup.add_user(BOB).await;
@@ -413,8 +419,8 @@ async fn exchange_user_profiles() {
     );
 
     let user = &setup.users.get(&bob_user_name).unwrap().user;
-    user.set_own_user_profile(bob_user_profile).unwrap();
-    let new_profile = user.own_user_profile().unwrap();
+    user.set_own_user_profile(bob_user_profile).await.unwrap();
+    let new_profile = user.own_user_profile().await.unwrap();
     let Asset::Value(compressed_profile_picture) = new_profile.profile_picture().unwrap().clone();
 
     setup.connect_users(ALICE, BOB).await;
@@ -425,6 +431,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .user_profile(&bob_user_name)
+        .await
         .unwrap()
         .unwrap();
 
@@ -446,6 +453,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .user_profile(&alice_user_name)
+        .await
         .unwrap()
         .unwrap();
 
@@ -494,6 +502,7 @@ async fn retrieve_conversation_messages() {
         .unwrap()
         .user
         .get_messages(conversation_id, number_of_messages)
+        .await
         .unwrap();
 
     assert_eq!(messages_retrieved.len(), messages_sent.len());
@@ -535,7 +544,7 @@ async fn mark_as_read() {
 
     // All messages should be unread
     let expected_unread_message_count = number_of_messages + 2; // 2 because the messages sent by alice and bob to check the connection are also counted.
-    let unread_message_count = alice.unread_message_count(conversation_id).unwrap();
+    let unread_message_count = alice.unread_message_count(conversation_id).await.unwrap();
     assert_eq!(expected_unread_message_count, unread_message_count);
 
     // Let's mark all but the last two messages as read (we subtract 2, because
@@ -544,11 +553,12 @@ async fn mark_as_read() {
 
     alice
         .mark_as_read([(&conversation_id, &timestamp)])
+        .await
         .unwrap();
 
     // Check if we were successful
     let expected_unread_message_count = 2;
-    let unread_message_count = alice.unread_message_count(conversation_id).unwrap();
+    let unread_message_count = alice.unread_message_count(conversation_id).await.unwrap();
     assert_eq!(expected_unread_message_count, unread_message_count);
 }
 

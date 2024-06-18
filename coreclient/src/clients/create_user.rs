@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use key_stores::{
+    as_credentials::AsCredentials,
+    queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+};
 use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
 use phnxtypes::{
@@ -20,7 +24,7 @@ use rand_chacha::rand_core::OsRng;
 
 use self::groups::client_auth_info::StorableClientCredential;
 
-use super::{openmls_provider::PersistableSeed, *};
+use super::*;
 
 // State before any network queries
 #[derive(Serialize, Deserialize)]
@@ -49,10 +53,8 @@ impl BasicUserData {
         // Let's turn TLS off for now.
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
-        let as_credential_store = AsCredentialStore::new(connection, api_clients.clone());
-        let as_intermediate_credential = as_credential_store
-            .get_intermediate_credential(&domain)
-            .await?;
+        let as_intermediate_credential =
+            AsCredentials::get_intermediate_credential(connection, api_clients, &domain).await?;
 
         // We already fetch the QS encryption key here, so we don't have to do
         // it in a later step, where we otherwise don't have to perform network
@@ -95,7 +97,7 @@ impl BasicUserData {
             server_url: self.server_url,
             password: self.password,
             qs_encryption_key,
-            as_intermediate_credential: as_intermediate_credential.into_credential(),
+            as_intermediate_credential,
         };
 
         Ok(initial_user_state)
@@ -221,12 +223,9 @@ impl PostRegistrationInitState {
 
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
-        let queue_ratchet_store = QueueRatchetStore::from(connection);
-        // The queue ratchets are persisted in the store. There's nothing else
-        // we want to do with them here.
-        queue_ratchet_store.initialize_as_queue_ratchet(as_initial_ratchet_secret.clone())?;
+        StorableAsQueueRatchet::initialize(connection, as_initial_ratchet_secret.clone())?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        queue_ratchet_store.initialize_qs_queue_ratchet(qs_initial_ratchet_secret.clone())?;
+        StorableQsQueueRatchet::initialize(connection, qs_initial_ratchet_secret.clone())?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::random()?;
@@ -430,18 +429,14 @@ impl QsRegisteredUserState {
         } = self;
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
-        PersistableSeed::new_random(connection)?;
-        let crypto_backend = PhnxOpenMlsProvider::new(connection);
 
         let mut qs_add_packages = vec![];
-        let leaf_key_store = LeafKeyStore::from(connection);
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
             let add_package = key_store.generate_add_package(
-                &leaf_key_store,
-                &crypto_backend,
+                connection,
                 qs_client_id,
                 &encrypted_client_credential,
                 false,
@@ -449,8 +444,7 @@ impl QsRegisteredUserState {
             qs_add_packages.push(add_package);
         }
         let last_resort_add_package = key_store.generate_add_package(
-            &leaf_key_store,
-            &crypto_backend,
+            connection,
             qs_client_id,
             &encrypted_client_credential,
             true,
@@ -501,7 +495,7 @@ impl PersistedUserState {
             qs_client_id,
         } = self.state;
         CoreUser {
-            sqlite_connection: connection,
+            sqlite_connection: Arc::new(Mutex::new(connection)),
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id,

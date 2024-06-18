@@ -12,8 +12,9 @@ use super::{
 
 impl User {
     pub async fn get_conversations(&self) -> Vec<UiConversation> {
-        let user = self.user.lock().await;
-        user.conversations()
+        self.user
+            .conversations()
+            .await
             .unwrap_or_default()
             .into_iter()
             .map(|c| c.into())
@@ -22,9 +23,8 @@ impl User {
 
     #[tokio::main(flavor = "current_thread")]
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
-        let mut user = self.user.lock().await;
         Ok(ConversationIdBytes::from(
-            user.create_conversation(&name, None).await?,
+            self.user.create_conversation(&name, None).await?,
         ))
     }
 
@@ -33,8 +33,9 @@ impl User {
         conversation_id: ConversationIdBytes,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<()> {
-        let user = self.user.lock().await;
-        user.set_conversation_picture(conversation_id.into(), conversation_picture)?;
+        self.user
+            .set_conversation_picture(conversation_id.into(), conversation_picture)
+            .await?;
         Ok(())
     }
 
@@ -44,13 +45,13 @@ impl User {
         conversation_id: ConversationIdBytes,
         user_names: Vec<String>,
     ) -> Result<()> {
-        let mut user = self.user.lock().await;
-        let conversation_messages = user
+        let conversation_messages = self
+            .user
             .invite_users(
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
@@ -65,13 +66,13 @@ impl User {
         conversation_id: ConversationIdBytes,
         user_names: Vec<String>,
     ) -> Result<()> {
-        let mut user = self.user.lock().await;
-        let conversation_messages = user
+        let conversation_messages = self
+            .user
             .remove_users(
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(|s| <String as SafeTryInto<UserName>>::try_into(s))
+                    .map(<String as SafeTryInto<UserName>>::try_into)
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
@@ -84,9 +85,10 @@ impl User {
         &self,
         conversation_id: ConversationIdBytes,
     ) -> Result<Vec<String>> {
-        let user = self.user.lock().await;
-        Ok(user
+        Ok(self
+            .user
             .group_members(conversation_id.into())
+            .await
             .unwrap_or_default()
             .into_iter()
             .map(|c| c.to_string())
@@ -99,12 +101,15 @@ impl User {
         &self,
         conversation_id: ConversationIdBytes,
     ) -> Result<Vec<UiContact>> {
-        let user = self.user.lock().await;
-        let group_members = user
+        let group_members = self
+            .user
             .group_members(conversation_id.into())
+            .await
             .ok_or(anyhow!("Conversation not found"))?;
-        let add_candidates = user
-            .contacts()?
+        let add_candidates = self
+            .user
+            .contacts()
+            .await?
             .into_iter()
             .filter_map(|c| {
                 if !group_members.contains(&c.user_name) {

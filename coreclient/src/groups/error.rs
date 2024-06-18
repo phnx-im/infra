@@ -9,7 +9,6 @@ use openmls::group::{
     AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
     MlsGroupStateError, ProcessMessageError, WelcomeError,
 };
-use openmls_memory_keystore::MemoryKeyStoreError;
 use phnxtypes::crypto::DecryptionError;
 use thiserror::Error;
 
@@ -17,19 +16,19 @@ use thiserror::Error;
 #[allow(clippy::enum_variant_names)]
 pub enum GroupOperationError {
     #[error(transparent)]
-    MergeCommitError(#[from] MergeCommitError<MemoryKeyStoreError>),
+    MergeCommitError(#[from] MergeCommitError<rusqlite::Error>),
     #[error(transparent)]
-    WelcomeError(#[from] WelcomeError<MemoryKeyStoreError>),
+    WelcomeError(#[from] WelcomeError<rusqlite::Error>),
     #[error(transparent)]
-    MlsGroupStateError(#[from] MlsGroupStateError),
+    MlsGroupStateError(#[from] MlsGroupStateError<rusqlite::Error>),
     #[error(transparent)]
-    CreateMessageError(#[from] CreateMessageError),
+    CreateMessageError(#[from] CreateMessageError<rusqlite::Error>),
     #[error(transparent)]
-    ProcessMessageError(#[from] ProcessMessageError),
+    ProcessMessageError(#[from] ProcessMessageError<rusqlite::Error>),
     #[error(transparent)]
-    AddMembersError(#[from] AddMembersError<MemoryKeyStoreError>),
+    AddMembersError(#[from] AddMembersError<rusqlite::Error>),
     #[error(transparent)]
-    MergePendingCommitError(#[from] MergePendingCommitError<MemoryKeyStoreError>),
+    MergePendingCommitError(#[from] MergePendingCommitError<rusqlite::Error>),
     #[error("Missing key package in key store")]
     MissingKeyPackage,
     #[error(transparent)]

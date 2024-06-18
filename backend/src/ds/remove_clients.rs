@@ -6,6 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
     errors::ClientRemovalError, messages::client_ds::RemoveClientsParams, time::Duration,
@@ -18,12 +19,13 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn remove_clients(
         &mut self,
+        provider: &OpenMlsRustCrypto,
         params: RemoveClientsParams,
     ) -> Result<SerializedMlsMessage, ClientRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(params.commit)
+            .process_assisted_message(provider, params.commit)
             .map_err(|_| ClientRemovalError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -107,9 +109,10 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
+            provider,
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
-        );
+        )?;
 
         // ... then we update the client profiles and the user profile.
         let user_profile = self

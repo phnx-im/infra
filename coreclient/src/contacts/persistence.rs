@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::{AsClientId, UserName};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
     clients::connection_establishment::FriendshipPackage,
@@ -93,8 +93,7 @@ impl Contact {
         user_name: &UserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM contacts WHERE user_name = ?")?;
-        stmt.query_row([user_name], Self::from_row)
-            .optional()
+        stmt.query_row([user_name], Self::from_row).optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
@@ -188,15 +187,15 @@ impl PartialContact {
     /// persists the resulting contact.
     pub(crate) fn mark_as_complete(
         self,
-        connection: &Connection,
+        transaction: &mut Transaction,
         friendship_package: FriendshipPackage,
         client: AsClientId,
     ) -> Result<(), rusqlite::Error> {
-        //let savepoint = transaction.savepoint()?;
+        let savepoint = transaction.savepoint()?;
 
         let conversation_id = self.conversation_id;
         let user_name = self.user_name.clone();
-        self.delete(connection)?;
+        self.delete(&savepoint)?;
         let contact = Contact {
             user_name,
             clients: vec![client],
@@ -207,9 +206,9 @@ impl PartialContact {
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id,
         };
-        contact.store(connection)?;
+        contact.store(&savepoint)?;
 
-        //savepoint.commit()?;
+        savepoint.commit()?;
 
         Ok(())
     }

@@ -7,6 +7,9 @@
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
 use mls_assist::openmls::prelude::GroupId;
+
+#[cfg(feature = "sqlite")]
+use rusqlite::types::FromSql;
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -29,6 +32,21 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for GroupStateEarKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for GroupStateEarKey {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        let key = GroupStateEarKeySecret::column_result(value)?;
+        Ok(Self { key })
+    }
 }
 
 impl GroupStateEarKey {
@@ -217,6 +235,21 @@ pub type SignatureEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct SignatureEarKey {
     key: SignatureEarKeySecret,
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for SignatureEarKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for SignatureEarKey {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        let key = SignatureEarKeySecret::column_result(value)?;
+        Ok(Self { key })
+    }
 }
 
 impl SignatureEarKey {

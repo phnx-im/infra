@@ -4,7 +4,7 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage,
-    openmls::prelude::ProcessedMessageContent,
+    openmls::prelude::ProcessedMessageContent, openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
     errors::JoinGroupError,
@@ -21,12 +21,13 @@ use super::{
 impl DsGroupState {
     pub(super) fn join_group(
         &mut self,
+        provider: &OpenMlsRustCrypto,
         params: JoinGroupParams,
     ) -> Result<SerializedMlsMessage, JoinGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(params.external_commit)
+            .process_assisted_message(provider, params.external_commit)
             .map_err(|_| JoinGroupError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -80,9 +81,10 @@ impl DsGroupState {
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
+            provider,
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
-        );
+        )?;
 
         // Let's figure out the leaf index of the new member.
         let sender = self

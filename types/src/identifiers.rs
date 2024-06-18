@@ -32,6 +32,26 @@ pub struct Fqdn {
     domain: Host<String>,
 }
 
+#[cfg(feature = "sqlite")]
+impl ToSql for Fqdn {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let string = self.to_string();
+        Ok(rusqlite::types::ToSqlOutput::from(string))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl FromSql for Fqdn {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let string = value.as_str()?.to_owned();
+        let fqdn = Fqdn::try_from(string).map_err(|e| {
+            tracing::error!("Error parsing Fqdn from DB: {}", e);
+            FromSqlError::InvalidType
+        })?;
+        Ok(fqdn)
+    }
+}
+
 impl Size for Fqdn {
     fn tls_serialized_len(&self) -> usize {
         if let Host::Domain(domain) = &self.domain {

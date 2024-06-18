@@ -5,6 +5,7 @@
 use std::ops::Deref;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
+use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     crypto::{
         ear::{
@@ -20,13 +21,12 @@ use phnxtypes::{
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::FriendshipToken,
 };
+use rusqlite::Connection;
 
 use crate::{
-    clients::{
-        api_clients::ApiClients, connection_establishment::FriendshipPackage,
-        openmls_provider::PhnxOpenMlsProvider,
-    },
-    key_stores::qs_verifying_keys::QsVerifyingKeyStore,
+    clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    groups::openmls_provider::PhnxOpenMlsProvider,
+    key_stores::qs_verifying_keys::StorableQsVerifyingKey,
     ConversationId,
 };
 use anyhow::Result;
@@ -79,10 +79,10 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
+        connection: &Connection,
         api_clients: ApiClients,
-        qs_verifying_key_store: QsVerifyingKeyStore<'_>,
-        crypto_provider: &<PhnxOpenMlsProvider<'_> as openmls_traits::OpenMlsProvider>::CryptoProvider,
     ) -> Result<ContactAddInfos> {
+        let provider = PhnxOpenMlsProvider::new(connection);
         let invited_user = self.user_name.clone();
         let invited_user_domain = invited_user.domain();
 
@@ -98,7 +98,7 @@ impl Contact {
             .into_iter()
             .map(|add_package| {
                 let verified_add_package =
-                    add_package.validate(crypto_provider, ProtocolVersion::default())?;
+                    add_package.validate(provider.crypto(), ProtocolVersion::default())?;
                 let key_package = verified_add_package.key_package().clone();
                 let sek = SignatureEarKey::decrypt(
                     &self.signature_ear_key_wrapper_key,
@@ -107,10 +107,11 @@ impl Contact {
                 Ok((key_package, sek))
             })
             .collect::<Result<Vec<_>>>()?;
-        let qs_verifying_key = qs_verifying_key_store.get(&invited_user_domain).await?;
+        let qs_verifying_key =
+            StorableQsVerifyingKey::get(connection, &invited_user_domain, &api_clients).await?;
         let key_package_batch = key_package_batch_response
             .key_package_batch
-            .verify(qs_verifying_key.deref().deref())?;
+            .verify(qs_verifying_key.deref())?;
         let add_info = ContactAddInfos {
             key_package_batch,
             key_packages,

@@ -6,6 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
     errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
@@ -18,6 +19,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
+        provider: &OpenMlsRustCrypto,
         params: SelfRemoveClientParams,
     ) -> Result<SerializedMlsMessage, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs
@@ -26,7 +28,7 @@ impl DsGroupState {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(params.remove_proposal)
+            .process_assisted_message(provider, params.remove_proposal)
             .map_err(|_| ClientSelfRemovalError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -78,9 +80,10 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
+            provider,
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
-        );
+        )?;
 
         // We remove the user and client profile only when the proposal is committed.
 

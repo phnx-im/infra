@@ -6,6 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
+    openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
     errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
@@ -18,12 +19,13 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
+        provider: &OpenMlsRustCrypto,
         params: ResyncClientParams,
     ) -> Result<SerializedMlsMessage, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(params.external_commit)
+            .process_assisted_message(provider, params.external_commit)
             .map_err(|_| ResyncClientError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -83,9 +85,10 @@ impl DsGroupState {
 
         // We just accept the message into the group state.
         self.group_mut().accept_processed_message(
+            provider,
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
-        );
+        )?;
 
         // No need to update the user profile, since the client was re-added on
         // the same position.

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, SubsecRound, TimeZone, Utc};
+#[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
 
 use super::*;
@@ -88,6 +89,7 @@ impl TlsDeserializeBytesTrait for TimeStamp {
     }
 }
 
+#[cfg(feature = "sqlite")]
 impl ToSql for TimeStamp {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.time.to_sql()
@@ -102,7 +104,6 @@ impl FromSql for TimeStamp {
     }
 }
 
-#[cfg(feature = "sqlite")]
 impl TimeStamp {
     pub fn now() -> Self {
         // We round the subseconds to 3 digits, because we don't need more

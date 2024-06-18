@@ -76,6 +76,25 @@ pub struct UserAuthSigningKey {
     verifying_key: UserAuthVerifyingKey,
 }
 
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for UserAuthSigningKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let bytes = serde_json::to_vec(self)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(bytes),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for UserAuthSigningKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let bytes = value.as_blob()?;
+        serde_json::from_slice(bytes).map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
+    }
+}
+
 impl UserAuthSigningKey {
     pub fn verifying_key(&self) -> &UserAuthVerifyingKey {
         &self.verifying_key
@@ -139,7 +158,7 @@ impl AsRef<[u8]> for QsClientVerifyingKey {
 
 impl VerifyingKey for QsClientVerifyingKey {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QsClientSigningKey {
     signing_key: Vec<u8>,
     verifying_key: QsClientVerifyingKey,
@@ -194,7 +213,7 @@ impl QsUserVerifyingKey {
 
 impl VerifyingKey for QsUserVerifyingKey {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QsUserSigningKey {
     signing_key: Vec<u8>,
     verifying_key: QsUserVerifyingKey,
@@ -229,6 +248,24 @@ impl SigningKey for QsUserSigningKey {}
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct QsVerifyingKey {
     verifying_key: Vec<u8>,
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for QsVerifyingKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Borrowed(
+            rusqlite::types::ValueRef::Blob(&self.verifying_key),
+        ))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for QsVerifyingKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        Ok(Self {
+            verifying_key: value.as_blob()?.to_vec(),
+        })
+    }
 }
 
 impl QsVerifyingKey {

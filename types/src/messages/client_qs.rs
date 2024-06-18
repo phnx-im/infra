@@ -8,6 +8,7 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::openmls::prelude::SignaturePublicKey;
+use thiserror::Error;
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
@@ -227,28 +228,41 @@ pub struct VerifiableClientToQsMessage {
     message: ClientToQsMessage,
 }
 
+#[derive(Debug, Error)]
+pub enum ClientToQsVerificationError {
+    #[error("Invalid token")]
+    InvalidToken,
+    #[error("Invalid message type for extration without verification")]
+    ExtractionError,
+}
+
 impl VerifiableClientToQsMessage {
     pub fn sender(&self) -> QsSender {
         self.message.sender()
     }
 
     // Verifies that the token matches the one in the message and returns the message.
-    pub fn verify_with_token(self, token: FriendshipToken) -> Result<QsRequestParams, ()> {
+    pub fn verify_with_token(
+        self,
+        token: FriendshipToken,
+    ) -> Result<QsRequestParams, ClientToQsVerificationError> {
         if self.message.token_or_signature.as_slice() == token.token() {
             Ok(self.message.payload.body)
         } else {
-            Err(())
+            Err(ClientToQsVerificationError::InvalidToken)
         }
     }
 
-    pub fn extract_without_verification(self) -> Result<QsRequestParams, ()> {
+    pub fn extract_without_verification(
+        self,
+    ) -> Result<QsRequestParams, ClientToQsVerificationError> {
         if matches!(
             self.message.payload.body,
             QsRequestParams::VerifyingKey | QsRequestParams::EncryptionKey
         ) {
             Ok(self.message.payload.body)
         } else {
-            Err(())
+            Err(ClientToQsVerificationError::ExtractionError)
         }
     }
 }
