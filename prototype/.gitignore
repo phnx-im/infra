@@ -61,6 +61,8 @@ target
 
 # FRB related
 lib/core/*
+rust_builder/
+flutter_rust_bridge.yaml.generated
 
 # Other platforms
 ios/
