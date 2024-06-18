@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # === Window style ===
 # Set the titlebarAppearsTransparent, titleVisibility and fullSizeContentView attributes to the MainMenu.xib file
 # This will make the titlebar transparent, hide the title and make the content view full size
