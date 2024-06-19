@@ -139,9 +139,11 @@ impl User {
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
     ) -> Result<User> {
-        let client_record = ClientRecord::load_all(&path)?.pop().ok_or_else(|| {
-            anyhow::anyhow!("No user found. Please create a user first using createUser")
-        })?;
+        let client_record = ClientRecord::load_all_from_phnx_db(&path)?
+            .pop()
+            .ok_or_else(|| {
+                anyhow::anyhow!("No user found. Please create a user first using createUser")
+            })?;
         let dart_notifier = DartNotifier { stream_sink };
         let mut notification_hub = NotificationHub::<DartNotifier>::default();
         notification_hub.add_sink(dart_notifier.notifier());

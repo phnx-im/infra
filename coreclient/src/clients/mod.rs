@@ -59,15 +59,12 @@ use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     user_profiles::UserProfile,
-    utils::persistence::{open_client_db, open_phnx_db, DataType, Persistable, PersistenceError},
+    utils::persistence::{open_client_db, open_phnx_db},
 };
 
 use self::{
-    api_clients::ApiClients,
-    conversations::messages::TimestampedMessage,
-    create_user::InitialUserState,
-    mimi_content::MimiContent,
-    store::{PersistableUserData, UserCreationState},
+    api_clients::ApiClients, conversations::messages::TimestampedMessage,
+    create_user::InitialUserState, mimi_content::MimiContent, store::UserCreationState,
 };
 
 use super::*;
@@ -76,6 +73,7 @@ pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 mod create_user;
 pub(crate) mod own_client_info;
+mod persistence;
 pub mod process;
 pub mod store;
 #[cfg(test)]
@@ -207,7 +205,7 @@ impl CoreUser {
         let mut client_db_transaction = client_db_connection.transaction()?;
 
         let Some(user_creation_state) =
-            PersistableUserData::load_one(&client_db_transaction, Some(&as_client_id), None)?
+            UserCreationState::load(&client_db_transaction, &as_client_id)?
         else {
             return Ok(None);
         };
@@ -218,7 +216,6 @@ impl CoreUser {
         );
 
         let final_state = user_creation_state
-            .into_payload()
             .complete_user_creation(
                 &phnx_db_connection,
                 &mut client_db_transaction,
@@ -928,7 +925,7 @@ impl CoreUser {
         Ok(conversation_messages)
     }
 
-    pub async fn contacts(&self) -> Result<Vec<Contact>, PersistenceError> {
+    pub async fn contacts(&self) -> Result<Vec<Contact>, rusqlite::Error> {
         let connection = &self.sqlite_connection.lock().await;
         let contacts = Contact::load_all(connection)?;
         Ok(contacts)
@@ -939,7 +936,7 @@ impl CoreUser {
         Contact::load(connection, user_name).ok().flatten()
     }
 
-    pub async fn partial_contacts(&self) -> Result<Vec<PartialContact>, PersistenceError> {
+    pub async fn partial_contacts(&self) -> Result<Vec<PartialContact>, rusqlite::Error> {
         let connection = &self.sqlite_connection.lock().await;
         let partial_contact = PartialContact::load_all(connection)?;
         Ok(partial_contact)
@@ -987,7 +984,7 @@ impl CoreUser {
             .map(|group| group.pending_removes(connection))
     }
 
-    pub async fn conversations(&self) -> Result<Vec<Conversation>, PersistenceError> {
+    pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {
         let connection = &self.sqlite_connection.lock().await;
         let conversations = Conversation::load_all(connection)?;
         Ok(conversations)
@@ -1008,7 +1005,7 @@ impl CoreUser {
     >(
         &self,
         mark_as_read_data: T,
-    ) -> Result<(), PersistenceError> {
+    ) -> Result<(), rusqlite::Error> {
         let mut connection = self.sqlite_connection.lock().await;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(&mut transaction, mark_as_read_data)?;
@@ -1021,7 +1018,7 @@ impl CoreUser {
     pub async fn unread_message_count(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<u32, PersistenceError> {
+    ) -> Result<u32, rusqlite::Error> {
         let connection = &self.sqlite_connection.lock().await;
         let count = Conversation::unread_message_count(connection, conversation_id)?;
         Ok(count)

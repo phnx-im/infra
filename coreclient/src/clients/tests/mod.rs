@@ -38,7 +38,7 @@ async fn user_stages() {
     .unwrap();
 
     // There should now be a client record state in the phnx db.
-    let client_records = ClientRecord::load_all_from_db(&phnx_db_connection).unwrap();
+    let client_records = ClientRecord::load_all(&phnx_db_connection).unwrap();
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
     assert!(client_record.as_client_id == as_client_id);
