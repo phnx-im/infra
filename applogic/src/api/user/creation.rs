@@ -83,14 +83,14 @@ impl UserBuilder {
 
     pub async fn load_default(&self, path: String) -> Result<User> {
         let mut stream_sink_option = self.stream_sink.lock().await;
-        if let Some(stream_sink) = stream_sink_option.take() {
-            User::load_default(path, stream_sink)
-        } else {
-            Err(anyhow::anyhow!("Please set a stream sink first."))
-        }
+        let Some(stream_sink) = stream_sink_option.take() else {
+            return Err(anyhow::anyhow!("Please set a stream sink first."));
+        };
+        drop(stream_sink_option);
+
+        User::load_default(path, stream_sink).await
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn create_user(
         &self,
         user_name: String,
@@ -99,11 +99,12 @@ impl UserBuilder {
         path: String,
     ) -> Result<User> {
         let mut stream_sink_option = self.stream_sink.lock().await;
-        if let Some(stream_sink) = stream_sink_option.take() {
-            User::new(user_name, password, address, path, stream_sink.clone()).await
-        } else {
+        let Some(stream_sink) = stream_sink_option.take() else {
             return Err(anyhow::anyhow!("Please set a stream sink first."));
-        }
+        };
+        drop(stream_sink_option);
+
+        User::new(user_name, password, address, path, stream_sink.clone()).await
     }
 }
 
@@ -134,7 +135,6 @@ impl User {
         })
     }
 
-    #[tokio::main(flavor = "current_thread")]
     async fn load_default(
         path: String,
         stream_sink: StreamSink<UiNotificationType>,
