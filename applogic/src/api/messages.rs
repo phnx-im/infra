@@ -6,9 +6,15 @@ use anyhow::Result;
 use phnxcoreclient::{clients::process::ProcessQsMessageResult, MimiContent};
 use phnxtypes::time::TimeStamp;
 
+use crate::notifications::{
+    dispatch_conversation_notifications, dispatch_message_notifications,
+    send_desktop_os_connection_notifications, send_desktop_os_conversation_notifications,
+    send_desktop_os_message_notifications,
+};
+
 use super::{
     types::{ConversationIdBytes, UiConversationMessage},
-    user::creation::User,
+    user::User,
 };
 
 impl User {
@@ -24,7 +30,7 @@ impl User {
             let as_message_plaintext = self.user.decrypt_as_queue_message(as_message).await?;
             let conversation_id = self.user.process_as_message(as_message_plaintext).await?;
             // Let the UI know that there'a s new conversation
-            self.dispatch_conversation_notifications(vec![conversation_id])
+            dispatch_conversation_notifications(&self.notification_hub, vec![conversation_id])
                 .await;
             new_connections.push(conversation_id);
         }
@@ -32,8 +38,7 @@ impl User {
         // Send a notification to the OS (desktop only), the UI deals with
         // mobile notifications
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-        self.send_desktop_os_connection_notifications(&self.user, new_connections)
-            .await?;
+        send_desktop_os_connection_notifications(&self.user, new_connections).await?;
 
         // Fetch QS messages
         let qs_messages = self.user.qs_fetch_messages().await?;
@@ -59,19 +64,22 @@ impl User {
                 }
             };
         }
+
         // Let the UI know there is new stuff
         tokio::join!(
-            self.dispatch_message_notifications(new_messages.clone()),
-            self.dispatch_conversation_notifications(new_conversations.clone()),
-            self.dispatch_conversation_notifications(changed_conversations.clone()),
+            dispatch_message_notifications(&self.notification_hub, new_messages.clone()),
+            dispatch_conversation_notifications(&self.notification_hub, new_conversations.clone()),
+            dispatch_conversation_notifications(
+                &self.notification_hub,
+                changed_conversations.clone()
+            ),
         );
 
         // Send a notification to the OS (desktop only)
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         {
-            self.send_desktop_os_message_notifications(&self.user, new_messages)
-                .await?;
-            self.send_desktop_os_conversation_notifications(&self.user, new_conversations.clone())
+            send_desktop_os_message_notifications(&self.user, new_messages).await?;
+            send_desktop_os_conversation_notifications(&self.user, new_conversations.clone())
                 .await?;
         }
 
@@ -84,8 +92,7 @@ impl User {
 
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
         {
-            self.send_desktop_os_message_notifications(&self.user, new_messages)
-                .await?;
+            send_desktop_os_message_notifications(&self.user, new_messages).await?;
         }
 
         Ok(())

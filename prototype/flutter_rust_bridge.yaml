@@ -2,10 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Original parameters
-# rust_input: ../applogic/src/api/**/*.rs
-# dart_output: lib/src/rust
-
-rust_input: ../applogic/src/api/**/*.rs
+rust_input: crate::api
+rust_root: ../applogic/
 dart_output: lib/core
 add_mod_to_lib: false
