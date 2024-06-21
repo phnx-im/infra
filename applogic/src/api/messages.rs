@@ -6,11 +6,7 @@ use anyhow::Result;
 use phnxcoreclient::{clients::process::ProcessQsMessageResult, MimiContent};
 use phnxtypes::time::TimeStamp;
 
-use crate::notifications::{
-    dispatch_conversation_notifications, dispatch_message_notifications,
-    send_desktop_os_connection_notifications, send_desktop_os_conversation_notifications,
-    send_desktop_os_message_notifications,
-};
+use crate::notifications::*;
 
 use super::{
     types::{ConversationIdBytes, UiConversationMessage},

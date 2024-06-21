@@ -5,7 +5,7 @@
 use flutter_rust_bridge::frb;
 use mobile_logging::init_logger;
 
-use crate::notifications::init_desktop_os_notifications;
+use crate::notifications::*;
 
 pub mod conversations;
 pub mod messages;
