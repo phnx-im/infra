@@ -11,7 +11,6 @@ use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
 };
 use own_client_info::OwnClientInfo;
-use rusqlite::Transaction;
 
 use self::{
     groups::{
@@ -99,8 +98,8 @@ impl UserCreationState {
 
     pub(super) async fn step(
         self,
-        phnx_db_connection: &Connection,
-        client_db_transaction: &mut Transaction<'_>,
+        phnx_db_connection: Arc<Mutex<Connection>>,
+        client_db_connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
     ) -> Result<Self> {
         // If we're already in the final state, there is nothing to do.
@@ -108,19 +107,18 @@ impl UserCreationState {
             return Ok(self);
         }
 
-        let savepoint = client_db_transaction.savepoint()?;
-
         let new_state = match self {
             UserCreationState::BasicUserData(state) => Self::InitialUserState(
                 state
-                    .prepare_as_registration(&savepoint, api_clients)
+                    .prepare_as_registration(client_db_connection.clone(), api_clients)
                     .await?,
             ),
             UserCreationState::InitialUserState(state) => {
                 Self::PostRegistrationInitState(state.initiate_as_registration(api_clients).await?)
             }
             UserCreationState::PostRegistrationInitState(state) => {
-                Self::UnfinalizedRegistrationState(state.process_server_response(&savepoint)?)
+                let connection = client_db_connection.lock().await;
+                Self::UnfinalizedRegistrationState(state.process_server_response(&connection)?)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
                 Self::AsRegisteredUserState(state.finalize_as_registration(api_clients).await?)
@@ -128,23 +126,25 @@ impl UserCreationState {
             UserCreationState::AsRegisteredUserState(state) => {
                 Self::QsRegisteredUserState(state.register_with_qs(api_clients).await?)
             }
-            UserCreationState::QsRegisteredUserState(state) => {
-                Self::FinalUserState(state.upload_add_packages(&savepoint, api_clients).await?)
-            }
+            UserCreationState::QsRegisteredUserState(state) => Self::FinalUserState(
+                state
+                    .upload_add_packages(client_db_connection.clone(), api_clients)
+                    .await?,
+            ),
             UserCreationState::FinalUserState(_) => self,
         };
 
-        new_state.store(&savepoint)?;
-
-        savepoint.commit()?;
+        let client_db_connection = client_db_connection.lock().await;
+        new_state.store(&client_db_connection)?;
 
         // If we just transitioned into the final state, we need to update the
         // client record.
+        let phnx_db_connection = phnx_db_connection.lock().await;
         if let UserCreationState::FinalUserState(_) = new_state {
-            let mut client_record = ClientRecord::load(phnx_db_connection, new_state.client_id())?
+            let mut client_record = ClientRecord::load(&phnx_db_connection, new_state.client_id())?
                 .ok_or(anyhow!("Client record not found"))?;
             client_record.finish();
-            client_record.store(phnx_db_connection)?;
+            client_record.store(&phnx_db_connection)?;
         }
 
         Ok(new_state)
@@ -161,13 +161,17 @@ impl UserCreationState {
     /// A convenience function that performs the `step` function until the final state is reached.
     pub(super) async fn complete_user_creation(
         mut self,
-        phnx_db_connection: &Connection,
-        client_db_transaction: &mut Transaction<'_>,
+        phnx_db_connection: Arc<Mutex<Connection>>,
+        client_db_connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         while !matches!(self, UserCreationState::FinalUserState(_)) {
             self = self
-                .step(phnx_db_connection, client_db_transaction, api_clients)
+                .step(
+                    phnx_db_connection.clone(),
+                    client_db_connection.clone(),
+                    api_clients,
+                )
                 .await?
         }
 
@@ -203,7 +207,6 @@ impl ClientRecord {
 /// Create all tables for a client database by calling the `create_table`
 /// function of all structs that implement `Persistable`.
 pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
-    <ClientRecord as Storable>::create_table(client_db_connection)?;
     <UserCreationState as Storable>::create_table(client_db_connection)?;
     <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;

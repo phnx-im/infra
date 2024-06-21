@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
@@ -24,6 +24,7 @@ use phnxtypes::{
     identifiers::AsClientId,
 };
 use rusqlite::Connection;
+use tokio::sync::Mutex;
 
 use crate::clients::api_clients::ApiClients;
 
@@ -62,7 +63,7 @@ impl StorableClientCredential {
     }
 
     pub(super) async fn decrypt_and_verify(
-        connection: &Connection,
+        connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
         ear_key: &ClientCredentialEarKey,
         ecc: EncryptedClientCredential,
@@ -157,7 +158,7 @@ impl ClientAuthInfo {
     /// client auth info needs to be given s.t. the index of the client in the
     /// group corresponds to the index in the iterator.
     pub(super) async fn decrypt_and_verify_all(
-        connection: &Connection,
+        connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,
@@ -172,7 +173,7 @@ impl ClientAuthInfo {
         let mut client_information = Vec::new();
         for (leaf_index, encrypted_client_info) in encrypted_client_information {
             let client_auth_info = Self::decrypt_and_verify(
-                connection,
+                connection.clone(),
                 api_clients,
                 group_id,
                 ear_key,
@@ -188,7 +189,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given encrypted client auth info.
     pub(super) async fn decrypt_and_verify(
-        connection: &Connection,
+        connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,

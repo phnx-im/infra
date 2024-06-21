@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
-use openmls_traits::OpenMlsProvider;
+use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
     crypto::{
         ear::{
@@ -22,10 +22,10 @@ use phnxtypes::{
     messages::FriendshipToken,
 };
 use rusqlite::Connection;
+use tokio::sync::Mutex;
 
 use crate::{
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
-    groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::qs_verifying_keys::StorableQsVerifyingKey,
     ConversationId,
 };
@@ -79,10 +79,9 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
-        connection: &Connection,
+        connection_mutex: Arc<Mutex<Connection>>,
         api_clients: ApiClients,
     ) -> Result<ContactAddInfos> {
-        let provider = PhnxOpenMlsProvider::new(connection);
         let invited_user = self.user_name.clone();
         let invited_user_domain = invited_user.domain();
 
@@ -98,7 +97,7 @@ impl Contact {
             .into_iter()
             .map(|add_package| {
                 let verified_add_package =
-                    add_package.validate(provider.crypto(), ProtocolVersion::default())?;
+                    add_package.validate(&RustCrypto::default(), ProtocolVersion::default())?;
                 let key_package = verified_add_package.key_package().clone();
                 let sek = SignatureEarKey::decrypt(
                     &self.signature_ear_key_wrapper_key,
@@ -108,7 +107,8 @@ impl Contact {
             })
             .collect::<Result<Vec<_>>>()?;
         let qs_verifying_key =
-            StorableQsVerifyingKey::get(connection, &invited_user_domain, &api_clients).await?;
+            StorableQsVerifyingKey::get(connection_mutex, &invited_user_domain, &api_clients)
+                .await?;
         let key_package_batch = key_package_batch_response
             .key_package_batch
             .verify(qs_verifying_key.deref())?;

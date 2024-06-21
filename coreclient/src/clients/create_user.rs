@@ -45,7 +45,7 @@ impl BasicUserData {
 
     pub(super) async fn prepare_as_registration(
         self,
-        connection: &Connection,
+        client_db_connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
@@ -54,7 +54,8 @@ impl BasicUserData {
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
-            AsCredentials::get_intermediate_credential(connection, api_clients, &domain).await?;
+            AsCredentials::get_intermediate_credential(client_db_connection, api_clients, &domain)
+                .await?;
 
         // We already fetch the QS encryption key here, so we don't have to do
         // it in a later step, where we otherwise don't have to perform network
@@ -418,7 +419,7 @@ pub(super) struct QsRegisteredUserState {
 impl QsRegisteredUserState {
     pub(super) async fn upload_add_packages(
         self,
-        connection: &Connection,
+        connection: Arc<Mutex<Connection>>,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
@@ -430,13 +431,14 @@ impl QsRegisteredUserState {
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
 
+        let connection = connection.lock().await;
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably
             // the client credential ear key, since friends need to be able to
             // decrypt it. We might want to use a separate key, though.
             let add_package = key_store.generate_add_package(
-                connection,
+                &connection,
                 qs_client_id,
                 &encrypted_client_credential,
                 false,
@@ -444,12 +446,13 @@ impl QsRegisteredUserState {
             qs_add_packages.push(add_package);
         }
         let last_resort_add_package = key_store.generate_add_package(
-            connection,
+            &connection,
             qs_client_id,
             &encrypted_client_credential,
             true,
         )?;
         qs_add_packages.push(last_resort_add_package);
+        drop(connection);
 
         // Upload add packages
         api_clients
@@ -485,7 +488,7 @@ pub(super) struct PersistedUserState {
 impl PersistedUserState {
     pub(super) fn into_self_user(
         self,
-        connection: Connection,
+        connection: Arc<Mutex<Connection>>,
         api_clients: ApiClients,
     ) -> CoreUser {
         let QsRegisteredUserState {
@@ -495,7 +498,7 @@ impl PersistedUserState {
             qs_client_id,
         } = self.state;
         CoreUser {
-            sqlite_connection: Arc::new(Mutex::new(connection)),
+            connection,
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id,

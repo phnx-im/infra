@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::Arc;
+
 use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 use rusqlite::{params, OptionalExtension};
+use tokio::sync::Mutex;
 
 use crate::utils::persistence::Storable;
 
@@ -59,19 +62,22 @@ impl StorableQsVerifyingKey {
 
 impl StorableQsVerifyingKey {
     pub(crate) async fn get(
-        connection: &Connection,
+        connection_mutex: Arc<Mutex<Connection>>,
         domain: &Fqdn,
         api_clients: &ApiClients,
     ) -> Result<StorableQsVerifyingKey> {
-        if let Some(verifying_key) = Self::load(connection, domain)? {
+        let connection = connection_mutex.lock().await;
+        if let Some(verifying_key) = Self::load(&connection, domain)? {
             Ok(verifying_key)
         } else {
+            drop(connection);
             let verifying_key_response = api_clients.get(domain)?.qs_verifying_key().await?;
             let verifying_key = Self {
                 domain: domain.clone(),
                 verifying_key: verifying_key_response.verifying_key,
             };
-            verifying_key.store(connection)?;
+            let connection = connection_mutex.lock().await;
+            verifying_key.store(&connection)?;
             Ok(verifying_key)
         }
     }
