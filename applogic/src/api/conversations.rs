@@ -5,9 +5,11 @@
 use anyhow::{anyhow, Result};
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 
+use crate::notifications::dispatch_message_notifications;
+
 use super::{
     types::{ConversationIdBytes, UiContact, UiConversation},
-    user::creation::User,
+    user::User,
 };
 
 impl User {
@@ -54,8 +56,7 @@ impl User {
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
-        self.dispatch_message_notifications(conversation_messages)
-            .await;
+        dispatch_message_notifications(&self.notification_hub, conversation_messages).await;
         Ok(())
     }
 
@@ -75,8 +76,7 @@ impl User {
                     .collect::<Result<Vec<UserName>, _>>()?,
             )
             .await?;
-        self.dispatch_message_notifications(conversation_messages)
-            .await;
+        dispatch_message_notifications(&self.notification_hub, conversation_messages).await;
         Ok(())
     }
 

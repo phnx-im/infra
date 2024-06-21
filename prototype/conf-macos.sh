@@ -21,4 +21,35 @@ xmlstarlet ed --inplace \
     -i '//window/windowStyleMask' -t attr -n fullSizeContentView -v YES \
     "$MAINMENU_XIB_PATH"
 
-echo "MainMenu.xib modified successfully"
+# === Entitlements ===
+
+# Path to the release entitlements file
+RELEASE_ENTITLEMENTS_PATH="macos/Runner/Release.entitlements"
+
+# Path to the debug entitlements file
+DEBUG_ENTITLEMENTS_PATH="macos/Runner/DebugProfile.entitlements"
+
+# Add the network client entitlement to the release entitlements
+xmlstarlet ed --inplace \
+    -s '/plist/dict' -t elem -n key -v com.apple.security.network.client \
+    -s '/plist/dict' -t elem -n true -v '' \
+    "$RELEASE_ENTITLEMENTS_PATH"
+
+# Add the network client entitlement to the debug entitlements
+xmlstarlet ed --inplace \
+    -s '/plist/dict' -t elem -n key -v com.apple.security.network.client \
+    -s '/plist/dict' -t elem -n true -v '' \
+    "$DEBUG_ENTITLEMENTS_PATH"
+
+# Add the file selector entitlement to the release entitlements
+xmlstarlet ed --inplace \
+    -s '/plist/dict' -t elem -n key -v com.apple.security.files.user-selected.read-only \
+    -s '/plist/dict' -t elem -n true -v '' \
+    "$RELEASE_ENTITLEMENTS_PATH"
+
+# Add the file selector entitlement to the debug entitlements
+xmlstarlet ed --inplace \
+    -s '/plist/dict' -t elem -n key -v com.apple.security.files.user-selected.read-only \
+    -s '/plist/dict' -t elem -n true -v '' \
+    "$DEBUG_ENTITLEMENTS_PATH"
+

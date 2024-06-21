@@ -142,13 +142,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         StorableLeafNodeRef(leaf_node).store(self.connection, group_id)
     }
 
-    fn clear_own_leaf_nodes<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
-        &self,
-        group_id: &GroupId,
-    ) -> Result<(), Self::Error> {
-        StorableGroupIdRef(group_id).delete_leaf_nodes(self.connection)
-    }
-
     fn queue_proposal<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
         ProposalRef: openmls_traits::storage::traits::ProposalRef<CURRENT_VERSION>,
