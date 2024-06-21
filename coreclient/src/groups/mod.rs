@@ -446,7 +446,6 @@ impl Group {
         )?;
         mls_group.set_aad(provider.storage(), &[])?;
         mls_group.merge_pending_commit(&provider)?;
-        drop(provider);
         drop(connection);
 
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
@@ -469,18 +468,17 @@ impl Group {
         .await?;
 
         // We still have to add ourselves to the encrypted client credentials.
-        let own_client_credential = own_client_credential.clone();
-        let own_signature_ear_key = signature_ear_key.clone();
         let own_index = mls_group.own_leaf_index().usize();
         let own_group_membership = GroupMembership::new(
             own_client_credential.identity(),
             group_info.group_context().group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
-            own_signature_ear_key,
+            signature_ear_key.clone(),
             own_client_credential.fingerprint(),
         );
 
-        let own_auth_info = ClientAuthInfo::new(own_client_credential, own_group_membership);
+        let own_auth_info =
+            ClientAuthInfo::new(own_client_credential.clone(), own_group_membership);
         client_information.push(own_auth_info);
 
         // Phase 3: Verify and store the infra credentials.
@@ -524,7 +522,6 @@ impl Group {
         let connection = connection_mutex.lock().await;
         let provider = PhnxOpenMlsProvider::new(&connection);
         let processed_message = self.mls_group.process_message(&provider, message)?;
-        drop(provider);
         drop(connection);
 
         let group_id = self.group_id();
@@ -787,6 +784,7 @@ impl Group {
                         // JoinConnectionGroup Phase 2: Persist the client auth info.
                         let connection = connection_mutex.lock().await;
                         client_auth_info.stage_add(&connection)?;
+                        drop(connection);
                     }
                     InfraAadPayload::AddClients(add_clients_payload) => {
                         // AddClients Phase 1: Compute the free indices
@@ -836,6 +834,7 @@ impl Group {
                             // Persist the client auth info.
                             client_auth_info.stage_add(&connection)?;
                         }
+                        drop(connection);
                     }
                     InfraAadPayload::RemoveUsers | InfraAadPayload::RemoveClients => {
                         // We already processed remove proposals above, so there is nothing to do here.
@@ -850,7 +849,6 @@ impl Group {
                         // * Check that this commit contains exactly one remove proposal
                         // * Check that the sender type is correct (external commit).
 
-                        let connection = connection_mutex.lock().await;
                         let removed_index = staged_commit
                             .remove_proposals()
                             .next()
@@ -859,6 +857,7 @@ impl Group {
                             ))?
                             .remove_proposal()
                             .removed();
+                        let connection = connection_mutex.lock().await;
                         let mut client_auth_info =
                             ClientAuthInfo::load(&connection, group_id, removed_index)?.ok_or(
                                 anyhow!("Could not find client credential of resync sender"),
@@ -897,6 +896,7 @@ impl Group {
         ))?
         .client_credential()
         .identity();
+        drop(connection);
 
         Ok((processed_message, we_were_removed, sender_client_id))
     }
@@ -914,7 +914,6 @@ impl Group {
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<Vec<ClientCredential>>,
     ) -> Result<AddUsersParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key");
         };
@@ -945,12 +944,14 @@ impl Group {
             encrypted_credential_information: ecc,
         })
         .into();
+
         // Set Aad to contain the encrypted client credentials.
+        let provider = PhnxOpenMlsProvider::new(connection);
         self.mls_group
             .set_aad(provider.storage(), &aad_message.tls_serialize_detached()?)?;
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
-                .add_members(provider, &self.leaf_signer, key_packages.as_slice())?;
+                .add_members(&provider, &self.leaf_signer, key_packages.as_slice())?;
         // Reset Aad to empty.
         self.mls_group.set_aad(provider.storage(), &[])?;
 

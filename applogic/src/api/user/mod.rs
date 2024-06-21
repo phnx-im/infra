@@ -52,7 +52,6 @@ pub struct User {
 }
 
 impl User {
-    #[tokio::main(flavor = "current_thread")]
     pub async fn new(
         user_name: String,
         password: String,
@@ -68,7 +67,6 @@ impl User {
         })
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn load_default(path: String) -> Result<User> {
         let client_record = ClientRecord::load_all_from_phnx_db(&path)?
             .pop()

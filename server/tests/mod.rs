@@ -88,15 +88,19 @@ async fn invite_to_group() {
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn update_group() {
     let mut setup = TestBackend::single().await;
+    tracing::info!("Adding users");
     setup.add_user(ALICE).await;
     setup.add_user(BOB).await;
     setup.add_user(CHARLIE).await;
+    tracing::info!("Connecting users");
     setup.connect_users(ALICE, BOB).await;
     setup.connect_users(ALICE, CHARLIE).await;
     let conversation_id = setup.create_group(ALICE).await;
+    tracing::info!("Inviting to group");
     setup
         .invite_to_group(conversation_id, ALICE, vec![BOB, CHARLIE])
         .await;
+    tracing::info!("Updating group");
     setup.update_group(conversation_id, BOB).await
 }
 

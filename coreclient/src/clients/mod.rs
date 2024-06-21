@@ -46,9 +46,10 @@ use phnxtypes::{
 };
 use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
+use store::ClientRecord;
 use thiserror::Error;
 use tokio::sync::Mutex;
-use utils::set_up_database;
+use utils::{persistence::Storable, set_up_database};
 use uuid::Uuid;
 
 use crate::{
@@ -180,6 +181,8 @@ impl CoreUser {
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
         let phnx_db_connection = Connection::open_in_memory()?;
+
+        ClientRecord::create_table(&phnx_db_connection)?;
 
         // Open client specific db
         let client_db_connection = Connection::open_in_memory()?;
@@ -479,20 +482,23 @@ impl CoreUser {
         conversation_id: ConversationId,
         target_users: &[UserName],
     ) -> Result<Vec<ConversationMessage>> {
-        let mut connection = self.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
+        // Phase 1: Load the group and conversation and prepare the commit.
+        let connection = self.connection.lock().await;
+        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(&transaction, group_id)?
+        let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let clients = target_users
             .iter()
-            .flat_map(|user_name| group.user_client_ids(&transaction, user_name))
+            .flat_map(|user_name| group.user_client_ids(&connection, user_name))
             .collect::<Vec<_>>();
-        let params = group.remove(&transaction, clients)?;
+        let params = group.remove(&connection, clients)?;
+        drop(connection);
+
+        // Phase 2: Send the commit to the DS
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
@@ -502,13 +508,18 @@ impl CoreUser {
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
-        // Now that we know the commit went through, we can merge the commit
+
+        // Phase 3: Merge the commit into the group
+        let mut connection = self.connection.lock().await;
+        let mut transaction = connection.transaction()?;
         let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
         group.store_update(&transaction)?;
 
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
+        drop(connection);
+
         Ok(conversation_messages)
     }
 
@@ -519,8 +530,9 @@ impl CoreUser {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> Result<ConversationMessage> {
-        let connection = &self.connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        // Phase 1: Load the conversation and group
+        let connection = self.connection.lock().await;
+        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
@@ -532,32 +544,36 @@ impl CoreUser {
             conversation_id,
             content.clone(),
         );
-        conversation_message.store(connection)?;
-        let mut group = Group::load(connection, group_id)?
+        conversation_message.store(&connection)?;
+        let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
-            .create_message(connection, content)
+            .create_message(&connection, content)
             .map_err(CorelibError::Group)?;
+        drop(connection);
 
-        // Send message to DS
+        // Phase 2: Send message to DS
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        group.store_update(connection)?;
+        // Phase 3: Merge the commit into the group
+        let connection = self.connection.lock().await;
+        group.store_update(&connection)?;
 
         // Mark the message as sent.
-        conversation_message.mark_as_sent(connection, ds_timestamp)?;
+        conversation_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(conversation_message)
     }
 
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&mut self, local_message_id: Uuid) -> Result<()> {
-        let connection = &self.connection.lock().await;
-        let mut unsent_message = ConversationMessage::load(connection, &local_message_id)?.ok_or(
+        // Phase 1: Load the unsent message
+        let connection = self.connection.lock().await;
+        let mut unsent_message = ConversationMessage::load(&connection, &local_message_id)?.ok_or(
             anyhow!("Can't find unsent message with id {}", local_message_id),
         )?;
         let content = match unsent_message.message() {
@@ -567,28 +583,31 @@ impl CoreUser {
             _ => bail!("Message with id {} was already sent", local_message_id),
         };
         let conversation_id = unsent_message.conversation_id();
-        let conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
+        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(connection, group_id)?
+        let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
-            .create_message(connection, content)
+            .create_message(&connection, content)
             .map_err(CorelibError::Group)?;
+        drop(connection);
 
-        // Send message to DS
+        // Phase 2: Send message to DS
         let ds_timestamp = self
             .api_clients
             .get(&conversation.owner_domain())?
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        group.store_update(connection)?;
+        // Phase 3: Merge the commit into the group
+        let connection = self.connection.lock().await;
+        group.store_update(&connection)?;
 
         // Mark the message as sent.
-        unsent_message.mark_as_sent(connection, ds_timestamp)?;
+        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(())
     }
@@ -776,6 +795,8 @@ impl CoreUser {
         let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group.update_user_key(&connection)?;
+        drop(connection);
+
         let owner_domain = conversation.owner_domain();
 
         // Phase 2: Send the update to the DS
@@ -784,11 +805,13 @@ impl CoreUser {
             .get(&owner_domain)?
             .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
             .await?;
-        let group_messages = group.merge_pending_commit(&connection, None, ds_timestamp)?;
 
         // Phase 3: Store the updated group
         let mut connection = self.connection.lock().await;
         let mut transaction = connection.transaction()?;
+
+        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
+
         group.store_update(&transaction)?;
 
         let conversation_messages =
@@ -866,10 +889,12 @@ impl CoreUser {
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
-        let connection = &self.connection.lock().await;
+        let connection = self.connection.lock().await;
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number = queue_type.load_sequence_number(connection)?;
+        let mut sequence_number = queue_type.load_sequence_number(&connection)?;
+        drop(connection);
+
         while remaining_messages > 0 {
             let api_client = self.api_clients.default_client()?;
             let mut response = match &queue_type {
@@ -897,10 +922,12 @@ impl CoreUser {
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
 
+            let connection = self.connection.lock().await;
             if let Some(message) = messages.last() {
                 sequence_number = message.sequence_number + 1;
-                queue_type.update_sequence_number(connection, sequence_number)?;
+                queue_type.update_sequence_number(&connection, sequence_number)?;
             }
+            drop(connection);
         }
         Ok(messages)
     }

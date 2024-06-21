@@ -99,12 +99,13 @@ impl CoreUser {
                 // WelcomeBundle Phase 2: Store the user profiles of the group
                 // members if they don't exist yet and store the group and the
                 // new conversation.
-                let connection = self.connection.lock().await;
+                let mut connection = self.connection.lock().await;
+                let transaction = connection.transaction()?;
                 group
-                    .members(&connection)
+                    .members(&transaction)
                     .into_iter()
                     .try_for_each(|user_name| {
-                        UserProfile::new(user_name, None, None).store(&connection)
+                        UserProfile::new(user_name, None, None).store(&transaction)
                     })?;
 
                 // Set the conversation attributes according to the group's
@@ -118,10 +119,11 @@ impl CoreUser {
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Conversation::delete(&connection, conversation.id())?;
-                Group::delete_from_db(&connection, &group_id)?;
-                group.store(&connection)?;
-                conversation.store(&connection)?;
+                Conversation::delete(&transaction, conversation.id())?;
+                Group::delete_from_db(&transaction, &group_id)?;
+                group.store(&transaction)?;
+                conversation.store(&transaction)?;
+                transaction.commit()?;
                 drop(connection);
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
