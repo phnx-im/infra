@@ -5,16 +5,18 @@
 use anyhow::Result;
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 
-use crate::api::types::{UiContact, UiUserProfile};
+use crate::{
+    api::types::{UiContact, UiUserProfile},
+    notifications::dispatch_conversation_notifications,
+};
 
-use super::creation::User;
+use super::User;
 
 impl User {
     #[tokio::main(flavor = "current_thread")]
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let conversation_id = self.user.add_contact(&user_name).await?;
-        self.dispatch_conversation_notifications(vec![conversation_id])
-            .await;
+        dispatch_conversation_notifications(&self.notification_hub, vec![conversation_id]).await;
         Ok(())
     }
 

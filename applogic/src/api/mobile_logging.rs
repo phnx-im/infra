@@ -5,6 +5,7 @@
 use std::sync::{Once, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use anyhow::Result;
 use lazy_static::lazy_static;
 use log::{error, info, warn, Level, Log, Metadata, Record};
 use simplelog::{
@@ -16,6 +17,11 @@ use crate::StreamSink;
 pub use log::LevelFilter;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
+
+pub fn create_log_stream(s: StreamSink<LogEntry>) -> Result<()> {
+    SendToDartLogger::set_stream_sink(s);
+    Ok(())
+}
 
 pub struct LogEntry {
     pub time_millis: i64,

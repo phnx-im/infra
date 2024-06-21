@@ -6,11 +6,12 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/api/conversations.dart';
+import 'package:prototype/core/api/mobile_logging.dart';
 import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core/api/user/creation.dart';
+import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core/api/utils.dart';
 import 'package:prototype/core/frb_generated.dart';
+import 'package:prototype/core/lib.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -88,21 +89,13 @@ class CoreClient {
 
   Future<bool> loadUser() async {
     try {
-      final userBuilder = await UserBuilder.newInstance();
-      final stream = userBuilder.getStream().asBroadcastStream();
-
-      // We wait for the first element to be received
-      await stream.firstWhere((UiNotificationType event) {
-        return true;
-      }, orElse: () => throw Exception("No first_notification received"));
-
-      user = await userBuilder.loadDefault(path: await dbPath());
+      user = await User.loadDefault(path: await dbPath());
 
       ownProfile = await user.ownUserProfile();
 
       print("Loaded user: ${ownProfile.userName}");
 
-      stageUser(ownProfile.userName, stream);
+      stageUser(ownProfile.userName);
 
       return true;
     } catch (e) {
@@ -113,29 +106,22 @@ class CoreClient {
 
   Future<void> createUser(
       String userName, String password, String address) async {
-    final fqun = userName;
-    final userBuilder = await UserBuilder.newInstance();
-    final stream = userBuilder.getStream().asBroadcastStream();
-
-    await stream.firstWhere((UiNotificationType event) {
-      return true;
-    }, orElse: () => throw Exception("No first_notification received"));
-
-    user = await userBuilder.createUser(
-        userName: fqun,
+    user = await User.newInstance(
+        userName: userName,
         password: password,
         address: address,
         path: await dbPath());
 
     print("User registered");
 
-    stageUser(userName, stream);
+    stageUser(userName);
   }
 
-  Future<void> stageUser(
-      String userName, Stream<UiNotificationType> stream) async {
+  Future<void> stageUser(String userName) async {
     // Load existing conversations
     await conversations();
+
+    final stream = user.notificationStream().asBroadcastStream();
 
     stream.listen((UiNotificationType event) {
       print("Event: $event");
