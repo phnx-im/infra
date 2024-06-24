@@ -294,7 +294,7 @@ impl Group {
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
         let connection = connection_mutex.lock().await;
-        let provider = &PhnxOpenMlsProvider::new(&connection);
+        let provider = PhnxOpenMlsProvider::new(&connection);
         let key_package_bundle: KeyPackageBundle = welcome_bundle
             .welcome
             .welcome
@@ -324,13 +324,13 @@ impl Group {
         )?;
 
         let staged_welcome = StagedWelcome::new_from_welcome(
-            provider,
+            &provider,
             &mls_group_config,
             welcome_bundle.welcome.welcome,
             None,
         )?;
 
-        let mls_group = staged_welcome.into_group(provider)?;
+        let mls_group = staged_welcome.into_group(&provider)?;
 
         // Decrypt WelcomeAttributionInfo
         let verifiable_attribution_info = WelcomeAttributionInfo::decrypt(
@@ -380,10 +380,11 @@ impl Group {
 
         let leaf_keys = LeafKeys::load(&connection, verifying_key)?
             .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
-        LeafKeys::delete(&connection, verifying_key)?;
-        let leaf_signer = leaf_keys.into_leaf_signer();
-
         // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
+        LeafKeys::delete(&connection, verifying_key)?;
+        drop(connection);
+
+        let leaf_signer = leaf_keys.into_leaf_signer();
 
         let group = Self {
             group_id: mls_group.group_id().clone(),
