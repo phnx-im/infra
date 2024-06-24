@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 # SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # === Window style ===
+
 # Set the titlebarAppearsTransparent, titleVisibility and fullSizeContentView attributes to the MainMenu.xib file
 # This will make the titlebar transparent, hide the title and make the content view full size
 
@@ -29,27 +30,18 @@ RELEASE_ENTITLEMENTS_PATH="macos/Runner/Release.entitlements"
 # Path to the debug entitlements file
 DEBUG_ENTITLEMENTS_PATH="macos/Runner/DebugProfile.entitlements"
 
-# Add the network client entitlement to the release entitlements
-xmlstarlet ed --inplace \
-    -s '/plist/dict' -t elem -n key -v com.apple.security.network.client \
-    -s '/plist/dict' -t elem -n true -v '' \
-    "$RELEASE_ENTITLEMENTS_PATH"
+# Add network client entitlement to release entitlements
+# Enables network client access
+/usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$RELEASE_ENTITLEMENTS_PATH"
 
-# Add the network client entitlement to the debug entitlements
-xmlstarlet ed --inplace \
-    -s '/plist/dict' -t elem -n key -v com.apple.security.network.client \
-    -s '/plist/dict' -t elem -n true -v '' \
-    "$DEBUG_ENTITLEMENTS_PATH"
+# Add network client entitlement to debug entitlements
+# Enables network client access
+/usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$DEBUG_ENTITLEMENTS_PATH"
 
-# Add the file selector entitlement to the release entitlements
-xmlstarlet ed --inplace \
-    -s '/plist/dict' -t elem -n key -v com.apple.security.files.user-selected.read-only \
-    -s '/plist/dict' -t elem -n true -v '' \
-    "$RELEASE_ENTITLEMENTS_PATH"
+# Add file selector entitlement to release entitlements
+# Allows read-only access to user-selected files
+/usr/libexec/PlistBuddy -c "Add :com.apple.security.files.user-selected.read-only bool true" "$RELEASE_ENTITLEMENTS_PATH"
 
-# Add the file selector entitlement to the debug entitlements
-xmlstarlet ed --inplace \
-    -s '/plist/dict' -t elem -n key -v com.apple.security.files.user-selected.read-only \
-    -s '/plist/dict' -t elem -n true -v '' \
-    "$DEBUG_ENTITLEMENTS_PATH"
-
+# Add file selector entitlement to debug entitlements
+# Allows read-only access to user-selected files
+/usr/libexec/PlistBuddy -c "Add :com.apple.security.files.user-selected.read-only bool true" "$DEBUG_ENTITLEMENTS_PATH"
