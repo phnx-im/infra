@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 #
