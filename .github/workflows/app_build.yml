@@ -32,5 +32,7 @@ jobs:
         run: cd prototype && make setup-ci
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
+      - name: Generate Android app
+        run: cd prototype && make android-create
       - name: Build Android app
         run: cd prototype && make android-release

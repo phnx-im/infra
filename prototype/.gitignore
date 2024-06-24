@@ -65,6 +65,7 @@ rust_builder/
 flutter_rust_bridge.yaml.generated
 
 # Other platforms
+android/
 ios/
 macos/
 windows/
