@@ -98,8 +98,8 @@ impl UserCreationState {
 
     pub(super) async fn step(
         self,
-        phnx_db_connection: Arc<Mutex<Connection>>,
-        client_db_connection: Arc<Mutex<Connection>>,
+        phnx_db_connection: SqliteConnection,
+        client_db_connection: SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<Self> {
         // If we're already in the final state, there is nothing to do.
@@ -117,7 +117,7 @@ impl UserCreationState {
                 Self::PostRegistrationInitState(state.initiate_as_registration(api_clients).await?)
             }
             UserCreationState::PostRegistrationInitState(state) => {
-                let connection = client_db_connection.lock().await;
+                let connection = client_db_connection.lock();
                 Self::UnfinalizedRegistrationState(state.process_server_response(&connection)?)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
@@ -134,12 +134,12 @@ impl UserCreationState {
             UserCreationState::FinalUserState(_) => self,
         };
 
-        let client_db_connection = client_db_connection.lock().await;
+        let client_db_connection = client_db_connection.lock();
         new_state.store(&client_db_connection)?;
 
         // If we just transitioned into the final state, we need to update the
         // client record.
-        let phnx_db_connection = phnx_db_connection.lock().await;
+        let phnx_db_connection = phnx_db_connection.lock();
         if let UserCreationState::FinalUserState(_) = new_state {
             let mut client_record = ClientRecord::load(&phnx_db_connection, new_state.client_id())?
                 .ok_or(anyhow!("Client record not found"))?;
@@ -161,8 +161,8 @@ impl UserCreationState {
     /// A convenience function that performs the `step` function until the final state is reached.
     pub(super) async fn complete_user_creation(
         mut self,
-        phnx_db_connection: Arc<Mutex<Connection>>,
-        client_db_connection: Arc<Mutex<Connection>>,
+        phnx_db_connection: SqliteConnection,
+        client_db_connection: SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         while !matches!(self, UserCreationState::FinalUserState(_)) {

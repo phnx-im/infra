@@ -8,7 +8,7 @@ use phnxtypes::{crypto::signatures::keys::QsVerifyingKey, identifiers::Fqdn};
 use rusqlite::{params, OptionalExtension};
 use tokio::sync::Mutex;
 
-use crate::utils::persistence::Storable;
+use crate::utils::persistence::{SqliteConnection, Storable};
 
 use super::*;
 
@@ -62,11 +62,11 @@ impl StorableQsVerifyingKey {
 
 impl StorableQsVerifyingKey {
     pub(crate) async fn get(
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         domain: &Fqdn,
         api_clients: &ApiClients,
     ) -> Result<StorableQsVerifyingKey> {
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         if let Some(verifying_key) = Self::load(&connection, domain)? {
             Ok(verifying_key)
         } else {
@@ -76,7 +76,7 @@ impl StorableQsVerifyingKey {
                 domain: domain.clone(),
                 verifying_key: verifying_key_response.verifying_key,
             };
-            let connection = connection_mutex.lock().await;
+            let connection = connection_mutex.lock();
             verifying_key.store(&connection)?;
             Ok(verifying_key)
         }

@@ -2,7 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{fmt::Display, path::Path};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+    path::Path,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use anyhow::{bail, Result};
 use openmls::group::GroupId;
@@ -12,6 +17,47 @@ use rusqlite::{types::FromSql, Connection, ToSql};
 use crate::clients::store::ClientRecord;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
+
+#[derive(Debug, Clone)]
+pub(crate) struct SqliteConnection {
+    connection_mutex: Arc<Mutex<Connection>>,
+}
+
+impl SqliteConnection {
+    pub fn new(connection: Connection) -> Self {
+        Self {
+            connection_mutex: Arc::new(Mutex::new(connection)),
+        }
+    }
+
+    pub fn lock(&self) -> SqliteConnectionGuard {
+        self.connection_mutex.clear_poison();
+        let guard = self.connection_mutex.lock().unwrap();
+        SqliteConnectionGuard {
+            connection: self,
+            guard,
+        }
+    }
+}
+
+pub(crate) struct SqliteConnectionGuard<'a> {
+    connection: &'a SqliteConnection,
+    guard: MutexGuard<'a, Connection>,
+}
+
+impl Deref for SqliteConnectionGuard<'_> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.guard
+    }
+}
+
+impl DerefMut for SqliteConnectionGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.guard
+    }
+}
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.

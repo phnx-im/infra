@@ -17,7 +17,7 @@ use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
         keys::{ClientSigningKey, InfraCredentialSigningKey},
-        ClientCredential, EncryptedClientCredential, VerifiableClientCredential,
+        ClientCredential, EncryptedClientCredential,
     },
     crypto::{
         ear::{
@@ -57,12 +57,9 @@ use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use tokio::sync::Mutex;
 
 use crate::{
-    clients::api_clients::ApiClients,
-    contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage,
-    key_stores::{as_credentials::AsCredentials, leaf_keys::LeafKeys},
-    mimi_content::MimiContent,
-    SystemMessage,
+    clients::api_clients::ApiClients, contacts::ContactAddInfos,
+    conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
+    mimi_content::MimiContent, utils::persistence::SqliteConnection, SystemMessage,
 };
 use std::{collections::HashSet, sync::Arc};
 
@@ -284,7 +281,7 @@ impl Group {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
@@ -293,7 +290,7 @@ impl Group {
 
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         let provider = PhnxOpenMlsProvider::new(&connection);
         let key_package_bundle: KeyPackageBundle = welcome_bundle
             .welcome
@@ -372,7 +369,7 @@ impl Group {
             .signature_key();
 
         // Phase 3: Decrypt and verify the infra credentials.
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
             client_auth_info.store(&connection)?;
@@ -407,7 +404,7 @@ impl Group {
 
     /// Join a group using an external commit.
     pub(super) async fn join_group_externally(
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: InfraCredentialSigningKey,
@@ -434,7 +431,7 @@ impl Group {
 
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         let provider = PhnxOpenMlsProvider::new(&connection);
         let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
             &provider,
@@ -483,7 +480,7 @@ impl Group {
         client_information.push(own_auth_info);
 
         // Phase 3: Verify and store the infra credentials.
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
             client_auth_info.verify_infra_credential(&m.credential)?;
             // Store client auth info.
@@ -515,12 +512,12 @@ impl Group {
     /// the sender's client credential.
     pub(super) async fn process_message(
         &mut self,
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
     ) -> Result<(ProcessedMessage, bool, AsClientId)> {
         // Phase 1: Process the message.
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         let provider = PhnxOpenMlsProvider::new(&connection);
         let processed_message = self.mls_group.process_message(&provider, message)?;
         drop(connection);
@@ -537,7 +534,7 @@ impl Group {
             ProcessedMessageContent::ApplicationMessage(_) => {
                 log::info!("Message type: application.");
                 let sender_client_id = if let Sender::Member(index) = processed_message.sender() {
-                    let connection = connection_mutex.lock().await;
+                    let connection = connection_mutex.lock();
                     let client_id = ClientAuthInfo::load(&connection, group_id, *index)?
                         .map(|info| info.client_credential().identity())
                         .ok_or(anyhow!(
@@ -563,7 +560,7 @@ impl Group {
 
                 // Before we process the AAD payload, we first process the
                 // proposals by value. Currently only removes are allowed.
-                let connection = connection_mutex.lock().await;
+                let connection = connection_mutex.lock();
                 for remove_proposal in staged_commit.remove_proposals() {
                     let removed_index = remove_proposal.remove_proposal().removed();
                     GroupMembership::stage_removal(&connection, group_id, removed_index)?;
@@ -591,7 +588,7 @@ impl Group {
                 match aad_payload {
                     InfraAadPayload::AddUsers(add_users_payload) => {
                         // AddUsers Phase 1: Compute the free indices
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         let encrypted_client_information =
                             GroupMembership::free_indices(&connection, group_id)?.zip(
                                 add_users_payload
@@ -625,7 +622,7 @@ impl Group {
                         // * Maybe check sender type (only Members can add users).
 
                         // AddUsers Phase 3: Verify and store the client auth infos.
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         if staged_commit.add_proposals().count() != client_auth_infos.len() {
                             bail!("Number of add proposals and client credentials don't match.")
                         }
@@ -692,7 +689,7 @@ impl Group {
                                     &self.signature_ear_key_wrapper_key,
                                     &encrypted_signature_ear_key,
                                 )?;
-                                let connection = connection_mutex.lock().await;
+                                let connection = connection_mutex.lock();
                                 let mut group_membership =
                                     GroupMembership::load(&connection, group_id, *sender_index)?
                                         .ok_or(anyhow!(
@@ -711,7 +708,7 @@ impl Group {
                                 ClientAuthInfo::new(client_credential, group_membership)
                             };
                             // Persist the updated client auth info.
-                            let connection = connection_mutex.lock().await;
+                            let connection = connection_mutex.lock();
                             client_auth_info.stage_update(&connection)?;
                             drop(connection);
                             // Verify the leaf credential
@@ -742,7 +739,7 @@ impl Group {
                         client_auth_info.verify_infra_credential(processed_message.credential())?;
                         // JoinGroup Phase 2: Check that the existing user
                         // clients match up and store the new GroupMembership
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         if GroupMembership::user_client_indices(
                             &connection,
                             group_id,
@@ -783,13 +780,13 @@ impl Group {
                         // * Check that this group is indeed a connection group.
 
                         // JoinConnectionGroup Phase 2: Persist the client auth info.
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         client_auth_info.stage_add(&connection)?;
                         drop(connection);
                     }
                     InfraAadPayload::AddClients(add_clients_payload) => {
                         // AddClients Phase 1: Compute the free indices
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         let encrypted_client_information =
                             GroupMembership::free_indices(&connection, group_id)?
                                 .zip(add_clients_payload.encrypted_client_information.into_iter());
@@ -821,7 +818,7 @@ impl Group {
                         }
 
                         // AddClients Phase 3: Verify and store the client auth infos.
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         for (proposal, client_auth_info) in
                             staged_commit.add_proposals().zip(client_auth_infos.iter())
                         {
@@ -858,7 +855,7 @@ impl Group {
                             ))?
                             .remove_proposal()
                             .removed();
-                        let connection = connection_mutex.lock().await;
+                        let connection = connection_mutex.lock();
                         let mut client_auth_info =
                             ClientAuthInfo::load(&connection, group_id, removed_index)?.ok_or(
                                 anyhow!("Could not find client credential of resync sender"),
@@ -886,7 +883,7 @@ impl Group {
         // it from the DB with status "staged".
 
         // Phase 2: Load the sender's client credential.
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         let sender_client_id = if matches!(processed_message.sender(), Sender::NewMemberCommit) {
             ClientAuthInfo::load_staged(&connection, group_id, sender_index)?
         } else {
@@ -1546,22 +1543,4 @@ impl TimestampedMessage {
 
         Ok(event_messages)
     }
-}
-
-/// Helper function to decrypt and verify an encrypted client credential
-async fn decrypt_and_verify_client_credential(
-    connection_mutex: Arc<Mutex<Connection>>,
-    api_clients: &ApiClients,
-    ear_key: &ClientCredentialEarKey,
-    ciphertext: &EncryptedClientCredential,
-) -> Result<ClientCredential> {
-    let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, ciphertext)?;
-
-    let client_credential = AsCredentials::verify_client_credential(
-        connection_mutex,
-        api_clients,
-        verifiable_credential,
-    )
-    .await?;
-    Ok(client_credential)
 }

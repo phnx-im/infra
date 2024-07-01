@@ -7,7 +7,10 @@ use std::sync::Arc;
 use super::api_clients::ApiClients;
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
-    utils::{persistence::Storable, set_up_database},
+    utils::{
+        persistence::{SqliteConnection, Storable},
+        set_up_database,
+    },
 };
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::identifiers::{AsClientId, SafeTryInto};
@@ -62,8 +65,8 @@ async fn user_stages() {
         serde_json::to_vec(&loaded_state).unwrap()
     );
 
-    let client_db_connection_mutex = Arc::new(Mutex::new(client_db_connection));
-    let phnx_db_connection_mutex = Arc::new(Mutex::new(phnx_db_connection));
+    let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
+    let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
     // We now continue down the path of creating a user.
     let computed_state = loaded_state
         .step(
@@ -75,7 +78,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the initial user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -99,7 +102,7 @@ async fn user_stages() {
         .await
         .unwrap();
 
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     // If we load a user state now, it should be the post registration init state.
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
@@ -125,7 +128,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the unfinalized registration state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -150,7 +153,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the AS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -175,7 +178,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the QS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -200,7 +203,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the final user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
+    let client_db_connection = client_db_connection_mutex.lock();
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();

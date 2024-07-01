@@ -25,7 +25,7 @@ use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct SqliteQsStorage {
-    connection: Arc<Mutex<Connection>>,
+    connection: SqliteConnection,
     own_domain: Fqdn,
 }
 

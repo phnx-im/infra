@@ -17,7 +17,7 @@ use rusqlite::{params, OptionalExtension, ToSql};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::{clients::api_clients::ApiClientsError, utils::persistence::Storable};
+use crate::{clients::api_clients::ApiClientsError, utils::persistence::{SqliteConnection, Storable}};
 
 use super::*;
 
@@ -146,14 +146,14 @@ impl AsCredentials {
     /// Fetches the credentials of the AS with the given `domain` if they are
     /// not already present in the store.
     pub(crate) async fn get(
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
         log::info!("Loading AS credential from db.");
         // Phase 1: Check if there is a credential in the database.
-        let connection = connection_mutex.lock().await;
+        let connection = connection_mutex.lock();
         let credential_option = AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
         drop(connection);
 
@@ -170,7 +170,7 @@ impl AsCredentials {
 
             // Phase 2b: Store it in the database.
             let credential_type = AsCredentials::AsIntermediateCredential(credential);
-            let connection = connection_mutex.lock().await;
+            let connection = connection_mutex.lock();
             credential_type.store(&connection)?;
             drop(connection);
             let AsCredentials::AsIntermediateCredential(credential) = credential_type else {
@@ -185,11 +185,11 @@ impl AsCredentials {
     }
 
     pub(crate) async fn get_intermediate_credential(
-        connection: Arc<Mutex<Connection>>,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
-        let connection = connection.lock().await;
+        let connection = connection.lock();
         let credential_option = AsCredentials::load_intermediate(&connection, None, domain)?;
         drop(connection);
         match credential_option {
@@ -205,7 +205,7 @@ impl AsCredentials {
     }
 
     pub async fn verify_client_credential<'b>(
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<ClientCredential, AsCredentialStoreError> {

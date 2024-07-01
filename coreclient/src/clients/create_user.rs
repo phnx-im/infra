@@ -45,7 +45,7 @@ impl BasicUserData {
 
     pub(super) async fn prepare_as_registration(
         self,
-        client_db_connection: Arc<Mutex<Connection>>,
+        client_db_connection: SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
@@ -419,7 +419,7 @@ pub(super) struct QsRegisteredUserState {
 impl QsRegisteredUserState {
     pub(super) async fn upload_add_packages(
         self,
-        connection: Arc<Mutex<Connection>>,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
@@ -431,7 +431,7 @@ impl QsRegisteredUserState {
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
 
-        let connection = connection.lock().await;
+        let connection = connection.lock();
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably
@@ -488,7 +488,7 @@ pub(super) struct PersistedUserState {
 impl PersistedUserState {
     pub(super) fn into_self_user(
         self,
-        connection: Arc<Mutex<Connection>>,
+        connection: SqliteConnection,
         api_clients: ApiClients,
     ) -> CoreUser {
         let QsRegisteredUserState {

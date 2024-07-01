@@ -64,7 +64,7 @@ pub enum QueueError {
 }
 
 pub struct SqliteAsStorage {
-    connection: Arc<Mutex<Connection>>,
+    connection: SqliteConnection,
 }
 
 impl SqliteAsStorage {

@@ -44,7 +44,7 @@ impl CoreUser {
         &self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
-        let mut connection = self.connection.lock().await;
+        let mut connection = self.connection.lock();
         let transaction = connection.transaction()?;
         let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&transaction)?;
 
@@ -99,7 +99,7 @@ impl CoreUser {
                 // WelcomeBundle Phase 2: Store the user profiles of the group
                 // members if they don't exist yet and store the group and the
                 // new conversation.
-                let mut connection = self.connection.lock().await;
+                let mut connection = self.connection.lock();
                 let transaction = connection.transaction()?;
                 group
                     .members(&transaction)
@@ -141,7 +141,7 @@ impl CoreUser {
                     };
                 // MLSMessage Phase 1: Load the conversation and the group.
                 let group_id = protocol_message.group_id();
-                let connection = self.connection.lock().await;
+                let connection = self.connection.lock();
                 let conversation = Conversation::load_by_group_id(&connection, group_id)?
                     .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
@@ -173,7 +173,7 @@ impl CoreUser {
                         // For now, we don't to anything here. The proposal
                         // was processed by the MLS group and will be
                         // committed with the next commit.
-                        let connection = self.connection.lock().await;
+                        let connection = self.connection.lock();
                         group.store_proposal(&connection, *proposal)?;
                         drop(connection);
                         (vec![], false)
@@ -183,7 +183,7 @@ impl CoreUser {
                         // group belongs to an unconfirmed conversation.
 
                         // StagedCommitMessage Phase 1: Load the conversation.
-                        let connection = self.connection.lock().await;
+                        let connection = self.connection.lock();
                         let mut conversation = Conversation::load(&connection, &conversation_id)?
                             .ok_or(anyhow!(
                             "Can't find conversation with id {}",
@@ -204,7 +204,7 @@ impl CoreUser {
                             }
                             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
                             // friendship package
-                            let connection = self.connection.lock().await;
+                            let connection = self.connection.lock();
                             let partial_contact = PartialContact::load(&connection, &user_name)?
                                 .ok_or(anyhow!(
                                     "No partial contact found for user name {}",
@@ -278,7 +278,7 @@ impl CoreUser {
                             }
 
                             // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
-                            let mut connection = self.connection.lock().await;
+                            let mut connection = self.connection.lock();
                             friendship_package.user_profile.update(&connection)?;
 
                             // Set the picture of the conversation to the one of the contact.
@@ -310,7 +310,7 @@ impl CoreUser {
                         // StagedCommitMessage Phase 2: Merge the staged commit into the group.
 
                         // If we were removed, we set the group to inactive.
-                        let connection = self.connection.lock().await;
+                        let connection = self.connection.lock();
                         if we_were_removed {
                             let past_members = group.members(&connection).into_iter().collect();
                             conversation.set_inactive(&connection, past_members)?;
@@ -330,7 +330,7 @@ impl CoreUser {
                 };
 
                 // MLSMessage Phase 3: Store the updated group and the messages.
-                let mut connection = self.connection.lock().await;
+                let mut connection = self.connection.lock();
                 let mut transaction = connection.transaction()?;
                 group.store_update(&transaction)?;
 
@@ -355,7 +355,7 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        let mut connection = self.connection.lock().await;
+        let mut connection = self.connection.lock();
         let transaction = connection.transaction()?;
         let mut as_queue_ratchet = StorableAsQueueRatchet::load(&transaction)?;
 
@@ -409,7 +409,7 @@ impl CoreUser {
                     .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
 
                 // EncryptedConnectionEstablishmentPackage Phase 2: Load the user profile
-                let connection = self.connection.lock().await;
+                let connection = self.connection.lock();
                 let own_user_profile = UserProfile::load(&connection, &self.user_name())
                     // We unwrap here, because we know that the user exists.
                     .map(|user_option| user_option.unwrap())?;
@@ -468,7 +468,7 @@ impl CoreUser {
                 .await?;
 
                 // EncryptedConnectionEstablishmentPackage Phase 5: Store the group and the conversation.
-                let connection = self.connection.lock().await;
+                let connection = self.connection.lock();
                 group.store(&connection)?;
                 let sender_client_id = cep_tbs.sender_client_credential.identity();
                 let conversation_picture_option = cep_tbs
@@ -521,7 +521,7 @@ impl CoreUser {
     }
 
     pub async fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
-        let connection = self.connection.lock().await;
+        let connection = self.connection.lock();
         Conversation::load(&connection, &conversation_id)
             .ok()
             .flatten()
@@ -534,7 +534,7 @@ impl CoreUser {
         conversation_id: ConversationId,
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = self.connection.lock().await;
+        let connection = self.connection.lock();
         let messages = ConversationMessage::load_multiple(
             &connection,
             conversation_id,

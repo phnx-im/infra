@@ -27,6 +27,7 @@ use tokio::sync::Mutex;
 use crate::{
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     key_stores::qs_verifying_keys::StorableQsVerifyingKey,
+    utils::persistence::SqliteConnection,
     ConversationId,
 };
 use anyhow::Result;
@@ -79,7 +80,7 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
-        connection_mutex: Arc<Mutex<Connection>>,
+        connection_mutex: SqliteConnection,
         api_clients: ApiClients,
     ) -> Result<ContactAddInfos> {
         let invited_user = self.user_name.clone();
