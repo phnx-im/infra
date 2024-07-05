@@ -289,61 +289,66 @@ impl Group {
 
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
-        let connection = connection_mutex.lock().await;
-        let provider = PhnxOpenMlsProvider::new(&connection);
-        let key_package_bundle: KeyPackageBundle = welcome_bundle
-            .welcome
-            .welcome
-            .secrets()
-            .iter()
-            .find_map(|egs| {
-                let kp_hash = egs.new_member();
-                match provider.storage().key_package(&kp_hash) {
-                    Ok(Some(kpb)) => Some(kpb),
-                    _ => None,
-                }
-            })
-            .ok_or(GroupOperationError::MissingKeyPackage)?;
+        let (mls_group, joiner_info, welcome_attribution_info) = {
+            let connection = connection_mutex.lock().await;
+            let provider = PhnxOpenMlsProvider::new(&connection);
+            let key_package_bundle: KeyPackageBundle = welcome_bundle
+                .welcome
+                .welcome
+                .secrets()
+                .iter()
+                .find_map(|egs| {
+                    let kp_hash = egs.new_member();
+                    match provider.storage().key_package(&kp_hash) {
+                        Ok(Some(kpb)) => Some(kpb),
+                        _ => None,
+                    }
+                })
+                .ok_or(GroupOperationError::MissingKeyPackage)?;
 
-        let private_key = key_package_bundle.init_private_key();
-        let info = &[];
-        let aad = &[];
-        let decryption_key = JoinerInfoDecryptionKey::from((
-            private_key.clone(),
-            key_package_bundle.key_package().hpke_init_key().clone(),
-        ));
-        let joiner_info = DsJoinerInformationIn::decrypt(
-            welcome_bundle.encrypted_joiner_info,
-            &decryption_key,
-            info,
-            aad,
-        )?;
-
-        let staged_welcome = StagedWelcome::new_from_welcome(
-            &provider,
-            &mls_group_config,
-            welcome_bundle.welcome.welcome,
-            None,
-        )?;
-
-        let mls_group = staged_welcome.into_group(&provider)?;
-
-        // Decrypt WelcomeAttributionInfo
-        let verifiable_attribution_info = WelcomeAttributionInfo::decrypt(
-            welcome_attribution_info_ear_key,
-            &welcome_bundle.encrypted_attribution_info,
-        )?
-        .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
-
-        let sender_client_id = verifiable_attribution_info.sender();
-        let sender_client_credential =
-            StorableClientCredential::load_by_client_id(&connection, &sender_client_id)?.ok_or(
-                anyhow!("Could not find client credential of sender in database."),
+            let private_key = key_package_bundle.init_private_key();
+            let info = &[];
+            let aad = &[];
+            let decryption_key = JoinerInfoDecryptionKey::from((
+                private_key.clone(),
+                key_package_bundle.key_package().hpke_init_key().clone(),
+            ));
+            let joiner_info = DsJoinerInformationIn::decrypt(
+                welcome_bundle.encrypted_joiner_info,
+                &decryption_key,
+                info,
+                aad,
             )?;
-        drop(connection);
 
-        let welcome_attribution_info: WelcomeAttributionInfoPayload =
-            verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
+            let staged_welcome = StagedWelcome::new_from_welcome(
+                &provider,
+                &mls_group_config,
+                welcome_bundle.welcome.welcome,
+                None,
+            )?;
+
+            let mls_group = staged_welcome.into_group(&provider)?;
+
+            // Decrypt WelcomeAttributionInfo
+            let verifiable_attribution_info = WelcomeAttributionInfo::decrypt(
+                welcome_attribution_info_ear_key,
+                &welcome_bundle.encrypted_attribution_info,
+            )?
+            .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
+
+            let sender_client_id = verifiable_attribution_info.sender();
+            let sender_client_credential =
+                StorableClientCredential::load_by_client_id(&connection, &sender_client_id)?
+                    .ok_or(anyhow!(
+                        "Could not find client credential of sender in database."
+                    ))?;
+            drop(connection);
+
+            let welcome_attribution_info: WelcomeAttributionInfoPayload =
+                verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
+
+            (mls_group, joiner_info, welcome_attribution_info)
+        };
 
         let encrypted_client_information = mls_group
             .members()
@@ -430,20 +435,23 @@ impl Group {
 
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
-        let connection = connection_mutex.lock().await;
-        let provider = PhnxOpenMlsProvider::new(&connection);
-        let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
-            &provider,
-            &leaf_signer,
-            Some(ratchet_tree_in),
-            verifiable_group_info,
-            &mls_group_config,
-            &aad.tls_serialize_detached()?,
-            credential_with_key,
-        )?;
-        mls_group.set_aad(provider.storage(), &[])?;
-        mls_group.merge_pending_commit(&provider)?;
-        drop(connection);
+        let (mls_group, commit, group_info_option) = {
+            let connection = connection_mutex.lock().await;
+            let provider = PhnxOpenMlsProvider::new(&connection);
+            let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
+                &provider,
+                &leaf_signer,
+                Some(ratchet_tree_in),
+                verifiable_group_info,
+                &mls_group_config,
+                &aad.tls_serialize_detached()?,
+                credential_with_key,
+            )?;
+            mls_group.set_aad(provider.storage(), &[])?;
+            mls_group.merge_pending_commit(&provider)?;
+            drop(connection);
+            (mls_group, commit, group_info_option)
+        };
 
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
         let group_id = group_info.group_context().group_id();
@@ -516,10 +524,12 @@ impl Group {
         message: impl Into<ProtocolMessage>,
     ) -> Result<(ProcessedMessage, bool, AsClientId)> {
         // Phase 1: Process the message.
-        let connection = connection_mutex.lock().await;
-        let provider = PhnxOpenMlsProvider::new(&connection);
-        let processed_message = self.mls_group.process_message(&provider, message)?;
-        drop(connection);
+        let processed_message = {
+            let connection = connection_mutex.lock().await;
+            let provider = PhnxOpenMlsProvider::new(&connection);
+
+            self.mls_group.process_message(&provider, message)?
+        };
 
         let group_id = self.group_id();
 

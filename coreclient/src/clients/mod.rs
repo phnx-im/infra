@@ -1098,10 +1098,7 @@ impl CoreUser {
 
     /// Mark all messages in the conversation with the given conversation id and
     /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
-    >(
+    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)>>(
         &self,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {

@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
 use super::api_clients::ApiClients;
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
@@ -15,7 +13,6 @@ use crate::{
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::identifiers::{AsClientId, SafeTryInto};
 use rusqlite::Connection;
-use tokio::sync::Mutex;
 
 #[actix_rt::test]
 async fn user_stages() {

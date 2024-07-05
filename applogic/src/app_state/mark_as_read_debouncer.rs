@@ -91,7 +91,7 @@ impl MarkAsReadDebouncer {
     pub(crate) async fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
         let mut debouncer_state_option = self.conversation_debouncer_states_option.lock().await;
         if let Some(debouncer_state) = debouncer_state_option.take() {
-            user.mark_as_read(&debouncer_state.conversation_timestamps)
+            user.mark_as_read(debouncer_state.conversation_timestamps)
                 .await?;
             debouncer_state_option.take();
         }
@@ -176,7 +176,7 @@ async fn debouncing_timer(
         // and remove the debouncer state.
         if debouncer_state.duration == 0 {
             if let Err(e) = user
-                .mark_as_read(&debouncer_state.conversation_timestamps)
+                .mark_as_read(debouncer_state.conversation_timestamps.clone())
                 .await
             {
                 log::error!("Failed to mark messages as read: {}", e);
@@ -188,20 +188,14 @@ async fn debouncing_timer(
 }
 
 pub(crate) trait MarkAsRead {
-    async fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
-    >(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()>;
 }
 
 impl MarkAsRead for CoreUser {
-    async fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
-    >(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()> {

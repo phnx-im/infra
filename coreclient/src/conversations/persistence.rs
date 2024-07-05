@@ -132,10 +132,7 @@ impl Conversation {
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)>,
-    >(
+    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)>>(
         transaction: &mut Transaction,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {

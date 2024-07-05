@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
@@ -21,8 +21,6 @@ use phnxtypes::{
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::FriendshipToken,
 };
-use rusqlite::Connection;
-use tokio::sync::Mutex;
 
 use crate::{
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
