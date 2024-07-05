@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use anyhow::{anyhow, Result};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
@@ -25,7 +25,6 @@ use phnxtypes::{
     identifiers::AsClientId,
 };
 use rusqlite::Connection;
-use tokio::sync::Mutex;
 
 use crate::{
     clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials,

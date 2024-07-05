@@ -6,13 +6,14 @@ use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::Arc,
 };
 
 use anyhow::{bail, Result};
 use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
 use rusqlite::{types::FromSql, Connection, ToSql};
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::clients::store::ClientRecord;
 
@@ -30,18 +31,13 @@ impl SqliteConnection {
         }
     }
 
-    pub fn lock(&self) -> SqliteConnectionGuard {
-        self.connection_mutex.clear_poison();
-        let guard = self.connection_mutex.lock().unwrap();
-        SqliteConnectionGuard {
-            connection: self,
-            guard,
-        }
+    pub async fn lock(&self) -> SqliteConnectionGuard {
+        let guard = self.connection_mutex.lock().await;
+        SqliteConnectionGuard { guard }
     }
 }
 
 pub(crate) struct SqliteConnectionGuard<'a> {
-    connection: &'a SqliteConnection,
     guard: MutexGuard<'a, Connection>,
 }
 

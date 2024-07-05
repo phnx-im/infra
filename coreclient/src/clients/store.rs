@@ -117,7 +117,7 @@ impl UserCreationState {
                 Self::PostRegistrationInitState(state.initiate_as_registration(api_clients).await?)
             }
             UserCreationState::PostRegistrationInitState(state) => {
-                let connection = client_db_connection.lock();
+                let connection = client_db_connection.lock().await;
                 Self::UnfinalizedRegistrationState(state.process_server_response(&connection)?)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
@@ -134,12 +134,12 @@ impl UserCreationState {
             UserCreationState::FinalUserState(_) => self,
         };
 
-        let client_db_connection = client_db_connection.lock();
+        let client_db_connection = client_db_connection.lock().await;
         new_state.store(&client_db_connection)?;
 
         // If we just transitioned into the final state, we need to update the
         // client record.
-        let phnx_db_connection = phnx_db_connection.lock();
+        let phnx_db_connection = phnx_db_connection.lock().await;
         if let UserCreationState::FinalUserState(_) = new_state {
             let mut client_record = ClientRecord::load(&phnx_db_connection, new_state.client_id())?
                 .ok_or(anyhow!("Client record not found"))?;

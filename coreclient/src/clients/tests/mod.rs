@@ -78,7 +78,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the initial user state.
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -102,7 +102,7 @@ async fn user_stages() {
         .await
         .unwrap();
 
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     // If we load a user state now, it should be the post registration init state.
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
@@ -128,7 +128,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the unfinalized registration state.
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -153,7 +153,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the AS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -178,7 +178,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the QS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -203,7 +203,7 @@ async fn user_stages() {
         .unwrap();
 
     // If we load a user state now, it should be the final user state.
-    let client_db_connection = client_db_connection_mutex.lock();
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();

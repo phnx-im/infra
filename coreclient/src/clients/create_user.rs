@@ -431,7 +431,7 @@ impl QsRegisteredUserState {
 
         let encrypted_client_credential = key_store.encrypt_client_credential()?;
 
-        let connection = connection.lock();
+        let connection = connection.lock().await;
         let mut qs_add_packages = vec![];
         for _ in 0..ADD_PACKAGES {
             // TODO: Which key do we need to use for encryption here? Probably

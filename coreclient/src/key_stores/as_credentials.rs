@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use phnxapiclient::as_api::AsRequestError;
 use phnxtypes::{
@@ -15,7 +15,6 @@ use phnxtypes::{
 };
 use rusqlite::{params, OptionalExtension, ToSql};
 use thiserror::Error;
-use tokio::sync::Mutex;
 
 use crate::{clients::api_clients::ApiClientsError, utils::persistence::{SqliteConnection, Storable}};
 
@@ -153,7 +152,7 @@ impl AsCredentials {
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
         log::info!("Loading AS credential from db.");
         // Phase 1: Check if there is a credential in the database.
-        let connection = connection_mutex.lock();
+        let connection = connection_mutex.lock().await;
         let credential_option = AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
         drop(connection);
 
@@ -170,7 +169,7 @@ impl AsCredentials {
 
             // Phase 2b: Store it in the database.
             let credential_type = AsCredentials::AsIntermediateCredential(credential);
-            let connection = connection_mutex.lock();
+            let connection = connection_mutex.lock().await;
             credential_type.store(&connection)?;
             drop(connection);
             let AsCredentials::AsIntermediateCredential(credential) = credential_type else {
@@ -189,7 +188,7 @@ impl AsCredentials {
         api_clients: &ApiClients,
         domain: &Fqdn,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
-        let connection = connection.lock();
+        let connection = connection.lock().await;
         let credential_option = AsCredentials::load_intermediate(&connection, None, domain)?;
         drop(connection);
         match credential_option {
