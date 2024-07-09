@@ -52,7 +52,6 @@ pub struct User {
 }
 
 impl User {
-    #[tokio::main(flavor = "current_thread")]
     pub async fn new(
         user_name: String,
         password: String,
@@ -68,9 +67,8 @@ impl User {
         })
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn load_default(path: String) -> Result<User> {
-        let client_record = ClientRecord::load_all(&path)?
+        let client_record = ClientRecord::load_all_from_phnx_db(&path)?
             .pop()
             .ok_or_else(|| anyhow!("No user found."))?;
         let as_client_id = client_record.as_client_id;

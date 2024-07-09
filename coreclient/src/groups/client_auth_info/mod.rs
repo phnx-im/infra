@@ -10,6 +10,7 @@ use phnxtypes::{
     credentials::{
         infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
         ClientCredential, CredentialFingerprint, EncryptedClientCredential,
+        VerifiableClientCredential,
     },
     crypto::{
         ear::{
@@ -25,9 +26,10 @@ use phnxtypes::{
 };
 use rusqlite::Connection;
 
-use crate::clients::api_clients::ApiClients;
-
-use super::decrypt_and_verify_client_credential;
+use crate::{
+    clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials,
+    utils::persistence::SqliteConnection,
+};
 
 pub(crate) mod persistence;
 
@@ -62,13 +64,15 @@ impl StorableClientCredential {
     }
 
     pub(super) async fn decrypt_and_verify(
-        connection: &Connection,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
         ear_key: &ClientCredentialEarKey,
         ecc: EncryptedClientCredential,
     ) -> Result<Self> {
+        let verifiable_credential = VerifiableClientCredential::decrypt(ear_key, &ecc)?;
         let client_credential =
-            decrypt_and_verify_client_credential(connection, api_clients, ear_key, &ecc).await?;
+            AsCredentials::verify_client_credential(connection, api_clients, verifiable_credential)
+                .await?;
         Ok(Self { client_credential })
     }
 }
@@ -157,7 +161,7 @@ impl ClientAuthInfo {
     /// client auth info needs to be given s.t. the index of the client in the
     /// group corresponds to the index in the iterator.
     pub(super) async fn decrypt_and_verify_all(
-        connection: &Connection,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,
@@ -172,7 +176,7 @@ impl ClientAuthInfo {
         let mut client_information = Vec::new();
         for (leaf_index, encrypted_client_info) in encrypted_client_information {
             let client_auth_info = Self::decrypt_and_verify(
-                connection,
+                connection.clone(),
                 api_clients,
                 group_id,
                 ear_key,
@@ -188,7 +192,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given encrypted client auth info.
     pub(super) async fn decrypt_and_verify(
-        connection: &Connection,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         ear_key: &ClientCredentialEarKey,

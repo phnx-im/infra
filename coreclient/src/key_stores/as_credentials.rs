@@ -16,7 +16,7 @@ use phnxtypes::{
 use rusqlite::{params, OptionalExtension, ToSql};
 use thiserror::Error;
 
-use crate::{clients::api_clients::ApiClientsError, utils::persistence::Storable};
+use crate::{clients::api_clients::ApiClientsError, utils::persistence::{SqliteConnection, Storable}};
 
 use super::*;
 
@@ -145,40 +145,52 @@ impl AsCredentials {
     /// Fetches the credentials of the AS with the given `domain` if they are
     /// not already present in the store.
     pub(crate) async fn get(
-        connection: &Connection,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
         log::info!("Loading AS credential from db.");
-        let credential_option = AsCredentials::load_intermediate(connection, Some(fingerprint), domain)?;
+        // Phase 1: Check if there is a credential in the database.
+        let connection = connection_mutex.lock().await;
+        let credential_option = AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
+        drop(connection);
+
+        // Phase 2: If there is no credential in the database, fetch it from the AS.
         let credential = if let Some(credential) = credential_option {
             credential
         } else {
-            Self::fetch_credentials(domain, api_clients)
+            // Phase 2a: Fetch the credential.
+            let credential = Self::fetch_credentials(domain, api_clients)
                 .await?
                 .into_iter()
                 .find(|credential| credential.fingerprint() == fingerprint)
-                .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?
+                .ok_or(AsCredentialStoreError::AsIntermediateCredentialNotFound)?;
+
+            // Phase 2b: Store it in the database.
+            let credential_type = AsCredentials::AsIntermediateCredential(credential);
+            let connection = connection_mutex.lock().await;
+            credential_type.store(&connection)?;
+            drop(connection);
+            let AsCredentials::AsIntermediateCredential(credential) = credential_type else {
+                unreachable!()
+            };
+            credential
         };
         if credential.domain() != domain {
             return Err(AsCredentialStoreError::AsIntermediateCredentialNotFound);
         }
-        let credential_type = AsCredentials::AsIntermediateCredential(credential);
-        credential_type.store(connection)?;
-        if let AsCredentials::AsIntermediateCredential(credential) = credential_type {
-            Ok(credential)
-        } else {
-            unreachable!()
-        }
+        Ok(credential)
     }
 
     pub(crate) async fn get_intermediate_credential(
-        connection: &Connection,
+        connection: SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
-        let credential_option = AsCredentials::load_intermediate(connection, None, domain)?;
+        let connection = connection.lock().await;
+        let credential_option = AsCredentials::load_intermediate(&connection, None, domain)?;
+        drop(connection);
         match credential_option {
             Some(credential) => Ok(credential),
             None => {
@@ -192,12 +204,12 @@ impl AsCredentials {
     }
 
     pub async fn verify_client_credential<'b>(
-        connection: &Connection,
+        connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<ClientCredential, AsCredentialStoreError> {
         let as_intermediate_credential = Self::get(
-            connection,
+            connection_mutex,
             api_clients,
             &verifiable_client_credential.domain(),
             verifiable_client_credential.signer_fingerprint(),

@@ -91,7 +91,7 @@ impl MarkAsReadDebouncer {
     pub(crate) async fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
         let mut debouncer_state_option = self.conversation_debouncer_states_option.lock().await;
         if let Some(debouncer_state) = debouncer_state_option.take() {
-            user.mark_as_read(&debouncer_state.conversation_timestamps)
+            user.mark_as_read(debouncer_state.conversation_timestamps)
                 .await?;
             debouncer_state_option.take();
         }
@@ -176,7 +176,7 @@ async fn debouncing_timer(
         // and remove the debouncer state.
         if debouncer_state.duration == 0 {
             if let Err(e) = user
-                .mark_as_read(&debouncer_state.conversation_timestamps)
+                .mark_as_read(debouncer_state.conversation_timestamps.clone())
                 .await
             {
                 log::error!("Failed to mark messages as read: {}", e);
@@ -188,20 +188,14 @@ async fn debouncing_timer(
 }
 
 pub(crate) trait MarkAsRead {
-    async fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
-    >(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()>;
 }
 
 impl MarkAsRead for CoreUser {
-    async fn mark_as_read<
-        'b,
-        T: 'b + IntoIterator<Item = (&'b ConversationId, &'b TimeStamp)> + Send,
-    >(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()> {
@@ -258,7 +252,7 @@ mod tests {
             &self,
             mark_as_read_data: T,
         ) -> Result<()> {
-            let mut user = self.lock().await;
+            let mut user = self.lock().await
             for (conversation_id, timestamp) in mark_as_read_data {
                 let conversation = user.conversations.get_mut(&conversation_id).unwrap();
                 *conversation = *timestamp;
@@ -291,7 +285,7 @@ mod tests {
         // Wait for debouncer to finish
         sleep(std::time::Duration::from_millis(test_duration * 3));
 
-        let mut user = user_mutex.lock().await;
+        let mut user = user_mutex.lock().await
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             new_timestamp
@@ -309,7 +303,7 @@ mod tests {
             .mark_as_read_debounced(user_mutex.clone(), conversation_id, timestamp_2)
             .await;
         // Check that it wasn't set immediately
-        let user = user_mutex.lock().await;
+        let user = user_mutex.lock().await
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_1
@@ -323,7 +317,7 @@ mod tests {
             .mark_as_read_debounced(user_mutex.clone(), conversation_id, timestamp_3)
             .await;
         // Check that it wasn't set immediately
-        let user = user_mutex.lock().await;
+        let user = user_mutex.lock().await
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_1
@@ -331,7 +325,7 @@ mod tests {
         drop(user);
         // Wait for debouncer to finish
         sleep(Duration::from_millis(test_duration * 4));
-        let user = user_mutex.lock().await;
+        let user = user_mutex.lock().await
         assert_eq!(
             user.get_conversation(&conversation_id).unwrap(),
             timestamp_3
