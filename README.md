@@ -73,26 +73,6 @@ ergonomic, the `--include-ignored` flag has to be used when running `cargo test`
 on the `server` crate. Note that Docker-based tests are run as part of the CI
 whenever a pull request is made.
 
-## Threat model
-
-For privacy, the Phoenix Protocol aims to protect against two different types of
-adversaries: the snapshot adversary which has access to snapshots of persisted
-state, and the active observer adversary which can observe the server's working
-memory. Note that observation of traffic patterns and network metadata is not
-part of the protocol's threat model. Metadata of that nature can be hidden using
-tools such as onion routing or mixnets, both of which can be run in conjunction
-with our protocol. For more documentation on the threat model, see
-[here](https://docs.phnx.im/threat_model.html).
-
-## Security measures
-
-For the snaphot threat model, the protocol heavily relies on
-encryption-at-rest, which allows it to hide group communication metadata almost
-entirely. For the active observer threat model, the protocol uses pseudonyms to
-create a disconnect between a user's communication behaviour and its real
-identity. For a more complete overview over the security measures, see the
-[protocol specification](https://docs.phnx.im/spec.html);
-
 ## Licensing
 
 All crates in this repository are licensed under the [AGPL 3.0](https://www.gnu.org/licenses/agpl-3.0.html). This README file is licensed under [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
