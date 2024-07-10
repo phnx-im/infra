@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::utils::persistence::PersistenceError;
-
 use mls_assist::messages::AssistedMessageError;
 use openmls::group::{
     AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
@@ -35,8 +33,6 @@ pub enum GroupOperationError {
     JoinerInfoDecryptionError(#[from] DecryptionError),
     #[error(transparent)]
     TlsCodecError(#[from] tls_codec::Error),
-    #[error(transparent)]
-    GroupStoreError(#[from] PersistenceError),
     #[error(transparent)]
     AssistedMessageError(#[from] AssistedMessageError),
 }

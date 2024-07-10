@@ -13,7 +13,6 @@ use crate::{
 use super::User;
 
 impl User {
-    #[tokio::main(flavor = "current_thread")]
     pub async fn create_connection(&self, user_name: String) -> Result<()> {
         let conversation_id = self.user.add_contact(&user_name).await?;
         dispatch_conversation_notifications(&self.notification_hub, vec![conversation_id]).await;

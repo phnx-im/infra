@@ -5,7 +5,10 @@
 use super::api_clients::ApiClients;
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
-    utils::set_up_database,
+    utils::{
+        persistence::{SqliteConnection, Storable},
+        set_up_database,
+    },
 };
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::identifiers::{AsClientId, SafeTryInto};
@@ -24,6 +27,8 @@ async fn user_stages() {
 
     // Set up the client db
     set_up_database(&mut client_db_connection).unwrap();
+    // Set up phnx db
+    ClientRecord::create_table(&phnx_db_connection).unwrap();
 
     let server_url = setup.url().unwrap();
     let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
@@ -38,7 +43,7 @@ async fn user_stages() {
     .unwrap();
 
     // There should now be a client record state in the phnx db.
-    let client_records = ClientRecord::load_all_from_db(&phnx_db_connection).unwrap();
+    let client_records = ClientRecord::load_all(&phnx_db_connection).unwrap();
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
     assert!(client_record.as_client_id == as_client_id);
@@ -57,20 +62,20 @@ async fn user_stages() {
         serde_json::to_vec(&loaded_state).unwrap()
     );
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
+    let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
+    let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
     // We now continue down the path of creating a user.
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
     // If we load a user state now, it should be the initial user state.
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -82,20 +87,19 @@ async fn user_stages() {
         serde_json::to_vec(&computed_state).unwrap(),
         serde_json::to_vec(&loaded_state).unwrap()
     );
+    drop(client_db_connection);
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
     // We take the next step
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
+    let client_db_connection = client_db_connection_mutex.lock().await;
     // If we load a user state now, it should be the post registration init state.
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
@@ -108,21 +112,20 @@ async fn user_stages() {
         serde_json::to_vec(&computed_state).unwrap(),
         serde_json::to_vec(&loaded_state).unwrap()
     );
+    drop(client_db_connection);
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
     // We take the next step
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
     // If we load a user state now, it should be the unfinalized registration state.
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -134,21 +137,20 @@ async fn user_stages() {
         serde_json::to_vec(&computed_state).unwrap(),
         serde_json::to_vec(&loaded_state).unwrap()
     );
+    drop(client_db_connection);
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
     // We take the next step
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
     // If we load a user state now, it should be the AS registered user state.
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -160,21 +162,20 @@ async fn user_stages() {
         serde_json::to_vec(&computed_state).unwrap(),
         serde_json::to_vec(&loaded_state).unwrap()
     );
+    drop(client_db_connection);
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
     // We take the next step
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
     // If we load a user state now, it should be the QS registered user state.
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
@@ -186,21 +187,20 @@ async fn user_stages() {
         serde_json::to_vec(&computed_state).unwrap(),
         serde_json::to_vec(&loaded_state).unwrap()
     );
+    drop(client_db_connection);
 
-    let mut client_db_transaction = client_db_connection.transaction().unwrap();
     // We take the final step
     let computed_state = loaded_state
         .step(
-            &phnx_db_connection,
-            &mut client_db_transaction,
+            phnx_db_connection_mutex.clone(),
+            client_db_connection_mutex.clone(),
             &api_clients,
         )
         .await
         .unwrap();
 
-    client_db_transaction.commit().unwrap();
-
     // If we load a user state now, it should be the final user state.
+    let client_db_connection = client_db_connection_mutex.lock().await;
     let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
         .unwrap()
         .unwrap();
