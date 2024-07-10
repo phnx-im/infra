@@ -3,11 +3,12 @@
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
 -- migrations/{timestamp}_create_queues_table.sql
--- Create Queues Table
-CREATE TABLE queues(
+-- Create QS Queues Table
+CREATE TABLE qs_queues(
 message_id uuid NOT NULL,
-PRIMARY KEY (message_id),
-queue_id uuid NOT NULL,
+queue_id uuid NOT NULL UNIQUE,
 sequence_number NUMERIC NOT NULL,
-message_bytes BYTEA NOT NULL
+message_bytes BYTEA NOT NULL,
+PRIMARY KEY (queue_id, sequence_number),
+FOREIGN KEY (queue_id) REFERENCES qs_queue_data(queue_id) ON DELETE CASCADE
 );

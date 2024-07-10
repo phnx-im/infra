@@ -38,7 +38,13 @@ impl AuthService {
         let connection_packages = storage_provider
             .load_user_connection_packages(&user_name)
             .await
-            .map_err(|_| UserConnectionPackagesError::StorageError)?;
+            .map_err(|e| {
+                tracing::warn!(
+                    "Failed to load connection packages due to storage error: {:?}",
+                    e
+                );
+                UserConnectionPackagesError::StorageError
+            })?;
 
         // If there are no connection packages, we have to conclude that there
         // is no user.

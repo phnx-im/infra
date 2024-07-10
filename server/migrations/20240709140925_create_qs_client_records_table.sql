@@ -12,6 +12,7 @@ encrypted_push_token BYTEA,
 owner_public_key BYTEA NOT NULL,
 owner_signature_key BYTEA NOT NULL,
 ratchet BYTEA NOT NULL,
-activity_time timestamptz NOT NULL
+activity_time timestamptz NOT NULL,
+FOREIGN KEY (user_id) REFERENCES qs_user_records(user_id) ON DELETE CASCADE
 );
 

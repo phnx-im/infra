@@ -166,14 +166,6 @@ impl AuthService {
             })
             .collect::<Result<Vec<_>, FinishUserRegistrationError>>()?;
 
-        storage_provider
-            .store_connection_packages(&client_id, verified_connection_packages)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
-
         // Create the initial client entry
 
         let client_record = AsClientRecord {
@@ -188,6 +180,14 @@ impl AuthService {
 
         storage_provider
             .create_client(&client_id, &client_record)
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                FinishUserRegistrationError::StorageError
+            })?;
+
+        storage_provider
+            .store_connection_packages(&client_id, verified_connection_packages)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);

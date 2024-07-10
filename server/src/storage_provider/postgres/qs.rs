@@ -18,8 +18,9 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use sqlx::{
+    postgres::PgArguments,
     types::{BigDecimal, Uuid},
-    PgPool,
+    Arguments, PgPool, Row,
 };
 use thiserror::Error;
 
@@ -195,35 +196,10 @@ impl QsStorageProvider for PostgresQsStorage {
         )
         .execute(&self.pool)
         .await?;
-        // Get all client ids of the user s.t. we can delete the queues as well.
-        let client_records = sqlx::query!(
-            "SELECT * FROM qs_client_records WHERE user_id = $1",
-            user_id.as_uuid(),
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        for client_record in client_records {
-            sqlx::query!(
-                "DELETE FROM queue_data WHERE queue_id = $1",
-                client_record.client_id,
-            )
-            .execute(&self.pool)
-            .await?;
 
-            sqlx::query!(
-                "DELETE FROM key_packages WHERE client_id = $1",
-                client_record.client_id,
-            )
-            .execute(&self.pool)
-            .await?;
-        }
-        // Delete all the client data.
-        sqlx::query!(
-            "DELETE FROM qs_client_records WHERE user_id = $1",
-            user_id.as_uuid(),
-        )
-        .execute(&self.pool)
-        .await?;
+        // The ON DELETE CASCADE in the table creation statements take care of
+        // deleting dependent client records, key packages, queue data and
+        // queues.
 
         Ok(())
     }
@@ -244,6 +220,9 @@ impl QsStorageProvider for PostgresQsStorage {
         let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
         let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
         let activity_time = client_record.activity_time().time();
+
+        let mut transaction = self.pool.begin().await?;
+
         sqlx::query!(
             "INSERT INTO qs_client_records (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time) VALUES ($1, $2, $3, $4, $5, $6, $7)", 
             client_id.as_uuid(),
@@ -254,17 +233,19 @@ impl QsStorageProvider for PostgresQsStorage {
             ratchet,
             activity_time,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         // Initialize the client's queue
         sqlx::query!(
-            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)",
+            "INSERT INTO qs_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
             client_id.as_uuid(),
             BigDecimal::from(0u64),
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
+
+        transaction.commit().await?;
 
         Ok(client_id)
     }
@@ -336,18 +317,10 @@ impl QsStorageProvider for PostgresQsStorage {
         )
         .execute(&self.pool)
         .await?;
-        sqlx::query!(
-            "DELETE FROM queue_data WHERE queue_id = $1",
-            client_id.as_uuid(),
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query!(
-            "DELETE FROM key_packages WHERE client_id = $1",
-            client_id.as_uuid(),
-        )
-        .execute(&self.pool)
-        .await?;
+
+        // The ON CASCADE actions in the respective table creation statements
+        // take care of deletion of dependent key packages and queue data.
+
         Ok(())
     }
 
@@ -358,9 +331,7 @@ impl QsStorageProvider for PostgresQsStorage {
     ) -> Result<(), Self::StoreKeyPackagesError> {
         // TODO: This can probably be improved. For now, we insert each key
         // package individually.
-        for kp in encrypted_key_packages {
-            store_key_package(&self.pool, client_id, kp, false).await?;
-        }
+        store_key_packages(&self.pool, client_id, encrypted_key_packages, false).await?;
         Ok(())
     }
 
@@ -369,7 +340,7 @@ impl QsStorageProvider for PostgresQsStorage {
         client_id: &QsClientId,
         encrypted_key_package: QsEncryptedAddPackage,
     ) -> Result<(), Self::StoreKeyPackagesError> {
-        store_key_package(&self.pool, client_id, encrypted_key_package, true).await?;
+        store_key_packages(&self.pool, client_id, vec![encrypted_key_package], true).await?;
         Ok(())
     }
 
@@ -388,8 +359,11 @@ impl QsStorageProvider for PostgresQsStorage {
         .await
         .ok()?;
 
+        let transaction = self.pool.begin().await.ok()?;
+
+        // Lock the row s.t. it's not retrieved by another transaction.
         let add_package_record = sqlx::query!(
-            "SELECT id, encrypted_add_package FROM key_packages WHERE client_id = $1",
+            "SELECT id, encrypted_add_package FROM key_packages WHERE client_id = $1 FOR UPDATE SKIP LOCKED",
             client_id.as_uuid(),
         )
         .fetch_optional(&self.pool)
@@ -404,6 +378,8 @@ impl QsStorageProvider for PostgresQsStorage {
         .await
         .ok()?;
 
+        transaction.commit().await.ok()?;
+
         let result = serde_json::from_slice(&add_package_record.encrypted_add_package).ok()?;
         Some(result)
     }
@@ -412,8 +388,6 @@ impl QsStorageProvider for PostgresQsStorage {
         &self,
         friendship_token: &FriendshipToken,
     ) -> Vec<QsEncryptedAddPackage> {
-        // TODO: This can probably be optimized to do only one query. Probably
-        // via a join or something.
         // Figure out which user corresponds to the friendship token
         let Ok(user_record) = sqlx::query!(
             "SELECT user_id FROM qs_user_records WHERE friendship_token = $1",
@@ -425,60 +399,87 @@ impl QsStorageProvider for PostgresQsStorage {
             return vec![];
         };
 
-        // Figure out which clients the user has
-        let Ok(client_records) = sqlx::query!(
-            "SELECT client_id FROM qs_client_records WHERE user_id = $1",
-            user_record.user_id,
+        // TODO: This strategy isn't example optimal in terms of the time that
+        // the KeyPackages of the clients are locked. I suspect that we can
+        // optimize this by including a "FOR UPDATE SKIP LOCKED" in the
+        // `selected_add_packages` query, if instead of filtering by `rn = ` we
+        // sort by RN and then limit the number of rows to the number of
+        // clients. That should skip any previously locked rows and leave all
+        // non-chosesn rows open for locking.
+        let query = "
+        WITH client_ids AS (
+            SELECT client_id FROM qs_client_records WHERE user_id = $1
+        ),
+
+        ranked_packages AS (
+            SELECT p.id, p.encrypted_add_package, p.is_last_resort,
+                   ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY p.is_last_resort ASC) AS rn
+            FROM key_packages p
+            INNER JOIN client_ids c ON p.client_id = c.client_id
+            FOR UPDATE SKIP LOCKED
         )
-        .fetch_all(&self.pool)
-        .await
-        else {
+
+        selected_add_packages AS (
+            SELECT id, encrypted_add_package
+            FROM ranked_packages
+            WHERE rn = 1
+        ),
+
+        deleted_packages AS (
+            DELETE FROM key_packages
+            WHERE id IN (SELECT id FROM selected_add_packages WHERE is_last_resort = FALSE)
+            RETURNING encrypted_add_package
+        )
+
+        SELECT encrypted_add_package FROM selected_add_packages
+        ";
+
+        let Ok(mut transaction) = self.pool.begin().await else {
             return vec![];
         };
 
-        // Get a key package for each client.
-        // TODO: Again, this can probably be optimized
-        let mut add_packages: Vec<QsEncryptedAddPackage> = vec![];
-        for client_id in client_records.iter().map(|r| r.client_id) {
-            let Ok(add_package_record) = sqlx::query!(
-                "SELECT id, encrypted_add_package FROM key_packages WHERE client_id = $1",
-                client_id,
-            )
-            .fetch_one(&self.pool)
+        let rows = sqlx::query(query)
+            .bind(user_record.user_id)
+            .fetch_all(&mut *transaction)
             .await
-            else {
-                return vec![];
-            };
-            let _ = sqlx::query!(
-                "DELETE FROM key_packages WHERE id = $1",
-                add_package_record.id,
-            )
-            .execute(&self.pool)
-            .await;
+            .ok()
+            .unwrap_or_default();
 
-            let Ok(add_package) = serde_json::from_slice(&add_package_record.encrypted_add_package)
-            else {
-                return vec![];
-            };
-            add_packages.push(add_package);
-        }
+        let Ok(_) = transaction.commit().await else {
+            return vec![];
+        };
 
-        add_packages
+        rows.into_iter()
+            .filter_map(|row| {
+                let Ok(encrypted_add_package) =
+                    row.try_get::<'_, Vec<u8>, _>("encrypted_add_package")
+                else {
+                    return None;
+                };
+                serde_json::from_slice(encrypted_add_package.as_slice()).ok()
+            })
+            .collect()
     }
 
-    // TODO: The whole queueing scheme can probably be optimized quite a bit.
     async fn enqueue(
         &self,
         client_id: &QsClientId,
         message: QueueMessage,
     ) -> Result<(), Self::EnqueueError> {
+        // Encode the message
+        let message_bytes = serde_json::to_vec(&message)?;
+
+        // Begin the transaction
+        let mut transaction = self.pool.begin().await?;
+
         // Check if sequence numbers are consistent.
         let sequence_number_record = sqlx::query!(
-            "SELECT sequence_number FROM queue_data WHERE queue_id = $1",
+            "SELECT sequence_number FROM qs_queue_data WHERE queue_id = $1 FOR UPDATE",
             client_id.as_uuid(),
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await?;
+
         // We're storing things as the NUMERIC postgres type. We need the
         // num-traits crate to convert to u64. If we find a better way to store
         // u64s, we might be able to get rid of that dependency.
@@ -500,27 +501,29 @@ impl QsStorageProvider for PostgresQsStorage {
 
         // Get a fresh message ID (only used as a unique key for postgres)
         let message_id = Uuid::new_v4();
-        let message_bytes = serde_json::to_vec(&message)?;
         // Store the message in the DB
         sqlx::query!(
-            "INSERT INTO queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO qs_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
             message_id,
             client_id.as_uuid(),
             sequence_number_decimal,
             message_bytes,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         let new_sequence_number = sequence_number_decimal + BigDecimal::from(1u8);
         // Increase the sequence number and store it.
         sqlx::query!(
-            "UPDATE queue_data SET sequence_number = $2 WHERE queue_id = $1",
+            "UPDATE qs_queue_data SET sequence_number = $2 WHERE queue_id = $1",
             client_id.as_uuid(),
             new_sequence_number
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
+
+        transaction.commit().await?;
+
         Ok(())
     }
 
@@ -531,52 +534,66 @@ impl QsStorageProvider for PostgresQsStorage {
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError> {
         let sequence_number_decimal = BigDecimal::from(sequence_number);
-        // TODO: We can probably combine these three queries into one.
-
-        // Delete all messages until the given "last seen" one.
-        sqlx::query!(
-            "DELETE FROM queues WHERE queue_id = $1 AND sequence_number < $2",
-            client_id.as_uuid(),
-            sequence_number_decimal,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Now fetch at most `number_of_messages` messages from the queue.
-
         // TODO: sqlx wants an i64 here and in a few other places below, but
         // we're using u64s. This is probably a limitation of postgres and we
         // might want to change some of the input/output types accordingly.
         let number_of_messages =
             i64::try_from(number_of_messages).map_err(|_| ReadAndDeleteError::LibraryError)?;
-        let records = sqlx::query!(
-            "SELECT message_bytes FROM queues WHERE queue_id = $1 ORDER BY sequence_number ASC LIMIT $2",
-            client_id.as_uuid(),
-            number_of_messages,
-        )
-        .fetch_all(&self.pool)
-        .await?;
 
-        let lower_limit = BigDecimal::from(sequence_number + records.len() as u64);
-        let remaining_messages = sqlx::query!(
-            "SELECT COUNT(*) as count FROM queues WHERE queue_id = $1 AND sequence_number >= $2 ",
-            client_id.as_uuid(),
-            lower_limit,
-        )
-        .fetch_one(&self.pool)
-        .await?
-        .count
-        // Count should return something.
-        .ok_or(ReadAndDeleteError::LibraryError)?;
+        let mut transaction = self.pool.begin().await?;
+
+        // This query is idempotent, so there's no need to lock anything.
+        let query = "WITH deleted AS (
+                DELETE FROM qs_queues 
+                WHERE queue_id = $1 AND sequence_number < $2
+                RETURNING *
+            ),
+            fetched AS (
+                SELECT message_bytes FROM qs_queues
+                WHERE queue_id = $1
+                ORDER BY sequence_number ASC
+                LIMIT $3
+            ),
+            remaining AS (
+                SELECT COUNT(*) AS count 
+                FROM qs_queues
+                WHERE queue_id = $1
+            )
+            SELECT 
+                fetched.message_bytes,
+                remaining.count
+            FROM fetched, remaining";
+
+        let rows = sqlx::query(query)
+            .bind(client_id.as_uuid())
+            .bind(sequence_number_decimal)
+            .bind(number_of_messages)
+            .fetch_all(&mut *transaction)
+            .await?;
+
+        transaction.commit().await?;
 
         // Convert the records to messages.
-        let messages = records
-            .into_iter()
-            .map(|record| {
-                let message = serde_json::from_slice(&record.message_bytes)?;
+        let messages = rows
+            .iter()
+            .map(|row| {
+                let message_bytes: &[u8] = row.try_get("message_bytes")?;
+                let message = serde_json::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, ReadAndDeleteError>>()?;
+
+        tracing::info!("Read {} messages", messages.len());
+        tracing::info!("Messages: {:?}", messages);
+
+        let remaining_messages = if let Some(row) = rows.first() {
+            let remaining_count: i64 = row.try_get("count")?;
+            // Subtract the number of messages we've read from the remaining
+            // count to get the number of unread messages.
+            remaining_count - messages.len() as i64
+        } else {
+            0
+        };
 
         return Ok((messages, remaining_messages as u64));
     }
@@ -608,26 +625,53 @@ impl QsStorageProvider for PostgresQsStorage {
     }
 }
 
-async fn store_key_package(
+async fn store_key_packages(
     pool: &PgPool,
     client_id: &QsClientId,
-    encrypted_key_package: QsEncryptedAddPackage,
+    encrypted_add_packages: Vec<QsEncryptedAddPackage>,
     is_last_resort: bool,
 ) -> Result<(), StoreKeyPackagesError> {
     // TODO: This can probably be improved. For now, we insert each key
     // package individually.
-    let id = Uuid::new_v4();
     let client_uuid = client_id.as_uuid();
-    let ciphertext_bytes = serde_json::to_vec(&encrypted_key_package)?;
-    sqlx::query!(
-        "INSERT INTO key_packages (id, client_id, encrypted_add_package, is_last_resort) VALUES ($1, $2, $3, $4)",
-        id,
-        client_uuid,
-        ciphertext_bytes,
-        is_last_resort,
-    )
-    .execute(pool)
-    .await?;
+
+    let mut query_args = PgArguments::default();
+    let mut query_string = String::from(
+        "INSERT INTO key_packages (id, client_id, encrypted_add_package, is_last_resort) VALUES",
+    );
+
+    for (i, encrypted_add_package) in encrypted_add_packages.iter().enumerate() {
+        let id = Uuid::new_v4();
+        let encoded_add_package = serde_json::to_vec(encrypted_add_package)?;
+
+        // Add values to the query arguments
+        query_args.add(id);
+        query_args.add(client_uuid);
+        query_args.add(encoded_add_package);
+        query_args.add(is_last_resort);
+
+        if i > 0 {
+            query_string.push(',');
+        }
+
+        // Add placeholders for each value
+        query_string.push_str(&format!(
+            " (${}, ${}, ${}, ${})",
+            i * 4 + 1,
+            i * 4 + 2,
+            i * 4 + 3,
+            i * 4 + 4
+        ));
+    }
+
+    // Finalize the query string
+    query_string.push(';');
+
+    // Execute the query
+    sqlx::query_with(&query_string, query_args)
+        .execute(pool)
+        .await?;
+
     Ok(())
 }
 

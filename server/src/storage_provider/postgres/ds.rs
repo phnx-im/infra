@@ -60,10 +60,14 @@ impl DsStorageProvider for PostgresDsStorage {
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
 
+        let mut transaction = self.pool.begin().await?;
+
+        // We lock this row to ensure that there's only one writer at a time.
+        // TODO: We
         let record = sqlx::query!(
-            "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
+            "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1 FOR UPDATE",
             group_uuid
-        ).fetch_one(&self.pool).await.map_err(|e| {
+        ).fetch_one(&mut *transaction).await.map_err(|e| {
             tracing::warn!("Error loading group state: {:?}", e);
             e
         }
@@ -96,6 +100,9 @@ impl DsStorageProvider for PostgresDsStorage {
                 }
             }
         };
+
+        transaction.commit().await?;
+
         result
     }
 
@@ -141,23 +148,13 @@ impl DsStorageProvider for PostgresDsStorage {
             .map_err(|_| PostgresStorageError::InvalidInput)?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
 
-        // This can probably be optimized to do only one query.
-        let existing_entry = sqlx::query!(
-            "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
-            group_uuid
-        ).fetch_optional(&self.pool).await?;
-
-        if existing_entry.is_some() {
-            return Ok(false);
-        }
-
         let last_used = Utc::now();
         let deleted_queues = vec![];
         let ciphertext = vec![];
 
-        // Insert the group state into the database.
-        sqlx::query!(
-            "INSERT INTO encrypted_groups (group_id, ciphertext, last_used, deleted_queues) VALUES ($1, $2, $3, $4)",
+        // Try to insert the dummy group state into the database.
+        let rows_affected = sqlx::query!(
+            "INSERT INTO encrypted_groups (group_id, ciphertext, last_used, deleted_queues) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
             group_uuid,
             ciphertext,
             last_used,
@@ -165,6 +162,10 @@ impl DsStorageProvider for PostgresDsStorage {
         )
         .execute(&self.pool)
         .await?;
+
+        if rows_affected.rows_affected() == 0 {
+            return Ok(false);
+        }
 
         return Ok(true);
     }
