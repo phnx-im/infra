@@ -132,6 +132,7 @@ impl QsStorageProvider for PostgresQsStorage {
     type CreateClientError = CreateClientError;
     type DeleteClientError = DeleteClientError;
     type StoreKeyPackagesError = StoreKeyPackagesError;
+    type LoadUserKeyPackagesError = LoadUserKeyPackagesError;
 
     type LoadSigningKeyError = LoadSigningKeyError;
     type LoadDecryptionKeyError = LoadDecryptionKeyError;
@@ -387,17 +388,14 @@ impl QsStorageProvider for PostgresQsStorage {
     async fn load_user_key_packages(
         &self,
         friendship_token: &FriendshipToken,
-    ) -> Vec<QsEncryptedAddPackage> {
+    ) -> Result<Vec<QsEncryptedAddPackage>, LoadUserKeyPackagesError> {
         // Figure out which user corresponds to the friendship token
-        let Ok(user_record) = sqlx::query!(
+        let user_record = sqlx::query!(
             "SELECT user_id FROM qs_user_records WHERE friendship_token = $1",
             friendship_token.token(),
         )
         .fetch_one(&self.pool)
-        .await
-        else {
-            return vec![];
-        };
+        .await?;
 
         // TODO: This strategy isn't example optimal in terms of the time that
         // the KeyPackages of the clients are locked. I suspect that we can
@@ -416,13 +414,13 @@ impl QsStorageProvider for PostgresQsStorage {
                    ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY p.is_last_resort ASC) AS rn
             FROM key_packages p
             INNER JOIN client_ids c ON p.client_id = c.client_id
-            FOR UPDATE SKIP LOCKED
-        )
+        ),
 
         selected_add_packages AS (
             SELECT id, encrypted_add_package
             FROM ranked_packages
             WHERE rn = 1
+            FOR UPDATE
         ),
 
         deleted_packages AS (
@@ -434,31 +432,36 @@ impl QsStorageProvider for PostgresQsStorage {
         SELECT encrypted_add_package FROM selected_add_packages
         ";
 
-        let Ok(mut transaction) = self.pool.begin().await else {
-            return vec![];
-        };
+        let mut transaction = self.pool.begin().await?;
 
         let rows = sqlx::query(query)
             .bind(user_record.user_id)
             .fetch_all(&mut *transaction)
-            .await
-            .ok()
-            .unwrap_or_default();
+            .await?;
 
-        let Ok(_) = transaction.commit().await else {
-            return vec![];
-        };
+        transaction.commit().await?;
 
-        rows.into_iter()
-            .filter_map(|row| {
-                let Ok(encrypted_add_package) =
-                    row.try_get::<'_, Vec<u8>, _>("encrypted_add_package")
-                else {
-                    return None;
-                };
-                serde_json::from_slice(encrypted_add_package.as_slice()).ok()
+        let encrypted_add_packages = rows
+            .into_iter()
+            .map(|row| {
+                let encrypted_add_package_bytes = row
+                    .try_get::<'_, Vec<u8>, _>("encrypted_add_package")
+                    .map_err(|e| {
+                        tracing::warn!("Error loading key package: {:?}", e);
+                        LoadUserKeyPackagesError::PostgresError(e)
+                    })?;
+                let encrypted_add_package = serde_json::from_slice(
+                    encrypted_add_package_bytes.as_slice(),
+                )
+                .map_err(|e| {
+                    tracing::warn!("Error deserializing key package: {:?}", e);
+                    LoadUserKeyPackagesError::SerializationError(e)
+                })?;
+                Ok(encrypted_add_package)
             })
-            .collect()
+            .collect::<Result<Vec<QsEncryptedAddPackage>, LoadUserKeyPackagesError>>()?;
+
+        Ok(encrypted_add_packages)
     }
 
     async fn enqueue(
@@ -468,6 +471,8 @@ impl QsStorageProvider for PostgresQsStorage {
     ) -> Result<(), Self::EnqueueError> {
         // Encode the message
         let message_bytes = serde_json::to_vec(&message)?;
+
+        //tracing::info!("Encoded message: {:?}", message_bytes);
 
         // Begin the transaction
         let mut transaction = self.pool.begin().await?;
@@ -499,12 +504,9 @@ impl QsStorageProvider for PostgresQsStorage {
             return Err(QueueError::SequenceNumberMismatch);
         }
 
-        // Get a fresh message ID (only used as a unique key for postgres)
-        let message_id = Uuid::new_v4();
         // Store the message in the DB
         sqlx::query!(
-            "INSERT INTO qs_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
-            message_id,
+            "INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3)",
             client_id.as_uuid(),
             sequence_number_decimal,
             message_bytes,
@@ -550,14 +552,14 @@ impl QsStorageProvider for PostgresQsStorage {
             ),
             fetched AS (
                 SELECT message_bytes FROM qs_queues
-                WHERE queue_id = $1
+                WHERE queue_id = $1 AND sequence_number >= $2
                 ORDER BY sequence_number ASC
                 LIMIT $3
             ),
             remaining AS (
                 SELECT COUNT(*) AS count 
                 FROM qs_queues
-                WHERE queue_id = $1
+                WHERE queue_id = $1 AND sequence_number >= $2
             )
             SELECT 
                 fetched.message_bytes,
@@ -578,13 +580,14 @@ impl QsStorageProvider for PostgresQsStorage {
             .iter()
             .map(|row| {
                 let message_bytes: &[u8] = row.try_get("message_bytes")?;
+                //tracing::info!("Message bytes: {:?}", message_bytes);
                 let message = serde_json::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, ReadAndDeleteError>>()?;
 
         tracing::info!("Read {} messages", messages.len());
-        tracing::info!("Messages: {:?}", messages);
+        //tracing::info!("Messages: {:?}", messages);
 
         let remaining_messages = if let Some(row) = rows.first() {
             let remaining_count: i64 = row.try_get("count")?;
@@ -730,6 +733,18 @@ pub enum StoreKeyPackagesError {
     /// Unknown client.
     #[error("Unknown client.")]
     UnknownClient,
+    /// Error serializing KeyPackage
+    #[error(transparent)]
+    SerializationError(#[from] serde_json::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum LoadUserKeyPackagesError {
+    #[error(transparent)]
+    PostgresError(#[from] sqlx::Error),
+    /// Unknown user.
+    #[error("Unknown user.")]
+    UnknownUser,
     /// Error serializing KeyPackage
     #[error(transparent)]
     SerializationError(#[from] serde_json::Error),

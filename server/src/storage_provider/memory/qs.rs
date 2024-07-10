@@ -113,6 +113,7 @@ impl QsStorageProvider for MemStorageProvider {
     type CreateClientError = CreateClientError;
     type DeleteClientError = DeleteClientError;
     type StoreKeyPackagesError = StoreKeyPackagesError;
+    type LoadUserKeyPackagesError = LoadUserKeyPackagesError;
 
     type LoadSigningKeyError = LoadSigningKeyError;
     type LoadDecryptionKeyError = LoadDecryptionKeyError;
@@ -316,31 +317,24 @@ impl QsStorageProvider for MemStorageProvider {
     async fn load_user_key_packages(
         &self,
         friendship_token: &FriendshipToken,
-    ) -> Vec<QsEncryptedAddPackage> {
-        let users = if let Ok(users) = self.users.read() {
-            users
-        } else {
-            return vec![];
-        };
-        let clients = if let Ok(clients) = self.clients.read() {
-            clients
-        } else {
-            return vec![];
-        };
-        let user_id = if let Some((id, _record)) = users
+    ) -> Result<Vec<QsEncryptedAddPackage>, LoadUserKeyPackagesError> {
+        let users = self.users.read().map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            LoadUserKeyPackagesError::StorageError
+        })?;
+        let clients = self.clients.read().map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            LoadUserKeyPackagesError::StorageError
+        })?;
+        let (user_id, _record) = users
             .iter()
             .find(|(_user_id, user_record)| user_record.friendship_token() == friendship_token)
-        {
-            id
-        } else {
-            return vec![];
-        };
+            .ok_or(LoadUserKeyPackagesError::UnknownUser)?;
         let mut user_key_packages = vec![];
-        let mut key_packages = if let Ok(key_packages) = self.key_packages.write() {
-            key_packages
-        } else {
-            return vec![];
-        };
+        let mut key_packages = self.key_packages.write().map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            LoadUserKeyPackagesError::StorageError
+        })?;
         let user_clients = clients.iter().filter_map(|(client_id, client)| {
             if &client.user_id == user_id {
                 Some(client_id)
@@ -356,12 +350,11 @@ impl QsStorageProvider for MemStorageProvider {
                     .unwrap();
                 user_key_packages.push(client_key_package);
             } else {
-                // If there is an inconsistency between client and user
-                // record, we return an empty vector.
-                return vec![];
+                tracing::error!("Client without key packages: {:?}", client);
+                return Err(LoadUserKeyPackagesError::StorageError);
             }
         }
-        user_key_packages
+        Ok(user_key_packages)
     }
 
     async fn enqueue(
@@ -497,6 +490,16 @@ pub enum StoreKeyPackagesError {
     /// Unknown client.
     #[error("Unknown client.")]
     UnknownClient,
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
+pub enum LoadUserKeyPackagesError {
+    /// Cannot access key package store.
+    #[error("Cannot access key package store.")]
+    StorageError,
+    /// Unknown user.
+    #[error("Unknown user.")]
+    UnknownUser,
 }
 
 /// Error creating user

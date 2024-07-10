@@ -5,8 +5,7 @@
 -- migrations/{timestamp}_create_queues_table.sql
 -- Create QS Queues Table
 CREATE TABLE qs_queues(
-message_id uuid NOT NULL,
-queue_id uuid NOT NULL UNIQUE,
+queue_id uuid NOT NULL,
 sequence_number NUMERIC NOT NULL,
 message_bytes BYTEA NOT NULL,
 PRIMARY KEY (queue_id, sequence_number),
