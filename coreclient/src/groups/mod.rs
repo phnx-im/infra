@@ -72,7 +72,7 @@ use openmls::{
         ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
         StagedWelcome, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
     },
-    treesync::RatchetTree,
+    treesync::{LeafNodeParameters, RatchetTree},
 };
 
 use self::{
@@ -444,6 +444,8 @@ impl Group {
                 Some(ratchet_tree_in),
                 verifiable_group_info,
                 &mls_group_config,
+                None,
+                None,
                 &aad.tls_serialize_detached()?,
                 credential_with_key,
             )?;
@@ -1320,7 +1322,7 @@ impl Group {
         self.mls_group.set_aad(provider.storage(), &aad)?;
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
-            .self_update(provider, &self.leaf_signer)
+            .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
         self.mls_group.set_aad(provider.storage(), &[])?;
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
@@ -1360,7 +1362,7 @@ impl Group {
         self.mls_group.set_aad(provider.storage(), &aad)?;
         let (commit, _welcome_option, group_info_option) = self
             .mls_group
-            .self_update(provider, &self.leaf_signer)
+            .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
         self.mls_group.set_aad(provider.storage(), &[])?;
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
