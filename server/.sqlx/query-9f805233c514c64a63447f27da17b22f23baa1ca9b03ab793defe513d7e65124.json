@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1",
+  "query": "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -30,5 +30,5 @@
       false
     ]
   },
-  "hash": "a698eca0b849cfdc8098eba98064377d21c448e5c8da8bbd518cfecb7776ce41"
+  "hash": "9f805233c514c64a63447f27da17b22f23baa1ca9b03ab793defe513d7e65124"
 }

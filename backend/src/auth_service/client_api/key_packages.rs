@@ -53,9 +53,17 @@ impl AuthService {
     ) -> Result<AsClientConnectionPackageResponse, ClientKeyPackageError> {
         let client_id = params.0;
 
-        let connection_package = storage_provider.client_connection_package(&client_id).await;
+        let connection_package = storage_provider
+            .client_connection_package(&client_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Storage provider error: {:?}", e);
+                ClientKeyPackageError::StorageError
+            })?;
 
-        let response = AsClientConnectionPackageResponse { connection_package };
+        let response = AsClientConnectionPackageResponse {
+            connection_package: Some(connection_package),
+        };
         Ok(response)
     }
 }
