@@ -600,14 +600,14 @@ impl AsStorageProvider for PostgresAsStorage {
             ),
             fetched AS (
                 SELECT message_bytes FROM as_queues
-                WHERE queue_id = $1
+                WHERE queue_id = $1 AND sequence_number >= $2
                 ORDER BY sequence_number ASC
                 LIMIT $3
             ),
             remaining AS (
                 SELECT COUNT(*) AS count 
                 FROM as_queues
-                WHERE queue_id = $1
+                WHERE queue_id = $1 AND sequence_number >= $2
             )
             SELECT 
                 fetched.message_bytes,
