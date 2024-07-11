@@ -6,7 +6,7 @@
 -- Create AS Queues Table
 CREATE TABLE as_queues(
 message_id uuid NOT NULL,
-queue_id uuid NOT NULL UNIQUE,
+queue_id uuid NOT NULL,
 sequence_number NUMERIC NOT NULL,
 message_bytes BYTEA NOT NULL,
 PRIMARY KEY (queue_id, sequence_number),
