@@ -150,6 +150,7 @@ impl AsStorageProvider for MemoryAsStorage {
     type ReadAndDeleteError = ReadAndDeleteError;
 
     type StoreKeyPackagesError = AsStorageError;
+    type LoadConnectionPackageError = AsStorageError;
 
     type LoadSigningKeyError = AsStorageError;
     type LoadAsCredentialsError = AsStorageError;
@@ -319,14 +320,37 @@ impl AsStorageProvider for MemoryAsStorage {
     /// Return a key package for a specific client. The client_id must belong to
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
-    async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage> {
-        let mut connection_package_store = self.connection_packages.write().ok()?;
+    async fn client_connection_package(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<ConnectionPackage, Self::LoadConnectionPackageError> {
+        let mut connection_package_store = self.connection_packages.write().map_err(|e| {
+            tracing::error!("Failed to get connection package store: {:?}", e);
+            AsStorageError::PoisonedLock
+        })?;
 
-        let connection_packages = connection_package_store.get_mut(client_id)?;
-        if connection_packages.len() == 1 {
+        let Some(connection_packages) = connection_package_store.get_mut(client_id) else {
+            tracing::warn!(
+                "Did not find connection package for client with id {:?}.",
+                client_id
+            );
+            return Err(AsStorageError::PoisonedLock);
+        };
+        let result = if connection_packages.len() == 1 {
             connection_packages.front().cloned()
         } else {
             connection_packages.pop_front()
+        };
+
+        match result {
+            Some(connection_package) => Ok(connection_package),
+            None => {
+                tracing::warn!(
+                    "Did not find connection package for client with id {:?}.",
+                    client_id
+                );
+                Err(AsStorageError::PoisonedLock)
+            }
         }
     }
 
@@ -346,14 +370,8 @@ impl AsStorageProvider for MemoryAsStorage {
         let mut connection_packages = Vec::new();
         for client_id in &client_records {
             if &client_id.user_name() == user_name {
-                if let Some(connection_package) = self.client_connection_package(client_id).await {
-                    connection_packages.push(connection_package);
-                } else {
-                    tracing::warn!(
-                        "Did not find connection package for client with id {:?}.",
-                        client_id
-                    );
-                }
+                let connection_package = self.client_connection_package(client_id).await?;
+                connection_packages.push(connection_package);
             }
         }
         Ok(connection_packages)

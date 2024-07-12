@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE queue_data SET sequence_number = $2 WHERE queue_id = $1",
+  "query": "INSERT INTO qs_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "41b668f3d1af53427b919074983bf1d0e66cd5384ef9101db1b451c0734fe2d8"
+  "hash": "4a20e7cb26859af941b8e9da9f6b40c1e669ebd41914ff5f095d7dadfa9f9b59"
 }

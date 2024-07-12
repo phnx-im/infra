@@ -23,7 +23,6 @@ impl User {
             .collect()
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
         Ok(ConversationIdBytes::from(
             self.user.create_conversation(&name, None).await?,
@@ -41,7 +40,6 @@ impl User {
         Ok(())
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn add_users_to_conversation(
         &self,
         conversation_id: ConversationIdBytes,
@@ -61,7 +59,6 @@ impl User {
         Ok(())
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn remove_users_from_conversation(
         &self,
         conversation_id: ConversationIdBytes,

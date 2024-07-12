@@ -21,7 +21,7 @@ use thiserror::Error;
 use tls_codec::DeserializeBytes;
 
 pub struct SqliteDsStorage {
-    pub(crate) connection: Arc<Mutex<Connection>>,
+    pub(crate) connection: SqliteConnection,
     pub(crate) own_domain: Fqdn,
 }
 

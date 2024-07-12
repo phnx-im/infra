@@ -28,8 +28,9 @@ use privacypass::{
 #[cfg(feature = "sqlite_provider")]
 use rusqlite::{types::FromSql, ToSql};
 use sqlx::{
+    postgres::PgArguments,
     types::{BigDecimal, Uuid},
-    PgPool,
+    Acquire, Arguments, PgConnection, PgPool, Row,
 };
 use thiserror::Error;
 
@@ -87,6 +88,55 @@ impl PostgresAsStorage {
             .await?;
         };
         Ok(provider)
+    }
+
+    async fn load_connection_package_internal(
+        transaction: &mut PgConnection,
+        client_id: Uuid,
+    ) -> Result<Vec<u8>, AsPostgresError> {
+        let mut savepoint = transaction.begin().await?;
+
+        // TODO: Set the isolation level to SERIALIZABLE. This is necessary
+        // because we're counting the number of packages and then deleting one.
+        // We should do this once we're moving to a proper state-machine model
+        // for server storage and networking.
+
+        // This is to ensure that counting and deletion happen atomically. If we
+        // don't do this, two concurrent queries might both count 2 and delete,
+        // leaving us with 0 packages.
+        //sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+        //    .execute(&mut *savepoint)
+        //    .await?;
+
+        let connection_package_bytes_record = sqlx::query!(
+            "WITH next_connection_package AS (
+                SELECT id, connection_package 
+                FROM connection_packages 
+                WHERE client_id = $1 LIMIT 1
+            ), 
+            remaining_packages AS (
+                SELECT COUNT(*) as count 
+                FROM connection_packages 
+                WHERE client_id = $1
+            ),
+            deleted_package AS (
+                DELETE FROM connection_packages 
+                WHERE id = (
+                    SELECT id 
+                    FROM next_connection_package
+                ) 
+                AND (SELECT count FROM remaining_packages) > 1
+                RETURNING connection_package
+            )
+            SELECT id, connection_package FROM next_connection_package",
+            client_id,
+        )
+        .fetch_one(&mut *savepoint)
+        .await?;
+
+        savepoint.commit().await?;
+
+        Ok(connection_package_bytes_record.connection_package)
     }
 }
 
@@ -183,6 +233,7 @@ impl AsStorageProvider for PostgresAsStorage {
     type ReadAndDeleteError = QueueError;
 
     type StoreKeyPackagesError = AsPostgresError;
+    type LoadConnectionPackageError = AsPostgresError;
 
     type LoadSigningKeyError = AsPostgresError;
     type LoadAsCredentialsError = AsPostgresError;
@@ -237,6 +288,7 @@ impl AsStorageProvider for PostgresAsStorage {
     ///  - All key packages for the respective clients
     async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
         let user_name_bytes = serde_json::to_vec(user_id)?;
+        // The database cascades the delete to the clients and their connection packages.
         sqlx::query!(
             "DELETE FROM as_user_records WHERE user_name = $1",
             user_name_bytes
@@ -274,7 +326,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let initial_sequence_number = BigDecimal::from(0u8);
 
         sqlx::query!(
-            "INSERT INTO queue_data (queue_id, sequence_number) VALUES ($1, $2)",
+            "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
             client_id.client_id(),
             initial_sequence_number
         )
@@ -353,58 +405,62 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         connection_packages: Vec<ConnectionPackage>,
     ) -> Result<(), Self::StoreKeyPackagesError> {
-        // TODO: This can probably be improved. For now, we insert each connection
-        // package individually.
-        for connection_package in connection_packages {
+        let mut query_args = PgArguments::default();
+        let mut query_string = String::from(
+            "INSERT INTO connection_packages (id, client_id, connection_package) VALUES",
+        );
+
+        for (i, connection_package) in connection_packages.iter().enumerate() {
             let id = Uuid::new_v4();
             let connection_package_bytes = serde_json::to_vec(&connection_package)?;
-            sqlx::query!(
-                "INSERT INTO connection_packages (id, client_id, connection_package) VALUES ($1, $2, $3)",
-                id,
-                client_id.client_id(),
-                connection_package_bytes,
-            )
+
+            // Add values to the query arguments
+            query_args.add(id);
+            query_args.add(client_id.client_id());
+            query_args.add(connection_package_bytes);
+
+            if i > 0 {
+                query_string.push(',');
+            }
+
+            // Add placeholders for each value
+            query_string.push_str(&format!(
+                " (${}, ${}, ${})",
+                i * 3 + 1,
+                i * 3 + 2,
+                i * 3 + 3
+            ));
+        }
+
+        // Finalize the query string
+        query_string.push(';');
+
+        // Execute the query
+        sqlx::query_with(&query_string, query_args)
             .execute(&self.pool)
             .await?;
-        }
+
         Ok(())
     }
 
     /// Return a key package for a specific client. The client_id must belong to
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
-    async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage> {
-        let connection_package_bytes_record = sqlx::query!(
-            "SELECT id, connection_package FROM connection_packages WHERE client_id = $1",
-            client_id.client_id(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?;
-        let connection_package =
-            serde_json::from_slice(&connection_package_bytes_record.connection_package).ok()?;
+    async fn client_connection_package(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<ConnectionPackage, Self::LoadConnectionPackageError> {
+        // Start a transaction
+        let mut tx = self.pool.begin().await?;
 
-        // If there is only one left, leave it. Otherwise, delete it.
-        let remaining_add_packages = sqlx::query!(
-            "SELECT COUNT(*) as count FROM connection_packages WHERE client_id = $1",
-            client_id.client_id(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?
-        .count?;
+        let connection_package_bytes =
+            Self::load_connection_package_internal(&mut tx, client_id.client_id()).await?;
 
-        if remaining_add_packages > 1 {
-            sqlx::query!(
-                "DELETE FROM connection_packages WHERE id = $1",
-                connection_package_bytes_record.id,
-            )
-            .execute(&self.pool)
-            .await
-            .ok()?;
-        };
+        tx.commit().await?;
 
-        Some(connection_package)
+        let connection_package = serde_json::from_slice(&connection_package_bytes)?;
+
+        Ok(connection_package)
     }
 
     /// Return a connection package for each client of a user referenced by a
@@ -414,32 +470,36 @@ impl AsStorageProvider for PostgresAsStorage {
         user_name: &UserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
         let user_name_bytes = serde_json::to_vec(user_name)?;
+
+        // Start the transaction
+        let mut transaction = self.pool.begin().await?;
+
         // Collect all client ids associated with that user.
         let client_ids_record = sqlx::query!(
             "SELECT client_id FROM as_client_records WHERE user_name = $1",
             user_name_bytes
         )
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await?;
-        let mut connection_packages = Vec::new();
-        for client_id in client_ids_record {
-            let connection_package_record = sqlx::query!(
-                "SELECT id, connection_package FROM connection_packages WHERE client_id = $1",
-                client_id.client_id,
-            )
-            .fetch_one(&self.pool)
-            .await?;
-            sqlx::query!(
-                "DELETE FROM connection_packages WHERE id = $1",
-                connection_package_record.id,
-            )
-            .execute(&self.pool)
-            .await?;
 
-            let connection_package =
-                serde_json::from_slice(&connection_package_record.connection_package)?;
-            connection_packages.push(connection_package);
+        // First fetch all connection package records from the DB.
+        let mut connection_packages_bytes = Vec::new();
+        for client_id in client_ids_record {
+            let connection_package_bytes =
+                Self::load_connection_package_internal(&mut transaction, client_id.client_id)
+                    .await?;
+            connection_packages_bytes.push(connection_package_bytes);
         }
+
+        // End the transaction.
+        transaction.commit().await?;
+
+        // Deserialize the connection packages.
+        let connection_packages = connection_packages_bytes
+            .into_iter()
+            .map(|connection_package_bytes| serde_json::from_slice(&connection_package_bytes))
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(connection_packages)
     }
 
@@ -452,13 +512,20 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         message: QueueMessage,
     ) -> Result<(), Self::EnqueueError> {
+        // Encode the message
+        let message_bytes = serde_json::to_vec(&message)?;
+
+        // Begin the transaction
+        let mut transaction = self.pool.begin().await?;
+
         // Check if sequence numbers are consistent.
         let sequence_number_record = sqlx::query!(
-            "SELECT sequence_number FROM queue_data WHERE queue_id = $1",
+            "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1 FOR UPDATE",
             client_id.client_id(),
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await?;
+
         // We're storing things as the NUMERIC postgres type. We need the
         // num-traits crate to convert to u64. If we find a better way to store
         // u64s, we might be able to get rid of that dependency.
@@ -480,27 +547,29 @@ impl AsStorageProvider for PostgresAsStorage {
 
         // Get a fresh message ID (only used as a unique key for postgres)
         let message_id = Uuid::new_v4();
-        let message_bytes = serde_json::to_vec(&message)?;
         // Store the message in the DB
         sqlx::query!(
-            "INSERT INTO queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
             message_id,
             client_id.client_id(),
             sequence_number_decimal,
             message_bytes,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         let new_sequence_number = sequence_number_decimal + BigDecimal::from(1u8);
         // Increase the sequence number and store it.
         sqlx::query!(
-            "UPDATE queue_data SET sequence_number = $2 WHERE queue_id = $1",
+            "UPDATE as_queue_data SET sequence_number = $2 WHERE queue_id = $1",
             client_id.client_id(),
             new_sequence_number
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
+
+        transaction.commit().await?;
+
         Ok(())
     }
 
@@ -516,52 +585,62 @@ impl AsStorageProvider for PostgresAsStorage {
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError> {
         let sequence_number_decimal = BigDecimal::from(sequence_number);
-        // TODO: We can probably combine these three queries into one.
-
-        // Delete all messages until the given "last seen" one.
-        sqlx::query!(
-            "DELETE FROM queues WHERE queue_id = $1 AND sequence_number < $2",
-            client_id.client_id(),
-            sequence_number_decimal,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Now fetch at most `number_of_messages` messages from the queue.
-
         // TODO: sqlx wants an i64 here and in a few other places below, but
         // we're using u64s. This is probably a limitation of postgres and we
         // might want to change some of the input/output types accordingly.
         let number_of_messages =
             i64::try_from(number_of_messages).map_err(|_| QueueError::LibraryError)?;
-        let records = sqlx::query!(
-            "SELECT message_bytes FROM queues WHERE queue_id = $1 ORDER BY sequence_number ASC LIMIT $2",
-            client_id.client_id(),
-            number_of_messages,
-        )
-        .fetch_all(&self.pool)
-        .await?;
 
-        let lower_limit = BigDecimal::from(sequence_number + records.len() as u64);
-        let remaining_messages = sqlx::query!(
-            "SELECT COUNT(*) as count FROM queues WHERE queue_id = $1 AND sequence_number >= $2 ",
-            client_id.client_id(),
-            lower_limit,
-        )
-        .fetch_one(&self.pool)
-        .await?
-        .count
-        // Count should return something.
-        .ok_or(QueueError::LibraryError)?;
+        let mut transaction = self.pool.begin().await?;
+
+        // This query is idempotent, so there's no need to lock anything.
+        let query = "WITH deleted AS (
+                DELETE FROM as_queues 
+                WHERE queue_id = $1 AND sequence_number < $2
+            ),
+            fetched AS (
+                SELECT message_bytes FROM as_queues
+                WHERE queue_id = $1 AND sequence_number >= $2
+                ORDER BY sequence_number ASC
+                LIMIT $3
+            ),
+            remaining AS (
+                SELECT COUNT(*) AS count 
+                FROM as_queues
+                WHERE queue_id = $1 AND sequence_number >= $2
+            )
+            SELECT 
+                fetched.message_bytes,
+                remaining.count
+            FROM fetched, remaining";
+
+        let rows = sqlx::query(query)
+            .bind(client_id.client_id())
+            .bind(sequence_number_decimal)
+            .bind(number_of_messages)
+            .fetch_all(&mut *transaction)
+            .await?;
+
+        transaction.commit().await?;
 
         // Convert the records to messages.
-        let messages = records
-            .into_iter()
-            .map(|record| {
-                let message = serde_json::from_slice(&record.message_bytes)?;
+        let messages = rows
+            .iter()
+            .map(|row| {
+                let message_bytes: &[u8] = row.try_get("message_bytes")?;
+                let message = serde_json::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, QueueError>>()?;
+
+        let remaining_messages = if let Some(row) = rows.first() {
+            let remaining_count: i64 = row.try_get("count")?;
+            // Subtract the number of messages we've read from the remaining
+            // count to get the number of unread messages.
+            remaining_count - messages.len() as i64
+        } else {
+            0
+        };
 
         return Ok((messages, remaining_messages as u64));
     }

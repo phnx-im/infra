@@ -112,7 +112,13 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        let encrypted_key_packages = storage_provider.load_user_key_packages(&sender).await;
+        let encrypted_key_packages = storage_provider
+            .load_user_key_packages(&sender)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Storage provider error: {:?}", e);
+                QsKeyPackageBatchError::StorageError
+            })?;
 
         let add_packages = encrypted_key_packages
             .into_iter()

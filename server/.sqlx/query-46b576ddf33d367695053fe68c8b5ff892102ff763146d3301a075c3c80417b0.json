@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
+  "query": "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -13,5 +13,5 @@
     },
     "nullable": []
   },
-  "hash": "6a609eb37c43836644a62fcad427b5d9024c81f019c9fb607f4a3397da0538b2"
+  "hash": "46b576ddf33d367695053fe68c8b5ff892102ff763146d3301a075c3c80417b0"
 }
