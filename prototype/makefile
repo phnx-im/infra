@@ -43,7 +43,7 @@ setup-ci:
 
 setup-macos-ci:
 	cd fastlane && bundle install
-	bundle exec fastlane add_plugin flutter
+	cd fastlane && bundle exec fastlane add_plugin flutter
 
 frb-integrate: check-git-clean
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
