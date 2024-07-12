@@ -45,7 +45,7 @@ setup-macos-ci:
 	cd fastlane && bundle install
 	cd fastlane && bundle exec fastlane add_plugin flutter
 
-frb-integrate: check-git-clean
+frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
 	rm -Rf  rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
