@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM queues WHERE queue_id = $1 AND sequence_number < $2",
+  "query": "UPDATE as_queue_data SET sequence_number = $2 WHERE queue_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "5b25b28289efa5b50ae537cf288c7d7f245708c38dccd0944104f1908c81121c"
+  "hash": "874af90bf6637fef590eb6bb7cc5ce9c6412d4b8bd825b8d46c89049469a2c23"
 }

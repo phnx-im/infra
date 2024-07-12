@@ -32,6 +32,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     type ReadAndDeleteError: Error + Debug;
 
     type StoreKeyPackagesError: Error + Debug;
+    type LoadUserKeyPackagesError: Error + Debug;
 
     type LoadSigningKeyError: Error + Debug;
     type LoadDecryptionKeyError: Error + Debug;
@@ -133,7 +134,7 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
     async fn load_user_key_packages(
         &self,
         friendship_token: &FriendshipToken,
-    ) -> Vec<QsEncryptedAddPackage>;
+    ) -> Result<Vec<QsEncryptedAddPackage>, Self::LoadUserKeyPackagesError>;
 
     // === MESSAGES ===
 

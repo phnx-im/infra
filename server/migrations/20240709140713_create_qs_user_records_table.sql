@@ -7,6 +7,6 @@
 CREATE TABLE qs_user_records(
 user_id uuid NOT NULL,
 PRIMARY KEY (user_id),
-friendship_token BYTEA NOT NULL,
+friendship_token BYTEA UNIQUE NOT NULL,
 verifying_key BYTEA NOT NULL
 );

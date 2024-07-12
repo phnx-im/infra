@@ -37,6 +37,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     type ReadAndDeleteError: Error + Debug;
 
     type StoreKeyPackagesError: Error + Debug;
+    type LoadConnectionPackageError: Error + Debug;
 
     type LoadSigningKeyError: Error + Debug;
     type LoadAsCredentialsError: Error + Debug;
@@ -105,7 +106,10 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     /// Return a key package for a specific client. The client_id must belong to
     /// the same user as the requested key packages.
     /// TODO: Last resort key package
-    async fn client_connection_package(&self, client_id: &AsClientId) -> Option<ConnectionPackage>;
+    async fn client_connection_package(
+        &self,
+        client_id: &AsClientId,
+    ) -> Result<ConnectionPackage, Self::LoadConnectionPackageError>;
 
     /// Return a key package for each client of a user referenced by a
     /// user name.

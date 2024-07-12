@@ -14,7 +14,6 @@ use super::{
 };
 
 impl User {
-    #[tokio::main(flavor = "current_thread")]
     pub async fn fetch_messages(&self) -> Result<()> {
         // Fetch AS messages
         let as_messages = self.user.as_fetch_messages().await?;
@@ -94,7 +93,6 @@ impl User {
         Ok(())
     }
 
-    #[tokio::main(flavor = "current_thread")]
     pub async fn send_message(
         &self,
         conversation_id: ConversationIdBytes,
@@ -140,7 +138,6 @@ impl User {
     /// This function is called from the flutter side to flush the debouncer
     /// state, immediately terminating the debouncer and marking all pending
     /// messages as read.
-    #[tokio::main(flavor = "current_thread")]
     pub async fn flush_debouncer_state(&self) -> Result<()> {
         self.app_state.flush_debouncer_state().await
     }

@@ -17,11 +17,8 @@ use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
-use crate::utils::persistence::SqlKey;
-
 pub(crate) mod messages;
 pub(crate) mod persistence;
-//pub(crate) mod store;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConversationId {
@@ -47,12 +44,6 @@ impl FromSql for ConversationId {
     }
 }
 
-impl SqlKey for ConversationId {
-    fn to_sql_key(&self) -> String {
-        self.uuid.to_string()
-    }
-}
-
 impl ConversationId {
     pub fn as_uuid(&self) -> Uuid {
         self.uuid
@@ -74,13 +65,6 @@ impl TryFrom<&GroupId> for ConversationId {
             uuid: Uuid::from_bytes(qgid.group_id),
         };
         Ok(conversation_id)
-    }
-}
-
-impl SqlKey for GroupId {
-    fn to_sql_key(&self) -> String {
-        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(self.as_slice()).unwrap();
-        qgid.to_string()
     }
 }
 

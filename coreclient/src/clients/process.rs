@@ -10,6 +10,7 @@ use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey,
     queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
 };
+use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
     identifiers::QualifiedGroupId,
@@ -43,7 +44,7 @@ impl CoreUser {
         &self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
-        let mut connection = self.sqlite_connection.lock().await;
+        let mut connection = self.connection.lock().await;
         let transaction = connection.transaction()?;
         let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&transaction)?;
 
@@ -81,22 +82,25 @@ impl CoreUser {
         // and we might be able to re-use code.
 
         // Keep track of freshly joined groups s.t. we can later update our user auth keys.
-        let mut connection = self.sqlite_connection.lock().await;
-        let mut transaction = connection.transaction()?;
         let ds_timestamp = qs_queue_message.timestamp;
         let processing_result = match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
+                // WelcomeBundle Phase 1: Join the group. This might involve
+                // loading AS credentials or fetching them from the AS.
                 let group = Group::join_group(
                     welcome_bundle,
                     &self.key_store.wai_ear_key,
-                    &transaction,
+                    self.connection.clone(),
                     &self.api_clients,
                 )
                 .await?;
                 let group_id = group.group_id().clone();
 
-                // Store the user profiles of the group members if they don't
-                // exist yet.
+                // WelcomeBundle Phase 2: Store the user profiles of the group
+                // members if they don't exist yet and store the group and the
+                // new conversation.
+                let mut connection = self.connection.lock().await;
+                let transaction = connection.transaction()?;
                 group
                     .members(&transaction)
                     .into_iter()
@@ -119,6 +123,8 @@ impl CoreUser {
                 Group::delete_from_db(&transaction, &group_id)?;
                 group.store(&transaction)?;
                 conversation.store(&transaction)?;
+                transaction.commit()?;
+                drop(connection);
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
             }
@@ -133,19 +139,25 @@ impl CoreUser {
                         // Neither GroupInfos nor KeyPackages should come from the queue.
                         MlsMessageBodyIn::GroupInfo(_) | MlsMessageBodyIn::KeyPackage(_) => bail!("Unexpected message type"),
                     };
+                // MLSMessage Phase 1: Load the conversation and the group.
                 let group_id = protocol_message.group_id();
-                let conversation = Conversation::load_by_group_id(&transaction, group_id)?
+                let connection = self.connection.lock().await;
+                let conversation = Conversation::load_by_group_id(&connection, group_id)?
                     .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
 
-                let mut group = Group::load(&transaction, group_id)?
+                let mut group = Group::load(&connection, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
+                drop(connection);
+
+                // MLSMessage Phase 2: Process the message
                 let (processed_message, we_were_removed, sender_client_id) = group
-                    .process_message(&transaction, &self.api_clients, protocol_message)
+                    .process_message(self.connection.clone(), &self.api_clients, protocol_message)
                     .await?;
 
                 let sender = processed_message.sender().clone();
                 let aad = processed_message.authenticated_data().to_vec();
+
                 // `conversation_changed` indicates whether the state of the conversation was updated
                 let (group_messages, conversation_changed) = match processed_message.into_content()
                 {
@@ -161,17 +173,23 @@ impl CoreUser {
                         // For now, we don't to anything here. The proposal
                         // was processed by the MLS group and will be
                         // committed with the next commit.
-                        group.store_proposal(&transaction, *proposal)?;
+                        let connection = self.connection.lock().await;
+                        group.store_proposal(&connection, *proposal)?;
+                        drop(connection);
                         (vec![], false)
                     }
                     ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                         // If a client joined externally, we check if the
                         // group belongs to an unconfirmed conversation.
-                        let mut conversation = Conversation::load(&transaction, &conversation_id)?
+
+                        // StagedCommitMessage Phase 1: Load the conversation.
+                        let connection = self.connection.lock().await;
+                        let mut conversation = Conversation::load(&connection, &conversation_id)?
                             .ok_or(anyhow!(
-                                "Can't find conversation with id {}",
-                                conversation_id.as_uuid()
-                            ))?;
+                            "Can't find conversation with id {}",
+                            conversation_id.as_uuid()
+                        ))?;
+                        drop(connection);
                         let mut conversation_changed = false;
 
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
@@ -184,13 +202,15 @@ impl CoreUser {
                             {
                                 // TODO: Handle the fact that an unexpected user joined the connection group.
                             }
-                            // Load up the partial contact and decrypt the
+                            // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
                             // friendship package
-                            let partial_contact = PartialContact::load(&transaction, &user_name)?
+                            let connection = self.connection.lock().await;
+                            let partial_contact = PartialContact::load(&connection, &user_name)?
                                 .ok_or(anyhow!(
-                                "No partial contact found for user name {}",
-                                user_name
-                            ))?;
+                                    "No partial contact found for user name {}",
+                                    user_name
+                                ))?;
+                            drop(connection);
 
                             // This is a bit annoying, since we already
                             // de-serialized this in the group processing
@@ -210,9 +230,10 @@ impl CoreUser {
                                 &partial_contact.friendship_package_ear_key,
                                 &encrypted_friendship_package,
                             )?;
-                            // We also need to get the add infos
+
+                            // UnconfirmedConnection Phase 2: Get KeyPackageBatches and (if necessary) the
+                            // QS verifying keys required to verify them.
                             let mut add_infos = vec![];
-                            let provider = &PhnxOpenMlsProvider::new(&transaction);
                             for _ in 0..5 {
                                 let key_package_batch_response = self
                                     .api_clients
@@ -228,7 +249,7 @@ impl CoreUser {
                                         .into_iter()
                                         .map(|add_package| {
                                             let verified_add_package = add_package.validate(
-                                                provider.crypto(),
+                                                &RustCrypto::default(),
                                                 ProtocolVersion::default(),
                                             )?;
                                             let key_package =
@@ -241,7 +262,7 @@ impl CoreUser {
                                         })
                                         .collect::<Result<Vec<_>>>()?;
                                 let qs_verifying_key = StorableQsVerifyingKey::get(
-                                    &transaction,
+                                    self.connection.clone(),
                                     &user_name.domain(),
                                     &self.api_clients,
                                 )
@@ -256,8 +277,9 @@ impl CoreUser {
                                 add_infos.push(add_info);
                             }
 
-                            // Update the user profile of the sender.
-                            friendship_package.user_profile.update(&transaction)?;
+                            // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
+                            let mut connection = self.connection.lock().await;
+                            friendship_package.user_profile.update(&connection)?;
 
                             // Set the picture of the conversation to the one of the contact.
                             let conversation_picture_option = friendship_package
@@ -268,38 +290,54 @@ impl CoreUser {
                                 });
 
                             conversation.set_conversation_picture(
-                                &transaction,
+                                &connection,
                                 conversation_picture_option,
                             )?;
+                            let mut transaction = connection.transaction()?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact.mark_as_complete(
                                 &mut transaction,
                                 friendship_package,
                                 sender_client_id.clone(),
                             )?;
+                            transaction.commit()?;
 
-                            conversation.confirm(&transaction)?;
+                            conversation.confirm(&connection)?;
                             conversation_changed = true;
+                            drop(connection);
                         }
+
+                        // StagedCommitMessage Phase 2: Merge the staged commit into the group.
+
                         // If we were removed, we set the group to inactive.
+                        let connection = self.connection.lock().await;
                         if we_were_removed {
-                            let past_members = group.members(&transaction).into_iter().collect();
-                            conversation.set_inactive(&transaction, past_members)?;
+                            let past_members = group.members(&connection).into_iter().collect();
+                            conversation.set_inactive(&connection, past_members)?;
                         }
                         let group_messages = group.merge_pending_commit(
-                            &transaction,
+                            &connection,
                             *staged_commit,
                             ds_timestamp,
                         )?;
+                        drop(connection);
+
                         (group_messages, conversation_changed)
                     }
                     ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
                         unimplemented!()
                     }
                 };
+
+                // MLSMessage Phase 3: Store the updated group and the messages.
+                let mut connection = self.connection.lock().await;
+                let mut transaction = connection.transaction()?;
                 group.store_update(&transaction)?;
+
                 let conversation_messages =
                     Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+                transaction.commit()?;
+                drop(connection);
                 match (conversation_messages, conversation_changed) {
                     (messages, true) => {
                         ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
@@ -309,8 +347,6 @@ impl CoreUser {
             }
         };
 
-        transaction.commit()?;
-
         Ok(processing_result)
     }
 
@@ -319,7 +355,7 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        let mut connection = self.sqlite_connection.lock().await;
+        let mut connection = self.connection.lock().await;
         let transaction = connection.transaction()?;
         let mut as_queue_ratchet = StorableAsQueueRatchet::load(&transaction)?;
 
@@ -338,8 +374,6 @@ impl CoreUser {
         &self,
         as_message_plaintext: ExtractedAsQueueMessagePayload,
     ) -> Result<ConversationId> {
-        let mut connection = self.sqlite_connection.lock().await;
-        let transaction = connection.transaction()?;
         let conversation_id = match as_message_plaintext {
             ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
                 let cep_in = ConnectionEstablishmentPackageIn::decrypt(
@@ -352,8 +386,10 @@ impl CoreUser {
                 // don't have them already.
                 let sender_domain = cep_in.sender_credential().domain();
 
+                // EncryptedConnectionEstablishmentPackage Phase 1: Load the
+                // AS credential of the sender.
                 let as_intermediate_credential = AsCredentials::get(
-                    &transaction,
+                    self.connection.clone(),
                     &self.api_clients,
                     &sender_domain,
                     cep_in.sender_credential().signer_fingerprint(),
@@ -372,9 +408,12 @@ impl CoreUser {
                 let esek = signature_ear_key
                     .encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
 
-                let own_user_profile = UserProfile::load(&transaction, &self.user_name())
+                // EncryptedConnectionEstablishmentPackage Phase 2: Load the user profile
+                let connection = self.connection.lock().await;
+                let own_user_profile = UserProfile::load(&connection, &self.user_name())
                     // We unwrap here, because we know that the user exists.
                     .map(|user_option| user_option.unwrap())?;
+                drop(connection);
 
                 let encrypted_friendship_package = FriendshipPackage {
                     friendship_token: self.key_store.friendship_token.clone(),
@@ -400,7 +439,7 @@ impl CoreUser {
                 })
                 .into();
 
-                // Fetch external commit information.
+                // EncryptedConnectionEstablishmentPackage Phase 3: Fetch external commit information.
                 let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(
                     cep_tbs.connection_group_id.as_slice(),
                 )?;
@@ -412,8 +451,10 @@ impl CoreUser {
                         &cep_tbs.connection_group_ear_key,
                     )
                     .await?;
+
+                // EncryptedConnectionEstablishmentPackage Phase 4: Join the group.
                 let (group, commit, group_info) = Group::join_group_externally(
-                    &transaction,
+                    self.connection.clone(),
                     &self.api_clients,
                     eci,
                     leaf_signer,
@@ -425,7 +466,10 @@ impl CoreUser {
                     self.key_store.signing_key.credential(),
                 )
                 .await?;
-                group.store(&transaction)?;
+
+                // EncryptedConnectionEstablishmentPackage Phase 5: Store the group and the conversation.
+                let connection = self.connection.lock().await;
+                group.store(&connection)?;
                 let sender_client_id = cep_tbs.sender_client_credential.identity();
                 let conversation_picture_option = cep_tbs
                     .friendship_package
@@ -442,25 +486,24 @@ impl CoreUser {
                         conversation_picture_option,
                     ),
                 )?;
-                conversation.store(&transaction)?;
+                conversation.store(&connection)?;
                 // Store the user profile of the sender.
-                cep_tbs
-                    .friendship_package
-                    .user_profile
-                    .store(&transaction)?;
+                cep_tbs.friendship_package.user_profile.store(&connection)?;
                 // TODO: For now, we automatically confirm conversations.
-                conversation.confirm(&transaction)?;
+                conversation.confirm(&connection)?;
                 // TODO: Here, we want to store a contact
                 Contact::from_friendship_package(
                     sender_client_id,
                     conversation.id(),
                     cep_tbs.friendship_package,
                 )
-                .store(&transaction)?;
+                .store(&connection)?;
+                drop(connection);
 
                 let qs_client_reference = self.create_own_client_reference();
 
-                // Send the confirmation by way of commit and group info to the DS.
+                // EncryptedConnectionEstablishmentPackage Phase 6: Send the
+                // confirmation by way of commit and group info to the DS.
                 self.api_clients
                     .get(&qgid.owning_domain)?
                     .ds_join_connection_group(
@@ -474,12 +517,11 @@ impl CoreUser {
                 conversation.id()
             }
         };
-        transaction.commit()?;
         Ok(conversation_id)
     }
 
     pub async fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
-        let connection = self.sqlite_connection.lock().await;
+        let connection = self.connection.lock().await;
         Conversation::load(&connection, &conversation_id)
             .ok()
             .flatten()
@@ -492,7 +534,7 @@ impl CoreUser {
         conversation_id: ConversationId,
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = self.sqlite_connection.lock().await;
+        let connection = self.connection.lock().await;
         let messages = ConversationMessage::load_multiple(
             &connection,
             conversation_id,
