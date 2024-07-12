@@ -41,6 +41,10 @@ setup-ci:
 	cargo binstall -y cargo-expand
 	cargo binstall -y cargo-ndk
 
+setup-macos-ci:
+	cd fastlane && bundle install
+	bundle exec fastlane add_plugin flutter
+
 frb-integrate: check-git-clean
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
 	rm -Rf  rust_builder test_driver
@@ -69,12 +73,12 @@ android-create:
 
 macos-create:
 	rm -Rf macos/
-	flutter create --platforms=macos .
+	flutter create --platforms=macos --org im.phnx .
 	./conf-macos.sh
 
 ios-create:
 	rm -Rf ios/
-	flutter create --platforms=ios .
+	flutter create --platforms=ios --org im.phnx .
 	./conf-ios.sh
 
 android-debug:
@@ -82,6 +86,9 @@ android-debug:
 
 android-release:
 	flutter build apk --release
+
+ios-release:
+	flutter build ios --release
 
 
 
