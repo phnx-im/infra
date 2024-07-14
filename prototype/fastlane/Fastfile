@@ -28,6 +28,9 @@ platform :ios do
       target.build_configurations.each do |config|
         config.build_settings['DEVELOPMENT_TEAM'] = team_id
         config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "im.phnx.prototype"
+        config.build_settings['CODE_SIGN_IDENTITY'] = "Apple Development"
+        config.build_settings['CODE_SIGN_STYLE'] = "Automatic"
+        config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ""
       end
     end
   
