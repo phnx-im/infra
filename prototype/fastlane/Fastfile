@@ -27,6 +27,7 @@ platform :ios do
     project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['DEVELOPMENT_TEAM'] = team_id
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "im.phnx.prototype"
       end
     end
   
