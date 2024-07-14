@@ -79,7 +79,6 @@ macos-create:
 ios-create:
 	rm -Rf ios/
 	flutter create --platforms=ios --org im.phnx .
-	./conf-ios.sh
 
 android-debug:
 	flutter build apk --debug
