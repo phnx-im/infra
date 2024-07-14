@@ -65,7 +65,7 @@ platform :ios do
     )
 
     # Use match for code signing
-    match(type: "appstore",
+    match(
       git_url: ENV['MATCH_GIT_URL'],
       git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
       storage_mode: "git",
@@ -83,25 +83,11 @@ platform :ios do
       podfile: "ios/Podfile"
     )
 
-    appId = app_identifier
-    matchType = "appstore" 
-    team_id = ENV['TEAM_ID']
-    profile_uuid = ENV["sigh_#{appId}_#{matchType}"]
-
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      team_id: ENV["sigh_#{appId}_#{matchType}_team-id"],
-      profile_uuid: ENV["sigh_#{appId}_#{matchType}"],
-      profile_name: ENV["sigh_#{appId}_#{matchType}_profile-name"],
-      path: "ios/Runner.xcodeproj",
-    )
 
     # Build the app
     build_app(
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
-      export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
     )
 
     # Upload the app to TestFlight
