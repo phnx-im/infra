@@ -42,6 +42,7 @@ setup-ci:
 	cargo binstall -y cargo-ndk
 
 setup-macos-ci:
+	brew install xcodesorg/made/xcodes
 	cd fastlane && bundle install
 	cd fastlane && bundle exec fastlane add_plugin flutter
 

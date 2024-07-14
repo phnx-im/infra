@@ -89,6 +89,13 @@ platform :ios do
 
   desc "Push a new beta build to TestFlight"
   lane :beta_ios do
+    # Set XCode version
+    xcversion(version: "15.4") 
+    xcodes(
+      version: '15.4',
+      select_for_current_build_only: true,
+    )
+
     app_identifier = "im.phnx.prototype"
     # Prepare the project files
     prepare_plist
@@ -136,7 +143,6 @@ platform :ios do
       clean: true,
       podfile: "ios/Podfile"
     )
-
 
     # Build the app
     build_app(
