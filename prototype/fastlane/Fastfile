@@ -96,6 +96,10 @@ platform :ios do
       select_for_current_build_only: true,
     )
 
+    # Set up CI
+    setup_ci(
+    )
+
     app_identifier = "im.phnx.prototype"
     # Prepare the project files
     prepare_plist
