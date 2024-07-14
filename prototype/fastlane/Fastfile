@@ -83,10 +83,24 @@ platform :ios do
       podfile: "ios/Podfile"
     )
 
+    appId = app_identifier
+    matchType = "appstore" 
+    team_id = ENV['TEAM_ID']
+    profile_uuid = ENV["sigh_#{appId}_#{matchType}"]
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: ENV["sigh_#{appId}_#{matchType}_team-id"],
+      profile_uuid: ENV["sigh_#{appId}_#{matchType}"],
+      profile_name: ENV["sigh_#{appId}_#{matchType}_profile-name"],
+      path: "ios/Runner.xcodeproj",
+    )
+
     # Build the app
     build_app(
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
+      export_method: "app-store",
       xcargs: "-allowProvisioningUpdates",
     )
 
