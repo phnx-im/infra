@@ -82,7 +82,7 @@ platform :ios do
       clean: true,
       podfile: "ios/Podfile"
     )
-    
+
     # Build the app
     build_app(
       workspace: "ios/Runner.xcworkspace", 

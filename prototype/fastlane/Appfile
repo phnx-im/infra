@@ -1,0 +1,3 @@
+app_identifier("im.phnx.prototype") # Your app identifier
+apple_id(ENV['APPLE_ID']) # Apple ID
+team_id(ENV['TEAM_ID']) # Developer Portal Team ID
