@@ -87,6 +87,7 @@ platform :ios do
     build_app(
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
+      xcargs: "-allowProvisioningUpdates",
     )
 
     # Upload the app to TestFlight
