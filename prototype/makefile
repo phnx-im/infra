@@ -41,7 +41,12 @@ setup-ci:
 	cargo binstall -y cargo-expand
 	cargo binstall -y cargo-ndk
 
-frb-integrate: check-git-clean
+setup-macos-ci:
+	brew install xcodesorg/made/xcodes
+	cd fastlane && bundle install
+	cd fastlane && bundle exec fastlane add_plugin flutter
+
+frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
 	rm -Rf  rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
@@ -69,19 +74,21 @@ android-create:
 
 macos-create:
 	rm -Rf macos/
-	flutter create --platforms=macos .
+	flutter create --platforms=macos --org im.phnx .
 	./conf-macos.sh
 
 ios-create:
 	rm -Rf ios/
-	flutter create --platforms=ios .
-	./conf-ios.sh
+	flutter create --platforms=ios --org im.phnx .
 
 android-debug:
 	flutter build apk --debug
 
 android-release:
 	flutter build apk --release
+
+ios-release:
+	flutter build ios --release
 
 
 

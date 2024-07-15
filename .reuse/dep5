@@ -19,7 +19,6 @@ Files: prototype/test_driver/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-
-
-
-
+Files: prototype/fastlane/*
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
