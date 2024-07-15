@@ -5,20 +5,9 @@
 name: Build iOS app
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-
-# Run on release:
-# on:
-# release:
-#    types: [published]
-
-# Run on push to main:
-# on:
-# push:
-#   branches:
-#      - main
+     - main
 
 jobs:
   build:
