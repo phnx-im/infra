@@ -70,7 +70,7 @@ Runner.app.dSYM.zip
 
 # Other platforms
 android/
-ios/
+# ios/
 macos/
 windows/
 linux/
