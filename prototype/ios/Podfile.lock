@@ -1,0 +1,41 @@
+PODS:
+  - Flutter (1.0.0)
+  - image_picker_ios (0.0.1):
+    - Flutter
+  - integration_test (0.0.1):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - phnxapplogic (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - phnxapplogic (from `.symlinks/plugins/phnxapplogic/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  phnxapplogic:
+    :path: ".symlinks/plugins/phnxapplogic/ios"
+
+SPEC CHECKSUMS:
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  image_picker_ios: c560581cceedb403a6ff17f2f816d7fea1421fc1
+  integration_test: ce0a3ffa1de96d1a89ca0ac26fca7ea18a749ef4
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
+  phnxapplogic: 3a80c8eb90a59223e9add14dde8a0447b069b0b3
+
+PODFILE CHECKSUM: 819463e6a0290f5a72f145ba7cde16e8b6ef0796
+
+COCOAPODS: 1.15.2
