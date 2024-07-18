@@ -19,26 +19,6 @@ require 'plist'
 default_platform(:ios)
 
 platform :ios do
-  desc "Prepare code-signing"
-  lane :prepare_code_signing do
-    xcodeproj = "../ios/Runner.xcodeproj"
-  
-    # Load the project file
-    project = Xcodeproj::Project.open(xcodeproj)
-  
-    # Set the team ID for each build configuration
-    project.targets.each do |target|
-      target.build_configurations.each do |config|
-        config.build_settings['CODE_SIGN_IDENTITY'] = "Apple Distribution"
-        config.build_settings['CODE_SIGN_STYLE'] = "Automatic"
-        config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ""
-      end
-    end
-  
-    # Save the changes
-    project.save
-  end
-
   desc "Push a new beta build to TestFlight"
   lane :beta_ios do
     # Set XCode version
@@ -58,9 +38,7 @@ platform :ios do
     team_id = ENV['TEAM_ID']
     matchType = "appstore"
     app_identifier = "im.phnx.prototype"
-
-     # Prepare the project files
-     prepare_code_signing
+    app_identifier_nse = "im.phnx.prototype.nse"
 
     # Load the app store connect API key
     api_key = app_store_connect_api_key(
@@ -93,6 +71,16 @@ platform :ios do
       team_id: team_id,
       readonly: is_ci,
     )
+    match(
+      type: matchType,
+      git_url: ENV['MATCH_GIT_URL'],
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
+      git_branch: "main",
+      storage_mode: "git",
+      app_identifier: app_identifier_nse,
+      team_id: team_id,
+      readonly: is_ci,
+    )
 
     # Install flutter dependencies
     sh "flutter pub get"
@@ -103,28 +91,11 @@ platform :ios do
       podfile: "ios/Podfile"
     )
     
-    # Update the code signing settings
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      code_sign_identity: "Apple Distribution",
-      team_id: team_id,
-      profile_uuid: ENV["sigh_#{app_identifier}_#{matchType}"],
-      profile_name: ENV["sigh_#{app_identifier}_#{matchType}_profile-name"],
-      path: "ios/Runner.xcodeproj",
-    )
-
     # Build the app
     build_app(
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
-      export_options: {
-        provisioningProfiles: {
-          "im.phnx.prototype" => "match AppStore im.phnx.prototype"
-        },
-        signingStyle: "manual"
-      }
     )
 
     # Upload the app to TestFlight
