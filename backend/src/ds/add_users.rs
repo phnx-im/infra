@@ -69,9 +69,8 @@ impl DsGroupState {
             };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad_message =
-            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
-                .map_err(|_| AddUsersError::InvalidMessage)?;
+        let aad_message = InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())
+            .map_err(|_| AddUsersError::InvalidMessage)?;
         // TODO: Check version of Aad Message
         let aad_payload = if let InfraAadPayload::AddUsers(aad) = aad_message.into_payload() {
             aad

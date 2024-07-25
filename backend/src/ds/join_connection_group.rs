@@ -64,12 +64,11 @@ impl DsGroupState {
             return Err(JoinConnectionGroupError::InvalidMessage);
         };
 
-        let aad_message =
-            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
-                .map_err(|_| {
-                    tracing::warn!("Invalid message: Failed to deserialize AAD.");
-                    JoinConnectionGroupError::InvalidMessage
-                })?;
+        let aad_message = InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())
+            .map_err(|_| {
+                tracing::warn!("Invalid message: Failed to deserialize AAD.");
+                JoinConnectionGroupError::InvalidMessage
+            })?;
         // TODO: Check version of Aad Message
         let aad_payload =
             if let InfraAadPayload::JoinConnectionGroup(aad) = aad_message.into_payload() {

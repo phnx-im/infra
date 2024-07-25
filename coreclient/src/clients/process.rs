@@ -156,7 +156,7 @@ impl CoreUser {
                     .await?;
 
                 let sender = processed_message.sender().clone();
-                let aad = processed_message.authenticated_data().to_vec();
+                let aad = processed_message.aad().to_vec();
 
                 // `conversation_changed` indicates whether the state of the conversation was updated
                 let (group_messages, conversation_changed) = match processed_message.into_content()
