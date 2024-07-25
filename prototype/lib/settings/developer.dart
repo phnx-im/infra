@@ -3,14 +3,34 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/homescreen.dart';
 import 'package:prototype/main.dart';
+import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
 
-class DeveloperSettingsScreen extends StatelessWidget {
+class DeveloperSettingsScreen extends StatefulWidget {
   const DeveloperSettingsScreen({super.key});
+
+  @override
+  State<DeveloperSettingsScreen> createState() =>
+      _DeveloperSettingsScreenState();
+}
+
+class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
+  String? deviceToken;
+
+  @override
+  void initState() {
+    super.initState();
+    getDeviceToken().then((token) {
+      setState(() {
+        deviceToken = token;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +41,51 @@ class DeveloperSettingsScreen extends StatelessWidget {
         leading: appBarBackButton(context),
       ),
       body: ListView(
+        // space between tiles
         children: [
           ListTile(
-            title: TextButton(
-              style: textButtonStyle(context),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Device token (iOS only):",
+                  style: labelStyle,
+                ),
+                const SizedBox(height: 10),
+                SelectableText(
+                  deviceToken ?? "N/A",
+                  style: labelStyle,
+                ),
+                const SizedBox(height: 10),
+                if (deviceToken != null)
+                  TextButton(
+                      style: ButtonStyle(
+                        foregroundColor:
+                            WidgetStateProperty.all<Color>(colorDMB),
+                        textStyle: WidgetStateProperty.all<TextStyle>(
+                          TextStyle(
+                            fontVariations: variationSemiBold,
+                            fontFamily: fontFamily,
+                            fontSize: isSmallScreen(context) ? 16 : 14,
+                          ),
+                        ),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(
+                            ClipboardData(text: deviceToken ?? ""));
+                      },
+                      child: const Text('Copy to clipboard')),
+              ],
+            ),
+          ),
+          const ListTile(
+            title: SizedBox(
+              height: 10,
+            ),
+          ),
+          ListTile(
+            title: OutlinedButton(
+              style: buttonStyle(context, true),
               onPressed: () {
                 showDialog(
                   context: context,
