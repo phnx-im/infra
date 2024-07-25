@@ -449,7 +449,6 @@ impl Group {
                 &aad.tls_serialize_detached()?,
                 credential_with_key,
             )?;
-            mls_group.set_aad(provider.storage(), &[])?;
             mls_group.merge_pending_commit(&provider)?;
             drop(connection);
             (mls_group, commit, group_info_option)
@@ -583,10 +582,9 @@ impl Group {
 
                 // Phase 2: Process the AAD payload.
                 // Let's figure out which operation this is meant to be.
-                let aad_payload = InfraAadMessage::tls_deserialize_exact_bytes(
-                    processed_message.authenticated_data(),
-                )?
-                .into_payload();
+                let aad_payload =
+                    InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
+                        .into_payload();
                 let sender_index = match processed_message.sender() {
                     Sender::Member(index) => index.to_owned(),
                     Sender::NewMemberCommit => {
@@ -957,12 +955,10 @@ impl Group {
         // Set Aad to contain the encrypted client credentials.
         let provider = PhnxOpenMlsProvider::new(connection);
         self.mls_group
-            .set_aad(provider.storage(), &aad_message.tls_serialize_detached()?)?;
+            .set_aad(aad_message.tls_serialize_detached()?);
         let (mls_commit, welcome, group_info_option) =
             self.mls_group
                 .add_members(&provider, &self.leaf_signer, key_packages.as_slice())?;
-        // Reset Aad to empty.
-        self.mls_group.set_aad(provider.storage(), &[])?;
 
         // Groups should always have the flag set that makes them return groupinfos with every Commit.
         // Or at least with Add commits for now.
@@ -1045,13 +1041,12 @@ impl Group {
             GroupMembership::client_indices(connection, self.group_id(), &members)?;
         let aad_payload = InfraAadPayload::RemoveUsers;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
-        self.mls_group.set_aad(provider.storage(), aad.as_slice())?;
+        self.mls_group.set_aad(aad);
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
             provider,
             &self.leaf_signer,
             remove_indices.as_slice(),
         )?;
-        self.mls_group.set_aad(provider.storage(), &[])?;
         // There shouldn't be a welcome
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
@@ -1097,13 +1092,12 @@ impl Group {
         // There shouldn't be a welcome
         let aad_payload = InfraAadPayload::DeleteGroup;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
-        self.mls_group.set_aad(provider.storage(), aad.as_slice())?;
+        self.mls_group.set_aad(aad);
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
             provider,
             &self.leaf_signer,
             remove_indices.as_slice(),
         )?;
-        self.mls_group.set_aad(provider.storage(), &[])?;
         debug_assert!(_welcome_option.is_none());
         let group_info =
             group_info_option.ok_or(anyhow!("No group info after commit operation"))?;
@@ -1319,12 +1313,11 @@ impl Group {
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
-        self.mls_group.set_aad(provider.storage(), &aad)?;
+        self.mls_group.set_aad(aad);
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
-        self.mls_group.set_aad(provider.storage(), &[])?;
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self
@@ -1359,12 +1352,11 @@ impl Group {
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
-        self.mls_group.set_aad(provider.storage(), &aad)?;
+        self.mls_group.set_aad(aad);
         let (commit, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
             .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
-        self.mls_group.set_aad(provider.storage(), &[])?;
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self

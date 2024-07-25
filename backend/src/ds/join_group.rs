@@ -57,9 +57,8 @@ impl DsGroupState {
         };
 
         // If there is an AAD, we might have to update the client profile later.
-        let aad_message =
-            InfraAadMessage::tls_deserialize_exact_bytes(processed_message.authenticated_data())
-                .map_err(|_| JoinGroupError::InvalidMessage)?;
+        let aad_message = InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())
+            .map_err(|_| JoinGroupError::InvalidMessage)?;
         // TODO: Check version of Aad Message
         let aad_payload = if let InfraAadPayload::JoinGroup(aad) = aad_message.into_payload() {
             aad

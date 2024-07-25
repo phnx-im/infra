@@ -118,19 +118,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         )
     }
 
-    fn write_aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
-        &self,
-        group_id: &GroupId,
-        aad: &[u8],
-    ) -> Result<(), Self::Error> {
-        StorableGroupDataRef(&Aad(aad.to_vec())).store(
-            self.connection,
-            group_id,
-            GroupDataType::Aad,
-        )?;
-        Ok(())
-    }
-
     fn append_own_leaf_node<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
         LeafNode: openmls_traits::storage::traits::LeafNode<CURRENT_VERSION>,
@@ -378,14 +365,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         StorableLeafNode::load(self.connection, group_id)
     }
 
-    fn aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
-        &self,
-        group_id: &GroupId,
-    ) -> Result<Vec<u8>, Self::Error> {
-        StorableGroupData::load(self.connection, group_id, GroupDataType::Aad)
-            .map(|data| data.unwrap_or_default())
-    }
-
     fn queued_proposal_refs<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
         ProposalRef: openmls_traits::storage::traits::ProposalRef<CURRENT_VERSION>,
@@ -576,13 +555,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         proposal_ref: &ProposalRef,
     ) -> Result<(), Self::Error> {
         StorableGroupIdRef(group_id).delete_proposal(self.connection, proposal_ref)
-    }
-
-    fn delete_aad<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
-        &self,
-        group_id: &GroupId,
-    ) -> Result<(), Self::Error> {
-        StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::Aad)
     }
 
     fn delete_own_leaf_nodes<GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>>(
