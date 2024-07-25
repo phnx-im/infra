@@ -17,11 +17,7 @@ members = [
 ]
 
 [workspace.dependencies]
-tls_codec = { version = "0.4.2-pre.1", features = [
-    "derive",
-    "serde",
-    "mls",
-], git = "https://github.com/rustcrypto/formats" }
+tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
 reqwest = { version = "^0.12", features = [
     "json",
     "rustls-tls-webpki-roots",
@@ -30,7 +26,7 @@ reqwest = { version = "^0.12", features = [
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 openmls = { git = "https://github.com/openmls/openmls" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/storage_provider" }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
 phnxtypes = { path = "./types" }
 
 [patch.crates-io]

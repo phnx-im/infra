@@ -12,7 +12,6 @@ use super::storage_provider::{EntityRefWrapper, EntityWrapper, KeyRefWrapper, St
 #[derive(Debug, Clone, Copy)]
 pub(super) enum GroupDataType {
     JoinGroupConfig,
-    Aad,
     Tree,
     InterimTranscriptHash,
     Context,
@@ -29,7 +28,6 @@ impl ToSql for GroupDataType {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         match self {
             GroupDataType::JoinGroupConfig => "join_group_config".to_sql(),
-            GroupDataType::Aad => "aad".to_sql(),
             GroupDataType::Tree => "tree".to_sql(),
             GroupDataType::InterimTranscriptHash => "interim_transcript_hash".to_sql(),
             GroupDataType::Context => "context".to_sql(),
@@ -49,7 +47,6 @@ impl FromSql for GroupDataType {
         let value = String::column_result(value)?;
         match value.as_str() {
             "join_group_config" => Ok(GroupDataType::JoinGroupConfig),
-            "aad" => Ok(GroupDataType::Aad),
             "tree" => Ok(GroupDataType::Tree),
             "interim_transcript_hash" => Ok(GroupDataType::InterimTranscriptHash),
             "context" => Ok(GroupDataType::Context),
@@ -73,7 +70,6 @@ impl<GroupData: Entity<CURRENT_VERSION>> Storable for StorableGroupData<GroupDat
             group_id BLOB UNIQUE NOT NULL,
             data_type TEXT NOT NULL CHECK (data_type IN (
                 'join_group_config', 
-                'aad', 
                 'tree', 
                 'interim_transcript_hash',
                 'context', 
