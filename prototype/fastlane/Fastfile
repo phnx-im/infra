@@ -19,74 +19,6 @@ require 'plist'
 default_platform(:ios)
 
 platform :ios do
-  lane :prepare_plist do
-    # Load the Info.plist file
-    info_plist_path = "../ios/Runner/Info.plist"
-    plist = Plist.parse_xml(info_plist_path)
-    
-    # Add or update the ITSAppUsesNonExemptEncryption key
-    # This key indicates whether the app uses non-exempt encryption.
-    # Setting it to false means the app does not use encryption that is subject to export compliance.
-    plist['ITSAppUsesNonExemptEncryption'] = false
-    
-    # Add or update the LSApplicationCategoryType key
-    # This key defines the category of the app as it appears in the App Store.
-    # Setting it to public.app-category.social-networking categorizes the app under Social Networking.
-    plist['LSApplicationCategoryType'] = 'public.app-category.social-networking'
-    
-    # Add or update the UIBackgroundModes key
-    # This key specifies the background tasks the app supports.
-    # Adding remote-notification allows the app to receive remote notifications while in the background.
-    plist['UIBackgroundModes'] = ['remote-notification']
-    
-    # Add or update the NSCameraUsageDescription key
-    # This key provides a description to the user on why the app needs access to the camera.
-    # The given description will be displayed when the app requests camera access.
-    plist['NSCameraUsageDescription'] = 'Access to the camera is required to take a picture that can be used as a profile picture'
-    
-    # Add or update the NSPhotoLibraryUsageDescription key
-    # This key provides a description to the user on why the app needs access to the photo library.
-    # The given description will be displayed when the app requests photo library access.
-    plist['NSPhotoLibraryUsageDescription'] = 'Access to the photo library is required to set a profile picture'
-    
-    # Add or update the UIViewControllerBasedStatusBarAppearance key
-    # This key indicates whether the status bar appearance is controlled by individual view controllers.
-    # Setting it to false means the app will globally control the status bar appearance.
-    plist['UIViewControllerBasedStatusBarAppearance'] = false
-    
-    # Modify the UISupportedInterfaceOrientations key to contain only one array element
-    # This key specifies the supported interface orientations for the app.
-    # Limiting it to UIInterfaceOrientationPortrait means the app only supports portrait mode.
-    plist['UISupportedInterfaceOrientations'] = ['UIInterfaceOrientationPortrait']
-    
-    # Save the changes to the Info.plist file
-    File.open(info_plist_path, 'wb') do |f|
-      f.write(plist.to_plist)
-    end
-  end
-
-  lane :set_team_id do
-    team_id = ENV['TEAM_ID']
-    xcodeproj = "../ios/Runner.xcodeproj"
-  
-    # Load the project file
-    project = Xcodeproj::Project.open(xcodeproj)
-  
-    # Set the team ID for each build configuration
-    project.targets.each do |target|
-      target.build_configurations.each do |config|
-        config.build_settings['DEVELOPMENT_TEAM'] = team_id
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "im.phnx.prototype"
-        config.build_settings['CODE_SIGN_IDENTITY'] = "Apple Distribution"
-        config.build_settings['CODE_SIGN_STYLE'] = "Automatic"
-        config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ""
-      end
-    end
-  
-    # Save the changes
-    project.save
-  end
-
   desc "Push a new beta build to TestFlight"
   lane :beta_ios do
     # Set XCode version
@@ -106,10 +38,7 @@ platform :ios do
     team_id = ENV['TEAM_ID']
     matchType = "appstore"
     app_identifier = "im.phnx.prototype"
-
-     # Prepare the project files
-     prepare_plist
-     set_team_id
+    app_identifier_nse = "im.phnx.prototype.nse"
 
     # Load the app store connect API key
     api_key = app_store_connect_api_key(
@@ -142,6 +71,16 @@ platform :ios do
       team_id: team_id,
       readonly: is_ci,
     )
+    match(
+      type: matchType,
+      git_url: ENV['MATCH_GIT_URL'],
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
+      git_branch: "main",
+      storage_mode: "git",
+      app_identifier: app_identifier_nse,
+      team_id: team_id,
+      readonly: is_ci,
+    )
 
     # Install flutter dependencies
     sh "flutter pub get"
@@ -152,28 +91,11 @@ platform :ios do
       podfile: "ios/Podfile"
     )
     
-    # Update the code signing settings
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      code_sign_identity: "Apple Distribution",
-      team_id: team_id,
-      profile_uuid: ENV["sigh_#{app_identifier}_#{matchType}"],
-      profile_name: ENV["sigh_#{app_identifier}_#{matchType}_profile-name"],
-      path: "ios/Runner.xcodeproj",
-    )
-
     # Build the app
     build_app(
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
-      export_options: {
-        provisioningProfiles: {
-          "im.phnx.prototype" => "match AppStore im.phnx.prototype"
-        },
-        signingStyle: "manual"
-      }
     )
 
     # Upload the app to TestFlight
