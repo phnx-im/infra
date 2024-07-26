@@ -37,9 +37,9 @@ check-git-clean:
 setup-ci:
 	rustup update
 	@if [ "$(OS_NAME)" = "darwin" ]; then \
-		brew install cargo-binstall \
+		brew install cargo-binstall; \
 	elif [ "$(OS_NAME)" = "linux" ]; then \
-		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash \
+		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash; \
 	else \
 		echo "Unsupported OS: $(OS_NAME)"; \
 	fi
