@@ -47,3 +47,4 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           cd prototype && fastlane beta_ios --verbose
+          
