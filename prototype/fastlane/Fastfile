@@ -96,14 +96,6 @@ platform :ios do
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
-      export_options: {
-        provisioningProfiles: {
-          "im.phnx.prototype" => "match AppStore im.phnx.prototype",
-          "im.phnx.prototype.nse" => "match AppStore im.phnx.prototype.nse"
-        },
-        signingStyle: "manual"
-      }
     )
   end
 
