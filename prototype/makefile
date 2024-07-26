@@ -48,7 +48,7 @@ setup-macos-ci:
 
 frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
-	rm -Rf  rust_builder test_driver
+	rm -Rf rust_builder test_driver
 	flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../applogic
 	git restore --source=HEAD --staged --worktree ../applogic lib
 	git clean -fd ../applogic lib

@@ -33,8 +33,8 @@ jobs:
       - name: Set up macOS CI
         run: cd prototype && make setup-macos-ci
 
-      - name: Generate bridge
-        run: cd prototype && make frb-generate
+      - name: Integrate bridge
+        run: cd prototype && make frb-integrate
 
       - name: Build and upload to TestFlight
         env:
@@ -48,4 +48,3 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           cd prototype && fastlane beta_ios --verbose && fastlane testflight --verbose
-          
