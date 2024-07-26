@@ -67,17 +67,7 @@ platform :ios do
       git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
       git_branch: "main",
       storage_mode: "git",
-      app_identifier: app_identifier,
-      team_id: team_id,
-      readonly: is_ci,
-    )
-    match(
-      type: matchType,
-      git_url: ENV['MATCH_GIT_URL'],
-      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
-      git_branch: "main",
-      storage_mode: "git",
-      app_identifier: app_identifier_nse,
+      app_identifier: [app_identifier, app_identifier_nse],
       team_id: team_id,
       readonly: is_ci,
     )
