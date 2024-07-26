@@ -96,6 +96,7 @@ platform :ios do
       workspace: "ios/Runner.xcworkspace", 
       scheme: "Runner",
       export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates",
     )
   end
 
