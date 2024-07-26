@@ -100,7 +100,7 @@ platform :ios do
   end
 
   desc "Push a new beta build to TestFlight"
-  lane :testflight do
+  lane :upload_to_test_flight do
 
     # Upload the app to TestFlight
     upload_to_testflight(
