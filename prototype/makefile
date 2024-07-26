@@ -36,7 +36,13 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	ifeq ($(OS_NAME), darwin)
+		brew install cargo-binstall
+	else ifeq ($(OS_NAME), linux)
+		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	else
+		@echo "Unsupported OS: $(OS_NAME)"
+	endif
 	cargo binstall -y flutter_rust_bridge_codegen@2.0.0
 	cargo binstall -y cargo-expand
 	cargo binstall -y cargo-ndk
