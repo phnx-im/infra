@@ -2,11 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Build iOS app
+name: Publish iOS app
 
 on:
-  pull_request:
-    branches: ["main"]
+  push:
+    branches:
+     - main
 
 jobs:
   build:
@@ -35,7 +36,7 @@ jobs:
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
 
-      - name: Build iOS app
+      - name: Build and upload to TestFlight
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -46,4 +47,4 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
-          cd prototype && fastlane beta_ios --verbose
+          cd prototype && fastlane beta_ios --verbose && fastlane upload_to_test_flight --verbose
