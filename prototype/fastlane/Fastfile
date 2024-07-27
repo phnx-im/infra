@@ -61,12 +61,6 @@ platform :ios do
     )
 
     # Use match for code signing
-#    produce(
-#        username: ENV['APPLE_ID'],
-#        app_identifier: app_identifier_nse,
-#        app_name: "prototype NotificationService",
-#        skip_itc: true
-#    )
     ["development", "appstore"].each do |i|
         match(
         type: i,
