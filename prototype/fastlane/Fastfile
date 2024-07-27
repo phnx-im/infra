@@ -20,7 +20,7 @@ default_platform(:ios)
 
 platform :ios do
   desc "Build app for TestFlight"
-  lane :beta_ios do
+  lane :beta_ios do |options|
     # Set XCode version
     xcversion(version: "15.4") 
     xcodes(
@@ -50,7 +50,7 @@ platform :ios do
     )
 
     # Fetch the latest TestFlight build number and increment it by 1
-    build_number =  latest_testflight_build_number(
+    build_number = latest_testflight_build_number(
       version: "1.0.0",
       api_key: api_key,
       app_identifier: app_identifier
@@ -62,7 +62,7 @@ platform :ios do
 
     # Use match for code signing
     ["development", "appstore"].each do |i|
-        match(
+      match(
         type: i,
         git_url: ENV['MATCH_GIT_URL'],
         git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
@@ -89,16 +89,14 @@ platform :ios do
       scheme: "Runner",
       export_method: "app-store",
     )
-  end
 
-  desc "Push a new build to TestFlight"
-  lane :upload_to_test_flight do
-
-    # Upload the app to TestFlight
-    upload_to_testflight(
-     api_key: api_key, 
-     skip_waiting_for_build_processing: true,
-     distribute_external: false,
-    )
+    # Upload the app to TestFlight if the parameter is set
+    if options[:upload_to_test_flight]
+      upload_to_testflight(
+        api_key: api_key, 
+        skip_waiting_for_build_processing: true,
+        distribute_external: false,
+      )
+    end
   end
 end
