@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/messenger_view.dart';
+import 'package:prototype/platform.dart';
 import 'package:prototype/registration/server_choice.dart';
 import 'package:prototype/settings/developer.dart';
 import 'package:prototype/styles.dart';
@@ -34,10 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
       statusText = "Initializing core client...";
     });
 
-    await coreClient.init();
-
-    // Ask for notification permission on iOS
+    // iOS specific initialization
     if (Platform.isIOS) {
+      // Initialize the method channel
+      initMethodChannel();
+
+      // Ask for notification permission
       var status = await Permission.notification.status;
       switch (status) {
         case PermissionStatus.denied:
