@@ -7,6 +7,29 @@ import 'package:flutter/services.dart';
 
 const platform = MethodChannel('im.phnx.prototype/channel');
 
+void initMethodChannel() {
+  platform.setMethodCallHandler(_handleMethod);
+}
+
+Future<void> _handleMethod(MethodCall call) async {
+  switch (call.method) {
+    case 'receivedNotification':
+      // Handle notification data
+      final String data = call.arguments["customData"];
+      print('Notification data: $data');
+      // Do something with the data
+      break;
+    case 'openedNotification':
+      // Handle notification opened
+      final String data = call.arguments["customData"];
+      print('Notification opened: $data');
+      // Do something with the data
+      break;
+    default:
+      print('Unknown method called: ${call.method}');
+  }
+}
+
 Future<String?> getDeviceToken() async {
   // Make sure we are on iOS
   if (!Platform.isIOS) {

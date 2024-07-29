@@ -3,10 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/core_client.dart';
 import 'package:prototype/homescreen.dart';
 import 'package:prototype/styles.dart';
 
 void main() async {
+  // Initialize the FRB
+  await coreClient.init();
+
   runApp(const MyApp());
 }
 

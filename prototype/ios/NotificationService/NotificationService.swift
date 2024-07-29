@@ -2,8 +2,6 @@
 //  NotificationService.swift
 //  NotificationService
 //
-//  Created by Raphael Robert on 17.07.2024.
-//
 
 import UserNotifications
 import Foundation
@@ -14,6 +12,7 @@ struct IncomingNotificationContent: Codable {
 }
 
 struct NotificationBatch: Codable {
+    let badge_count: UInt32
     let removals: [String]
     let additions: [NotificationContent]
 }
@@ -22,7 +21,8 @@ struct NotificationContent: Codable {
     let identifier: String
     let title: String
     let body: String
-}
+    let data: String
+} 
 
 class NotificationService: UNNotificationServiceExtension {
 
@@ -62,7 +62,7 @@ class NotificationService: UNNotificationServiceExtension {
                     if let responseData = responseString.data(using: .utf8),
                        let notificationBatch = try? JSONDecoder().decode(NotificationBatch.self, from: responseData) {
                         
-                        handleNotificationBatch(notificationBatch, contentHandler: contentHandler, bestAttemptContent: bestAttemptContent)
+                        handleNotificationBatch(notificationBatch, contentHandler: contentHandler)
                     } else {
                         contentHandler(request.content)
                     }
@@ -84,7 +84,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
 
-    func handleNotificationBatch(_ batch: NotificationBatch, contentHandler: @escaping (UNNotificationContent) -> Void, bestAttemptContent: UNMutableNotificationContent) {
+    func handleNotificationBatch(_ batch: NotificationBatch, contentHandler: @escaping (UNNotificationContent) -> Void) {
         let center = UNUserNotificationCenter.current()
         let dispatchGroup = DispatchGroup()
 
@@ -102,6 +102,8 @@ class NotificationService: UNNotificationServiceExtension {
                 let newContent = UNMutableNotificationContent()
                 newContent.title = notificationContent.title
                 newContent.body = notificationContent.body
+                newContent.sound = UNNotificationSound.default
+                newContent.userInfo["customData"] = notificationContent.data
                 let request = UNNotificationRequest(identifier: notificationContent.identifier, content: newContent, trigger: nil)
                 center.add(request) { error in
                     if let error = error {
@@ -114,15 +116,18 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Notify when all notifications are added
         dispatchGroup.notify(queue: DispatchQueue.main) {
+            var content = UNMutableNotificationContent()
             if let lastNotification = lastNotification {
-                bestAttemptContent.title = lastNotification.title
-                bestAttemptContent.body = lastNotification.body
-                contentHandler(bestAttemptContent)
-            } else {
-                // Delay the callback by 1 second so that the notifications can be removed
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    contentHandler(UNNotificationContent())
-                }
+                content.title = lastNotification.title
+                content.body = lastNotification.body
+                content.sound = UNNotificationSound.default
+                content.userInfo["customData"] = lastNotification.data
+            }
+            // Add the badge number
+            content.badge = NSNumber(value: batch.badge_count)
+            // Delay the callback by 1 second so that the notifications can be removed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                contentHandler(content)
             }
         }
     }
