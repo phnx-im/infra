@@ -36,7 +36,7 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	cargo install flutter_rust_bridge_codegen@2.0.0
+	cargo install flutter_rust_bridge_codegen@2.1.0
 	cargo install cargo-expand
 	cargo install cargo-ndk
 
