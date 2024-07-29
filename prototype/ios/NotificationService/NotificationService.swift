@@ -119,8 +119,8 @@ class NotificationService: UNNotificationServiceExtension {
                 bestAttemptContent.body = lastNotification.body
                 contentHandler(bestAttemptContent)
             } else {
-                // Delay the callback by .1 seconds so that the notifications can be removed
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                // Delay the callback by 1 second so that the notifications can be removed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     contentHandler(UNNotificationContent())
                 }
             }
