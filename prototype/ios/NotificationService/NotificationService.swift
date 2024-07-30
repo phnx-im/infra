@@ -116,7 +116,7 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Notify when all notifications are added
         dispatchGroup.notify(queue: DispatchQueue.main) {
-            var content = UNMutableNotificationContent()
+            let content = UNMutableNotificationContent()
             if let lastNotification = lastNotification {
                 content.title = lastNotification.title
                 content.body = lastNotification.body
