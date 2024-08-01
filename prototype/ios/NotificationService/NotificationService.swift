@@ -5,10 +5,12 @@
 
 import UserNotifications
 import Foundation
+
 struct IncomingNotificationContent: Codable {
     let title: String
     let body: String
     let data: String
+    let path: String
 }
 
 struct NotificationBatch: Codable {
@@ -22,19 +24,19 @@ struct NotificationContent: Codable {
     let title: String
     let body: String
     let data: String
-} 
+}
 
 class NotificationService: UNNotificationServiceExtension {
-
+    
     var contentHandler: ((UNNotificationContent) -> Void)?
     var bestAttemptContent: UNMutableNotificationContent?
-
+    
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         
         NSLog("NSE Received notification")
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
-
+        
         guard let bestAttemptContent = bestAttemptContent else {
             contentHandler(request.content)
             return
@@ -47,18 +49,27 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(request.content)
             return
         }
-
+        
+        // Find the documents directory path for the databases
+        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype") else {
+            NSLog("NSE Could not find documents directory")
+            contentHandler(request.content)
+            return
+        }
+        
+        let path = containerURL.appendingPathComponent("Documents").path
+        
         // Create IncomingNotificationContent object
-        let incomingContent = IncomingNotificationContent(title: bestAttemptContent.title, body: bestAttemptContent.body, data: data)
-
-       if let jsonData = try? JSONEncoder().encode(incomingContent),
+        let incomingContent = IncomingNotificationContent(title: bestAttemptContent.title, body: bestAttemptContent.body, data: data, path: path)
+        
+        if let jsonData = try? JSONEncoder().encode(incomingContent),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             
             jsonString.withCString { cString in
                 if let responsePointer = process_new_messages(cString) {
                     let responseString = String(cString: responsePointer)
                     free_string(responsePointer)
-
+                    
                     if let responseData = responseString.data(using: .utf8),
                        let notificationBatch = try? JSONDecoder().decode(NotificationBatch.self, from: responseData) {
                         
@@ -74,7 +85,7 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(request.content)
         }
     }
-
+    
     override func serviceExtensionTimeWillExpire() {
         NSLog("NSE Expiration handler invoked")
         if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
@@ -83,14 +94,14 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(bestAttemptContent)
         }
     }
-
+    
     func handleNotificationBatch(_ batch: NotificationBatch, contentHandler: @escaping (UNNotificationContent) -> Void) {
         let center = UNUserNotificationCenter.current()
         let dispatchGroup = DispatchGroup()
-
+        
         // Remove notifications
         center.removeDeliveredNotifications(withIdentifiers: batch.removals)
-
+        
         // Add notifications
         var lastNotification: NotificationContent?
         for (index, notificationContent) in batch.additions.enumerated() {
@@ -113,7 +124,7 @@ class NotificationService: UNNotificationServiceExtension {
                 }
             }
         }
-
+        
         // Notify when all notifications are added
         dispatchGroup.notify(queue: DispatchQueue.main) {
             let content = UNMutableNotificationContent()

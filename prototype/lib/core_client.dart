@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,7 @@ import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core/api/utils.dart';
 import 'package:prototype/core/frb_generated.dart';
 import 'package:prototype/core/lib.dart';
+import 'package:prototype/platform.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -76,8 +78,15 @@ class CoreClient {
   }
 
   Future<String> dbPath() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final path = directory.path;
+    final String path;
+
+    // iOS-specific path
+    if (Platform.isIOS) {
+      path = await getSharedDocumentsDirectoryIos();
+    } else {
+      final directory = await getApplicationDocumentsDirectory();
+      path = directory.path;
+    }
 
     print("Document path: $path");
     return path;
@@ -107,10 +116,12 @@ class CoreClient {
   Future<void> createUser(
       String userName, String password, String address) async {
     user = await User.newInstance(
-        userName: userName,
-        password: password,
-        address: address,
-        path: await dbPath());
+      userName: userName,
+      password: password,
+      address: address,
+      path: await dbPath(),
+      pushToken: await getDeviceToken(),
+    );
 
     print("User registered");
 

@@ -3,19 +3,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
-use phnxcoreclient::{clients::process::ProcessQsMessageResult, MimiContent};
+use phnxcoreclient::{
+    clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, MimiContent,
+};
 use phnxtypes::time::TimeStamp;
 
-use crate::notifications::*;
+use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
 use super::{
+    notifications::NotificationContent,
     types::{ConversationIdBytes, UiConversationMessage},
     user::User,
 };
 
+pub(crate) struct FetchedMessages {
+    pub(crate) new_conversations: Vec<ConversationId>,
+    pub(crate) changed_conversations: Vec<ConversationId>,
+    pub(crate) new_messages: Vec<ConversationMessage>,
+    pub(crate) notifications_content: Vec<NotificationContent>,
+}
+
 impl User {
-    pub async fn fetch_messages(&self) -> Result<()> {
-        // Fetch AS messages
+    /// Fetch AS messages
+    pub(crate) async fn fetch_as_messages(&self) -> Result<Vec<ConversationId>> {
         let as_messages = self.user.as_fetch_messages().await?;
 
         // Process each as message individually and dispatch conversation
@@ -24,18 +34,20 @@ impl User {
         for as_message in as_messages {
             let as_message_plaintext = self.user.decrypt_as_queue_message(as_message).await?;
             let conversation_id = self.user.process_as_message(as_message_plaintext).await?;
-            // Let the UI know that there'a s new conversation
-            dispatch_conversation_notifications(&self.notification_hub, vec![conversation_id])
-                .await;
             new_connections.push(conversation_id);
         }
 
-        // Send a notification to the OS (desktop only), the UI deals with
-        // mobile notifications
-        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-        send_desktop_os_connection_notifications(&self.user, new_connections).await?;
+        Ok(new_connections)
+    }
 
-        // Fetch QS messages
+    /// Fetch QS messages
+    pub(crate) async fn fetch_qs_messages(
+        &self,
+    ) -> Result<(
+        Vec<ConversationId>,      // New conversations
+        Vec<ConversationId>,      // Changed conversations
+        Vec<ConversationMessage>, // New messages
+    )> {
         let qs_messages = self.user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
         let mut new_conversations = vec![];
@@ -60,35 +72,64 @@ impl User {
             };
         }
 
-        // Let the UI know there is new stuff
-        tokio::join!(
-            dispatch_message_notifications(&self.notification_hub, new_messages.clone()),
-            dispatch_conversation_notifications(&self.notification_hub, new_conversations.clone()),
-            dispatch_conversation_notifications(
-                &self.notification_hub,
-                changed_conversations.clone()
-            ),
-        );
-
-        // Send a notification to the OS (desktop only)
-        #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-        {
-            send_desktop_os_message_notifications(&self.user, new_messages).await?;
-            send_desktop_os_conversation_notifications(&self.user, new_conversations.clone())
-                .await?;
-        }
-
         // Update user auth keys of newly created conversations.
-        let mut new_messages = vec![];
-        for conversation_id in new_conversations {
+        for conversation_id in &new_conversations {
             let messages = self.user.update_user_key(conversation_id).await?;
             new_messages.extend(messages);
         }
 
+        Ok((new_conversations, changed_conversations, new_messages))
+    }
+
+    /// Fetch both AS and QS messages
+    pub(crate) async fn fetch_all_messages(&self) -> Result<FetchedMessages> {
+        let mut notifications = Vec::new();
+
+        // Fetch AS connection requests
+        let new_connections = self.fetch_as_messages().await?;
+        notifications.extend(
+            self.new_connection_request_notifications(&new_connections)
+                .await,
+        );
+
+        // Fetch QS messages
+        let (new_conversations, changed_conversations, new_messages) =
+            self.fetch_qs_messages().await?;
+
+        notifications.extend(
+            self.new_conversation_notifications(&new_conversations)
+                .await,
+        );
+        notifications.extend(self.new_message_notifications(&new_messages).await);
+
+        Ok(FetchedMessages {
+            new_conversations,
+            changed_conversations,
+            new_messages,
+            notifications_content: notifications,
+        })
+    }
+
+    /// Fetch all messages and dispatch them to the UI and desktop
+    pub async fn fetch_messages(&self) -> Result<()> {
+        let fetched_messages = self.fetch_all_messages().await?;
+
+        // Send a notification to the OS (desktop only)
         #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-        {
-            send_desktop_os_message_notifications(&self.user, new_messages).await?;
-        }
+        crate::notifier::show_desktop_notifications(&fetched_messages.notifications_content);
+
+        // Let the UI know there is new stuff
+        tokio::join!(
+            dispatch_message_notifications(&self.notification_hub, fetched_messages.new_messages),
+            dispatch_conversation_notifications(
+                &self.notification_hub,
+                fetched_messages.new_conversations
+            ),
+            dispatch_conversation_notifications(
+                &self.notification_hub,
+                fetched_messages.changed_conversations
+            ),
+        );
 
         Ok(())
     }

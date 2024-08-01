@@ -7,7 +7,7 @@ use phnxtypes::identifiers::{SafeTryInto, UserName};
 
 use crate::{
     api::types::{UiContact, UiUserProfile},
-    notifications::dispatch_conversation_notifications,
+    notifier::dispatch_conversation_notifications,
 };
 
 use super::User;
