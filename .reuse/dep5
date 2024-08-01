@@ -27,6 +27,6 @@ Files: prototype/ios/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-Files: server/tests/postgres_test_certs/*
+Files: server/scripts/postgres_test_certs/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
