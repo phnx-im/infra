@@ -5,11 +5,10 @@
 use flutter_rust_bridge::frb;
 use mobile_logging::init_logger;
 
-use crate::notifications::*;
-
 pub mod conversations;
 pub mod messages;
 pub mod mobile_logging;
+pub mod notifications;
 pub mod types;
 pub mod user;
 pub mod utils;
@@ -20,7 +19,7 @@ pub fn init() {
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
-        if let Err(e) = init_desktop_os_notifications() {
+        if let Err(e) = crate::notifier::init_desktop_os_notifications() {
             log::error!("Failed to initialize desktop notifications: {}", e);
         }
     }

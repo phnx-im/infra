@@ -13,7 +13,7 @@ use phnxtypes::messages::client_ds::QsWsMessage;
 use crate::{
     api::types::{UiNotificationType, UiUserProfile},
     app_state::state::AppState,
-    notifications::{Notifiable, NotificationHub},
+    notifier::{Notifiable, NotificationHub},
     StreamSink,
 };
 
@@ -57,8 +57,9 @@ impl User {
         password: String,
         address: String,
         path: String,
+        push_token: Option<String>,
     ) -> Result<User> {
-        let user = CoreUser::new(&user_name, &password, address, &path).await?;
+        let user = CoreUser::new(&user_name, &password, address, &path, push_token).await?;
 
         Ok(Self {
             user: user.clone(),

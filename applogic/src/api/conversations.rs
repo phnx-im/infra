@@ -5,7 +5,7 @@
 use anyhow::{anyhow, Result};
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 
-use crate::notifications::dispatch_message_notifications;
+use crate::notifier::dispatch_message_notifications;
 
 use super::{
     types::{ConversationIdBytes, UiContact, UiConversation},

@@ -168,7 +168,9 @@ pub struct UiConversationMessage {
 impl From<ConversationMessage> for UiConversationMessage {
     fn from(conversation_message: ConversationMessage) -> Self {
         Self {
-            conversation_id: ConversationIdBytes::from(conversation_message.conversation_id()),
+            conversation_id: ConversationIdBytes::from(
+                conversation_message.conversation_id().clone(),
+            ),
             id: UuidBytes::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().time(),
             message: UiMessage::from(conversation_message.message().clone()),

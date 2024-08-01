@@ -9,4 +9,4 @@ pub mod nse;
 
 pub(crate) mod app_state;
 pub(crate) mod frb_generated;
-pub(crate) mod notifications;
+pub(crate) mod notifier;

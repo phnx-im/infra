@@ -42,3 +42,16 @@ Future<String?> getDeviceToken() async {
     return null;
   }
 }
+
+Future<String> getSharedDocumentsDirectoryIos() async {
+  // Make sure we are on iOS
+  if (!Platform.isIOS) {
+    throw PlatformException(code: 'platform_not_supported');
+  }
+  try {
+    return await platform.invokeMethod('getSharedDocumentsDirectory');
+  } on PlatformException catch (e) {
+    print("Failed to get shared documents directory: '${e.message}'.");
+    throw PlatformException(code: 'failed_to_get_shared_documents_directory');
+  }
+}

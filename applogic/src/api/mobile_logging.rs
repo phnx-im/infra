@@ -34,7 +34,7 @@ pub fn init_logger() {
     // https://stackoverflow.com/questions/30177845/how-to-initialize-the-logger-for-integration-tests
     INIT_LOGGER_ONCE.call_once(|| {
         let level = if cfg!(debug_assertions) {
-            LevelFilter::Debug
+            LevelFilter::Info
         } else {
             LevelFilter::Warn
         };

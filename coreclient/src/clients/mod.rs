@@ -104,6 +104,7 @@ impl CoreUser {
         password: &str,
         server_url: impl ToString,
         db_path: &str,
+        _push_token: Option<String>, // TODO[kk]: Add push token support
     ) -> Result<Self> {
         let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
@@ -784,7 +785,7 @@ impl CoreUser {
     /// group. Note that these returned message have already been persisted.
     pub async fn update_user_key(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: &ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let connection = self.connection.lock().await;
@@ -817,7 +818,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+            Self::store_messages(&mut transaction, conversation_id.clone(), group_messages)?;
         transaction.commit()?;
         drop(connection);
 

@@ -520,9 +520,9 @@ impl CoreUser {
         Ok(conversation_id)
     }
 
-    pub async fn conversation(&self, conversation_id: ConversationId) -> Option<Conversation> {
+    pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
         let connection = self.connection.lock().await;
-        Conversation::load(&connection, &conversation_id)
+        Conversation::load(&connection, conversation_id)
             .ok()
             .flatten()
     }
@@ -571,7 +571,7 @@ impl CoreUser {
 
         for conversation_id in new_conversations {
             // Update user auth keys of newly created conversations.
-            self.update_user_key(conversation_id).await?;
+            self.update_user_key(&conversation_id).await?;
         }
 
         Ok(collected_conversation_messages)
