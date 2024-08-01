@@ -68,6 +68,7 @@ features = [
     "migrate",
     "bigdecimal",
     "runtime-tokio",
+    "tls-rustls",
 ]
 
 [dev-dependencies]

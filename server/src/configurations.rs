@@ -28,23 +28,35 @@ pub struct DatabaseSettings {
     pub port: u16,
     pub host: String,
     pub database_name: String,
+    pub ca_cert_path: Option<String>,
 }
 
 impl DatabaseSettings {
+    /// Add the TLS mode to the connection string if the CA certificate path is
+    /// set.
+    fn add_tls_mode(&self, mut connection_string: String) -> String {
+        if let Some(ref ca_cert_path) = self.ca_cert_path {
+            connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={}", ca_cert_path));
+        }
+        connection_string
+    }
+
     /// Get the connection string for the database.
     pub fn connection_string(&self) -> String {
-        format!(
+        let connection_string = format!(
             "postgres://{}:{}@{}:{}/{}",
             self.username, self.password, self.host, self.port, self.database_name
-        )
+        );
+        self.add_tls_mode(connection_string)
     }
 
     /// Get the connection string for the database without the database name.
     pub fn connection_string_without_database(&self) -> String {
-        format!(
+        let connection_string = format!(
             "postgres://{}:{}@{}:{}",
             self.username, self.password, self.host, self.port
-        )
+        );
+        self.add_tls_mode(connection_string)
     }
 }
 
