@@ -6,7 +6,7 @@ pub(crate) use phnxcoreclient::{ConversationId, ConversationMessage};
 
 use crate::api::user::User;
 
-pub(crate) struct NotificationContent {
+pub(crate) struct LocalNotificationContent {
     pub(crate) title: String,
     pub(crate) body: String,
 }
@@ -16,7 +16,7 @@ impl User {
     pub(crate) async fn new_message_notifications(
         &self,
         conversation_messages: &[ConversationMessage],
-    ) -> Vec<NotificationContent> {
+    ) -> Vec<LocalNotificationContent> {
         let mut notifications = Vec::new();
 
         for conversation_message in conversation_messages {
@@ -37,7 +37,7 @@ impl User {
                 let body = conversation_message
                     .message()
                     .string_representation(conversation.conversation_type());
-                notifications.push(NotificationContent {
+                notifications.push(LocalNotificationContent {
                     title: title.to_owned(),
                     body: body.to_owned(),
                 });
@@ -51,14 +51,14 @@ impl User {
     pub(crate) async fn new_conversation_notifications(
         &self,
         conversation_ids: &[ConversationId],
-    ) -> Vec<NotificationContent> {
+    ) -> Vec<LocalNotificationContent> {
         let mut notifications = Vec::new();
 
         for conversation_id in conversation_ids {
             if let Some(conversation) = self.user.conversation(conversation_id).await {
                 let title = format!("You were added to {}", conversation.attributes().title());
                 let body = "Say hi to everyone".to_owned();
-                notifications.push(NotificationContent {
+                notifications.push(LocalNotificationContent {
                     title: title.to_owned(),
                     body: body.to_owned(),
                 });
@@ -72,7 +72,7 @@ impl User {
     pub(crate) async fn new_connection_request_notifications(
         &self,
         connection_conversations: &[ConversationId],
-    ) -> Vec<NotificationContent> {
+    ) -> Vec<LocalNotificationContent> {
         let mut notifications = Vec::new();
 
         for conversation_id in connection_conversations {
@@ -86,7 +86,7 @@ impl User {
                 };
                 let title = format!("New connection request from {}", contact_name);
                 let body = "Open to accept or ignore".to_owned();
-                notifications.push(NotificationContent {
+                notifications.push(LocalNotificationContent {
                     title: title.to_owned(),
                     body: body.to_owned(),
                 });

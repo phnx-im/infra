@@ -11,7 +11,7 @@ use phnxtypes::time::TimeStamp;
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
 use super::{
-    notifications::NotificationContent,
+    notifications::LocalNotificationContent,
     types::{ConversationIdBytes, UiConversationMessage},
     user::User,
 };
@@ -20,7 +20,13 @@ pub(crate) struct FetchedMessages {
     pub(crate) new_conversations: Vec<ConversationId>,
     pub(crate) changed_conversations: Vec<ConversationId>,
     pub(crate) new_messages: Vec<ConversationMessage>,
-    pub(crate) notifications_content: Vec<NotificationContent>,
+    pub(crate) notifications_content: Vec<LocalNotificationContent>,
+}
+
+pub(crate) struct FetchedQsMessages {
+    pub(crate) new_conversations: Vec<ConversationId>,
+    pub(crate) changed_conversations: Vec<ConversationId>,
+    pub(crate) new_messages: Vec<ConversationMessage>,
 }
 
 impl User {
@@ -41,13 +47,7 @@ impl User {
     }
 
     /// Fetch QS messages
-    pub(crate) async fn fetch_qs_messages(
-        &self,
-    ) -> Result<(
-        Vec<ConversationId>,      // New conversations
-        Vec<ConversationId>,      // Changed conversations
-        Vec<ConversationMessage>, // New messages
-    )> {
+    pub(crate) async fn fetch_qs_messages(&self) -> Result<FetchedQsMessages> {
         let qs_messages = self.user.qs_fetch_messages().await?;
         // Process each qs message individually and dispatch conversation message notifications
         let mut new_conversations = vec![];
@@ -78,7 +78,11 @@ impl User {
             new_messages.extend(messages);
         }
 
-        Ok((new_conversations, changed_conversations, new_messages))
+        Ok(FetchedQsMessages {
+            new_conversations,
+            changed_conversations,
+            new_messages,
+        })
     }
 
     /// Fetch both AS and QS messages
@@ -93,8 +97,11 @@ impl User {
         );
 
         // Fetch QS messages
-        let (new_conversations, changed_conversations, new_messages) =
-            self.fetch_qs_messages().await?;
+        let FetchedQsMessages {
+            new_conversations,
+            changed_conversations,
+            new_messages,
+        } = self.fetch_qs_messages().await?;
 
         notifications.extend(
             self.new_conversation_notifications(&new_conversations)

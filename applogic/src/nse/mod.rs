@@ -35,6 +35,7 @@ struct NotificationContent {
     data: String,
 }
 
+/// This method gets called from the iOS NSE
 #[no_mangle]
 pub extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
     let c_str = unsafe {
@@ -54,6 +55,7 @@ pub extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
     CString::new(response).unwrap().into_raw()
 }
 
+/// This method gets called from the iOS NSE
 #[no_mangle]
 pub extern "C" fn free_string(s: *mut c_char) {
     if s.is_null() {
@@ -64,6 +66,7 @@ pub extern "C" fn free_string(s: *mut c_char) {
     }
 }
 
+/// TODO: Debug code to be removed
 fn error_batch(e: String) -> NotificationBatch {
     NotificationBatch {
         badge_count: 0,
@@ -79,46 +82,41 @@ fn error_batch(e: String) -> NotificationBatch {
 
 /// Wraps with a tokio runtime to block on the async functions
 fn retrieve_messages_sync(path: String) -> NotificationBatch {
-    match Builder::new_multi_thread()
+    let result = Builder::new_multi_thread()
         .thread_name("nse-thread")
         .enable_all()
         .build()
-    {
-        Ok(runtime) => {
-            match panic::catch_unwind(AssertUnwindSafe(|| {
-                runtime.block_on(async { retrieve_messages(path).await })
-            })) {
-                Ok(batch) => batch,
-                Err(_) => match panic::catch_unwind(AssertUnwindSafe(|| drop(runtime))) {
-                    Ok(_) => {
-                        let e = "Failed to execute block_on";
-                        log::error!("{}", e);
-                        error_batch(e.to_string())
-                    }
-                    Err(_) => {
-                        let e = "Failed to drop runtime";
-                        log::error!("{}", e);
-                        error_batch(e.to_string())
-                    }
-                },
-            }
-        }
-        Err(e) => {
+        .map_err(|e| {
             log::error!("Failed to initialize tokio runtime: {}", e);
-            error_batch(e.to_string())
-        }
+            e.to_string()
+        })
+        .and_then(|runtime| {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                runtime.block_on(async { retrieve_messages(path).await })
+            }))
+            .map_err(|_| {
+                let e = "Failed to execute async function".to_string();
+                log::error!("{}", e);
+                e
+            })
+        });
+
+    match result {
+        Ok(batch) => batch,
+        Err(e) => error_batch(e),
     }
 }
 
 /// Load the user and retrieve messages
 async fn retrieve_messages(path: String) -> NotificationBatch {
     log::info!("Retrieving messages with DB path: {}", path);
-    let res = User::load_default(path).await;
-    if let Err(e) = res {
-        log::error!("Failed to load user: {}", e);
-        return error_batch(e.to_string());
-    }
-    let user = res.unwrap();
+    let user = match User::load_default(path).await {
+        Ok(user) => user,
+        Err(e) => {
+            log::error!("Failed to load user: {}", e);
+            return error_batch(e.to_string());
+        }
+    };
 
     let notifications = match user.fetch_all_messages().await {
         Ok(fetched_messages) => {

@@ -109,7 +109,7 @@ pub(crate) fn init_desktop_os_notifications() -> Result<(), notify_rust::error::
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub(crate) fn show_desktop_notifications(
-    notifications: &[crate::api::notifications::NotificationContent],
+    notifications: &[crate::api::notifications::LocalNotificationContent],
 ) {
     for notification in notifications {
         if let Err(e) = Notification::new()
