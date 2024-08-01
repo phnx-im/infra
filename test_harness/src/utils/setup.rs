@@ -59,6 +59,7 @@ impl TestUser {
             &user_name.to_string(),
             server_url,
             db_dir,
+            None,
         )
         .await
         .unwrap();
@@ -182,7 +183,7 @@ impl TestBackend {
             // If the group member in question is removed with this commit,
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_name) {
-                let conversation_after = group_member.conversation(conversation_id).await.unwrap();
+                let conversation_after = group_member.conversation(&conversation_id).await.unwrap();
                 assert!(matches!(&conversation_after.status(),
                 ConversationStatus::Inactive(ic)
                 if HashSet::<UserName>::from_iter(ic.past_members().to_vec()) ==
@@ -556,7 +557,7 @@ impl TestBackend {
             .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
-        let inviter_conversation = inviter.conversation(conversation_id).await.unwrap();
+        let inviter_conversation = inviter.conversation(&conversation_id).await.unwrap();
 
         tracing::info!(
             "{} invites {} to the group with id {}",
@@ -940,8 +941,11 @@ impl TestBackend {
 
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
-        let deleter_conversation_before =
-            deleter.conversation(conversation_id).await.unwrap().clone();
+        let deleter_conversation_before = deleter
+            .conversation(&conversation_id)
+            .await
+            .unwrap()
+            .clone();
         assert_eq!(
             deleter_conversation_before.status(),
             &ConversationStatus::Active
@@ -950,7 +954,7 @@ impl TestBackend {
 
         deleter.delete_group(conversation_id).await.unwrap();
 
-        let deleter_conversation_after = deleter.conversation(conversation_id).await.unwrap();
+        let deleter_conversation_after = deleter.conversation(&conversation_id).await.unwrap();
         if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status()
         {
             let inactive_status_members =
@@ -969,7 +973,7 @@ impl TestBackend {
             let group_member = &mut test_group_member.user;
 
             let group_member_conversation_before =
-                group_member.conversation(conversation_id).await.unwrap();
+                group_member.conversation(&conversation_id).await.unwrap();
             assert_eq!(
                 group_member_conversation_before.status(),
                 &ConversationStatus::Active
@@ -984,7 +988,7 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             let group_member_conversation_after =
-                group_member.conversation(conversation_id).await.unwrap();
+                group_member.conversation(&conversation_id).await.unwrap();
             if let ConversationStatus::Inactive(inactive_status) =
                 &group_member_conversation_after.status()
             {
