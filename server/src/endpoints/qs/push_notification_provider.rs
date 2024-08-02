@@ -1,15 +1,21 @@
+// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use async_trait::async_trait;
-use base64::engine::general_purpose;
-use base64::Engine;
+use base64::{engine::general_purpose, Engine};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use phnxbackend::qs::{PushNotificationError, PushNotificationProvider};
 use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::io::Read;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{collections::HashMap, fs::File};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::Read,
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
@@ -70,7 +76,7 @@ impl ProductionPushNotificationProvider {
     }
 
     /// Return the JWT. If the token is older than 40 minutes, a new token is
-    /// issued (as JTs must be between 20 and 60 minutes old).
+    /// issued (as JWTs must be between 20 and 60 minutes old).
     fn issue_jwt(&self) -> Result<String, Box<dyn std::error::Error>> {
         // Check whether we already have a token and if it is still valid, i.e.
         // not older than 40 minutes
