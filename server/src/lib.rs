@@ -22,7 +22,7 @@ use phnxbackend::{
     ds::DsStorageProvider,
     qs::{
         network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider,
-        QsConnector,
+        PushNotificationProvider, QsConnector,
     },
 };
 use phnxtypes::endpoint_paths::{
@@ -49,9 +49,11 @@ pub fn run<
     Np: NetworkProvider,
     Asp: AsStorageProvider,
     Aesp: AsEphemeralStorageProvider,
+    Ptp: PushNotificationProvider,
 >(
     listener: TcpListener,
     ws_dispatch_notifier: DispatchWebsocketNotifier,
+    qs_push_token_provider: Arc<Ptp>,
     ds_storage_provider: Dsp,
     qs_storage_provider: Arc<Qsp>,
     as_storage_provider: Asp,
@@ -67,6 +69,7 @@ pub fn run<
     let qs_connector_data = Data::new(qs_connector);
     let network_provider_data = Data::new(network_provider);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
+    let qs_push_token_provider_data = Data::new(qs_push_token_provider);
 
     tracing::info!(
         "Starting server, listening on {}:{}",
@@ -82,7 +85,6 @@ pub fn run<
 
     // Create & run the server
     let server = HttpServer::new(move || {
-        
         App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
@@ -93,6 +95,7 @@ pub fn run<
             .app_data(qs_connector_data.clone())
             .app_data(network_provider_data.clone())
             .app_data(ws_dispatch_notifier_data.clone())
+            .app_data(qs_push_token_provider_data.clone())
             // DS enpoint
             .route(
                 ENDPOINT_DS_GROUPS,
@@ -103,7 +106,12 @@ pub fn run<
             // QS federationendpoint
             .route(
                 ENDPOINT_QS_FEDERATION,
-                web::post().to(qs_process_federated_message::<Qsp, DispatchWebsocketNotifier, Np>),
+                web::post().to(qs_process_federated_message::<
+                    Qsp,
+                    DispatchWebsocketNotifier,
+                    Np,
+                    Ptp,
+                >),
             )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))

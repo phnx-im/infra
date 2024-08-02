@@ -21,9 +21,15 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
-use crate::{messages::intra_backend::DsFanOutPayload, qs::WsNotification};
+use crate::{
+    messages::intra_backend::DsFanOutPayload,
+    qs::{PushNotificationError, WsNotification},
+};
 
-use super::{errors::EnqueueError, storage_provider_trait::QsStorageProvider, WebsocketNotifier};
+use super::{
+    errors::EnqueueError, storage_provider_trait::QsStorageProvider, PushNotificationProvider,
+    WebsocketNotifier,
+};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
@@ -102,11 +108,16 @@ impl QsClientRecord {
     }
 
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<S: QsStorageProvider, W: WebsocketNotifier>(
+    pub(crate) async fn enqueue<
+        S: QsStorageProvider,
+        W: WebsocketNotifier,
+        P: PushNotificationProvider,
+    >(
         &mut self,
         client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
+        push_token_provider: &P,
         msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
@@ -130,13 +141,6 @@ impl QsClientRecord {
                     .await
                     .map_err(EnqueueError::StorageProviderEnqueueError::<S>)?;
 
-                // We also update th client record in the storage provider,
-                // since we need to store the new ratchet key.
-                storage_provider
-                    .store_client(client_id, self.clone())
-                    .await
-                    .map_err(EnqueueError::StorageProviderStoreClientError::<S>)?;
-
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier
                     .notify(client_id, WsNotification::QueueUpdate)
@@ -151,12 +155,49 @@ impl QsClientRecord {
                         if let Some(ref ear_key) = push_token_key_option {
                             let push_token = PushToken::decrypt(ear_key, encrypted_push_token)
                                 .map_err(|_| EnqueueError::PushNotificationError)?;
-                            // TODO: It's currently not clear where we store the alert level.
-                            let alert_level = 0;
-                            push_token.send_notification(alert_level);
+                            // Send the push notification.
+                            if let Err(e) = push_token_provider.push(push_token).await {
+                                match e {
+                                    // The push notification failed for some other reason.
+                                    PushNotificationError::Other(error_description) => {
+                                        tracing::error!(
+                                            "Push notification failed unexpectedly: {}",
+                                            error_description
+                                        )
+                                    }
+                                    // The token is no longer valid and should be deleted.
+                                    PushNotificationError::InvalidToken(error_description) => {
+                                        tracing::info!(
+                                            "Push notification failed because the token is invalid: {}",
+                                            error_description
+                                        );
+                                        self.encrypted_push_token = None;
+                                    }
+                                    // There was a network error when trying to send the push notification.
+                                    PushNotificationError::NetworkError(e) => tracing::info!(
+                                        "Push notification failed because of a network error: {}",
+                                        e
+                                    ),
+                                    PushNotificationError::UnsupportedType => tracing::warn!(
+                                        "Push notification failed because the push token type is unsupported",
+                                    ),
+                                    PushNotificationError::JwtCreationError(e) => tracing::error!(
+                                        "Push notification failed because the JWT token could not be created: {}",
+                                        e
+                                    ),
+                                }
+                            }
                         }
                     }
                 }
+
+                // We also update th client record in the storage provider,
+                // since we need to store the new ratchet key and because we
+                // might have deleted the push token.
+                storage_provider
+                    .store_client(client_id, self.clone())
+                    .await
+                    .map_err(EnqueueError::StorageProviderStoreClientError::<S>)?;
             }
             // Dispatch an event message.
             DsFanOutPayload::EventMessage(event_message) => {

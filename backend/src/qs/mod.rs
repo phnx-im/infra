@@ -67,7 +67,7 @@ use phnxtypes::{
         signatures::{keys::QsVerifyingKey, traits::SigningKey},
     },
     identifiers::{Fqdn, QsClientId},
-    messages::client_ds::DsEventMessage,
+    messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
 use async_trait::*;
@@ -106,6 +106,25 @@ pub trait WebsocketNotifier {
         client_id: &QsClientId,
         ws_notification: WsNotification,
     ) -> Result<(), WebsocketNotifierError>;
+}
+
+#[derive(Debug)]
+pub enum PushNotificationError {
+    /// Just for logging.
+    Other(String),
+    /// The push token is invalid.
+    InvalidToken(String),
+    /// Network error.
+    NetworkError(String),
+    /// Unsupported type of push token.
+    UnsupportedType,
+    /// The JWT token for APNS could not be created.
+    JwtCreationError(String),
+}
+
+#[async_trait]
+pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
+    async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError>;
 }
 
 #[async_trait]

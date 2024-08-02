@@ -11,13 +11,14 @@ use actix_web::{
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
     qs::{
-        network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider, Qs,
-        WebsocketNotifier,
+        network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider,
+        PushNotificationProvider, Qs, WebsocketNotifier,
     },
 };
 use phnxtypes::messages::client_qs::VerifiableClientToQsMessage;
 use tls_codec::{DeserializeBytes, Serialize};
 
+pub mod push_notification_provider;
 pub mod ws;
 
 #[tracing::instrument(name = "Process QS message", skip_all)]
@@ -57,9 +58,11 @@ pub(crate) async fn qs_process_federated_message<
     S: QsStorageProvider,
     W: WebsocketNotifier,
     N: NetworkProvider,
+    P: PushNotificationProvider,
 >(
     storage_provider: Data<Arc<S>>,
     websocket_notifier: Data<W>,
+    push_token_provider: Data<P>,
     network_provider: Data<N>,
     message: web::Bytes,
 ) -> impl Responder {
@@ -76,6 +79,7 @@ pub(crate) async fn qs_process_federated_message<
     match Qs::process_federated_message(
         storage_provider.get_ref().as_ref(),
         websocket_notifier.get_ref(),
+        push_token_provider.get_ref(),
         network_provider.get_ref(),
         message,
     )

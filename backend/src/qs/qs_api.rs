@@ -10,7 +10,8 @@ use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
 use super::{
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    storage_provider_trait::QsStorageProvider, Qs, QsVerifyingKey, WebsocketNotifier,
+    storage_provider_trait::QsStorageProvider, PushNotificationProvider, Qs, QsVerifyingKey,
+    WebsocketNotifier,
 };
 
 #[derive(Error, Debug)]
@@ -35,10 +36,12 @@ impl Qs {
     pub async fn process_federated_message<
         S: QsStorageProvider,
         W: WebsocketNotifier,
+        P: PushNotificationProvider,
         N: NetworkProvider,
     >(
         storage_provider: &S,
         websocket_notifier: &W,
+        push_token_provider: &P,
         network_provider: &N,
         message: QsToQsMessage,
     ) -> Result<FederatedProcessingResult, FederatedProcessingError<S, N>> {
@@ -56,6 +59,7 @@ impl Qs {
                 Self::enqueue_message(
                     storage_provider,
                     websocket_notifier,
+                    push_token_provider,
                     network_provider,
                     fan_out_message,
                 )

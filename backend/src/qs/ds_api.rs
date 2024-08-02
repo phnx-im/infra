@@ -17,8 +17,8 @@ use crate::messages::{
 
 use super::{
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider, Qs,
-    WebsocketNotifier,
+    qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider,
+    PushNotificationProvider, Qs, WebsocketNotifier,
 };
 
 impl Qs {
@@ -30,9 +30,15 @@ impl Qs {
     /// This endpoint is used for enqueining messages in both local and remote
     /// queues, depending on the FQDN of the client.
     #[tracing::instrument(skip_all, err)]
-    pub async fn enqueue_message<S: QsStorageProvider, W: WebsocketNotifier, N: NetworkProvider>(
+    pub async fn enqueue_message<
+        S: QsStorageProvider,
+        W: WebsocketNotifier,
+        N: NetworkProvider,
+        P: PushNotificationProvider,
+    >(
         storage_provider: &S,
         websocket_notifier: &W,
+        push_token_provider: &P,
         network_provider: &N,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<S, N>> {
@@ -84,6 +90,7 @@ impl Qs {
                     &client_config.client_id,
                     storage_provider,
                     websocket_notifier,
+                    push_token_provider,
                     message.payload,
                     client_config.push_token_ear_key,
                 )

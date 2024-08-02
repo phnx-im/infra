@@ -7,7 +7,10 @@ use std::{net::TcpListener, sync::Arc};
 use mls_assist::openmls_traits::types::SignatureScheme;
 use phnxserver::{
     configurations::*,
-    endpoints::qs::ws::DispatchWebsocketNotifier,
+    endpoints::qs::{
+        push_notification_provider::ProductionPushNotificationProvider,
+        ws::DispatchWebsocketNotifier,
+    },
     network_provider::MockNetworkProvider,
     run,
     storage_provider::{
@@ -30,6 +33,9 @@ async fn main() -> std::io::Result<()> {
     if configuration.application.domain.is_empty() {
         panic!("No domain name configured.");
     }
+
+    // Environment variables
+    let pn_config_path = std::env::var("PN_CONFIG_PATH").expect("PN_CONFIG_PATH must be set.");
 
     // Port binding
     let address = format!(
@@ -87,9 +93,14 @@ async fn main() -> std::io::Result<()> {
     .expect("Failed to connect to database.");
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let push_token_provider = Arc::new(
+        ProductionPushNotificationProvider::new(&pn_config_path)
+            .map_err(|e| std::io::Error::other(e.to_string()))?,
+    );
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
+        push_token_provider: push_token_provider.clone(),
         network: network_provider.clone(),
     };
 
@@ -97,6 +108,7 @@ async fn main() -> std::io::Result<()> {
     run(
         listener,
         ws_dispatch_notifier,
+        push_token_provider,
         ds_storage_provider,
         qs_storage_provider,
         as_storage_provider,
