@@ -10,8 +10,7 @@ use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
 use super::{
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    storage_provider_trait::QsStorageProvider, PushNotificationProvider, Qs, QsVerifyingKey,
-    WebsocketNotifier,
+    storage_provider_trait::QsStorageProvider, Qs, QsConnector, QsVerifyingKey,
 };
 
 #[derive(Error, Debug)]
@@ -34,15 +33,12 @@ pub enum FederatedProcessingResult {
 impl Qs {
     /// Process the QsToQsMessage.
     pub async fn process_federated_message<
+        Qc: QsConnector<EnqueueError = QsEnqueueError<S, N>, VerifyingKeyError = QsVerifyingKeyError>,
         S: QsStorageProvider,
-        W: WebsocketNotifier,
-        P: PushNotificationProvider,
         N: NetworkProvider,
     >(
+        qs_connector: &Qc,
         storage_provider: &S,
-        websocket_notifier: &W,
-        push_token_provider: &P,
-        network_provider: &N,
         message: QsToQsMessage,
     ) -> Result<FederatedProcessingResult, FederatedProcessingError<S, N>> {
         let QsToQsMessage {
@@ -56,14 +52,10 @@ impl Qs {
         // other QSs can route messages through us.
         let result = match payload {
             QsToQsPayload::FanOutMessageRequest(fan_out_message) => {
-                Self::enqueue_message(
-                    storage_provider,
-                    websocket_notifier,
-                    push_token_provider,
-                    network_provider,
-                    fan_out_message,
-                )
-                .await?;
+                qs_connector
+                    .dispatch(fan_out_message)
+                    .await
+                    .map_err(FederatedProcessingError::EnqueueError)?;
                 FederatedProcessingResult::Ok
             }
             QsToQsPayload::VerificationKeyRequest => {

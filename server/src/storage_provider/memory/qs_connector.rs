@@ -20,28 +20,28 @@ use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
 #[derive(Debug)]
 pub struct MemoryEnqueueProvider<
-    T: QsStorageProvider,
+    S: QsStorageProvider,
     N: NetworkProvider,
     P: PushNotificationProvider,
 > {
-    pub storage: Arc<T>,
+    pub storage: Arc<S>,
     pub notifier: DispatchWebsocketNotifier,
-    pub push_token_provider: Arc<P>,
+    pub push_notification_provider: P,
     pub network: N,
 }
 
 #[async_trait]
-impl<T: QsStorageProvider, N: NetworkProvider, P: PushNotificationProvider> QsConnector
-    for MemoryEnqueueProvider<T, N, P>
+impl<S: QsStorageProvider, N: NetworkProvider, P: PushNotificationProvider> QsConnector
+    for MemoryEnqueueProvider<S, N, P>
 {
-    type EnqueueError = QsEnqueueError<T, N>;
+    type EnqueueError = QsEnqueueError<S, N>;
     type VerifyingKeyError = QsVerifyingKeyError;
 
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
         Qs::enqueue_message(
             self.storage.deref(),
             &self.notifier,
-            self.push_token_provider.deref(),
+            &self.push_notification_provider,
             &self.network,
             message,
         )

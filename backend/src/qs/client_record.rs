@@ -117,7 +117,7 @@ impl QsClientRecord {
         client_id: &QsClientId,
         storage_provider: &S,
         websocket_notifier: &W,
-        push_token_provider: &P,
+        push_notification_provider: &P,
         msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
     ) -> Result<(), EnqueueError<S>> {
@@ -156,7 +156,7 @@ impl QsClientRecord {
                             let push_token = PushToken::decrypt(ear_key, encrypted_push_token)
                                 .map_err(|_| EnqueueError::PushNotificationError)?;
                             // Send the push notification.
-                            if let Err(e) = push_token_provider.push(push_token).await {
+                            if let Err(e) = push_notification_provider.push(push_token).await {
                                 match e {
                                     // The push notification failed for some other reason.
                                     PushNotificationError::Other(error_description) => {

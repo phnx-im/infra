@@ -38,7 +38,7 @@ impl Qs {
     >(
         storage_provider: &S,
         websocket_notifier: &W,
-        push_token_provider: &P,
+        push_notification_provider: &P,
         network_provider: &N,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<S, N>> {
@@ -90,7 +90,7 @@ impl Qs {
                     &client_config.client_id,
                     storage_provider,
                     websocket_notifier,
-                    push_token_provider,
+                    push_notification_provider,
                     message.payload,
                     client_config.push_token_ear_key,
                 )
