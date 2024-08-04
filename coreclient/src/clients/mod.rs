@@ -40,6 +40,7 @@ use phnxtypes::{
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
+        push_token::PushToken,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
     time::TimeStamp,
@@ -104,7 +105,7 @@ impl CoreUser {
         password: &str,
         server_url: impl ToString,
         db_path: &str,
-        _push_token: Option<String>, // TODO[kk]: Add push token support
+        push_token: Option<PushToken>,
     ) -> Result<Self> {
         let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
@@ -118,6 +119,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            push_token,
             SqliteConnection::new(phnx_db_connection),
             SqliteConnection::new(client_db_connection),
         )
@@ -128,6 +130,7 @@ impl CoreUser {
         as_client_id: AsClientId,
         password: &str,
         server_url: impl ToString,
+        push_token: Option<PushToken>,
         phnx_db_connection_mutex: SqliteConnection,
         client_db_connection_mutex: SqliteConnection,
     ) -> Result<Self> {
@@ -145,6 +148,7 @@ impl CoreUser {
             as_client_id,
             server_url.clone(),
             password,
+            push_token,
         )?;
 
         drop(client_db_connection);
@@ -173,12 +177,13 @@ impl CoreUser {
         Ok(self_user)
     }
 
-    /// The same as [`Self::new()`], except that databases ephemeral and dropped
-    /// together with this instance of CoreUser.
+    /// The same as [`Self::new()`], except that databases are ephemeral and are
+    /// dropped together with this instance of CoreUser.
     pub async fn new_ephemeral(
         user_name: impl Into<UserName>,
         password: &str,
         server_url: impl ToString,
+        push_token: Option<PushToken>,
     ) -> Result<Self> {
         let user_name = user_name.into();
         let as_client_id = AsClientId::random(user_name)?;
@@ -194,6 +199,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            push_token,
             SqliteConnection::new(phnx_db_connection),
             SqliteConnection::new(client_db_connection),
         )

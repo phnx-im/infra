@@ -11,6 +11,7 @@ use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
 };
 use own_client_info::OwnClientInfo;
+use phnxtypes::messages::push_token::PushToken;
 
 use self::{
     groups::{
@@ -71,6 +72,7 @@ impl UserCreationState {
         as_client_id: AsClientId,
         server_url: impl ToString,
         password: &str,
+        push_token: Option<PushToken>,
     ) -> Result<Self> {
         let client_record = ClientRecord::new(as_client_id.clone());
         client_record.store(phnx_db_connection)?;
@@ -79,6 +81,7 @@ impl UserCreationState {
             as_client_id: as_client_id.clone(),
             server_url: server_url.to_string(),
             password: password.to_string(),
+            push_token,
         };
 
         // Create user profile entry for own user.

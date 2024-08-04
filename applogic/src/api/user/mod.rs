@@ -8,7 +8,7 @@ use phnxcoreclient::{
     clients::{store::ClientRecord, CoreUser},
     UserProfile,
 };
-use phnxtypes::messages::client_ds::QsWsMessage;
+use phnxtypes::messages::{client_ds::QsWsMessage, push_token::PushTokenOperator};
 
 use crate::{
     api::types::{UiNotificationType, UiUserProfile},
@@ -18,8 +18,23 @@ use crate::{
 };
 
 pub(crate) use phnxcoreclient::NotificationType;
+pub(crate) use phnxtypes::messages::push_token::PushToken;
 
 pub mod connections;
+
+pub enum PlatformPushToken {
+    Apple(String),
+    Google(String),
+}
+
+impl From<PlatformPushToken> for PushToken {
+    fn from(platform_push_token: PlatformPushToken) -> Self {
+        match platform_push_token {
+            PlatformPushToken::Apple(token) => PushToken::new(PushTokenOperator::Apple, token),
+            PlatformPushToken::Google(token) => PushToken::new(PushTokenOperator::Google, token),
+        }
+    }
+}
 
 pub enum WsNotification {
     Connected,
@@ -57,9 +72,16 @@ impl User {
         password: String,
         address: String,
         path: String,
-        push_token: Option<String>,
+        push_token: Option<PlatformPushToken>,
     ) -> Result<User> {
-        let user = CoreUser::new(&user_name, &password, address, &path, push_token).await?;
+        let user = CoreUser::new(
+            &user_name,
+            &password,
+            address,
+            &path,
+            push_token.map(|p| p.into()),
+        )
+        .await?;
 
         Ok(Self {
             user: user.clone(),

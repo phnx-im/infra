@@ -115,12 +115,22 @@ class CoreClient {
 
   Future<void> createUser(
       String userName, String password, String address) async {
+    PlatformPushToken? pushToken;
+
+    if (Platform.isIOS) {
+      final String? deviceToken = await getDeviceToken();
+
+      if (deviceToken != null) {
+        pushToken = PlatformPushToken.apple(deviceToken);
+      }
+    }
+
     user = await User.newInstance(
       userName: userName,
       password: password,
       address: address,
       path: await dbPath(),
-      pushToken: await getDeviceToken(),
+      pushToken: pushToken,
     );
 
     print("User registered");

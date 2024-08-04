@@ -153,11 +153,17 @@ impl QsClientRecord {
                     // - the decryption is successful
                     if let Some(ref encrypted_push_token) = self.encrypted_push_token {
                         if let Some(ref ear_key) = push_token_key_option {
-                            let push_token = PushToken::decrypt(ear_key, encrypted_push_token)
-                                .map_err(|_| EnqueueError::PushNotificationError)?;
-                            // Send the push notification.
-                            if let Err(e) = push_notification_provider.push(push_token).await {
-                                match e {
+                            // Attempt to decrypt the push token.
+                            match PushToken::decrypt(ear_key, encrypted_push_token) {
+                                Err(e) => {
+                                    tracing::error!("Push token decryption failed: {}", e);
+                                }
+                                Ok(push_token) => {
+                                    // Send the push notification.
+                                    if let Err(e) =
+                                        push_notification_provider.push(push_token).await
+                                    {
+                                        match e {
                                     // The push notification failed for some other reason.
                                     PushNotificationError::Other(error_description) => {
                                         tracing::error!(
@@ -185,6 +191,8 @@ impl QsClientRecord {
                                         "Push notification failed because the JWT token could not be created: {}",
                                         e
                                     ),
+                                }
+                                    }
                                 }
                             }
                         }

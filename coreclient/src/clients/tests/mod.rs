@@ -39,6 +39,7 @@ async fn user_stages() {
         as_client_id.clone(),
         server_url,
         user_name,
+        None,
     )
     .unwrap();
 
