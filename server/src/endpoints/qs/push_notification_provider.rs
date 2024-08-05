@@ -17,12 +17,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    key_id: String,
-    team_id: String,
-    private_key_path: String,
-}
+use crate::configurations::ApnsSettings;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -50,43 +45,35 @@ pub struct ProductionPushNotificationProvider {
 }
 
 impl ProductionPushNotificationProvider {
-    // Create a new ProductionPushNotificationProvider. If the config_file_path is
+    // Create a new ProductionPushNotificationProvider. If the config_option is
     // None, the provider will effectively not send push notifications.
-    pub fn new(config_file_path: Option<String>) -> Result<Self, Box<dyn std::error::Error>> {
-        match config_file_path {
-            None => Ok(Self { apns_state: None }),
-            Some(path) => {
-                // Read the config file
-                let mut file = File::open(path)?;
-                let mut config_data = String::new();
-                file.read_to_string(&mut config_data)?;
-                let config: Config = serde_json::from_str(&config_data)?;
+    pub fn new(config_option: Option<ApnsSettings>) -> Result<Self, Box<dyn std::error::Error>> {
+        let Some(config) = config_option else {
+            return Ok(Self { apns_state: None });
+        };
+        // Read the private key
+        let mut private_key_file = File::open(&config.private_key_path)?;
+        let mut private_key_p8 = String::new();
+        private_key_file.read_to_string(&mut private_key_p8)?;
 
-                // Read the private key
-                let mut private_key_file = File::open(&config.private_key_path)?;
-                let mut private_key_p8 = String::new();
-                private_key_file.read_to_string(&mut private_key_p8)?;
+        // The private key needs to be converted to the correct format (PEM format)
+        let pem = private_key_p8
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replace("-----END PRIVATE KEY-----", "")
+            .replace("\n", "")
+            .replace("\r", "");
 
-                // The private key needs to be converted to the correct format (PEM format)
-                let pem = private_key_p8
-                    .replace("-----BEGIN PRIVATE KEY-----", "")
-                    .replace("-----END PRIVATE KEY-----", "")
-                    .replace("\n", "")
-                    .replace("\r", "");
+        // Convert the private key to bytes
+        let private_key = general_purpose::STANDARD.decode(&pem)?;
 
-                // Convert the private key to bytes
-                let private_key = general_purpose::STANDARD.decode(&pem)?;
-
-                Ok(Self {
-                    apns_state: Some(ApnsState {
-                        key_id: config.key_id,
-                        team_id: config.team_id,
-                        private_key,
-                        token: Arc::new(Mutex::new(None)),
-                    }),
-                })
-            }
-        }
+        Ok(Self {
+            apns_state: Some(ApnsState {
+                key_id: config.key_id,
+                team_id: config.team_id,
+                private_key,
+                token: Arc::new(Mutex::new(None)),
+            }),
+        })
     }
 
     /// Return the JWT. If the token is older than 40 minutes, a new token is
