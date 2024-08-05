@@ -1,0 +1,29 @@
+name: Test Kubernetes Access
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-k8s-access:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
+      with:
+        version: 'v1.18.0'
+
+    - name: Configure kubeconfig
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: |
+        echo "${KUBECONFIG}" > $HOME/.kube/config
+
+    - name: Test Kubernetes access
+      run: |
+        kubectl get namespaces
