@@ -45,7 +45,7 @@ pub struct ProductionPushNotificationProvider {
 }
 
 impl ProductionPushNotificationProvider {
-    // Create a new ProductionPushNotificationProvider. If the config_file_path is
+    // Create a new ProductionPushNotificationProvider. If the config_option is
     // None, the provider will effectively not send push notifications.
     pub fn new(config_option: Option<ApnsSettings>) -> Result<Self, Box<dyn std::error::Error>> {
         let Some(config) = config_option else {

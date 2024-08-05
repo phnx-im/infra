@@ -12,4 +12,3 @@ database:
   username: "postgres"
   password: "password"
   database_name: "phnx_db"
-  
