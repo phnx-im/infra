@@ -31,4 +31,4 @@ jobs:
 
     - name: Test Kubernetes access
       run: |
-        kubectl get namespaces
+        kubectl get pods -n default
