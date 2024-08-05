@@ -38,9 +38,10 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = CoreUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url)
-            .await
-            .unwrap();
+        let user =
+            CoreUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url, None)
+                .await
+                .unwrap();
         Self { user }
     }
 

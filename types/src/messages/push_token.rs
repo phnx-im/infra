@@ -7,19 +7,29 @@ use crate::crypto::ear::{keys::PushTokenEarKey, EarDecryptable, EarEncryptable};
 use super::*;
 
 #[derive(Serialize, Deserialize)]
+pub enum PushTokenOperator {
+    Apple,
+    Google,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct PushToken {
-    token: Vec<u8>,
+    operator: PushTokenOperator,
+    token: String,
 }
 
 impl PushToken {
-    // TODO: This is a dummy implementation for now
-    pub fn dummy() -> Self {
-        Self { token: vec![0; 32] }
+    /// Create a new push token.
+    pub fn new(operator: PushTokenOperator, token: String) -> Self {
+        Self { operator, token }
     }
 
-    /// If the alert level is high enough, send a notification to the client.
-    pub fn send_notification(&self, _alert_level: u8) {
-        todo!()
+    pub fn operator(&self) -> &PushTokenOperator {
+        &self.operator
+    }
+
+    pub fn token(&self) -> &str {
+        &self.token
     }
 }
 #[derive(

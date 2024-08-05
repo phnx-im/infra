@@ -13,11 +13,16 @@ use phnxtypes::{
         AsIntermediateCredential, PreliminaryClientSigningKey, VerifiableClientCredential,
     },
     crypto::{
+        ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
         signatures::signable::Verifiable,
     },
-    messages::{client_as::ConnectionPackage, client_qs::CreateUserRecordResponse},
+    messages::{
+        client_as::ConnectionPackage,
+        client_qs::CreateUserRecordResponse,
+        push_token::{EncryptedPushToken, PushToken},
+    },
     time::ExpirationData,
 };
 use rand_chacha::rand_core::OsRng;
@@ -32,6 +37,7 @@ pub(super) struct BasicUserData {
     pub(super) as_client_id: AsClientId,
     pub(super) server_url: String,
     pub(super) password: String,
+    pub(super) push_token: Option<PushToken>,
 }
 
 impl BasicUserData {
@@ -99,6 +105,7 @@ impl BasicUserData {
             password: self.password,
             qs_encryption_key,
             as_intermediate_credential,
+            push_token: self.push_token,
         };
 
         Ok(initial_user_state)
@@ -116,6 +123,7 @@ pub(super) struct InitialUserState {
     password: String,
     qs_encryption_key: ClientIdEncryptionKey,
     as_intermediate_credential: AsIntermediateCredential,
+    push_token: Option<PushToken>,
 }
 
 impl InitialUserState {
@@ -182,6 +190,7 @@ impl PostRegistrationInitState {
             password,
             qs_encryption_key,
             as_intermediate_credential,
+            push_token,
         } = self.initial_user_state;
 
         let user_name = client_credential_payload.identity().user_name();
@@ -242,6 +251,13 @@ impl PostRegistrationInitState {
 
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
 
+        let encrypted_push_token = match push_token {
+            Some(push_token) => Some(EncryptedPushToken::from(
+                push_token_ear_key.encrypt(&push_token.serialize()?)?,
+            )),
+            None => None,
+        };
+
         let key_store = MemoryUserKeyStore {
             signing_key,
             as_queue_decryption_key,
@@ -284,6 +300,7 @@ impl PostRegistrationInitState {
             as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
             connection_packages,
+            encrypted_push_token,
         };
 
         Ok(unfinalized_registration_state)
@@ -307,6 +324,7 @@ pub(super) struct UnfinalizedRegistrationState {
     as_initial_ratchet_secret: RatchetSecret,
     qs_initial_ratchet_secret: RatchetSecret,
     connection_packages: Vec<ConnectionPackage>,
+    encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 impl UnfinalizedRegistrationState {
@@ -321,6 +339,7 @@ impl UnfinalizedRegistrationState {
             as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
             connection_packages,
+            encrypted_push_token,
         } = self;
 
         let opaque_registration_record = OpaqueRegistrationRecord {
@@ -344,6 +363,7 @@ impl UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
+            encrypted_push_token,
         };
         Ok(as_registered_user_state)
     }
@@ -363,6 +383,7 @@ pub(super) struct AsRegisteredUserState {
     key_store: MemoryUserKeyStore,
     server_url: String,
     qs_initial_ratchet_secret: RatchetSecret,
+    encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 impl AsRegisteredUserState {
@@ -374,6 +395,7 @@ impl AsRegisteredUserState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
+            encrypted_push_token,
         } = self;
 
         let CreateUserRecordResponse { user_id, client_id } = api_clients
@@ -382,7 +404,7 @@ impl AsRegisteredUserState {
                 key_store.friendship_token.clone(),
                 key_store.qs_client_signing_key.verifying_key().clone(),
                 key_store.qs_queue_decryption_key.encryption_key(),
-                None,
+                encrypted_push_token,
                 qs_initial_ratchet_secret,
                 &key_store.qs_user_signing_key,
             )

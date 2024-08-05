@@ -15,7 +15,10 @@ use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxserver::{
     configurations::get_configuration,
-    endpoints::qs::ws::DispatchWebsocketNotifier,
+    endpoints::qs::{
+        push_notification_provider::ProductionPushNotificationProvider,
+        ws::DispatchWebsocketNotifier,
+    },
     network_provider::MockNetworkProvider,
     run,
     storage_provider::memory::{
@@ -119,23 +122,25 @@ pub async fn spawn_app(
     //let as_storage_provider =
     //    MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519).unwrap();
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
+    let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
+        push_notification_provider,
         network: network_provider.clone(),
     };
 
     // Start the server
     let server = run(
         listener,
-        ws_dispatch_notifier.clone(),
         ds_storage_provider,
         qs_storage_provider,
         as_storage_provider,
         as_ephemeral_storage_provider,
         qs_connector,
         network_provider,
+        ws_dispatch_notifier.clone(),
     )
     .expect("Failed to bind to address.");
 

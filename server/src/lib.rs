@@ -10,7 +10,7 @@ pub mod network_provider;
 pub mod storage_provider;
 pub mod telemetry;
 
-use endpoints::ds::*;
+use endpoints::{ds::*, qs::ws::DispatchWebsocketNotifier};
 
 use actix_web::{
     dev::Server,
@@ -21,13 +21,16 @@ use phnxbackend::{
     auth_service::storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
     ds::DsStorageProvider,
     qs::{
-        network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider,
-        QsConnector,
+        errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+        storage_provider_trait::QsStorageProvider, QsConnector,
     },
 };
-use phnxtypes::endpoint_paths::{
-    ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
-    ENDPOINT_QS_WS,
+use phnxtypes::{
+    endpoint_paths::{
+        ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS,
+        ENDPOINT_QS_FEDERATION, ENDPOINT_QS_WS,
+    },
+    errors::qs::QsVerifyingKeyError,
 };
 use std::{net::TcpListener, sync::Arc};
 use tracing_actix_web::TracingLogger;
@@ -35,29 +38,26 @@ use tracing_actix_web::TracingLogger;
 use crate::endpoints::{
     auth_service::as_process_message,
     health_check,
-    qs::{
-        qs_process_federated_message, qs_process_message,
-        ws::{upgrade_connection, DispatchWebsocketNotifier},
-    },
+    qs::{qs_process_federated_message, qs_process_message, ws::upgrade_connection},
 };
 
 /// Configure and run the server application.
 pub fn run<
     Dsp: DsStorageProvider,
     Qsp: QsStorageProvider,
-    Qc: QsConnector,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Qsp, Np>, VerifyingKeyError = QsVerifyingKeyError>,
     Np: NetworkProvider,
     Asp: AsStorageProvider,
     Aesp: AsEphemeralStorageProvider,
 >(
     listener: TcpListener,
-    ws_dispatch_notifier: DispatchWebsocketNotifier,
     ds_storage_provider: Dsp,
     qs_storage_provider: Arc<Qsp>,
     as_storage_provider: Asp,
     as_ephemeral_storage_provider: Aesp,
     qs_connector: Qc,
     network_provider: Np,
+    ws_dispatch_notifier: DispatchWebsocketNotifier,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
     let ds_storage_provider_data = Data::new(ds_storage_provider);
@@ -82,7 +82,6 @@ pub fn run<
 
     // Create & run the server
     let server = HttpServer::new(move || {
-        
         App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
@@ -103,7 +102,7 @@ pub fn run<
             // QS federationendpoint
             .route(
                 ENDPOINT_QS_FEDERATION,
-                web::post().to(qs_process_federated_message::<Qsp, DispatchWebsocketNotifier, Np>),
+                web::post().to(qs_process_federated_message::<Qc, Qsp, Np>),
             )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))
