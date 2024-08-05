@@ -26,6 +26,7 @@ jobs:
       env:
         KUBECONFIG: ${{ secrets.KUBECONFIG }}
       run: |
+        mldir -p $HOME/.kube
         echo "${KUBECONFIG}" > $HOME/.kube/config
 
     - name: Test Kubernetes access
