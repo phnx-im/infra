@@ -10,6 +10,9 @@ use serde::Deserialize;
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    // If this isn't present, the provider will not send push notifications to
+    // apple devices.
+    pub apns: Option<ApnsSettings>,
 }
 
 /// Configuration for the application.
@@ -29,6 +32,13 @@ pub struct DatabaseSettings {
     pub host: String,
     pub database_name: String,
     pub ca_cert_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ApnsSettings {
+    pub key_id: String,
+    pub team_id: String,
+    pub private_key_path: String,
 }
 
 impl DatabaseSettings {

@@ -34,9 +34,6 @@ async fn main() -> std::io::Result<()> {
         panic!("No domain name configured.");
     }
 
-    // Environment variables
-    let pn_config_path_option = std::env::var("PN_CONFIG_PATH").ok();
-
     // Port binding
     let address = format!(
         "{}:{}",
@@ -93,7 +90,7 @@ async fn main() -> std::io::Result<()> {
     .expect("Failed to connect to database.");
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
-    let push_notification_provider = ProductionPushNotificationProvider::new(pn_config_path_option)
+    let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
     let qs_connector = MemoryEnqueueProvider {
         storage: qs_storage_provider.clone(),
