@@ -55,7 +55,7 @@ jobs:
           context: .
           push: true
           file: server/Dockerfile
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.registry }}/${{ github.repository }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
   deploy:
     needs: build-and-publish
