@@ -124,9 +124,7 @@ pub fn get_configuration(prefix: &str) -> Result<Settings, ConfigError> {
         )
         // Add in settings from environment variables (with a prefix of APP and '_' as separator)
         // E.g. `PHNX_APPLICATION_PORT=5001 would set `Settings.application.port`
-        .add_source(
-            config::Environment::with_prefix("PHNX").separator("_"), //.ignore_empty(true),
-        );
+        .add_source(config::Environment::with_prefix("PHNX").separator("_"));
 
     builder.build()?.try_deserialize::<Settings>()
 }
