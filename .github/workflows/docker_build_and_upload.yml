@@ -70,7 +70,8 @@ jobs:
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/kubeconfig
 
       - name: Deploy to Kubernetes
         run: |

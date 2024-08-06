@@ -2,21 +2,21 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-FROM lukemathwalker/cargo-chef:latest-rust-latest as chef
+FROM lukemathwalker/cargo-chef:latest-rust-latest AS chef
 WORKDIR /app
 
-FROM chef as planner
+FROM chef AS planner
 COPY . .
 
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef as builder
+FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 
 RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY . .
-ENV SQLX_OFFLINE true
+ENV SQLX_OFFLINE=true
 
 RUN cargo build --release --bin phnxserver
 
@@ -33,6 +33,6 @@ COPY --from=builder /app/target/release/phnxserver phnxserver
 
 COPY server/configuration server/configuration
 
-ENV APP_ENVIRONMENT production
+ENV APP_ENVIRONMENT=production
 
 ENTRYPOINT ["./phnxserver"]
