@@ -71,7 +71,7 @@ jobs:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
           mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/kubeconfig
+          echo "${KUBECONFIG}" > $HOME/.kube/config
           export KUBECONFIG=$HOME/.kube/config
           kubectl config view
 
