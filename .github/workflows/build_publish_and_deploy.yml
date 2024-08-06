@@ -2,12 +2,11 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Create and publish phnxserver Docker image
+name: Build, publish and deploy phnxserver image
 
 # Configures this workflow to run every time a release is published.
 on:
-  pull_request: 
-  #push:
+  push:
     branches:
       - main
     paths:
@@ -22,7 +21,7 @@ env:
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
-  build-and-push:
+  build-and-publish:
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
@@ -59,7 +58,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   deploy:
-    needs: build-and-push
+    needs: build-and-publish
     runs-on: ubuntu-latest
 
     steps:
@@ -72,12 +71,6 @@ jobs:
         run: |
           mkdir -p $HOME/.kube
           echo "${KUBECONFIG}" > $HOME/.kube/config
-          export KUBECONFIG=$HOME/.kube/config
-          kubectl config view
-
-      - name: Test Kubernetes access
-        run: |
-          kubectl get deployments -n default
 
       - name: Deploy to Kubernetes
         run: |
