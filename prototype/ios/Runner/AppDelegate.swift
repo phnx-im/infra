@@ -16,9 +16,6 @@ import UIKit
             UNUserNotificationCenter.current().delegate = self
         }
         
-        // Initialize the app group container
-        initializeAppGroup()
-        
         // Register for push notifications
         UIApplication.shared.registerForRemoteNotifications()
         
@@ -74,25 +71,6 @@ import UIKit
         channel.invokeMethod(method, arguments: arguments)
     }
     
-    // Initilalize the app group container, so that we can later access it from Rust
-    private func initializeAppGroup() {
-        let fileManager = FileManager.default
-        if let appGroupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype") {
-            let placeholderFileURL = appGroupURL.appendingPathComponent("placeholder.init")
-            
-            // Create a placeholder file to ensure the app group container is initialized
-            if !fileManager.fileExists(atPath: placeholderFileURL.path) {
-                do {
-                    try "Initialized".write(to: placeholderFileURL, atomically: true, encoding: .utf8)
-                    // Delete the placeholder file immediately after creating it
-                    try fileManager.removeItem(at: placeholderFileURL)
-                } catch {
-                    print("Failed to initialize app group container: \(error)")
-                }
-            }
-        }
-    }
-    
     // Define the handler function
     private func handleMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
         if call.method == "devicetoken" {
@@ -118,8 +96,17 @@ import UIKit
     // Get the shared documents path
     private func getSharedDocumentsDirectory(result: FlutterResult) {
         if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype") {
-            let documentsPath = containerURL.appendingPathComponent("Documents").path
-            result(documentsPath)
+            let documentsURL = containerURL.appendingPathComponent("Documents")
+            // Create the "Documents" directory if it doesn't exist
+            let fileManager = FileManager.default
+            if !fileManager.fileExists(atPath: documentsURL.path) {
+                do {
+                    try fileManager.createDirectory(at: documentsURL, withIntermediateDirectories: true, attributes: nil)
+                } catch {
+                    print("Failed to create Documents directory: \(error)")
+                }
+            }
+            result(documentsURL.path)
         } else {
             result(FlutterError(code: "UNAVAILABLE",
                                 message: "App group container not found",
