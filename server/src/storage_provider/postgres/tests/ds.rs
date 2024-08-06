@@ -17,7 +17,8 @@ use crate::{configurations::get_configuration, storage_provider::postgres::ds::P
 
 async fn initialize_test_provider() -> PostgresDsStorage {
     let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
+    panic!("Setting: {:?}", configuration);
+    configuration.database.name = Uuid::new_v4().to_string();
     let own_domain = Fqdn::try_from("example.com").unwrap();
     PostgresDsStorage::new(&configuration.database, own_domain.clone())
         .await

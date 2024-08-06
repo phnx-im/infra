@@ -210,7 +210,7 @@ fn create_and_start_server_container(
     let server_db_password_env_variable = format!("PHNX_DATABASE_PASSWORD={}", db_password);
     let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
     let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
-    let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
+    let server_db_name_env_variable = format!("PHNX_DATABASE_NAME={}", db_name);
     let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
     let server = run_docker_container(
         server_image_name,
@@ -362,7 +362,7 @@ pub async fn run_server_restart_test() {
     let server_db_password_env_variable = format!("PHNX_DATABASE_PASSWORD={}", db_password);
     let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
     let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
-    let server_db_name_env_variable = format!("PHNX_DATABASE_DATABASE_NAME={}", db_name);
+    let server_db_name_env_variable = format!("PHNX_DATABASE_NAME={}", db_name);
     let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
 
     tracing::info!("Starting phnx server");

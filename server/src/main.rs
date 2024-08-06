@@ -48,9 +48,9 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("Starting server with domain {}.", domain);
     let network_provider = MockNetworkProvider::new();
 
-    let base_db_name = configuration.database.database_name.clone();
+    let base_db_name = configuration.database.name.clone();
     // DS storage provider
-    configuration.database.database_name = format!("{}_ds", base_db_name);
+    configuration.database.name = format!("{}_ds", base_db_name);
     tracing::info!(
         "Connecting to postgres server at {}.",
         configuration.database.host
@@ -71,7 +71,7 @@ async fn main() -> std::io::Result<()> {
     let ds_storage_provider = ds_provider_result.unwrap();
 
     // New database name for the QS provider
-    configuration.database.database_name = format!("{}_qs", base_db_name);
+    configuration.database.name = format!("{}_qs", base_db_name);
     // QS storage provider
     let qs_storage_provider = Arc::new(
         PostgresQsStorage::new(&configuration.database, domain.clone())
@@ -80,7 +80,7 @@ async fn main() -> std::io::Result<()> {
     );
 
     // New database name for the AS provider
-    configuration.database.database_name = format!("{}_as", base_db_name);
+    configuration.database.name = format!("{}_as", base_db_name);
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
         SignatureScheme::ED25519,

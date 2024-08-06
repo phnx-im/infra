@@ -20,13 +20,13 @@ async fn connect_to_database(settings: &DatabaseSettings) -> Result<PgPool, sqlx
         "select exists (
             SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
         )",
-        settings.database_name
+        settings.name
     )
     .fetch_one(&mut connection)
     .await?;
     if !db_exists.exists.unwrap_or(false) {
         connection
-            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.database_name).as_str())
+            .execute(format!(r#"CREATE DATABASE "{}";"#, settings.name).as_str())
             .await?;
     }
     // Migrate database

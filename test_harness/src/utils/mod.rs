@@ -65,7 +65,7 @@ pub async fn spawn_app(
 
     // Load configuration
     let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
+    configuration.database.name = Uuid::new_v4().to_string();
 
     // Port binding
     let port = 0;
@@ -88,7 +88,7 @@ pub async fn spawn_app(
         .expect("Failed to connect to database.");
 
     // New database name for the QS provider
-    configuration.database.database_name = Uuid::new_v4().to_string();
+    configuration.database.name = Uuid::new_v4().to_string();
     // QS storage provider
     // let qs_storage_provider = Arc::new(MemStorageProvider::new(domain.clone()));
     #[cfg(feature = "sqlite_provider")]
@@ -105,7 +105,7 @@ pub async fn spawn_app(
     );
 
     // New database name for the AS provider
-    configuration.database.database_name = Uuid::new_v4().to_string();
+    configuration.database.name = Uuid::new_v4().to_string();
     #[cfg(feature = "sqlite_provider")]
     let as_storage_provider =
         SqliteAsStorage::new_in_memory(domain.clone(), SignatureScheme::ED25519)

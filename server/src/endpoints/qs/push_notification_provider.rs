@@ -52,7 +52,7 @@ impl ProductionPushNotificationProvider {
             return Ok(Self { apns_state: None });
         };
         // Read the private key
-        let mut private_key_file = File::open(&config.private_key_path)?;
+        let mut private_key_file = File::open(&config.privatekeypath)?;
         let mut private_key_p8 = String::new();
         private_key_file.read_to_string(&mut private_key_p8)?;
 
@@ -68,8 +68,8 @@ impl ProductionPushNotificationProvider {
 
         Ok(Self {
             apns_state: Some(ApnsState {
-                key_id: config.key_id,
-                team_id: config.team_id,
+                key_id: config.keyid,
+                team_id: config.teamid,
                 private_key,
                 token: Arc::new(Mutex::new(None)),
             }),

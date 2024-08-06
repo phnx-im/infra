@@ -6,7 +6,7 @@ use config::{Config, ConfigError};
 use serde::Deserialize;
 
 /// Configuration for the server.
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
@@ -16,7 +16,7 @@ pub struct Settings {
 }
 
 /// Configuration for the application.
-#[derive(serde::Deserialize, Clone)]
+#[derive(serde::Deserialize, Clone, Debug)]
 pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,
@@ -24,28 +24,28 @@ pub struct ApplicationSettings {
 }
 
 /// Configuration for the database.
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: String,
     pub port: u16,
     pub host: String,
-    pub database_name: String,
-    pub ca_cert_path: Option<String>,
+    pub name: String,
+    pub cacertpath: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApnsSettings {
-    pub key_id: String,
-    pub team_id: String,
-    pub private_key_path: String,
+    pub keyid: String,
+    pub teamid: String,
+    pub privatekeypath: String,
 }
 
 impl DatabaseSettings {
     /// Add the TLS mode to the connection string if the CA certificate path is
     /// set.
     fn add_tls_mode(&self, mut connection_string: String) -> String {
-        if let Some(ref ca_cert_path) = self.ca_cert_path {
+        if let Some(ref ca_cert_path) = self.cacertpath {
             connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={}", ca_cert_path));
         }
         connection_string
@@ -55,7 +55,7 @@ impl DatabaseSettings {
     pub fn connection_string(&self) -> String {
         let connection_string = format!(
             "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database_name
+            self.username, self.password, self.host, self.port, self.name
         );
         self.add_tls_mode(connection_string)
     }
@@ -124,7 +124,9 @@ pub fn get_configuration(prefix: &str) -> Result<Settings, ConfigError> {
         )
         // Add in settings from environment variables (with a prefix of APP and '_' as separator)
         // E.g. `PHNX_APPLICATION_PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("PHNX").separator("_"));
+        .add_source(
+            config::Environment::with_prefix("PHNX").separator("_"), //.ignore_empty(true),
+        );
 
     builder.build()?.try_deserialize::<Settings>()
 }
