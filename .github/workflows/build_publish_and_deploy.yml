@@ -55,7 +55,7 @@ jobs:
           context: .
           push: true
           file: server/Dockerfile
-          tags: ${{ env.registry }}/${{ github.repository }}:${{ github.sha }}
+          tags: ${{ env.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
   deploy:
     needs: build-and-publish
@@ -74,4 +74,4 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
