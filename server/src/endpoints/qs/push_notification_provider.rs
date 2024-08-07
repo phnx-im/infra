@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use base64::{engine::general_purpose, Engine};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use phnxbackend::qs::{PushNotificationError, PushNotificationProvider};
 use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
@@ -56,21 +55,11 @@ impl ProductionPushNotificationProvider {
         let mut private_key_p8 = String::new();
         private_key_file.read_to_string(&mut private_key_p8)?;
 
-        // The private key needs to be converted to the correct format (PEM format)
-        let pem = private_key_p8
-            .replace("-----BEGIN PRIVATE KEY-----", "")
-            .replace("-----END PRIVATE KEY-----", "")
-            .replace("\n", "")
-            .replace("\r", "");
-
-        // Convert the private key to bytes
-        let private_key = general_purpose::STANDARD.decode(&pem)?;
-
         Ok(Self {
             apns_state: Some(ApnsState {
                 key_id: config.keyid,
                 team_id: config.teamid,
-                private_key,
+                private_key: private_key_p8.as_bytes().to_vec(),
                 token: Arc::new(Mutex::new(None)),
             }),
         })
