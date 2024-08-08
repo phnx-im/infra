@@ -51,7 +51,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 
@@ -163,7 +163,7 @@ impl From<Vec<u8>> for GroupData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
     leaf_signer: InfraCredentialSigningKey,
@@ -1128,19 +1128,20 @@ impl Group {
     /// apply the pending group diff.
     pub(super) fn merge_pending_commit(
         &mut self,
-        connection: &Connection,
+        transaction: &mut Transaction,
         staged_commit_option: impl Into<Option<StagedCommit>>,
         ds_timestamp: TimeStamp,
     ) -> Result<Vec<TimestampedMessage>> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
-        let free_indices = GroupMembership::free_indices(connection, self.group_id())?;
+        let savepoint = transaction.savepoint()?;
+        let provider = &PhnxOpenMlsProvider::new(&savepoint);
+        let free_indices = GroupMembership::free_indices(&savepoint, self.group_id())?;
         let staged_commit_option: Option<StagedCommit> = staged_commit_option.into();
 
         let event_messages = if let Some(staged_commit) = staged_commit_option {
             // Compute the messages we want to emit from the staged commit and the
             // client info diff.
             let staged_commit_messages = TimestampedMessage::from_staged_commit(
-                connection,
+                &savepoint,
                 self.group_id(),
                 free_indices,
                 &staged_commit,
@@ -1157,7 +1158,7 @@ impl Group {
             let staged_commit_messages =
                 if let Some(staged_commit) = self.mls_group.pending_commit() {
                     TimestampedMessage::from_staged_commit(
-                        connection,
+                        &savepoint,
                         self.group_id(),
                         free_indices,
                         staged_commit,
@@ -1189,7 +1190,10 @@ impl Group {
             }
         }
 
-        GroupMembership::merge_for_group(connection, self.group_id())?;
+        // Store the changes we just applied.
+        self.store_update(&savepoint)?;
+
+        GroupMembership::merge_for_group(&savepoint, self.group_id())?;
         self.pending_diff = None;
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
@@ -1199,7 +1203,7 @@ impl Group {
                 .members()
                 .map(|m| m.index)
                 .collect::<Vec<_>>();
-            let infra_group_members = GroupMembership::group_members(connection, self.group_id())?;
+            let infra_group_members = GroupMembership::group_members(&savepoint, self.group_id())?;
             if mls_group_members.len() != infra_group_members.len() {
                 log::info!(
                     "Group members according to OpenMLS: {:?}",
@@ -1212,12 +1216,13 @@ impl Group {
                 panic!("Group members don't match up.");
             }
             let infra_indices =
-                GroupMembership::client_indices(connection, self.group_id(), &infra_group_members)?;
+                GroupMembership::client_indices(&savepoint, self.group_id(), &infra_group_members)?;
             self.mls_group.members().for_each(|m| {
                 let index = m.index;
                 debug_assert!(infra_indices.contains(&index));
             });
         }
+        savepoint.commit()?;
         Ok(event_messages)
     }
 

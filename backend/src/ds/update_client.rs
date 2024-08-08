@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     errors::ClientUpdateError,
@@ -23,7 +23,7 @@ use super::{
 impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: UpdateClientParams,
     ) -> Result<SerializedMlsMessage, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.

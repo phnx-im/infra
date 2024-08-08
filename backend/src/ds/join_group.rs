@@ -4,7 +4,7 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage,
-    openmls::prelude::ProcessedMessageContent, openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::ProcessedMessageContent, MlsAssistRustCrypto,
 };
 use phnxtypes::{
     errors::JoinGroupError,
@@ -21,7 +21,7 @@ use super::{
 impl DsGroupState {
     pub(super) fn join_group(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: JoinGroupParams,
     ) -> Result<SerializedMlsMessage, JoinGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.

@@ -310,16 +310,18 @@ impl CoreUser {
                         // StagedCommitMessage Phase 2: Merge the staged commit into the group.
 
                         // If we were removed, we set the group to inactive.
-                        let connection = self.connection.lock().await;
+                        let mut connection = self.connection.lock().await;
                         if we_were_removed {
                             let past_members = group.members(&connection).into_iter().collect();
                             conversation.set_inactive(&connection, past_members)?;
                         }
+                        let mut transaction = connection.transaction()?;
                         let group_messages = group.merge_pending_commit(
-                            &connection,
+                            &mut transaction,
                             *staged_commit,
                             ds_timestamp,
                         )?;
+                        transaction.commit()?;
                         drop(connection);
 
                         (group_messages, conversation_changed)
@@ -332,7 +334,10 @@ impl CoreUser {
                 // MLSMessage Phase 3: Store the updated group and the messages.
                 let mut connection = self.connection.lock().await;
                 let mut transaction = connection.transaction()?;
-                group.store_update(&transaction)?;
+                // TODO: When turning this into a state machine, this needs to
+                // be called in the same transaction as merging the MLS group
+                // update.
+                //group.store_update(&transaction)?;
 
                 let conversation_messages =
                     Self::store_messages(&mut transaction, conversation_id, group_messages)?;

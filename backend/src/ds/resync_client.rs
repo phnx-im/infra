@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
@@ -19,7 +19,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: ResyncClientParams,
     ) -> Result<SerializedMlsMessage, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.

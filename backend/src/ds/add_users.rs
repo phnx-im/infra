@@ -11,6 +11,7 @@ use mls_assist::{
         Extension, KeyPackage, KeyPackageRef, OpenMlsProvider, ProcessedMessageContent, Sender,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 
 use phnxtypes::{
@@ -42,7 +43,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) async fn add_users<Q: QsConnector>(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,

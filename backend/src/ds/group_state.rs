@@ -7,9 +7,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use mls_assist::{
     group::Group,
     openmls::{
+        group::GroupId,
         prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
         treesync::RatchetTree,
     },
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     credentials::EncryptedClientCredential,
@@ -29,14 +31,14 @@ use serde::{Deserialize, Serialize};
 
 use super::api::ExternalCommitInfo;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
     pub(super) clients: Vec<LeafNodeIndex>,
     pub(super) user_auth_key: UserAuthVerifyingKey,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
     pub(super) encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
@@ -50,7 +52,8 @@ pub(super) struct ProposalStore {}
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SerializableDsGroupState {
-    pub(super) group: Group,
+    group_id_bytes: Vec<u8>,
+    pub(super) serialized_group_store: Vec<u8>,
     pub(super) user_profiles: Vec<(UserKeyHash, UserProfile)>,
     pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
     pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
@@ -58,23 +61,17 @@ pub(crate) struct SerializableDsGroupState {
 
 impl From<SerializableDsGroupState> for DsGroupState {
     fn from(value: SerializableDsGroupState) -> Self {
-        Self {
-            group: value.group,
+        let provider = MlsAssistRustCrypto::deserialize(&value.serialized_group_store).unwrap();
+        let group_id = GroupId::from_slice(&value.group_id_bytes);
+        println!("Loading group {:?}", group_id);
+        let group = Group::load(&provider, &group_id).unwrap().unwrap();
+        let ds_group = Self {
+            group,
             user_profiles: value.user_profiles.into_iter().collect(),
             unmerged_users: value.unmerged_users,
             client_profiles: value.client_profiles.into_iter().collect(),
-        }
-    }
-}
-
-impl From<DsGroupState> for SerializableDsGroupState {
-    fn from(value: DsGroupState) -> Self {
-        Self {
-            group: value.group,
-            user_profiles: value.user_profiles.into_iter().collect(),
-            unmerged_users: value.unmerged_users,
-            client_profiles: value.client_profiles.into_iter().collect(),
-        }
+        };
+        ds_group
     }
 }
 
@@ -92,6 +89,36 @@ pub(crate) struct DsGroupState {
 }
 
 impl DsGroupState {
+    pub(crate) fn into_serializable(
+        &self,
+        provider: &MlsAssistRustCrypto,
+    ) -> SerializableDsGroupState {
+        let serialized_group_store = provider.serialize().unwrap();
+        let user_profiles = self
+            .user_profiles
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<Vec<_>>();
+        let client_profiles = self
+            .client_profiles
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect::<Vec<_>>();
+        SerializableDsGroupState {
+            group_id_bytes: self
+                .group
+                .group_info()
+                .group_context()
+                .group_id()
+                .as_slice()
+                .to_vec(),
+            serialized_group_store,
+            user_profiles,
+            unmerged_users: self.unmerged_users.clone(),
+            client_profiles,
+        }
+    }
+
     //#[instrument(level = "trace", skip_all)]
     pub(crate) fn new(
         group: Group,

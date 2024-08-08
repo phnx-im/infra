@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
@@ -19,7 +19,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: SelfRemoveClientParams,
     ) -> Result<SerializedMlsMessage, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs

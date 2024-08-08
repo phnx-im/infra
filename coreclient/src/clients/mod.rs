@@ -471,8 +471,7 @@ impl CoreUser {
         let mut connection = self.connection.lock().await;
         let mut transaction = connection.transaction()?;
         // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-        group.store_update(&transaction)?;
+        let group_messages = group.merge_pending_commit(&mut transaction, None, ds_timestamp)?;
 
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id, group_messages)?;
@@ -521,8 +520,7 @@ impl CoreUser {
         // Phase 3: Merge the commit into the group
         let mut connection = self.connection.lock().await;
         let mut transaction = connection.transaction()?;
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-        group.store_update(&transaction)?;
+        let group_messages = group.merge_pending_commit(&mut transaction, None, ds_timestamp)?;
 
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id, group_messages)?;
@@ -568,11 +566,8 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        // Phase 3: Merge the commit into the group
+        // Phase 3: Mark the message as sent.
         let connection = self.connection.lock().await;
-        group.store_update(&connection)?;
-
-        // Mark the message as sent.
         conversation_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(conversation_message)
@@ -611,11 +606,8 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        // Phase 3: Merge the commit into the group
+        // Phase 3: Mark the message as sent.
         let connection = self.connection.lock().await;
-        group.store_update(&connection)?;
-
-        // Mark the message as sent.
         unsent_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(())
@@ -819,9 +811,7 @@ impl CoreUser {
         let mut connection = self.connection.lock().await;
         let mut transaction = connection.transaction()?;
 
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-
-        group.store_update(&transaction)?;
+        let group_messages = group.merge_pending_commit(&mut transaction, None, ds_timestamp)?;
 
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id.clone(), group_messages)?;
@@ -876,9 +866,10 @@ impl CoreUser {
                 .await?;
 
             // Phase 4: Merge the commit into the group
-            let connection = self.connection.lock().await;
-            let messages = group.merge_pending_commit(&connection, None, ds_timestamp)?;
-            group.store_update(&connection)?;
+            let mut connection = self.connection.lock().await;
+            let mut transaction = connection.transaction()?;
+            let messages = group.merge_pending_commit(&mut transaction, None, ds_timestamp)?;
+            transaction.commit()?;
             drop(connection);
             messages
         } else {
@@ -976,9 +967,7 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let connection = self.connection.lock().await;
-        group.store_update(&connection)?;
-        drop(connection);
+        // TODO: Handle potential rejection by the DS
 
         Ok(())
     }
@@ -1019,9 +1008,7 @@ impl CoreUser {
         let mut connection = self.connection.lock().await;
         let mut transaction = connection.transaction()?;
 
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-
-        group.store_update(&transaction)?;
+        let group_messages = group.merge_pending_commit(&mut transaction, None, ds_timestamp)?;
 
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id, group_messages)?;

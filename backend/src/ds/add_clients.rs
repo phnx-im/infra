@@ -7,6 +7,7 @@ use mls_assist::{
     messages::SerializedMlsMessage,
     openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     crypto::{
@@ -31,7 +32,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn add_clients(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: AddClientsParams,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), ClientAdditionError> {

@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use groups::openmls_provider::{
-    StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData, StorableKeyPackage,
-    StorableLeafNode, StorableProposal, StorablePskBundle, StorableSignatureKeyPairs,
+use groups::{
+    openmls_provider::{
+        StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData, StorableKeyPackage,
+        StorableLeafNode, StorableProposal, StorablePskBundle, StorableSignatureKeyPairs,
+    },
+    persistence::StorableGroup,
 };
 use key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
@@ -14,10 +17,7 @@ use own_client_info::OwnClientInfo;
 use phnxtypes::messages::push_token::PushToken;
 
 use self::{
-    groups::{
-        client_auth_info::{GroupMembership, StorableClientCredential},
-        Group,
-    },
+    groups::client_auth_info::{GroupMembership, StorableClientCredential},
     key_stores::leaf_keys::LeafKeys,
     utils::persistence::{Storable, Triggerable},
 };
@@ -213,7 +213,7 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <UserCreationState as Storable>::create_table(client_db_connection)?;
     <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
-    <Group as Storable>::create_table(client_db_connection)?;
+    <StorableGroup as Storable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Storable>::create_table(client_db_connection)?;

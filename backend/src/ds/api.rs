@@ -154,7 +154,7 @@ use mls_assist::{
         prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn, Sender},
         treesync::RatchetTree,
     },
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
@@ -217,7 +217,7 @@ impl DsApi {
         let group_id = message.group_id().clone();
         let ear_key = message.ear_key().clone();
 
-        let provider = &OpenMlsRustCrypto::default();
+        let provider = &MlsAssistRustCrypto::default();
 
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
@@ -472,12 +472,13 @@ impl DsApi {
                 .group_id()
                 .clone();
             // ... before we distribute the message, we encrypt ...
-            let encrypted_group_state = Into::<SerializableDsGroupState>::into(group_state)
+            let encrypted_group_state = group_state
+                .into_serializable(provider)
                 .encrypt(&ear_key)
                 .map_err(|e| {
-                    tracing::error!("Could not encrypt group state: {:?}", e);
-                    DsProcessingError::CouldNotEncrypt
-                })?;
+                tracing::error!("Could not encrypt group state: {:?}", e);
+                DsProcessingError::CouldNotEncrypt
+            })?;
 
             // ... and store the modified group state.
             ds_storage_provider

@@ -8,7 +8,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     crypto::signatures::keys::UserKeyHash, errors::UserRemovalError,
@@ -22,7 +22,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn remove_users(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &MlsAssistRustCrypto,
         params: RemoveUsersParams,
     ) -> Result<SerializedMlsMessage, UserRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.

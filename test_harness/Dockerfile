@@ -5,18 +5,18 @@
 FROM lukemathwalker/cargo-chef:latest-rust-latest as chef
 WORKDIR /app
 
-FROM chef as planner
+FROM chef AS planner
 COPY . .
 
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef as builder
+FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 
 RUN cargo chef cook --recipe-path recipe.json
 
 COPY . .
-ENV SQLX_OFFLINE true
+ENV SQLX_OFFLINE=true
 
 RUN cargo build --bin test_runner
 
@@ -33,7 +33,7 @@ COPY --from=builder /app/target/debug/test_runner test_runner
 
 RUN mkdir -p .local/share
 
-ENV PHNX_TEST_SCENARIO $test_scenario
-ENV TEST_LOG true
+ENV PHNX_TEST_SCENARIO=$test_scenario
+ENV TEST_LOG=true
 
 ENTRYPOINT ["./test_runner"]
