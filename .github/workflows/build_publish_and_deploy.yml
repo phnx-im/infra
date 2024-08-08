@@ -6,6 +6,9 @@ name: Build, publish and deploy phnxserver image
 
 # Configures this workflow to run every time a release is published.
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -44,6 +47,9 @@ jobs:
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@edfb0fe6204400c56fbfd3feba3fe9ad1adfa345
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
@@ -55,7 +61,7 @@ jobs:
           context: .
           push: true
           file: server/Dockerfile
-          tags: ${{ env.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   deploy:
     needs: build-and-publish
@@ -72,6 +78,10 @@ jobs:
           mkdir -p $HOME/.kube
           echo "${KUBECONFIG}" > $HOME/.kube/config
 
+      - name: Extract short SHA
+        id: get_sha
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Deploy to Kubernetes
         run: |
-          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_sha.outputs.sha_short }}
