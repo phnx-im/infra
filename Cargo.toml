@@ -22,6 +22,8 @@ reqwest = { version = "^0.12", features = [
     "json",
     "rustls-tls-webpki-roots",
     "brotli",
+    "http2",
+    "charset",
 ], default-features = false }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
