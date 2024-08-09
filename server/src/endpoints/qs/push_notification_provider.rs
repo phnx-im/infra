@@ -163,7 +163,10 @@ impl PushNotificationProvider for ProductionPushNotificationProvider {
                     .json(&payload)
                     .send()
                     .await
-                    .map_err(|e| PushNotificationError::NetworkError(e.to_string()))?;
+                    .map_err(|e| {
+                        tracing::warn!("Network error when sending PN request: {:?}", e);
+                        PushNotificationError::NetworkError(e.to_string())
+                    })?;
 
                 match res.status() {
                     StatusCode::OK => Ok(()),
