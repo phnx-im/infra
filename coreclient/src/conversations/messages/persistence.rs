@@ -38,13 +38,13 @@ impl Storable for ConversationMessage {
         let sent = row.get(5)?;
 
         let message = if sender_str == "system" {
-            let event_message = serde_json::from_slice(&message).map_err(|e| {
+            let event_message = phnxtypes::codec::from_slice(&message).map_err(|e| {
                 log::error!("Failed to deserialize content message: {}", e);
                 rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
             })?;
             Message::Event(event_message)
         } else {
-            let content = serde_json::from_slice(&message).map_err(|e| {
+            let content = phnxtypes::codec::from_slice(&message).map_err(|e| {
                 log::error!("Failed to deserialize content message: {}", e);
                 rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
             })?;
@@ -108,12 +108,12 @@ impl ConversationMessage {
             Message::Event(_) => "system".to_string(),
         };
         let content = match &self.timestamped_message.message {
-            Message::Content(content_message) => serde_json::to_vec(content_message.content())
+            Message::Content(content_message) => phnxtypes::codec::to_vec(content_message.content())
                 .map_err(|e| {
                     log::error!("Failed to serialize MIMI content: {}", e);
                     rusqlite::Error::ToSqlConversionFailure(Box::new(e))
                 })?,
-            Message::Event(event_message) => serde_json::to_vec(event_message).map_err(|e| {
+            Message::Event(event_message) => phnxtypes::codec::to_vec(event_message).map_err(|e| {
                 log::error!("Failed to serialize event message: {}", e);
                 rusqlite::Error::ToSqlConversionFailure(Box::new(e))
             })?,

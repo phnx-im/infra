@@ -27,6 +27,7 @@ phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tokio = { version = "1.29.0", features = ["rt", "macros"] }
 flutter_rust_bridge = { version = "=2.1.0", features = ["chrono"] }
 notify-rust = "4"
@@ -36,4 +37,3 @@ chrono = { version = "0.4", features = ["serde"] }
 # Workspace dependencies
 openmls = { workspace = true }
 tls_codec = { workspace = true }
-serde_json = "1.0.120"

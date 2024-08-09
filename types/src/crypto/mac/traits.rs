@@ -93,9 +93,9 @@ pub trait Taggable: Sized + Serialize {
 
     //fn serialized_payload<S: Serializer>(&self) -> Result<Vec<u8>, S::Error>;
 
-    fn tag(self, key: &Self::Key) -> Result<Self::TaggedOutput, serde_json::Error> {
+    fn tag(self, key: &Self::Key) -> Result<Self::TaggedOutput, crate::codec::Error> {
         // TODO: Not sure how to make serialization generic.
-        let serialized_payload: Vec<u8> = serde_json::to_vec(&self)?;
+        let serialized_payload: Vec<u8> = crate::codec::to_vec(&self)?;
         let tag = key.mac(&serialized_payload);
         Ok(<Self::TaggedOutput as TaggedStruct<Self>>::from_untagged_payload(self, tag))
     }

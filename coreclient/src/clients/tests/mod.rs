@@ -59,8 +59,8 @@ async fn user_stages() {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::BasicUserData(_)));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
 
     let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
@@ -85,8 +85,8 @@ async fn user_stages() {
         UserCreationState::InitialUserState(_)
     ));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -110,8 +110,8 @@ async fn user_stages() {
         UserCreationState::PostRegistrationInitState(_)
     ));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -135,8 +135,8 @@ async fn user_stages() {
         UserCreationState::UnfinalizedRegistrationState(_)
     ));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -160,8 +160,8 @@ async fn user_stages() {
         UserCreationState::AsRegisteredUserState(_)
     ));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -185,8 +185,8 @@ async fn user_stages() {
         UserCreationState::QsRegisteredUserState(_)
     ));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -207,7 +207,7 @@ async fn user_stages() {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::FinalUserState(_)));
     assert_eq!(
-        serde_json::to_vec(&computed_state).unwrap(),
-        serde_json::to_vec(&loaded_state).unwrap()
+        phnxtypes::codec::to_vec(&computed_state).unwrap(),
+        phnxtypes::codec::to_vec(&loaded_state).unwrap()
     );
 }

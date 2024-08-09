@@ -51,7 +51,7 @@ pub(crate) struct StagedGroupDiff {
 
 impl ToSql for StagedGroupDiff {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = serde_json::to_vec(self).map_err(|e| {
+        let bytes = phnxtypes::codec::to_vec(self).map_err(|e| {
             log::error!("Failed to serialize StagedGroupDiff: {:?}", e);
             rusqlite::Error::ToSqlConversionFailure(Box::new(e))
         })?;
@@ -62,7 +62,7 @@ impl ToSql for StagedGroupDiff {
 
 impl FromSql for StagedGroupDiff {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let staged_diff = serde_json::from_slice(value.as_blob()?).map_err(|e| {
+        let staged_diff = phnxtypes::codec::from_slice(value.as_blob()?).map_err(|e| {
             log::error!("Failed to deserialize StagedGroupDiff: {:?}", e);
             rusqlite::types::FromSqlError::Other(Box::new(e))
         })?;

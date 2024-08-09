@@ -79,7 +79,7 @@ pub struct UserAuthSigningKey {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for UserAuthSigningKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = serde_json::to_vec(self)
+        let bytes = crate::codec::to_vec(self)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(bytes),
@@ -91,7 +91,8 @@ impl rusqlite::types::ToSql for UserAuthSigningKey {
 impl rusqlite::types::FromSql for UserAuthSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let bytes = value.as_blob()?;
-        serde_json::from_slice(bytes).map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
+        crate::codec::from_slice(bytes)
+            .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
     }
 }
 

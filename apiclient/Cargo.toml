@@ -18,10 +18,8 @@ tokio-tungstenite = { version = "0.20.0", features = [
     "rustls-tls-webpki-roots",
 ] }
 futures-util = "0.3.21"
-serde_json = "1"
 http = "0.2.7"
 log = "0.4.17"
-base64 = "0.13.0"
 mls-assist = { workspace = true }
 privacypass = { workspace = true }
 tls_codec = { workspace = true }

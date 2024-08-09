@@ -163,7 +163,7 @@ impl SqliteQsStorage {
         let signing_key = QsSigningKey::generate()?;
         connection.execute(
             "INSERT INTO qs_signing_key (id, signing_key) VALUES (?, ?)",
-            params![Uuid::new_v4(), serde_json::to_vec(&signing_key)?],
+            params![Uuid::new_v4(), phnxtypes::codec::to_vec(&signing_key)?],
         )?;
         Ok(())
     }
@@ -181,7 +181,7 @@ impl SqliteQsStorage {
         let decryption_key = ClientIdDecryptionKey::generate()?;
         connection.execute(
             "INSERT INTO qs_decryption_key (id, decryption_key) VALUES (?, ?)",
-            params![Uuid::new_v4(), serde_json::to_vec(&decryption_key)?],
+            params![Uuid::new_v4(), phnxtypes::codec::to_vec(&decryption_key)?],
         )?;
 
         Ok(())
@@ -198,7 +198,7 @@ impl SqliteQsStorage {
         // Store the new config.
         connection.execute(
             "INSERT INTO qs_config (id, config) VALUES (?, ?)",
-            params![Uuid::new_v4(), serde_json::to_vec(&config)?],
+            params![Uuid::new_v4(), phnxtypes::codec::to_vec(&config)?],
         )?;
         Ok(())
     }
@@ -328,13 +328,13 @@ impl QsStorageProvider for SqliteQsStorage {
 
         // Create and store the client record.
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(serde_json::to_vec(ept)?)
+            Some(phnxtypes::codec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
-        let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = phnxtypes::codec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = phnxtypes::codec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = phnxtypes::codec::to_vec(client_record.current_ratchet_key())?;
         let activity_time = client_record.activity_time().time();
         let connection = self
             .connection
@@ -373,22 +373,22 @@ impl QsStorageProvider for SqliteQsStorage {
                     let encrypted_push_token = if let Some(ept) =
                         row.get::<_, Option<Vec<u8>>>(2)?
                     {
-                        Some(serde_json::from_slice(&ept).map_err(|e| {
+                        Some(phnxtypes::codec::from_slice(&ept).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(2, Type::Blob, Box::new(e))
                         })?)
                     } else {
                         None
                     };
-                    let owner_public_key = serde_json::from_slice(&row.get::<_, Vec<u8>>(3)?)
+                    let owner_public_key = phnxtypes::codec::from_slice(&row.get::<_, Vec<u8>>(3)?)
                         .map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(3, Type::Blob, Box::new(e))
                         })?;
-                    let owner_signature_key = serde_json::from_slice(&row.get::<_, Vec<u8>>(4)?)
+                    let owner_signature_key = phnxtypes::codec::from_slice(&row.get::<_, Vec<u8>>(4)?)
                         .map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
                         })?;
                     let ratchet =
-                        serde_json::from_slice(&row.get::<_, Vec<u8>>(5)?).map_err(|e| {
+                        phnxtypes::codec::from_slice(&row.get::<_, Vec<u8>>(5)?).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(5, Type::Blob, Box::new(e))
                         })?;
                     let activity_time_raw = row.get::<_, DateTime<Utc>>(6)?;
@@ -419,13 +419,13 @@ impl QsStorageProvider for SqliteQsStorage {
         client_record: QsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(serde_json::to_vec(ept)?)
+            Some(phnxtypes::codec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
-        let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = phnxtypes::codec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = phnxtypes::codec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = phnxtypes::codec::to_vec(client_record.current_ratchet_key())?;
         let activity_time = client_record.activity_time().time();
         let connection = self
             .connection
@@ -519,7 +519,7 @@ impl QsStorageProvider for SqliteQsStorage {
                 |row| {
                     let id = row.get::<_, Uuid>(0)?;
                     let ciphertext_bytes = row.get::<_, Vec<u8>>(1)?;
-                    let ciphertext = serde_json::from_slice(&ciphertext_bytes).map_err(|e| {
+                    let ciphertext = phnxtypes::codec::from_slice(&ciphertext_bytes).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
                     })?;
                     Ok((id, ciphertext))
@@ -579,7 +579,7 @@ impl QsStorageProvider for SqliteQsStorage {
                 |row| {
                     let id = row.get::<_, Uuid>(0)?;
                     let ciphertext_bytes = row.get::<_, Vec<u8>>(1)?;
-                    let ciphertext = serde_json::from_slice(&ciphertext_bytes).map_err(|e| {
+                    let ciphertext = phnxtypes::codec::from_slice(&ciphertext_bytes).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
                     })?;
                     Ok((id, ciphertext))
@@ -620,7 +620,7 @@ impl QsStorageProvider for SqliteQsStorage {
 
         // Get a fresh message ID (only used as a unique key for Sqlite)
         let message_id = Uuid::new_v4();
-        let message_bytes = serde_json::to_vec(&message)?;
+        let message_bytes = phnxtypes::codec::to_vec(&message)?;
         // Store the message in the DB
         connection.execute(
             "INSERT INTO queues (message_id, queue_id, sequence_number, message_bytes) VALUES (?, ?, ?, ?)",
@@ -668,7 +668,7 @@ impl QsStorageProvider for SqliteQsStorage {
         let messages: Vec<QueueMessage> = statement
             .query_map(params![client_id.as_uuid(), number_of_messages], |row| {
                 let message_bytes = row.get::<_, Vec<u8>>(0)?;
-                let message = serde_json::from_slice(&message_bytes).map_err(|e| {
+                let message = phnxtypes::codec::from_slice(&message_bytes).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                 })?;
                 Ok(message)
@@ -693,7 +693,7 @@ impl QsStorageProvider for SqliteQsStorage {
         let signing_key =
             connection.query_row("SELECT signing_key FROM qs_signing_key", [], |row| {
                 let signing_key_bytes = row.get::<_, Vec<u8>>(0)?;
-                let signing_key = serde_json::from_slice(&signing_key_bytes).map_err(|e| {
+                let signing_key = phnxtypes::codec::from_slice(&signing_key_bytes).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                 })?;
                 Ok(signing_key)
@@ -712,7 +712,7 @@ impl QsStorageProvider for SqliteQsStorage {
             connection.query_row("SELECT decryption_key FROM qs_decryption_key", [], |row| {
                 let decryption_key_bytes = row.get::<_, Vec<u8>>(0)?;
                 let decryption_key =
-                    serde_json::from_slice(&decryption_key_bytes).map_err(|e| {
+                    phnxtypes::codec::from_slice(&decryption_key_bytes).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                     })?;
                 Ok(decryption_key)
@@ -727,7 +727,7 @@ impl QsStorageProvider for SqliteQsStorage {
             .map_err(|_| LoadConfigError::MutexError)?;
         let config = connection.query_row("SELECT config FROM qs_config", [], |row| {
             let config_bytes = row.get::<_, Vec<u8>>(0)?;
-            let config = serde_json::from_slice(&config_bytes).map_err(|e| {
+            let config = phnxtypes::codec::from_slice(&config_bytes).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
             })?;
             Ok(config)
@@ -746,7 +746,7 @@ fn store_key_package(
     // package individually.
     let id = Uuid::new_v4();
     let client_uuid = client_id.as_uuid();
-    let ciphertext_bytes = serde_json::to_vec(&encrypted_key_package)?;
+    let ciphertext_bytes = phnxtypes::codec::to_vec(&encrypted_key_package)?;
     connection.execute(
         "INSERT INTO key_packages (id, client_id, encrypted_add_package, is_last_resort) VALUES (?, ?, ?, ?)",
         params![id, client_uuid, ciphertext_bytes, is_last_resort],
@@ -780,7 +780,7 @@ pub enum StoreClientError {
     MutexError,
     /// Error serializing client record
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -795,7 +795,7 @@ pub enum CreateClientError {
     UnknownUser,
     /// Error serializing client record
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -823,7 +823,7 @@ pub enum StoreKeyPackagesError {
     UnknownClient,
     /// Error serializing KeyPackage
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 /// Error creating user
@@ -865,7 +865,7 @@ pub enum QueueError {
     LibraryError,
     /// Error serializing message
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 /// Error while trying to read and delete messages from queue.
@@ -877,7 +877,7 @@ pub enum ReadAndDeleteError {
     MutexError,
     /// Error deserializing message
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
     /// A queue with the given id could not be found.
     #[error("The given queue id collides with an existing one.")]
     QueueNotFound,
@@ -897,7 +897,7 @@ pub enum GenerateKeyError {
     SqliteError(#[from] rusqlite::Error),
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
     #[error(transparent)]
     RandomnessError(#[from] RandomnessError),
 }
@@ -910,7 +910,7 @@ pub enum LoadSigningKeyError {
     MutexError,
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -921,7 +921,7 @@ pub enum LoadDecryptionKeyError {
     MutexError,
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -932,7 +932,7 @@ pub enum LoadConfigError {
     MutexError,
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -943,7 +943,7 @@ pub enum StoreConfigError {
     MutexError,
     /// Error deserializing key
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]

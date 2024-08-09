@@ -43,7 +43,7 @@ pub enum PostgresStorageError {
     #[error(transparent)]
     DatabaseError(#[from] sqlx::Error),
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
     #[error("Invalid input")]
     InvalidInput,
     #[error(transparent)]
@@ -84,13 +84,13 @@ impl DsStorageProvider for PostgresDsStorage {
         let result = match (ciphertext_bytes.as_slice(), deleted_queues_bytes.as_slice()) {
             ([], []) => Ok(LoadState::Reserved(TimeStamp::from(record.last_used))),
             (ciphertext_bytes, deleted_queues_bytes) => {
-                let ciphertext: Ciphertext = serde_json::from_slice(ciphertext_bytes)?;
+                let ciphertext: Ciphertext = phnxtypes::codec::from_slice(ciphertext_bytes)?;
                 let last_used = TimeStamp::from(record.last_used);
                 if last_used.has_expired(GROUP_STATE_EXPIRATION_DAYS) {
                     Ok(LoadState::Expired)
                 } else {
                     let deleted_queues: Vec<SealedClientReference> =
-                        serde_json::from_slice(deleted_queues_bytes)?;
+                        phnxtypes::codec::from_slice(deleted_queues_bytes)?;
                     let encrypted_group_state = EncryptedDsGroupState {
                         ciphertext,
                         last_used,
@@ -119,8 +119,8 @@ impl DsStorageProvider for PostgresDsStorage {
             })?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
         let last_used = Utc::now();
-        let deleted_queues = serde_json::to_vec(&encrypted_group_state.deleted_queues)?;
-        let ciphertext = serde_json::to_vec(&encrypted_group_state.ciphertext)?;
+        let deleted_queues = phnxtypes::codec::to_vec(&encrypted_group_state.deleted_queues)?;
+        let ciphertext = phnxtypes::codec::to_vec(&encrypted_group_state.ciphertext)?;
 
         // Insert the group state into the database.
         sqlx::query!(

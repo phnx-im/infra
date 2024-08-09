@@ -31,7 +31,7 @@ use crate::{
 
 use super::{push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QueueMessage};
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 pub struct QsOpenWsParams {
     pub queue_id: QsClientId,
 }

@@ -19,7 +19,7 @@ struct MlsGroupWrapper {
 
 impl FromSql for MlsGroupWrapper {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let mls_group = serde_json::from_slice(value.as_blob()?).map_err(|e| {
+        let mls_group = phnxtypes::codec::from_slice(value.as_blob()?).map_err(|e| {
             log::error!("Failed to deserialize MlsGroup: {:?}", e);
             rusqlite::types::FromSqlError::Other(Box::new(e))
         })?;
@@ -33,7 +33,7 @@ struct MlsGroupRefWrapper<'a> {
 
 impl<'a> ToSql for MlsGroupRefWrapper<'a> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = serde_json::to_vec(self.mls_group).map_err(|e| {
+        let bytes = phnxtypes::codec::to_vec(self.mls_group).map_err(|e| {
             log::error!("Failed to serialize MlsGroup: {:?}", e);
             rusqlite::Error::ToSqlConversionFailure(Box::new(e))
         })?;

@@ -77,10 +77,10 @@ pub trait GenericSerializable: Sized {
 }
 
 impl<T: serde::Serialize> GenericSerializable for T {
-    type Error = serde_json::Error;
+    type Error = crate::codec::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        serde_json::to_vec(self)
+        crate::codec::to_vec(self)
     }
 }
 
@@ -91,10 +91,10 @@ pub trait GenericDeserializable: Sized {
 }
 
 impl<T: DeserializeOwned> GenericDeserializable for T {
-    type Error = serde_json::Error;
+    type Error = crate::codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        serde_json::from_slice(bytes)
+        crate::codec::from_slice(bytes)
     }
 }
 

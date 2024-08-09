@@ -260,7 +260,7 @@ impl CoreUser {
         // Store the conversation attributes in the group's aad
         let conversation_attributes =
             ConversationAttributes::new(title.to_string(), conversation_picture_option);
-        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
+        let group_data = phnxtypes::codec::to_vec(&conversation_attributes)?.into();
 
         // Phase 1: Create and store the group in the OpenMLS provider
         let mut connection = self.connection.lock().await;
@@ -678,7 +678,7 @@ impl CoreUser {
         log::info!("Creating local connection group");
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
-        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
+        let group_data = phnxtypes::codec::to_vec(&conversation_attributes)?.into();
         let mut connection = self.connection.lock().await;
         let (connection_group, partial_params) = Group::create_group(
             &mut connection,

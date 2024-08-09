@@ -15,7 +15,6 @@ use actix_web::{
 };
 use actix_web_actors::ws::{self};
 use async_trait::*;
-use base64::{engine::general_purpose, Engine as _};
 use dispatch::*;
 use messages::*;
 use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
@@ -23,6 +22,7 @@ use phnxtypes::{
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
+use tls_codec::DeserializeBytes;
 use tokio::{self, time::Duration};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -164,7 +164,7 @@ impl Handler<InternalQsWsMessage> for QsWsConnection {
 
     fn handle(&mut self, msg: InternalQsWsMessage, ctx: &mut Self::Context) {
         // Serialize the message
-        let serialized = serde_json::to_vec(&msg.inner).unwrap();
+        let serialized = phnxtypes::codec::to_vec(&msg.inner).unwrap();
         // Send the message to the client
         ctx.binary(serialized);
     }
@@ -190,29 +190,18 @@ pub(crate) async fn upgrade_connection(
         }
     };
 
-    // Decode the header value
-    let decoded_header_value: Vec<u8> = match general_purpose::STANDARD.decode(header_value) {
-        Ok(value) => value,
-        Err(e) => {
-            tracing::error!("Could not decode QsOpenWsParams header: {}", e);
-            return HttpResponse::BadRequest().body(format!(
-                "Could not decode base64 QsOpenWsParams header: {}",
-                e
-            ));
-        }
-    };
-
     // Deserialize the header value
-    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(&decoded_header_value) {
-        Ok(value) => value,
-        Err(e) => {
-            tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
-            return HttpResponse::BadRequest().body(format!(
-                "Could not deserialize QsOpenWsParams header: {}",
-                e
-            ));
-        }
-    };
+    let qs_open_ws_params =
+        match QsOpenWsParams::tls_deserialize_exact_bytes(header_value.as_bytes()) {
+            Ok(value) => value,
+            Err(e) => {
+                tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
+                return HttpResponse::BadRequest().body(format!(
+                    "Could not deserialize QsOpenWsParams header: {}",
+                    e
+                ));
+            }
+        };
 
     // Extract the queue ID
     let qs_ws_connection = QsWsConnection::new(

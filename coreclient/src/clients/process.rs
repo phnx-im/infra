@@ -112,7 +112,7 @@ impl CoreUser {
                 // group data.
                 let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
                 let attributes: ConversationAttributes =
-                    serde_json::from_slice(group_data.bytes())?;
+                    phnxtypes::codec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
