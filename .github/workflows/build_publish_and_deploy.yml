@@ -68,7 +68,7 @@ jobs:
 
     steps:
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v1
+        uses: azure/setup-kubectl@v4
       
       - name: Configure kubectl 
         env:
