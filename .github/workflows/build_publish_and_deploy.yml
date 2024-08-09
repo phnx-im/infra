@@ -23,11 +23,12 @@ env:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    outputs: 
+      digest: ${{ steps.build-and-push.outputs.digest }} 
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
       contents: read
       packages: write
-      # 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,12 +51,13 @@ jobs:
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
       - name: Build and push Docker image
+        id: build-and-push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
           push: true
           file: server/Dockerfile
-          tags: ${{ env.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   deploy:
     needs: build-and-publish
@@ -63,7 +65,7 @@ jobs:
 
     steps:
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v1
+        uses: azure/setup-kubectl@v4
       
       - name: Configure kubectl 
         env:
@@ -74,4 +76,4 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          kubectl set image deployment/infra-server-dev phnxserver=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.digest }}
