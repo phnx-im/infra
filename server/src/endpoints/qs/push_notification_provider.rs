@@ -9,7 +9,6 @@ use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     fs::File,
     io::Read,
     sync::{Arc, Mutex},
@@ -142,25 +141,25 @@ impl PushNotificationProvider for ProductionPushNotificationProvider {
                 headers.insert("apns-priority", "10".parse().unwrap());
                 headers.insert("apns-expiration", "0".parse().unwrap());
 
-                let mut payload = HashMap::new();
-                payload.insert(
-                    "aps",
-                    serde_json::json!({
+                let body = r#"
+                {
+                    "aps": {
                         "alert": {
-                            "title": "Prototype",
-                            "body": "placeholder body"
+                        "title": "Empty notification",
+                        "body": "Please report this issue"
                         },
-                        "mutable-content": 1
-                    }),
-                );
-                payload.insert("customData", serde_json::json!("custom payload"));
+                         "mutable-content": 1
+                    },
+                    "data": "data",
+                }
+                "#;
 
                 // Send the push notification
                 let client = Client::new();
                 let res = client
                     .post(url)
                     .headers(headers)
-                    .json(&payload)
+                    .body(body)
                     .send()
                     .await
                     .map_err(|e| PushNotificationError::NetworkError(e.to_string()))?;
