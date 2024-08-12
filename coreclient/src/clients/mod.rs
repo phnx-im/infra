@@ -1116,14 +1116,21 @@ impl CoreUser {
         Ok(())
     }
 
+    /// Returns how many messages are marked as unread across all conversations.
+    pub async fn global_unread_messages_count(&self) -> Result<u32, rusqlite::Error> {
+        let connection = &self.connection.lock().await;
+        let count = Conversation::global_unread_message_count(connection)?;
+        Ok(count)
+    }
+
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
-    pub async fn unread_message_count(
+    pub async fn unread_messages_count(
         &self,
         conversation_id: ConversationId,
     ) -> Result<u32, rusqlite::Error> {
         let connection = &self.connection.lock().await;
-        let count = Conversation::unread_message_count(connection, conversation_id)?;
+        let count = Conversation::unread_messages_count(connection, conversation_id)?;
         Ok(count)
     }
 
