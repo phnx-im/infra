@@ -25,8 +25,6 @@ use privacypass::{
     batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
-#[cfg(feature = "sqlite_provider")]
-use rusqlite::{types::FromSql, ToSql};
 use sqlx::{
     postgres::PgArguments,
     types::{BigDecimal, Uuid},
@@ -192,28 +190,6 @@ impl BatchedKeyStore for PostgresAsStorage {
 pub(crate) enum CredentialType {
     As,
     Intermediate,
-}
-
-#[cfg(feature = "sqlite_provider")]
-impl FromSql for CredentialType {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = i16::column_result(value)?;
-        match value {
-            0 => Ok(CredentialType::As),
-            1 => Ok(CredentialType::Intermediate),
-            _ => Err(rusqlite::types::FromSqlError::InvalidType),
-        }
-    }
-}
-
-#[cfg(feature = "sqlite_provider")]
-impl ToSql for CredentialType {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        match self {
-            CredentialType::As => 0.to_sql(),
-            CredentialType::Intermediate => 1.to_sql(),
-        }
-    }
 }
 
 #[async_trait]
