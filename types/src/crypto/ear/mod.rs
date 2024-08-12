@@ -11,8 +11,7 @@ mod traits;
 
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 pub use traits::{
-    EarDecryptable, EarEncryptable, EarKey, EncryptionError, GenericDeserializable,
-    GenericSerializable,
+    EarDecryptable, EarEncryptable, EarKey, GenericDeserializable, GenericSerializable,
 };
 
 use aes_gcm::Aes256Gcm;

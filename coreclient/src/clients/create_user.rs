@@ -16,7 +16,7 @@ use phnxtypes::{
         ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
-        signatures::signable::Verifiable,
+        signatures::{signable::Verifiable, DEFAULT_SIGNATURE_SCHEME},
     },
     messages::{
         client_as::ConnectionPackage,
@@ -75,7 +75,7 @@ impl BasicUserData {
 
         // Create CSR for AS to sign
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(self.as_client_id.clone(), SignatureScheme::ED25519)?;
+            ClientCredentialCsr::new(self.as_client_id.clone(), DEFAULT_SIGNATURE_SCHEME)?;
 
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,

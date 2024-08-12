@@ -64,17 +64,17 @@
 use phnxtypes::{
     crypto::{
         errors::RandomnessError,
-        signatures::{keys::QsVerifyingKey, traits::SigningKey},
+        signatures::{
+            keys::QsVerifyingKey,
+            private_keys::{generate_signature_keypair, PrivateKey},
+            traits::SigningKey,
+        },
     },
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
 use async_trait::*;
-use mls_assist::{
-    openmls::prelude::{OpenMlsCrypto, OpenMlsProvider},
-    openmls_rust_crypto::OpenMlsRustCrypto,
-};
 use serde::{Deserialize, Serialize};
 
 use crate::messages::intra_backend::DsFanOutMessage;
@@ -137,17 +137,14 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QsSigningKey {
-    signing_key: Vec<u8>,
+    signing_key: PrivateKey,
     verifiying_key: QsVerifyingKey,
 }
 
 impl QsSigningKey {
     pub fn generate() -> Result<Self, RandomnessError> {
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = rust_crypto
-            .crypto()
-            .signature_key_gen(mls_assist::openmls::prelude::SignatureScheme::ED25519)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let (signing_key, verifying_key) =
+            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
         let key = Self {
             signing_key,
             verifiying_key: QsVerifyingKey::new(verifying_key),
@@ -160,8 +157,8 @@ impl QsSigningKey {
     }
 }
 
-impl AsRef<[u8]> for QsSigningKey {
-    fn as_ref(&self) -> &[u8] {
+impl AsRef<PrivateKey> for QsSigningKey {
+    fn as_ref(&self) -> &PrivateKey {
         &self.signing_key
     }
 }

@@ -7,7 +7,7 @@ use openmls::group::{
     AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
     MlsGroupStateError, ProcessMessageError, WelcomeError,
 };
-use phnxtypes::crypto::DecryptionError;
+use phnxtypes::crypto::errors::DecryptionError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

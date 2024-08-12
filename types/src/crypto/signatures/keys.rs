@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{
-        HashType, OpenMlsCrypto, OpenMlsProvider, SignaturePublicKey, SignatureScheme,
-    },
+    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignaturePublicKey},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use serde::{Deserialize, Serialize};
@@ -13,15 +11,10 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 
 use crate::crypto::errors::{KeyGenerationError, RandomnessError};
 
-use super::traits::{SigningKey, VerifyingKey};
-
-/// Generates a tuple consisting of private and public key.
-pub fn generate_signature_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyGenerationError> {
-    OpenMlsRustCrypto::default()
-        .crypto()
-        .signature_key_gen(SignatureScheme::ED25519)
-        .map_err(|_| KeyGenerationError::KeypairGeneration)
-}
+use super::{
+    private_keys::{generate_signature_keypair, PrivateKey},
+    traits::{SigningKey, VerifyingKey},
+};
 
 #[derive(Debug)]
 pub struct LeafVerifyingKeyRef<'a> {
@@ -72,7 +65,7 @@ impl UserAuthVerifyingKey {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserAuthSigningKey {
-    signing_key: Vec<u8>,
+    signing_key: PrivateKey,
     verifying_key: UserAuthVerifyingKey,
 }
 
@@ -112,8 +105,8 @@ impl UserAuthSigningKey {
     }
 }
 
-impl AsRef<[u8]> for UserAuthSigningKey {
-    fn as_ref(&self) -> &[u8] {
+impl AsRef<PrivateKey> for UserAuthSigningKey {
+    fn as_ref(&self) -> &PrivateKey {
         &self.signing_key
     }
 }
@@ -160,17 +153,15 @@ impl VerifyingKey for QsClientVerifyingKey {}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct QsClientSigningKey {
-    signing_key: Vec<u8>,
+    signing_key: PrivateKey,
     verifying_key: QsClientVerifyingKey,
 }
 
 impl QsClientSigningKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let rust_crypto = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = rust_crypto
-            .crypto()
-            .signature_key_gen(SignatureScheme::ED25519)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let (signing_key, verifying_key) =
+            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             signing_key,
             verifying_key: QsClientVerifyingKey { verifying_key },
@@ -182,8 +173,8 @@ impl QsClientSigningKey {
     }
 }
 
-impl AsRef<[u8]> for QsClientSigningKey {
-    fn as_ref(&self) -> &[u8] {
+impl AsRef<PrivateKey> for QsClientSigningKey {
+    fn as_ref(&self) -> &PrivateKey {
         &self.signing_key
     }
 }
@@ -215,17 +206,14 @@ impl VerifyingKey for QsUserVerifyingKey {}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct QsUserSigningKey {
-    signing_key: Vec<u8>,
+    signing_key: PrivateKey,
     verifying_key: QsUserVerifyingKey,
 }
 
 impl QsUserSigningKey {
     pub fn random() -> Result<Self, RandomnessError> {
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) = rust_crypto
-            .crypto()
-            .signature_key_gen(SignatureScheme::ED25519)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let (signing_key, verifying_key) =
+            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             signing_key,
             verifying_key: QsUserVerifyingKey { verifying_key },
@@ -237,8 +225,8 @@ impl QsUserSigningKey {
     }
 }
 
-impl AsRef<[u8]> for QsUserSigningKey {
-    fn as_ref(&self) -> &[u8] {
+impl AsRef<PrivateKey> for QsUserSigningKey {
+    fn as_ref(&self) -> &PrivateKey {
         &self.signing_key
     }
 }
