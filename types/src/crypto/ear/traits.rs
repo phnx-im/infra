@@ -11,21 +11,14 @@ use aes_gcm::{
     KeyInit,
 };
 use serde::de::DeserializeOwned;
-use thiserror::Error;
 use tracing::instrument;
 
-use crate::crypto::{errors::RandomnessError, secrets::Secret, DecryptionError};
+use crate::crypto::{
+    errors::{DecryptionError, EncryptionError, RandomnessError},
+    secrets::Secret,
+};
 
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
-
-/// Errors that can occur during an encryption operation.
-#[derive(Debug, Error)]
-pub enum EncryptionError {
-    #[error("Not enough randomness to generate Nonce")]
-    RandomnessError, // Not enough randomness to generate Nonce
-    #[error("Error encrypting the plaintext")]
-    LibraryError, // Error encrypting the plaintext
-}
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.
@@ -42,12 +35,12 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
         let nonce_raw = Secret::<AEAD_NONCE_SIZE>::random().map_err(|e| match e {
             RandomnessError::InsufficientRandomness => EncryptionError::RandomnessError,
         })?;
-        let nonce = Nonce::<Aead>::from(nonce_raw.secret);
+        let nonce = Nonce::<Aead>::from(nonce_raw.into_secret());
         // The Aead trait surfaces an error, but it's not clear under which
         // circumstances it would actually fail.
         let ciphertext = cipher
             .encrypt(&nonce, plaintext)
-            .map_err(|_| EncryptionError::LibraryError)?
+            .map_err(|_| EncryptionError::EncryptionError)?
             .into();
         Ok(Ciphertext {
             ciphertext,
@@ -108,7 +101,7 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<CiphertextType, EncryptionError> {
         let plaintext = self.serialize().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
-            EncryptionError::LibraryError
+            EncryptionError::SerializationError
         })?;
         let ciphertext = ear_key.encrypt(&plaintext)?;
         Ok(ciphertext.into())

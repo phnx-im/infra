@@ -25,8 +25,8 @@ pub(crate) trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>
         let kdf = Kdf::from_prk(self.as_ref().secret()).map_err(|_| LibraryError)?;
         let kdf_info = [Self::ADDITIONAL_LABEL.as_bytes(), info].concat();
         let mut output = [0u8; LENGTH];
-        let _ = kdf.expand(info, &mut output);
-        Ok(Secret { secret: output })
+        kdf.expand(info, &mut output).map_err(|_| LibraryError)?;
+        Ok(Secret::from(output))
     }
 }
 
@@ -78,9 +78,8 @@ pub(crate) trait KdfExtractable<
     ))]
     fn extract(input_1: &FirstInput, input_2: &SecondInput) -> Self {
         let (output, _) = Kdf::extract(Some(input_1.as_ref().secret()), input_2.as_ref().secret());
-        Secret {
-            secret: output.into(),
-        }
-        .into()
+        let output_array: [u8; KDF_KEY_SIZE] = output.into();
+        let secret = Secret::from(output_array);
+        secret.into()
     }
 }

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{network_provider_trait::NetworkProvider, storage_provider_trait::QsStorageProvider};
-use phnxtypes::crypto::DecryptionError;
+use phnxtypes::crypto::errors::DecryptionError;
 use thiserror::Error;
 
 // === DS API errors ===

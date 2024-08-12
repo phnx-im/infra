@@ -3,8 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::{key_packages::InitKey, prelude::HpkePublicKey},
-    openmls_traits::types::{HpkeCiphertext, HpkePrivateKey},
+    openmls::{
+        key_packages::InitKey,
+        prelude::{HpkeAeadType, HpkeConfig, HpkeKdfType, HpkeKemType, HpkePublicKey},
+    },
+    openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::{
+        crypto::OpenMlsCrypto,
+        random::OpenMlsRand,
+        types::{HpkeCiphertext, HpkePrivateKey},
+        OpenMlsProvider,
+    },
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -13,9 +22,89 @@ use crate::identifiers::{ClientConfig, SealedClientReference};
 
 use super::{
     ear::{GenericDeserializable, GenericSerializable},
-    errors::{RandomnessError, SealError},
-    DecryptionError, DecryptionPrivateKey, EncryptionPublicKey,
+    errors::{DecryptionError, EncryptionError, RandomnessError},
 };
+
+#[derive(
+    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
+pub struct EncryptionPublicKey {
+    public_key: Vec<u8>,
+}
+
+impl From<Vec<u8>> for EncryptionPublicKey {
+    fn from(value: Vec<u8>) -> Self {
+        Self { public_key: value }
+    }
+}
+
+pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
+    HpkeKemType::DhKem25519,
+    HpkeKdfType::HkdfSha256,
+    HpkeAeadType::AesGcm256,
+);
+
+impl EncryptionPublicKey {
+    /// Encrypt the given plaintext using this key.
+    pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
+            .crypto()
+            .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
+            // TODO: get rid of unwrap
+            .unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecryptionPrivateKey {
+    private_key: HpkePrivateKey,
+    public_key: EncryptionPublicKey,
+}
+
+impl DecryptionPrivateKey {
+    pub fn new(private_key: HpkePrivateKey, public_key: EncryptionPublicKey) -> Self {
+        Self {
+            private_key,
+            public_key,
+        }
+    }
+
+    pub fn decrypt(
+        &self,
+        info: &[u8],
+        aad: &[u8],
+        ct: &HpkeCiphertext,
+    ) -> Result<Vec<u8>, DecryptionError> {
+        let rust_crypto = OpenMlsRustCrypto::default();
+        rust_crypto
+            .crypto()
+            .hpke_open(HPKE_CONFIG, ct, &self.private_key, info, aad)
+            .map_err(|_| DecryptionError::DecryptionError)
+    }
+
+    pub fn generate() -> Result<Self, RandomnessError> {
+        let provider = OpenMlsRustCrypto::default();
+        let key_seed = provider
+            .rand()
+            .random_array::<32>()
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let keypair = provider
+            .crypto()
+            .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        Ok(Self {
+            private_key: keypair.private,
+            public_key: EncryptionPublicKey {
+                public_key: keypair.public,
+            },
+        })
+    }
+
+    pub fn public_key(&self) -> &EncryptionPublicKey {
+        &self.public_key
+    }
+}
 
 // TODO: We might want to properly fix AAD and Info at some point.
 pub trait HpkeEncryptable<
@@ -138,10 +227,10 @@ impl ClientIdEncryptionKey {
     pub fn seal_client_config(
         &self,
         client_config: ClientConfig,
-    ) -> Result<SealedClientReference, SealError> {
+    ) -> Result<SealedClientReference, EncryptionError> {
         let bytes = client_config
             .tls_serialize_detached()
-            .map_err(|_| SealError::CodecError)?;
+            .map_err(|_| EncryptionError::SerializationError)?;
         let ciphertext = self.public_key.encrypt(&[], &[], &bytes);
         Ok(SealedClientReference { ciphertext })
     }

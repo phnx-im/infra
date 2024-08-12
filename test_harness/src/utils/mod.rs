@@ -11,7 +11,6 @@ use std::{
 
 pub mod setup;
 
-use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxserver::{
     configurations::get_configuration,
@@ -26,7 +25,7 @@ use phnxserver::{
     },
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::identifiers::Fqdn;
+use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 use uuid::Uuid;
 
 #[cfg(not(feature = "sqlite_provider"))]
@@ -114,13 +113,11 @@ pub async fn spawn_app(
     #[cfg(not(feature = "sqlite_provider"))]
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
-        SignatureScheme::ED25519,
+        DEFAULT_SIGNATURE_SCHEME,
         &configuration.database,
     )
     .await
     .expect("Failed to connect to database.");
-    //let as_storage_provider =
-    //    MemoryAsStorage::new(domain.clone(), SignatureScheme::ED25519).unwrap();
     let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
