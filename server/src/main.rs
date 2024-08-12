@@ -4,7 +4,6 @@
 
 use std::{net::TcpListener, sync::Arc};
 
-use mls_assist::openmls_traits::types::SignatureScheme;
 use phnxserver::{
     configurations::*,
     endpoints::qs::{
@@ -19,7 +18,7 @@ use phnxserver::{
     },
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::identifiers::Fqdn;
+use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -83,7 +82,7 @@ async fn main() -> std::io::Result<()> {
     configuration.database.name = format!("{}_as", base_db_name);
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
-        SignatureScheme::ED25519,
+        DEFAULT_SIGNATURE_SCHEME,
         &configuration.database,
     )
     .await

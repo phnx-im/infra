@@ -13,7 +13,8 @@ use openmls::prelude::{
 use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
-        ear::{EarEncryptable, EncryptionError},
+        ear::EarEncryptable,
+        errors::EncryptionError,
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
     },
     identifiers::{

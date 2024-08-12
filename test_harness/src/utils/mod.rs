@@ -11,7 +11,6 @@ use std::{
 
 pub mod setup;
 
-use mls_assist::openmls_traits::types::SignatureScheme;
 use once_cell::sync::Lazy;
 use phnxserver::{
     configurations::get_configuration,
@@ -26,7 +25,7 @@ use phnxserver::{
     },
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::identifiers::Fqdn;
+use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 use uuid::Uuid;
 
 use phnxserver::storage_provider::postgres::{
@@ -90,7 +89,7 @@ pub async fn spawn_app(
     configuration.database.name = Uuid::new_v4().to_string();
     let as_storage_provider = PostgresAsStorage::new(
         domain.clone(),
-        SignatureScheme::ED25519,
+        DEFAULT_SIGNATURE_SCHEME,
         &configuration.database,
     )
     .await
