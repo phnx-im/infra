@@ -13,7 +13,7 @@ use phnxtypes::{
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
 use thiserror::*;
-use tls_codec::Serialize;
+use tls_codec::DeserializeBytes;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{self, Receiver, Sender},
@@ -168,7 +168,7 @@ impl QsWebSocket {
                                 }
                                 // Try to deserialize the message
                                 if let Ok(QsWsMessage::QueueUpdate) =
-                                    phnxtypes::codec::from_slice::<QsWsMessage>(&data)
+                                    QsWsMessage::tls_deserialize_exact_bytes(&data)
                                 {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel
@@ -270,17 +270,19 @@ impl ApiClient {
     ) -> Result<QsWebSocket, SpawnWsError> {
         // Set the request parameter
         let qs_ws_open_params = QsOpenWsParams { queue_id };
-        let serialized = qs_ws_open_params
-            .tls_serialize_detached()
-            .map_err(|_| SpawnWsError::WrongParameters)?;
+        let serialized =
+            serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
         // Format the URL
         let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly
         let _ = Request::builder()
             .uri(address.clone())
-            .header("QsOpenWsParams", serialized.as_slice())
+            .header("QsOpenWsParams", &serialized)
             .body(())
-            .map_err(|_| SpawnWsError::WrongUrl)?;
+            .map_err(|e| {
+                println!("Error: {:?}", e);
+                SpawnWsError::WrongUrl
+            })?;
 
         // We create a channel to send events to
         let (tx, rx) = broadcast::channel(100);
@@ -301,7 +303,7 @@ impl ApiClient {
                     Ok(mut req) => {
                         req.headers_mut().insert(
                             "QsOpenWsParams",
-                            HeaderValue::from_bytes(&serialized).unwrap(),
+                            HeaderValue::from_str(&serialized).unwrap(),
                         );
                         req
                     }

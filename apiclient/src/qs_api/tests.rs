@@ -17,7 +17,7 @@ use phnxtypes::{
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use tls_codec::DeserializeBytes;
+use tls_codec::Serialize;
 use uuid::Uuid;
 
 use crate::{qs_api::ws::WsEvent, ApiClient};
@@ -100,17 +100,16 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     };
 
     // Deserialize the header value
-    let qs_open_ws_params =
-        match QsOpenWsParams::tls_deserialize_exact_bytes(header_value.as_bytes()) {
-            Ok(value) => value,
-            Err(e) => {
-                log::error!("Could not deserialize QsOpenWsParams header: {}", e);
-                return HttpResponse::BadRequest().body(format!(
-                    "Could not deserialize QsOpenWsParams header: {}",
-                    e
-                ));
-            }
-        };
+    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(header_value.as_bytes()) {
+        Ok(value) => value,
+        Err(e) => {
+            log::error!("Could not deserialize QsOpenWsParams header: {}", e);
+            return HttpResponse::BadRequest().body(format!(
+                "Could not deserialize QsOpenWsParams header: {}",
+                e
+            ));
+        }
+    };
 
     // Check the queue id value
     assert_eq!(qs_open_ws_params.queue_id.as_uuid(), &QUEUE_ID_VALUE);
@@ -160,7 +159,8 @@ impl Actor for QsWsConnection {
                 ctx.run_later(Duration::from_secs(2), |_act, ctx| {
                     // Now we send an actual message
                     // Serialize the message
-                    let serialized = phnxtypes::codec::to_vec(&QsWsMessage::QueueUpdate)
+                    let serialized = QsWsMessage::QueueUpdate
+                        .tls_serialize_detached()
                         .expect("Failed to serialize message");
                     // Send the message to the client
                     log::info!("Sending binary message");

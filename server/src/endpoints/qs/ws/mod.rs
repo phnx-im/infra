@@ -22,7 +22,7 @@ use phnxtypes::{
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use tls_codec::DeserializeBytes;
+use tls_codec::Serialize;
 use tokio::{self, time::Duration};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -164,7 +164,7 @@ impl Handler<InternalQsWsMessage> for QsWsConnection {
 
     fn handle(&mut self, msg: InternalQsWsMessage, ctx: &mut Self::Context) {
         // Serialize the message
-        let serialized = phnxtypes::codec::to_vec(&msg.inner).unwrap();
+        let serialized = msg.inner.tls_serialize_detached().unwrap();
         // Send the message to the client
         ctx.binary(serialized);
     }
@@ -191,17 +191,16 @@ pub(crate) async fn upgrade_connection(
     };
 
     // Deserialize the header value
-    let qs_open_ws_params =
-        match QsOpenWsParams::tls_deserialize_exact_bytes(header_value.as_bytes()) {
-            Ok(value) => value,
-            Err(e) => {
-                tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
-                return HttpResponse::BadRequest().body(format!(
-                    "Could not deserialize QsOpenWsParams header: {}",
-                    e
-                ));
-            }
-        };
+    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(header_value.as_bytes()) {
+        Ok(value) => value,
+        Err(e) => {
+            tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
+            return HttpResponse::BadRequest().body(format!(
+                "Could not deserialize QsOpenWsParams header: {}",
+                e
+            ));
+        }
+    };
 
     // Extract the queue ID
     let qs_ws_connection = QsWsConnection::new(

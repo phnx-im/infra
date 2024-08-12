@@ -17,6 +17,7 @@ pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error>
 where
     T: Sized + Serialize,
 {
+    //Ok(serde_json::to_vec(value).unwrap())
     let mut buf = Vec::new();
     ciborium::into_writer(value, &mut buf)?;
     Ok(buf)
@@ -26,5 +27,6 @@ pub fn from_slice<T>(bytes: &[u8]) -> Result<T, Error>
 where
     T: DeserializeOwned,
 {
+    //Ok(serde_json::from_slice(bytes).unwrap())
     Ok(ciborium::de::from_reader(bytes)?)
 }
