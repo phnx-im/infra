@@ -189,4 +189,12 @@ impl User {
     pub async fn flush_debouncer_state(&self) -> Result<()> {
         self.app_state.flush_debouncer_state().await
     }
+
+    /// Get the unread messages count across all conversations.
+    pub async fn global_unread_messages_count(&self) -> u32 {
+        self.user
+            .global_unread_messages_count()
+            .await
+            .unwrap_or_default()
+    }
 }
