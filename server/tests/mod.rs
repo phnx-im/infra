@@ -583,7 +583,7 @@ async fn mark_as_read() {
     let timestamp = messages_sent[messages_sent.len() - 3].timestamp();
 
     alice
-        .mark_as_read([(alice_bob_conversation, timestamp)])
+        .mark_as_read([(alice_bob_conversation, timestamp.time())])
         .await
         .unwrap();
 
