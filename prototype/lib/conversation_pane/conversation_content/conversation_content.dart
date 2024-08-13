@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-
+import 'dart:collection';
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_pane/conversation_content/display_message_tile.dart';
+import 'package:prototype/conversation_pane/conversation_content/conversation_tile.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
-import 'text_message_tile.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:collection/collection.dart';
 
@@ -23,7 +22,10 @@ class ConversationContent extends StatefulWidget {
 
 class _ConversationContentState extends State<ConversationContent> {
   final ScrollController _scrollController = ScrollController();
-  List<UiConversationMessage> messages = [];
+  final HashMap<int, GlobalKey> _tileKeys = HashMap();
+  Timer? _debounceTimer;
+  DateTime? lastRead;
+  List<UiConversationMessage> _messages = [];
   UiConversation? _currentConversation;
   StreamSubscription<UiConversation>? _conversationListener;
   StreamSubscription<UiConversationMessage>? _messageListener;
@@ -31,23 +33,85 @@ class _ConversationContentState extends State<ConversationContent> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
+
     _conversationListener =
         coreClient.onConversationSwitch.listen(conversationListener);
     _messageListener = coreClient.onMessageUpdate.listen(messageListener);
-
     _currentConversation = widget.conversation;
 
     if (_currentConversation != null) {
       // Updates the messages and scrolls to the end of the conversation.
       updateMessages().then((_) => scrollToEnd());
     }
+
+    // Call _processVisibleMessages once initially after the first frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processVisibleMessages();
+    });
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _debounceTimer?.cancel();
     _conversationListener?.cancel();
     _messageListener?.cancel();
     super.dispose();
+  }
+
+  void _onScroll() {
+    // Cancel the previous timer if still active
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer?.cancel();
+    }
+
+    // Start a new timer to debounce the scroll events
+    _debounceTimer =
+        Timer(const Duration(milliseconds: 100), _processVisibleMessages);
+  }
+
+  void _processVisibleMessages() {
+    final viewportHeight = _scrollController.position.viewportDimension;
+
+    // Iterate over the key value pairs
+    for (final entry in _tileKeys.entries) {
+      final key = entry.value;
+      final index = entry.key;
+      final renderObject = key.currentContext?.findRenderObject();
+      if (renderObject is RenderBox) {
+        final position = renderObject.localToGlobal(Offset.zero);
+        final size = renderObject.size;
+
+        final topEdgeVisible = position.dy >= 0;
+        final bottomEdgeVisible = position.dy + size.height <= viewportHeight;
+
+        if (topEdgeVisible && bottomEdgeVisible) {
+          final messageTimestamp = _messages[index].timestamp;
+          lastRead ??= messageTimestamp;
+
+          if (lastRead != null && messageTimestamp.isAfter(lastRead!)) {
+            lastRead = messageTimestamp;
+            _onMessageVisible(messageTimestamp);
+          }
+        }
+      }
+    }
+  }
+
+  void _onMessageVisible(DateTime timestamp) {
+    if (_currentConversation != null) {
+      coreClient.user.markMessagesAsReadDebounced(
+        conversationId: _currentConversation!.id,
+        timestamp: timestamp,
+      );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _processVisibleMessages();
   }
 
   Future<void> updateMessages() async {
@@ -56,21 +120,21 @@ class _ConversationContentState extends State<ConversationContent> {
           .getMessages(conversationId: _currentConversation!.id, lastN: 100);
       setState(() {
         print("Number of messages: ${messages.length}");
-        this.messages = messages;
+        _messages = messages;
       });
     }
   }
 
   void conversationListener(UiConversation conversation) async {
     _currentConversation = conversation;
-    messages = [];
+    _messages = [];
     await updateMessages();
   }
 
   void messageListener(UiConversationMessage cm) {
     if (cm.conversationId.bytes.equals(_currentConversation!.id.bytes)) {
       setState(() {
-        messages.add(cm);
+        _messages.add(cm);
         scrollToEnd();
       });
     } else {
@@ -104,28 +168,13 @@ class _ConversationContentState extends State<ConversationContent> {
                     .top, // Use the AppBar's height as padding
             left: 10,
           ),
-          itemCount: messages.length,
+          itemCount: _messages.length,
           physics: const BouncingScrollPhysics(),
           itemBuilder: (BuildContext context, int index) {
-            final message = messages[index];
-            return ListTile(
-              title: Container(
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                alignment: AlignmentDirectional.centerStart,
-                child: (message.message.when(
-                  content: (content) =>
-                      TextMessageTile(content, message.timestamp),
-                  display: (display) =>
-                      DisplayMessageTile(display, message.timestamp),
-                  unsent: (unsent) => const Text(
-                      "⚠️ UNSENT MESSAGE ⚠️ {unsent}",
-                      style: TextStyle(color: Colors.red)),
-                )),
-              ),
-              selected: false,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-            );
+            final key = GlobalKey();
+            _tileKeys[index] = key;
+            final message = _messages[index];
+            return ConversationTile(key: key, message: message);
           },
         ),
       ),

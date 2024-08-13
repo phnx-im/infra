@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use phnxcoreclient::{
     clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, MimiContent,
 };
-use phnxtypes::time::TimeStamp;
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
@@ -174,9 +174,8 @@ impl User {
     pub async fn mark_messages_as_read_debounced(
         &self,
         conversation_id: ConversationIdBytes,
-        timestamp: u64,
+        timestamp: DateTime<Utc>,
     ) -> Result<()> {
-        let timestamp = TimeStamp::try_from(timestamp)?;
         self.app_state
             .mark_messages_read_debounced(conversation_id.into(), timestamp)
             .await;

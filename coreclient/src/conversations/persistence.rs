@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use phnxtypes::time::TimeStamp;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 
 use crate::{
@@ -132,7 +132,7 @@ impl Conversation {
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)>>(
+    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         transaction: &mut Transaction,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {

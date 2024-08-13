@@ -5,6 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
+use chrono::{DateTime, Utc};
 use exif::{Reader, Tag};
 use groups::{client_auth_info::StorableClientCredential, Group};
 use key_stores::as_credentials::AsCredentials;
@@ -43,7 +44,6 @@ use phnxtypes::{
         push_token::PushToken,
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
-    time::TimeStamp,
 };
 use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
@@ -1105,7 +1105,7 @@ impl CoreUser {
 
     /// Mark all messages in the conversation with the given conversation id and
     /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)>>(
+    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {

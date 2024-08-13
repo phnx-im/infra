@@ -78,7 +78,7 @@ class _ConversationListState extends State<ConversationList> {
     await coreClient.conversations().then((conversations) {
       setState(() {
         if (_currentConversation == null && conversations.isNotEmpty) {
-          selectConversation(conversations[0].id);
+          coreClient.selectConversation(conversations[0].id);
         }
         _conversations = conversations;
       });
