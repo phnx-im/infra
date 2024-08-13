@@ -36,7 +36,7 @@ Future<String?> getDeviceToken() async {
     return null;
   }
   try {
-    return await platform.invokeMethod('devicetoken');
+    return await platform.invokeMethod('getDeviceToken');
   } on PlatformException catch (e) {
     print("Failed to get device token: '${e.message}'.");
     return null;
@@ -53,5 +53,17 @@ Future<String> getSharedDocumentsDirectoryIos() async {
   } on PlatformException catch (e) {
     print("Failed to get shared documents directory: '${e.message}'.");
     throw PlatformException(code: 'failed_to_get_shared_documents_directory');
+  }
+}
+
+Future<void> setBadgeCount(int count) async {
+  // Make sure we are on iOS
+  if (!Platform.isIOS) {
+    return;
+  }
+  try {
+    await platform.invokeMethod('setBadgeCount', count);
+  } on PlatformException catch (e) {
+    print("Failed to set badge count: '${e.message}'.");
   }
 }

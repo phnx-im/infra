@@ -4,10 +4,10 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
 use tokio::{sync::Mutex, time::sleep};
 
 use phnxcoreclient::{clients::CoreUser, ConversationId};
-use phnxtypes::time::TimeStamp;
 
 use anyhow::{anyhow, Result};
 
@@ -23,7 +23,7 @@ const DURATION_CHECK_INTERVAL: u64 = 500;
 struct DebouncerState {
     // A map of conversation ids to the state of an ongoing debouncing process.
     // If this is `None`, then there is no debouncing thread running.
-    conversation_timestamps: HashMap<ConversationId, TimeStamp>,
+    conversation_timestamps: HashMap<ConversationId, DateTime<Utc>>,
     // The duration of the debouncing process.
     duration: u64,
     starting_duration: u64,
@@ -45,7 +45,7 @@ impl DebouncerState {
     /// Create a new [`DebouncerState`] with the given `timestamp` and
     /// conversation id, as well as the default duration.
     fn new(
-        conversation_timestamps: impl Into<HashMap<ConversationId, TimeStamp>>,
+        conversation_timestamps: impl Into<HashMap<ConversationId, DateTime<Utc>>>,
         default_duration: u64,
     ) -> Self {
         Self {
@@ -119,7 +119,7 @@ impl MarkAsReadDebouncer {
         &self,
         user: CoreUser, // impl MarkAsRead + Sync + Send + 'static
         conversation_id: ConversationId,
-        timestamp: TimeStamp,
+        timestamp: DateTime<Utc>,
     ) {
         let mut conversation_debouncer_state_option =
             self.conversation_debouncer_states_option.lock().await;
@@ -188,14 +188,14 @@ async fn debouncing_timer(
 }
 
 pub(crate) trait MarkAsRead {
-    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()>;
 }
 
 impl MarkAsRead for CoreUser {
-    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, TimeStamp)> + Send>(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()> {

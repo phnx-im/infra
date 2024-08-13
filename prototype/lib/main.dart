@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/homescreen.dart';
+import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
 
 void main() async {
@@ -16,8 +19,45 @@ void main() async {
 
 final GlobalKey<NavigatorState> appNavigator = GlobalKey<NavigatorState>();
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    onStateChanged(state);
+  }
+
+  Future<void> onStateChanged(AppLifecycleState state) async {
+    if (state == AppLifecycleState.paused) {
+      // The app is in the background
+      print('App is in the background');
+
+      // iOS only
+      if (Platform.isIOS) {
+        final count = await coreClient.user.globalUnreadMessagesCount();
+        await setBadgeCount(count);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

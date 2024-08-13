@@ -140,8 +140,10 @@ async fn retrieve_messages(path: String) -> NotificationBatch {
         }],
     };
 
+    let badge_count = user.global_unread_messages_count().await;
+
     NotificationBatch {
-        badge_count: 0,
+        badge_count,
         removals: Vec::new(),
         additions: notifications,
     }

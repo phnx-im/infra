@@ -61,14 +61,6 @@ class _ConversationPaneState extends State<ConversationPane> {
       },
     );
   }
-
-/*   @override
-  Widget build(BuildContext context) {
-    return ConversationMessages(
-      currentConversation: _currentConversation,
-      context: context,
-    );
-  } */
 }
 
 class ConversationMessages extends StatelessWidget {
