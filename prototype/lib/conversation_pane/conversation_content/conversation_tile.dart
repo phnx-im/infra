@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/conversation_content/display_message_tile.dart';
 import 'package:prototype/conversation_pane/conversation_content/text_message_tile.dart';
