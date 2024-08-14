@@ -62,7 +62,7 @@ Future<void> setBadgeCount(int count) async {
     return;
   }
   try {
-    await platform.invokeMethod('setBadgeCount', count);
+    await platform.invokeMethod('setBadgeCount', {'count': count});
   } on PlatformException catch (e) {
     print("Failed to set badge count: '${e.message}'.");
   }
