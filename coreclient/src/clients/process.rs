@@ -23,8 +23,6 @@ use tls_codec::DeserializeBytes;
 
 use crate::{conversations::ConversationType, ConversationMessage};
 
-//use self::user_profiles::Asset;
-
 use super::{
     anyhow,
     connection_establishment::ConnectionEstablishmentPackageIn,
