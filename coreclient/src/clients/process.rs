@@ -5,11 +5,6 @@
 use std::ops::Deref;
 
 use anyhow::{bail, Result};
-use groups::Group;
-use key_stores::{
-    qs_verifying_keys::StorableQsVerifyingKey,
-    queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
-};
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
@@ -26,11 +21,23 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::conversations::ConversationType;
+use crate::{conversations::ConversationType, ConversationMessage};
 
-use self::user_profiles::Asset;
+//use self::user_profiles::Asset;
 
-use super::{connection_establishment::ConnectionEstablishmentPackageIn, *};
+use super::{
+    anyhow,
+    connection_establishment::ConnectionEstablishmentPackageIn,
+    groups::Group,
+    key_stores::{
+        qs_verifying_keys::StorableQsVerifyingKey,
+        queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+    },
+    AsCredentials, Asset, Contact, ContactAddInfos, Conversation, ConversationAttributes,
+    ConversationId, CoreUser, EarEncryptable, FriendshipPackage, InfraCredentialSigningKey,
+    KeyPackage, MlsMessageBodyIn, PartialContact, ProcessedMessageContent, ProtocolMessage,
+    ProtocolVersion, Sender, SignatureEarKey, TimestampedMessage, UserProfile, Verifiable,
+};
 
 pub enum ProcessQsMessageResult {
     NewConversation(ConversationId),
