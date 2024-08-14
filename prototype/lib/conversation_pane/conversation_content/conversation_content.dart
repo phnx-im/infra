@@ -72,6 +72,10 @@ class _ConversationContentState extends State<ConversationContent> {
   }
 
   void _processVisibleMessages() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
     final viewportHeight = _scrollController.position.viewportDimension;
 
     // Iterate over the key value pairs

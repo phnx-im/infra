@@ -200,6 +200,11 @@ class CoreClient {
   Future<void> fetchMessages() async {
     try {
       await user.fetchMessages();
+      // iOS only
+      if (Platform.isIOS) {
+        final count = await coreClient.user.globalUnreadMessagesCount();
+        await setBadgeCount(count);
+      }
     } catch (e) {
       print("Error when fetching messages: $e");
     }
