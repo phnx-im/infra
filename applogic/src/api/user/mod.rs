@@ -192,4 +192,12 @@ impl User {
         self.user.set_own_user_profile(user_profile).await?;
         Ok(())
     }
+
+    /// Update the push token.
+    pub async fn update_push_token(&self, push_token: Option<PlatformPushToken>) -> Result<()> {
+        self.user
+            .update_push_token(push_token.map(|p| p.into()))
+            .await?;
+        Ok(())
+    }
 }

@@ -26,7 +26,7 @@ use phnxtypes::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
                 SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
-            EarEncryptable,
+            EarEncryptable, EarKey, GenericSerializable,
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -41,7 +41,7 @@ use phnxtypes::{
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
-        push_token::PushToken,
+        push_token::{EncryptedPushToken, PushToken},
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
@@ -1132,6 +1132,39 @@ impl CoreUser {
         let connection = &self.connection.lock().await;
         let count = Conversation::unread_messages_count(connection, conversation_id)?;
         Ok(count)
+    }
+
+    /// Updates the client's push token on the QS.
+    pub async fn update_push_token(&self, push_token: Option<PushToken>) -> Result<()> {
+        let client_id = self.qs_client_id.clone();
+        // Ratchet encryption key
+        let queue_encryption_key = self.key_store.qs_queue_decryption_key.encryption_key();
+        // Signung key
+        let signing_key = self.key_store.qs_client_signing_key.clone();
+
+        // Encrypt the push token, if there is one.
+        let encrypted_push_token = match push_token {
+            Some(push_token) => {
+                let encrypted_push_token = EncryptedPushToken::from(
+                    self.key_store
+                        .push_token_ear_key
+                        .encrypt(&GenericSerializable::serialize(&push_token)?)?,
+                );
+                Some(encrypted_push_token)
+            }
+            None => None,
+        };
+
+        self.api_clients
+            .default_client()?
+            .qs_update_client(
+                client_id,
+                queue_encryption_key,
+                encrypted_push_token,
+                &signing_key,
+            )
+            .await?;
+        Ok(())
     }
 
     pub fn as_client_id(&self) -> AsClientId {
