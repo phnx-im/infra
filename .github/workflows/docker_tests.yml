@@ -20,7 +20,7 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
-  build:
+  docker-build:
     runs-on: ubuntu-latest
     services:
       postgres:
