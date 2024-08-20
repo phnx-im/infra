@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use chrono::Utc;
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
@@ -384,12 +385,9 @@ impl TestBackend {
         assert!(
             conversation.conversation_type() == &ConversationType::Connection(user2_name.clone())
         );
-        user1_conversations_before
-            .into_iter()
-            .zip(user1_conversations_after)
-            .for_each(|(before, after)| {
-                assert_eq!(before.id(), after.id());
-            });
+        let ids_before: HashSet<_> = user1_conversations_before.iter().map(|c| c.id()).collect();
+        let ids_after: HashSet<_> = user1_conversations_after.iter().map(|c| c.id()).collect();
+        assert!(ids_before.is_superset(&ids_after));
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
@@ -405,6 +403,14 @@ impl TestBackend {
             vec![user1_name.clone()],
         )
         .await;
+
+        let test_user1 = self.users.get_mut(&user1_name).unwrap();
+        let user1 = &mut test_user1.user;
+
+        user1
+            .mark_as_read([(user1_conversation_id, Utc::now())].into_iter())
+            .await
+            .unwrap();
 
         let member_set: HashSet<UserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);

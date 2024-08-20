@@ -568,9 +568,16 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        // Phase 3: Merge the commit into the group
-        let connection = self.connection.lock().await;
+        // Phase 3: Merge the commit into the group & update conversation
+        let mut connection = self.connection.lock().await;
         group.store_update(&connection)?;
+        conversation.update_last_used(&connection)?;
+        let mut transaction = connection.transaction()?;
+        Conversation::mark_as_read(
+            &mut transaction,
+            vec![(conversation.id(), Utc::now())].into_iter(),
+        )?;
+        transaction.commit()?;
 
         // Mark the message as sent.
         conversation_message.mark_as_sent(&connection, ds_timestamp)?;
@@ -611,9 +618,16 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        // Phase 3: Merge the commit into the group
-        let connection = self.connection.lock().await;
+        // Phase 3: Merge the commit into the group & update conversation
+        let mut connection = self.connection.lock().await;
         group.store_update(&connection)?;
+        conversation.update_last_used(&connection)?;
+        let mut transaction = connection.transaction()?;
+        Conversation::mark_as_read(
+            &mut transaction,
+            vec![(conversation.id(), Utc::now())].into_iter(),
+        )?;
+        transaction.commit()?;
 
         // Mark the message as sent.
         unsent_message.mark_as_sent(&connection, ds_timestamp)?;
@@ -1096,6 +1110,17 @@ impl CoreUser {
         Ok(conversations)
     }
 
+    pub async fn last_message(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<ConversationMessage> {
+        let connection = &self.connection.lock().await;
+        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(|e| {
+            log::error!("Error while fetching last message: {:?}", e);
+            None
+        })
+    }
+
     pub async fn websocket(&self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
         let api_client = self.api_clients.default_client();
         Ok(api_client?
@@ -1125,13 +1150,12 @@ impl CoreUser {
 
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Result<u32, rusqlite::Error> {
+    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
         let connection = &self.connection.lock().await;
-        let count = Conversation::unread_messages_count(connection, conversation_id)?;
-        Ok(count)
+        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|e| {
+            log::error!("Error while fetching unread messages count: {:?}", e);
+            0
+        })
     }
 
     /// Updates the client's push token on the QS.
@@ -1184,6 +1208,12 @@ impl CoreUser {
             message.store(&savepoint)?;
             stored_messages.push(message);
         }
+        // Set the last used timestamp of the conversation to the timestamp of the last message.
+        let conversation = Conversation::load(&savepoint, &conversation_id)?.ok_or(anyhow!(
+            "Can't find conversation with id {}",
+            conversation_id.as_uuid()
+        ))?;
+        conversation.update_last_used(&savepoint)?;
         savepoint.commit()?;
         Ok(stored_messages)
     }

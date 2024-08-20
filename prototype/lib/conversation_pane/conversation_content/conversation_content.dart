@@ -12,7 +12,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:collection/collection.dart';
 
 class ConversationContent extends StatefulWidget {
-  final UiConversation? conversation;
+  final UiConversationDetails? conversation;
 
   const ConversationContent({super.key, required this.conversation});
 
@@ -26,8 +26,8 @@ class _ConversationContentState extends State<ConversationContent> {
   Timer? _debounceTimer;
   DateTime? lastRead;
   List<UiConversationMessage> _messages = [];
-  UiConversation? _currentConversation;
-  StreamSubscription<UiConversation>? _conversationListener;
+  UiConversationDetails? _currentConversation;
+  StreamSubscription<UiConversationDetails>? _conversationListener;
   StreamSubscription<UiConversationMessage>? _messageListener;
 
   @override
@@ -129,7 +129,7 @@ class _ConversationContentState extends State<ConversationContent> {
     }
   }
 
-  void conversationListener(UiConversation conversation) async {
+  void conversationListener(UiConversationDetails conversation) async {
     _currentConversation = conversation;
     _messages = [];
     await updateMessages();

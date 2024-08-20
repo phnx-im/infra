@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
@@ -22,11 +23,13 @@ class ConversationList extends StatefulWidget {
 }
 
 class _ConversationListState extends State<ConversationList> {
-  late List<UiConversation> _conversations;
-  UiConversation? _currentConversation;
+  late List<UiConversationDetails> _conversations;
+  UiConversationDetails? _currentConversation;
   StreamSubscription<ConversationIdBytes>? _conversationListUpdateListener;
-  StreamSubscription<UiConversation>? _conversationSwitchListener;
+  StreamSubscription<UiConversationDetails>? _conversationSwitchListener;
   final ScrollController _scrollController = ScrollController();
+
+  static const double _topBaseline = 12;
 
   _ConversationListState() {
     _conversations = coreClient.conversationsList;
@@ -50,7 +53,7 @@ class _ConversationListState extends State<ConversationList> {
     super.dispose();
   }
 
-  void conversationSwitchListener(UiConversation cc) {
+  void conversationSwitchListener(UiConversationDetails cc) {
     if (_currentConversation != null) {
       if (_currentConversation!.id != cc.id) {
         setState(() {
@@ -85,13 +88,219 @@ class _ConversationListState extends State<ConversationList> {
     });
   }
 
-  Color? selectionColor(int index) {
+  Color? _selectionColor(int index) {
     if (isLargeScreen(context) &&
         _currentConversation != null &&
         _currentConversation!.id.bytes.equals(_conversations[index].id.bytes)) {
       return convPaneFocusColor;
     }
     return null;
+  }
+
+  Widget _userAvatar(int index) {
+    return UserAvatar(
+      size: 48,
+      image: _conversations[index].attributes.conversationPictureOption,
+      username: _conversations[index].conversationType.when(
+          unconfirmedConnection: (e) => e,
+          connection: (e) => e,
+          group: () => _conversations[index].attributes.title),
+    );
+  }
+
+  Widget _convTitle(int index) {
+    return Baseline(
+      baseline: _topBaseline,
+      baselineType: TextBaseline.alphabetic,
+      child: Text(
+        _conversations[index].conversationType.when(
+            unconfirmedConnection: (e) => '⏳ $e',
+            connection: (e) => e,
+            group: () => _conversations[index].attributes.title),
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: convListItemTextColor,
+          fontSize: 14,
+          fontVariations: variationSemiBold,
+          letterSpacing: -0.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _lastMessage(int index) {
+    var sender = '';
+    var displayedLastMessage = '';
+    final lastMessage = _conversations[index].lastMessage;
+    final style = TextStyle(
+      color: colorDMB,
+      fontSize: 13,
+      fontVariations: variationRegular,
+      letterSpacing: -0.2,
+      height: 1.2,
+    );
+
+    final contentStyle = _conversations[index].unreadMessages > 0
+        ? style.copyWith(fontVariations: variationMedium)
+        : style;
+
+    final senderStyle = style.copyWith(fontVariations: variationSemiBold);
+
+    if (lastMessage != null) {
+      lastMessage.message.when(
+          content: (c) {
+            if (c.sender == coreClient.username) {
+              sender = 'You: ';
+            }
+            displayedLastMessage = '${c.content.body}';
+          },
+          display: (d) => '',
+          unsent: (u) => '⚠️ Unsent message: ${u.body}');
+    }
+
+    return Text.rich(
+      maxLines: 2,
+      softWrap: true,
+      overflow: TextOverflow.ellipsis,
+      TextSpan(
+        text: sender,
+        style: senderStyle,
+        children: [
+          TextSpan(
+            text: displayedLastMessage,
+            style: contentStyle,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _unreadBadge(int index) {
+    final count = _conversations[index].unreadMessages;
+    if (count < 1) {
+      return SizedBox();
+    }
+    final badgeText = count <= 100 ? "$count" : "100+";
+    final double badgeSize = 20;
+    return Container(
+      alignment: AlignmentDirectional.center,
+      constraints: BoxConstraints(minWidth: badgeSize),
+      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+      height: badgeSize,
+      decoration: BoxDecoration(
+        color: colorDMB,
+        borderRadius: BorderRadius.circular(badgeSize / 2),
+      ),
+      child: Text(
+        badgeText,
+        style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontVariations: variationSemiBold,
+            letterSpacing: 0),
+      ),
+    );
+  }
+
+  Widget _lastUpdated(int index) {
+    return Baseline(
+      baseline: _topBaseline,
+      baselineType: TextBaseline.alphabetic,
+      child: Text(
+        formatTimestamp(_conversations[index].lastUsed),
+        style: const TextStyle(
+          color: colorDMB,
+          fontSize: 11,
+          fontVariations: variationRegular,
+          letterSpacing: -0.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _topPart(int index) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(child: _convTitle(index)),
+        SizedBox(width: 8),
+        _lastUpdated(index),
+      ],
+    );
+  }
+
+  Widget _bottomPart(int index) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _lastMessage(index),
+          ),
+        ),
+        SizedBox(width: 16),
+        Align(
+          alignment: Alignment.center,
+          child: _unreadBadge(index),
+        ),
+      ],
+    );
+  }
+
+  Widget _listTile(int index) {
+    return ListTile(
+      horizontalTitleGap: 0,
+      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      minVerticalPadding: 0,
+      title: Container(
+        alignment: AlignmentDirectional.topStart,
+        height: 74,
+        width: 300,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5.0),
+          color: _selectionColor(index),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _userAvatar(index),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  _topPart(index),
+                  SizedBox(height: 2),
+                  Expanded(child: _bottomPart(index)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      selected: isConversationSelected(
+          _currentConversation, _conversations[index], context),
+      focusColor: convListItemSelectedColor,
+      onTap: () => selectConversation(_conversations[index].id),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      alignment: AlignmentDirectional.center,
+      child: Text(
+        'Create a new connection to get started',
+        style: TextStyle(
+          fontSize: isLargeScreen(context) ? 14 : 15,
+          fontWeight: FontWeight.normal,
+          color: Colors.black54,
+        ),
+      ),
+    );
   }
 
   @override
@@ -107,78 +316,7 @@ class _ConversationListState extends State<ConversationList> {
               physics: const BouncingScrollPhysics(),
               controller: _scrollController,
               itemBuilder: (BuildContext context, int index) {
-                return ListTile(
-                  horizontalTitleGap: 0,
-                  title: Container(
-                    alignment: AlignmentDirectional.topStart,
-                    width: 300,
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5.0),
-                      color: selectionColor(index),
-                    ),
-                    child: Row(
-                      children: [
-                        UserAvatar(
-                          size: 48,
-                          image: _conversations[index]
-                              .attributes
-                              .conversationPictureOption,
-                          username: _conversations[index].conversationType.when(
-                              unconfirmedConnection: (e) => e,
-                              connection: (e) => e,
-                              group: () =>
-                                  _conversations[index].attributes.title),
-                        ),
-                        const SizedBox(
-                          width: 16,
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _conversations[index].conversationType.when(
-                                    unconfirmedConnection: (e) => '⏳ $e',
-                                    connection: (e) => e,
-                                    group: () =>
-                                        _conversations[index].attributes.title),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: convListItemTextColor,
-                                  fontSize: 14,
-                                  fontVariations: variationSemiBold,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 5,
-                              ),
-                              Text(
-                                _conversations[index].conversationType.when(
-                                    unconfirmedConnection: (e) =>
-                                        'Pending connection request',
-                                    connection: (e) => '1:1 conversation',
-                                    group: () => 'Group conversation'),
-                                style: const TextStyle(
-                                  color: colorDMB,
-                                  fontSize: 12,
-                                  fontVariations: variationRegular,
-                                  letterSpacing: -0.2,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  selected: isConversationSelected(
-                      _currentConversation, _conversations[index], context),
-                  focusColor: convListItemSelectedColor,
-                  onTap: () => selectConversation(_conversations[index].id),
-                );
+                return _listTile(index);
               },
             ),
           ),
@@ -195,29 +333,100 @@ class _ConversationListState extends State<ConversationList> {
                     ),
                   ],
                 )
-              : Container(),
+              : SizedBox(),
         ],
       );
     } else {
-      return Container(
-        alignment: AlignmentDirectional.center,
-        child: Text(
-          'Create a new connection to get started',
-          style: TextStyle(
-            fontSize: isLargeScreen(context) ? 14 : 15,
-            fontWeight: FontWeight.normal,
-            color: Colors.black54,
-          ),
-        ),
-      );
+      return _placeholder();
     }
   }
 }
 
-bool isConversationSelected(UiConversation? currentConversation,
-    UiConversation conversation, BuildContext context) {
+bool isConversationSelected(UiConversationDetails? currentConversation,
+    UiConversationDetails conversation, BuildContext context) {
   if (isLargeScreen(context) && currentConversation != null) {
     return currentConversation.id.bytes.equals(conversation.id.bytes);
   }
   return false;
+}
+
+String formatTimestamp3(DateTime timestamp) {
+  final now = DateTime.now();
+  final difference = now.difference(timestamp);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+
+  if (difference.inSeconds < 60) {
+    return 'Now';
+  } else if (difference.inMinutes < 60) {
+    return '${difference.inMinutes}m';
+  } else if (now.year == timestamp.year &&
+      now.month == timestamp.month &&
+      now.day == timestamp.day) {
+    return DateFormat('HH:mm').format(timestamp);
+  } else if (now.year == timestamp.year &&
+      timestamp.year == yesterday.year &&
+      timestamp.month == yesterday.month &&
+      timestamp.day == yesterday.day) {
+    return 'Yesterday';
+  } else if (difference.inDays < 7) {
+    return DateFormat('E').format(timestamp);
+  } else if (now.year == timestamp.year) {
+    return DateFormat('dd.MM').format(timestamp);
+  } else {
+    return DateFormat('dd.MM.yy').format(timestamp);
+  }
+}
+
+String formatTimestamp2(DateTime timestamp) {
+  final now = DateTime.now();
+  final difference = now.difference(timestamp);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+
+  if (difference.inSeconds < 60) {
+    return 'Now';
+  } else if (difference.inMinutes < 60) {
+    return '${difference.inMinutes}m';
+  } else if (now.year == timestamp.year &&
+      now.month == timestamp.month &&
+      now.day == timestamp.day) {
+    return DateFormat('HH:mm').format(timestamp);
+  } else if (now.year == timestamp.year &&
+      timestamp.year == yesterday.year &&
+      timestamp.month == yesterday.month &&
+      timestamp.day == yesterday.day) {
+    return 'Yesterday';
+  } else if (difference.inDays < 7) {
+    return DateFormat('E').format(timestamp);
+  } else if (now.year == timestamp.year) {
+    return DateFormat('dd.MM').format(timestamp);
+  } else {
+    return DateFormat('dd.MM.yy').format(timestamp);
+  }
+}
+
+String formatTimestamp(DateTime timestamp, {DateTime? now}) {
+  now ??= DateTime.now();
+  final difference = now.difference(timestamp);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+
+  if (difference.inSeconds < 60) {
+    return 'Now';
+  } else if (difference.inMinutes < 60) {
+    return '${difference.inMinutes}m';
+  } else if (now.year == timestamp.year &&
+      now.month == timestamp.month &&
+      now.day == timestamp.day) {
+    return DateFormat('HH:mm').format(timestamp);
+  } else if (now.year == timestamp.year &&
+      timestamp.year == yesterday.year &&
+      timestamp.month == yesterday.month &&
+      timestamp.day == yesterday.day) {
+    return 'Yesterday';
+  } else if (difference.inDays < 7) {
+    return DateFormat('E').format(timestamp);
+  } else if (now.year == timestamp.year) {
+    return DateFormat('dd.MM').format(timestamp);
+  } else {
+    return DateFormat('dd.MM.yy').format(timestamp);
+  }
 }

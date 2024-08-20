@@ -89,7 +89,7 @@ impl Conversation {
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations")?;
+        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations ORDER BY last_used DESC")?;
         let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }
@@ -138,8 +138,17 @@ impl Conversation {
     ) -> Result<(), rusqlite::Error> {
         for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
             transaction.execute(
-                "UPDATE conversations SET last_read = ? WHERE conversation_id = ?",
-                params![timestamp, conversation_id],
+                "UPDATE conversations 
+                 SET last_read = CASE 
+                                    WHEN last_read < :timestamp 
+                                    THEN :timestamp 
+                                    ELSE last_read 
+                                 END 
+                 WHERE conversation_id = :conversation_id",
+                named_params! {
+                    ":timestamp": timestamp,
+                    ":conversation_id": conversation_id,
+                },
             )?;
         }
         Ok(())
@@ -182,6 +191,15 @@ impl Conversation {
         connection.execute(
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],
+        )?;
+        Ok(())
+    }
+
+    /// Update the `last_used` timestamp of the conversation to the current time.
+    pub(crate) fn update_last_used(&self, connection: &Connection) -> rusqlite::Result<()> {
+        connection.execute(
+            "UPDATE conversations SET last_used = ? WHERE conversation_id = ?",
+            params![Utc::now(), self.id],
         )?;
         Ok(())
     }

@@ -4,6 +4,7 @@
 
 use std::fmt::Display;
 
+use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, UserName},
@@ -80,9 +81,9 @@ pub struct Conversation {
     id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
     group_id: GroupId,
-    last_used: TimeStamp,
+    last_used: DateTime<Utc>,
     // The timestamp of the last message that was (marked as) read by the user.
-    last_read: TimeStamp,
+    last_read: DateTime<Utc>,
     status: ConversationStatus,
     conversation_type: ConversationType,
     attributes: ConversationAttributes,
@@ -99,8 +100,8 @@ impl Conversation {
         let conversation = Conversation {
             id: ConversationId::try_from(&group_id)?,
             group_id,
-            last_used: TimeStamp::now(),
-            last_read: TimeStamp::now(),
+            last_used: Utc::now(),
+            last_read: Utc::now(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(user_name),
             attributes,
@@ -116,8 +117,8 @@ impl Conversation {
         Self {
             id,
             group_id,
-            last_used: TimeStamp::now(),
-            last_read: TimeStamp::now(),
+            last_used: Utc::now(),
+            last_read: Utc::now(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
             attributes,
@@ -144,7 +145,7 @@ impl Conversation {
         &self.attributes
     }
 
-    pub fn last_used(&self) -> &TimeStamp {
+    pub fn last_used(&self) -> &DateTime<Utc> {
         &self.last_used
     }
 

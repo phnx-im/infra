@@ -20,8 +20,8 @@ class ConversationDetails extends StatefulWidget {
 }
 
 class _ConversationDetailsState extends State<ConversationDetails> {
-  UiConversation? _currentConversation;
-  late StreamSubscription<UiConversation> _conversationListener;
+  UiConversationDetails? _currentConversation;
+  late StreamSubscription<UiConversationDetails> _conversationListener;
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _ConversationDetailsState extends State<ConversationDetails> {
     super.dispose();
   }
 
-  void conversationListener(UiConversation conversation) async {
+  void conversationListener(UiConversationDetails conversation) async {
     Navigator.of(context).pop();
     return;
   }
