@@ -184,7 +184,7 @@ impl From<ConversationMessage> for UiConversationMessage {
                 conversation_message.conversation_id().clone(),
             ),
             id: UuidBytes::from(conversation_message.id()),
-            timestamp: conversation_message.timestamp().time(),
+            timestamp: conversation_message.timestamp().into(),
             message: UiMessage::from(conversation_message.message().clone()),
         }
     }
@@ -234,10 +234,10 @@ pub struct UiReplyToInfo {
 #[derive(PartialEq, Debug, Clone)]
 pub struct UiMimiContent {
     pub id: UiMessageId,
-    pub timestamp: u64,
+    pub timestamp: DateTime<Utc>,
     pub replaces: Option<UiMessageId>,
     pub topic_id: Option<Vec<u8>>,
-    pub expires: Option<u64>,
+    pub expires: Option<DateTime<Utc>>,
     pub in_reply_to: Option<UiReplyToInfo>,
     pub last_seen: Vec<UiMessageId>,
     // This will need to become more complex.
@@ -249,10 +249,10 @@ impl From<MimiContent> for UiMimiContent {
         let body = mimi_content.string_rendering();
         Self {
             id: UiMessageId::from(mimi_content.id().clone()),
-            timestamp: mimi_content.timestamp.as_u64(),
+            timestamp: mimi_content.timestamp.into(),
             replaces: mimi_content.replaces.map(UiMessageId::from),
             topic_id: mimi_content.topic_id.map(|t| t.id.to_vec()),
-            expires: mimi_content.expires.map(|e| e.as_u64()),
+            expires: mimi_content.expires.map(|e| e.into()),
             in_reply_to: mimi_content.in_reply_to.map(|i| UiReplyToInfo {
                 message_id: UiMessageId::from(i.message_id),
                 hash: i.hash.hash,

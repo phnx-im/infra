@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use num_traits::ToPrimitive;
 use phnxbackend::qs::{
     client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
@@ -220,7 +221,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
         let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
         let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
-        let activity_time = client_record.activity_time().time();
+        let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         let mut transaction = self.pool.begin().await?;
 
@@ -294,7 +295,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
         let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
         let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
-        let activity_time = client_record.activity_time().time();
+        let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         sqlx::query!(
             "UPDATE qs_client_records SET user_id = $2, encrypted_push_token = $3, owner_public_key = $4, owner_signature_key = $5, ratchet = $6, activity_time = $7 WHERE client_id = $1", 

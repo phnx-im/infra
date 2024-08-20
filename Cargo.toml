@@ -25,6 +25,7 @@ reqwest = { version = "^0.12", features = [
     "http2",
     "charset",
 ], default-features = false }
+chrono = { version = "0.4.38", features = ["serde"] }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 openmls = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
