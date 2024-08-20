@@ -571,7 +571,6 @@ impl CoreUser {
         // Phase 3: Merge the commit into the group & update conversation
         let mut connection = self.connection.lock().await;
         group.store_update(&connection)?;
-        conversation.update_last_used(&connection)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
@@ -621,7 +620,6 @@ impl CoreUser {
         // Phase 3: Merge the commit into the group & update conversation
         let mut connection = self.connection.lock().await;
         group.store_update(&connection)?;
-        conversation.update_last_used(&connection)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
@@ -1208,12 +1206,6 @@ impl CoreUser {
             message.store(&savepoint)?;
             stored_messages.push(message);
         }
-        // Set the last used timestamp of the conversation to the timestamp of the last message.
-        let conversation = Conversation::load(&savepoint, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        conversation.update_last_used(&savepoint)?;
         savepoint.commit()?;
         Ok(stored_messages)
     }

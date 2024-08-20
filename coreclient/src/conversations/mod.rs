@@ -81,7 +81,6 @@ pub struct Conversation {
     id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
     group_id: GroupId,
-    last_used: DateTime<Utc>,
     // The timestamp of the last message that was (marked as) read by the user.
     last_read: DateTime<Utc>,
     status: ConversationStatus,
@@ -100,7 +99,6 @@ impl Conversation {
         let conversation = Conversation {
             id: ConversationId::try_from(&group_id)?,
             group_id,
-            last_used: Utc::now(),
             last_read: Utc::now(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::UnconfirmedConnection(user_name),
@@ -117,7 +115,6 @@ impl Conversation {
         Self {
             id,
             group_id,
-            last_used: Utc::now(),
             last_read: Utc::now(),
             status: ConversationStatus::Active,
             conversation_type: ConversationType::Group,
@@ -143,10 +140,6 @@ impl Conversation {
 
     pub fn attributes(&self) -> &ConversationAttributes {
         &self.attributes
-    }
-
-    pub fn last_used(&self) -> &DateTime<Utc> {
-        &self.last_used
     }
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
