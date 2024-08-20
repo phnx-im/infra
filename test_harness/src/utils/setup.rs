@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use chrono::Utc;
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
@@ -402,6 +403,14 @@ impl TestBackend {
             vec![user1_name.clone()],
         )
         .await;
+
+        let test_user1 = self.users.get_mut(&user1_name).unwrap();
+        let user1 = &mut test_user1.user;
+
+        user1
+            .mark_as_read([(user1_conversation_id, Utc::now())].into_iter())
+            .await
+            .unwrap();
 
         let member_set: HashSet<UserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);

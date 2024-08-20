@@ -128,6 +128,17 @@ impl MarkAsReadDebouncer {
             // As there is a debouncer state, there must already be a thread
             // running, so all we have to do is update (or add) the timestamp
             // and reset the duration.
+            // We only insert the timestamp if it is more recent than the
+            // existing timestamp.
+            if let Some(existing_timestamp) = debouncer_state
+                .conversation_timestamps
+                .get(&conversation_id)
+            {
+                if timestamp <= *existing_timestamp {
+                    return;
+                }
+            }
+
             debouncer_state
                 .conversation_timestamps
                 .insert(conversation_id, timestamp);

@@ -525,13 +525,13 @@ async fn mark_as_read() {
     setup.add_user(CHARLIE).await;
 
     let alice_bob_conversation = setup.connect_users(ALICE, BOB).await;
-    let alice_charlie_conversation = setup.connect_users(ALICE, CHARLIE).await;
+    let bob_charlie_conversation = setup.connect_users(BOB, CHARLIE).await;
 
-    let alice_test_user = setup
+    let charlie_test_user = setup
         .users
         .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap();
-    let alice = &mut alice_test_user.user;
+    let alice = &mut charlie_test_user.user;
 
     // Send a few messages
     async fn send_messages(
@@ -558,45 +558,64 @@ async fn mark_as_read() {
     }
 
     let number_of_messages = 10;
-    let messages_sent = send_messages(alice, alice_bob_conversation, number_of_messages).await;
+    send_messages(alice, alice_bob_conversation, number_of_messages).await;
+
+    let bob_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(BOB).unwrap())
+        .unwrap();
+    let bob = &mut bob_test_user.user;
 
     // All messages should be unread
-    let expected_unread_message_count = number_of_messages + 2; // 2 because the messages sent by alice and bob to check the connection are also counted.
-    let unread_message_count = alice.unread_messages_count(alice_bob_conversation).await;
+    let qs_messages = bob.qs_fetch_messages().await.unwrap();
+    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+    let expected_unread_message_count = number_of_messages;
+    let unread_message_count = bob.unread_messages_count(alice_bob_conversation).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
-    let global_unread_message_count = alice.global_unread_messages_count().await.unwrap();
-    let expected_global_unread_message_count = expected_unread_message_count + 2; // 2 because the messages sent by alice and charlie to check the connection are also counted.
+    let global_unread_message_count = bob.global_unread_messages_count().await.unwrap();
+    let expected_global_unread_message_count = expected_unread_message_count;
     assert_eq!(
         expected_global_unread_message_count,
         global_unread_message_count
     );
 
-    // Let's send some messages between alice and charlie s.t. we can test the
+    // Let's send some messages between bob and charlie s.t. we can test the
     // global unread messages count.
-    send_messages(alice, alice_charlie_conversation, number_of_messages).await;
+    let charlie_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(CHARLIE).unwrap())
+        .unwrap();
+    let charlie = &mut charlie_test_user.user;
+    let messages_sent = send_messages(charlie, bob_charlie_conversation, number_of_messages).await;
 
-    // Let's mark all but the last two messages as read (we subtract 2, because
+    // Let's mark all but the last two messages as read (we subtract 3, because
     // the vector is 0-indexed).
     let timestamp = messages_sent[messages_sent.len() - 3].timestamp();
 
-    alice
-        .mark_as_read([(alice_bob_conversation, timestamp.time())])
+    let bob_test_user = setup
+        .users
+        .get_mut(&SafeTryInto::try_into(BOB).unwrap())
+        .unwrap();
+    let bob = &mut bob_test_user.user;
+
+    let qs_messages = bob.qs_fetch_messages().await.unwrap();
+    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+
+    bob.mark_as_read([(bob_charlie_conversation, timestamp.time())])
         .await
         .unwrap();
 
     // Check if we were successful
     let expected_unread_message_count = 2;
-    let unread_message_count = alice.unread_messages_count(alice_bob_conversation).await;
+    let unread_message_count = bob.unread_messages_count(bob_charlie_conversation).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
 
     // We expect the global unread messages count to be that of both
     // conversations, i.e. the `expected_unread_message_count` plus
     // `number_of_messages`, because none of the messages between alice and
-    // charlie had been read, plus two from the original 2 messages in alice and
-    // charlie's connection establishment.
-    let expected_global_unread_message_count =
-        expected_unread_message_count + number_of_messages + 2;
-    let global_unread_messages_count = alice.global_unread_messages_count().await.unwrap();
+    // charlie had been read.
+    let expected_global_unread_message_count = expected_unread_message_count + number_of_messages;
+    let global_unread_messages_count = bob.global_unread_messages_count().await.unwrap();
     assert_eq!(
         global_unread_messages_count,
         expected_global_unread_message_count

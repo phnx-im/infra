@@ -140,12 +140,15 @@ impl Conversation {
             transaction.execute(
                 "UPDATE conversations 
                  SET last_read = CASE 
-                                    WHEN last_read IS NULL OR last_read < ? 
-                                    THEN ? 
+                                    WHEN last_read < :timestamp 
+                                    THEN :timestamp 
                                     ELSE last_read 
                                  END 
-                 WHERE conversation_id = ?",
-                params![timestamp, timestamp, conversation_id],
+                 WHERE conversation_id = :conversation_id",
+                named_params! {
+                    ":timestamp": timestamp,
+                    ":conversation_id": conversation_id,
+                },
             )?;
         }
         Ok(())
