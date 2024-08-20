@@ -29,7 +29,7 @@ bool isPointer() {
 
 const fontFamily = "InterEmbedded";
 
-const variationRegular = [FontVariation("wght", 400)];
+const variationRegular = [FontVariation("wght", 420)];
 const variationMedium = [FontVariation("wght", 500)];
 const variationSemiBold = [FontVariation("wght", 600)];
 const variationBold = [FontVariation("wght", 700)];
@@ -212,7 +212,7 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
 // === Left pane ===
 
 const convPaneBackgroundColor = colorDMBSuperLight;
-const convPaneFocusColor = colorDMBLight;
+const convPaneFocusColor = colorGreyLight;
 const convPaneBlurColor = Color(0x00FFFFFF);
 
 // === Conversation list ===

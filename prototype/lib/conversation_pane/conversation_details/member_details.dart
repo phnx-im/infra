@@ -15,7 +15,7 @@ import 'package:prototype/styles.dart';
 const double _padding = 32;
 
 class MemberDetails extends StatefulWidget {
-  final UiConversation conversation;
+  final UiConversationDetails conversation;
   final String username;
 
   const MemberDetails(
@@ -26,7 +26,7 @@ class MemberDetails extends StatefulWidget {
 }
 
 class _MemberDetailsState extends State<MemberDetails> {
-  late StreamSubscription<UiConversation> _conversationListener;
+  late StreamSubscription<UiConversationDetails> _conversationListener;
 
   @override
   void initState() {

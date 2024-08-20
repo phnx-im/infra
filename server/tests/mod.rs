@@ -562,10 +562,7 @@ async fn mark_as_read() {
 
     // All messages should be unread
     let expected_unread_message_count = number_of_messages + 2; // 2 because the messages sent by alice and bob to check the connection are also counted.
-    let unread_message_count = alice
-        .unread_messages_count(alice_bob_conversation)
-        .await
-        .unwrap();
+    let unread_message_count = alice.unread_messages_count(alice_bob_conversation).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
     let global_unread_message_count = alice.global_unread_messages_count().await.unwrap();
     let expected_global_unread_message_count = expected_unread_message_count + 2; // 2 because the messages sent by alice and charlie to check the connection are also counted.
@@ -589,10 +586,7 @@ async fn mark_as_read() {
 
     // Check if we were successful
     let expected_unread_message_count = 2;
-    let unread_message_count = alice
-        .unread_messages_count(alice_bob_conversation)
-        .await
-        .unwrap();
+    let unread_message_count = alice.unread_messages_count(alice_bob_conversation).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
 
     // We expect the global unread messages count to be that of both

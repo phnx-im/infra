@@ -148,4 +148,17 @@ impl ConversationMessage {
         )?;
         Ok(())
     }
+
+    /// Get the last content message in the conversation.
+    pub(crate) fn last_content_message(
+        connection: &Connection,
+        conversation_id: ConversationId,
+    ) -> Result<Option<Self>, rusqlite::Error> {
+        let mut statement = connection.prepare(
+            "SELECT message_id, conversation_id, timestamp, sender, content, sent FROM conversation_messages WHERE conversation_id = ? AND sender != 'system' ORDER BY timestamp DESC LIMIT 1",
+        )?;
+        statement
+            .query_row(params![conversation_id], Self::from_row)
+            .optional()
+    }
 }

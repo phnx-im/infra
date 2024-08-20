@@ -65,8 +65,20 @@ pub struct UiConversation {
     pub group_id: GroupIdBytes,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
-    pub last_used: u64,
+    pub last_used: DateTime<Utc>,
     pub attributes: UiConversationAttributes,
+}
+
+pub struct UiConversationDetails {
+    pub id: ConversationIdBytes,
+    // Id of the (active) MLS group representing this conversation.
+    pub group_id: GroupIdBytes,
+    pub status: UiConversationStatus,
+    pub conversation_type: UiConversationType,
+    pub last_used: DateTime<Utc>,
+    pub attributes: UiConversationAttributes,
+    pub unread_messages: u32,
+    pub last_message: Option<UiConversationMessage>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
@@ -151,7 +163,7 @@ impl From<Conversation> for UiConversation {
             group_id: GroupIdBytes::from(conversation.group_id().clone()),
             status: UiConversationStatus::from(conversation.status().clone()),
             conversation_type: UiConversationType::from(conversation.conversation_type().clone()),
-            last_used: conversation.last_used().as_u64(),
+            last_used: conversation.last_used().clone(),
             attributes: UiConversationAttributes::from(conversation.attributes().clone()),
         }
     }

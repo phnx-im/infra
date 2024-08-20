@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{anyhow, Result};
+use phnxcoreclient::Conversation;
 use phnxtypes::identifiers::{SafeTryInto, UserName};
 
 use crate::notifier::dispatch_message_notifications;
 
 use super::{
-    types::{ConversationIdBytes, UiContact, UiConversation},
+    types::{ConversationIdBytes, UiContact, UiConversation, UiConversationDetails},
     user::User,
 };
 
@@ -21,6 +22,37 @@ impl User {
             .into_iter()
             .map(|c| c.into())
             .collect()
+    }
+
+    pub async fn get_conversation_details(&self) -> Vec<UiConversationDetails> {
+        let conversations = self
+            .user
+            .conversations()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .collect::<Vec<Conversation>>();
+        let mut conversation_details = Vec::with_capacity(conversations.len());
+        for conversation in conversations {
+            let unread_messages = self.user.unread_messages_count(conversation.id()).await;
+            let last_message = self
+                .user
+                .last_message(conversation.id())
+                .await
+                .map(|m| m.into());
+            let conversation = UiConversation::from(conversation);
+            conversation_details.push(UiConversationDetails {
+                id: conversation.id,
+                group_id: conversation.group_id,
+                status: conversation.status,
+                conversation_type: conversation.conversation_type,
+                last_used: conversation.last_used,
+                attributes: conversation.attributes,
+                unread_messages,
+                last_message,
+            });
+        }
+        conversation_details
     }
 
     pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {

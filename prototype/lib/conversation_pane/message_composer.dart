@@ -55,8 +55,8 @@ class _MessageComposerState extends State<MessageComposer> {
     "@Eve",
   ];
 
-  UiConversation? _currentConversation;
-  late StreamSubscription<UiConversation> _listener;
+  UiConversationDetails? _currentConversation;
+  late StreamSubscription<UiConversationDetails> _listener;
 
   HashMap<ConversationIdBytes, String> drafts = HashMap();
 
@@ -127,7 +127,7 @@ class _MessageComposerState extends State<MessageComposer> {
     super.dispose();
   }
 
-  void conversationListener(UiConversation cc) {
+  void conversationListener(UiConversationDetails cc) {
     // Store draft for the current conversation
     if (_currentConversation != null) {
       drafts.addEntries([MapEntry(_currentConversation!.id, _controller.text)]);

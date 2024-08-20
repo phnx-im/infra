@@ -25,8 +25,8 @@ class ConversationPane extends StatefulWidget {
 }
 
 class _ConversationPaneState extends State<ConversationPane> {
-  UiConversation? _currentConversation;
-  late StreamSubscription<UiConversation> _listener;
+  UiConversationDetails? _currentConversation;
+  late StreamSubscription<UiConversationDetails> _listener;
 
   @override
   void initState() {
@@ -66,11 +66,11 @@ class _ConversationPaneState extends State<ConversationPane> {
 class ConversationMessages extends StatelessWidget {
   const ConversationMessages({
     super.key,
-    required UiConversation? currentConversation,
+    required UiConversationDetails? currentConversation,
     required this.context,
   }) : _currentConversation = currentConversation;
 
-  final UiConversation? _currentConversation;
+  final UiConversationDetails? _currentConversation;
   final BuildContext context;
 
   @override
@@ -136,11 +136,11 @@ class ConversationMessages extends StatelessWidget {
             // Applying blur effect
             flexibleSpace: ClipRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(
                   width: MediaQuery.of(context).size.width,
                   height: kToolbarHeight + MediaQuery.of(context).padding.top,
-                  color: Colors.transparent,
+                  color: Colors.white.withOpacity(0.1),
                 ),
               ),
             ),
