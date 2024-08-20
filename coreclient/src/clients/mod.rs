@@ -622,10 +622,12 @@ impl CoreUser {
         let mut connection = self.connection.lock().await;
         group.store_update(&connection)?;
         conversation.update_last_used(&connection)?;
+        let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
-            &mut connection.transaction()?,
+            &mut transaction,
             vec![(conversation.id(), Utc::now())].into_iter(),
         )?;
+        transaction.commit()?;
 
         // Mark the message as sent.
         unsent_message.mark_as_sent(&connection, ds_timestamp)?;
