@@ -384,12 +384,9 @@ impl TestBackend {
         assert!(
             conversation.conversation_type() == &ConversationType::Connection(user2_name.clone())
         );
-        user1_conversations_before
-            .into_iter()
-            .zip(user1_conversations_after)
-            .for_each(|(before, after)| {
-                assert_eq!(before.id(), after.id());
-            });
+        let ids_before: HashSet<_> = user1_conversations_before.iter().map(|c| c.id()).collect();
+        let ids_after: HashSet<_> = user1_conversations_after.iter().map(|c| c.id()).collect();
+        assert!(ids_before.is_superset(&ids_after));
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
         // Send messages both ways to ensure it works.
