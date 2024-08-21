@@ -120,9 +120,9 @@ impl TimeStamp {
         Utc::now().into()
     }
 
-    /// Checks if this time stamp is more than `expiration_days` in the past.
-    pub fn has_expired(&self, expiration_duration: Duration) -> bool {
-        let time_left = Utc::now() - expiration_duration;
+    /// Checks if this time stamp is more than `expiration` in the past.
+    pub fn has_expired(&self, expiration: Duration) -> bool {
+        let time_left = Utc::now() - expiration;
         time_left >= self.time
     }
 
