@@ -46,7 +46,6 @@ impl User {
                 group_id: conversation.group_id,
                 status: conversation.status,
                 conversation_type: conversation.conversation_type,
-                last_used: conversation.last_used,
                 attributes: conversation.attributes,
                 unread_messages,
                 last_message,
@@ -116,7 +115,7 @@ impl User {
     ) -> Result<Vec<String>> {
         Ok(self
             .user
-            .group_members(conversation_id.into())
+            .conversation_participants(conversation_id.into())
             .await
             .unwrap_or_default()
             .into_iter()
@@ -132,7 +131,7 @@ impl User {
     ) -> Result<Vec<UiContact>> {
         let group_members = self
             .user
-            .group_members(conversation_id.into())
+            .conversation_participants(conversation_id.into())
             .await
             .ok_or(anyhow!("Conversation not found"))?;
         let add_candidates = self

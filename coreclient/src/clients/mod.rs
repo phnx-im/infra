@@ -7,12 +7,11 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
 use exif::{Reader, Tag};
-use groups::{client_auth_info::StorableClientCredential, Group};
-use key_stores::as_credentials::AsCredentials;
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
     ClientRegistrationStartResult, Identifiers, RegistrationUpload,
 };
+use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
@@ -49,30 +48,36 @@ use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
-use utils::{
-    persistence::{SqliteConnection, Storable},
-    set_up_database,
-};
 use uuid::Uuid;
 
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
+    conversations::messages::TimestampedMessage,
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     user_profiles::UserProfile,
     utils::persistence::{open_client_db, open_phnx_db},
 };
-
-use self::{
-    api_clients::ApiClients, conversations::messages::TimestampedMessage,
-    create_user::InitialUserState, mimi_content::MimiContent, store::UserCreationState,
+use crate::{
+    groups::{client_auth_info::StorableClientCredential, Group},
+    Asset,
+};
+use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
+use crate::{mimi_content::MimiContent, CorelibError};
+use crate::{
+    utils::{
+        persistence::{SqliteConnection, Storable},
+        set_up_database,
+    },
+    Message,
 };
 
-use super::*;
+use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 
 pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
+pub mod conversations;
 mod create_user;
 pub(crate) mod own_client_info;
 mod persistence;
@@ -243,58 +248,6 @@ impl CoreUser {
         Ok(Some(self_user))
     }
 
-    /// Create new conversation.
-    ///
-    /// Returns the id of the newly created conversation.
-    pub async fn create_conversation(
-        &self,
-        title: &str,
-        conversation_picture_option: Option<Vec<u8>>,
-    ) -> Result<ConversationId> {
-        let group_id = self
-            .api_clients
-            .default_client()?
-            .ds_request_group_id()
-            .await?;
-        let client_reference = self.create_own_client_reference();
-        // Store the conversation attributes in the group's aad
-        let conversation_attributes =
-            ConversationAttributes::new(title.to_string(), conversation_picture_option);
-        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
-
-        // Phase 1: Create and store the group in the OpenMLS provider
-        let mut connection = self.connection.lock().await;
-        let (group, partial_params) = Group::create_group(
-            &mut connection,
-            &self.key_store.signing_key,
-            group_id.clone(),
-            group_data,
-        )?;
-        group.store(&connection)?;
-        let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
-        conversation.store(&connection)?;
-
-        drop(connection);
-
-        // Phase 2: Create the group on the DS
-        let encrypted_client_credential = self
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
-        self.api_clients
-            .default_client()?
-            .ds_create_group(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
-            .await?;
-
-        Ok(conversation.id())
-    }
-
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
         if user_profile.user_name() != &self.user_name() {
             bail!("Can't set user profile for users other than the current user.",);
@@ -307,29 +260,6 @@ impl CoreUser {
         }
         let connection = &self.connection.lock().await;
         user_profile.update(connection)?;
-        Ok(())
-    }
-
-    /// Get the user profile of the user with the given [`UserName`].
-    pub async fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
-        let connection = &self.connection.lock().await;
-        let user = UserProfile::load(connection, user_name)?;
-        Ok(user)
-    }
-
-    pub async fn set_conversation_picture(
-        &self,
-        conversation_id: ConversationId,
-        conversation_picture_option: Option<Vec<u8>>,
-    ) -> Result<()> {
-        let connection = &self.connection.lock().await;
-        let mut conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let resized_picture_option = conversation_picture_option
-            .and_then(|conversation_picture| self.resize_image(&conversation_picture).ok());
-        conversation.set_conversation_picture(connection, resized_picture_option)?;
         Ok(())
     }
 
@@ -378,6 +308,13 @@ impl CoreUser {
             buf.len()
         );
         Ok(buf)
+    }
+
+    /// Get the user profile of the user with the given [`UserName`].
+    pub async fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
+        let connection = &self.connection.lock().await;
+        let user = UserProfile::load(connection, user_name)?;
+        Ok(user)
     }
 
     /// Invite users to an existing conversation.
@@ -849,7 +786,7 @@ impl CoreUser {
     /// more than one effect on the group. As a result this function returns a
     /// vector of [`ConversationMessage`]s that represents the changes to the
     /// group. Note that these returned message have already been persisted.
-    pub async fn delete_group(
+    pub async fn delete_conversation(
         &mut self,
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
@@ -961,7 +898,7 @@ impl CoreUser {
         self.fetch_messages_from_queue(QueueType::Qs).await
     }
 
-    pub async fn leave_group(&self, conversation_id: ConversationId) -> Result<()> {
+    pub async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
         // Phase 1: Load the conversation and the group
         let connection = self.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
@@ -1081,7 +1018,7 @@ impl CoreUser {
     }
 
     /// Returns None if there is no conversation with the given id.
-    pub async fn group_members(
+    pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
     ) -> Option<HashSet<UserName>> {
@@ -1100,23 +1037,6 @@ impl CoreUser {
         Group::load(connection, conversation.group_id())
             .ok()?
             .map(|group| group.pending_removes(connection))
-    }
-
-    pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let connection = &self.connection.lock().await;
-        let conversations = Conversation::load_all(connection)?;
-        Ok(conversations)
-    }
-
-    pub async fn last_message(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Option<ConversationMessage> {
-        let connection = &self.connection.lock().await;
-        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(|e| {
-            log::error!("Error while fetching last message: {:?}", e);
-            None
-        })
     }
 
     pub async fn websocket(&self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
