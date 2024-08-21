@@ -120,15 +120,10 @@ impl TimeStamp {
         Utc::now().into()
     }
 
-    fn in_days(days_in_the_future: i64) -> Self {
-        let time = Utc::now() + Duration::days(days_in_the_future);
-        time.into()
-    }
-
     /// Checks if this time stamp is more than `expiration_days` in the past.
-    pub fn has_expired(&self, expiration_days: i64) -> bool {
-        let time_left = Utc::now() - Duration::days(expiration_days);
-        Self::from(time_left).time >= self.time
+    pub fn has_expired(&self, expiration_duration: Duration) -> bool {
+        let time_left = Utc::now() - expiration_duration;
+        time_left >= self.time
     }
 
     fn is_between(&self, start: &Self, end: &Self) -> bool {
@@ -163,11 +158,11 @@ pub struct ExpirationData {
 impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
-    pub fn new(lifetime: i64) -> Self {
+    pub fn new(lifetime: Duration) -> Self {
         let not_before = Utc::now() - Duration::minutes(15);
         Self {
             not_before: TimeStamp::from(not_before),
-            not_after: TimeStamp::in_days(lifetime),
+            not_after: TimeStamp::from(not_before + lifetime),
         }
     }
 
