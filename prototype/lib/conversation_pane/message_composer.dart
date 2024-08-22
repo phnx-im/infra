@@ -208,6 +208,8 @@ class _MessageComposerState extends State<MessageComposer> {
                       ? TextInputAction.send
                       : TextInputAction.newline,
                   onEditingComplete: () => _focusNode.requestFocus(),
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
                 ),
               ),
               isSmallScreen(context)
