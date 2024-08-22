@@ -4,6 +4,7 @@
 
 use crate::configurations::DatabaseSettings;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use mls_assist::openmls_traits::types::SignatureScheme;
 use num_traits::ToPrimitive;
 use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
@@ -284,7 +285,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let user_name_bytes = serde_json::to_vec(&client_id.user_name())?;
         let queue_encryption_key_bytes = serde_json::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = serde_json::to_vec(&client_record.ratchet_key)?;
-        let activity_time = client_record.activity_time.time();
+        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
         let client_credential = serde_json::to_vec(&client_record.credential)?;
         sqlx::query!(
             "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -340,7 +341,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let user_name_bytes = serde_json::to_vec(&client_id.user_name())?;
         let queue_encryption_key_bytes = serde_json::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = serde_json::to_vec(&client_record.ratchet_key)?;
-        let activity_time = client_record.activity_time.time();
+        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
         let client_credential = serde_json::to_vec(&client_record.credential)?;
         sqlx::query!(
             "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",

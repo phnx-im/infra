@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use mls_assist::{
     openmls::{
         prelude::{KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError},
@@ -27,7 +28,7 @@ use super::*;
 
 // This is used to check keypackage batch freshness by the DS, so it's
 // reasonable to assume the batch is relatively fresh.
-pub const KEYPACKAGEBATCH_EXPIRATION_DAYS: i64 = 1;
+pub const KEYPACKAGEBATCH_EXPIRATION: Duration = Duration::days(1);
 
 #[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct KeyPackageBatch<const IS_VERIFIED: bool> {
@@ -118,8 +119,10 @@ impl KeyPackageBatch<VERIFIED> {
         &self.payload.key_package_refs
     }
 
-    pub fn has_expired(&self, expiration_days: i64) -> bool {
-        self.payload.time_of_signature.has_expired(expiration_days)
+    pub fn has_expired(&self, expiration_duration: Duration) -> bool {
+        self.payload
+            .time_of_signature
+            .has_expired(expiration_duration)
     }
 }
 

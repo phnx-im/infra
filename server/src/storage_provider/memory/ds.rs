@@ -10,7 +10,9 @@ use std::{
 
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
-use phnxbackend::ds::{group_state::EncryptedDsGroupState, DsStorageProvider, LoadState};
+use phnxbackend::ds::{
+    group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION,
+};
 use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
 
 #[derive(Debug)]
@@ -53,15 +55,16 @@ impl DsStorageProvider for MemoryDsStorage {
         match self.groups.try_lock() {
             Ok(groups) => match groups.get(group_id) {
                 Some(StorageState::Taken(encrypted_group_state)) => {
-                    if encrypted_group_state.last_used.has_expired(90) {
+                    if encrypted_group_state
+                        .last_used
+                        .has_expired(GROUP_STATE_EXPIRATION)
+                    {
                         Ok(LoadState::Expired)
                     } else {
                         Ok(LoadState::Success(encrypted_group_state.clone()))
                     }
                 }
-                Some(StorageState::Reserved(timestamp)) => {
-                    Ok(LoadState::Reserved(*timestamp))
-                }
+                Some(StorageState::Reserved(timestamp)) => Ok(LoadState::Reserved(*timestamp)),
                 None => Ok(LoadState::NotFound),
             },
             Err(_) => Err(MemoryDsStorageError::MemoryStoreError),

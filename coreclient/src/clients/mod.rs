@@ -5,7 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -91,7 +91,7 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
 
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const ADD_PACKAGES: usize = 50;
-pub(crate) const CONNECTION_PACKAGE_EXPIRATION_DAYS: i64 = 30;
+pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Clone)]
 pub struct CoreUser {

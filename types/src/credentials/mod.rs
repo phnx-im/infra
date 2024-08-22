@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -101,7 +102,7 @@ impl FromSql for CredentialFingerprint {
     }
 }
 
-const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
+const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
@@ -199,7 +200,7 @@ impl AsCredential {
     }
 }
 
-const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: i64 = 365;
+const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365);
 
 pub struct PreliminaryAsSigningKey {
     signing_key: PrivateKey,
@@ -418,7 +419,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
 }
 
 const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
-const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: i64 = 90;
+const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialCsr {

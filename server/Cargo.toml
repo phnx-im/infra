@@ -26,7 +26,6 @@ actix-web = "^4.0"
 serde_json = "1"
 serde = "1"
 config = "0.13.1"
-chrono = "0.4"
 async-trait = "0.1.74"
 actix-web-actors = "4.2.0"
 actix = "0.13"
@@ -48,6 +47,7 @@ opaque-ke = { version = "3.0.0-pre.5", features = [
 num-traits = "0.2"
 
 # Workspace dependencies
+chrono = { workspace = true }
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
 mls-assist = { workspace = true }
