@@ -22,6 +22,7 @@ pub struct Disconnect {
     pub queue_id: QsClientId,
 }
 
+#[derive(Debug)]
 pub enum NotifyMessageError {
     ClientNotFound,
 }
