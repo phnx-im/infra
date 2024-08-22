@@ -149,10 +149,15 @@ class _MessageComposerState extends State<MessageComposer> {
       return;
     }
 
+    final messageText = _controller.text.trim();
+
+    setState(() {
+      _controller.clear();
+      _focusNode.requestFocus();
+    });
+
     await coreClient.sendMessage(
-        coreClient.currentConversation!.id, _controller.text.trim());
-    _controller.clear();
-    _focusNode.requestFocus();
+        coreClient.currentConversation!.id, messageText);
   }
 
   String? hintText() {

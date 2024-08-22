@@ -406,6 +406,10 @@ String formatTimestamp2(DateTime timestamp) {
 
 String formatTimestamp(DateTime timestamp, {DateTime? now}) {
   now ??= DateTime.now();
+
+  timestamp = timestamp.toLocal();
+  now = now.toLocal();
+
   final difference = now.difference(timestamp);
   final yesterday = DateTime(now.year, now.month, now.day - 1);
 
