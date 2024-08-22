@@ -52,7 +52,7 @@ impl Conversation {
         log::info!("With title: {:?}", self.attributes().title());
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.id,
                 self.attributes().title(),
@@ -85,7 +85,7 @@ impl Conversation {
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations ORDER BY last_used DESC")?;
+        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations")?;
         let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }

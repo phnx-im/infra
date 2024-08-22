@@ -74,6 +74,7 @@ pub struct UiConversationDetails {
     pub group_id: GroupIdBytes,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
+    pub last_used: DateTime<Utc>,
     pub attributes: UiConversationAttributes,
     pub unread_messages: u32,
     pub last_message: Option<UiConversationMessage>,
