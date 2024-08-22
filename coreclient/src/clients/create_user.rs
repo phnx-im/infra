@@ -280,7 +280,7 @@ impl PostRegistrationInitState {
 
         let mut connection_packages = vec![];
         for _ in 0..CONNECTION_PACKAGES {
-            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION_DAYS);
+            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
                 key_store.connection_decryption_key.encryption_key(),
