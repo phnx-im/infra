@@ -601,7 +601,7 @@ async fn mark_as_read() {
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
     bob.fully_process_qs_messages(qs_messages).await.unwrap();
 
-    bob.mark_as_read([(bob_charlie_conversation, timestamp.time())])
+    bob.mark_as_read([(bob_charlie_conversation, *timestamp)])
         .await
         .unwrap();
 

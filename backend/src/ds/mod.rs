@@ -6,7 +6,10 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use mls_assist::openmls::prelude::GroupId;
-use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
+use phnxtypes::{
+    identifiers::Fqdn,
+    time::{Duration, TimeStamp},
+};
 
 use self::group_state::EncryptedDsGroupState;
 
@@ -25,7 +28,7 @@ mod update_client;
 
 /// Number of days after its last use upon which a group state is considered
 /// expired.
-pub const GROUP_STATE_EXPIRATION_DAYS: i64 = 90;
+pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
 
 /// Return value of a group state load query.
 /// #[derive(Serialize, Deserialize)]

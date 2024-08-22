@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, SubsecRound, TimeZone, Utc};
+use std::ops::Deref;
+
+use chrono::{DateTime, TimeZone, Utc};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
 
@@ -16,30 +18,45 @@ pub struct TimeStamp {
     time: DateTime<Utc>,
 }
 
+impl AsRef<DateTime<Utc>> for TimeStamp {
+    fn as_ref(&self) -> &DateTime<Utc> {
+        &self.time
+    }
+}
+
+impl Deref for TimeStamp {
+    type Target = DateTime<Utc>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.time
+    }
+}
+
 impl From<DateTime<Utc>> for TimeStamp {
     fn from(time: DateTime<Utc>) -> Self {
-        let time = time.round_subsecs(3);
         Self { time }
     }
 }
 
-impl From<TimeStamp> for i64 {
+impl From<TimeStamp> for DateTime<Utc> {
     fn from(time: TimeStamp) -> Self {
-        time.time.timestamp_millis()
+        time.time
     }
 }
 
-impl TryFrom<i64> for TimeStamp {
+impl TryFrom<TimeStamp> for i64 {
     type Error = TimeStampError;
 
-    fn try_from(time: i64) -> Result<Self, Self::Error> {
-        let time_result = Utc.timestamp_millis_opt(time);
-        match time_result {
-            chrono::LocalResult::Single(time) => Ok(time.into()),
-            chrono::LocalResult::None | chrono::LocalResult::Ambiguous(_, _) => {
-                Err(TimeStampError::InvalidInput)
-            }
-        }
+    fn try_from(time: TimeStamp) -> Result<Self, Self::Error> {
+        time.time
+            .timestamp_nanos_opt()
+            .ok_or(TimeStampError::InvalidInput)
+    }
+}
+
+impl From<i64> for TimeStamp {
+    fn from(time: i64) -> Self {
+        Utc.timestamp_nanos(time).into()
     }
 }
 
@@ -49,24 +66,20 @@ pub enum TimeStampError {
     InvalidInput,
 }
 
-// We need this conversion, because Dart will only be able to send us u64.
-impl TryFrom<u64> for TimeStamp {
-    type Error = TimeStampError;
-
-    fn try_from(time: u64) -> Result<Self, Self::Error> {
-        Self::try_from(time as i64)
-    }
-}
+const I64_SIZE: usize = std::mem::size_of::<i64>();
 
 impl Size for TimeStamp {
     fn tls_serialized_len(&self) -> usize {
-        8
+        I64_SIZE
     }
 }
 
 impl TlsSerializeTrait for TimeStamp {
     fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        let time_i64: i64 = (*self).into();
+        let time_i64 = i64::try_from(*self).map_err(|e| {
+            tracing::error!("Failed to serialize timestamp: {}", e);
+            tls_codec::Error::InvalidInput
+        })?;
         time_i64.to_be_bytes().tls_serialize(writer)
     }
 }
@@ -76,15 +89,13 @@ impl TlsDeserializeBytesTrait for TimeStamp {
     where
         Self: Sized,
     {
-        const I64_SIZE: usize = i64::BITS as usize / 8;
         let time_i64_bytes: [u8; I64_SIZE] = bytes
             .get(..I64_SIZE)
             .ok_or(tls_codec::Error::EndOfStream)?
             .try_into()
             .map_err(|_| tls_codec::Error::EndOfStream)?;
         let time_i64 = i64::from_be_bytes(time_i64_bytes);
-        let time = TimeStamp::try_from(time_i64)
-            .map_err(|_| tls_codec::Error::DecodingError("Invalid timestamp".to_string()))?;
+        let time = TimeStamp::from(time_i64);
         Ok((time, &bytes[I64_SIZE..]))
     }
 }
@@ -106,37 +117,17 @@ impl FromSql for TimeStamp {
 
 impl TimeStamp {
     pub fn now() -> Self {
-        // We round the subseconds to 3 digits, because we don't need more
-        // precision.
         Utc::now().into()
     }
 
-    pub fn in_days(days_in_the_future: i64) -> Self {
-        let time = Utc::now() + Duration::days(days_in_the_future);
-        time.into()
+    /// Checks if this time stamp is more than `expiration` in the past.
+    pub fn has_expired(&self, expiration: Duration) -> bool {
+        let time_left = Utc::now() - expiration;
+        time_left >= self.time
     }
 
-    /// Checks if this time stamp is more than `expiration_days` in the past.
-    pub fn has_expired(&self, expiration_days: i64) -> bool {
-        let time_left = Utc::now() - Duration::days(expiration_days);
-        Self::from(time_left).time >= self.time
-    }
-
-    pub fn is_between(&self, start: &Self, end: &Self) -> bool {
+    fn is_between(&self, start: &Self, end: &Self) -> bool {
         self.time >= start.time && self.time <= end.time
-    }
-
-    pub fn is_more_recent_than(&self, other: &Self) -> bool {
-        self.time > other.time
-    }
-
-    pub fn time(&self) -> DateTime<Utc> {
-        self.time
-    }
-
-    pub fn as_u64(&self) -> u64 {
-        let time_i64: i64 = (*self).into();
-        time_i64 as u64
     }
 }
 
@@ -147,8 +138,8 @@ mod timestamp_conversion {
     #[test]
     fn timestamp_conversion() {
         let time = TimeStamp::now();
-        let time_u64 = time.as_u64();
-        let time_converted = TimeStamp::try_from(time_u64).unwrap();
+        let time_i64 = i64::try_from(time).unwrap();
+        let time_converted = TimeStamp::from(time_i64);
         assert_eq!(time, time_converted);
 
         let time = TimeStamp::now();
@@ -167,11 +158,11 @@ pub struct ExpirationData {
 impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
-    pub fn new(lifetime: i64) -> Self {
+    pub fn new(lifetime: Duration) -> Self {
         let not_before = Utc::now() - Duration::minutes(15);
         Self {
             not_before: TimeStamp::from(not_before),
-            not_after: TimeStamp::in_days(lifetime),
+            not_after: TimeStamp::from(not_before + lifetime),
         }
     }
 
