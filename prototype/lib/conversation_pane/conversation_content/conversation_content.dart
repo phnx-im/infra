@@ -4,11 +4,11 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/conversation_content/conversation_tile.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:collection/collection.dart';
 
 class ConversationContent extends StatefulWidget {
@@ -21,7 +21,13 @@ class ConversationContent extends StatefulWidget {
 }
 
 class _ConversationContentState extends State<ConversationContent> {
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController =
+      TrackingScrollController(keepScrollOffset: true);
+  ScrollPhysics _scrollPhysics = (Platform.isAndroid || Platform.isWindows)
+      ? const ClampingScrollPhysics()
+      : const BouncingScrollPhysics()
+          .applyTo(const AlwaysScrollableScrollPhysics());
+
   final HashMap<int, GlobalKey> _tileKeys = HashMap();
   Timer? _debounceTimer;
   DateTime? lastRead;
@@ -44,11 +50,6 @@ class _ConversationContentState extends State<ConversationContent> {
       // Updates the messages and scrolls to the end of the conversation.
       updateMessages().then((_) => scrollToEnd());
     }
-
-    // Call _processVisibleMessages once initially after the first frame is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _processVisibleMessages();
-    });
   }
 
   @override
@@ -121,7 +122,7 @@ class _ConversationContentState extends State<ConversationContent> {
   Future<void> updateMessages() async {
     if (_currentConversation != null) {
       final messages = await coreClient.user
-          .getMessages(conversationId: _currentConversation!.id, lastN: 100);
+          .getMessages(conversationId: _currentConversation!.id, lastN: 50);
       setState(() {
         print("Number of messages: ${messages.length}");
         _messages = messages;
@@ -133,6 +134,7 @@ class _ConversationContentState extends State<ConversationContent> {
     _currentConversation = conversation;
     _messages = [];
     await updateMessages();
+    scrollToEnd(animated: true);
   }
 
   void messageListener(UiConversationMessage cm) {
@@ -147,14 +149,23 @@ class _ConversationContentState extends State<ConversationContent> {
   }
 
   // Smooth scrolling to the end of the conversation
-  void scrollToEnd() {
+  // with an optional parameter to enable/disable animation
+  void scrollToEnd({
+    bool animated = false,
+  }) {
     setState(() {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final extent = _scrollController.position.maxScrollExtent;
+        if (animated) {
+          _scrollController.animateTo(
+            extent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        } else {
+          _scrollController.jumpTo(extent);
+        }
+        _processVisibleMessages();
       });
     });
   }
@@ -173,7 +184,7 @@ class _ConversationContentState extends State<ConversationContent> {
             left: 10,
           ),
           itemCount: _messages.length,
-          physics: const BouncingScrollPhysics(),
+          physics: _scrollPhysics,
           itemBuilder: (BuildContext context, int index) {
             final key = GlobalKey();
             _tileKeys[index] = key;

@@ -134,7 +134,7 @@ class _ConversationListState extends State<ConversationList> {
     final lastMessage = _conversations[index].lastMessage;
     final style = TextStyle(
       color: colorDMB,
-      fontSize: 13,
+      fontSize: isSmallScreen(context) ? 14 : 13,
       fontVariations: variationRegular,
       letterSpacing: -0.2,
       height: 1.2,
