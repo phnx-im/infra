@@ -477,8 +477,9 @@ impl CoreUser {
         content: MimiContent,
     ) -> Result<ConversationMessage> {
         // Phase 1: Load the conversation and group
-        let connection = self.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
+        let mut connection = self.connection.lock().await;
+        let mut transaction = connection.transaction()?;
+        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
@@ -490,12 +491,21 @@ impl CoreUser {
             conversation_id,
             content.clone(),
         );
-        conversation_message.store(&connection)?;
-        let mut group = Group::load(&connection, group_id)?
+        conversation_message.store(&transaction)?;
+        let mut group = Group::load(&transaction, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
         let params = group
-            .create_message(&connection, content)
+            .create_message(&transaction, content)
             .map_err(CorelibError::Group)?;
+        // Immediately write the group back. No need to wait for the DS to
+        // confirm as this is just an application message.
+        group.store_update(&transaction)?;
+        // Also, mark the message (and all messages preceeding it) as read.
+        Conversation::mark_as_read(
+            &mut transaction,
+            vec![(conversation.id(), Utc::now())].into_iter(),
+        )?;
+        transaction.commit()?;
         drop(connection);
 
         // Phase 2: Send message to DS
@@ -505,17 +515,8 @@ impl CoreUser {
             .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
-        // Phase 3: Merge the commit into the group & update conversation
-        let mut connection = self.connection.lock().await;
-        group.store_update(&connection)?;
-        let mut transaction = connection.transaction()?;
-        Conversation::mark_as_read(
-            &mut transaction,
-            vec![(conversation.id(), Utc::now())].into_iter(),
-        )?;
-        transaction.commit()?;
-
-        // Mark the message as sent.
+        // Phase 3: Mark the message as sent.
+        let connection = self.connection.lock().await;
         conversation_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(conversation_message)
