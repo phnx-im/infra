@@ -2,25 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::bail;
-use groups::openmls_provider::{
-    StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData, StorableKeyPackage,
-    StorableLeafNode, StorableProposal, StorablePskBundle, StorableSignatureKeyPairs,
-};
-use key_stores::{
-    qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
-};
-use own_client_info::OwnClientInfo;
-use phnxtypes::messages::push_token::PushToken;
-
-use self::{
+use crate::{
     groups::{
         client_auth_info::{GroupMembership, StorableClientCredential},
+        openmls_provider::{
+            StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData,
+            StorableKeyPackage, StorableLeafNode, StorableProposal, StorablePskBundle,
+            StorableSignatureKeyPairs,
+        },
         Group,
     },
-    key_stores::leaf_keys::LeafKeys,
+    key_stores::{
+        leaf_keys::LeafKeys, qs_verifying_keys::StorableQsVerifyingKey,
+        queue_ratchets::StorableAsQueueRatchet,
+    },
     utils::persistence::{Storable, Triggerable},
 };
+use anyhow::bail;
+use own_client_info::OwnClientInfo;
+use phnxtypes::messages::push_token::PushToken;
 
 use super::{
     create_user::{

@@ -9,7 +9,10 @@ use phnxtypes::identifiers::{SafeTryInto, UserName};
 use crate::notifier::dispatch_message_notifications;
 
 use super::{
-    types::{ConversationIdBytes, UiContact, UiConversation, UiConversationDetails},
+    types::{
+        ConversationIdBytes, UiContact, UiConversation, UiConversationDetails,
+        UiConversationMessage,
+    },
     user::User,
 };
 
@@ -40,17 +43,24 @@ impl User {
                 .last_message(conversation.id())
                 .await
                 .map(|m| m.into());
+            let last_used = last_message
+                .as_ref()
+                .map(|m: &UiConversationMessage| m.timestamp)
+                .unwrap_or_default(); // default is UNIX_EPOCH
+
             let conversation = UiConversation::from(conversation);
             conversation_details.push(UiConversationDetails {
                 id: conversation.id,
                 group_id: conversation.group_id,
                 status: conversation.status,
                 conversation_type: conversation.conversation_type,
-                last_used: conversation.last_used,
+                last_used,
                 attributes: conversation.attributes,
                 unread_messages,
                 last_message,
             });
+            // Sort the conversations by last used timestamp in descending order
+            conversation_details.sort_by(|a, b| b.last_used.cmp(&a.last_used));
         }
         conversation_details
     }
@@ -116,7 +126,7 @@ impl User {
     ) -> Result<Vec<String>> {
         Ok(self
             .user
-            .group_members(conversation_id.into())
+            .conversation_participants(conversation_id.into())
             .await
             .unwrap_or_default()
             .into_iter()
@@ -132,7 +142,7 @@ impl User {
     ) -> Result<Vec<UiContact>> {
         let group_members = self
             .user
-            .group_members(conversation_id.into())
+            .conversation_participants(conversation_id.into())
             .await
             .ok_or(anyhow!("Conversation not found"))?;
         let add_candidates = self

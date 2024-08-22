@@ -65,7 +65,6 @@ pub struct UiConversation {
     pub group_id: GroupIdBytes,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
-    pub last_used: DateTime<Utc>,
     pub attributes: UiConversationAttributes,
 }
 
@@ -163,7 +162,6 @@ impl From<Conversation> for UiConversation {
             group_id: GroupIdBytes::from(conversation.group_id().clone()),
             status: UiConversationStatus::from(conversation.status().clone()),
             conversation_type: UiConversationType::from(conversation.conversation_type().clone()),
-            last_used: conversation.last_used().clone(),
             attributes: UiConversationAttributes::from(conversation.attributes().clone()),
         }
     }

@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use key_stores::{
-    as_credentials::AsCredentials,
-    queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+use crate::{
+    groups::client_auth_info::StorableClientCredential,
+    key_stores::{
+        as_credentials::AsCredentials,
+        queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+    },
 };
 use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
@@ -26,8 +29,6 @@ use phnxtypes::{
     time::ExpirationData,
 };
 use rand_chacha::rand_core::OsRng;
-
-use self::groups::client_auth_info::StorableClientCredential;
 
 use super::*;
 
