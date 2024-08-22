@@ -166,6 +166,7 @@ impl Conversation {
                 conversation_messages cm
             ON 
                 c.conversation_id = cm.conversation_id
+                AND cm.sender != 'system'
                 AND cm.timestamp > c.last_read;",
             [],
             |row| row.get(0),
@@ -177,7 +178,7 @@ impl Conversation {
         conversation_id: ConversationId,
     ) -> Result<u32, rusqlite::Error> {
         connection.query_row(
-            "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = :conversation_id AND timestamp > (SELECT last_read FROM conversations WHERE conversation_id = :conversation_id)",
+            "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = :conversation_id AND sender != 'system' AND timestamp > (SELECT last_read FROM conversations WHERE conversation_id = :conversation_id)",
             named_params! {":conversation_id": conversation_id},
             |row| row.get(0),
         )
