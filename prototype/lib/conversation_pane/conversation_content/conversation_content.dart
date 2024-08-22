@@ -134,14 +134,14 @@ class _ConversationContentState extends State<ConversationContent> {
     _currentConversation = conversation;
     _messages = [];
     await updateMessages();
-    scrollToEnd(animated: true);
+    scrollToEnd();
   }
 
   void messageListener(UiConversationMessage cm) {
     if (cm.conversationId.bytes.equals(_currentConversation!.id.bytes)) {
       setState(() {
         _messages.add(cm);
-        scrollToEnd();
+        scrollToEnd(animated: true);
       });
     } else {
       print('A message for another group was received');
