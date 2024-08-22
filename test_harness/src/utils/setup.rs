@@ -429,6 +429,14 @@ impl TestBackend {
             .await
             .unwrap();
 
+        let test_user2 = self.users.get_mut(&user2_name).unwrap();
+        let user2 = &mut test_user2.user;
+
+        user2
+            .mark_as_read([(user2_conversation_id, Utc::now())].into_iter())
+            .await
+            .unwrap();
+
         let member_set: HashSet<UserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);
         self.groups.insert(user1_conversation_id, member_set);
