@@ -278,8 +278,16 @@ impl WebsocketNotifier for DispatchWebsocketNotifier {
             })
             .await
             // If the actor doesn't reply, we get a MailboxError
-            .map_err(|_| WebsocketNotifierError::WebsocketNotFound)
+            .map_err(|e| {
+                tracing::warn!(
+                    "Got a MailboxError while trying to send a message to the WS actor: {}",
+                    e
+                );
+                WebsocketNotifierError::WebsocketNotFound
+            })
             // Return value of the actor
-            .and_then(|res| res.map_err(|_| WebsocketNotifierError::WebsocketNotFound))
+            .and_then(|res| res.map_err(|e| {
+                tracing::warn!("The WS actor returned the following error while trying to send a message via WS: {:?}", e);
+                WebsocketNotifierError::WebsocketNotFound}))
     }
 }
