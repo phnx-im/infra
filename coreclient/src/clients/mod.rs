@@ -477,36 +477,40 @@ impl CoreUser {
         content: MimiContent,
     ) -> Result<ConversationMessage> {
         // Phase 1: Load the conversation and group
-        let mut connection = self.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-        let conversation = Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let group_id = conversation.group_id();
-        // Store the message as unsent so that we don't lose it in case
-        // something goes wrong.
-        let mut conversation_message = ConversationMessage::new_unsent_message(
-            self.user_name().to_string(),
-            conversation_id,
-            content.clone(),
-        );
-        conversation_message.store(&transaction)?;
-        let mut group = Group::load(&transaction, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group
-            .create_message(&transaction, content)
-            .map_err(CorelibError::Group)?;
-        // Immediately write the group back. No need to wait for the DS to
-        // confirm as this is just an application message.
-        group.store_update(&transaction)?;
-        // Also, mark the message (and all messages preceeding it) as read.
-        Conversation::mark_as_read(
-            &mut transaction,
-            vec![(conversation.id(), Utc::now())].into_iter(),
-        )?;
-        transaction.commit()?;
-        drop(connection);
+        let (group, params, conversation, mut conversation_message) = {
+            let mut connection = self.connection.lock().await;
+            let mut transaction = connection.transaction()?;
+            let conversation =
+                Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
+                    "Can't find conversation with id {}",
+                    conversation_id.as_uuid()
+                ))?;
+            let group_id = conversation.group_id();
+            // Store the message as unsent so that we don't lose it in case
+            // something goes wrong.
+            let conversation_message = ConversationMessage::new_unsent_message(
+                self.user_name().to_string(),
+                conversation_id,
+                content.clone(),
+            );
+            conversation_message.store(&transaction)?;
+            let mut group = Group::load(&transaction, group_id)?
+                .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
+            let params = group
+                .create_message(&transaction, content)
+                .map_err(CorelibError::Group)?;
+            // Immediately write the group back. No need to wait for the DS to
+            // confirm as this is just an application message.
+            group.store_update(&transaction)?;
+            // Also, mark the message (and all messages preceeding it) as read.
+            Conversation::mark_as_read(
+                &mut transaction,
+                vec![(conversation.id(), Utc::now())].into_iter(),
+            )?;
+            transaction.commit()?;
+            drop(connection);
+            (group, params, conversation, conversation_message)
+        };
 
         // Phase 2: Send message to DS
         let ds_timestamp = self
