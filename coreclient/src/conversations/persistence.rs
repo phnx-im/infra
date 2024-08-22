@@ -190,17 +190,4 @@ impl Conversation {
         )?;
         Ok(())
     }
-
-    pub fn last_used(
-        connection: &Connection,
-        conversation_id: &ConversationId,
-    ) -> Result<Option<DateTime<Utc>>, rusqlite::Error> {
-        connection
-            .query_row(
-                "SELECT MAX(timestamp) FROM conversation_messages WHERE conversation_id = ?",
-                params![conversation_id],
-                |row| row.get(0),
-            )
-            .optional()
-    }
 }
