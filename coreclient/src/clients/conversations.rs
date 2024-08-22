@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
-use exif::{Reader, Tag};
-use phnxtypes::{crypto::ear::EarEncryptable, time::TimeStamp};
+use phnxtypes::crypto::ear::EarEncryptable;
 
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
@@ -98,13 +96,5 @@ impl CoreUser {
         let connection = &self.connection.lock().await;
         let conversations = Conversation::load_all(connection)?;
         Ok(conversations)
-    }
-
-    pub async fn last_used(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Result<DateTime<Utc>, rusqlite::Error> {
-        let connection = &self.connection.lock().await;
-        Conversation::last_used(connection, conversation_id)
     }
 }

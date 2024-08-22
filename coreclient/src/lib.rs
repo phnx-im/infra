@@ -13,8 +13,6 @@ mod mimi_content;
 mod user_profiles;
 mod utils;
 
-use std::collections::HashMap;
-
 pub(crate) use crate::errors::*;
 
 pub use crate::{
@@ -32,5 +30,3 @@ pub use crate::{
 };
 
 pub use crate::utils::persistence::delete_databases;
-
-pub(crate) use openmls::prelude::*;
