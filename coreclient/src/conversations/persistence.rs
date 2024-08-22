@@ -18,7 +18,6 @@ impl Storable for Conversation {
             conversation_title TEXT NOT NULL,
             conversation_picture BLOB,
             group_id BLOB NOT NULL,
-            last_used TEXT NOT NULL,
             last_read TEXT NOT NULL,
             conversation_status TEXT NOT NULL CHECK (conversation_status LIKE 'active' OR conversation_status LIKE 'inactive:%'),
             conversation_type TEXT NOT NULL CHECK (conversation_type LIKE 'group' OR conversation_type LIKE 'unconfirmed_connection:%' OR conversation_type LIKE 'connection:%')
@@ -29,15 +28,13 @@ impl Storable for Conversation {
         let conversation_title = row.get(1)?;
         let conversation_picture_option = row.get(2)?;
         let group_id: GroupIdWrapper = row.get(3)?;
-        let last_used = row.get(4)?;
-        let last_read = row.get(5)?;
-        let status = row.get(6)?;
-        let conversation_type = row.get(7)?;
+        let last_read = row.get(4)?;
+        let status = row.get(5)?;
+        let conversation_type = row.get(6)?;
 
         Ok(Conversation {
             id,
             group_id: group_id.into(),
-            last_used,
             last_read,
             status,
             conversation_type,
@@ -55,13 +52,12 @@ impl Conversation {
         log::info!("With title: {:?}", self.attributes().title());
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.id,
                 self.attributes().title(),
                 self.attributes().conversation_picture_option(),
                 group_id,
-                self.last_used,
                 self.last_read,
                 self.status(),
                 self.conversation_type(),
@@ -74,7 +70,7 @@ impl Conversation {
         connection: &Connection,
         conversation_id: &ConversationId,
     ) -> Result<Option<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations WHERE conversation_id = ?")?;
+        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations WHERE conversation_id = ?")?;
         stmt.query_row(params![conversation_id], Self::from_row)
             .optional()
     }
@@ -84,12 +80,12 @@ impl Conversation {
         group_id: &GroupId,
     ) -> Result<Option<Conversation>, rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(group_id);
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations WHERE group_id = ?")?;
+        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations WHERE group_id = ?")?;
         stmt.query_row(params![group_id], Self::from_row).optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_used, last_read, conversation_status, conversation_type FROM conversations ORDER BY last_used DESC")?;
+        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations")?;
         let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }
@@ -207,15 +203,6 @@ impl Conversation {
         connection.execute(
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],
-        )?;
-        Ok(())
-    }
-
-    /// Update the `last_used` timestamp of the conversation to the current time.
-    pub(crate) fn update_last_used(&self, connection: &Connection) -> rusqlite::Result<()> {
-        connection.execute(
-            "UPDATE conversations SET last_used = ? WHERE conversation_id = ?",
-            params![Utc::now(), self.id],
         )?;
         Ok(())
     }
