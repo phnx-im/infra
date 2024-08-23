@@ -245,8 +245,6 @@ class CoreClient {
     }
 
     messageUpdates.add(conversationMessage);
-    conversationListUpdates
-        .add(ConversationIdBytes(bytes: conversationId.bytes));
   }
 
   Future<void> createConnection(String userName) async {
