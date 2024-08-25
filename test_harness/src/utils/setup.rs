@@ -4,7 +4,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use chrono::Utc;
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
@@ -407,6 +406,15 @@ impl TestBackend {
         assert!(ids_before.is_superset(&ids_after));
         debug_assert_eq!(user1_conversation_id, user2_conversation_id);
 
+        let user1_unread_messages = self
+            .users
+            .get_mut(&user1_name)
+            .unwrap()
+            .user
+            .unread_messages_count(user1_conversation_id)
+            .await;
+        assert_eq!(user1_unread_messages, 0);
+
         // Send messages both ways to ensure it works.
         self.send_message(
             user1_conversation_id,
@@ -414,6 +422,16 @@ impl TestBackend {
             vec![user2_name.clone()],
         )
         .await;
+
+        let user1_unread_messages = self
+            .users
+            .get_mut(&user1_name)
+            .unwrap()
+            .user
+            .unread_messages_count(user1_conversation_id)
+            .await;
+        assert_eq!(user1_unread_messages, 0);
+
         self.send_message(
             user1_conversation_id,
             user2_name.clone(),
@@ -421,21 +439,47 @@ impl TestBackend {
         )
         .await;
 
+        let user1_unread_messages = self
+            .users
+            .get_mut(&user1_name)
+            .unwrap()
+            .user
+            .unread_messages_count(user1_conversation_id)
+            .await;
+        assert_eq!(user1_unread_messages, 1);
+
+        // Fetch the last message and mark it as read.
         let test_user1 = self.users.get_mut(&user1_name).unwrap();
         let user1 = &mut test_user1.user;
+        let user1_messages = user1.get_messages(user1_conversation_id, 1).await.unwrap();
+
+        assert_eq!(user1_messages.len(), 1);
+        let user1_unread_messages = user1.unread_messages_count(user1_conversation_id).await;
+        assert_eq!(user1_unread_messages, 1);
+
+        let last_message = user1_messages.last().unwrap();
 
         user1
-            .mark_as_read([(user1_conversation_id, Utc::now())].into_iter())
+            .mark_as_read([(user1_conversation_id, last_message.id())].into_iter())
             .await
             .unwrap();
+
+        let user1_unread_messages = user1.unread_messages_count(user1_conversation_id).await;
+        assert_eq!(user1_unread_messages, 0);
 
         let test_user2 = self.users.get_mut(&user2_name).unwrap();
         let user2 = &mut test_user2.user;
+        let user2_messages = user2.get_messages(user2_conversation_id, 1).await.unwrap();
 
+        assert_eq!(user2_messages.len(), 1);
+        let last_message = user2_messages.last().unwrap();
         user2
-            .mark_as_read([(user2_conversation_id, Utc::now())].into_iter())
+            .mark_as_read([(user2_conversation_id, last_message.id())].into_iter())
             .await
             .unwrap();
+
+        let user2_unread_messages = user2.unread_messages_count(user2_conversation_id).await;
+        assert_eq!(user2_unread_messages, 0);
 
         let member_set: HashSet<UserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);
@@ -451,7 +495,7 @@ impl TestBackend {
         conversation_id: ConversationId,
         sender_name: impl SafeTryInto<UserName>,
         recipient_names: Vec<impl SafeTryInto<UserName>>,
-    ) {
+    ) -> ConversationMessageId {
         let sender_name = sender_name.try_into().unwrap();
         let recipient_names: Vec<UserName> = recipient_names
             .into_iter()
@@ -520,6 +564,7 @@ impl TestBackend {
                 ))
             );
         }
+        message.id()
     }
 
     pub async fn create_group(&mut self, user_name: impl SafeTryInto<UserName>) -> ConversationId {

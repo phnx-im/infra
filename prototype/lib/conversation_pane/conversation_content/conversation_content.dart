@@ -30,7 +30,6 @@ class _ConversationContentState extends State<ConversationContent> {
 
   final HashMap<int, GlobalKey> _tileKeys = HashMap();
   Timer? _debounceTimer;
-  DateTime? lastRead;
   List<UiConversationMessage> _messages = [];
   UiConversationDetails? _currentConversation;
   StreamSubscription<UiConversationDetails>? _conversationListener;
@@ -92,24 +91,17 @@ class _ConversationContentState extends State<ConversationContent> {
         final bottomEdgeVisible = position.dy + size.height <= viewportHeight;
 
         if (topEdgeVisible && bottomEdgeVisible) {
-          final messageTimestamp = _messages[index].timestamp;
-          lastRead ??= messageTimestamp;
-
-          if (lastRead != null && messageTimestamp.isAfter(lastRead!)) {
-            lastRead = messageTimestamp;
-            _onMessageVisible(messageTimestamp);
-          }
+          final messageId = _messages[index].id;
+          _onMessageVisible(messageId);
         }
       }
     }
   }
 
-  void _onMessageVisible(DateTime timestamp) {
+  void _onMessageVisible(UiConversationMessageId messageId) {
     if (_currentConversation != null) {
       coreClient.user.markMessagesAsReadDebounced(
-        conversationId: _currentConversation!.id,
-        timestamp: timestamp,
-      );
+          conversationId: _currentConversation!.id, messageId: messageId);
     }
   }
 
