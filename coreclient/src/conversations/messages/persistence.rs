@@ -30,7 +30,7 @@ impl Storable for ConversationMessage {
         );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let local_message_id = row.get(0)?;
+        let conversation_message_id = row.get(0)?;
         let conversation_id = row.get(1)?;
         let timestamp = row.get(2)?;
         let sender_str: String = row.get(3)?;
@@ -66,7 +66,7 @@ impl Storable for ConversationMessage {
         let timestamped_message = TimestampedMessage { timestamp, message };
 
         Ok(ConversationMessage {
-            local_message_id,
+            conversation_message_id,
             conversation_id,
             timestamped_message,
         })
@@ -121,7 +121,7 @@ impl ConversationMessage {
         connection.execute(
             "INSERT INTO conversation_messages (message_id, conversation_id, timestamp, sender, content, sent) VALUES (?, ?, ?, ?, ?, ?)",
             params![
-                self.local_message_id,
+                self.conversation_message_id,
                 self.conversation_id,
                 self.timestamped_message.timestamp,
                 sender,
@@ -144,7 +144,7 @@ impl ConversationMessage {
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
-            params![timestamp, sent, self.local_message_id],
+            params![timestamp, sent, self.conversation_message_id],
         )?;
         Ok(())
     }

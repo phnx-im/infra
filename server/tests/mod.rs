@@ -588,10 +588,6 @@ async fn mark_as_read() {
     let charlie = &mut charlie_test_user.user;
     let messages_sent = send_messages(charlie, bob_charlie_conversation, number_of_messages).await;
 
-    // Let's mark all but the last two messages as read (we subtract 3, because
-    // the vector is 0-indexed).
-    let timestamp = messages_sent[messages_sent.len() - 3].timestamp();
-
     let bob_test_user = setup
         .users
         .get_mut(&SafeTryInto::try_into(BOB).unwrap())
@@ -599,9 +595,13 @@ async fn mark_as_read() {
     let bob = &mut bob_test_user.user;
 
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
-    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+    let bob_messages_sent = bob.fully_process_qs_messages(qs_messages).await.unwrap();
 
-    bob.mark_as_read([(bob_charlie_conversation, *timestamp)])
+    // Let's mark all but the last two messages as read (we subtract 3, because
+    // the vector is 0-indexed).
+    let message_id = bob_messages_sent[messages_sent.len() - 3].id();
+
+    bob.mark_as_read([(bob_charlie_conversation, message_id)])
         .await
         .unwrap();
 

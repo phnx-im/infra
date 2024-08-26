@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 
@@ -10,6 +9,8 @@ use crate::{
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
 };
+
+use super::messages::ConversationMessageId;
 
 impl Storable for Conversation {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -128,11 +129,30 @@ impl Conversation {
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
+    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, ConversationMessageId)>>(
         transaction: &mut Transaction,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {
-        for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
+        for (conversation_id, message_id) in mark_as_read_data.into_iter() {
+            // Retrieve the timestamp for the given conversation_id and message_id
+            let mut stmt = transaction.prepare(
+                "SELECT 
+                        timestamp 
+                    FROM 
+                        conversation_messages 
+                    WHERE 
+                        conversation_id = :conversation_id 
+                        AND message_id = :message_id",
+            )?;
+
+            let timestamp: String = stmt.query_row(
+                named_params! {
+                    ":conversation_id": conversation_id,
+                    ":message_id": message_id,
+                },
+                |row| row.get(0),
+            )?;
+
             transaction.execute(
                 "UPDATE conversations 
                  SET last_read = CASE 
@@ -163,7 +183,7 @@ impl Conversation {
             ON 
                 c.conversation_id = cm.conversation_id
                 AND cm.sender != 'system'
-                AND substr(cm.timestamp, 1, 23) > substr(c.last_read, 1, 23);",
+                AND cm.timestamp > c.last_read;",
             [],
             |row| row.get(0),
         )
@@ -181,7 +201,7 @@ impl Conversation {
                 WHERE 
                     conversation_id = :conversation_id 
                     AND sender != 'system' 
-                    AND substr(timestamp, 1, 23) > substr(
+                    AND timestamp > 
                     (
                         SELECT 
                             last_read 
@@ -189,7 +209,7 @@ impl Conversation {
                             conversations 
                         WHERE 
                             conversation_id = :conversation_id
-                    ), 1, 23)",
+                    )",
             named_params! {":conversation_id": conversation_id},
             |row| row.get(0),
         )
