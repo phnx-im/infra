@@ -6,9 +6,9 @@ use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationStatus, ConversationType, DisplayName, ErrorMessage,
-    EventMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
-    SystemMessage, UserProfile,
+    ConversationMessage, ConversationMessageId, ConversationStatus, ConversationType, DisplayName,
+    ErrorMessage, EventMessage, InactiveConversation, Message, MessageId, MimiContent,
+    NotificationType, SystemMessage, UserProfile,
 };
 use phnxtypes::identifiers::SafeTryInto;
 use uuid::Uuid;
@@ -167,10 +167,27 @@ impl From<Conversation> for UiConversation {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
+pub struct UiConversationMessageId {
+    pub uuid: Uuid,
+}
+
+impl From<ConversationMessageId> for UiConversationMessageId {
+    fn from(id: ConversationMessageId) -> Self {
+        Self { uuid: id.to_uuid() }
+    }
+}
+
+impl From<UiConversationMessageId> for ConversationMessageId {
+    fn from(id: UiConversationMessageId) -> Self {
+        Self::from_uuid(id.uuid)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationIdBytes,
-    pub id: UuidBytes,
+    pub id: UiConversationMessageId,
     pub timestamp: DateTime<Utc>,
     pub message: UiMessage,
 }
@@ -181,7 +198,7 @@ impl From<ConversationMessage> for UiConversationMessage {
             conversation_id: ConversationIdBytes::from(
                 conversation_message.conversation_id().clone(),
             ),
-            id: UuidBytes::from(conversation_message.id()),
+            id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().into(),
             message: UiMessage::from(conversation_message.message().clone()),
         }
