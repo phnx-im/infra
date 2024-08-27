@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 
 use phnxtypes::identifiers::Fqdn;
 

@@ -66,10 +66,44 @@ impl TimestampedMessage {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ConversationMessageId {
+    uuid: Uuid,
+}
+
+impl ConversationMessageId {
+    pub(crate) fn new() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+        }
+    }
+
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    pub fn to_uuid(&self) -> Uuid {
+        self.uuid
+    }
+}
+
+impl ToSql for ConversationMessageId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.uuid.to_sql()
+    }
+}
+
+impl FromSql for ConversationMessageId {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let uuid = Uuid::column_result(value)?;
+        Ok(Self { uuid })
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
-    pub(super) local_message_id: Uuid,
+    pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
 }
 
@@ -82,7 +116,7 @@ impl ConversationMessage {
     ) -> ConversationMessage {
         ConversationMessage {
             conversation_id,
-            local_message_id: Uuid::new_v4(),
+            conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
         }
     }
@@ -97,7 +131,7 @@ impl ConversationMessage {
             TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
         ConversationMessage {
             conversation_id,
-            local_message_id: Uuid::new_v4(),
+            conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
         }
     }
@@ -112,12 +146,12 @@ impl ConversationMessage {
         self.update_sent_status(connection, ds_timestamp, true)
     }
 
-    pub fn id_ref(&self) -> &Uuid {
-        &self.local_message_id
+    pub fn id_ref(&self) -> &ConversationMessageId {
+        &self.conversation_message_id
     }
 
-    pub fn id(&self) -> Uuid {
-        self.local_message_id
+    pub fn id(&self) -> ConversationMessageId {
+        self.conversation_message_id
     }
 
     pub fn timestamp(&self) -> TimeStamp {

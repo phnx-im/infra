@@ -17,7 +17,6 @@ name = "phnxserver"
 
 [features]
 api_docs = []
-sqlite_provider = ["rusqlite"]
 
 
 [dependencies]
@@ -27,7 +26,6 @@ actix-web = "^4.0"
 serde = "1"
 serde_json = "1"
 config = "0.13.1"
-chrono = "0.4"
 async-trait = "0.1.74"
 actix-web-actors = "4.2.0"
 actix = "0.13"
@@ -46,13 +44,9 @@ opaque-ke = { version = "3.0.0-pre.5", features = [
     "argon2",
 ], git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0" }
 num-traits = "0.2"
-rusqlite = { version = "0.30", features = [
-    "bundled",
-    "uuid",
-    "chrono",
-], optional = true }
 
 # Workspace dependencies
+chrono = { workspace = true }
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
 mls-assist = { workspace = true }

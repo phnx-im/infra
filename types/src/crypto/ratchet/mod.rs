@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use errors::{DecryptionError, EncryptionError};
 #[cfg(feature = "sqlite")]
 use rusqlite::ToSql;
 
@@ -87,9 +88,9 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 
     fn ratchet_forward(&mut self) -> Result<(), EncryptionError> {
         let secret = RatchetSecret::derive(&self.secret, Vec::new())
-            .map_err(|_| EncryptionError::LibraryError)?;
-        let key =
-            RatchetKey::derive(&secret, Vec::new()).map_err(|_| EncryptionError::LibraryError)?;
+            .map_err(|_| EncryptionError::SerializationError)?;
+        let key = RatchetKey::derive(&secret, Vec::new())
+            .map_err(|_| EncryptionError::SerializationError)?;
 
         self.secret = secret;
         self.key = key;

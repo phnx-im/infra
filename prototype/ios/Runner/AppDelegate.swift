@@ -1,7 +1,7 @@
 import Flutter
 import UIKit
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate {
     private var deviceToken: String?
     private let notificationChannelName: String = "im.phnx.prototype/channel"
@@ -73,10 +73,17 @@ import UIKit
     
     // Define the handler function
     private func handleMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
-        if call.method == "devicetoken" {
+        if call.method == "getDeviceToken" {
             self.getDeviceToken(result: result)
         } else if call.method == "getSharedDocumentsDirectory" {
             self.getSharedDocumentsDirectory(result: result)
+        }
+        else if call.method == "setBadgeCount" {
+            if let args = call.arguments as? [String: Any], let count = args["count"] as? Int {
+                self.setBadgeCount(count, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid or missing arguments", details: nil))
+            }
         }
         else {
             NSLog("Unknown method called: \(call.method)")
@@ -113,4 +120,11 @@ import UIKit
                                 details: nil))
         }
     }
+    
+    // Set the badge count
+    private func setBadgeCount(_ count: Int, result: FlutterResult) {
+        UIApplication.shared.applicationIconBadgeNumber = count
+        result(nil)
+    }
+    
 }

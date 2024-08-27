@@ -13,7 +13,7 @@ import 'package:prototype/styles.dart';
 const double _padding = 32;
 
 class ConnectionDetails extends StatelessWidget {
-  final UiConversation conversation;
+  final UiConversationDetails conversation;
 
   const ConnectionDetails({super.key, required this.conversation});
 

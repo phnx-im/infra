@@ -13,7 +13,7 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 
 class AddMembers extends StatefulWidget {
-  final UiConversation conversation;
+  final UiConversationDetails conversation;
 
   const AddMembers({super.key, required this.conversation});
 
@@ -22,7 +22,7 @@ class AddMembers extends StatefulWidget {
 }
 
 class _AddMembersState extends State<AddMembers> {
-  late StreamSubscription<UiConversation> _conversationListener;
+  late StreamSubscription<UiConversationDetails> _conversationListener;
   List<UiContact> contacts = [];
   HashSet<String> selectedContacts = HashSet();
   bool isButtonEnabled = false;
@@ -52,7 +52,7 @@ class _AddMembersState extends State<AddMembers> {
     }
   }
 
-  void conversationListener(UiConversation conversation) async {
+  void conversationListener(UiConversationDetails conversation) async {
     Navigator.of(context).pop();
     return;
   }

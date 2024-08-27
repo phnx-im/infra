@@ -14,9 +14,6 @@ path = "src/lib.rs"
 path = "src/main.rs"
 name = "test_runner"
 
-[features]
-sqlite_provider = ["phnxserver/sqlite_provider"]
-
 [dependencies]
 phnxserver = { path = "../server" }
 phnxapiclient = { path = "../apiclient" }
@@ -35,3 +32,4 @@ tracing-bunyan-formatter = "0.3"
 # Workspace dependencies
 phnxtypes = { workspace = true }
 mls-assist = { workspace = true }
+chrono = { workspace = true }

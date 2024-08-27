@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use key_stores::{
-    as_credentials::AsCredentials,
-    queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+use crate::{
+    groups::client_auth_info::StorableClientCredential,
+    key_stores::{
+        as_credentials::AsCredentials,
+        queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+    },
 };
 use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
@@ -16,7 +19,7 @@ use phnxtypes::{
         ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
-        signatures::signable::Verifiable,
+        signatures::{signable::Verifiable, DEFAULT_SIGNATURE_SCHEME},
     },
     messages::{
         client_as::ConnectionPackage,
@@ -26,8 +29,6 @@ use phnxtypes::{
     time::ExpirationData,
 };
 use rand_chacha::rand_core::OsRng;
-
-use self::groups::client_auth_info::StorableClientCredential;
 
 use super::*;
 
@@ -75,7 +76,7 @@ impl BasicUserData {
 
         // Create CSR for AS to sign
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(self.as_client_id.clone(), SignatureScheme::ED25519)?;
+            ClientCredentialCsr::new(self.as_client_id.clone(), DEFAULT_SIGNATURE_SCHEME)?;
 
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
@@ -279,7 +280,7 @@ impl PostRegistrationInitState {
 
         let mut connection_packages = vec![];
         for _ in 0..CONNECTION_PACKAGES {
-            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION_DAYS);
+            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
                 key_store.connection_decryption_key.encryption_key(),

@@ -6,13 +6,12 @@ use anyhow::Result;
 use phnxcoreclient::{
     clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, MimiContent,
 };
-use phnxtypes::time::TimeStamp;
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
 use super::{
     notifications::LocalNotificationContent,
-    types::{ConversationIdBytes, UiConversationMessage},
+    types::{ConversationIdBytes, UiConversationMessage, UiConversationMessageId},
     user::User,
 };
 
@@ -174,11 +173,10 @@ impl User {
     pub async fn mark_messages_as_read_debounced(
         &self,
         conversation_id: ConversationIdBytes,
-        timestamp: u64,
+        message_id: UiConversationMessageId,
     ) -> Result<()> {
-        let timestamp = TimeStamp::try_from(timestamp)?;
         self.app_state
-            .mark_messages_read_debounced(conversation_id.into(), timestamp)
+            .mark_messages_read_debounced(conversation_id.into(), message_id.into())
             .await;
         Ok(())
     }
@@ -188,5 +186,13 @@ impl User {
     /// messages as read.
     pub async fn flush_debouncer_state(&self) -> Result<()> {
         self.app_state.flush_debouncer_state().await
+    }
+
+    /// Get the unread messages count across all conversations.
+    pub async fn global_unread_messages_count(&self) -> u32 {
+        self.user
+            .global_unread_messages_count()
+            .await
+            .unwrap_or_default()
     }
 }

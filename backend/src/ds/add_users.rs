@@ -22,7 +22,7 @@ use phnxtypes::{
     },
     errors::AddUsersError,
     identifiers::{Fqdn, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
-    keypackage_batch::{KeyPackageBatch, KEYPACKAGEBATCH_EXPIRATION_DAYS, VERIFIED},
+    keypackage_batch::{KeyPackageBatch, KEYPACKAGEBATCH_EXPIRATION, VERIFIED},
     messages::client_ds::{
         AddUsersParams, DsJoinerInformation, InfraAadMessage, InfraAadPayload, WelcomeBundle,
     },
@@ -188,7 +188,7 @@ impl DsGroupState {
                 };
 
             // Validate freshness of the batch.
-            if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION_DAYS) {
+            if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION) {
                 tracing::warn!("Key package batch has expired");
                 return Err(AddUsersError::InvalidKeyPackageBatch);
             }

@@ -3,17 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-
+import 'dart:collection';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_pane/conversation_content/display_message_tile.dart';
+import 'package:prototype/conversation_pane/conversation_content/conversation_tile.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
-import 'text_message_tile.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:collection/collection.dart';
 
 class ConversationContent extends StatefulWidget {
-  final UiConversation? conversation;
+  final UiConversationDetails? conversation;
 
   const ConversationContent({super.key, required this.conversation});
 
@@ -22,19 +21,28 @@ class ConversationContent extends StatefulWidget {
 }
 
 class _ConversationContentState extends State<ConversationContent> {
-  final ScrollController _scrollController = ScrollController();
-  List<UiConversationMessage> messages = [];
-  UiConversation? _currentConversation;
-  StreamSubscription<UiConversation>? _conversationListener;
+  final ScrollController _scrollController =
+      TrackingScrollController(keepScrollOffset: true);
+  ScrollPhysics _scrollPhysics = (Platform.isAndroid || Platform.isWindows)
+      ? const ClampingScrollPhysics()
+      : const BouncingScrollPhysics()
+          .applyTo(const AlwaysScrollableScrollPhysics());
+
+  final HashMap<int, GlobalKey> _tileKeys = HashMap();
+  Timer? _debounceTimer;
+  List<UiConversationMessage> _messages = [];
+  UiConversationDetails? _currentConversation;
+  StreamSubscription<UiConversationDetails>? _conversationListener;
   StreamSubscription<UiConversationMessage>? _messageListener;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
+
     _conversationListener =
         coreClient.onConversationSwitch.listen(conversationListener);
     _messageListener = coreClient.onMessageUpdate.listen(messageListener);
-
     _currentConversation = widget.conversation;
 
     if (_currentConversation != null) {
@@ -45,33 +53,87 @@ class _ConversationContentState extends State<ConversationContent> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _debounceTimer?.cancel();
     _conversationListener?.cancel();
     _messageListener?.cancel();
     super.dispose();
   }
 
+  void _onScroll() {
+    // Cancel the previous timer if still active
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer?.cancel();
+    }
+
+    // Start a new timer to debounce the scroll events
+    _debounceTimer =
+        Timer(const Duration(milliseconds: 100), _processVisibleMessages);
+  }
+
+  void _processVisibleMessages() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    final viewportHeight = _scrollController.position.viewportDimension;
+
+    // Iterate over the key value pairs
+    for (final entry in _tileKeys.entries) {
+      final key = entry.value;
+      final index = entry.key;
+      final renderObject = key.currentContext?.findRenderObject();
+      if (renderObject is RenderBox) {
+        final position = renderObject.localToGlobal(Offset.zero);
+        final size = renderObject.size;
+
+        final topEdgeVisible = position.dy >= 0;
+        final bottomEdgeVisible = position.dy + size.height <= viewportHeight;
+
+        if (topEdgeVisible && bottomEdgeVisible) {
+          final messageId = _messages[index].id;
+          _onMessageVisible(messageId);
+        }
+      }
+    }
+  }
+
+  void _onMessageVisible(UiConversationMessageId messageId) {
+    if (_currentConversation != null) {
+      coreClient.user.markMessagesAsReadDebounced(
+          conversationId: _currentConversation!.id, messageId: messageId);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _processVisibleMessages();
+  }
+
   Future<void> updateMessages() async {
     if (_currentConversation != null) {
       final messages = await coreClient.user
-          .getMessages(conversationId: _currentConversation!.id, lastN: 100);
+          .getMessages(conversationId: _currentConversation!.id, lastN: 50);
       setState(() {
         print("Number of messages: ${messages.length}");
-        this.messages = messages;
+        _messages = messages;
       });
     }
   }
 
-  void conversationListener(UiConversation conversation) async {
+  void conversationListener(UiConversationDetails conversation) async {
     _currentConversation = conversation;
-    messages = [];
+    _messages = [];
     await updateMessages();
+    scrollToEnd();
   }
 
   void messageListener(UiConversationMessage cm) {
     if (cm.conversationId.bytes.equals(_currentConversation!.id.bytes)) {
       setState(() {
-        messages.add(cm);
-        scrollToEnd();
+        _messages.add(cm);
+        scrollToEnd(animated: true);
       });
     } else {
       print('A message for another group was received');
@@ -79,14 +141,23 @@ class _ConversationContentState extends State<ConversationContent> {
   }
 
   // Smooth scrolling to the end of the conversation
-  void scrollToEnd() {
+  // with an optional parameter to enable/disable animation
+  void scrollToEnd({
+    bool animated = false,
+  }) {
     setState(() {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final extent = _scrollController.position.maxScrollExtent;
+        if (animated) {
+          _scrollController.animateTo(
+            extent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        } else {
+          _scrollController.jumpTo(extent);
+        }
+        _processVisibleMessages();
       });
     });
   }
@@ -104,28 +175,13 @@ class _ConversationContentState extends State<ConversationContent> {
                     .top, // Use the AppBar's height as padding
             left: 10,
           ),
-          itemCount: messages.length,
-          physics: const BouncingScrollPhysics(),
+          itemCount: _messages.length,
+          physics: _scrollPhysics,
           itemBuilder: (BuildContext context, int index) {
-            final message = messages[index];
-            return ListTile(
-              title: Container(
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                alignment: AlignmentDirectional.centerStart,
-                child: (message.message.when(
-                  content: (content) =>
-                      TextMessageTile(content, message.timestamp),
-                  display: (display) =>
-                      DisplayMessageTile(display, message.timestamp),
-                  unsent: (unsent) => const Text(
-                      "⚠️ UNSENT MESSAGE ⚠️ {unsent}",
-                      style: TextStyle(color: Colors.red)),
-                )),
-              ),
-              selected: false,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-            );
+            final key = GlobalKey();
+            _tileKeys[index] = key;
+            final message = _messages[index];
+            return ConversationTile(key: key, message: message);
           },
         ),
       ),

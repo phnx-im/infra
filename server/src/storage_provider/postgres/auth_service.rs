@@ -4,6 +4,7 @@
 
 use crate::configurations::DatabaseSettings;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use mls_assist::openmls_traits::types::SignatureScheme;
 use num_traits::ToPrimitive;
 use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
@@ -25,8 +26,6 @@ use privacypass::{
     batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
-#[cfg(feature = "sqlite_provider")]
-use rusqlite::{types::FromSql, ToSql};
 use sqlx::{
     postgres::PgArguments,
     types::{BigDecimal, Uuid},
@@ -194,28 +193,6 @@ pub(crate) enum CredentialType {
     Intermediate,
 }
 
-#[cfg(feature = "sqlite_provider")]
-impl FromSql for CredentialType {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = i16::column_result(value)?;
-        match value {
-            0 => Ok(CredentialType::As),
-            1 => Ok(CredentialType::Intermediate),
-            _ => Err(rusqlite::types::FromSqlError::InvalidType),
-        }
-    }
-}
-
-#[cfg(feature = "sqlite_provider")]
-impl ToSql for CredentialType {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        match self {
-            CredentialType::As => 0.to_sql(),
-            CredentialType::Intermediate => 1.to_sql(),
-        }
-    }
-}
-
 #[async_trait]
 impl AsStorageProvider for PostgresAsStorage {
     type PrivacyPassKeyStore = Self;
@@ -309,7 +286,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let queue_encryption_key_bytes =
             phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
-        let activity_time = client_record.activity_time.time();
+        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
         let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
         sqlx::query!(
             "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -366,7 +343,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let queue_encryption_key_bytes =
             phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
-        let activity_time = client_record.activity_time.time();
+        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
         let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
         sqlx::query!(
             "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",

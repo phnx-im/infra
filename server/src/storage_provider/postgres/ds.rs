@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mls_assist::openmls::group::GroupId;
 use phnxbackend::ds::{
-    group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION_DAYS,
+    group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION,
 };
 use phnxtypes::{
     crypto::ear::Ciphertext,
@@ -86,7 +86,7 @@ impl DsStorageProvider for PostgresDsStorage {
             (ciphertext_bytes, deleted_queues_bytes) => {
                 let ciphertext: Ciphertext = phnxtypes::codec::from_slice(ciphertext_bytes)?;
                 let last_used = TimeStamp::from(record.last_used);
-                if last_used.has_expired(GROUP_STATE_EXPIRATION_DAYS) {
+                if last_used.has_expired(GROUP_STATE_EXPIRATION) {
                     Ok(LoadState::Expired)
                 } else {
                     let deleted_queues: Vec<SealedClientReference> =

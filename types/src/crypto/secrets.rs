@@ -21,17 +21,27 @@ use super::RandomnessError;
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
-    pub secret: [u8; LENGTH],
+    secret: [u8; LENGTH],
+}
+
+impl<const LENGTH: usize> From<[u8; LENGTH]> for Secret<LENGTH> {
+    fn from(secret: [u8; LENGTH]) -> Self {
+        Self { secret }
+    }
 }
 
 impl<const LENGTH: usize> Secret<LENGTH> {
     /// Get the internal secret value
-    pub fn secret(&self) -> &[u8; LENGTH] {
+    pub(super) fn secret(&self) -> &[u8; LENGTH] {
         &self.secret
     }
 
+    pub(super) fn into_secret(self) -> [u8; LENGTH] {
+        self.secret
+    }
+
     /// Generate a fresh, random secret.
-    pub fn random() -> Result<Self, RandomnessError> {
+    pub(super) fn random() -> Result<Self, RandomnessError> {
         let mut secret = [0; LENGTH];
         // TODO: Use a proper rng provider.
         rand_chacha::ChaCha20Rng::from_entropy()

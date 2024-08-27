@@ -45,8 +45,6 @@ use crate::{
 
 use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
 
-pub type SignatureType = ed25519::Signature;
-
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct Signature {
     signature: Vec<u8>,

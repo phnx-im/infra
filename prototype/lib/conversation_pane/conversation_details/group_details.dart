@@ -18,7 +18,7 @@ import 'package:prototype/styles.dart';
 const double _padding = 32;
 
 class GroupDetails extends StatefulWidget {
-  final UiConversation conversation;
+  final UiConversationDetails conversation;
 
   const GroupDetails({super.key, required this.conversation});
 

@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/homescreen.dart';
@@ -81,6 +84,19 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
           const ListTile(
             title: SizedBox(
               height: 10,
+            ),
+          ),
+          ListTile(
+            title: OutlinedButton(
+              style: buttonStyle(context, Platform.isIOS),
+              onPressed: () async {
+                final deviceToken = await getDeviceToken();
+                if (deviceToken != null) {
+                  final pushToken = PlatformPushToken.apple(deviceToken);
+                  coreClient.user.updatePushToken(pushToken: pushToken);
+                }
+              },
+              child: const Text('Re-register push token'),
             ),
           ),
           ListTile(

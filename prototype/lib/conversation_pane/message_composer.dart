@@ -55,8 +55,8 @@ class _MessageComposerState extends State<MessageComposer> {
     "@Eve",
   ];
 
-  UiConversation? _currentConversation;
-  late StreamSubscription<UiConversation> _listener;
+  UiConversationDetails? _currentConversation;
+  late StreamSubscription<UiConversationDetails> _listener;
 
   HashMap<ConversationIdBytes, String> drafts = HashMap();
 
@@ -127,7 +127,7 @@ class _MessageComposerState extends State<MessageComposer> {
     super.dispose();
   }
 
-  void conversationListener(UiConversation cc) {
+  void conversationListener(UiConversationDetails cc) {
     // Store draft for the current conversation
     if (_currentConversation != null) {
       drafts.addEntries([MapEntry(_currentConversation!.id, _controller.text)]);
@@ -149,10 +149,15 @@ class _MessageComposerState extends State<MessageComposer> {
       return;
     }
 
+    final messageText = _controller.text.trim();
+
+    setState(() {
+      _controller.clear();
+      _focusNode.requestFocus();
+    });
+
     await coreClient.sendMessage(
-        coreClient.currentConversation!.id, _controller.text.trim());
-    _controller.clear();
-    _focusNode.requestFocus();
+        coreClient.currentConversation!.id, messageText);
   }
 
   String? hintText() {
@@ -203,6 +208,8 @@ class _MessageComposerState extends State<MessageComposer> {
                       ? TextInputAction.send
                       : TextInputAction.newline,
                   onEditingComplete: () => _focusNode.requestFocus(),
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
                 ),
               ),
               isSmallScreen(context)

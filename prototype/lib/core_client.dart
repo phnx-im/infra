@@ -27,19 +27,20 @@ class CoreClient {
 
   CoreClient._internal();
 
-  List<UiConversation> _conversations = [];
+  List<UiConversationDetails> _conversations = [];
   late User user;
   Timer pollingTimer = Timer(Duration.zero, () => {});
-  UiConversation? _currentConversation;
+  UiConversationDetails? _currentConversation;
 
   late UiUserProfile ownProfile;
 
   // This event is dispatched whenever we switch to a new conversation
 
-  StreamController<UiConversation> conversationSwitch =
-      StreamController<UiConversation>.broadcast();
+  StreamController<UiConversationDetails> conversationSwitch =
+      StreamController<UiConversationDetails>.broadcast();
 
-  Stream<UiConversation> get onConversationSwitch => conversationSwitch.stream;
+  Stream<UiConversationDetails> get onConversationSwitch =>
+      conversationSwitch.stream;
 
   // This event is dispatched whenever there is a change to the conversation list
 
@@ -200,21 +201,27 @@ class CoreClient {
   Future<void> fetchMessages() async {
     try {
       await user.fetchMessages();
+      // iOS only
+      if (Platform.isIOS) {
+        final count = await coreClient.user.globalUnreadMessagesCount();
+        await setBadgeCount(count);
+      }
+      conversationListUpdates.add(ConversationIdBytes(bytes: U8Array16.init()));
     } catch (e) {
       print("Error when fetching messages: $e");
     }
   }
 
-  Future<List<UiConversation>> conversations() async {
-    _conversations = await user.getConversations();
+  Future<List<UiConversationDetails>> conversations() async {
+    _conversations = await user.getConversationDetails();
     return _conversations;
   }
 
-  UiConversation? get currentConversation {
+  UiConversationDetails? get currentConversation {
     return _currentConversation;
   }
 
-  List<UiConversation> get conversationsList {
+  List<UiConversationDetails> get conversationsList {
     return _conversations;
   }
 
@@ -238,6 +245,8 @@ class CoreClient {
     }
 
     messageUpdates.add(conversationMessage);
+    conversationListUpdates
+        .add(ConversationIdBytes(bytes: conversationId.bytes));
   }
 
   Future<void> createConnection(String userName) async {

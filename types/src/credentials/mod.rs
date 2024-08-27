@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -21,7 +22,7 @@ use crate::{
         ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
         signatures::{
-            keys::generate_signature_keypair,
+            private_keys::{generate_signature_keypair, PrivateKey},
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
@@ -101,7 +102,7 @@ impl FromSql for CredentialFingerprint {
     }
 }
 
-const DEFAULT_AS_CREDENTIAL_LIFETIME: i64 = 5 * 365;
+const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
@@ -166,7 +167,7 @@ impl AsCredential {
         // Create lifetime valid until 5 years in the future.
         let expiration_data =
             expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
-        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
+        let (private_key, verifying_key_bytes) = generate_signature_keypair()?;
         let verifying_key = verifying_key_bytes.into();
         let body = AsCredentialBody {
             version,
@@ -178,7 +179,7 @@ impl AsCredential {
         let fingerprint = body.hash();
         let credential = Self { body, fingerprint };
         let signing_key =
-            AsSigningKey::from_bytes_and_credential(signing_key_bytes, credential.clone());
+            AsSigningKey::from_private_key_and_credential(private_key, credential.clone());
         Ok((credential, signing_key))
     }
 
@@ -199,16 +200,16 @@ impl AsCredential {
     }
 }
 
-const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: i64 = 365;
+const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365);
 
 pub struct PreliminaryAsSigningKey {
-    signing_key_bytes: Vec<u8>,
+    signing_key: PrivateKey,
     verifying_key: AsIntermediateVerifyingKey,
 }
 
 impl PreliminaryAsSigningKey {
-    pub(crate) fn into_signing_key_bytes(self) -> Vec<u8> {
-        self.signing_key_bytes
+    pub(crate) fn into_signing_key(self) -> PrivateKey {
+        self.signing_key
     }
 }
 
@@ -237,7 +238,7 @@ impl AsIntermediateCredentialCsr {
             verifying_key_bytes: verifying_key_bytes.into(),
         };
         let prelim_signing_key = PreliminaryAsSigningKey {
-            signing_key_bytes,
+            signing_key: signing_key_bytes.into(),
             verifying_key: verifying_key.clone(),
         };
         let credential = Self {
@@ -418,7 +419,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
 }
 
 const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
-const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: i64 = 90;
+const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialCsr {
@@ -445,7 +446,7 @@ impl ClientCredentialCsr {
             verifying_key_bytes: verifying_key_bytes.into(),
         };
         let prelim_signing_key = PreliminaryClientSigningKey {
-            signing_key_bytes,
+            signing_key: signing_key_bytes,
             verifying_key: verifying_key.clone(),
         };
         let credential = Self {
@@ -514,13 +515,13 @@ impl ClientCredentialPayload {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PreliminaryClientSigningKey {
-    signing_key_bytes: Vec<u8>,
+    signing_key: PrivateKey,
     verifying_key: ClientVerifyingKey,
 }
 
 impl PreliminaryClientSigningKey {
-    pub(crate) fn into_signing_key_bytes(self) -> Vec<u8> {
-        self.signing_key_bytes
+    pub(super) fn into_signing_key(self) -> PrivateKey {
+        self.signing_key
     }
 }
 

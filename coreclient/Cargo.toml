@@ -27,7 +27,6 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
 tokio = { version = "1" }
-chrono = "0.4"
 image = "0.25.1"
 kamadak-exif = "0.5.5"
 
@@ -37,6 +36,7 @@ serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.30", features = ["bundled", "uuid", "chrono"] }
 
 # Workspace dependencies
+chrono = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 openmls = { workspace = true }

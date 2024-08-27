@@ -17,22 +17,25 @@ pub enum RandomnessError {
     InsufficientRandomness,
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum UnsealError {
-    /// Decryption error
-    #[error("Decryption error")]
+#[derive(Error, Debug, Clone)]
+pub enum DecryptionError {
+    /// Error decrypting ciphertext.
+    #[error("Error decrypting ciphertext.")]
     DecryptionError,
-    /// Codec error
-    #[error("Codec error")]
-    CodecError,
+    /// Error deserializing payload.
+    #[error("Error deserializing payload.")]
+    DeserializationError,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
-pub enum SealError {
+pub enum EncryptionError {
+    /// Not enough randomness to generate Nonce
+    #[error("Not enough randomness to generate Nonce")]
+    RandomnessError,
     /// Encryption error
     #[error("Encryption error")]
     EncryptionError,
     /// Codec error
     #[error("Codec error")]
-    CodecError,
+    SerializationError,
 }

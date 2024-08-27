@@ -12,16 +12,7 @@
 #![allow(unused_variables)]
 use std::marker::PhantomData;
 
-use mls_assist::{
-    openmls::prelude::{OpenMlsProvider, OpenMlsRand},
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{
-        crypto::OpenMlsCrypto,
-        types::{
-            HpkeAeadType, HpkeCiphertext, HpkeConfig, HpkeKdfType, HpkeKemType, HpkePrivateKey,
-        },
-    },
-};
+use hpke::{DecryptionPrivateKey, EncryptionPublicKey};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use thiserror::Error;
@@ -30,7 +21,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use crate::{crypto::ear::EarEncryptable, messages::QueueMessage, LibraryError};
 
 use self::{
-    ear::{keys::RatchetKey, Ciphertext, EarDecryptable, EncryptionError},
+    ear::{keys::RatchetKey, Ciphertext, EarDecryptable},
     errors::RandomnessError,
     hpke::{HpkeDecryptionKey, HpkeEncryptionKey},
     kdf::{keys::RatchetSecret, KdfDerivable},
@@ -55,97 +46,6 @@ pub mod signatures;
 pub type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
-pub struct EncryptionPublicKey {
-    public_key: Vec<u8>,
-}
-
-impl From<Vec<u8>> for EncryptionPublicKey {
-    fn from(value: Vec<u8>) -> Self {
-        Self { public_key: value }
-    }
-}
-
-pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
-    HpkeKemType::DhKem25519,
-    HpkeKdfType::HkdfSha256,
-    HpkeAeadType::AesGcm256,
-);
-
-impl EncryptionPublicKey {
-    /// Encrypt the given plaintext using this key.
-    pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
-        let rust_crypto = OpenMlsRustCrypto::default();
-        rust_crypto
-            .crypto()
-            .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
-            // TODO: get rid of unwrap
-            .unwrap()
-    }
-}
-
-#[derive(Error, Debug, Clone)]
-pub enum DecryptionError {
-    /// Error decrypting ciphertext.
-    #[error("Error decrypting ciphertext.")]
-    DecryptionError,
-    /// Error deserializing payload.
-    #[error("Error deserializing payload.")]
-    DeserializationError,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DecryptionPrivateKey {
-    private_key: HpkePrivateKey,
-    public_key: EncryptionPublicKey,
-}
-
-impl DecryptionPrivateKey {
-    pub fn new(private_key: HpkePrivateKey, public_key: EncryptionPublicKey) -> Self {
-        Self {
-            private_key,
-            public_key,
-        }
-    }
-
-    pub fn decrypt(
-        &self,
-        info: &[u8],
-        aad: &[u8],
-        ct: &HpkeCiphertext,
-    ) -> Result<Vec<u8>, DecryptionError> {
-        let rust_crypto = OpenMlsRustCrypto::default();
-        rust_crypto
-            .crypto()
-            .hpke_open(HPKE_CONFIG, ct, &self.private_key, info, aad)
-            .map_err(|_| DecryptionError::DecryptionError)
-    }
-
-    pub fn generate() -> Result<Self, RandomnessError> {
-        let provider = OpenMlsRustCrypto::default();
-        let key_seed = provider
-            .rand()
-            .random_array::<32>()
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        let keypair = provider
-            .crypto()
-            .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self {
-            private_key: keypair.private,
-            public_key: EncryptionPublicKey {
-                public_key: keypair.public,
-            },
-        })
-    }
-
-    pub fn public_key(&self) -> &EncryptionPublicKey {
-        &self.public_key
-    }
-}
-
-#[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct RatchetEncryptionKey {
@@ -166,7 +66,7 @@ impl RatchetDecryptionKey {
 
     pub fn encryption_key(&self) -> RatchetEncryptionKey {
         RatchetEncryptionKey {
-            encryption_key: self.decryption_key.public_key.clone(),
+            encryption_key: self.decryption_key.public_key().clone(),
         }
     }
 }
@@ -206,7 +106,7 @@ impl ConnectionDecryptionKey {
 
     pub fn encryption_key(&self) -> ConnectionEncryptionKey {
         ConnectionEncryptionKey {
-            encryption_key: self.decryption_key.public_key.clone(),
+            encryption_key: self.decryption_key.public_key().clone(),
         }
     }
 }
