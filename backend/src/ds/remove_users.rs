@@ -8,27 +8,27 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
     crypto::signatures::keys::UserKeyHash, errors::UserRemovalError,
     messages::client_ds::RemoveUsersParams, time::Duration,
 };
 
-use super::api::USER_EXPIRATION_DAYS;
+use super::api::{Provider, USER_EXPIRATION_DAYS};
 
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
     pub(crate) fn remove_users(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &Provider,
         params: RemoveUsersParams,
     ) -> Result<SerializedMlsMessage, UserRemovalError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider, params.commit)
+            .process_assisted_message(provider.crypto(), params.commit)
             .map_err(|_| UserRemovalError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -154,7 +154,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            provider,
+            provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;

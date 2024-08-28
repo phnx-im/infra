@@ -18,11 +18,11 @@ pub enum GroupOperationError {
     #[error(transparent)]
     WelcomeError(#[from] WelcomeError<rusqlite::Error>),
     #[error(transparent)]
-    MlsGroupStateError(#[from] MlsGroupStateError<rusqlite::Error>),
+    MlsGroupStateError(#[from] MlsGroupStateError),
     #[error(transparent)]
-    CreateMessageError(#[from] CreateMessageError<rusqlite::Error>),
+    CreateMessageError(#[from] CreateMessageError),
     #[error(transparent)]
-    ProcessMessageError(#[from] ProcessMessageError<rusqlite::Error>),
+    ProcessMessageError(#[from] ProcessMessageError),
     #[error(transparent)]
     AddMembersError(#[from] AddMembersError<rusqlite::Error>),
     #[error(transparent)]

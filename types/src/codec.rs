@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::memory_provider::Codec;
 use serde::{de::DeserializeOwned, Serialize};
 use thiserror::Error;
 
@@ -29,4 +30,25 @@ where
 {
     //Ok(serde_json::from_slice(bytes).unwrap())
     Ok(ciborium::de::from_reader(bytes)?)
+}
+
+#[derive(Default)]
+pub struct Cbor;
+
+impl Codec for Cbor {
+    type Error = Error;
+
+    fn to_vec<T>(value: &T) -> Result<Vec<u8>, Self::Error>
+    where
+        T: Sized + Serialize,
+    {
+        to_vec(value)
+    }
+
+    fn from_slice<T>(bytes: &[u8]) -> Result<T, Self::Error>
+    where
+        T: DeserializeOwned,
+    {
+        from_slice(bytes)
+    }
 }

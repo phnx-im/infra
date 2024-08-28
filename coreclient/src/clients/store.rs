@@ -10,7 +10,7 @@ use crate::{
             StorableKeyPackage, StorableLeafNode, StorableProposal, StorablePskBundle,
             StorableSignatureKeyPairs,
         },
-        Group,
+        persistence::StorableGroup,
     },
     key_stores::{
         leaf_keys::LeafKeys, qs_verifying_keys::StorableQsVerifyingKey,
@@ -213,7 +213,7 @@ pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(),
     <UserCreationState as Storable>::create_table(client_db_connection)?;
     <OwnClientInfo as Storable>::create_table(client_db_connection)?;
     <UserProfile as Storable>::create_table(client_db_connection)?;
-    <Group as Storable>::create_table(client_db_connection)?;
+    <StorableGroup as Storable>::create_table(client_db_connection)?;
     <StorableClientCredential as Storable>::create_table(client_db_connection)?;
     <GroupMembership as Storable>::create_table(client_db_connection)?;
     <Contact as Storable>::create_table(client_db_connection)?;

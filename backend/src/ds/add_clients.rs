@@ -7,6 +7,7 @@ use mls_assist::{
     messages::SerializedMlsMessage,
     openmls::prelude::{Extension, KeyPackage, OpenMlsProvider, ProcessedMessageContent, Sender},
     openmls_rust_crypto::OpenMlsRustCrypto,
+    provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
     crypto::{
@@ -24,21 +25,24 @@ use tls_codec::DeserializeBytes;
 
 use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
 
-use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
+use super::{
+    api::{Provider, USER_EXPIRATION_DAYS},
+    group_state::ClientProfile,
+};
 
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
     pub(crate) fn add_clients(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &Provider,
         params: AddClientsParams,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), ClientAdditionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider, params.commit)
+            .process_assisted_message(provider.crypto(), params.commit)
             .map_err(|_| ClientAdditionError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -124,7 +128,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            provider,
+            provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;

@@ -154,12 +154,14 @@ use mls_assist::{
         prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn, Sender},
         treesync::RatchetTree,
     },
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    provider_traits::MlsAssistProvider,
+    MlsAssistRustCrypto,
 };
 use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
 use phnxtypes::{
+    codec::Cbor,
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
@@ -185,6 +187,8 @@ use super::{
 };
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
+
+pub(super) type Provider = MlsAssistRustCrypto<Cbor>;
 
 pub struct DsApi {}
 
@@ -217,7 +221,7 @@ impl DsApi {
         let group_id = message.group_id().clone();
         let ear_key = message.ear_key().clone();
 
-        let provider = &OpenMlsRustCrypto::default();
+        let provider = &Provider::default();
 
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
@@ -229,7 +233,11 @@ impl DsApi {
             LoadState::Success(encrypted_group_state) => {
                 SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
                     .map_err(|_| DsProcessingError::CouldNotDecrypt)?
-                    .into()
+                    .into_group_state()
+                    .map_err(|e| {
+                        tracing::error!("Could not deserialize group state: {:?}", e);
+                        DsProcessingError::GroupNotFound
+                    })?
             }
             LoadState::Reserved(_time_stamp) => {
                 if let Some(create_group_params) = message.create_group_params() {
@@ -472,12 +480,17 @@ impl DsApi {
                 .group_id()
                 .clone();
             // ... before we distribute the message, we encrypt ...
-            let encrypted_group_state = Into::<SerializableDsGroupState>::into(group_state)
-                .encrypt(&ear_key)
-                .map_err(|e| {
-                    tracing::error!("Could not encrypt group state: {:?}", e);
-                    DsProcessingError::CouldNotEncrypt
-                })?;
+            let encrypted_group_state =
+                SerializableDsGroupState::from_group_and_provider(group_state, provider.storage())
+                    .map_err(|e| {
+                        tracing::error!("Could not serialize group state: {:?}", e);
+                        DsProcessingError::StorageError
+                    })?
+                    .encrypt(&ear_key)
+                    .map_err(|e| {
+                        tracing::error!("Could not encrypt group state: {:?}", e);
+                        DsProcessingError::CouldNotEncrypt
+                    })?;
 
             // ... and store the modified group state.
             ds_storage_provider

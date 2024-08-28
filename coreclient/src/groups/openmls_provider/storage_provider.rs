@@ -256,21 +256,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         Ok(())
     }
 
-    fn set_use_ratchet_tree_extension<
-        GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
-    >(
-        &self,
-        group_id: &GroupId,
-        value: bool,
-    ) -> Result<(), Self::Error> {
-        StorableGroupDataRef(&value).store(
-            self.connection,
-            group_id,
-            GroupDataType::UseRatchetTreeExtension,
-        )?;
-        Ok(())
-    }
-
     fn write_group_epoch_secrets<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
         GroupEpochSecrets: openmls_traits::storage::traits::GroupEpochSecrets<CURRENT_VERSION>,
@@ -386,7 +371,7 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         StorableProposal::load(self.connection, group_id)
     }
 
-    fn treesync<
+    fn tree<
         GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
         TreeSync: openmls_traits::storage::traits::TreeSync<CURRENT_VERSION>,
     >(
@@ -468,19 +453,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
     ) -> Result<Option<LeafNodeIndex>, Self::Error> {
         StorableGroupData::load(self.connection, group_id, GroupDataType::OwnLeafIndex)
-    }
-
-    fn use_ratchet_tree_extension<
-        GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
-    >(
-        &self,
-        group_id: &GroupId,
-    ) -> Result<Option<bool>, Self::Error> {
-        StorableGroupData::load(
-            self.connection,
-            group_id,
-            GroupDataType::UseRatchetTreeExtension,
-        )
     }
 
     fn group_epoch_secrets<
@@ -638,16 +610,6 @@ impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
         StorableGroupIdRef(group_id).delete_group_data(self.connection, GroupDataType::OwnLeafIndex)
-    }
-
-    fn delete_use_ratchet_tree_extension<
-        GroupId: openmls_traits::storage::traits::GroupId<CURRENT_VERSION>,
-    >(
-        &self,
-        group_id: &GroupId,
-    ) -> Result<(), Self::Error> {
-        StorableGroupIdRef(group_id)
-            .delete_group_data(self.connection, GroupDataType::UseRatchetTreeExtension)
     }
 
     fn delete_group_epoch_secrets<

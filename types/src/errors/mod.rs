@@ -3,13 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    group::errors::StorageError, openmls::group::MergeCommitError,
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    group::errors::StorageError, memory_provider::MlsAssistMemoryStorage,
+    openmls::group::MergeCommitError,
 };
 use thiserror::Error;
 
+use crate::codec::Cbor;
+
 pub mod auth_service;
 pub mod qs;
+
+pub type CborMlsAssistStorage = MlsAssistMemoryStorage<Cbor>;
 
 /// Error updating queue config.
 #[derive(Debug, Error)]
@@ -37,7 +41,7 @@ pub enum UserRemovalError {
     #[error("Commit didn't cover all clients of a user.")]
     IncompleteRemoval,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when adding a user.
@@ -69,7 +73,7 @@ pub enum AddUsersError {
     #[error("Incomplete Welcome message.")]
     IncompleteWelcome,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when updating a client.
@@ -89,7 +93,7 @@ pub enum ClientUpdateError {
     #[error("Unknown sender.")]
     UnknownSender,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when processing a message.
@@ -178,7 +182,7 @@ pub enum JoinGroupError {
     #[error("Unknown sender.")]
     UnknownSender,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when joining a connection group.
@@ -204,7 +208,7 @@ pub enum JoinConnectionGroupError {
     #[error("User auth key collision.")]
     UserAuthKeyCollision,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when adding a user.
@@ -227,7 +231,7 @@ pub enum ClientAdditionError {
     #[error("Incomplete Welcome message.")]
     IncompleteWelcome,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when removing clients.
@@ -244,7 +248,7 @@ pub enum ClientRemovalError {
     #[error("Error processing message.")]
     ProcessingError,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when deleting a group.
@@ -261,7 +265,7 @@ pub enum GroupDeletionError {
     #[error("Error processing message.")]
     ProcessingError,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when processing a self remove proposal.
@@ -278,7 +282,7 @@ pub enum ClientSelfRemovalError {
     #[error("Error processing message.")]
     ProcessingError,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when sending a message.
@@ -310,7 +314,7 @@ pub enum ResyncClientError {
     #[error("Error processing message.")]
     ProcessingError,
     #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<OpenMlsRustCrypto>>),
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when validating a commit or proposal.

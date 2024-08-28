@@ -163,7 +163,7 @@ impl From<Vec<u8>> for GroupData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
     leaf_signer: InfraCredentialSigningKey,
