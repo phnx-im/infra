@@ -25,18 +25,18 @@ phnxtypes = { path = "../types" }
 actix-web = "^4.0"
 serde_json = "1"
 serde = "1"
-config = "0.13.1"
+config = "0.14"
 async-trait = "0.1.74"
 actix-web-actors = "4.2.0"
 actix = "0.13"
 tokio = "1"
-base64 = "0.21"
+base64 = "0.22"
 thiserror = "1.0"
 tracing = { version = "0.1", features = ["log"] }
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"
-tracing-actix-web = "0.5"
+tracing-actix-web = "0.7"
 jsonwebtoken = "9"
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls.git" }
 privacypass = { workspace = true }
@@ -73,5 +73,5 @@ phnxapiclient = { path = "../apiclient" }
 phnxcoreclient = { path = "../coreclient" }
 once_cell = "1"
 phnxserver_test_harness = { path = "../test_harness" }
-image = "0.24"
+image = "0.25"
 png = "0.17"
