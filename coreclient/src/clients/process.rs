@@ -105,7 +105,7 @@ impl CoreUser {
                 // members if they don't exist yet and store the group and the
                 // new conversation.
                 let mut connection = self.connection.lock().await;
-                let transaction = connection.transaction()?;
+                let mut transaction = connection.transaction()?;
                 group
                     .members(&transaction)
                     .into_iter()
@@ -125,7 +125,7 @@ impl CoreUser {
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
                 Conversation::delete(&transaction, conversation.id())?;
-                Group::delete_from_db(&transaction, &group_id)?;
+                Group::delete_from_db(&mut transaction, &group_id)?;
                 group.store(&transaction)?;
                 conversation.store(&transaction)?;
                 transaction.commit()?;
@@ -151,10 +151,8 @@ impl CoreUser {
                     .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
 
-                println!("Loading group");
                 let mut group = Group::load(&connection, group_id)?
                     .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
-                println!("Done loading group");
                 drop(connection);
 
                 // MLSMessage Phase 2: Process the message
@@ -166,7 +164,6 @@ impl CoreUser {
                 let aad = processed_message.aad().to_vec();
 
                 // `conversation_changed` indicates whether the state of the conversation was updated
-                println!("Processing message");
                 let (group_messages, conversation_changed) = match processed_message.into_content()
                 {
                     ProcessedMessageContent::ApplicationMessage(application_message) => {
@@ -192,7 +189,6 @@ impl CoreUser {
 
                         // StagedCommitMessage Phase 1: Load the conversation.
                         let connection = self.connection.lock().await;
-                        println!("Loading conversation");
                         let mut conversation = Conversation::load(&connection, &conversation_id)?
                             .ok_or(anyhow!(
                             "Can't find conversation with id {}",
@@ -214,7 +210,6 @@ impl CoreUser {
                             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
                             // friendship package
                             let connection = self.connection.lock().await;
-                            println!("Loading contact");
                             let partial_contact = PartialContact::load(&connection, &user_name)?
                                 .ok_or(anyhow!(
                                     "No partial contact found for user name {}",
@@ -289,7 +284,6 @@ impl CoreUser {
 
                             // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
                             let mut connection = self.connection.lock().await;
-                            println!("Updating user profile");
                             friendship_package.user_profile.update(&connection)?;
 
                             // Set the picture of the conversation to the one of the contact.
@@ -300,14 +294,12 @@ impl CoreUser {
                                     Asset::Value(value) => value.to_owned(),
                                 });
 
-                            println!("Setting conversation picture");
                             conversation.set_conversation_picture(
                                 &connection,
                                 conversation_picture_option,
                             )?;
                             let mut transaction = connection.transaction()?;
                             // Now we can turn the partial contact into a full one.
-                            println!("Setting contact");
                             partial_contact.mark_as_complete(
                                 &mut transaction,
                                 friendship_package,
@@ -315,7 +307,6 @@ impl CoreUser {
                             )?;
                             transaction.commit()?;
 
-                            println!("Confirming connection");
                             conversation.confirm(&connection)?;
                             conversation_changed = true;
                             drop(connection);
@@ -566,9 +557,7 @@ impl CoreUser {
         let mut collected_conversation_messages = vec![];
         let mut new_conversations = vec![];
         for qs_message in qs_messages {
-            println!("Decrypting queue message");
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
-            println!("Processing queue message");
             match self.process_qs_message(qs_message_plaintext).await? {
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
                     collected_conversation_messages.extend(conversation_messages);
@@ -583,16 +572,13 @@ impl CoreUser {
                     new_conversations.push(conversation_id)
                 }
             };
-            println!("Done processing");
         }
 
         for conversation_id in new_conversations {
-            println!("Updating user key");
             // Update user auth keys of newly created conversations.
             self.update_user_key(&conversation_id).await?;
         }
 
-        println!("Done processing");
         Ok(collected_conversation_messages)
     }
 

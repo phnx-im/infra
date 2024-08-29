@@ -90,7 +90,9 @@ impl SerializableDsGroupState {
         })
     }
 
-    pub(super) fn into_group_state(self) -> Result<DsGroupState, SerializedGroupStateError> {
+    pub(super) fn into_group_state_and_provider(
+        self,
+    ) -> Result<(DsGroupState, CborMlsAssistStorage), SerializedGroupStateError> {
         let provider = CborMlsAssistStorage::deserialize(&self.serialized_provider)
             .map_err(SerializedGroupStateError::StorageError)?;
         let Some(group) = Group::load(&provider, &self.group_id)
@@ -100,12 +102,15 @@ impl SerializableDsGroupState {
         };
         let user_profiles = self.user_profiles.into_iter().collect();
         let client_profiles = self.client_profiles.into_iter().collect();
-        Ok(DsGroupState {
-            group,
-            user_profiles,
-            unmerged_users: self.unmerged_users,
-            client_profiles,
-        })
+        Ok((
+            DsGroupState {
+                group,
+                user_profiles,
+                unmerged_users: self.unmerged_users,
+                client_profiles,
+            },
+            provider,
+        ))
     }
 }
 

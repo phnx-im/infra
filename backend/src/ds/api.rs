@@ -221,57 +221,58 @@ impl DsApi {
         let group_id = message.group_id().clone();
         let ear_key = message.ear_key().clone();
 
-        let provider = &Provider::default();
-
         // Depending on the message, either decrypt an encrypted group state or
         // create a new one.
-        let mut group_state = match ds_storage_provider
+        let (mut group_state, provider) = match ds_storage_provider
             .load_group_state(&group_id)
             .await
             .map_err(|_| DsProcessingError::StorageError)?
         {
             LoadState::Success(encrypted_group_state) => {
-                SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
-                    .map_err(|_| DsProcessingError::CouldNotDecrypt)?
-                    .into_group_state()
-                    .map_err(|e| {
-                        tracing::error!("Could not deserialize group state: {:?}", e);
-                        DsProcessingError::GroupNotFound
-                    })?
+                let (group_state, storage_provider) =
+                    SerializableDsGroupState::decrypt(&ear_key, &encrypted_group_state)
+                        .map_err(|_| DsProcessingError::CouldNotDecrypt)?
+                        .into_group_state_and_provider()
+                        .map_err(|e| {
+                            tracing::error!("Could not deserialize group state: {:?}", e);
+                            DsProcessingError::GroupNotFound
+                        })?;
+                (group_state, storage_provider.into())
             }
             LoadState::Reserved(_time_stamp) => {
-                if let Some(create_group_params) = message.create_group_params() {
-                    let CreateGroupParams {
-                        group_id: _,
-                        leaf_node,
-                        encrypted_client_credential,
-                        encrypted_signature_ear_key,
-                        creator_client_reference: creator_queue_config,
-                        creator_user_auth_key,
-                        group_info,
-                    } = create_group_params;
-                    let group_info = match group_info.clone().extract() {
-                        MlsMessageBodyIn::GroupInfo(group_info) => group_info,
-                        MlsMessageBodyIn::PublicMessage(_)
-                        | MlsMessageBodyIn::PrivateMessage(_)
-                        | MlsMessageBodyIn::Welcome(_)
-                        | MlsMessageBodyIn::KeyPackage(_) => {
-                            return Err(DsProcessingError::InvalidMessage)
-                        }
-                    };
-                    let group_state = Group::new(provider, group_info.clone(), leaf_node.clone())
-                        .map_err(|_| DsProcessingError::InvalidMessage)?;
-                    DsGroupState::new(
-                        group_state,
-                        creator_user_auth_key.clone(),
-                        encrypted_client_credential.clone(),
-                        encrypted_signature_ear_key.clone(),
-                        creator_queue_config.clone(),
-                    )
-                } else {
+                let Some(create_group_params) = message.create_group_params() else {
                     tracing::warn!("Group reserved");
                     return Err(DsProcessingError::GroupNotFound);
-                }
+                };
+                let provider = Provider::default();
+                let CreateGroupParams {
+                    group_id: _,
+                    leaf_node,
+                    encrypted_client_credential,
+                    encrypted_signature_ear_key,
+                    creator_client_reference: creator_queue_config,
+                    creator_user_auth_key,
+                    group_info,
+                } = create_group_params;
+                let group_info = match group_info.clone().extract() {
+                    MlsMessageBodyIn::GroupInfo(group_info) => group_info,
+                    MlsMessageBodyIn::PublicMessage(_)
+                    | MlsMessageBodyIn::PrivateMessage(_)
+                    | MlsMessageBodyIn::Welcome(_)
+                    | MlsMessageBodyIn::KeyPackage(_) => {
+                        return Err(DsProcessingError::InvalidMessage)
+                    }
+                };
+                let group_state = Group::new(&provider, group_info.clone(), leaf_node.clone())
+                    .map_err(|_| DsProcessingError::InvalidMessage)?;
+                let group_state = DsGroupState::new(
+                    group_state,
+                    creator_user_auth_key.clone(),
+                    encrypted_client_credential.clone(),
+                    encrypted_signature_ear_key.clone(),
+                    creator_queue_config.clone(),
+                );
+                (group_state, provider)
             }
             LoadState::NotFound | LoadState::Expired => {
                 tracing::warn!("Group not found or expired");
@@ -408,49 +409,49 @@ impl DsApi {
                 // needs to fetch the verifying keys from the QS of all added
                 // users.
                 let (group_message, welcome_bundles) = group_state
-                    .add_users(provider, add_users_params, &ear_key, qs_connector)
+                    .add_users(&provider, add_users_params, &ear_key, qs_connector)
                     .await?;
                 prepare_result(group_message, welcome_bundles)
             }
             DsRequestParams::RemoveUsers(remove_users_params) => {
-                let group_message = group_state.remove_users(provider, remove_users_params)?;
+                let group_message = group_state.remove_users(&provider, remove_users_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::UpdateClient(update_client_params) => {
-                let group_message = group_state.update_client(provider, update_client_params)?;
+                let group_message = group_state.update_client(&provider, update_client_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::AddClients(add_clients_params) => {
                 let (group_message, welcome_bundles) =
-                    group_state.add_clients(provider, add_clients_params, &ear_key)?;
+                    group_state.add_clients(&provider, add_clients_params, &ear_key)?;
                 prepare_result(group_message, welcome_bundles)
             }
             DsRequestParams::RemoveClients(remove_clients_params) => {
-                let group_message = group_state.remove_clients(provider, remove_clients_params)?;
+                let group_message = group_state.remove_clients(&provider, remove_clients_params)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Externally Committing Endpoints =======
             DsRequestParams::JoinGroup(join_group_params) => {
-                let group_message = group_state.join_group(provider, join_group_params)?;
+                let group_message = group_state.join_group(&provider, join_group_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 let group_message =
-                    group_state.join_connection_group(provider, join_connection_group_params)?;
+                    group_state.join_connection_group(&provider, join_connection_group_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::ResyncClient(resync_client_params) => {
-                let group_message = group_state.resync_client(provider, resync_client_params)?;
+                let group_message = group_state.resync_client(&provider, resync_client_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::DeleteGroup(delete_group) => {
-                let group_message = group_state.delete_group(provider, delete_group)?;
+                let group_message = group_state.delete_group(&provider, delete_group)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Proposal Endpoints =======
             DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
                 let group_message =
-                    group_state.self_remove_client(provider, self_remove_client_params)?;
+                    group_state.self_remove_client(&provider, self_remove_client_params)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Sending messages =======
@@ -469,9 +470,6 @@ impl DsApi {
             }
         };
 
-        // TODO: We could optimize here by only re-encrypting and persisting the
-        // group state if it has actually changed.
-
         if group_state_has_changed {
             let group_id = group_state
                 .group()
@@ -479,6 +477,7 @@ impl DsApi {
                 .group_context()
                 .group_id()
                 .clone();
+
             // ... before we distribute the message, we encrypt ...
             let encrypted_group_state =
                 SerializableDsGroupState::from_group_and_provider(group_state, provider.storage())

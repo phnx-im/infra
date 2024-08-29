@@ -11,7 +11,7 @@ use phnxtypes::{
         signatures::keys::UserAuthSigningKey,
     },
 };
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
@@ -46,7 +46,7 @@ impl Storable for StorableGroup {
         let credential_ear_key = row.get(3)?;
         let group_state_ear_key = row.get(4)?;
         let user_auth_signing_key_option = row.get(5)?;
-        let pending_diff = row.get(7)?;
+        let pending_diff = row.get(6)?;
 
         Ok(StorableGroup {
             group_id: group_id.into(),
@@ -85,6 +85,7 @@ impl Group {
         let Some(mls_group) =
             MlsGroup::load(PhnxOpenMlsProvider::new(connection).storage(), group_id)?
         else {
+            println!("While loading, MlsGroup::load returned None");
             return Ok(None);
         };
         let group_id = GroupIdRefWrapper::from(group_id);
@@ -126,11 +127,17 @@ impl Group {
     }
 
     pub(crate) fn delete_from_db(
-        connection: &rusqlite::Connection,
+        transaction: &mut Transaction,
         group_id: &GroupId,
     ) -> Result<(), rusqlite::Error> {
+        let savepoint = transaction.savepoint()?;
+        let provider = PhnxOpenMlsProvider::new(&savepoint);
+        if let Some(mut group) = Group::load(&savepoint, group_id)? {
+            group.mls_group.delete(provider.storage())?;
+        };
         let group_id = GroupIdRefWrapper::from(group_id);
-        connection.execute("DELETE FROM groups WHERE group_id = ?", params![group_id])?;
+        savepoint.execute("DELETE FROM groups WHERE group_id = ?", params![group_id])?;
+        savepoint.commit()?;
         Ok(())
     }
 }

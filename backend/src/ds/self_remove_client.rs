@@ -33,47 +33,42 @@ impl DsGroupState {
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
-        let processed_message = if let ProcessedAssistedMessage::NonCommit(ref processed_message) =
+        let ProcessedAssistedMessage::NonCommit(ref processed_message) =
             &processed_assisted_message_plus.processed_assisted_message
-        {
-            processed_message
-        } else {
+        else {
             // This should be a commit.
             return Err(ClientSelfRemovalError::InvalidMessage);
         };
 
         // Check if sender index and user profile match.
-        let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
-            // There should be a user profile. If there wasn't, verification should have failed.
-            if !self
-                .user_profiles
-                .get(&params.sender)
-                .ok_or(ClientSelfRemovalError::LibraryError)?
-                .clients
-                .contains(leaf_index)
-            {
-                return Err(ClientSelfRemovalError::InvalidMessage);
-            };
-            *leaf_index
-        } else {
+        let Sender::Member(sender_index) = *processed_message.sender() else {
             // The remove proposal should come from a member.
             return Err(ClientSelfRemovalError::InvalidMessage);
         };
 
-        if let ProcessedMessageContent::ProposalMessage(queued_proposal) =
-            processed_message.content()
+        // There should be a user profile. If there wasn't, verification should have failed.
+        if !self
+            .user_profiles
+            .get(&params.sender)
+            .ok_or(ClientSelfRemovalError::LibraryError)?
+            .clients
+            .contains(&sender_index)
         {
-            // Check that the commit only contains removes.
-            if let Proposal::Remove(remove_proposal) = queued_proposal.proposal() {
-                if remove_proposal.removed() != sender_index {
-                    return Err(ClientSelfRemovalError::InvalidMessage);
-                }
-            } else {
-                return Err(ClientSelfRemovalError::InvalidMessage);
-            }
-        } else {
             return Err(ClientSelfRemovalError::InvalidMessage);
         };
+
+        let ProcessedMessageContent::ProposalMessage(queued_proposal) = processed_message.content()
+        else {
+            return Err(ClientSelfRemovalError::InvalidMessage);
+        };
+
+        let Proposal::Remove(remove_proposal) = queued_proposal.proposal() else {
+            return Err(ClientSelfRemovalError::InvalidMessage);
+        };
+
+        if remove_proposal.removed() != sender_index {
+            return Err(ClientSelfRemovalError::InvalidMessage);
+        }
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
