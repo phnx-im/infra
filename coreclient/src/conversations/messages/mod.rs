@@ -154,8 +154,8 @@ impl ConversationMessage {
         self.conversation_message_id
     }
 
-    pub fn timestamp(&self) -> TimeStamp {
-        self.timestamped_message.timestamp()
+    pub fn timestamp(&self) -> DateTime<Utc> {
+        *self.timestamped_message.timestamp()
     }
 
     pub fn was_sent(&self) -> bool {

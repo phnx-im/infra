@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use phnxcoreclient::{
     clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, MimiContent,
 };
@@ -11,7 +12,7 @@ use crate::notifier::{dispatch_conversation_notifications, dispatch_message_noti
 
 use super::{
     notifications::LocalNotificationContent,
-    types::{ConversationIdBytes, UiConversationMessage, UiConversationMessageId},
+    types::{ConversationIdBytes, UiConversationMessage},
     user::User,
 };
 
@@ -173,10 +174,11 @@ impl User {
     pub async fn mark_messages_as_read_debounced(
         &self,
         conversation_id: ConversationIdBytes,
-        message_id: UiConversationMessageId,
+        timestamp: String,
     ) -> Result<()> {
+        let timestamp = timestamp.parse::<DateTime<Utc>>()?;
         self.app_state
-            .mark_messages_read_debounced(conversation_id.into(), message_id.into())
+            .mark_messages_read_debounced(conversation_id.into(), timestamp.into())
             .await;
         Ok(())
     }

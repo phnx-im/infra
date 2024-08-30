@@ -460,7 +460,7 @@ impl TestBackend {
         let last_message = user1_messages.last().unwrap();
 
         user1
-            .mark_as_read([(user1_conversation_id, last_message.id())].into_iter())
+            .mark_as_read([(user1_conversation_id, last_message.timestamp())].into_iter())
             .await
             .unwrap();
 
@@ -474,7 +474,7 @@ impl TestBackend {
         assert_eq!(user2_messages.len(), 1);
         let last_message = user2_messages.last().unwrap();
         user2
-            .mark_as_read([(user2_conversation_id, last_message.id())].into_iter())
+            .mark_as_read([(user2_conversation_id, last_message.timestamp())].into_iter())
             .await
             .unwrap();
 

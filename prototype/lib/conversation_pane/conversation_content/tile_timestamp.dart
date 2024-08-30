@@ -13,7 +13,7 @@ class TileTimestamp extends StatelessWidget {
   }) : _hovering = hovering;
 
   final bool _hovering;
-  final DateTime timestamp;
+  final String timestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +39,7 @@ class TileTimestamp extends StatelessWidget {
   }
 }
 
-String timeString(DateTime t) {
+String timeString(String timestamp) {
+  final t = DateTime.parse(timestamp);
   return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
 }
