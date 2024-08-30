@@ -13,9 +13,12 @@ use aes_gcm::{
 use serde::de::DeserializeOwned;
 use tracing::instrument;
 
-use crate::crypto::{
-    errors::{DecryptionError, EncryptionError, RandomnessError},
-    secrets::Secret,
+use crate::{
+    codec::DefaultCodec,
+    crypto::{
+        errors::{DecryptionError, EncryptionError, RandomnessError},
+        secrets::Secret,
+    },
 };
 
 use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
@@ -73,7 +76,7 @@ impl<T: serde::Serialize> GenericSerializable for T {
     type Error = crate::codec::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        crate::codec::to_vec(self)
+        DefaultCodec::to_vec(self)
     }
 }
 
@@ -87,7 +90,7 @@ impl<T: DeserializeOwned> GenericDeserializable for T {
     type Error = crate::codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        crate::codec::from_slice(bytes)
+        DefaultCodec::from_slice(bytes)
     }
 }
 

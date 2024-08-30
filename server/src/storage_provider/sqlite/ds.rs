@@ -67,7 +67,7 @@ pub enum SqliteDsStorageError {
     #[error(transparent)]
     DatabaseError(#[from] rusqlite::Error),
     #[error(transparent)]
-    SerializationError(#[from] phnxtypes::codec::Error),
+    SerializationError(#[from] Cbor::Error),
     #[error("Invalid input")]
     InvalidInput,
     #[error("Mutex poisoned")]
@@ -113,13 +113,13 @@ impl DsStorageProvider for SqliteDsStorage {
         let result = match (ciphertext_bytes.as_slice(), deleted_queues_bytes.as_slice()) {
             ([], []) => Ok(LoadState::Reserved(TimeStamp::from(last_used))),
             (ciphertext_bytes, deleted_queues_bytes) => {
-                let ciphertext: Ciphertext = phnxtypes::codec::from_slice(ciphertext_bytes)?;
+                let ciphertext: Ciphertext = Cbor::from_slice(ciphertext_bytes)?;
                 let last_used = TimeStamp::from(last_used);
                 if last_used.has_expired(GROUP_STATE_EXPIRATION_DAYS) {
                     Ok(LoadState::Expired)
                 } else {
                     let deleted_queues: Vec<SealedClientReference> =
-                        phnxtypes::codec::from_slice(deleted_queues_bytes)?;
+                        Cbor::from_slice(deleted_queues_bytes)?;
                     let encrypted_group_state = EncryptedDsGroupState {
                         ciphertext,
                         last_used,
@@ -145,8 +145,8 @@ impl DsStorageProvider for SqliteDsStorage {
             })?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
         let last_used = Utc::now();
-        let deleted_queues = phnxtypes::codec::to_vec(&encrypted_group_state.deleted_queues)?;
-        let ciphertext = phnxtypes::codec::to_vec(&encrypted_group_state.ciphertext)?;
+        let deleted_queues = Cbor::to_vec(&encrypted_group_state.deleted_queues)?;
+        let ciphertext = Cbor::to_vec(&encrypted_group_state.ciphertext)?;
 
         let connection = self
             .connection

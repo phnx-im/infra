@@ -12,6 +12,7 @@ use phnxbackend::auth_service::{
     storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
 };
 use phnxtypes::{
+    codec::DefaultCodec,
     credentials::{
         keys::{AsIntermediateSigningKey, AsSigningKey},
         AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
@@ -59,7 +60,7 @@ impl PostgresAsStorage {
                 Uuid::new_v4(),
                 CredentialType::As as _,
                 as_signing_key.credential().fingerprint().as_bytes(),
-                phnxtypes::codec::to_vec(&as_signing_key)?,
+                DefaultCodec::to_vec(&as_signing_key)?,
                 true,
             )
             .execute(&provider.pool)
@@ -69,7 +70,7 @@ impl PostgresAsStorage {
                 Uuid::new_v4(),
                 CredentialType::Intermediate as _,
                 as_inter_signing_key.credential().fingerprint().as_bytes(),
-                phnxtypes::codec::to_vec(&as_inter_signing_key)?,
+                DefaultCodec::to_vec(&as_inter_signing_key)?,
                 true,
             )
             .execute(&provider.pool)
@@ -81,7 +82,7 @@ impl PostgresAsStorage {
             let _ = sqlx::query!(
                 r#"INSERT INTO opaque_setup (id, opaque_setup) VALUES ($1, $2)"#,
                 Uuid::new_v4(),
-                phnxtypes::codec::to_vec(&opaque_setup)?,
+                DefaultCodec::to_vec(&opaque_setup)?,
             )
             .execute(&provider.pool)
             .await?;
@@ -161,7 +162,7 @@ pub(crate) fn generate_fresh_credentials(
 impl BatchedKeyStore for PostgresAsStorage {
     /// Inserts a keypair with a given `token_key_id` into the key store.
     async fn insert(&self, token_key_id: TruncatedTokenKeyId, server: VoprfServer<Ristretto255>) {
-        let Ok(server_bytes) = phnxtypes::codec::to_vec(&server) else {
+        let Ok(server_bytes) = DefaultCodec::to_vec(&server) else {
             return;
         };
         let _ = sqlx::query!(
@@ -181,7 +182,7 @@ impl BatchedKeyStore for PostgresAsStorage {
         .fetch_one(&self.pool)
         .await
         .ok()?;
-        let server = phnxtypes::codec::from_slice(&server_bytes_record.voprf_server).ok()?;
+        let server = DefaultCodec::from_slice(&server_bytes_record.voprf_server).ok()?;
         Some(server)
     }
 }
@@ -222,7 +223,7 @@ impl AsStorageProvider for PostgresAsStorage {
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
     async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name).ok()?;
+        let user_name_bytes = DefaultCodec::to_vec(user_name).ok()?;
         let user_record = sqlx::query!(
             "SELECT user_name, password_file FROM as_user_records WHERE user_name = $1",
             user_name_bytes,
@@ -230,7 +231,7 @@ impl AsStorageProvider for PostgresAsStorage {
         .fetch_one(&self.pool)
         .await
         .ok()?;
-        let password_file = phnxtypes::codec::from_slice(&user_record.password_file).ok()?;
+        let password_file = DefaultCodec::from_slice(&user_record.password_file).ok()?;
         let as_user_record = AsUserRecord::new(user_name.clone(), password_file);
         Some(as_user_record)
     }
@@ -243,8 +244,8 @@ impl AsStorageProvider for PostgresAsStorage {
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError> {
         let id = Uuid::new_v4();
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name)?;
-        let password_file_bytes = phnxtypes::codec::to_vec(&opaque_record)?;
+        let user_name_bytes = DefaultCodec::to_vec(user_name)?;
+        let password_file_bytes = DefaultCodec::to_vec(&opaque_record)?;
         sqlx::query!(
             "INSERT INTO as_user_records (id, user_name, password_file) VALUES ($1, $2, $3)",
             id,
@@ -264,7 +265,7 @@ impl AsStorageProvider for PostgresAsStorage {
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
     async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(user_id)?;
+        let user_name_bytes = DefaultCodec::to_vec(user_id)?;
         // The database cascades the delete to the clients and their connection packages.
         sqlx::query!(
             "DELETE FROM as_user_records WHERE user_name = $1",
@@ -282,12 +283,11 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::CreateClientError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(&client_id.user_name())?;
-        let queue_encryption_key_bytes =
-            phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
+        let user_name_bytes = DefaultCodec::to_vec(&client_id.user_name())?;
+        let queue_encryption_key_bytes = DefaultCodec::to_vec(&client_record.queue_encryption_key)?;
+        let ratchet = DefaultCodec::to_vec(&client_record.ratchet_key)?;
         let activity_time = DateTime::<Utc>::from(client_record.activity_time);
-        let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
+        let client_credential = DefaultCodec::to_vec(&client_record.credential)?;
         sqlx::query!(
             "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             client_id.client_id(),
@@ -322,11 +322,10 @@ impl AsStorageProvider for PostgresAsStorage {
         .fetch_one(&self.pool)
         .await
         .ok()?;
-        let queue_encryption_key =
-            phnxtypes::codec::from_slice(&user_record.queue_encryption_key).ok()?;
-        let ratchet_key = phnxtypes::codec::from_slice(&user_record.ratchet).ok()?;
+        let queue_encryption_key = DefaultCodec::from_slice(&user_record.queue_encryption_key).ok()?;
+        let ratchet_key = DefaultCodec::from_slice(&user_record.ratchet).ok()?;
         let activity_time = TimeStamp::from(user_record.activity_time);
-        let credential = phnxtypes::codec::from_slice(&user_record.client_credential).ok()?;
+        let credential = DefaultCodec::from_slice(&user_record.client_credential).ok()?;
         let as_client_record =
             AsClientRecord::new(queue_encryption_key, ratchet_key, activity_time, credential);
         Some(as_client_record)
@@ -339,12 +338,11 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(&client_id.user_name())?;
-        let queue_encryption_key_bytes =
-            phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
+        let user_name_bytes = DefaultCodec::to_vec(&client_id.user_name())?;
+        let queue_encryption_key_bytes = DefaultCodec::to_vec(&client_record.queue_encryption_key)?;
+        let ratchet = DefaultCodec::to_vec(&client_record.ratchet_key)?;
         let activity_time = DateTime::<Utc>::from(client_record.activity_time);
-        let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
+        let client_credential = DefaultCodec::to_vec(&client_record.credential)?;
         sqlx::query!(
             "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",
             client_id.client_id(),
@@ -391,7 +389,7 @@ impl AsStorageProvider for PostgresAsStorage {
 
         for (i, connection_package) in connection_packages.iter().enumerate() {
             let id = Uuid::new_v4();
-            let connection_package_bytes = phnxtypes::codec::to_vec(&connection_package)?;
+            let connection_package_bytes = DefaultCodec::to_vec(&connection_package)?;
 
             // Add values to the query arguments
             query_args.add(id);
@@ -437,7 +435,7 @@ impl AsStorageProvider for PostgresAsStorage {
 
         tx.commit().await?;
 
-        let connection_package = phnxtypes::codec::from_slice(&connection_package_bytes)?;
+        let connection_package = DefaultCodec::from_slice(&connection_package_bytes)?;
 
         Ok(connection_package)
     }
@@ -448,7 +446,7 @@ impl AsStorageProvider for PostgresAsStorage {
         &self,
         user_name: &UserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name)?;
+        let user_name_bytes = DefaultCodec::to_vec(user_name)?;
 
         // Start the transaction
         let mut transaction = self.pool.begin().await?;
@@ -476,7 +474,7 @@ impl AsStorageProvider for PostgresAsStorage {
         // Deserialize the connection packages.
         let connection_packages = connection_packages_bytes
             .into_iter()
-            .map(|connection_package_bytes| phnxtypes::codec::from_slice(&connection_package_bytes))
+            .map(|connection_package_bytes| DefaultCodec::from_slice(&connection_package_bytes))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(connection_packages)
@@ -492,7 +490,7 @@ impl AsStorageProvider for PostgresAsStorage {
         message: QueueMessage,
     ) -> Result<(), Self::EnqueueError> {
         // Encode the message
-        let message_bytes = phnxtypes::codec::to_vec(&message)?;
+        let message_bytes = DefaultCodec::to_vec(&message)?;
 
         // Begin the transaction
         let mut transaction = self.pool.begin().await?;
@@ -607,7 +605,7 @@ impl AsStorageProvider for PostgresAsStorage {
             .iter()
             .map(|row| {
                 let message_bytes: &[u8] = row.try_get("message_bytes")?;
-                let message = phnxtypes::codec::from_slice(message_bytes)?;
+                let message = DefaultCodec::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, QueueError>>()?;
@@ -632,7 +630,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let signing_key_bytes_record = sqlx::query!("SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'")
             .fetch_one(&self.pool)
             .await?;
-        let signing_key = phnxtypes::codec::from_slice(&signing_key_bytes_record.signing_key)?;
+        let signing_key = DefaultCodec::from_slice(&signing_key_bytes_record.signing_key)?;
         Ok(signing_key)
     }
 
@@ -660,12 +658,12 @@ impl AsStorageProvider for PostgresAsStorage {
         for record in signing_keys_bytes_record {
             match record.cred_type {
                 CredentialType::As => {
-                    let as_cred: AsSigningKey = phnxtypes::codec::from_slice(&record.signing_key)?;
+                    let as_cred: AsSigningKey = DefaultCodec::from_slice(&record.signing_key)?;
                     as_creds.push(as_cred.credential().clone());
                 }
                 CredentialType::Intermediate => {
                     let intermed_cred: AsIntermediateSigningKey =
-                        phnxtypes::codec::from_slice(&record.signing_key)?;
+                        DefaultCodec::from_slice(&record.signing_key)?;
                     intermed_creds.push(intermed_cred.credential().clone());
                 }
             }
@@ -681,7 +679,7 @@ impl AsStorageProvider for PostgresAsStorage {
         let opaque_setup_record = sqlx::query!("SELECT opaque_setup FROM opaque_setup")
             .fetch_one(&self.pool)
             .await?;
-        let opaque_setup = phnxtypes::codec::from_slice(&opaque_setup_record.opaque_setup)?;
+        let opaque_setup = DefaultCodec::from_slice(&opaque_setup_record.opaque_setup)?;
         Ok(opaque_setup)
     }
 
@@ -689,7 +687,7 @@ impl AsStorageProvider for PostgresAsStorage {
 
     /// Return the client credentials of a user for a given username.
     async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
-        let Ok(user_name_bytes) = phnxtypes::codec::to_vec(user_name) else {
+        let Ok(user_name_bytes) = DefaultCodec::to_vec(user_name) else {
             return vec![];
         };
         let Ok(client_records) = sqlx::query!(
@@ -703,9 +701,7 @@ impl AsStorageProvider for PostgresAsStorage {
         };
         let mut client_credentials = Vec::new();
         for client_record in client_records {
-            let Ok(client_credential) =
-                phnxtypes::codec::from_slice(&client_record.client_credential)
-            else {
+            let Ok(client_credential) = DefaultCodec::from_slice(&client_record.client_credential) else {
                 continue;
             };
             client_credentials.push(client_credential);

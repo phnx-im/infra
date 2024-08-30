@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{anyhow, Result};
-use phnxtypes::crypto::ear::EarEncryptable;
+use phnxtypes::{codec::DefaultCodec, crypto::ear::EarEncryptable};
 
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
@@ -30,7 +30,7 @@ impl CoreUser {
         // Store the conversation attributes in the group's aad
         let conversation_attributes =
             ConversationAttributes::new(title.to_string(), conversation_picture_option);
-        let group_data = phnxtypes::codec::to_vec(&conversation_attributes)?.into();
+        let group_data = DefaultCodec::to_vec(&conversation_attributes)?.into();
 
         // Phase 1: Create and store the group in the OpenMLS provider
         let mut connection = self.connection.lock().await;

@@ -14,41 +14,41 @@ pub enum Error {
     Deserialization(#[from] ciborium::de::Error<std::io::Error>),
 }
 
-pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error>
-where
-    T: Sized + Serialize,
-{
-    //Ok(serde_json::to_vec(value).unwrap())
-    let mut buf = Vec::new();
-    ciborium::into_writer(value, &mut buf)?;
-    Ok(buf)
-}
-
-pub fn from_slice<T>(bytes: &[u8]) -> Result<T, Error>
-where
-    T: DeserializeOwned,
-{
-    //Ok(serde_json::from_slice(bytes).unwrap())
-    Ok(ciborium::de::from_reader(bytes)?)
-}
-
 #[derive(Default)]
-pub struct Cbor;
+pub struct DefaultCodec;
 
-impl Codec for Cbor {
+impl DefaultCodec {
+    pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error>
+    where
+        T: Sized + Serialize,
+    {
+        let mut buf = Vec::new();
+        ciborium::into_writer(value, &mut buf)?;
+        Ok(buf)
+    }
+
+    pub fn from_slice<T>(bytes: &[u8]) -> Result<T, Error>
+    where
+        T: DeserializeOwned,
+    {
+        Ok(ciborium::de::from_reader(bytes)?)
+    }
+}
+
+impl Codec for DefaultCodec {
     type Error = Error;
 
     fn to_vec<T>(value: &T) -> Result<Vec<u8>, Self::Error>
     where
         T: Sized + Serialize,
     {
-        to_vec(value)
+        Self::to_vec(value)
     }
 
     fn from_slice<T>(bytes: &[u8]) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
     {
-        from_slice(bytes)
+        Self::from_slice(bytes)
     }
 }

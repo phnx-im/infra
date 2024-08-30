@@ -8,12 +8,12 @@ use mls_assist::{
 };
 use thiserror::Error;
 
-use crate::codec::Cbor;
+use crate::codec::DefaultCodec;
 
 pub mod auth_service;
 pub mod qs;
 
-pub type CborMlsAssistStorage = MlsAssistMemoryStorage<Cbor>;
+pub type CborMlsAssistStorage = MlsAssistMemoryStorage<DefaultCodec>;
 
 /// Error updating queue config.
 #[derive(Debug, Error)]

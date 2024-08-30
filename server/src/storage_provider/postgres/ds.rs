@@ -9,6 +9,7 @@ use phnxbackend::ds::{
     group_state::EncryptedDsGroupState, DsStorageProvider, LoadState, GROUP_STATE_EXPIRATION,
 };
 use phnxtypes::{
+    codec::DefaultCodec,
     crypto::ear::Ciphertext,
     identifiers::{Fqdn, QualifiedGroupId, SealedClientReference},
     time::TimeStamp,
@@ -84,13 +85,13 @@ impl DsStorageProvider for PostgresDsStorage {
         let result = match (ciphertext_bytes.as_slice(), deleted_queues_bytes.as_slice()) {
             ([], []) => Ok(LoadState::Reserved(TimeStamp::from(record.last_used))),
             (ciphertext_bytes, deleted_queues_bytes) => {
-                let ciphertext: Ciphertext = phnxtypes::codec::from_slice(ciphertext_bytes)?;
+                let ciphertext: Ciphertext = DefaultCodec::from_slice(ciphertext_bytes)?;
                 let last_used = TimeStamp::from(record.last_used);
                 if last_used.has_expired(GROUP_STATE_EXPIRATION) {
                     Ok(LoadState::Expired)
                 } else {
                     let deleted_queues: Vec<SealedClientReference> =
-                        phnxtypes::codec::from_slice(deleted_queues_bytes)?;
+                        DefaultCodec::from_slice(deleted_queues_bytes)?;
                     let encrypted_group_state = EncryptedDsGroupState {
                         ciphertext,
                         last_used,
@@ -119,8 +120,8 @@ impl DsStorageProvider for PostgresDsStorage {
             })?;
         let group_uuid = Uuid::from_bytes(qgid.group_id);
         let last_used = Utc::now();
-        let deleted_queues = phnxtypes::codec::to_vec(&encrypted_group_state.deleted_queues)?;
-        let ciphertext = phnxtypes::codec::to_vec(&encrypted_group_state.ciphertext)?;
+        let deleted_queues = DefaultCodec::to_vec(&encrypted_group_state.deleted_queues)?;
+        let ciphertext = DefaultCodec::to_vec(&encrypted_group_state.ciphertext)?;
 
         // Insert the group state into the database.
         sqlx::query!(

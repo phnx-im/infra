@@ -10,6 +10,7 @@ use openmls::prelude::{
 };
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
+    codec::DefaultCodec,
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
     identifiers::QualifiedGroupId,
     messages::{
@@ -116,8 +117,7 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
-                let attributes: ConversationAttributes =
-                    phnxtypes::codec::from_slice(group_data.bytes())?;
+                let attributes: ConversationAttributes = DefaultCodec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);

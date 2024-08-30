@@ -18,6 +18,7 @@ use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, Tl
 use keys::{AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey};
 
 use crate::{
+    codec::DefaultCodec,
     crypto::{
         ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
@@ -132,7 +133,7 @@ impl ToSql for AsCredentialBody {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(
-                crate::codec::to_vec(self)
+                DefaultCodec::to_vec(self)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ),
         ))
@@ -143,7 +144,7 @@ impl ToSql for AsCredentialBody {
 impl FromSql for AsCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        crate::codec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        DefaultCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
     }
 }
 
@@ -306,7 +307,7 @@ impl ToSql for AsIntermediateCredentialBody {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(
-                crate::codec::to_vec(self)
+                DefaultCodec::to_vec(self)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ),
         ))
@@ -317,7 +318,7 @@ impl ToSql for AsIntermediateCredentialBody {
 impl FromSql for AsIntermediateCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        crate::codec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        DefaultCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
     }
 }
 
@@ -554,7 +555,7 @@ impl ToSql for ClientCredential {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(
-                crate::codec::to_vec(self)
+                DefaultCodec::to_vec(self)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ),
         ))
@@ -565,7 +566,7 @@ impl ToSql for ClientCredential {
 impl FromSql for ClientCredential {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        crate::codec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        DefaultCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
     }
 }
 

@@ -12,7 +12,10 @@ use serde::Serialize;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::crypto::{errors::RandomnessError, secrets::Secret};
+use crate::{
+    codec::DefaultCodec,
+    crypto::{errors::RandomnessError, secrets::Secret},
+};
 
 use super::{Mac, MacTag, MAC_KEY_SIZE};
 
@@ -94,8 +97,7 @@ pub trait Taggable: Sized + Serialize {
     //fn serialized_payload<S: Serializer>(&self) -> Result<Vec<u8>, S::Error>;
 
     fn tag(self, key: &Self::Key) -> Result<Self::TaggedOutput, crate::codec::Error> {
-        // TODO: Not sure how to make serialization generic.
-        let serialized_payload: Vec<u8> = crate::codec::to_vec(&self)?;
+        let serialized_payload: Vec<u8> = DefaultCodec::to_vec(&self)?;
         let tag = key.mac(&serialized_payload);
         Ok(<Self::TaggedOutput as TaggedStruct<Self>>::from_untagged_payload(self, tag))
     }

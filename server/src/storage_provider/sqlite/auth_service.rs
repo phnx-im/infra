@@ -37,7 +37,7 @@ pub enum AsSqliteError {
     #[error(transparent)]
     SqliteError(#[from] rusqlite::Error),
     #[error(transparent)]
-    CodecError(#[from] phnxtypes::codec::Error),
+    CodecError(#[from] Cbor::Error),
     #[error("Mutex poisoned")]
     MutexError,
     /// Credential generation error.
@@ -58,7 +58,7 @@ pub enum QueueError {
     LibraryError,
     /// Error serializing message
     #[error(transparent)]
-    SerializationError(#[from] phnxtypes::codec::Error),
+    SerializationError(#[from] Cbor::Error),
     #[error("Mutex poisoned")]
     MutexError,
 }
@@ -111,7 +111,7 @@ impl SqliteAsStorage {
                     Uuid::new_v4(),
                     CredentialType::As,
                     as_signing_key.credential().fingerprint().as_bytes(),
-                    phnxtypes::codec::to_vec(&as_signing_key)?,
+                    Cbor::to_vec(&as_signing_key)?,
                     true,
                 ],
             )?;
@@ -121,7 +121,7 @@ impl SqliteAsStorage {
                     Uuid::new_v4(),
                     CredentialType::Intermediate,
                     as_inter_signing_key.credential().fingerprint().as_bytes(),
-                    phnxtypes::codec::to_vec(&as_inter_signing_key)?,
+                    Cbor::to_vec(&as_inter_signing_key)?,
                     true,
                 ],
             )?;
@@ -140,7 +140,7 @@ impl SqliteAsStorage {
                 .map_err(|_| AsSqliteError::MutexError)?;
             connection.execute(
                 "INSERT INTO opaque_setup (id, opaque_setup) VALUES ($1, $2)",
-                params![Uuid::new_v4(), phnxtypes::codec::to_vec(&opaque_setup)?],
+                params![Uuid::new_v4(), Cbor::to_vec(&opaque_setup)?],
             )?;
         };
 
@@ -228,7 +228,7 @@ impl SqliteAsStorage {
 impl BatchedKeyStore for SqliteAsStorage {
     /// Inserts a keypair with a given `token_key_id` into the key store.
     async fn insert(&self, token_key_id: TruncatedTokenKeyId, server: VoprfServer<Ristretto255>) {
-        let Ok(server_bytes) = phnxtypes::codec::to_vec(&server) else {
+        let Ok(server_bytes) = Cbor::to_vec(&server) else {
             return;
         };
 
@@ -256,7 +256,7 @@ impl BatchedKeyStore for SqliteAsStorage {
             .optional()
             .ok()??;
 
-        let server = phnxtypes::codec::from_slice(&server_bytes_record).ok()?;
+        let server = Cbor::from_slice(&server_bytes_record).ok()?;
         Some(server)
     }
 }
@@ -289,7 +289,7 @@ impl AsStorageProvider for SqliteAsStorage {
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
     async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name).ok()?;
+        let user_name_bytes = Cbor::to_vec(user_name).ok()?;
 
         let connection = self.connection.lock().ok()?;
 
@@ -300,13 +300,13 @@ impl AsStorageProvider for SqliteAsStorage {
                 |row| {
                     let user_name_bytes: Vec<u8> = row.get(0)?;
                     let user_name: UserName =
-                        phnxtypes::codec::from_slice(&user_name_bytes).map_err(|e| {
+                        Cbor::from_slice(&user_name_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                         })?;
                     let password_file_bytes: Vec<u8> = row.get(1)?;
 
                     let password_file: ServerRegistration<OpaqueCiphersuite> =
-                        phnxtypes::codec::from_slice(&password_file_bytes).map_err(|e| {
+                        Cbor::from_slice(&password_file_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
                         })?;
 
@@ -326,8 +326,8 @@ impl AsStorageProvider for SqliteAsStorage {
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError> {
         let id = Uuid::new_v4();
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name)?;
-        let password_file_bytes = phnxtypes::codec::to_vec(&opaque_record)?;
+        let user_name_bytes = Cbor::to_vec(user_name)?;
+        let password_file_bytes = Cbor::to_vec(&opaque_record)?;
 
         let connection = self
             .connection
@@ -350,7 +350,7 @@ impl AsStorageProvider for SqliteAsStorage {
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
     async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(user_id)?;
+        let user_name_bytes = Cbor::to_vec(user_id)?;
 
         let connection = self
             .connection
@@ -373,11 +373,11 @@ impl AsStorageProvider for SqliteAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::CreateClientError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(&client_id.user_name())?;
-        let queue_encryption_key_bytes = phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
+        let user_name_bytes = Cbor::to_vec(&client_id.user_name())?;
+        let queue_encryption_key_bytes = Cbor::to_vec(&client_record.queue_encryption_key)?;
+        let ratchet = Cbor::to_vec(&client_record.ratchet_key)?;
         let activity_time = client_record.activity_time.time();
-        let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
+        let client_credential = Cbor::to_vec(&client_record.credential)?;
 
         let connection = self
             .connection
@@ -418,13 +418,13 @@ impl AsStorageProvider for SqliteAsStorage {
                 params![client_id.client_id()],
                 |row| {
                     let queue_encryption_key_bytes: Vec<u8> = row.get(2)?;
-                    let queue_encryption_key = phnxtypes::codec::from_slice(&queue_encryption_key_bytes)
+                    let queue_encryption_key = Cbor::from_slice(&queue_encryption_key_bytes)
                         .map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(2, Type::Blob, Box::new(e))
                         })?;
 
                     let ratchet: Vec<u8> = row.get(3)?;
-                    let ratchet_key = phnxtypes::codec::from_slice(&ratchet).map_err(|e| {
+                    let ratchet_key = Cbor::from_slice(&ratchet).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(3, Type::Blob, Box::new(e))
                     })?;
                     let activity_time: DateTime<Utc> = row.get(4)?;
@@ -432,7 +432,7 @@ impl AsStorageProvider for SqliteAsStorage {
 
                     let client_credential_bytes: Vec<u8> = row.get(5)?;
                     let credential: ClientCredential =
-                        phnxtypes::codec::from_slice(&client_credential_bytes).map_err(|e| {
+                        Cbor::from_slice(&client_credential_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(5, Type::Blob, Box::new(e))
                         })?;
 
@@ -461,11 +461,11 @@ impl AsStorageProvider for SqliteAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
-        let user_name_bytes = phnxtypes::codec::to_vec(&client_id.user_name())?;
-        let queue_encryption_key_bytes = phnxtypes::codec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = phnxtypes::codec::to_vec(&client_record.ratchet_key)?;
+        let user_name_bytes = Cbor::to_vec(&client_id.user_name())?;
+        let queue_encryption_key_bytes = Cbor::to_vec(&client_record.queue_encryption_key)?;
+        let ratchet = Cbor::to_vec(&client_record.ratchet_key)?;
         let activity_time = client_record.activity_time.time();
-        let client_credential = phnxtypes::codec::to_vec(&client_record.credential)?;
+        let client_credential = Cbor::to_vec(&client_record.credential)?;
 
         let connection = self
             .connection
@@ -523,7 +523,7 @@ impl AsStorageProvider for SqliteAsStorage {
         // package individually.
         for connection_package in connection_packages {
             let id = Uuid::new_v4();
-            let connection_package_bytes = phnxtypes::codec::to_vec(&connection_package)?;
+            let connection_package_bytes = Cbor::to_vec(&connection_package)?;
             connection.execute(
                 "INSERT INTO connection_packages (id, client_id, connection_package) VALUES ($1, $2, $3)",
                 params![id, client_id.client_id(), connection_package_bytes],
@@ -550,7 +550,7 @@ impl AsStorageProvider for SqliteAsStorage {
                     let id: Uuid = row.get(0)?;
                     let connection_package_bytes: Vec<u8> = row.get(1)?;
                     let connection_package: ConnectionPackage =
-                        phnxtypes::codec::from_slice(&connection_package_bytes).map_err(|e| {
+                        Cbor::from_slice(&connection_package_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
                         })?;
                     Ok((id, connection_package))
@@ -585,7 +585,7 @@ impl AsStorageProvider for SqliteAsStorage {
             .lock()
             .map_err(|_| AsSqliteError::MutexError)?;
 
-        let user_name_bytes = phnxtypes::codec::to_vec(user_name)?;
+        let user_name_bytes = Cbor::to_vec(user_name)?;
 
         // Collect all client ids associated with that user.
         let client_ids = connection
@@ -602,7 +602,7 @@ impl AsStorageProvider for SqliteAsStorage {
                     let id: Uuid = row.get(0)?;
                     let connection_package_bytes: Vec<u8> = row.get(1)?;
                     let connection_package: ConnectionPackage =
-                        phnxtypes::codec::from_slice(&connection_package_bytes).map_err(|e| {
+                        Cbor::from_slice(&connection_package_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
                         })?;
                     Ok((id, connection_package))
@@ -644,7 +644,7 @@ impl AsStorageProvider for SqliteAsStorage {
 
         // Get a fresh message ID (only used as a unique key for postgres)
         let message_id = Uuid::new_v4();
-        let message_bytes = phnxtypes::codec::to_vec(&message)?;
+        let message_bytes = Cbor::to_vec(&message)?;
 
         // Store the message in the DB
         connection.execute(
@@ -697,7 +697,7 @@ impl AsStorageProvider for SqliteAsStorage {
             )?
             .query_map(params![client_id.client_id(), number_of_messages], |row| {
                 let message_bytes: Vec<u8> = row.get(0)?;
-                let message: QueueMessage = phnxtypes::codec::from_slice(&message_bytes).map_err(|e| {
+                let message: QueueMessage = Cbor::from_slice(&message_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                         })?;
                 Ok(message)
@@ -731,7 +731,7 @@ impl AsStorageProvider for SqliteAsStorage {
                 |row| {
                     let signing_key_bytes: Vec<u8> = row.get(0)?;
                     let signing_key: AsIntermediateSigningKey =
-                        phnxtypes::codec::from_slice(&signing_key_bytes).map_err(|e| {
+                        Cbor::from_slice(&signing_key_bytes).map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                         })?;
                     Ok(signing_key)
@@ -776,12 +776,12 @@ impl AsStorageProvider for SqliteAsStorage {
         for (signing_key_bytes, cred_type) in signing_key_bytes {
             match cred_type {
                 CredentialType::As => {
-                    let as_cred: AsSigningKey = phnxtypes::codec::from_slice(&signing_key_bytes)?;
+                    let as_cred: AsSigningKey = Cbor::from_slice(&signing_key_bytes)?;
                     as_creds.push(as_cred.credential().clone());
                 }
                 CredentialType::Intermediate => {
                     let intermed_cred: AsIntermediateSigningKey =
-                        phnxtypes::codec::from_slice(&signing_key_bytes)?;
+                        Cbor::from_slice(&signing_key_bytes)?;
                     intermed_creds.push(intermed_cred.credential().clone());
                 }
             }
@@ -803,7 +803,7 @@ impl AsStorageProvider for SqliteAsStorage {
             connection.query_row("SELECT opaque_setup FROM opaque_setup", [], |row| {
                 let opaque_setup_bytes: Vec<u8> = row.get(0)?;
                 let opaque_setup: ServerSetup<OpaqueCiphersuite> =
-                    phnxtypes::codec::from_slice(&opaque_setup_bytes).map_err(|e| {
+                    Cbor::from_slice(&opaque_setup_bytes).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                     })?;
                 Ok(opaque_setup)
@@ -816,7 +816,7 @@ impl AsStorageProvider for SqliteAsStorage {
 
     /// Return the client credentials of a user for a given username.
     async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
-        let Ok(user_name_bytes) = phnxtypes::codec::to_vec(user_name) else {
+        let Ok(user_name_bytes) = Cbor::to_vec(user_name) else {
             return vec![];
         };
         let Ok(connection) = self.connection.lock() else {
@@ -832,7 +832,7 @@ impl AsStorageProvider for SqliteAsStorage {
         let Ok(mapped_rows) = statement.query_map(params![user_name_bytes], |row| {
             let client_credential_bytes: Vec<u8> = row.get(0)?;
             let client_credential: ClientCredential =
-                phnxtypes::codec::from_slice(&client_credential_bytes).map_err(|e| {
+                Cbor::from_slice(&client_credential_bytes).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
                 })?;
             Ok(client_credential)
