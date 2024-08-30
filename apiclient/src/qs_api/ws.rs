@@ -280,7 +280,7 @@ impl ApiClient {
             .header("QsOpenWsParams", &serialized)
             .body(())
             .map_err(|e| {
-                println!("Error: {:?}", e);
+                log::error!("Error: {:?}", e);
                 SpawnWsError::WrongUrl
             })?;
 

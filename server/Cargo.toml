@@ -23,8 +23,8 @@ api_docs = []
 phnxbackend = { path = "../backend" }
 phnxtypes = { path = "../types" }
 actix-web = "^4.0"
-serde = "1"
 serde_json = "1"
+serde = "1"
 config = "0.14"
 async-trait = "0.1.74"
 actix-web-actors = "4.2.0"
