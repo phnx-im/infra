@@ -14,11 +14,9 @@ reqwest = { workspace = true }
 thiserror = "1"
 phnxtypes = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
-tokio-tungstenite = { version = "0.20.0", features = [
-    "rustls-tls-webpki-roots",
-] }
+tokio-tungstenite = { version = "0.23", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3.21"
-http = "0.2.7"
+http = "1"
 log = "0.4.17"
 mls-assist = { workspace = true }
 privacypass = { workspace = true }
@@ -34,4 +32,4 @@ wiremock = "0.5"
 actix = "0.13.0"
 actix-web = "^4.0"
 actix-web-actors = "4.1.0"
-env_logger = "0.10.0"
+env_logger = "0.11.0"

@@ -29,7 +29,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 openmls = { git = "https://github.com/openmls/openmls" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", branch = "konrad/mls_assist_storage" }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
 phnxtypes = { path = "./types" }
 
 [patch.crates-io]
