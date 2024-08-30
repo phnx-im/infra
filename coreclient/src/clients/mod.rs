@@ -569,16 +569,14 @@ impl CoreUser {
 
         // Phase 3: Merge the commit into the group & update conversation
         let mut connection = self.connection.lock().await;
+        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
         group.store_update(&connection)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
-            vec![(conversation.id(), unsent_message.timestamp())].into_iter(), // FIXME
+            vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
         )?;
         transaction.commit()?;
-
-        // Mark the message as sent.
-        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(())
     }
