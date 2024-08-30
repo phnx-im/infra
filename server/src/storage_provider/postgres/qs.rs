@@ -10,7 +10,7 @@ use phnxbackend::qs::{
     user_record::QsUserRecord, QsConfig, QsSigningKey,
 };
 use phnxtypes::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     crypto::{
         errors::RandomnessError, hpke::ClientIdDecryptionKey, signatures::keys::QsUserVerifyingKey,
     },
@@ -80,7 +80,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_signing_key (id, signing_key) VALUES ($1, $2)",
             Uuid::new_v4(),
-            DefaultCodec::to_vec(&signing_key)?,
+            PhnxCodec::to_vec(&signing_key)?,
         )
         .execute(&self.pool)
         .await?;
@@ -98,7 +98,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_decryption_key (id, decryption_key) VALUES ($1, $2)",
             Uuid::new_v4(),
-            DefaultCodec::to_vec(&decryption_key)?,
+            PhnxCodec::to_vec(&decryption_key)?,
         )
         .execute(&self.pool)
         .await?;
@@ -115,7 +115,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_config (id, config) VALUES ($1, $2)",
             Uuid::new_v4(),
-            DefaultCodec::to_vec(&config)?,
+            PhnxCodec::to_vec(&config)?,
         )
         .execute(&self.pool)
         .await?;
@@ -215,13 +215,13 @@ impl QsStorageProvider for PostgresQsStorage {
 
         // Create and store the client record.
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(DefaultCodec::to_vec(ept)?)
+            Some(PhnxCodec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = DefaultCodec::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = DefaultCodec::to_vec(client_record.owner_signature_key())?;
-        let ratchet = DefaultCodec::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
         let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         let mut transaction = self.pool.begin().await?;
@@ -263,13 +263,13 @@ impl QsStorageProvider for PostgresQsStorage {
         .ok()?;
         let user_id = QsUserId::from(client_record.user_id);
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token {
-            Some(DefaultCodec::from_slice(&ept).ok()?)
+            Some(PhnxCodec::from_slice(&ept).ok()?)
         } else {
             None
         };
-        let owner_public_key = DefaultCodec::from_slice(&client_record.owner_public_key).ok()?;
-        let owner_signature_key = DefaultCodec::from_slice(&client_record.owner_signature_key).ok()?;
-        let ratchet = DefaultCodec::from_slice(&client_record.ratchet).ok()?;
+        let owner_public_key = PhnxCodec::from_slice(&client_record.owner_public_key).ok()?;
+        let owner_signature_key = PhnxCodec::from_slice(&client_record.owner_signature_key).ok()?;
+        let ratchet = PhnxCodec::from_slice(&client_record.ratchet).ok()?;
         let activity_time = TimeStamp::from(client_record.activity_time);
         let result = QsClientRecord::from_db_values(
             user_id,
@@ -288,13 +288,13 @@ impl QsStorageProvider for PostgresQsStorage {
         client_record: QsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(DefaultCodec::to_vec(ept)?)
+            Some(PhnxCodec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = DefaultCodec::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = DefaultCodec::to_vec(client_record.owner_signature_key())?;
-        let ratchet = DefaultCodec::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
         let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         sqlx::query!(
@@ -382,7 +382,7 @@ impl QsStorageProvider for PostgresQsStorage {
 
         transaction.commit().await.ok()?;
 
-        let result = DefaultCodec::from_slice(&add_package_record.encrypted_add_package).ok()?;
+        let result = PhnxCodec::from_slice(&add_package_record.encrypted_add_package).ok()?;
         Some(result)
     }
 
@@ -452,7 +452,7 @@ impl QsStorageProvider for PostgresQsStorage {
                         LoadUserKeyPackagesError::PostgresError(e)
                     })?;
                 let encrypted_add_package =
-                    DefaultCodec::from_slice(encrypted_add_package_bytes.as_slice()).map_err(|e| {
+                    PhnxCodec::from_slice(encrypted_add_package_bytes.as_slice()).map_err(|e| {
                         tracing::warn!("Error deserializing key package: {:?}", e);
                         LoadUserKeyPackagesError::SerializationError(e)
                     })?;
@@ -469,7 +469,7 @@ impl QsStorageProvider for PostgresQsStorage {
         message: QueueMessage,
     ) -> Result<(), Self::EnqueueError> {
         // Encode the message
-        let message_bytes = DefaultCodec::to_vec(&message)?;
+        let message_bytes = PhnxCodec::to_vec(&message)?;
 
         //tracing::info!("Encoded message: {:?}", message_bytes);
 
@@ -580,7 +580,7 @@ impl QsStorageProvider for PostgresQsStorage {
             .map(|row| {
                 let message_bytes: &[u8] = row.try_get("message_bytes")?;
                 //tracing::info!("Message bytes: {:?}", message_bytes);
-                let message = DefaultCodec::from_slice(message_bytes)?;
+                let message = PhnxCodec::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, ReadAndDeleteError>>()?;
@@ -604,7 +604,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let signing_key_record = sqlx::query!("SELECT * FROM qs_signing_key",)
             .fetch_one(&self.pool)
             .await?;
-        let signing_key = DefaultCodec::from_slice(&signing_key_record.signing_key)?;
+        let signing_key = PhnxCodec::from_slice(&signing_key_record.signing_key)?;
         Ok(signing_key)
     }
 
@@ -614,7 +614,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let decryption_key_record = sqlx::query!("SELECT * FROM qs_decryption_key",)
             .fetch_one(&self.pool)
             .await?;
-        let decryption_key = DefaultCodec::from_slice(&decryption_key_record.decryption_key)?;
+        let decryption_key = PhnxCodec::from_slice(&decryption_key_record.decryption_key)?;
         Ok(decryption_key)
     }
 
@@ -622,7 +622,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let config_record = sqlx::query!("SELECT * FROM qs_config",)
             .fetch_one(&self.pool)
             .await?;
-        let config = DefaultCodec::from_slice(&config_record.config)?;
+        let config = PhnxCodec::from_slice(&config_record.config)?;
         Ok(config)
     }
 }
@@ -644,7 +644,7 @@ async fn store_key_packages(
 
     for (i, encrypted_add_package) in encrypted_add_packages.iter().enumerate() {
         let id = Uuid::new_v4();
-        let encoded_add_package = DefaultCodec::to_vec(encrypted_add_package)?;
+        let encoded_add_package = PhnxCodec::to_vec(encrypted_add_package)?;
 
         // Add values to the query arguments
         query_args.add(id);

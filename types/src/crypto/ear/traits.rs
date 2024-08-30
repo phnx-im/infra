@@ -14,7 +14,7 @@ use serde::de::DeserializeOwned;
 use tracing::instrument;
 
 use crate::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     crypto::{
         errors::{DecryptionError, EncryptionError, RandomnessError},
         secrets::Secret,
@@ -76,7 +76,7 @@ impl<T: serde::Serialize> GenericSerializable for T {
     type Error = crate::codec::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        DefaultCodec::to_vec(self)
+        PhnxCodec::to_vec(self)
     }
 }
 
@@ -90,7 +90,7 @@ impl<T: DeserializeOwned> GenericDeserializable for T {
     type Error = crate::codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        DefaultCodec::from_slice(bytes)
+        PhnxCodec::from_slice(bytes)
     }
 }
 

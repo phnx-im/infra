@@ -161,7 +161,7 @@ use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use uuid::Uuid;
 
 use phnxtypes::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{keys::EncryptedSignatureEarKey, EarDecryptable, EarEncryptable},
@@ -188,7 +188,7 @@ use super::{
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
 
-pub(super) type Provider = MlsAssistRustCrypto<DefaultCodec>;
+pub(super) type Provider = MlsAssistRustCrypto<PhnxCodec>;
 
 pub struct DsApi {}
 

@@ -12,7 +12,7 @@ use crate::{
 };
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     identifiers::{AsClientId, SafeTryInto},
 };
 use rusqlite::Connection;
@@ -62,8 +62,8 @@ async fn user_stages() {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::BasicUserData(_)));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
 
     let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
@@ -88,8 +88,8 @@ async fn user_stages() {
         UserCreationState::InitialUserState(_)
     ));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -113,8 +113,8 @@ async fn user_stages() {
         UserCreationState::PostRegistrationInitState(_)
     ));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -138,8 +138,8 @@ async fn user_stages() {
         UserCreationState::UnfinalizedRegistrationState(_)
     ));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -163,8 +163,8 @@ async fn user_stages() {
         UserCreationState::AsRegisteredUserState(_)
     ));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -188,8 +188,8 @@ async fn user_stages() {
         UserCreationState::QsRegisteredUserState(_)
     ));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
     drop(client_db_connection);
 
@@ -210,7 +210,7 @@ async fn user_stages() {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::FinalUserState(_)));
     assert_eq!(
-        DefaultCodec::to_vec(&computed_state).unwrap(),
-        DefaultCodec::to_vec(&loaded_state).unwrap()
+        PhnxCodec::to_vec(&computed_state).unwrap(),
+        PhnxCodec::to_vec(&loaded_state).unwrap()
     );
 }

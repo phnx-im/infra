@@ -13,7 +13,7 @@ use thiserror::Error;
 use tracing::instrument;
 
 use crate::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     crypto::{errors::RandomnessError, secrets::Secret},
 };
 
@@ -97,7 +97,7 @@ pub trait Taggable: Sized + Serialize {
     //fn serialized_payload<S: Serializer>(&self) -> Result<Vec<u8>, S::Error>;
 
     fn tag(self, key: &Self::Key) -> Result<Self::TaggedOutput, crate::codec::Error> {
-        let serialized_payload: Vec<u8> = DefaultCodec::to_vec(&self)?;
+        let serialized_payload: Vec<u8> = PhnxCodec::to_vec(&self)?;
         let tag = key.mac(&serialized_payload);
         Ok(<Self::TaggedOutput as TaggedStruct<Self>>::from_untagged_payload(self, tag))
     }

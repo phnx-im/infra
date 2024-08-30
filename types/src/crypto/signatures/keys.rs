@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 
 use crate::{
-    codec::DefaultCodec,
+    codec::PhnxCodec,
     crypto::errors::{KeyGenerationError, RandomnessError},
 };
 
@@ -75,7 +75,7 @@ pub struct UserAuthSigningKey {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for UserAuthSigningKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = DefaultCodec::to_vec(self)
+        let bytes = PhnxCodec::to_vec(self)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(bytes),
@@ -87,7 +87,7 @@ impl rusqlite::types::ToSql for UserAuthSigningKey {
 impl rusqlite::types::FromSql for UserAuthSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let bytes = value.as_blob()?;
-        DefaultCodec::from_slice(bytes)
+        PhnxCodec::from_slice(bytes)
             .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
     }
 }

@@ -6,7 +6,7 @@ use errors::{DecryptionError, EncryptionError};
 #[cfg(feature = "sqlite")]
 use rusqlite::ToSql;
 
-use crate::codec::DefaultCodec;
+use crate::codec::PhnxCodec;
 
 use super::{errors::RandomnessError, *};
 
@@ -42,7 +42,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> ToSql
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Blob(
-                DefaultCodec::to_vec(self)
+                PhnxCodec::to_vec(self)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ),
         ))
@@ -55,7 +55,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> rusqlit
 {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let bytes = value.as_blob()?;
-        DefaultCodec::from_slice(bytes)
+        PhnxCodec::from_slice(bytes)
             .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
     }
 }
