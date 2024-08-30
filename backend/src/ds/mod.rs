@@ -20,6 +20,7 @@ mod delete_group;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;
+pub mod migrator;
 mod remove_clients;
 mod remove_users;
 mod resync_client;

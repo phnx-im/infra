@@ -29,6 +29,8 @@ use serde::{Deserialize, Serialize};
 
 use super::api::ExternalCommitInfo;
 
+pub(super) mod persistence;
+
 #[derive(Serialize, Deserialize)]
 pub(super) struct UserProfile {
     // The clients associated with this user in this group
