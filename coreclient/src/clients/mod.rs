@@ -5,7 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
-use chrono::Duration;
+use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use opaque_ke::{
     ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -54,7 +54,7 @@ use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{
-        messages::{ConversationMessage, ConversationMessageId, TimestampedMessage},
+        messages::{ConversationMessage, TimestampedMessage},
         Conversation, ConversationAttributes,
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
@@ -507,7 +507,7 @@ impl CoreUser {
             // Also, mark the message (and all messages preceeding it) as read.
             Conversation::mark_as_read(
                 &mut transaction,
-                vec![(conversation.id(), conversation_message.id())].into_iter(),
+                vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
             )?;
             transaction.commit()?;
             drop(connection);
@@ -527,7 +527,7 @@ impl CoreUser {
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
-            vec![(conversation.id(), conversation_message.id())].into_iter(),
+            vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
         )?;
         transaction.commit()?;
 
@@ -569,16 +569,14 @@ impl CoreUser {
 
         // Phase 3: Merge the commit into the group & update conversation
         let mut connection = self.connection.lock().await;
+        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
         group.store_update(&connection)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
-            vec![(conversation.id(), unsent_message.id())].into_iter(),
+            vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
         )?;
         transaction.commit()?;
-
-        // Mark the message as sent.
-        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
 
         Ok(())
     }
@@ -1061,7 +1059,7 @@ impl CoreUser {
 
     /// Mark all messages in the conversation with the given conversation id and
     /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, ConversationMessageId)>>(
+    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {

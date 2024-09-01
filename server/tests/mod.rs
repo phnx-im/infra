@@ -599,9 +599,9 @@ async fn mark_as_read() {
 
     // Let's mark all but the last two messages as read (we subtract 3, because
     // the vector is 0-indexed).
-    let message_id = bob_messages_sent[messages_sent.len() - 3].id();
+    let timestamp = bob_messages_sent[messages_sent.len() - 3].timestamp();
 
-    bob.mark_as_read([(bob_charlie_conversation, message_id)])
+    bob.mark_as_read([(bob_charlie_conversation, timestamp)])
         .await
         .unwrap();
 

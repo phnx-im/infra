@@ -4,9 +4,10 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
 use tokio::{sync::Mutex, time::sleep};
 
-use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationMessageId};
+use phnxcoreclient::{clients::CoreUser, ConversationId};
 
 use anyhow::{anyhow, Result};
 
@@ -22,7 +23,7 @@ const DURATION_CHECK_INTERVAL: u64 = 500;
 struct DebouncerState {
     // A map of conversation ids to the state of an ongoing debouncing process.
     // If this is `None`, then there is no debouncing thread running.
-    markers: HashMap<ConversationId, ConversationMessageId>,
+    conversation_timestamps: HashMap<ConversationId, DateTime<Utc>>,
     // The duration of the debouncing process.
     duration: u64,
     starting_duration: u64,
@@ -44,11 +45,11 @@ impl DebouncerState {
     /// Create a new [`DebouncerState`] with the given `timestamp` and
     /// conversation id, as well as the default duration.
     fn new(
-        markers: impl Into<HashMap<ConversationId, ConversationMessageId>>,
+        conversation_timestamps: impl Into<HashMap<ConversationId, DateTime<Utc>>>,
         default_duration: u64,
     ) -> Self {
         Self {
-            markers: markers.into(),
+            conversation_timestamps: conversation_timestamps.into(),
             duration: default_duration,
             starting_duration: default_duration,
         }
@@ -90,7 +91,8 @@ impl MarkAsReadDebouncer {
     pub(crate) async fn flush_debouncer_state<T: MarkAsRead>(&self, user: T) -> Result<()> {
         let mut debouncer_state_option = self.conversation_debouncer_states_option.lock().await;
         if let Some(debouncer_state) = debouncer_state_option.take() {
-            user.mark_as_read(debouncer_state.markers).await?;
+            user.mark_as_read(debouncer_state.conversation_timestamps)
+                .await?;
             debouncer_state_option.take();
         }
         Ok(())
@@ -117,7 +119,7 @@ impl MarkAsReadDebouncer {
         &self,
         user: CoreUser, // impl MarkAsRead + Sync + Send + 'static
         conversation_id: ConversationId,
-        message_id: ConversationMessageId,
+        timestamp: DateTime<Utc>,
     ) {
         let mut conversation_debouncer_state_option =
             self.conversation_debouncer_states_option.lock().await;
@@ -126,15 +128,27 @@ impl MarkAsReadDebouncer {
             // As there is a debouncer state, there must already be a thread
             // running, so all we have to do is update (or add) the timestamp
             // and reset the duration.
+            // We only insert the timestamp if it is more recent than the
+            // existing timestamp.
+            if let Some(existing_timestamp) = debouncer_state
+                .conversation_timestamps
+                .get(&conversation_id)
+            {
+                if timestamp <= *existing_timestamp {
+                    return;
+                }
+            }
 
-            debouncer_state.markers.insert(conversation_id, message_id);
+            debouncer_state
+                .conversation_timestamps
+                .insert(conversation_id, timestamp);
             debouncer_state.reset_duration();
             return;
         }
 
         // Since there is no thread running we create a new state and start a new thread.
         let debouncer_state =
-            DebouncerState::new([(conversation_id, message_id)], self.default_duration);
+            DebouncerState::new([(conversation_id, timestamp)], self.default_duration);
         *conversation_debouncer_state_option = Some(debouncer_state);
 
         // We now spawn a thread that periodically gets a lock on the debouncer
@@ -172,7 +186,10 @@ async fn debouncing_timer(
         // If the duration has reached zero, we mark the messages as read
         // and remove the debouncer state.
         if debouncer_state.duration == 0 {
-            if let Err(e) = user.mark_as_read(debouncer_state.markers.clone()).await {
+            if let Err(e) = user
+                .mark_as_read(debouncer_state.conversation_timestamps.clone())
+                .await
+            {
                 log::error!("Failed to mark messages as read: {}", e);
             };
             debouncer_state_option.take();
@@ -182,16 +199,14 @@ async fn debouncing_timer(
 }
 
 pub(crate) trait MarkAsRead {
-    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, ConversationMessageId)> + Send>(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()>;
 }
 
 impl MarkAsRead for CoreUser {
-    async fn mark_as_read<
-        T: IntoIterator<Item = (ConversationId, ConversationMessageId)> + Send,
-    >(
+    async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send>(
         &self,
         mark_as_read_data: T,
     ) -> Result<()> {

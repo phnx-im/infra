@@ -45,7 +45,7 @@ impl User {
                 .map(|m| m.into());
             let last_used = last_message
                 .as_ref()
-                .map(|m: &UiConversationMessage| m.timestamp)
+                .map(|m: &UiConversationMessage| m.timestamp.clone())
                 .unwrap_or_default(); // default is UNIX_EPOCH
 
             let conversation = UiConversation::from(conversation);

@@ -4,7 +4,8 @@
 
 use anyhow::Result;
 
-use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationMessageId};
+use chrono::{DateTime, Utc};
+use phnxcoreclient::{clients::CoreUser, ConversationId};
 
 use super::mark_as_read_debouncer::MarkAsReadDebouncer;
 
@@ -43,10 +44,10 @@ impl AppState {
     pub(crate) async fn mark_messages_read_debounced(
         &self,
         conversation_id: ConversationId,
-        message_id: ConversationMessageId,
+        timestamp: DateTime<Utc>,
     ) {
         self.mark_as_read_debouncers
-            .mark_as_read_debounced(self.user.clone(), conversation_id, message_id)
+            .mark_as_read_debounced(self.user.clone(), conversation_id, timestamp)
             .await
     }
 

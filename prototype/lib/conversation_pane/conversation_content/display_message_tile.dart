@@ -9,7 +9,7 @@ import 'tile_timestamp.dart';
 
 class DisplayMessageTile extends StatefulWidget {
   final UiEventMessage eventMessage;
-  final DateTime timestamp;
+  final String timestamp;
   const DisplayMessageTile(this.eventMessage, this.timestamp, {super.key});
 
   @override
