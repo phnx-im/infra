@@ -26,6 +26,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::api::ExternalCommitInfo;
 
@@ -254,26 +255,26 @@ impl DsGroupState {
     }
 }
 
-#[derive(Clone)]
-pub struct EncryptedDsGroupState {
-    pub ciphertext: Ciphertext,
-    pub last_used: TimeStamp,
-    pub deleted_queues: Vec<SealedClientReference>,
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EncryptedDsGroupState(Ciphertext);
+
+struct StorableDsGroupData {
+    group_id: Uuid,
+    ciphertext: EncryptedDsGroupState,
+    last_used: TimeStamp,
+    deleted_queues: Vec<SealedClientReference>,
 }
 
 impl From<Ciphertext> for EncryptedDsGroupState {
     fn from(ciphertext: Ciphertext) -> Self {
-        Self {
-            ciphertext,
-            last_used: TimeStamp::now(),
-            deleted_queues: Vec::new(),
-        }
+        Self(ciphertext)
     }
 }
 
 impl AsRef<Ciphertext> for EncryptedDsGroupState {
     fn as_ref(&self) -> &Ciphertext {
-        &self.ciphertext
+        &self.0
     }
 }
 
