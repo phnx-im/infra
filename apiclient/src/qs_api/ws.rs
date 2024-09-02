@@ -5,9 +5,11 @@
 use core::time;
 use std::time::Duration;
 
+use base64::{engine::general_purpose, Engine as _};
 use futures_util::{pin_mut, SinkExt, StreamExt};
 use http::{HeaderValue, Request};
 use phnxtypes::{
+    codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
@@ -271,13 +273,14 @@ impl ApiClient {
         // Set the request parameter
         let qs_ws_open_params = QsOpenWsParams { queue_id };
         let serialized =
-            serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
+            PhnxCodec::to_vec(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
+        let encoded = general_purpose::STANDARD.encode(&serialized);
         // Format the URL
         let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly
         let _ = Request::builder()
             .uri(address.clone())
-            .header("QsOpenWsParams", &serialized)
+            .header("QsOpenWsParams", &encoded)
             .body(())
             .map_err(|e| {
                 log::error!("Error: {:?}", e);
@@ -301,10 +304,8 @@ impl ApiClient {
                 // We build the request and set a custom header
                 let req = match address.clone().into_client_request() {
                     Ok(mut req) => {
-                        req.headers_mut().insert(
-                            "QsOpenWsParams",
-                            HeaderValue::from_str(&serialized).unwrap(),
-                        );
+                        req.headers_mut()
+                            .insert("QsOpenWsParams", HeaderValue::from_str(&encoded).unwrap());
                         req
                     }
                     Err(e) => {

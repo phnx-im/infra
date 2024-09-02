@@ -15,10 +15,12 @@ use actix_web::{
 };
 use actix_web_actors::ws::{self};
 use async_trait::*;
+use base64::{engine::general_purpose, Engine as _};
 use dispatch::*;
 use messages::*;
 use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
 use phnxtypes::{
+    codec::PhnxCodec,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
@@ -190,8 +192,19 @@ pub(crate) async fn upgrade_connection(
         }
     };
 
-    // Deserialize the header value
-    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(header_value.as_bytes()) {
+    // Decode the header value
+    let decoded_header_value: Vec<u8> = match general_purpose::STANDARD.decode(header_value) {
+        Ok(value) => value,
+        Err(e) => {
+            tracing::error!("Could not decode QsOpenWsParams header: {}", e);
+            return HttpResponse::BadRequest().body(format!(
+                "Could not decode base64 QsOpenWsParams header: {}",
+                e
+            ));
+        }
+    };
+
+    let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&decoded_header_value) {
         Ok(value) => value,
         Err(e) => {
             tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
