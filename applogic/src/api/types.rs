@@ -74,7 +74,7 @@ pub struct UiConversationDetails {
     pub group_id: GroupIdBytes,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
-    pub last_used: DateTime<Utc>,
+    pub last_used: String,
     pub attributes: UiConversationAttributes,
     pub unread_messages: u32,
     pub last_message: Option<UiConversationMessage>,
@@ -188,7 +188,7 @@ impl From<UiConversationMessageId> for ConversationMessageId {
 pub struct UiConversationMessage {
     pub conversation_id: ConversationIdBytes,
     pub id: UiConversationMessageId,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
 }
 
@@ -199,7 +199,7 @@ impl From<ConversationMessage> for UiConversationMessage {
                 conversation_message.conversation_id().clone(),
             ),
             id: UiConversationMessageId::from(conversation_message.id()),
-            timestamp: conversation_message.timestamp().into(),
+            timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
         }
     }

@@ -16,15 +16,15 @@ openmls_traits = { git = "https://github.com/openmls/openmls", rev = "96c38a806f
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
 openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
-log = "^0.4.14"
-url = "2.2"
+log = "0.4"
+url = "2.5"
 base64 = "0.13"
 pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types", features = ["sqlite"] }
 opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
-futures = { version = "0.3.28", features = ["executor"] }
+futures = { version = "0.3", features = ["executor"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
