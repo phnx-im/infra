@@ -50,7 +50,7 @@ impl Ds {
         Ok(ds)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test_utils"))]
     pub async fn new_ephemeral(own_domain: Fqdn) -> Result<Self, DbErr> {
         let connection_string = format!("sqlite::memory:");
         Self::new(own_domain, connection_string).await

@@ -73,12 +73,9 @@ pub async fn spawn_app(
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
     // DS storage provider
-    let ds = Ds::new(
-        domain.clone(),
-        configuration.database.connection_string_without_database(),
-    )
-    .await
-    .expect("Failed to connect to database.");
+    let ds = Ds::new_ephemeral(domain.clone())
+        .await
+        .expect("Failed to connect to database.");
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();

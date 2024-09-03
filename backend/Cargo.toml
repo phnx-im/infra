@@ -46,3 +46,6 @@ sea-orm = { version = "1", features = [
     "with-chrono",
 ] }
 phnxtypes = { path = "../types", features = ["test_utils"] }
+
+[features]
+test_utils = ["phnxtypes/test_utils"]
