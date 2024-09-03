@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/messenger_view.dart';
 import 'package:prototype/styles.dart';
@@ -102,51 +102,50 @@ class ConversationMessages extends StatelessWidget {
             actions: [
               // Conversation details
               _currentConversation != null
-                  ? IconButton(
-                      icon: const Icon(
-                        Icons.more_horiz,
-                        size: 28,
-                      ),
-                      color: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      hoverColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onPressed: () {
-                        pushToNavigator(context, const ConversationDetails());
-                      },
-                    )
+                  ? _detailsButton(context)
                   : Container(),
             ],
-            leading: isSmallScreen(context)
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    color: Colors.black,
-                    hoverColor: Colors.transparent,
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onPressed: () async {
-                      if (appNavigator.currentState != null) {
-                        appNavigator.currentState!.maybePop();
-                      }
-                    },
-                  )
-                : null,
+            leading: isSmallScreen(context) ? _backButton() : null,
             elevation: 0,
             // Applying blur effect
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  height: kToolbarHeight + MediaQuery.of(context).padding.top,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-              ),
-            ),
+            flexibleSpace: FrostedGlass(
+                color: Colors.white,
+                height: kToolbarHeight + MediaQuery.of(context).padding.top),
           ),
         ),
       ]),
+    );
+  }
+
+  IconButton _detailsButton(BuildContext context) {
+    return IconButton(
+      icon: const Icon(
+        Icons.more_horiz,
+        size: 28,
+      ),
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      hoverColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onPressed: () {
+        pushToNavigator(context, const ConversationDetails());
+      },
+    );
+  }
+
+  IconButton _backButton() {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      color: Colors.black,
+      hoverColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onPressed: () async {
+        if (appNavigator.currentState != null) {
+          appNavigator.currentState!.maybePop();
+        }
+      },
     );
   }
 }
