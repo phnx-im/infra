@@ -128,7 +128,7 @@ class FrostedGlass extends StatelessWidget {
         child: Container(
           width: MediaQuery.of(context).size.width,
           height: height,
-          color: color.withOpacity(0.1),
+          color: color.withOpacity(0.4),
         ),
       ),
     );

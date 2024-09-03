@@ -41,32 +41,53 @@ class _TextMessageTileState extends State<TextMessageTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: isSender()
-          ? [_messageSpace()]
-          : [
-              _avatar(),
-              const SizedBox(width: 20),
-              _messageSpace(),
-            ],
+    return Column(
+      children: [
+        if (!isSender()) _sender(),
+        _messageSpace(),
+      ],
     );
   }
 
   Widget _messageSpace() {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.only(left: 0, right: 0, top: 5, bottom: 5),
-        child: Column(
-          crossAxisAlignment:
-              isSender() ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (!isSender()) _username(),
-            _textContent(context),
-            const SizedBox(height: 3),
-            _timestamp(),
-          ],
+    const flex = Flexible(child: SizedBox());
+    return Row(
+      mainAxisAlignment:
+          isSender() ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        if (isSender()) flex,
+        Flexible(
+          flex: 5,
+          child: Container(
+            padding:
+                const EdgeInsets.only(left: 0, right: 0, top: 5, bottom: 5),
+            child: Column(
+              crossAxisAlignment: isSender()
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                _textContent(context),
+                const SizedBox(height: 3),
+                _timestamp(),
+              ],
+            ),
+          ),
         ),
+        if (!isSender()) flex,
+      ],
+    );
+  }
+
+  Widget _sender() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _avatar(),
+          const SizedBox(width: 10),
+          _username(),
+        ],
       ),
     );
   }
@@ -84,9 +105,9 @@ class _TextMessageTileState extends State<TextMessageTile> {
       child: SelectionContainer.disabled(
         child: Text(
           timeString(widget.timestamp),
-          style: const TextStyle(
+          style: TextStyle(
             color: colorGreyDark,
-            fontSize: 10,
+            fontSize: isLargeScreen(context) ? 10 : 11,
             fontVariations: variationMedium,
             letterSpacing: -0.1,
           ),
@@ -115,7 +136,12 @@ class _TextMessageTileState extends State<TextMessageTile> {
           ? AlignmentDirectional.topEnd
           : AlignmentDirectional.topStart,
       child: Container(
-        padding: const EdgeInsets.only(top: 1, right: 10, left: 10, bottom: 5),
+        padding: EdgeInsets.only(
+          top: isLargeScreen(context) ? 1 : 4,
+          right: isLargeScreen(context) ? 10 : 11,
+          left: isLargeScreen(context) ? 10 : 11,
+          bottom: isLargeScreen(context) ? 5 : 6,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(7),
           color: isSender() ? colorDMB : colorDMBSuperLight,
@@ -134,21 +160,18 @@ class _TextMessageTileState extends State<TextMessageTile> {
   }
 
   Widget _username() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5.0),
-      child: SelectionContainer.disabled(
-        child: Text(
-          isSender()
-              ? "You"
-              : widget.contentMessage.sender.split("@").firstOrNull ?? "",
-          style: const TextStyle(
-            color: colorDMB,
-            fontVariations: variationSemiBold,
-            fontSize: 12,
-            letterSpacing: -0.2,
-          ),
-          overflow: TextOverflow.ellipsis,
+    return SelectionContainer.disabled(
+      child: Text(
+        isSender()
+            ? "You"
+            : widget.contentMessage.sender.split("@").firstOrNull ?? "",
+        style: const TextStyle(
+          color: colorDMB,
+          fontVariations: variationSemiBold,
+          fontSize: 12,
+          letterSpacing: -0.2,
         ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
