@@ -14,8 +14,8 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 
 use super::{
-    api::USER_EXPIRATION_DAYS,
     group_state::{ClientProfile, DsGroupState},
+    process::USER_EXPIRATION_DAYS,
 };
 
 impl DsGroupState {

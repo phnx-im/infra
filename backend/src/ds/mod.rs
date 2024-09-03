@@ -2,25 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Debug;
-
-use async_trait::async_trait;
-use mls_assist::openmls::prelude::GroupId;
-use phnxtypes::{
-    identifiers::Fqdn,
-    time::{Duration, TimeStamp},
-};
-
-use self::group_state::EncryptedDsGroupState;
+use migrator::Migrator;
+use phnxtypes::{identifiers::Fqdn, time::Duration};
+use sea_orm::{ConnectOptions, Database, DbConn, DbErr};
+use sea_orm_migration::MigratorTrait;
 
 mod add_clients;
 mod add_users;
-pub mod api;
 mod delete_group;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;
 pub mod migrator;
+pub mod process;
 mod remove_clients;
 mod remove_users;
 mod resync_client;
@@ -31,47 +25,42 @@ mod update_client;
 /// expired.
 pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
 
-/// Return value of a group state load query.
-/// #[derive(Serialize, Deserialize)]
-pub enum LoadState {
-    Success(EncryptedDsGroupState),
-    // Reserved indicates that the group id was reserved at the given time
-    // stamp.
-    Reserved(TimeStamp),
-    NotFound,
-    Expired,
+pub struct Ds {
+    own_domain: Fqdn,
+    db_connection: DbConn,
 }
-
-/// Storage provider trait for the DS.
-#[async_trait]
-pub trait DsStorageProvider: Sync + Send + 'static {
-    type StorageError: Debug + ToString;
-
-    /// Loads the ds group state with the group ID.
-    async fn load_group_state(&self, group_id: &GroupId) -> Result<LoadState, Self::StorageError>;
-
-    /// Saves the ds group state with the group ID.
-    async fn save_group_state(
-        &self,
-        group_id: &GroupId,
-        encrypted_group_state: EncryptedDsGroupState,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Reserves the ds group state slot with the given group ID.
-    ///
-    /// Returns false if the group ID is already taken and true otherwise.
-    async fn reserve_group_id(&self, group_id: &GroupId) -> Result<bool, Self::StorageError>;
-
-    /// Returns the domain of this DS.
-    async fn own_domain(&self) -> Fqdn;
-}
-
-#[derive(Default)]
-pub struct Ds {}
 
 impl Ds {
-    /// Create a new ds instance.
-    pub fn new() -> Self {
-        Self {}
+    pub async fn new(
+        own_domain: Fqdn,
+        connection_string: impl Into<String>,
+    ) -> Result<Self, DbErr> {
+        let opt = ConnectOptions::new(connection_string);
+        // Configure things like Timeouts here...
+
+        let db_connection = Database::connect(opt).await?;
+
+        let ds = Self {
+            own_domain,
+            db_connection,
+        };
+
+        ds.migrate().await?;
+
+        Ok(ds)
+    }
+
+    #[cfg(test)]
+    pub async fn new_ephemeral(own_domain: Fqdn) -> Result<Self, DbErr> {
+        let connection_string = format!("sqlite::memory:");
+        Self::new(own_domain, connection_string).await
+    }
+
+    async fn migrate(&self) -> Result<(), DbErr> {
+        Migrator::up(&self.db_connection, None).await
+    }
+
+    fn own_domain(&self) -> &Fqdn {
+        &self.own_domain
     }
 }

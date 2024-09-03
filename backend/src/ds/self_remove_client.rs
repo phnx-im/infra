@@ -12,7 +12,7 @@ use phnxtypes::{
     errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
 };
 
-use super::api::USER_EXPIRATION_DAYS;
+use super::process::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

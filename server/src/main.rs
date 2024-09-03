@@ -4,6 +4,7 @@
 
 use std::{net::TcpListener, sync::Arc};
 
+use phnxbackend::ds::Ds;
 use phnxserver::{
     configurations::*,
     endpoints::qs::{
@@ -14,7 +15,7 @@ use phnxserver::{
     run,
     storage_provider::{
         memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
-        postgres::{auth_service::PostgresAsStorage, ds::PostgresDsStorage, qs::PostgresQsStorage},
+        postgres::{auth_service::PostgresAsStorage, qs::PostgresQsStorage},
     },
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -55,19 +56,27 @@ async fn main() -> std::io::Result<()> {
         configuration.database.host
     );
     let mut counter = 0;
-    let mut ds_provider_result =
-        PostgresDsStorage::new(&configuration.database, domain.clone()).await;
+    let mut ds_result = Ds::new(
+        domain.clone(),
+        configuration.database.connection_string_without_database(),
+    )
+    .await;
+
     // Try again for 10 times each second in case the postgres server is coming up.
-    while let Err(e) = ds_provider_result {
+    while let Err(e) = ds_result {
         tracing::info!("Failed to connect to postgres server: {}", e);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         counter += 1;
         if counter > 10 {
             panic!("Database not ready after 10 seconds.");
         }
-        ds_provider_result = PostgresDsStorage::new(&configuration.database, domain.clone()).await;
+        ds_result = Ds::new(
+            domain.clone(),
+            configuration.database.connection_string_without_database(),
+        )
+        .await;
     }
-    let ds_storage_provider = ds_provider_result.unwrap();
+    let ds_storage_provider = ds_result.unwrap();
 
     // New database name for the QS provider
     configuration.database.name = format!("{}_qs", base_db_name);

@@ -24,7 +24,7 @@ use tls_codec::DeserializeBytes;
 
 use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
 
-use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
+use super::{group_state::ClientProfile, process::USER_EXPIRATION_DAYS};
 
 use super::group_state::DsGroupState;
 

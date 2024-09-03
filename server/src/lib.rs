@@ -19,7 +19,7 @@ use actix_web::{
 };
 use phnxbackend::{
     auth_service::storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    ds::DsStorageProvider,
+    ds::Ds,
     qs::{
         errors::QsEnqueueError, network_provider_trait::NetworkProvider,
         storage_provider_trait::QsStorageProvider, QsConnector,
@@ -43,7 +43,6 @@ use crate::endpoints::{
 
 /// Configure and run the server application.
 pub fn run<
-    Dsp: DsStorageProvider,
     Qsp: QsStorageProvider,
     Qc: QsConnector<EnqueueError = QsEnqueueError<Qsp, Np>, VerifyingKeyError = QsVerifyingKeyError>,
     Np: NetworkProvider,
@@ -51,7 +50,7 @@ pub fn run<
     Aesp: AsEphemeralStorageProvider,
 >(
     listener: TcpListener,
-    ds_storage_provider: Dsp,
+    ds: Ds,
     qs_storage_provider: Arc<Qsp>,
     as_storage_provider: Asp,
     as_ephemeral_storage_provider: Aesp,
@@ -60,7 +59,7 @@ pub fn run<
     ws_dispatch_notifier: DispatchWebsocketNotifier,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
-    let ds_storage_provider_data = Data::new(ds_storage_provider);
+    let ds_data = Data::new(ds);
     let qs_storage_provider_data = Data::new(qs_storage_provider);
     let as_storage_provider_data = Data::new(as_storage_provider);
     let as_ephemeral_storage_provider_data = Data::new(as_ephemeral_storage_provider);
@@ -85,7 +84,7 @@ pub fn run<
         App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
-            .app_data(ds_storage_provider_data.clone())
+            .app_data(ds_data.clone())
             .app_data(qs_storage_provider_data.clone())
             .app_data(as_storage_provider_data.clone())
             .app_data(as_ephemeral_storage_provider_data.clone())
@@ -93,10 +92,7 @@ pub fn run<
             .app_data(network_provider_data.clone())
             .app_data(ws_dispatch_notifier_data.clone())
             // DS enpoint
-            .route(
-                ENDPOINT_DS_GROUPS,
-                web::post().to(ds_process_message::<Dsp, Qc>),
-            )
+            .route(ENDPOINT_DS_GROUPS, web::post().to(ds_process_message::<Qc>))
             // QS endpoint
             .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
             // QS federationendpoint

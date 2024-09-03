@@ -40,3 +40,4 @@ privacypass = { workspace = true }
 
 [features]
 sqlite = ["rusqlite"]
+test_utils = []

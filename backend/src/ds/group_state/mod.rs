@@ -11,6 +11,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
+use persistence::StorageError;
 use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
@@ -25,10 +26,11 @@ use phnxtypes::{
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
+use sea_orm::{DbConn, DbErr};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::api::ExternalCommitInfo;
+use super::process::ExternalCommitInfo;
 
 pub(super) mod persistence;
 
@@ -255,15 +257,61 @@ impl DsGroupState {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);
 
-struct StorableDsGroupData {
+#[derive(Debug)]
+pub(super) struct StorableDsGroupData {
     group_id: Uuid,
-    ciphertext: EncryptedDsGroupState,
+    pub encrypted_group_state: EncryptedDsGroupState,
     last_used: TimeStamp,
     deleted_queues: Vec<SealedClientReference>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ReservedGroupId(Uuid);
+
+impl ReservedGroupId {
+    pub(crate) async fn store(&self, connection: &DbConn) -> Result<(), StorageError> {
+        StorableDsGroupData::group_id_reservation_entry(self.0)
+            .store(connection)
+            .await
+    }
+
+    pub(super) async fn reserve(
+        connection: &DbConn,
+        group_uuid: Uuid,
+    ) -> Result<bool, StorageError> {
+        match Self(group_uuid).store(connection).await {
+            Ok(_) => Ok(true),
+            Err(StorageError::DatabaseError(DbErr::RecordNotInserted)) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl StorableDsGroupData {
+    pub(super) fn new(
+        group_id: ReservedGroupId,
+        encrypted_group_state: EncryptedDsGroupState,
+    ) -> Self {
+        Self {
+            group_id: group_id.0,
+            encrypted_group_state,
+            last_used: TimeStamp::now(),
+            deleted_queues: vec![],
+        }
+    }
+
+    fn group_id_reservation_entry(group_id: Uuid) -> Self {
+        Self {
+            group_id,
+            encrypted_group_state: EncryptedDsGroupState(Ciphertext::default()),
+            last_used: TimeStamp::now(),
+            deleted_queues: vec![],
+        }
+    }
 }
 
 impl From<Ciphertext> for EncryptedDsGroupState {

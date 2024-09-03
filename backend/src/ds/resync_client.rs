@@ -12,7 +12,7 @@ use phnxtypes::{
     errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
 };
 
-use super::api::USER_EXPIRATION_DAYS;
+use super::process::USER_EXPIRATION_DAYS;
 
 use super::group_state::DsGroupState;
 

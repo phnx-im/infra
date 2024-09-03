@@ -6,18 +6,15 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
-use phnxbackend::{
-    ds::{api::DsApi, DsStorageProvider},
-    qs::QsConnector,
-};
+use phnxbackend::{ds::Ds, qs::QsConnector};
 use phnxtypes::messages::client_ds::DsMessageTypeIn;
 use tls_codec::{DeserializeBytes, Serialize};
 
 /// DS endpoint for all group-based functionalities.
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
-pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>(
+pub(crate) async fn ds_process_message<Qep: QsConnector>(
     message: web::Bytes,
-    ds_storage_provider: Data<Dsp>,
+    ds_storage_provider: Data<Ds>,
     qs_connector: Data<Qep>,
 ) -> impl Responder {
     // Extract the storage provider.
@@ -31,7 +28,7 @@ pub(crate) async fn ds_process_message<Dsp: DsStorageProvider, Qep: QsConnector>
             return HttpResponse::BadRequest().body(e.to_string());
         }
     };
-    match DsApi::process(storage_provider, qs_connector, message).await {
+    match Ds::process(storage_provider, qs_connector, message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");
