@@ -339,7 +339,13 @@ bool isConversationSelected(UiConversationDetails? currentConversation,
 }
 
 String formatTimestamp(String t, {DateTime? now}) {
-  final timestamp = DateTime.parse(t).toLocal();
+  DateTime timestamp;
+  try {
+    timestamp = DateTime.parse(t);
+  } catch (e) {
+    return '';
+  }
+
   now ??= DateTime.now();
 
   now = now.toLocal();
