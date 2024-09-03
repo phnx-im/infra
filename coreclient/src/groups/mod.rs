@@ -63,6 +63,7 @@ use crate::{
 use std::collections::HashSet;
 
 use openmls::{
+    group::ProcessedWelcome,
     key_packages::KeyPackageBundle,
     prelude::{
         tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, Credential,
@@ -70,7 +71,7 @@ use openmls::{
         KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
         ProcessedMessage, ProcessedMessageContent, Proposal, ProposalType, ProtocolMessage,
         ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
-        StagedWelcome, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
     },
     treesync::{LeafNodeParameters, RatchetTree},
 };
@@ -163,7 +164,7 @@ impl From<Vec<u8>> for GroupData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
     leaf_signer: InfraCredentialSigningKey,
@@ -274,7 +275,11 @@ impl Group {
         Ok((group, params))
     }
 
-    /// Join a group with the provided welcome message. Returns the group name.
+    /// Join a group with the provided welcome message. If there exists a group
+    /// with the same ID, checks if that group is inactive and if so deletes the
+    /// old group.
+    ///
+    /// Returns the group name.
     pub(super) async fn join_group(
         welcome_bundle: WelcomeBundle,
         // This is our own key that the sender uses to encrypt to us. We should
@@ -290,8 +295,9 @@ impl Group {
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
         let (mls_group, joiner_info, welcome_attribution_info) = {
-            let connection = connection_mutex.lock().await;
-            let provider = PhnxOpenMlsProvider::new(&connection);
+            let mut connection = connection_mutex.lock().await;
+            let mut transaction = connection.transaction()?;
+            let provider = PhnxOpenMlsProvider::new(&transaction);
             let key_package_bundle: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
@@ -320,12 +326,24 @@ impl Group {
                 aad,
             )?;
 
-            let staged_welcome = StagedWelcome::new_from_welcome(
+            let processed_welcome = ProcessedWelcome::new_from_welcome(
                 &provider,
                 &mls_group_config,
                 welcome_bundle.welcome.welcome,
-                None,
             )?;
+            // Check if there is already a group with the same ID.
+            let group_id = processed_welcome.unverified_group_info().group_id().clone();
+            if let Some(group) = Self::load(&transaction, &group_id)? {
+                // If the group is active, we can't join it.
+                if group.mls_group().is_active() {
+                    bail!("We can't join a group that is still active.");
+                }
+                // Otherwise, we delete the old group.
+                Self::delete_from_db(&mut transaction, &group_id)?;
+            }
+
+            let provider = PhnxOpenMlsProvider::new(&transaction);
+            let staged_welcome = processed_welcome.into_staged_welcome(&provider, None)?;
 
             let mls_group = staged_welcome.into_group(&provider)?;
 
@@ -338,10 +356,11 @@ impl Group {
 
             let sender_client_id = verifiable_attribution_info.sender();
             let sender_client_credential =
-                StorableClientCredential::load_by_client_id(&connection, &sender_client_id)?
+                StorableClientCredential::load_by_client_id(&transaction, &sender_client_id)?
                     .ok_or(anyhow!(
                         "Could not find client credential of sender in database."
                     ))?;
+            transaction.commit()?;
             drop(connection);
 
             let welcome_attribution_info: WelcomeAttributionInfoPayload =

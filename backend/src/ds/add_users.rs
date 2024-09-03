@@ -11,6 +11,7 @@ use mls_assist::{
         Extension, KeyPackage, KeyPackageRef, OpenMlsProvider, ProcessedMessageContent, Sender,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
+    provider_traits::MlsAssistProvider,
 };
 
 use phnxtypes::{
@@ -35,14 +36,17 @@ use crate::{
     qs::QsConnector,
 };
 
-use super::{api::USER_EXPIRATION_DAYS, group_state::ClientProfile};
+use super::{
+    api::{Provider, USER_EXPIRATION_DAYS},
+    group_state::ClientProfile,
+};
 
 use super::group_state::DsGroupState;
 
 impl DsGroupState {
     pub(crate) async fn add_users<Q: QsConnector>(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &Provider,
         params: AddUsersParams,
         group_state_ear_key: &GroupStateEarKey,
         qs_provider: &Q,
@@ -50,7 +54,7 @@ impl DsGroupState {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider, params.commit)
+            .process_assisted_message(provider.crypto(), params.commit)
             .map_err(|e| {
                 tracing::warn!("Error processing assisted message: {:?}", e);
                 AddUsersError::ProcessingError
@@ -216,7 +220,7 @@ impl DsGroupState {
 
         // We first accept the message into the group state ...
         self.group_mut().accept_processed_message(
-            provider,
+            provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;
