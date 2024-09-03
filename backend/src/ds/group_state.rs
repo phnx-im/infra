@@ -5,8 +5,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use mls_assist::{
-    group::Group,
+    group::{errors::StorageError, Group},
     openmls::{
+        group::GroupId,
         prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
         treesync::RatchetTree,
     },
@@ -20,12 +21,13 @@ use phnxtypes::{
         },
         signatures::keys::{UserAuthVerifyingKey, UserKeyHash},
     },
-    errors::{UpdateQueueConfigError, ValidationError},
+    errors::{CborMlsAssistStorage, UpdateQueueConfigError, ValidationError},
     identifiers::{QsClientReference, SealedClientReference},
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::api::ExternalCommitInfo;
 
@@ -50,31 +52,65 @@ pub(super) struct ProposalStore {}
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SerializableDsGroupState {
-    pub(super) group: Group,
+    pub(super) group_id: GroupId,
+    pub(super) serialized_provider: Vec<u8>,
     pub(super) user_profiles: Vec<(UserKeyHash, UserProfile)>,
     pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
     pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
 }
 
-impl From<SerializableDsGroupState> for DsGroupState {
-    fn from(value: SerializableDsGroupState) -> Self {
-        Self {
-            group: value.group,
-            user_profiles: value.user_profiles.into_iter().collect(),
-            unmerged_users: value.unmerged_users,
-            client_profiles: value.client_profiles.into_iter().collect(),
-        }
-    }
+#[derive(Debug, Error)]
+pub(super) enum SerializedGroupStateError {
+    #[error("Group not found")]
+    GroupNotFound,
+    #[error("Storage error: {0}")]
+    StorageError(StorageError<CborMlsAssistStorage>),
 }
 
-impl From<DsGroupState> for SerializableDsGroupState {
-    fn from(value: DsGroupState) -> Self {
-        Self {
-            group: value.group,
-            user_profiles: value.user_profiles.into_iter().collect(),
-            unmerged_users: value.unmerged_users,
-            client_profiles: value.client_profiles.into_iter().collect(),
-        }
+impl SerializableDsGroupState {
+    pub(super) fn from_group_and_provider(
+        group_state: DsGroupState,
+        provider: &CborMlsAssistStorage,
+    ) -> Result<Self, StorageError<CborMlsAssistStorage>> {
+        let group_id = group_state
+            .group()
+            .group_info()
+            .group_context()
+            .group_id()
+            .clone();
+        let user_profiles = group_state.user_profiles.into_iter().collect();
+        let client_profiles = group_state.client_profiles.into_iter().collect();
+        let serialized_provider = provider.serialize()?;
+        Ok(Self {
+            group_id,
+            serialized_provider,
+            user_profiles,
+            unmerged_users: group_state.unmerged_users,
+            client_profiles,
+        })
+    }
+
+    pub(super) fn into_group_state_and_provider(
+        self,
+    ) -> Result<(DsGroupState, CborMlsAssistStorage), SerializedGroupStateError> {
+        let provider = CborMlsAssistStorage::deserialize(&self.serialized_provider)
+            .map_err(SerializedGroupStateError::StorageError)?;
+        let Some(group) = Group::load(&provider, &self.group_id)
+            .map_err(SerializedGroupStateError::StorageError)?
+        else {
+            return Err(SerializedGroupStateError::GroupNotFound);
+        };
+        let user_profiles = self.user_profiles.into_iter().collect();
+        let client_profiles = self.client_profiles.into_iter().collect();
+        Ok((
+            DsGroupState {
+                group,
+                user_profiles,
+                unmerged_users: self.unmerged_users,
+                client_profiles,
+            },
+            provider,
+        ))
     }
 }
 

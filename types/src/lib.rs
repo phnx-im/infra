@@ -11,6 +11,7 @@ use tls_codec::{
     TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
+pub mod codec;
 pub mod credentials;
 pub mod crypto;
 pub mod endpoint_paths;

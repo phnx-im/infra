@@ -12,14 +12,12 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
-openmls_traits = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
-openmls_basic_credential = { git = "https://github.com/openmls/openmls", rev = "96c38a806f9c706d2cf67566c9c846eee3ac4430" }
+openmls_traits = { git = "https://github.com/openmls/openmls" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
 log = "0.4"
 url = "2.5"
 base64 = "0.13"
-pretty_env_logger = "0.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types", features = ["sqlite"] }
@@ -37,8 +35,6 @@ kamadak-exif = "0.5.5"
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.30", features = ["bundled", "uuid", "chrono"] }
-serde_json = "1"
-hex = { version = "0.4" }
 
 # Workspace dependencies
 chrono = { workspace = true }

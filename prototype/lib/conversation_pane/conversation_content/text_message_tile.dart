@@ -11,7 +11,7 @@ import 'package:prototype/styles.dart';
 
 class TextMessageTile extends StatefulWidget {
   final UiContentMessage contentMessage;
-  final DateTime timestamp;
+  final String timestamp;
   const TextMessageTile(this.contentMessage, this.timestamp, {super.key});
 
   @override
@@ -95,7 +95,8 @@ class _TextMessageTileState extends State<TextMessageTile> {
     );
   }
 
-  String timeString(DateTime t) {
+  String timeString(String time) {
+    final t = DateTime.parse(time);
     // If the elapsed time is less than 60 seconds, show "now"
     if (DateTime.now().difference(t).inSeconds < 60) {
       return 'Now';

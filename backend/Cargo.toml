@@ -14,12 +14,10 @@ edition = "2021"
 [dependencies]
 thiserror = "^1.0"
 serde = { version = "1", features = ["derive"] }
-serde_json = "^1.0"
 async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }
 # Rust crypto dependencies
 tracing = { version = "0.1.35", features = ["log"] }
-hex = { version = "0.4" }
 opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
 
 phnxtypes = { workspace = true }

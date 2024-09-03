@@ -20,9 +20,11 @@ use dispatch::*;
 use messages::*;
 use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
 use phnxtypes::{
+    codec::PhnxCodec,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
+use tls_codec::Serialize;
 use tokio::{self, time::Duration};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -164,7 +166,7 @@ impl Handler<InternalQsWsMessage> for QsWsConnection {
 
     fn handle(&mut self, msg: InternalQsWsMessage, ctx: &mut Self::Context) {
         // Serialize the message
-        let serialized = serde_json::to_vec(&msg.inner).unwrap();
+        let serialized = msg.inner.tls_serialize_detached().unwrap();
         // Send the message to the client
         ctx.binary(serialized);
     }
@@ -202,8 +204,7 @@ pub(crate) async fn upgrade_connection(
         }
     };
 
-    // Deserialize the header value
-    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(&decoded_header_value) {
+    let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&decoded_header_value) {
         Ok(value) => value,
         Err(e) => {
             tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);

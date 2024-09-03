@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::time::TimeStamp;
+use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
     params,
     types::{FromSqlError, Type},
@@ -38,13 +38,13 @@ impl Storable for ConversationMessage {
         let sent = row.get(5)?;
 
         let message = if sender_str == "system" {
-            let event_message = serde_json::from_slice(&message).map_err(|e| {
+            let event_message = PhnxCodec::from_slice(&message).map_err(|e| {
                 log::error!("Failed to deserialize content message: {}", e);
                 rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
             })?;
             Message::Event(event_message)
         } else {
-            let content = serde_json::from_slice(&message).map_err(|e| {
+            let content = PhnxCodec::from_slice(&message).map_err(|e| {
                 log::error!("Failed to deserialize content message: {}", e);
                 rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
             })?;
@@ -108,12 +108,12 @@ impl ConversationMessage {
             Message::Event(_) => "system".to_string(),
         };
         let content = match &self.timestamped_message.message {
-            Message::Content(content_message) => serde_json::to_vec(content_message.content())
+            Message::Content(content_message) => PhnxCodec::to_vec(content_message.content())
                 .map_err(|e| {
                     log::error!("Failed to serialize MIMI content: {}", e);
                     rusqlite::Error::ToSqlConversionFailure(Box::new(e))
                 })?,
-            Message::Event(event_message) => serde_json::to_vec(event_message).map_err(|e| {
+            Message::Event(event_message) => PhnxCodec::to_vec(event_message).map_err(|e| {
                 log::error!("Failed to serialize event message: {}", e);
                 rusqlite::Error::ToSqlConversionFailure(Box::new(e))
             })?,

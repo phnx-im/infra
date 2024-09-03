@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use rusqlite::{params, OptionalExtension};
 
 use crate::utils::persistence::{open_phnx_db, Storable};
@@ -19,7 +19,7 @@ impl Storable for UserCreationState {
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let state_bytes = row.get_ref(0)?;
-        let state = serde_json::from_slice(state_bytes.as_blob()?).map_err(|e| {
+        let state = PhnxCodec::from_slice(state_bytes.as_blob()?).map_err(|e| {
             log::error!("Failed to deserialize user creation state: {}", e);
             rusqlite::Error::ToSqlConversionFailure(e.into())
         })?;
@@ -42,7 +42,7 @@ impl UserCreationState {
     }
 
     pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
-        let state_bytes = serde_json::to_vec(self).map_err(|e| {
+        let state_bytes = PhnxCodec::to_vec(self).map_err(|e| {
             log::error!("Failed to serialize user creation state: {}", e);
             rusqlite::Error::ToSqlConversionFailure(e.into())
         })?;

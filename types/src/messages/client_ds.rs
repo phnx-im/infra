@@ -92,8 +92,7 @@ impl QsQueueMessagePayload {
                 ExtractedQsQueueMessagePayload::WelcomeBundle(wb)
             }
             QsQueueMessageType::MlsMessage => {
-                let message =
-                    MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
+                let message = MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
                 ExtractedQsQueueMessagePayload::MlsMessage(message)
             }
         };
@@ -184,7 +183,8 @@ pub enum InfraAadPayload {
     // proposals, there is not need to signal it explicitly.
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, TlsSize, TlsSerialize, TlsDeserializeBytes)]
+#[repr(u8)]
 pub enum QsWsMessage {
     QueueUpdate,
     Event(DsEventMessage),

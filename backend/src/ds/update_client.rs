@@ -6,7 +6,7 @@ use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::SerializedMlsMessage,
     openmls::prelude::{ProcessedMessageContent, Sender},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
     errors::ClientUpdateError,
@@ -16,20 +16,20 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 
 use super::{
-    api::USER_EXPIRATION_DAYS,
+    api::{Provider, USER_EXPIRATION_DAYS},
     group_state::{DsGroupState, UserProfile},
 };
 
 impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &Provider,
         params: UpdateClientParams,
     ) -> Result<SerializedMlsMessage, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider, params.commit)
+            .process_assisted_message(provider.crypto(), params.commit)
             .map_err(|_| ClientUpdateError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -95,7 +95,7 @@ impl DsGroupState {
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
-            provider,
+            provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;

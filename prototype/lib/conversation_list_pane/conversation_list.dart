@@ -338,10 +338,10 @@ bool isConversationSelected(UiConversationDetails? currentConversation,
   return false;
 }
 
-String formatTimestamp(DateTime timestamp, {DateTime? now}) {
+String formatTimestamp(String t, {DateTime? now}) {
+  final timestamp = DateTime.parse(t).toLocal();
   now ??= DateTime.now();
 
-  timestamp = timestamp.toLocal();
   now = now.toLocal();
 
   final difference = now.difference(timestamp);

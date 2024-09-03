@@ -92,17 +92,16 @@ class _ConversationContentState extends State<ConversationContent> {
         final bottomEdgeVisible = position.dy + size.height <= viewportHeight;
 
         if (topEdgeVisible && bottomEdgeVisible) {
-          final messageId = _messages[index].id;
-          _onMessageVisible(messageId);
+          _onMessageVisible(_messages[index].timestamp);
         }
       }
     }
   }
 
-  void _onMessageVisible(UiConversationMessageId messageId) {
+  void _onMessageVisible(String timestamp) {
     if (_currentConversation != null) {
       coreClient.user.markMessagesAsReadDebounced(
-          conversationId: _currentConversation!.id, messageId: messageId);
+          conversationId: _currentConversation!.id, timestamp: timestamp);
     }
   }
 
