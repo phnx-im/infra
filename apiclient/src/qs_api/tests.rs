@@ -12,11 +12,14 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
+use base64::{engine::general_purpose, Engine as _};
 use phnxtypes::{
+    codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
+use tls_codec::Serialize;
 use uuid::Uuid;
 
 use crate::{qs_api::ws::WsEvent, ApiClient};
@@ -98,11 +101,11 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
         }
     };
 
-    // Decode the header value
-    let decoded_header_value = match base64::decode(header_value) {
-        Ok(value) => value,
+    // Decode the header value using base64
+    let qs_open_ws_params_bytes = match general_purpose::STANDARD.decode(header_value.as_bytes()) {
+        Ok(bytes) => bytes,
         Err(e) => {
-            log::error!("Could not decode QsOpenWsParams header: {}", e);
+            log::error!("Could not base64-decode QsOpenWsParams header: {}", e);
             return HttpResponse::BadRequest().body(format!(
                 "Could not decode base64 QsOpenWsParams header: {}",
                 e
@@ -111,7 +114,7 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     };
 
     // Deserialize the header value
-    let qs_open_ws_params: QsOpenWsParams = match serde_json::from_slice(&decoded_header_value) {
+    let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&qs_open_ws_params_bytes) {
         Ok(value) => value,
         Err(e) => {
             log::error!("Could not deserialize QsOpenWsParams header: {}", e);
@@ -170,7 +173,8 @@ impl Actor for QsWsConnection {
                 ctx.run_later(Duration::from_secs(2), |_act, ctx| {
                     // Now we send an actual message
                     // Serialize the message
-                    let serialized = serde_json::to_vec(&QsWsMessage::QueueUpdate)
+                    let serialized = QsWsMessage::QueueUpdate
+                        .tls_serialize_detached()
                         .expect("Failed to serialize message");
                     // Send the message to the client
                     log::info!("Sending binary message");

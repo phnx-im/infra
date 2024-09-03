@@ -5,16 +5,17 @@
 use core::time;
 use std::time::Duration;
 
+use base64::{engine::general_purpose, Engine as _};
 use futures_util::{pin_mut, SinkExt, StreamExt};
-use http::Request;
+use http::{HeaderValue, Request};
 use phnxtypes::{
+    codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
-use reqwest::header::HeaderValue;
-use serde_json;
 use thiserror::*;
+use tls_codec::DeserializeBytes;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{self, Receiver, Sender},
@@ -169,7 +170,7 @@ impl QsWebSocket {
                                 }
                                 // Try to deserialize the message
                                 if let Ok(QsWsMessage::QueueUpdate) =
-                                    serde_json::from_slice::<QsWsMessage>(&data)
+                                    QsWsMessage::tls_deserialize_exact_bytes(&data)
                                 {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel
@@ -272,8 +273,8 @@ impl ApiClient {
         // Set the request parameter
         let qs_ws_open_params = QsOpenWsParams { queue_id };
         let serialized =
-            serde_json::to_string(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
-        let encoded = base64::encode(serialized);
+            PhnxCodec::to_vec(&qs_ws_open_params).map_err(|_| SpawnWsError::WrongParameters)?;
+        let encoded = general_purpose::STANDARD.encode(&serialized);
         // Format the URL
         let address = self.build_url(Protocol::Ws, ENDPOINT_QS_WS);
         // We check if the request builds correctly
@@ -281,7 +282,10 @@ impl ApiClient {
             .uri(address.clone())
             .header("QsOpenWsParams", &encoded)
             .body(())
-            .map_err(|_| SpawnWsError::WrongUrl)?;
+            .map_err(|e| {
+                log::error!("Error: {:?}", e);
+                SpawnWsError::WrongUrl
+            })?;
 
         // We create a channel to send events to
         let (tx, rx) = broadcast::channel(100);

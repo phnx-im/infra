@@ -15,6 +15,7 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
+    codec::PhnxCodec,
     credentials::{
         keys::{ClientSigningKey, InfraCredentialSigningKey},
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
@@ -638,7 +639,7 @@ impl CoreUser {
         log::info!("Creating local connection group");
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
-        let group_data = serde_json::to_vec(&conversation_attributes)?.into();
+        let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let mut connection = self.connection.lock().await;
         let (connection_group, partial_params) = Group::create_group(
             &mut connection,

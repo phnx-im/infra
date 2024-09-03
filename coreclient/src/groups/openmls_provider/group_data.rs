@@ -67,7 +67,7 @@ pub(crate) struct StorableGroupData<GroupData: Entity<CURRENT_VERSION>>(pub Grou
 impl<GroupData: Entity<CURRENT_VERSION>> Storable for StorableGroupData<GroupData> {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS group_data (
-            group_id BLOB UNIQUE NOT NULL,
+            group_id BLOB NOT NULL,
             data_type TEXT NOT NULL CHECK (data_type IN (
                 'join_group_config', 
                 'tree', 

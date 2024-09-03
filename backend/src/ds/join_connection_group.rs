@@ -4,7 +4,7 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage,
-    openmls::prelude::ProcessedMessageContent, openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::ProcessedMessageContent, provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
     errors::JoinConnectionGroupError,
@@ -15,19 +15,19 @@ use tls_codec::DeserializeBytes;
 
 use super::{
     group_state::{ClientProfile, DsGroupState, UserProfile},
-    process::USER_EXPIRATION_DAYS,
+    process::{Provider, USER_EXPIRATION_DAYS},
 };
 
 impl DsGroupState {
     pub(super) fn join_connection_group(
         &mut self,
-        provider: &OpenMlsRustCrypto,
+        provider: &Provider,
         params: JoinConnectionGroupParams,
     ) -> Result<SerializedMlsMessage, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider, params.external_commit)
+            .process_assisted_message(provider.crypto(), params.external_commit)
             .map_err(|e| {
                 tracing::warn!(
                     "Processing error: Could not process assisted message: {:?}",
@@ -88,7 +88,7 @@ impl DsGroupState {
 
         // Finalize processing.
         self.group_mut().accept_processed_message(
-            provider,
+            provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;

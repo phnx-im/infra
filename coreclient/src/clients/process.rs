@@ -10,6 +10,7 @@ use openmls::prelude::{
 };
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
+    codec::PhnxCodec,
     crypto::{ear::EarDecryptable, hpke::HpkeDecryptable},
     identifiers::QualifiedGroupId,
     messages::{
@@ -105,7 +106,7 @@ impl CoreUser {
                 // members if they don't exist yet and store the group and the
                 // new conversation.
                 let mut connection = self.connection.lock().await;
-                let transaction = connection.transaction()?;
+                let mut transaction = connection.transaction()?;
                 group
                     .members(&transaction)
                     .into_iter()
@@ -116,8 +117,7 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
-                let attributes: ConversationAttributes =
-                    serde_json::from_slice(group_data.bytes())?;
+                let attributes: ConversationAttributes = PhnxCodec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
@@ -125,7 +125,7 @@ impl CoreUser {
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
                 Conversation::delete(&transaction, conversation.id())?;
-                Group::delete_from_db(&transaction, &group_id)?;
+                Group::delete_from_db(&mut transaction, &group_id)?;
                 group.store(&transaction)?;
                 conversation.store(&transaction)?;
                 transaction.commit()?;

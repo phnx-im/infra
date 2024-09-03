@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::codec::PhnxCodec;
 use phnxtypes::identifiers::{QualifiedGroupId, SealedClientReference};
 use phnxtypes::time::TimeStamp;
 use sea_orm::entity::prelude::{
@@ -30,13 +31,13 @@ pub struct Model {
 }
 
 impl TryFrom<Model> for StorableDsGroupData {
-    type Error = serde_json::Error;
+    type Error = phnxtypes::codec::Error;
 
     fn try_from(model: Model) -> Result<Self, Self::Error> {
         let ciphertext: EncryptedDsGroupState =
-            serde_json::from_slice(&model.encrypted_group_state)?;
+            PhnxCodec::from_slice(&model.encrypted_group_state)?;
         let deleted_queues: Vec<SealedClientReference> =
-            serde_json::from_slice(&model.deleted_queues)?;
+            PhnxCodec::from_slice(&model.deleted_queues)?;
         let last_used = TimeStamp::from(model.last_used);
         let encrypted_group_state = StorableDsGroupData {
             group_id: model.group_id,
@@ -60,7 +61,7 @@ pub enum StorageError {
     #[error(transparent)]
     DatabaseError(#[from] sea_orm::error::DbErr),
     #[error("Error deserializing column: {0}")]
-    Serde(#[from] serde_json::Error),
+    Serde(#[from] phnxtypes::codec::Error),
 }
 
 /// Return value of a group state load query.
@@ -78,9 +79,9 @@ impl StorableDsGroupData {
     pub(super) async fn store(&self, connection: &DbConn) -> Result<(), StorageError> {
         let model = Model {
             group_id: self.group_id,
-            encrypted_group_state: serde_json::to_vec(&self.encrypted_group_state)?,
+            encrypted_group_state: PhnxCodec::to_vec(&self.encrypted_group_state)?,
             last_used: self.last_used.into(),
-            deleted_queues: serde_json::to_vec(&self.deleted_queues)?,
+            deleted_queues: PhnxCodec::to_vec(&self.deleted_queues)?,
         };
         let active_model = ActiveModel::from(model).reset_all();
         let on_conflict_behaviour = OnConflict::column(Column::GroupId).do_nothing().to_owned();
@@ -117,9 +118,9 @@ impl StorableDsGroupData {
     pub(crate) async fn update(&self, connection: &DbConn) -> Result<(), StorageError> {
         let model = Model {
             group_id: self.group_id,
-            encrypted_group_state: serde_json::to_vec(&self.encrypted_group_state)?,
+            encrypted_group_state: PhnxCodec::to_vec(&self.encrypted_group_state)?,
             last_used: self.last_used.into(),
-            deleted_queues: serde_json::to_vec(&self.deleted_queues)?,
+            deleted_queues: PhnxCodec::to_vec(&self.deleted_queues)?,
         };
         let active_model = ActiveModel::from(model).reset_all();
         active_model.update(connection).await?;

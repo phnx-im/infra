@@ -10,6 +10,7 @@ use phnxbackend::qs::{
     user_record::QsUserRecord, QsConfig, QsSigningKey,
 };
 use phnxtypes::{
+    codec::PhnxCodec,
     crypto::{
         errors::RandomnessError, hpke::ClientIdDecryptionKey, signatures::keys::QsUserVerifyingKey,
     },
@@ -79,7 +80,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_signing_key (id, signing_key) VALUES ($1, $2)",
             Uuid::new_v4(),
-            serde_json::to_vec(&signing_key)?,
+            PhnxCodec::to_vec(&signing_key)?,
         )
         .execute(&self.pool)
         .await?;
@@ -97,7 +98,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_decryption_key (id, decryption_key) VALUES ($1, $2)",
             Uuid::new_v4(),
-            serde_json::to_vec(&decryption_key)?,
+            PhnxCodec::to_vec(&decryption_key)?,
         )
         .execute(&self.pool)
         .await?;
@@ -114,7 +115,7 @@ impl PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_config (id, config) VALUES ($1, $2)",
             Uuid::new_v4(),
-            serde_json::to_vec(&config)?,
+            PhnxCodec::to_vec(&config)?,
         )
         .execute(&self.pool)
         .await?;
@@ -214,13 +215,13 @@ impl QsStorageProvider for PostgresQsStorage {
 
         // Create and store the client record.
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(serde_json::to_vec(ept)?)
+            Some(PhnxCodec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
-        let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
         let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         let mut transaction = self.pool.begin().await?;
@@ -262,14 +263,13 @@ impl QsStorageProvider for PostgresQsStorage {
         .ok()?;
         let user_id = QsUserId::from(client_record.user_id);
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token {
-            Some(serde_json::from_slice(&ept).ok()?)
+            Some(PhnxCodec::from_slice(&ept).ok()?)
         } else {
             None
         };
-        let owner_public_key = serde_json::from_slice(&client_record.owner_public_key).ok()?;
-        let owner_signature_key =
-            serde_json::from_slice(&client_record.owner_signature_key).ok()?;
-        let ratchet = serde_json::from_slice(&client_record.ratchet).ok()?;
+        let owner_public_key = PhnxCodec::from_slice(&client_record.owner_public_key).ok()?;
+        let owner_signature_key = PhnxCodec::from_slice(&client_record.owner_signature_key).ok()?;
+        let ratchet = PhnxCodec::from_slice(&client_record.ratchet).ok()?;
         let activity_time = TimeStamp::from(client_record.activity_time);
         let result = QsClientRecord::from_db_values(
             user_id,
@@ -288,13 +288,13 @@ impl QsStorageProvider for PostgresQsStorage {
         client_record: QsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
         let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(serde_json::to_vec(ept)?)
+            Some(PhnxCodec::to_vec(ept)?)
         } else {
             None
         };
-        let owner_public_key = serde_json::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = serde_json::to_vec(client_record.owner_signature_key())?;
-        let ratchet = serde_json::to_vec(client_record.current_ratchet_key())?;
+        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
+        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
+        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
         let activity_time: &DateTime<Utc> = client_record.activity_time();
 
         sqlx::query!(
@@ -382,7 +382,7 @@ impl QsStorageProvider for PostgresQsStorage {
 
         transaction.commit().await.ok()?;
 
-        let result = serde_json::from_slice(&add_package_record.encrypted_add_package).ok()?;
+        let result = PhnxCodec::from_slice(&add_package_record.encrypted_add_package).ok()?;
         Some(result)
     }
 
@@ -451,13 +451,11 @@ impl QsStorageProvider for PostgresQsStorage {
                         tracing::warn!("Error loading key package: {:?}", e);
                         LoadUserKeyPackagesError::PostgresError(e)
                     })?;
-                let encrypted_add_package = serde_json::from_slice(
-                    encrypted_add_package_bytes.as_slice(),
-                )
-                .map_err(|e| {
-                    tracing::warn!("Error deserializing key package: {:?}", e);
-                    LoadUserKeyPackagesError::SerializationError(e)
-                })?;
+                let encrypted_add_package =
+                    PhnxCodec::from_slice(encrypted_add_package_bytes.as_slice()).map_err(|e| {
+                        tracing::warn!("Error deserializing key package: {:?}", e);
+                        LoadUserKeyPackagesError::SerializationError(e)
+                    })?;
                 Ok(encrypted_add_package)
             })
             .collect::<Result<Vec<QsEncryptedAddPackage>, LoadUserKeyPackagesError>>()?;
@@ -471,7 +469,7 @@ impl QsStorageProvider for PostgresQsStorage {
         message: QueueMessage,
     ) -> Result<(), Self::EnqueueError> {
         // Encode the message
-        let message_bytes = serde_json::to_vec(&message)?;
+        let message_bytes = PhnxCodec::to_vec(&message)?;
 
         //tracing::info!("Encoded message: {:?}", message_bytes);
 
@@ -582,7 +580,7 @@ impl QsStorageProvider for PostgresQsStorage {
             .map(|row| {
                 let message_bytes: &[u8] = row.try_get("message_bytes")?;
                 //tracing::info!("Message bytes: {:?}", message_bytes);
-                let message = serde_json::from_slice(message_bytes)?;
+                let message = PhnxCodec::from_slice(message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, ReadAndDeleteError>>()?;
@@ -606,7 +604,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let signing_key_record = sqlx::query!("SELECT * FROM qs_signing_key",)
             .fetch_one(&self.pool)
             .await?;
-        let signing_key = serde_json::from_slice(&signing_key_record.signing_key)?;
+        let signing_key = PhnxCodec::from_slice(&signing_key_record.signing_key)?;
         Ok(signing_key)
     }
 
@@ -616,7 +614,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let decryption_key_record = sqlx::query!("SELECT * FROM qs_decryption_key",)
             .fetch_one(&self.pool)
             .await?;
-        let decryption_key = serde_json::from_slice(&decryption_key_record.decryption_key)?;
+        let decryption_key = PhnxCodec::from_slice(&decryption_key_record.decryption_key)?;
         Ok(decryption_key)
     }
 
@@ -624,7 +622,7 @@ impl QsStorageProvider for PostgresQsStorage {
         let config_record = sqlx::query!("SELECT * FROM qs_config",)
             .fetch_one(&self.pool)
             .await?;
-        let config = serde_json::from_slice(&config_record.config)?;
+        let config = PhnxCodec::from_slice(&config_record.config)?;
         Ok(config)
     }
 }
@@ -646,7 +644,7 @@ async fn store_key_packages(
 
     for (i, encrypted_add_package) in encrypted_add_packages.iter().enumerate() {
         let id = Uuid::new_v4();
-        let encoded_add_package = serde_json::to_vec(encrypted_add_package)?;
+        let encoded_add_package = PhnxCodec::to_vec(encrypted_add_package)?;
 
         // Add values to the query arguments
         query_args.add(id);
@@ -699,7 +697,7 @@ pub enum StoreClientError {
     PostgresError(#[from] sqlx::Error),
     /// Error serializing client record
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -712,7 +710,7 @@ pub enum CreateClientError {
     UnknownUser,
     /// Error serializing client record
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -736,7 +734,7 @@ pub enum StoreKeyPackagesError {
     UnknownClient,
     /// Error serializing KeyPackage
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -748,7 +746,7 @@ pub enum LoadUserKeyPackagesError {
     UnknownUser,
     /// Error serializing KeyPackage
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 /// Error creating user
@@ -784,7 +782,7 @@ pub enum QueueError {
     LibraryError,
     /// Error serializing message
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 /// Error while trying to read and delete messages from queue.
@@ -794,7 +792,7 @@ pub enum ReadAndDeleteError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing message
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
     /// A queue with the given id could not be found.
     #[error("The given queue id collides with an existing one.")]
     QueueNotFound,
@@ -812,7 +810,7 @@ pub enum GenerateKeyError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
     #[error(transparent)]
     RandomnessError(#[from] RandomnessError),
 }
@@ -823,7 +821,7 @@ pub enum LoadSigningKeyError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -832,7 +830,7 @@ pub enum LoadDecryptionKeyError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -841,7 +839,7 @@ pub enum LoadConfigError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing key
     #[error(transparent)]
-    DeserializationError(#[from] serde_json::Error),
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
@@ -850,7 +848,7 @@ pub enum StoreConfigError {
     PostgresError(#[from] sqlx::Error),
     /// Error deserializing key
     #[error(transparent)]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Error, Debug)]
