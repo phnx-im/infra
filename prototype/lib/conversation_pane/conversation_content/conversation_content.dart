@@ -23,10 +23,11 @@ class ConversationContent extends StatefulWidget {
 class _ConversationContentState extends State<ConversationContent> {
   final ScrollController _scrollController =
       TrackingScrollController(keepScrollOffset: true);
-  ScrollPhysics _scrollPhysics = (Platform.isAndroid || Platform.isWindows)
-      ? const ClampingScrollPhysics()
-      : const BouncingScrollPhysics()
-          .applyTo(const AlwaysScrollableScrollPhysics());
+  final ScrollPhysics _scrollPhysics =
+      (Platform.isAndroid || Platform.isWindows)
+          ? const ClampingScrollPhysics()
+          : const BouncingScrollPhysics()
+              .applyTo(const AlwaysScrollableScrollPhysics());
 
   final HashMap<int, GlobalKey> _tileKeys = HashMap();
   Timer? _debounceTimer;
