@@ -12,17 +12,8 @@ impl MigrationName for Migration {
     }
 }
 
-// CREATE TABLE encrypted_groups(
-// group_id uuid NOT NULL,
-// PRIMARY KEY (group_id),
-// ciphertext BYTEA NOT NULL,
-// last_used timestamptz NOT NULL,
-// deleted_queues BYTEA NOT NULL
-// );
-
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    // Define how to apply this migration: Create the Bakery table.
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .create_table(

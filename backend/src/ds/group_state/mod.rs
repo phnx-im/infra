@@ -299,7 +299,7 @@ pub struct EncryptedDsGroupState(Ciphertext);
 #[derive(Debug)]
 pub(super) struct StorableDsGroupData {
     group_id: Uuid,
-    pub encrypted_group_state: EncryptedDsGroupState,
+    pub(super) encrypted_group_state: EncryptedDsGroupState,
     last_used: TimeStamp,
     deleted_queues: Vec<SealedClientReference>,
 }

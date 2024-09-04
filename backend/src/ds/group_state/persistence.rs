@@ -49,7 +49,7 @@ impl TryFrom<Model> for StorableDsGroupData {
     }
 }
 
-use self::Entity as EncryptedGroupData;
+pub(crate) use self::Entity as EncryptedGroupData;
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

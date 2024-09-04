@@ -4,7 +4,7 @@
 
 use migrator::Migrator;
 use phnxtypes::{identifiers::Fqdn, time::Duration};
-use sea_orm::{ConnectOptions, Database, DbConn, DbErr};
+use sea_orm::{ConnectOptions, Database, DbConn, DbErr, TransactionTrait};
 use sea_orm_migration::MigratorTrait;
 
 mod add_clients;
@@ -57,7 +57,10 @@ impl Ds {
     }
 
     async fn migrate(&self) -> Result<(), DbErr> {
-        Migrator::up(&self.db_connection, None).await
+        let transaction = self.db_connection.begin().await?;
+        Migrator::up(&transaction, None).await?;
+        transaction.commit().await?;
+        Ok(())
     }
 
     fn own_domain(&self) -> &Fqdn {
