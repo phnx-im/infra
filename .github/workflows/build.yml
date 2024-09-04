@@ -49,12 +49,19 @@ jobs:
           docker restart --time 0 postgres
           sleep 5
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.x"
           channel: "stable"
           cache: true
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Set up CI
         run: cd prototype && make setup-ci
       - name: Integrate bridge
