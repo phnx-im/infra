@@ -59,6 +59,7 @@ async fn main() -> std::io::Result<()> {
     let mut ds_result = Ds::new(
         domain.clone(),
         &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
     )
     .await;
 
@@ -73,6 +74,7 @@ async fn main() -> std::io::Result<()> {
         ds_result = Ds::new(
             domain.clone(),
             &configuration.database.connection_string_without_database(),
+            &configuration.database.name,
         )
         .await;
     }

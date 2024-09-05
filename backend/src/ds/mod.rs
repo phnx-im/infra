@@ -29,24 +29,22 @@ pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
 pub struct Ds {
     own_domain: Fqdn,
     reserved_group_ids: Arc<Mutex<HashSet<Uuid>>>,
-    db_connection: PgPool,
+    db_pool: PgPool,
 }
 
 #[derive(Debug)]
 pub(crate) struct ReservedGroupId(Uuid);
 
-const DS_DB_NAME: &str = "phnx_ds";
-
 impl Ds {
     // Create a new Ds instance. This will also migrate the database to the
     // newest schema. `connection_string` is the connection string to the
     // database without the database name.
-    pub async fn new(own_domain: Fqdn, connection_string: &str) -> Result<Self, sqlx::Error> {
+    pub async fn new(
+        own_domain: Fqdn,
+        connection_string: &str,
+        db_name: &str,
+    ) -> Result<Self, sqlx::Error> {
         let connection = PgPool::connect(connection_string).await?;
-
-        let db_name = DS_DB_NAME.to_owned();
-        #[cfg(test)]
-        let db_name = format!("{}_{}", db_name, Uuid::new_v4());
 
         let db_exists = sqlx::query!(
             "select exists (
@@ -66,17 +64,13 @@ impl Ds {
         let connection_string_with_db = format!("{}/{}", connection_string, db_name);
 
         // Migrate database
-        let connection_pool = PgPool::connect(&connection_string_with_db).await?;
-        sqlx::migrate!("../server/migrations")
-            .run(&connection_pool)
-            .await?;
-
-        // Migrate to the newest schema
+        let db_pool = PgPool::connect(&connection_string_with_db).await?;
+        sqlx::migrate!("./migrations").run(&db_pool).await?;
 
         let ds = Self {
             own_domain,
             reserved_group_ids: Arc::new(Mutex::new(HashSet::new())),
-            db_connection: connection,
+            db_pool,
         };
 
         Ok(ds)

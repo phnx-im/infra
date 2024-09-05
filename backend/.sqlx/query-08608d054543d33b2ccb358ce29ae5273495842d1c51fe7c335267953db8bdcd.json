@@ -1,20 +1,25 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT ciphertext, last_used, deleted_queues FROM encrypted_groups WHERE group_id = $1 FOR UPDATE",
+  "query": "SELECT \n                group_id, ciphertext, last_used, deleted_queues\n            FROM \n                encrypted_groups\n            WHERE \n                group_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
+        "name": "group_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
         "name": "ciphertext",
         "type_info": "Bytea"
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "last_used",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "deleted_queues",
         "type_info": "Bytea"
       }
@@ -27,8 +32,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "9f805233c514c64a63447f27da17b22f23baa1ca9b03ab793defe513d7e65124"
+  "hash": "08608d054543d33b2ccb358ce29ae5273495842d1c51fe7c335267953db8bdcd"
 }

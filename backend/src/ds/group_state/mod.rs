@@ -27,7 +27,6 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, PgConnection};
 use thiserror::Error;
 use uuid::Uuid;
 

@@ -235,7 +235,7 @@ impl Ds {
 
         // Depending on the message, either load and decrypt an encrypted group state or
         // create a new one.
-        let (load_result, mut group_state, provider) =
+        let (group_data, mut group_state, provider) =
             if let Some(create_group_params) = message.create_group_params() {
                 let reserved_group_id = self
                     .claim_reserved_group_id(qgid.group_uuid())
@@ -269,7 +269,7 @@ impl Ds {
                     provider,
                 )
             } else {
-                let group_data = StorableDsGroupData::load(&qgid, &self.db_connection)
+                let group_data = StorableDsGroupData::load(&qgid, &self.db_pool)
                     .await
                     .map_err(|e| {
                         tracing::warn!("Could not load group state: {:?}", e);
@@ -279,7 +279,7 @@ impl Ds {
 
                 // Check if the group has expired and delete the group if that is the case.
                 if group_data.has_expired() {
-                    StorableDsGroupData::delete(&qgid, &self.db_connection)
+                    StorableDsGroupData::delete(&qgid, &self.db_pool)
                         .await
                         .map_err(|e| {
                             tracing::warn!("Could not delete expired group state: {:?}", e);
@@ -508,19 +508,26 @@ impl Ds {
                     })?;
 
             // ... and store the modified group state.
-            let group_data = match load_result {
+            match group_data {
                 GroupData::ExistingGroup(mut group_data) => {
                     group_data.encrypted_group_state = encrypted_group_state;
-                    group_data
+                    group_data.update(&self.db_pool).await.map_err(|e| {
+                        tracing::error!("Could not update group state: {:?}", e);
+                        DsProcessingError::StorageError
+                    })?;
                 }
                 GroupData::NewGroup(reserved_group_id) => {
+                    tracing::info!("Storing new group state");
+                    tracing::info!("Pool: {:?}", self.db_pool);
                     StorableDsGroupData::new(reserved_group_id, encrypted_group_state)
+                        .store(&self.db_pool)
+                        .await
+                        .map_err(|e| {
+                            tracing::error!("Could not store group state: {:?}", e);
+                            DsProcessingError::StorageError
+                        })?;
                 }
             };
-            group_data.update(&self.db_connection).await.map_err(|e| {
-                tracing::error!("Could not store group state: {:?}", e);
-                DsProcessingError::StorageError
-            })?
         }
 
         // Distribute FanOutMessages
