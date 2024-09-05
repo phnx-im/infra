@@ -26,12 +26,12 @@ use phnxtypes::{
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
-use sea_orm::{DbConn, DbErr};
 use serde::{Deserialize, Serialize};
+use sqlx::{Connection, PgConnection};
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::process::ExternalCommitInfo;
+use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
 
 pub(super) mod persistence;
 
@@ -304,28 +304,6 @@ pub(super) struct StorableDsGroupData {
     deleted_queues: Vec<SealedClientReference>,
 }
 
-#[derive(Debug)]
-pub(crate) struct ReservedGroupId(Uuid);
-
-impl ReservedGroupId {
-    pub(crate) async fn store(&self, connection: &DbConn) -> Result<(), persistence::StorageError> {
-        StorableDsGroupData::group_id_reservation_entry(self.0)
-            .store(connection)
-            .await
-    }
-
-    pub(super) async fn reserve(
-        connection: &DbConn,
-        group_uuid: Uuid,
-    ) -> Result<bool, persistence::StorageError> {
-        match Self(group_uuid).store(connection).await {
-            Ok(_) => Ok(true),
-            Err(persistence::StorageError::DatabaseError(DbErr::RecordNotInserted)) => Ok(false),
-            Err(e) => Err(e),
-        }
-    }
-}
-
 impl StorableDsGroupData {
     pub(super) fn new(
         group_id: ReservedGroupId,
@@ -339,13 +317,8 @@ impl StorableDsGroupData {
         }
     }
 
-    fn group_id_reservation_entry(group_id: Uuid) -> Self {
-        Self {
-            group_id,
-            encrypted_group_state: EncryptedDsGroupState(Ciphertext::default()),
-            last_used: TimeStamp::now(),
-            deleted_queues: vec![],
-        }
+    pub(super) fn has_expired(&self) -> bool {
+        self.last_used.has_expired(GROUP_STATE_EXPIRATION)
     }
 }
 

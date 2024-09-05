@@ -177,15 +177,14 @@ use phnxtypes::{
 };
 
 use crate::{
-    ds::group_state::ReservedGroupId,
+    ds::ReservedGroupId,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
 };
 
 use super::{
     group_state::{
-        persistence::{LoadResult, StorageError},
-        DsGroupState, SerializableDsGroupState, StorableDsGroupData,
+        persistence::StorageError, DsGroupState, SerializableDsGroupState, StorableDsGroupData,
     },
     Ds,
 };
@@ -229,41 +228,19 @@ impl Ds {
             return Err(DsProcessingError::GroupNotFound);
         }
 
-        let load_result = StorableDsGroupData::load(&qgid, &self.db_connection)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Could not load group state: {:?}", e);
-                DsProcessingError::StorageError
-            })?;
-
-        enum SuccessfulLoadResult {
-            Success(StorableDsGroupData),
-            Reserved(ReservedGroupId),
+        enum GroupData {
+            ExistingGroup(StorableDsGroupData),
+            NewGroup(ReservedGroupId),
         }
 
-        // Depending on the message, either decrypt an encrypted group state or
+        // Depending on the message, either load and decrypt an encrypted group state or
         // create a new one.
-        let (load_result, mut group_state, provider) = match load_result {
-            LoadResult::Success(group_data) => {
-                let (group_state, provider) =
-                    SerializableDsGroupState::decrypt(&ear_key, &group_data.encrypted_group_state)
-                        .map_err(|_| DsProcessingError::CouldNotDecrypt)?
-                        .into_group_state_and_provider()
-                        .map_err(|e| {
-                            tracing::error!("Could not deserialize group state: {:?}", e);
-                            DsProcessingError::GroupNotFound
-                        })?;
-                (
-                    SuccessfulLoadResult::Success(group_data),
-                    group_state,
-                    provider.into(),
-                )
-            }
-            LoadResult::Reserved(reserved_group_id) => {
-                let Some(create_group_params) = message.create_group_params() else {
-                    tracing::warn!("Group reserved, but no create group params found");
-                    return Err(DsProcessingError::GroupNotFound);
-                };
+        let (load_result, mut group_state, provider) =
+            if let Some(create_group_params) = message.create_group_params() {
+                let reserved_group_id = self
+                    .claim_reserved_group_id(qgid.group_uuid())
+                    .await
+                    .ok_or(DsProcessingError::UnreservedGroupId)?;
                 let CreateGroupParams {
                     group_id: _,
                     leaf_node,
@@ -273,14 +250,8 @@ impl Ds {
                     creator_user_auth_key,
                     group_info,
                 } = create_group_params;
-                let group_info = match group_info.clone().extract() {
-                    MlsMessageBodyIn::GroupInfo(group_info) => group_info,
-                    MlsMessageBodyIn::PublicMessage(_)
-                    | MlsMessageBodyIn::PrivateMessage(_)
-                    | MlsMessageBodyIn::Welcome(_)
-                    | MlsMessageBodyIn::KeyPackage(_) => {
-                        return Err(DsProcessingError::InvalidMessage)
-                    }
+                let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
+                    return Err(DsProcessingError::InvalidMessage);
                 };
                 let provider = Provider::default();
                 let group = Group::new(&provider, group_info.clone(), leaf_node.clone())
@@ -293,16 +264,44 @@ impl Ds {
                     creator_queue_config.clone(),
                 );
                 (
-                    SuccessfulLoadResult::Reserved(reserved_group_id),
+                    GroupData::NewGroup(reserved_group_id),
                     group_state,
                     provider,
                 )
-            }
-            LoadResult::NotFound | LoadResult::Expired => {
-                tracing::warn!("Group not found or expired");
-                return Err(DsProcessingError::GroupNotFound);
-            }
-        };
+            } else {
+                let group_data = StorableDsGroupData::load(&qgid, &self.db_connection)
+                    .await
+                    .map_err(|e| {
+                        tracing::warn!("Could not load group state: {:?}", e);
+                        DsProcessingError::StorageError
+                    })?
+                    .ok_or(DsProcessingError::GroupNotFound)?;
+
+                // Check if the group has expired and delete the group if that is the case.
+                if group_data.has_expired() {
+                    StorableDsGroupData::delete(&qgid, &self.db_connection)
+                        .await
+                        .map_err(|e| {
+                            tracing::warn!("Could not delete expired group state: {:?}", e);
+                            DsProcessingError::StorageError
+                        })?;
+                    return Err(DsProcessingError::GroupNotFound);
+                }
+
+                let (group_state, provider) =
+                    SerializableDsGroupState::decrypt(&ear_key, &group_data.encrypted_group_state)
+                        .map_err(|_| DsProcessingError::CouldNotDecrypt)?
+                        .into_group_state_and_provider()
+                        .map_err(|e| {
+                            tracing::error!("Could not deserialize group state: {:?}", e);
+                            DsProcessingError::GroupNotFound
+                        })?;
+                (
+                    GroupData::ExistingGroup(group_data),
+                    group_state,
+                    provider.into(),
+                )
+            };
 
         // Verify the message.
         let verified_message: DsRequestParams = match message.sender() {
@@ -510,11 +509,11 @@ impl Ds {
 
             // ... and store the modified group state.
             let group_data = match load_result {
-                SuccessfulLoadResult::Success(mut group_data) => {
+                GroupData::ExistingGroup(mut group_data) => {
                     group_data.encrypted_group_state = encrypted_group_state;
                     group_data
                 }
-                SuccessfulLoadResult::Reserved(reserved_group_id) => {
+                GroupData::NewGroup(reserved_group_id) => {
                     StorableDsGroupData::new(reserved_group_id, encrypted_group_state)
                 }
             };
@@ -553,7 +552,7 @@ impl Ds {
     pub async fn request_group_id(&self) -> Result<DsProcessResponse, StorageError> {
         // Generate UUIDs until we find one that is not yet reserved.
         let mut group_uuid = Uuid::new_v4();
-        while !ReservedGroupId::reserve(&self.db_connection, group_uuid).await? {
+        while !self.reserve_group_id(group_uuid).await {
             group_uuid = Uuid::new_v4();
         }
 

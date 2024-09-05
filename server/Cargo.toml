@@ -51,20 +51,6 @@ tls_codec = { workspace = true }
 reqwest = { workspace = true }
 mls-assist = { workspace = true }
 
-[dependencies.sqlx]
-version = "0.7"
-default-features = false
-features = [
-    "macros",
-    "postgres",
-    "uuid",
-    "chrono",
-    "migrate",
-    "bigdecimal",
-    "runtime-tokio",
-    "tls-rustls",
-]
-
 [dev-dependencies]
 actix-rt = "^2.7"
 tracing-futures = "^0.2.5"
