@@ -42,6 +42,7 @@ use crate::endpoints::{
 };
 
 /// Configure and run the server application.
+#[allow(clippy::too_many_arguments)]
 pub fn run<
     Dsp: DsStorageProvider,
     Qsp: QsStorageProvider,

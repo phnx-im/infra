@@ -166,8 +166,8 @@ impl ConversationMessage {
         }
     }
 
-    pub fn conversation_id(&self) -> &ConversationId {
-        &self.conversation_id
+    pub fn conversation_id(&self) -> ConversationId {
+        self.conversation_id
     }
 
     pub fn message(&self) -> &Message {

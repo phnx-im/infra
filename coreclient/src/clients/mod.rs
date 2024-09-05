@@ -756,7 +756,7 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let connection = self.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
+        let conversation = Conversation::load(&connection, conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
@@ -785,7 +785,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id.clone(), group_messages)?;
+            Self::store_messages(&mut transaction, *conversation_id, group_messages)?;
         transaction.commit()?;
         drop(connection);
 

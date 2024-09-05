@@ -22,7 +22,7 @@ impl User {
         for conversation_message in conversation_messages {
             if let Some(conversation) = self
                 .user
-                .conversation(conversation_message.conversation_id())
+                .conversation(&conversation_message.conversation_id())
                 .await
             {
                 let title = match conversation.conversation_type() {

@@ -195,9 +195,7 @@ pub struct UiConversationMessage {
 impl From<ConversationMessage> for UiConversationMessage {
     fn from(conversation_message: ConversationMessage) -> Self {
         Self {
-            conversation_id: ConversationIdBytes::from(
-                conversation_message.conversation_id().clone(),
-            ),
+            conversation_id: ConversationIdBytes::from(conversation_message.conversation_id()),
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
@@ -341,6 +339,7 @@ impl From<ErrorMessage> for UiErrorMessage {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum UiNotificationType {
     ConversationChange(ConversationIdBytes), // The id of the changed conversation.
     Message(UiConversationMessage),
