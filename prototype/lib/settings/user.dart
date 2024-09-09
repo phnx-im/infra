@@ -36,7 +36,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
   void save(BuildContext context) {
     try {
       coreClient.setOwnProfile(displayName ?? "", avatar).then((value) {
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       });
       setState(() {
         imageChanged = false;

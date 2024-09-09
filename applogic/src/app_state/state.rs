@@ -18,12 +18,6 @@ pub(crate) struct AppState {
     user: CoreUser,
 }
 
-impl Drop for AppState {
-    fn drop(&mut self) {
-        let _ = self.flush_debouncer_state();
-    }
-}
-
 impl AppState {
     /// Create a new `AppState` with no current conversation and no ongoing
     /// marking of messages as read.

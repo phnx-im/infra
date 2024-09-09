@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
@@ -102,6 +103,32 @@ class _UserAvatarState extends State<UserAvatar> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class FrostedGlass extends StatelessWidget {
+  final Color color;
+  final double height;
+
+  const FrostedGlass({
+    super.key,
+    required this.color,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+            sigmaX: 15, sigmaY: 15, tileMode: TileMode.repeated),
+        child: Container(
+          width: MediaQuery.of(context).size.width,
+          height: height,
+          color: color.withOpacity(0.4),
         ),
       ),
     );

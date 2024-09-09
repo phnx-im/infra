@@ -121,6 +121,7 @@ fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
     debug_assert!(build_output.success());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_docker_container(
     image_name: &str,
     container_name: &str,

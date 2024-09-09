@@ -36,12 +36,15 @@ struct NotificationContent {
 }
 
 /// This method gets called from the iOS NSE
+///
+/// # Safety
+///
+/// The caller must ensure that the content is a pointer to a valid C string.
 #[no_mangle]
-pub extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
-    let c_str = unsafe {
-        assert!(!content.is_null());
-        CStr::from_ptr(content)
-    };
+pub unsafe extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
+    assert!(!content.is_null());
+
+    let c_str = unsafe { CStr::from_ptr(content) };
 
     init_logger();
 
@@ -56,8 +59,13 @@ pub extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
 }
 
 /// This method gets called from the iOS NSE
+///
+/// # Safety
+///
+/// The caller must ensure that the input string was previously created by
+/// `process_new_messages`.
 #[no_mangle]
-pub extern "C" fn free_string(s: *mut c_char) {
+pub unsafe extern "C" fn free_string(s: *mut c_char) {
     if s.is_null() {
         return;
     }

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_list_pane/conversation_view.dart';
+import 'package:prototype/conversation_list_pane/pane.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/styles.dart';
 

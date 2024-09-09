@@ -426,6 +426,7 @@ impl Group {
     }
 
     /// Join a group using an external commit.
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn join_group_externally(
         connection_mutex: SqliteConnection,
         api_clients: &ApiClients,

@@ -19,7 +19,6 @@ class ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
         alignment: AlignmentDirectional.centerStart,
         child: (message.message.when(
           content: (content) => TextMessageTile(content, message.timestamp),
@@ -29,8 +28,6 @@ class ConversationTile extends StatelessWidget {
         )),
       ),
       selected: false,
-      focusColor: Colors.transparent,
-      hoverColor: Colors.transparent,
     );
   }
 }
