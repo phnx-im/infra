@@ -5,13 +5,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use mls_assist::{
-    group::{errors::StorageError, Group},
+    group::{errors::StorageError as MlsAssistStorageError, Group},
     openmls::{
         group::GroupId,
         prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
         treesync::RatchetTree,
     },
 };
+use persistence::StorageError;
 use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
@@ -27,7 +28,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use sqlx::PgExecutor;
 use uuid::Uuid;
 
 use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
@@ -62,19 +63,11 @@ pub(crate) struct SerializableDsGroupState {
     pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
 }
 
-#[derive(Debug, Error)]
-pub(super) enum SerializedGroupStateError {
-    #[error("Group not found")]
-    GroupNotFound,
-    #[error("Storage error: {0}")]
-    StorageError(StorageError<CborMlsAssistStorage>),
-}
-
 impl SerializableDsGroupState {
     pub(super) fn from_group_and_provider(
         group_state: DsGroupState,
         provider: &CborMlsAssistStorage,
-    ) -> Result<Self, StorageError<CborMlsAssistStorage>> {
+    ) -> Result<Self, MlsAssistStorageError<CborMlsAssistStorage>> {
         let group_id = group_state
             .group()
             .group_info()
@@ -95,14 +88,11 @@ impl SerializableDsGroupState {
 
     pub(super) fn into_group_state_and_provider(
         self,
-    ) -> Result<(DsGroupState, CborMlsAssistStorage), SerializedGroupStateError> {
-        let provider = CborMlsAssistStorage::deserialize(&self.serialized_provider)
-            .map_err(SerializedGroupStateError::StorageError)?;
-        let Some(group) = Group::load(&provider, &self.group_id)
-            .map_err(SerializedGroupStateError::StorageError)?
-        else {
-            return Err(SerializedGroupStateError::GroupNotFound);
-        };
+    ) -> Result<(DsGroupState, CborMlsAssistStorage), MlsAssistStorageError<CborMlsAssistStorage>>
+    {
+        let provider = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
+        // We unwrap here, because the constructor ensures that `self` always stores a group
+        let group = Group::load(&provider, &self.group_id)?.unwrap();
         let user_profiles = self.user_profiles.into_iter().collect();
         let client_profiles = self.client_profiles.into_iter().collect();
         Ok((
@@ -304,16 +294,19 @@ pub(super) struct StorableDsGroupData {
 }
 
 impl StorableDsGroupData {
-    pub(super) fn new(
+    pub(super) async fn new_and_store<'a>(
+        connection: impl PgExecutor<'a>,
         group_id: ReservedGroupId,
         encrypted_group_state: EncryptedDsGroupState,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, StorageError> {
+        let group_data = Self {
             group_id: group_id.0,
             encrypted_group_state,
             last_used: TimeStamp::now(),
             deleted_queues: vec![],
-        }
+        };
+        group_data.store(connection).await?;
+        Ok(group_data)
     }
 
     pub(super) fn has_expired(&self) -> bool {

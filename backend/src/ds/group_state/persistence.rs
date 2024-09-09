@@ -21,7 +21,7 @@ pub enum StorageError {
 }
 
 impl StorableDsGroupData {
-    pub(crate) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
+    pub(super) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
         sqlx::query!(
             "INSERT INTO 
                 encrypted_groups 
@@ -40,8 +40,8 @@ impl StorableDsGroupData {
     }
 
     pub(crate) async fn load(
-        qgid: &QualifiedGroupId,
         connection: impl PgExecutor<'_>,
+        qgid: &QualifiedGroupId,
     ) -> Result<Option<StorableDsGroupData>, StorageError> {
         let Some(group_data_record) = sqlx::query!(
             "SELECT 
@@ -85,8 +85,8 @@ impl StorableDsGroupData {
     }
 
     pub(crate) async fn delete(
-        qgid: &QualifiedGroupId,
         connection: impl PgExecutor<'_>,
+        qgid: &QualifiedGroupId,
     ) -> Result<(), StorageError> {
         sqlx::query!(
             "DELETE FROM 
@@ -101,120 +101,88 @@ impl StorableDsGroupData {
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use phnxtypes::{
-//        crypto::ear::Ciphertext,
-//        identifiers::{Fqdn, QualifiedGroupId},
-//    };
-//    use uuid::Uuid;
-//
-//    use crate::ds::{
-//        group_state::{
-//            persistence::LoadResult, EncryptedDsGroupState, ReservedGroupId, StorableDsGroupData,
-//        },
-//        Ds,
-//    };
-//
-//    #[tokio::test]
-//    async fn reserve_group_id() {
-//        let ds = Ds::new_ephemeral(Fqdn::try_from("example.com").unwrap())
-//            .await
-//            .expect("Error creating ephemeral Ds instance.");
-//
-//        // Sample a random group id and reserve it
-//        let group_uuid = Uuid::new_v4();
-//        let was_reserved = ReservedGroupId::reserve(&ds.db_connection, group_uuid)
-//            .await
-//            .unwrap();
-//        assert!(was_reserved);
-//
-//        // Try to reserve the same group id again
-//        let was_reserved_again = ReservedGroupId::reserve(&ds.db_connection, group_uuid)
-//            .await
-//            .expect("Error reserving group id.");
-//
-//        // This should return false
-//        assert!(!was_reserved_again);
-//    }
-//
-//    #[tokio::test]
-//    async fn group_state_lifecycle() {
-//        let ds = Ds::new_ephemeral(Fqdn::try_from("example.com").unwrap())
-//            .await
-//            .expect("Error creating ephemeral Ds instance.");
-//
-//        let dummy_ciphertext = Ciphertext::dummy();
-//        let test_state: EncryptedDsGroupState = dummy_ciphertext.into();
-//
-//        // Create/store a dummy group state
-//        let group_uuid = Uuid::new_v4();
-//        let was_reserved = ReservedGroupId::reserve(&ds.db_connection, group_uuid)
-//            .await
-//            .unwrap();
-//        assert!(was_reserved);
-//
-//        // Load the reserved group id
-//        let qgid = QualifiedGroupId::new(group_uuid, ds.own_domain.clone());
-//        let LoadResult::Reserved(reserved_group_id) =
-//            StorableDsGroupData::load(&qgid, &ds.db_connection)
-//                .await
-//                .unwrap()
-//        else {
-//            panic!("Error loading group state.");
-//        };
-//
-//        let mut storable_group_data =
-//            StorableDsGroupData::new(reserved_group_id, test_state.clone());
-//
-//        // Save the group state
-//        storable_group_data
-//            .update(&ds.db_connection)
-//            .await
-//            .expect("Error saving group state.");
-//
-//        // Load the group state again
-//        let loaded_group_state = StorableDsGroupData::load(&qgid, &ds.db_connection)
-//            .await
-//            .unwrap();
-//
-//        if let LoadResult::Success(loaded_group_state) = loaded_group_state {
-//            assert_eq!(
-//                loaded_group_state.encrypted_group_state,
-//                storable_group_data.encrypted_group_state
-//            );
-//        } else {
-//            panic!("Error loading group state.");
-//        }
-//
-//        // Try to reserve the group id of the created group state
-//        let successfully_reserved = ReservedGroupId::reserve(&ds.db_connection, group_uuid)
-//            .await
-//            .unwrap();
-//
-//        // This should return false
-//        assert!(!successfully_reserved);
-//
-//        // Update that group state.
-//        storable_group_data.encrypted_group_state.0.flip_bit();
-//
-//        storable_group_data.update(&ds.db_connection).await.unwrap();
-//
-//        // Load the group state again
-//        let loaded_group_state = StorableDsGroupData::load(&qgid, &ds.db_connection)
-//            .await
-//            .unwrap();
-//
-//        match loaded_group_state {
-//            LoadResult::Success(loaded_group_state) => {
-//                assert_eq!(
-//                    loaded_group_state.encrypted_group_state,
-//                    storable_group_data.encrypted_group_state
-//                );
-//            }
-//            e => {
-//                panic!("Error loading group state: {:?}.", e);
-//            }
-//        }
-//    }
-//}
+#[cfg(test)]
+mod test {
+    use phnxtypes::{
+        crypto::ear::Ciphertext,
+        identifiers::{Fqdn, QualifiedGroupId},
+    };
+    use sqlx::PgPool;
+    use uuid::Uuid;
+
+    use crate::ds::{
+        group_state::{EncryptedDsGroupState, StorableDsGroupData},
+        Ds,
+    };
+
+    #[sqlx::test]
+    async fn reserve_group_id(pool: PgPool) {
+        let ds = Ds::new_from_pool(Fqdn::try_from("example.com").unwrap(), pool)
+            .await
+            .expect("Error creating ephemeral Ds instance.");
+
+        // Sample a random group id and reserve it
+        let group_uuid = Uuid::new_v4();
+
+        let was_reserved = ds.reserve_group_id(group_uuid).await;
+        assert!(was_reserved);
+
+        // Try to reserve the same group id again
+        let was_reserved_again = ds.reserve_group_id(group_uuid).await;
+
+        // This should return false
+        assert!(!was_reserved_again);
+    }
+
+    #[sqlx::test]
+    async fn group_state_lifecycle(pool: PgPool) {
+        let ds = Ds::new_from_pool(Fqdn::try_from("example.com").unwrap(), pool)
+            .await
+            .expect("Error creating ephemeral Ds instance.");
+
+        let dummy_ciphertext = Ciphertext::dummy();
+        let test_state: EncryptedDsGroupState = dummy_ciphertext.into();
+
+        // Create/store a dummy group state
+        let group_uuid = Uuid::new_v4();
+        let was_reserved = ds.reserve_group_id(group_uuid).await;
+        assert!(was_reserved);
+
+        // Load the reserved group id
+        let qgid = QualifiedGroupId::new(group_uuid, ds.own_domain.clone());
+        let reserved_group_id = ds.claim_reserved_group_id(qgid.group_uuid()).await.unwrap();
+
+        // Create and store a new group state
+        let mut storable_group_data =
+            StorableDsGroupData::new_and_store(&ds.db_pool, reserved_group_id, test_state.clone())
+                .await
+                .unwrap();
+
+        // Load the group state again
+        let loaded_group_state = StorableDsGroupData::load(&ds.db_pool, &qgid)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            loaded_group_state.encrypted_group_state,
+            storable_group_data.encrypted_group_state
+        );
+
+        // Update that group state.
+        storable_group_data.encrypted_group_state.0.flip_bit();
+
+        storable_group_data.update(&ds.db_pool).await.unwrap();
+
+        // Load the group state again
+        let loaded_group_state = StorableDsGroupData::load(&ds.db_pool, &qgid)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            loaded_group_state.encrypted_group_state,
+            storable_group_data.encrypted_group_state
+        );
+    }
+}

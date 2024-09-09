@@ -63,8 +63,13 @@ impl Ds {
 
         let connection_string_with_db = format!("{}/{}", connection_string, db_name);
 
-        // Migrate database
         let db_pool = PgPool::connect(&connection_string_with_db).await?;
+
+        // Migrate database
+        Self::new_from_pool(own_domain, db_pool).await
+    }
+
+    async fn new_from_pool(own_domain: Fqdn, db_pool: PgPool) -> Result<Self, sqlx::Error> {
         sqlx::migrate!("./migrations").run(&db_pool).await?;
 
         let ds = Self {

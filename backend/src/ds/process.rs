@@ -269,7 +269,7 @@ impl Ds {
                     provider,
                 )
             } else {
-                let group_data = StorableDsGroupData::load(&qgid, &self.db_pool)
+                let group_data = StorableDsGroupData::load(&self.db_pool, &qgid)
                     .await
                     .map_err(|e| {
                         tracing::warn!("Could not load group state: {:?}", e);
@@ -279,7 +279,7 @@ impl Ds {
 
                 // Check if the group has expired and delete the group if that is the case.
                 if group_data.has_expired() {
-                    StorableDsGroupData::delete(&qgid, &self.db_pool)
+                    StorableDsGroupData::delete(&self.db_pool, &qgid)
                         .await
                         .map_err(|e| {
                             tracing::warn!("Could not delete expired group state: {:?}", e);
@@ -517,15 +517,16 @@ impl Ds {
                     })?;
                 }
                 GroupData::NewGroup(reserved_group_id) => {
-                    tracing::info!("Storing new group state");
-                    tracing::info!("Pool: {:?}", self.db_pool);
-                    StorableDsGroupData::new(reserved_group_id, encrypted_group_state)
-                        .store(&self.db_pool)
-                        .await
-                        .map_err(|e| {
-                            tracing::error!("Could not store group state: {:?}", e);
-                            DsProcessingError::StorageError
-                        })?;
+                    StorableDsGroupData::new_and_store(
+                        &self.db_pool,
+                        reserved_group_id,
+                        encrypted_group_state,
+                    )
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("Could not store group state: {:?}", e);
+                        DsProcessingError::StorageError
+                    })?;
                 }
             };
         }
