@@ -198,7 +198,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 child: TextField(
                   enabled: _currentConversation != null,
                   focusNode: _focusNode,
-                  style: messageTextStyle(context),
+                  style: messageTextStyle(context, false),
                   controller: _controller,
                   minLines: 1,
                   maxLines: 10,

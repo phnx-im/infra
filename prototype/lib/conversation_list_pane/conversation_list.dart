@@ -152,7 +152,7 @@ class _ConversationListState extends State<ConversationList> {
             if (c.sender == coreClient.username) {
               sender = 'You: ';
             }
-            displayedLastMessage = '${c.content.body}';
+            displayedLastMessage = c.content.body;
           },
           display: (d) => '',
           unsent: (u) => '⚠️ Unsent message: ${u.body}');
@@ -178,13 +178,13 @@ class _ConversationListState extends State<ConversationList> {
   Widget _unreadBadge(int index) {
     final count = _conversations[index].unreadMessages;
     if (count < 1) {
-      return SizedBox();
+      return const SizedBox();
     }
     final badgeText = count <= 100 ? "$count" : "100+";
-    final double badgeSize = 20;
+    const double badgeSize = 20;
     return Container(
       alignment: AlignmentDirectional.center,
-      constraints: BoxConstraints(minWidth: badgeSize),
+      constraints: const BoxConstraints(minWidth: badgeSize),
       padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
       height: badgeSize,
       decoration: BoxDecoration(
@@ -193,7 +193,7 @@ class _ConversationListState extends State<ConversationList> {
       ),
       child: Text(
         badgeText,
-        style: TextStyle(
+        style: const TextStyle(
             color: Colors.white,
             fontSize: 10,
             fontVariations: variationSemiBold,
@@ -223,7 +223,7 @@ class _ConversationListState extends State<ConversationList> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(child: _convTitle(index)),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         _lastUpdated(index),
       ],
     );
@@ -239,7 +239,7 @@ class _ConversationListState extends State<ConversationList> {
             child: _lastMessage(index),
           ),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         Align(
           alignment: Alignment.center,
           child: _unreadBadge(index),
@@ -251,7 +251,7 @@ class _ConversationListState extends State<ConversationList> {
   Widget _listTile(int index) {
     return ListTile(
       horizontalTitleGap: 0,
-      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.topStart,
@@ -274,7 +274,7 @@ class _ConversationListState extends State<ConversationList> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   _topPart(index),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Expanded(child: _bottomPart(index)),
                 ],
               ),
@@ -303,38 +303,26 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
+  double _paddingHeight() {
+    final height = (isPointer() ? 30 : kToolbarHeight) + 60;
+    return height + 10;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_conversations.isNotEmpty) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(0),
-              itemCount: _conversations.length,
-              physics: const BouncingScrollPhysics(),
-              controller: _scrollController,
-              itemBuilder: (BuildContext context, int index) {
-                return _listTile(index);
-              },
-            ),
-          ),
-          // Show footer only if there are more conversations than can fit on
-          // the screen
-          (_scrollController.hasClients &&
-                  _scrollController.position.maxScrollExtent > 0)
-              ? Column(
-                  children: [
-                    Container(
-                      width: 200,
-                      height: 1.5,
-                      color: colorDMBLight,
-                    ),
-                  ],
-                )
-              : SizedBox(),
-        ],
+      return ListView.builder(
+        padding: EdgeInsets.only(
+          top: _paddingHeight(),
+        ),
+        itemCount: _conversations.length,
+        physics: const BouncingScrollPhysics().applyTo(
+          const AlwaysScrollableScrollPhysics(),
+        ),
+        controller: _scrollController,
+        itemBuilder: (BuildContext context, int index) {
+          return _listTile(index);
+        },
       );
     } else {
       return _placeholder();
@@ -350,62 +338,14 @@ bool isConversationSelected(UiConversationDetails? currentConversation,
   return false;
 }
 
-String formatTimestamp3(DateTime timestamp) {
-  final now = DateTime.now();
-  final difference = now.difference(timestamp);
-  final yesterday = DateTime(now.year, now.month, now.day - 1);
-
-  if (difference.inSeconds < 60) {
-    return 'Now';
-  } else if (difference.inMinutes < 60) {
-    return '${difference.inMinutes}m';
-  } else if (now.year == timestamp.year &&
-      now.month == timestamp.month &&
-      now.day == timestamp.day) {
-    return DateFormat('HH:mm').format(timestamp);
-  } else if (now.year == timestamp.year &&
-      timestamp.year == yesterday.year &&
-      timestamp.month == yesterday.month &&
-      timestamp.day == yesterday.day) {
-    return 'Yesterday';
-  } else if (difference.inDays < 7) {
-    return DateFormat('E').format(timestamp);
-  } else if (now.year == timestamp.year) {
-    return DateFormat('dd.MM').format(timestamp);
-  } else {
-    return DateFormat('dd.MM.yy').format(timestamp);
-  }
-}
-
-String formatTimestamp2(DateTime timestamp) {
-  final now = DateTime.now();
-  final difference = now.difference(timestamp);
-  final yesterday = DateTime(now.year, now.month, now.day - 1);
-
-  if (difference.inSeconds < 60) {
-    return 'Now';
-  } else if (difference.inMinutes < 60) {
-    return '${difference.inMinutes}m';
-  } else if (now.year == timestamp.year &&
-      now.month == timestamp.month &&
-      now.day == timestamp.day) {
-    return DateFormat('HH:mm').format(timestamp);
-  } else if (now.year == timestamp.year &&
-      timestamp.year == yesterday.year &&
-      timestamp.month == yesterday.month &&
-      timestamp.day == yesterday.day) {
-    return 'Yesterday';
-  } else if (difference.inDays < 7) {
-    return DateFormat('E').format(timestamp);
-  } else if (now.year == timestamp.year) {
-    return DateFormat('dd.MM').format(timestamp);
-  } else {
-    return DateFormat('dd.MM.yy').format(timestamp);
-  }
-}
-
 String formatTimestamp(String t, {DateTime? now}) {
-  final timestamp = DateTime.parse(t).toLocal();
+  DateTime timestamp;
+  try {
+    timestamp = DateTime.parse(t);
+  } catch (e) {
+    return '';
+  }
+
   now ??= DateTime.now();
 
   now = now.toLocal();

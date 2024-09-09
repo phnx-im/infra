@@ -14,19 +14,14 @@ mod tests;
 
 pub use error::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum PhnxCodec {
     #[cfg(test)]
     OlderTestVersion = 0,
+    #[default]
     V1 = 1,
-}
-
-impl Default for PhnxCodec {
-    fn default() -> Self {
-        PhnxCodec::V1
-    }
 }
 
 impl TryFrom<u8> for PhnxCodec {

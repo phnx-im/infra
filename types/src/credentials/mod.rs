@@ -236,12 +236,12 @@ impl AsIntermediateCredentialCsr {
         as_domain: Fqdn,
     ) -> Result<(Self, PreliminaryAsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
+        let (signing_key, verifying_key_bytes) = generate_signature_keypair()?;
         let verifying_key = AsIntermediateVerifyingKey {
             verifying_key_bytes: verifying_key_bytes.into(),
         };
         let prelim_signing_key = PreliminaryAsSigningKey {
-            signing_key: signing_key_bytes.into(),
+            signing_key,
             verifying_key: verifying_key.clone(),
         };
         let credential = Self {

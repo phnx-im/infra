@@ -147,7 +147,7 @@ class _ConversationContentState extends State<ConversationContent> {
   }) {
     setState(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final extent = _scrollController.position.maxScrollExtent;
+        final extent = _scrollController.position.minScrollExtent;
         if (animated) {
           _scrollController.animateTo(
             extent,
@@ -177,7 +177,10 @@ class _ConversationContentState extends State<ConversationContent> {
           ),
           itemCount: _messages.length,
           physics: _scrollPhysics,
+          reverse: true,
           itemBuilder: (BuildContext context, int index) {
+            // Reverse the index to display the messages in the correct order
+            index = _messages.length - 1 - index;
             final key = GlobalKey();
             _tileKeys[index] = key;
             final message = _messages[index];

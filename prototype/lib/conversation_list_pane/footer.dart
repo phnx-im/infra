@@ -9,8 +9,8 @@ import 'package:prototype/core_client.dart';
 import '../main.dart';
 import '../styles.dart';
 
-class Footer extends StatelessWidget {
-  const Footer({
+class ConversationListFooter extends StatelessWidget {
+  const ConversationListFooter({
     super.key,
   });
 

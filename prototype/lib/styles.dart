@@ -111,14 +111,14 @@ InputDecoration messageComposerInputDecoration(BuildContext context) =>
       fillColor: Colors.white,
     );
 
-TextStyle messageTextStyle(BuildContext context) => TextStyle(
-      color: Colors.black,
+TextStyle messageTextStyle(BuildContext context, bool inverted) => TextStyle(
+      color: inverted ? Colors.white : Colors.black,
       fontFamily: fontFamily,
       fontVariations:
           isLargeScreen(context) ? variationRegular : variationMedium,
       letterSpacing: -0.05,
-      fontSize: isLargeScreen(context) ? 15 : 16,
-      height: isLargeScreen(context) ? 1.66 : 1.3,
+      fontSize: isLargeScreen(context) ? 14 : 15,
+      height: isLargeScreen(context) ? 1.5 : 1.3,
     );
 
 final textInputBorder = OutlineInputBorder(
