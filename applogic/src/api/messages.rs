@@ -178,7 +178,7 @@ impl User {
     ) -> Result<()> {
         let timestamp = timestamp.parse::<DateTime<Utc>>()?;
         self.app_state
-            .mark_messages_read_debounced(conversation_id.into(), timestamp.into())
+            .mark_messages_read_debounced(conversation_id.into(), timestamp)
             .await;
         Ok(())
     }
