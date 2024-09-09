@@ -19,17 +19,12 @@ use phnxtypes::{
 };
 use tls_codec::Serialize;
 
-use crate::auth_service::{
-    AsClientRecord, AsEphemeralStorageProvider, AsStorageProvider, AuthService,
-};
+use crate::auth_service::{AsClientRecord, AsStorageProvider, AuthService};
 
 impl AuthService {
-    pub(crate) async fn as_init_user_registration<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
+    pub(crate) async fn as_init_user_registration<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
-        ephemeral_storage_provider: &E,
         params: InitUserRegistrationParams,
     ) -> Result<InitUserRegistrationResponse, InitUserRegistrationError> {
         let InitUserRegistrationParams {
@@ -70,13 +65,11 @@ impl AuthService {
             .map_err(|_| InitUserRegistrationError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        ephemeral_storage_provider
-            .store_credential(client_credential.identity(), &client_credential)
-            .await
-            .map_err(|e| {
-                tracing::error!("Error storing credential: {:?}", e);
-                InitUserRegistrationError::StorageError
-            })?;
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        client_credentials.insert(
+            client_credential.identity().clone(),
+            client_credential.clone(),
+        );
 
         // Perform OPAQUE registration
 
@@ -108,12 +101,9 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_finish_user_registration<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
+    pub(crate) async fn as_finish_user_registration<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
-        ephemeral_storage_provider: &E,
         params: FinishUserRegistrationParamsTbsIn,
     ) -> Result<(), FinishUserRegistrationError> {
         let FinishUserRegistrationParamsTbsIn {
@@ -125,16 +115,13 @@ impl AuthService {
         } = params;
 
         // Look up the initial client's ClientCredential in the ephemeral DB based on the user_name
-        let client_credential = ephemeral_storage_provider
-            .load_credential(&client_id)
-            .await
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let client_credential = client_credentials
+            .remove(&client_id)
             .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
 
         // Authenticate the request using the signature key in the
         // ClientCredential
-
-        // TODO: This is tricky, since we cannot do this ahead
-        // of time, since the client certificate is only in the ephemeral DB.
 
         // Finish OPAQUE flow
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
@@ -195,21 +182,8 @@ impl AuthService {
             })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        ephemeral_storage_provider
-            .delete_client_login_state(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
-        ephemeral_storage_provider
-            .delete_credential(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
-
+        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        client_login_states.remove(&client_id);
         Ok(())
     }
 

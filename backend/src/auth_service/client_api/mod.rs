@@ -9,10 +9,7 @@ use phnxtypes::{
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
-use super::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    AuthService,
-};
+use super::{storage_provider_trait::AsStorageProvider, AuthService};
 
 use tls_codec::Serialize;
 
@@ -23,12 +20,9 @@ pub mod privacypass;
 pub mod user;
 
 impl AuthService {
-    pub(crate) async fn as_init_two_factor_auth<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
+    pub(crate) async fn as_init_two_factor_auth<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
-        ephemeral_storage_provider: &E,
         params: Init2FactorAuthParamsTbs,
     ) -> Result<Init2FactorAuthResponse, Init2FactorAuthError> {
         let Init2FactorAuthParamsTbs {
@@ -65,6 +59,8 @@ impl AuthService {
             tracing::error!("Opaque startup failed with error {e:?}");
             Init2FactorAuthError::OpaqueLoginFailed
         })?;
+        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        client_login_states.insert(client_id, server_login_result.state);
 
         let opaque_login_response = OpaqueLoginResponse {
             server_message: server_login_result.message,

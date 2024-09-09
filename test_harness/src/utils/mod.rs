@@ -12,7 +12,7 @@ use std::{
 pub mod setup;
 
 use once_cell::sync::Lazy;
-use phnxbackend::ds::Ds;
+use phnxbackend::{auth_service::AuthService, ds::Ds};
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::{
@@ -21,9 +21,7 @@ use phnxserver::{
     },
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::memory::{
-        auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider,
-    },
+    storage_provider::memory::qs_connector::MemoryEnqueueProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
@@ -80,6 +78,7 @@ pub async fn spawn_app(
     )
     .await
     .expect("Failed to connect to database.");
+    let auth_service = AuthService::default();
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();
@@ -99,7 +98,6 @@ pub async fn spawn_app(
     )
     .await
     .expect("Failed to connect to database.");
-    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
     let qs_connector = MemoryEnqueueProvider {
@@ -113,9 +111,9 @@ pub async fn spawn_app(
     let server = run(
         listener,
         ds,
+        auth_service,
         qs_storage_provider,
         as_storage_provider,
-        as_ephemeral_storage_provider,
         qs_connector,
         network_provider,
         ws_dispatch_notifier.clone(),

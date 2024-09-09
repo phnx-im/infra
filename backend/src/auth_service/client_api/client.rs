@@ -20,18 +20,12 @@ use phnxtypes::{
 };
 use tls_codec::Serialize;
 
-use crate::auth_service::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    AsClientRecord, AuthService,
-};
+use crate::auth_service::{storage_provider_trait::AsStorageProvider, AsClientRecord, AuthService};
 
 impl AuthService {
-    pub(crate) async fn as_init_client_addition<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
+    pub(crate) async fn as_init_client_addition<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
-        ephemeral_storage_provider: &E,
         params: InitiateClientAdditionParams,
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
@@ -105,17 +99,11 @@ impl AuthService {
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        ephemeral_storage_provider
-            .store_client_login_state(
-                client_credential.identity(),
-                &client_credential,
-                &server_login_result.state,
-            )
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?;
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        client_credentials.insert(
+            client_credential.identity().clone(),
+            client_credential.clone(),
+        );
 
         let response = InitClientAdditionResponse {
             client_credential,
@@ -125,12 +113,9 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_finish_client_addition<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
+    pub(crate) async fn as_finish_client_addition<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
-        ephemeral_storage_provider: &E,
         params: FinishClientAdditionParamsTbs,
     ) -> Result<(), FinishClientAdditionError> {
         let FinishClientAdditionParamsTbs {
@@ -142,13 +127,9 @@ impl AuthService {
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based
         // on the client_id
-        let (client_credential, _opaque_state) = ephemeral_storage_provider
-            .load_client_login_state(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishClientAdditionError::StorageError
-            })?
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let client_credential = client_credentials
+            .remove(&client_id)
             .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
 
         // Create the new client entry
@@ -171,13 +152,8 @@ impl AuthService {
             })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        ephemeral_storage_provider
-            .delete_client_login_state(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishClientAdditionError::StorageError
-            })?;
+        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        client_login_states.remove(&client_id);
 
         Ok(())
     }

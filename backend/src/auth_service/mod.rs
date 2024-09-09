@@ -4,12 +4,14 @@
 
 #![allow(unused_variables)]
 
-use opaque_ke::ServerRegistration;
+use std::{collections::HashMap, sync::Arc};
+
+use opaque_ke::{ServerLogin, ServerRegistration};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
     errors::auth_service::AsProcessingError,
-    identifiers::UserName,
+    identifiers::{AsClientId, UserName},
     messages::{
         client_as::{
             AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
@@ -23,11 +25,9 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use tls_codec::{TlsSerialize, TlsSize};
+use tokio::sync::Mutex;
 
-use self::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    verification::VerifiableClientToAsMessage,
-};
+use self::{storage_provider_trait::AsStorageProvider, verification::VerifiableClientToAsMessage};
 
 pub mod client_api;
 pub mod devices;
@@ -106,35 +106,29 @@ impl AsClientRecord {
     }
 }
 
-pub struct AuthService {}
+#[derive(Clone, Default)]
+pub struct AuthService {
+    ephemeral_client_credentials: Arc<Mutex<HashMap<AsClientId, ClientCredential>>>,
+    ephemeral_user_logins: Arc<Mutex<HashMap<UserName, ServerLogin<OpaqueCiphersuite>>>>,
+    ephemeral_client_logins: Arc<Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>>,
+}
 
 impl AuthService {
-    pub async fn process<Asp: AsStorageProvider, Eph: AsEphemeralStorageProvider>(
+    pub async fn process<Asp: AsStorageProvider>(
+        &self,
         storage_provider: &Asp,
-        ephemeral_storage_provider: &Eph,
         message: VerifiableClientToAsMessage,
     ) -> Result<AsProcessResponse, AsProcessingError> {
-        let verified_params = message
-            .verify(storage_provider, ephemeral_storage_provider)
-            .await?;
+        let verified_params = self.verify(storage_provider, message).await?;
 
         let response: AsProcessResponse = match verified_params {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
-                AuthService::as_init_two_factor_auth(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
+                .as_init_two_factor_auth(storage_provider, params)
                 .await
-                .map(AsProcessResponse::Init2FactorAuth)?
-            }
+                .map(AsProcessResponse::Init2FactorAuth)?,
             VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                AuthService::as_finish_user_registration(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
-                .await?;
+                self.as_finish_user_registration(storage_provider, params)
+                    .await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteUser(params) => {
@@ -142,12 +136,8 @@ impl AuthService {
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::FinishClientAddition(params) => {
-                AuthService::as_finish_client_addition(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
-                .await?;
+                self.as_finish_client_addition(storage_provider, params)
+                    .await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteClient(params) => {
@@ -178,15 +168,10 @@ impl AuthService {
                     .await
                     .map(AsProcessResponse::UserKeyPackages)?
             }
-            VerifiedAsRequestParams::InitiateClientAddition(params) => {
-                AuthService::as_init_client_addition(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::InitiateClientAddition(params) => self
+                .as_init_client_addition(storage_provider, params)
                 .await
-                .map(AsProcessResponse::InitiateClientAddition)?
-            }
+                .map(AsProcessResponse::InitiateClientAddition)?,
             VerifiedAsRequestParams::UserClients(params) => {
                 AuthService::as_user_clients(storage_provider, params)
                     .await
@@ -201,15 +186,10 @@ impl AuthService {
                 AuthService::as_enqueue_message(storage_provider, params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::InitUserRegistration(params) => {
-                AuthService::as_init_user_registration(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::InitUserRegistration(params) => self
+                .as_init_user_registration(storage_provider, params)
                 .await
-                .map(AsProcessResponse::InitUserRegistration)?
-            }
+                .map(AsProcessResponse::InitUserRegistration)?,
         };
         Ok(response)
     }

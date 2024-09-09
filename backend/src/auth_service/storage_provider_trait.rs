@@ -5,7 +5,7 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
-use opaque_ke::{ServerLogin, ServerRegistration, ServerSetup};
+use opaque_ke::{ServerRegistration, ServerSetup};
 use phnxtypes::{
     credentials::{
         keys::AsIntermediateSigningKey, AsCredential, AsIntermediateCredential, ClientCredential,
@@ -193,59 +193,4 @@ pub trait AsStorageProvider: Sync + Send + 'static {
         &self,
         number_of_tokens: usize,
     ) -> Result<(), Self::StorageError>;
-}
-
-#[async_trait]
-pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
-    type StorageError: Error + Debug;
-
-    /// Store a client credential for a given client ID.
-    async fn store_credential(
-        &self,
-        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
-        credential: &ClientCredential,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Load a client credential for a given client ID.
-    async fn load_credential(&self, client_id: &AsClientId) -> Option<ClientCredential>;
-
-    /// Delete a client credential for a given client ID.
-    async fn delete_credential(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
-
-    /// Store the login state for a given client ID.
-    async fn store_client_login_state(
-        &self,
-        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
-        credential: &ClientCredential,
-        opaque_state: &ServerLogin<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Load the login state for a given client ID.
-    async fn load_client_login_state(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<(ClientCredential, ServerLogin<OpaqueCiphersuite>)>, Self::StorageError>;
-
-    /// Delete the login state for a given client ID.
-    async fn delete_client_login_state(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Store the login state for a given user name.
-    async fn store_user_login_state(
-        &self,
-        user_name: &UserName,
-        opaque_state: &ServerLogin<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Load the login state for a given user name.
-    async fn load_user_login_state(
-        &self,
-        user_name: &UserName,
-    ) -> Result<Option<ServerLogin<OpaqueCiphersuite>>, Self::StorageError>;
-
-    /// Delete the login state for a given user name.
-    async fn delete_user_login_state(&self, user_name: &UserName)
-        -> Result<(), Self::StorageError>;
 }

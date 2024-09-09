@@ -9,10 +9,9 @@ use std::{
 
 use async_trait::async_trait;
 use mls_assist::openmls_traits::types::SignatureScheme;
-use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerRegistration, ServerSetup};
+use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
 use phnxbackend::auth_service::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    AsClientRecord, AsUserRecord,
+    storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
 };
 use phnxtypes::{
     credentials::{
@@ -562,136 +561,6 @@ impl AsStorageProvider for MemoryAsStorage {
         for (_, allowance) in token_allowances.iter_mut() {
             *allowance = number_of_tokens;
         }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, Error)]
-pub enum EphemeralStorageError {
-    /// The storage is poisoned.
-    #[error("The storage is poisoned.")]
-    PoisonedLock,
-}
-
-#[derive(Debug, Default)]
-pub struct EphemeralAsStorage {
-    client_credentials: RwLock<HashMap<AsClientId, ClientCredential>>,
-    client_login_states:
-        RwLock<HashMap<AsClientId, (ClientCredential, ServerLogin<OpaqueCiphersuite>)>>,
-    user_login_states: RwLock<HashMap<UserName, ServerLogin<OpaqueCiphersuite>>>,
-}
-
-#[async_trait]
-impl AsEphemeralStorageProvider for EphemeralAsStorage {
-    type StorageError = EphemeralStorageError;
-
-    /// Store a client credential for a given client ID.
-    async fn store_credential(
-        &self,
-        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
-        credential: &ClientCredential,
-    ) -> Result<(), Self::StorageError> {
-        let mut client_credentials = self
-            .client_credentials
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        client_credentials.insert(client_id, credential.clone());
-        Ok(())
-    }
-
-    /// Load a client credential for a given client ID.
-    async fn load_credential(&self, client_id: &AsClientId) -> Option<ClientCredential> {
-        let client_credentials = self.client_credentials.read().ok()?;
-        client_credentials.get(client_id).cloned()
-    }
-
-    /// Delete a client credential for a given client ID.
-    async fn delete_credential(&self, client_id: &AsClientId) -> Result<(), Self::StorageError> {
-        let mut client_credentials = self
-            .client_credentials
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        client_credentials.remove(client_id);
-        Ok(())
-    }
-
-    /// Store the login state for a given client ID.
-    async fn store_client_login_state(
-        &self,
-        client_id: AsClientId, // TODO: This is probably redundant, as the ID is contained in the credential.
-        credential: &ClientCredential,
-        opaque_state: &ServerLogin<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError> {
-        let mut login_states = self
-            .client_login_states
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        login_states.insert(client_id, (credential.clone(), opaque_state.clone()));
-        Ok(())
-    }
-
-    /// Load the login state for a given client ID.
-    async fn load_client_login_state(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<Option<(ClientCredential, ServerLogin<OpaqueCiphersuite>)>, Self::StorageError>
-    {
-        let login_states = self
-            .client_login_states
-            .read()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        Ok(login_states.get(client_id).cloned())
-    }
-
-    /// Delete the login state for a given client ID.
-    async fn delete_client_login_state(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<(), Self::StorageError> {
-        let mut login_states = self
-            .client_login_states
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        login_states.remove(client_id);
-        Ok(())
-    }
-
-    /// Store the login state for a given user name.
-    async fn store_user_login_state(
-        &self,
-        user_name: &UserName,
-        opaque_state: &ServerLogin<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError> {
-        let mut login_states = self
-            .user_login_states
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        login_states.insert(user_name.clone(), opaque_state.clone());
-        Ok(())
-    }
-
-    /// Load the login state for a given user name.
-    async fn load_user_login_state(
-        &self,
-        user_name: &UserName,
-    ) -> Result<Option<ServerLogin<OpaqueCiphersuite>>, Self::StorageError> {
-        let login_states = self
-            .user_login_states
-            .read()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        Ok(login_states.get(user_name).cloned())
-    }
-
-    /// Delete the login state for a given user name.
-    async fn delete_user_login_state(
-        &self,
-        user_name: &UserName,
-    ) -> Result<(), Self::StorageError> {
-        let mut login_states = self
-            .user_login_states
-            .write()
-            .map_err(|_| EphemeralStorageError::PoisonedLock)?;
-        login_states.remove(user_name);
         Ok(())
     }
 }
