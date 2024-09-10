@@ -16,7 +16,7 @@ use phnxcoreclient::{
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
-use phnxtypes::identifiers::{Fqdn, SafeTryInto, UserName};
+use phnxtypes::identifiers::{Fqdn, SafeTryInto, QualifiedUserName};
 use png::Encoder;
 
 #[actix_rt::test]
@@ -371,7 +371,7 @@ async fn exchange_user_profiles() {
     setup.add_user(ALICE).await;
 
     // Set a user profile for alice
-    let alice_user_name: UserName = SafeTryInto::try_into(ALICE).unwrap();
+    let alice_user_name: QualifiedUserName = SafeTryInto::try_into(ALICE).unwrap();
     let alice_display_name = DisplayName::try_from("4l1c3".to_string()).unwrap();
 
     // Create a new ImgBuf with width: 1px and height: 1px
@@ -416,7 +416,7 @@ async fn exchange_user_profiles() {
     setup.add_user(BOB).await;
 
     // Set a user profile for
-    let bob_user_name: UserName = SafeTryInto::try_into(BOB).unwrap();
+    let bob_user_name: QualifiedUserName = SafeTryInto::try_into(BOB).unwrap();
     let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile::new(

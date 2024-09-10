@@ -37,7 +37,7 @@ use phnxtypes::{
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
     identifiers::{
-        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, SafeTryInto, UserName,
+        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, SafeTryInto, QualifiedUserName,
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
@@ -109,7 +109,7 @@ impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: impl SafeTryInto<UserName>,
+        user_name: impl SafeTryInto<QualifiedUserName>,
         password: &str,
         server_url: impl ToString,
         db_path: &str,
@@ -188,7 +188,7 @@ impl CoreUser {
     /// The same as [`Self::new()`], except that databases are ephemeral and are
     /// dropped together with this instance of CoreUser.
     pub async fn new_ephemeral(
-        user_name: impl Into<UserName>,
+        user_name: impl Into<QualifiedUserName>,
         password: &str,
         server_url: impl ToString,
         push_token: Option<PushToken>,
@@ -314,7 +314,7 @@ impl CoreUser {
     }
 
     /// Get the user profile of the user with the given [`UserName`].
-    pub async fn user_profile(&self, user_name: &UserName) -> Result<Option<UserProfile>> {
+    pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
         let connection = &self.connection.lock().await;
         let user = UserProfile::load(connection, user_name)?;
         Ok(user)
@@ -329,7 +329,7 @@ impl CoreUser {
     pub async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[UserName],
+        invited_users: &[QualifiedUserName],
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load all the relevant conversation and all the contacts we
         // want to add.
@@ -429,7 +429,7 @@ impl CoreUser {
     pub async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: &[UserName],
+        target_users: &[QualifiedUserName],
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
         let connection = self.connection.lock().await;
@@ -588,7 +588,7 @@ impl CoreUser {
     /// conversation.
     pub async fn add_contact(
         &self,
-        user_name: impl SafeTryInto<UserName>,
+        user_name: impl SafeTryInto<QualifiedUserName>,
     ) -> Result<ConversationId> {
         let user_name = user_name.try_into()?;
         let params = UserConnectionPackagesParams {
@@ -998,7 +998,7 @@ impl CoreUser {
         Ok(contacts)
     }
 
-    pub async fn contact(&self, user_name: &UserName) -> Option<Contact> {
+    pub async fn contact(&self, user_name: &QualifiedUserName) -> Option<Contact> {
         let connection = &self.connection.lock().await;
         Contact::load(connection, user_name).ok().flatten()
     }
@@ -1021,7 +1021,7 @@ impl CoreUser {
         }
     }
 
-    pub fn user_name(&self) -> UserName {
+    pub fn user_name(&self) -> QualifiedUserName {
         self.key_store
             .signing_key
             .credential()
@@ -1033,7 +1033,7 @@ impl CoreUser {
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> Option<HashSet<UserName>> {
+    ) -> Option<HashSet<QualifiedUserName>> {
         let connection = &self.connection.lock().await;
         let conversation = Conversation::load(connection, &conversation_id).ok()??;
 
@@ -1042,7 +1042,7 @@ impl CoreUser {
             .map(|g| g.members(connection))
     }
 
-    pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserName>> {
+    pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<QualifiedUserName>> {
         let connection = &self.connection.lock().await;
         let conversation = Conversation::load(connection, &conversation_id).ok()??;
 

@@ -9,7 +9,7 @@ use phnxtypes::{
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
-use super::{storage_provider_trait::AsStorageProvider, AuthService};
+use super::{storage_provider_trait::AsStorageProvider, user_record::UserRecord, AuthService};
 
 use tls_codec::Serialize;
 
@@ -38,10 +38,13 @@ impl AuthService {
 
         // Load the user record from storage
         let user_name = &client_id.user_name();
-        let password_file_option = storage_provider
-            .load_user(user_name)
+        let password_file_option = UserRecord::load(&self.db_pool, user_name)
             .await
-            .map(|record| record.password_file);
+            .map_err(|e| {
+                tracing::error!("Error loading user record: {:?}", e);
+                Init2FactorAuthError::StorageError
+            })?
+            .map(|record| record.into_password_file());
 
         let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
             &mut OsRng,

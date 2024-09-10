@@ -22,6 +22,9 @@ pub enum AsDequeueError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum InitUserRegistrationError {
+    /// Could not find signing key
+    #[error("Could not find signing key")]
+    SigningKeyNotFound,
     /// Library error
     #[error("Library error")]
     LibraryError,
@@ -78,6 +81,9 @@ pub enum InitClientAdditionError {
     /// Library error
     #[error("Library error")]
     LibraryError,
+    /// Could not find signing key
+    #[error("Could not find signing key")]
+    SigningKeyNotFound,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,

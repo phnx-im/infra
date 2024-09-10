@@ -224,13 +224,46 @@ impl TryFrom<&str> for QualifiedGroupId {
 
 #[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-pub struct UserName {
-    user_name: TlsString,
+#[serde(transparent)]
+#[cfg_attr(feature = "sqlx", sqlx(transparent, type_name = "TEXT"))]
+pub struct UserName(TlsString);
+
+impl std::fmt::Display for UserName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum UserNameError {
+    #[error("The given string does not represent a valid user name.")]
+    InvalidUserName,
+}
+
+impl TryFrom<String> for UserName {
+    type Error = UserNameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        fn contains_any_of(value: &str, chars: &[char]) -> bool {
+            value.chars().any(|c| chars.contains(&c))
+        }
+        if contains_any_of(&value, &['@', '.']) {
+            return Err(UserNameError::InvalidUserName);
+        } else {
+            Ok(Self(TlsString(value.to_string())))
+        }
+    }
+}
+
+#[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+pub struct QualifiedUserName {
+    user_name: UserName,
     domain: Fqdn,
 }
 
 #[cfg(feature = "sqlite")]
-impl ToSql for UserName {
+impl ToSql for QualifiedUserName {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         let string = self.to_string();
         Ok(rusqlite::types::ToSqlOutput::from(string))
@@ -238,10 +271,10 @@ impl ToSql for UserName {
 }
 
 #[cfg(feature = "sqlite")]
-impl FromSql for UserName {
+impl FromSql for QualifiedUserName {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let user_name =
-            <&str as SafeTryInto<UserName>>::try_into(value.as_str()?).map_err(|e| {
+        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(value.as_str()?)
+            .map_err(|e| {
                 tracing::error!("Error parsing UserName: {}", e);
                 FromSqlError::InvalidType
             })?;
@@ -250,11 +283,13 @@ impl FromSql for UserName {
 }
 
 #[derive(Debug, Clone, Error)]
-pub enum UserNameError {
-    #[error("The given string does not represent a valid user name.")]
-    InvalidUserName,
+pub enum QualifiedUserNameError {
+    #[error("Invalid string representation of qualified user name")]
+    InvalidString,
     #[error(transparent)]
-    FqdnError(#[from] FqdnError),
+    InvalidUserName(#[from] UserNameError),
+    #[error(transparent)]
+    InvalidFqdn(#[from] FqdnError),
 }
 
 impl<T> SafeTryInto<T> for T {
@@ -272,48 +307,54 @@ pub trait SafeTryInto<T>: Sized {
 }
 
 // TODO: This string processing is way too simplistic, but it should do for now.
-impl SafeTryInto<UserName> for &str {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for &str {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, Self::Error> {
+    fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
         let mut split_name = self.split('@');
-        let user_name = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        let user_name_str = split_name
+            .next()
+            .ok_or(QualifiedUserNameError::InvalidString)?;
+        let user_name = UserName::try_from(user_name_str.to_string())?;
         // UserNames MUST be qualified
-        let domain = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        let domain = split_name
+            .next()
+            .ok_or(QualifiedUserNameError::InvalidString)?;
         if split_name.next().is_some() {
-            return Err(UserNameError::InvalidUserName);
+            return Err(QualifiedUserNameError::InvalidString);
         }
         let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
-        Ok(UserName {
-            user_name: TlsString(user_name.to_string()),
-            domain,
-        })
+        Ok(QualifiedUserName { user_name, domain })
     }
 }
 
-impl SafeTryInto<UserName> for String {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for String {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, UserNameError> {
-        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
+        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
     }
 }
 
-impl SafeTryInto<UserName> for &String {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for &String {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, UserNameError> {
-        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
+        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
     }
 }
 
-impl UserName {
+impl QualifiedUserName {
+    pub fn user_name(&self) -> &UserName {
+        &self.user_name
+    }
+
     pub fn domain(&self) -> Fqdn {
         self.domain.clone()
     }
 }
 
-impl std::fmt::Display for UserName {
+impl std::fmt::Display for QualifiedUserName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}@{}", self.user_name, self.domain)
     }
@@ -333,7 +374,7 @@ impl std::fmt::Display for UserName {
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 pub struct AsClientId {
-    user_name: UserName,
+    user_name: QualifiedUserName,
     client_id: TlsUuid,
 }
 
@@ -345,18 +386,18 @@ impl std::fmt::Display for AsClientId {
 }
 
 impl AsClientId {
-    pub fn new(user_name: UserName, client_id: Uuid) -> Self {
+    pub fn new(user_name: QualifiedUserName, client_id: Uuid) -> Self {
         Self {
             user_name,
             client_id: TlsUuid(client_id),
         }
     }
 
-    pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
+    pub fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
         Ok(Self::new(user_name, Uuid::new_v4()))
     }
 
-    pub fn user_name(&self) -> UserName {
+    pub fn user_name(&self) -> QualifiedUserName {
         self.user_name.clone()
     }
 
@@ -372,7 +413,7 @@ pub enum AsClientIdError {
     #[error("The UUID of this client id is invalid: {0}")]
     InvalidClientUuid(#[from] uuid::Error),
     #[error("The user name of the client id is invalid: {0}")]
-    UserNameError(#[from] UserNameError),
+    UserNameError(#[from] QualifiedUserNameError),
 }
 
 impl TryFrom<String> for AsClientId {
@@ -383,7 +424,7 @@ impl TryFrom<String> for AsClientId {
             return Err(AsClientIdError::InvalidClientId);
         };
         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name = <&str as SafeTryInto<UserName>>::try_into(user_name_str)?;
+        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name_str)?;
         Ok(Self {
             user_name,
             client_id,

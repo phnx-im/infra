@@ -20,7 +20,9 @@ use phnxtypes::{
 };
 use tls_codec::Serialize;
 
-use crate::auth_service::{storage_provider_trait::AsStorageProvider, AsClientRecord, AuthService};
+use crate::auth_service::{
+    signing_key::IntermediateSigningKey, storage_provider_trait::AsStorageProvider, user_record::UserRecord, AsClientRecord, AuthService
+};
 
 impl AuthService {
     pub(crate) async fn as_init_client_addition<S: AsStorageProvider>(
@@ -41,10 +43,13 @@ impl AuthService {
 
         // Load the user record from storage
         let user_name = client_credential_payload.identity().user_name();
-        let password_file_option = storage_provider
-            .load_user(&user_name)
+        let password_file_option = UserRecord::load(&self.db_pool, &user_name)
             .await
-            .map(|record| record.password_file);
+            .map_err(|e| {
+                tracing::error!("Error loading user record: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?
+            .map(|record| record.into_password_file());
 
         let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
             &mut OsRng,
@@ -88,14 +93,17 @@ impl AuthService {
         }
 
         // Load the signature key from storage.
-        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            InitClientAdditionError::StorageError
-        })?;
+        let signing_key = IntermediateSigningKey::load(&self.db_pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading signing key: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?
+            .ok_or(InitClientAdditionError::SigningKeyNotFound)?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_credential_payload
-            .sign(&signing_key)
+            .sign(&*signing_key)
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB

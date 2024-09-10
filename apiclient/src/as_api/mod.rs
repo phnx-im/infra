@@ -15,7 +15,7 @@ use phnxtypes::{
     },
     endpoint_paths::ENDPOINT_AS,
     errors::auth_service::AsProcessingError,
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     messages::{
         client_as::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
@@ -197,7 +197,7 @@ impl ApiClient {
 
     pub async fn as_delete_user(
         &self,
-        user_name: UserName,
+        user_name: QualifiedUserName,
         client_id: AsClientId,
         opaque_finish: OpaqueLoginFinish,
         signing_key: &ClientSigningKey,
@@ -417,7 +417,7 @@ impl ApiClient {
 
     pub async fn as_user_clients(
         &self,
-        user_name: UserName,
+        user_name: QualifiedUserName,
     ) -> Result<UserClientsResponseIn, AsRequestError> {
         let payload = UserClientsParams { user_name };
         let params = AsRequestParams::UserClients(payload);

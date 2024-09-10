@@ -19,7 +19,10 @@ use phnxtypes::{
 };
 use tls_codec::Serialize;
 
-use crate::auth_service::{AsClientRecord, AsStorageProvider, AuthService};
+use crate::auth_service::{
+    signing_key::IntermediateSigningKey, user_record::UserRecord, AsClientRecord,
+    AsStorageProvider, AuthService,
+};
 
 impl AuthService {
     pub(crate) async fn as_init_user_registration<S: AsStorageProvider>(
@@ -34,12 +37,16 @@ impl AuthService {
 
         // Check if a user entry with the name given in the client_csr already exists
         tracing::info!("Checking if user already exists");
-        let client_id_exists = storage_provider
-            .load_user(&client_payload.identity().user_name())
-            .await
-            .is_some();
+        let user_name_exists =
+            UserRecord::load(&self.db_pool, &client_payload.identity().user_name())
+                .await
+                .map_err(|e| {
+                    tracing::error!("Error loading user record: {:?}", e);
+                    InitUserRegistrationError::StorageError
+                })?
+                .is_some();
 
-        if client_id_exists {
+        if user_name_exists {
             return Err(InitUserRegistrationError::UserAlreadyExists);
         }
 
@@ -54,14 +61,17 @@ impl AuthService {
         }
 
         // Load the signature key from storage.
-        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
-            tracing::error!("Error loading signing key: {:?}", e);
-            InitUserRegistrationError::StorageError
-        })?;
+        let signing_key = IntermediateSigningKey::load(&self.db_pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading signing key: {:?}", e);
+                InitUserRegistrationError::StorageError
+            })?
+            .ok_or(InitUserRegistrationError::SigningKeyNotFound)?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_payload
-            .sign(&signing_key)
+            .sign(&*signing_key)
             .map_err(|_| InitUserRegistrationError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
@@ -127,8 +137,7 @@ impl AuthService {
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
 
         // Create the user entry with the information given in the request
-        storage_provider
-            .create_user(&client_id.user_name(), &password_file)
+        UserRecord::new_and_store(&self.db_pool, &client_id.user_name(), &password_file)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -187,8 +196,8 @@ impl AuthService {
         Ok(())
     }
 
-    pub(crate) async fn as_delete_user<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_delete_user(
+        &self,
         params: DeleteUserParamsTbs,
     ) -> Result<(), DeleteUserError> {
         let DeleteUserParamsTbs {
@@ -198,8 +207,7 @@ impl AuthService {
         } = params;
 
         // Delete the user
-        storage_provider
-            .delete_user(&client_id.user_name())
+        UserRecord::delete(&self.db_pool, &user_name)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);

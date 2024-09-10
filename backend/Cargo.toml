@@ -23,7 +23,7 @@ sqlx = { workspace = true }
 tokio = "1"
 
 
-phnxtypes = { workspace = true }
+phnxtypes = { workspace = true, features = ["sqlx"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }

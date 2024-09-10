@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
-use phnxtypes::identifiers::{SafeTryInto, UserName};
+use phnxtypes::identifiers::{SafeTryInto, QualifiedUserName};
 
 use crate::{
     api::types::{UiContact, UiUserProfile},
@@ -30,7 +30,7 @@ impl User {
     }
 
     pub async fn contact(&self, user_name: String) -> Option<UiContact> {
-        let user_name = <String as SafeTryInto<UserName>>::try_into(user_name).unwrap();
+        let user_name = <String as SafeTryInto<QualifiedUserName>>::try_into(user_name).unwrap();
         self.user.contact(&user_name).await.map(|c| c.into())
     }
 

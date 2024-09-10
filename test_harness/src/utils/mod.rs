@@ -78,7 +78,12 @@ pub async fn spawn_app(
     )
     .await
     .expect("Failed to connect to database.");
-    let auth_service = AuthService::default();
+    let auth_service = AuthService::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+    )
+    .await
+    .expect("Failed to connect to database.");
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();

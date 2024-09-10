@@ -6,12 +6,12 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use opaque_ke::{ServerLogin, ServerRegistration};
+use opaque_ke::ServerLogin;
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
     errors::auth_service::AsProcessingError,
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     messages::{
         client_as::{
             AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
@@ -24,7 +24,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use sqlx::PgPool;
+use sqlx::{Executor, PgPool};
 use tls_codec::{TlsSerialize, TlsSize};
 use tokio::sync::Mutex;
 
@@ -36,6 +36,7 @@ pub mod invitations;
 pub mod key_packages;
 mod privacy_pass;
 pub mod registration;
+mod signing_key;
 pub mod storage_provider_trait;
 mod user_record;
 pub mod verification;
@@ -63,25 +64,6 @@ ACTION_AS_USER_KEY_PACKAGES
 ACTION_AS_ENQUEUE_MESSAGE
 ACTION_AS_CREDENTIALS
 */
-
-// === Authentication ===
-
-// === User ===
-
-#[derive(Debug, Clone)]
-pub struct AsUserRecord {
-    _user_name: UserName,
-    password_file: ServerRegistration<OpaqueCiphersuite>,
-}
-
-impl AsUserRecord {
-    pub fn new(user_name: UserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
-        Self {
-            _user_name: user_name,
-            password_file,
-        }
-    }
-}
 
 // === Client ===
 
@@ -112,12 +94,51 @@ impl AsClientRecord {
 #[derive(Clone)]
 pub struct AuthService {
     ephemeral_client_credentials: Arc<Mutex<HashMap<AsClientId, ClientCredential>>>,
-    ephemeral_user_logins: Arc<Mutex<HashMap<UserName, ServerLogin<OpaqueCiphersuite>>>>,
+    ephemeral_user_logins: Arc<Mutex<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>>,
     ephemeral_client_logins: Arc<Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>>,
     db_pool: PgPool,
 }
 
 impl AuthService {
+    pub async fn new(connection_string: &str, db_name: &str) -> Result<Self, sqlx::Error> {
+        let connection = PgPool::connect(connection_string).await?;
+
+        let db_exists = sqlx::query!(
+            "select exists (
+            SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
+        )",
+            db_name,
+        )
+        .fetch_one(&connection)
+        .await?;
+
+        if !db_exists.exists.unwrap_or(false) {
+            connection
+                .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+                .await?;
+        }
+
+        let connection_string_with_db = format!("{}/{}", connection_string, db_name);
+
+        let db_pool = PgPool::connect(&connection_string_with_db).await?;
+
+        // Migrate database
+        Self::new_from_pool(db_pool).await
+    }
+
+    async fn new_from_pool(db_pool: PgPool) -> Result<Self, sqlx::Error> {
+        sqlx::migrate!("./migrations").run(&db_pool).await?;
+
+        let ds = Self {
+            db_pool,
+            ephemeral_client_credentials: Arc::new(Mutex::new(HashMap::new())),
+            ephemeral_user_logins: Arc::new(Mutex::new(HashMap::new())),
+            ephemeral_client_logins: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        Ok(ds)
+    }
+
     pub async fn process<Asp: AsStorageProvider>(
         &self,
         storage_provider: &Asp,
@@ -136,7 +157,7 @@ impl AuthService {
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteUser(params) => {
-                AuthService::as_delete_user(storage_provider, params).await?;
+                self.as_delete_user(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::FinishClientAddition(params) => {

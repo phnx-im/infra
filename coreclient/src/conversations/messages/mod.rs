@@ -40,7 +40,7 @@ impl TimestampedMessage {
     pub(crate) fn from_application_message(
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_name: UserName,
+        sender_name: QualifiedUserName,
     ) -> Result<Self, tls_codec::Error> {
         let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
         let message = Message::Content(ContentMessage::new(sender_name.to_string(), true, content));
@@ -243,8 +243,8 @@ pub enum EventMessage {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
-    Add(UserName, UserName),
-    Remove(UserName, UserName),
+    Add(QualifiedUserName, QualifiedUserName),
+    Remove(QualifiedUserName, QualifiedUserName),
 }
 
 impl Display for SystemMessage {

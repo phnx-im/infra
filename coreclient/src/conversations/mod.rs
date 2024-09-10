@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, UserName},
+    identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, QualifiedUserName},
     time::TimeStamp,
 };
 use rusqlite::{
@@ -91,7 +91,7 @@ pub struct Conversation {
 impl Conversation {
     pub(crate) fn new_connection_conversation(
         group_id: GroupId,
-        user_name: UserName,
+        user_name: QualifiedUserName,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
@@ -161,7 +161,7 @@ impl Conversation {
     pub(crate) fn set_inactive(
         &mut self,
         connection: &Connection,
-        past_members: Vec<UserName>,
+        past_members: Vec<QualifiedUserName>,
     ) -> Result<(), rusqlite::Error> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
         self.update_status(connection, &new_status)?;
@@ -198,7 +198,7 @@ impl FromSql for ConversationStatus {
         };
         let user_names = user_names
             .split(',')
-            .map(<&str as SafeTryInto<UserName>>::try_into)
+            .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| {
                 log::error!("Failed to parse user names from database: {:?}", e);
@@ -228,15 +228,15 @@ impl ToSql for ConversationStatus {
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
-    pub past_members: Vec<UserName>,
+    pub past_members: Vec<QualifiedUserName>,
 }
 
 impl InactiveConversation {
-    pub fn new(past_members: Vec<UserName>) -> Self {
+    pub fn new(past_members: Vec<QualifiedUserName>) -> Self {
         Self { past_members }
     }
 
-    pub fn past_members(&self) -> &[UserName] {
+    pub fn past_members(&self) -> &[QualifiedUserName] {
         &self.past_members
     }
 }
@@ -244,10 +244,10 @@ impl InactiveConversation {
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UserName),
+    UnconfirmedConnection(QualifiedUserName),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(UserName),
+    Connection(QualifiedUserName),
     Group,
 }
 
@@ -262,13 +262,13 @@ impl FromSql for ConversationType {
         };
         match conversation_type {
             "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                <&str as SafeTryInto<UserName>>::try_into(user_name).map_err(|e| {
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
                     log::error!("Failed to parse user name from database: {:?}", e);
                     FromSqlError::Other(Box::new(e))
                 })?,
             )),
             "connection" => Ok(Self::Connection(
-                <&str as SafeTryInto<UserName>>::try_into(user_name).map_err(|e| {
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
                     log::error!("Failed to parse user name from database: {:?}", e);
                     FromSqlError::Other(Box::new(e))
                 })?,

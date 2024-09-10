@@ -7,9 +7,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use mls_assist::openmls_traits::types::SignatureScheme;
 use num_traits::ToPrimitive;
-use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
+use opaque_ke::{rand::rngs::OsRng, ServerSetup};
 use phnxbackend::auth_service::{
-    storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
+    storage_provider_trait::AsStorageProvider, AsClientRecord
 };
 use phnxtypes::{
     codec::PhnxCodec,
@@ -19,7 +19,7 @@ use phnxtypes::{
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, Fqdn, UserName},
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
     time::TimeStamp,
 };
@@ -199,10 +199,6 @@ impl AsStorageProvider for PostgresAsStorage {
     type PrivacyPassKeyStore = Self;
     type StorageError = AsPostgresError;
 
-    type CreateUserError = AsPostgresError;
-    type StoreUserError = AsPostgresError;
-    type DeleteUserError = AsPostgresError;
-
     type StoreClientError = AsPostgresError;
     type CreateClientError = AsPostgresError;
     type DeleteClientError = AsPostgresError;
@@ -218,64 +214,6 @@ impl AsStorageProvider for PostgresAsStorage {
 
     type LoadOpaqueKeyError = AsPostgresError;
 
-    // === Users ===
-
-    /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
-    /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
-        let user_name_bytes = PhnxCodec::to_vec(user_name).ok()?;
-        let user_record = sqlx::query!(
-            "SELECT user_name, password_file FROM as_user_records WHERE user_name = $1",
-            user_name_bytes,
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?;
-        let password_file = PhnxCodec::from_slice(&user_record.password_file).ok()?;
-        let as_user_record = AsUserRecord::new(user_name.clone(), password_file);
-        Some(as_user_record)
-    }
-
-    /// Create a new user with the given user name. If a user with the given user
-    /// name already exists, an error is returned.
-    async fn create_user(
-        &self,
-        user_name: &UserName,
-        opaque_record: &ServerRegistration<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError> {
-        let id = Uuid::new_v4();
-        let user_name_bytes = PhnxCodec::to_vec(user_name)?;
-        let password_file_bytes = PhnxCodec::to_vec(&opaque_record)?;
-        sqlx::query!(
-            "INSERT INTO as_user_records (id, user_name, password_file) VALUES ($1, $2, $3)",
-            id,
-            user_name_bytes,
-            password_file_bytes,
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    /// Deletes the AsUserRecord for a given UserId. Returns true if a AsUserRecord
-    /// was deleted, false if no AsUserRecord existed for the given UserId.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - All clients of the user
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
-        let user_name_bytes = PhnxCodec::to_vec(user_id)?;
-        // The database cascades the delete to the clients and their connection packages.
-        sqlx::query!(
-            "DELETE FROM as_user_records WHERE user_name = $1",
-            user_name_bytes
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
     // === Clients ===
 
     async fn create_client(
@@ -283,7 +221,6 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::CreateClientError> {
-        let user_name_bytes = PhnxCodec::to_vec(&client_id.user_name())?;
         let queue_encryption_key_bytes = PhnxCodec::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = PhnxCodec::to_vec(&client_record.ratchet_key)?;
         let activity_time = DateTime::<Utc>::from(client_record.activity_time);
@@ -291,7 +228,7 @@ impl AsStorageProvider for PostgresAsStorage {
         sqlx::query!(
             "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             client_id.client_id(),
-            user_name_bytes,
+            client_id.user_name().to_string(),
             queue_encryption_key_bytes,
             ratchet,
             activity_time,
@@ -338,7 +275,6 @@ impl AsStorageProvider for PostgresAsStorage {
         client_id: &AsClientId,
         client_record: &AsClientRecord,
     ) -> Result<(), Self::StoreClientError> {
-        let user_name_bytes = PhnxCodec::to_vec(&client_id.user_name())?;
         let queue_encryption_key_bytes = PhnxCodec::to_vec(&client_record.queue_encryption_key)?;
         let ratchet = PhnxCodec::to_vec(&client_record.ratchet_key)?;
         let activity_time = DateTime::<Utc>::from(client_record.activity_time);
@@ -346,7 +282,7 @@ impl AsStorageProvider for PostgresAsStorage {
         sqlx::query!(
             "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",
             client_id.client_id(),
-            user_name_bytes,
+            client_id.user_name().to_string(),
             queue_encryption_key_bytes,
             ratchet,
             activity_time,
@@ -444,17 +380,15 @@ impl AsStorageProvider for PostgresAsStorage {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
-        let user_name_bytes = PhnxCodec::to_vec(user_name)?;
-
         // Start the transaction
         let mut transaction = self.pool.begin().await?;
 
         // Collect all client ids associated with that user.
         let client_ids_record = sqlx::query!(
             "SELECT client_id FROM as_client_records WHERE user_name = $1",
-            user_name_bytes
+            user_name.to_string(),
         )
         .fetch_all(&mut *transaction)
         .await?;
@@ -622,18 +556,6 @@ impl AsStorageProvider for PostgresAsStorage {
         return Ok((messages, remaining_messages as u64));
     }
 
-    /// Load the currently active signing key and the
-    /// [`AsIntermediateCredential`].
-    async fn load_signing_key(
-        &self,
-    ) -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError> {
-        let signing_key_bytes_record = sqlx::query!("SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'")
-            .fetch_one(&self.pool)
-            .await?;
-        let signing_key = PhnxCodec::from_slice(&signing_key_bytes_record.signing_key)?;
-        Ok(signing_key)
-    }
-
     /// Load all currently active [`AsCredential`]s and
     /// [`AsIntermediateCredential`]s.
     async fn load_as_credentials(
@@ -686,13 +608,10 @@ impl AsStorageProvider for PostgresAsStorage {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
-        let Ok(user_name_bytes) = PhnxCodec::to_vec(user_name) else {
-            return vec![];
-        };
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential> {
         let Ok(client_records) = sqlx::query!(
             "SELECT client_credential FROM as_client_records WHERE user_name = $1",
-            user_name_bytes,
+            user_name.to_string(),
         )
         .fetch_all(&self.pool)
         .await

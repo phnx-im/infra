@@ -9,9 +9,9 @@ use std::{
 
 use async_trait::async_trait;
 use mls_assist::openmls_traits::types::SignatureScheme;
-use opaque_ke::{rand::rngs::OsRng, ServerRegistration, ServerSetup};
+use opaque_ke::{rand::rngs::OsRng, ServerSetup};
 use phnxbackend::auth_service::{
-    storage_provider_trait::AsStorageProvider, AsClientRecord, AsUserRecord,
+    storage_provider_trait::AsStorageProvider, AsClientRecord,
 };
 use phnxtypes::{
     credentials::{
@@ -20,7 +20,7 @@ use phnxtypes::{
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, Fqdn, UserName},
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
 use privacypass_middleware::memory_stores::MemoryKeyStore;
@@ -29,7 +29,6 @@ use thiserror::Error;
 use super::qs::QueueData;
 
 pub struct MemoryAsStorage {
-    user_records: RwLock<HashMap<UserName, AsUserRecord>>,
     client_records: RwLock<HashMap<AsClientId, AsClientRecord>>,
     connection_packages: RwLock<HashMap<AsClientId, VecDeque<ConnectionPackage>>>,
     queues: RwLock<HashMap<AsClientId, QueueData>>,
@@ -75,7 +74,6 @@ impl MemoryAsStorage {
 
         let as_signing_key = RwLock::new(as_signing_key);
         let storage_provider = Self {
-            user_records: RwLock::new(HashMap::new()),
             client_records: RwLock::new(HashMap::new()),
             connection_packages: RwLock::new(HashMap::new()),
             queues: RwLock::new(HashMap::new()),
@@ -137,10 +135,6 @@ impl AsStorageProvider for MemoryAsStorage {
     type PrivacyPassKeyStore = MemoryKeyStore;
     type StorageError = AsStorageError;
 
-    type CreateUserError = AsStorageError;
-    type StoreUserError = AsStorageError;
-    type DeleteUserError = AsStorageError;
-
     type StoreClientError = AsStorageError;
     type CreateClientError = AsCreateClientError;
     type DeleteClientError = AsStorageError;
@@ -155,53 +149,6 @@ impl AsStorageProvider for MemoryAsStorage {
     type LoadAsCredentialsError = AsStorageError;
 
     type LoadOpaqueKeyError = AsStorageError;
-
-    // === Users ===
-
-    /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
-    /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
-        self.user_records.read().ok()?.get(user_name).cloned()
-    }
-
-    /// Create a new user with the given user name. If a user with the given user
-    /// name already exists, an error is returned.
-    async fn create_user(
-        &self,
-        user_name: &UserName,
-        opaque_record: &ServerRegistration<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError> {
-        let user_record = AsUserRecord::new(user_name.clone(), opaque_record.clone());
-        self.user_records
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .insert(user_name.clone(), user_record);
-        Ok(())
-    }
-
-    /// Deletes the AsUserRecord for a given UserId. Returns true if a AsUserRecord
-    /// was deleted, false if no AsUserRecord existed for the given UserId.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - All clients of the user
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
-        let client_ids: Vec<AsClientId> = self
-            .client_records
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .keys()
-            .filter(|client_id| &client_id.user_name() == user_id)
-            .cloned()
-            .collect();
-        // Delete all the user's clients. The user will be deleted with its last
-        // client.
-        for client_id in client_ids {
-            self.delete_client(&client_id).await?;
-        }
-        Ok(())
-    }
 
     // === Clients ===
 
@@ -287,17 +234,6 @@ impl AsStorageProvider for MemoryAsStorage {
             .write()
             .map_err(|_| AsStorageError::PoisonedLock)?
             .remove(client_id);
-        // If there are now more clients for the user, delete the user.
-        let no_more_clients = self
-            .client_records
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .keys()
-            .all(|id| id.user_name() != client_id.user_name());
-        if no_more_clients {
-            let user_id = client_id.user_name();
-            self.delete_user(&user_id).await?;
-        }
         Ok(())
     }
 
@@ -357,7 +293,7 @@ impl AsStorageProvider for MemoryAsStorage {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
         let client_records: Vec<_> = self
             .client_records
@@ -453,17 +389,6 @@ impl AsStorageProvider for MemoryAsStorage {
         Ok((return_messages, queue.queue.len() as u64))
     }
 
-    /// Load the currently active signing key and the
-    /// [`AsIntermediateCredential`].
-    async fn load_signing_key(
-        &self,
-    ) -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError> {
-        self.as_intermediate_signing_key
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)
-            .map(|key| key.clone())
-    }
-
     /// Load all currently active [`AsCredential`]s and
     /// [`AsIntermediateCredential`]s.
     async fn load_as_credentials(
@@ -502,7 +427,7 @@ impl AsStorageProvider for MemoryAsStorage {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential> {
         let client_records = match self.client_records.read() {
             Ok(records) => records,
             Err(_) => return vec![],

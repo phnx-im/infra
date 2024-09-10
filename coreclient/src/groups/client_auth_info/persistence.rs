@@ -6,7 +6,7 @@ use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
     crypto::ear::keys::{SignatureEarKey, SignatureEarKeySecret},
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
 
@@ -273,7 +273,7 @@ impl GroupMembership {
     pub(in crate::groups) fn user_client_ids(
         connection: &Connection,
         group_id: &GroupId,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<AsClientId>, rusqlite::Error> {
         let mut stmt = connection.prepare(
             "SELECT client_uuid FROM group_membership WHERE group_id = ? AND user_name = ?",
@@ -296,7 +296,7 @@ impl GroupMembership {
     pub(in crate::groups) fn user_client_indices(
         connection: &Connection,
         group_id: &GroupId,
-        user_name: UserName,
+        user_name: QualifiedUserName,
     ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
         let mut stmt = connection.prepare(
             "SELECT leaf_index FROM group_membership WHERE group_id = ? AND user_name = ?",

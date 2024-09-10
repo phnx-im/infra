@@ -8,7 +8,7 @@ use tls_codec::{DeserializeBytes, Error, Serialize, Size};
 use url::Host;
 use uuid::Uuid;
 
-use super::{Fqdn, SafeTryInto, UserName};
+use super::{Fqdn, QualifiedUserName, SafeTryInto};
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
@@ -66,7 +66,7 @@ impl Serialize for TlsStr<'_> {
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 #[serde(transparent)]
-#[cfg_attr(feature = "sqlx", sqlx(transparent))]
+#[cfg_attr(feature = "sqlx", sqlx(transparent, type_name = "TEXT"))]
 pub(super) struct TlsString(pub String);
 
 impl std::fmt::Display for TlsString {
@@ -133,15 +133,15 @@ impl Serialize for Fqdn {
     }
 }
 
-impl DeserializeBytes for UserName {
+impl DeserializeBytes for QualifiedUserName {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
     where
         Self: Sized,
     {
         let (TlsString(user_name_string), rest) = TlsString::tls_deserialize_bytes(bytes)?;
 
-        let user_name =
-            <&str as SafeTryInto<UserName>>::try_into(&user_name_string).map_err(|e| {
+        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(&user_name_string)
+            .map_err(|e| {
                 let e = format!("Couldn't decode user name string: {}.", e);
                 Error::DecodingError(e)
             })?;

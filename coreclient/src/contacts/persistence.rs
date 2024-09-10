@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::{AsClientId, UserName};
+use phnxtypes::identifiers::{AsClientId, QualifiedUserName};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
@@ -90,7 +90,7 @@ impl Triggerable for Contact {
 impl Contact {
     pub(crate) fn load(
         connection: &Connection,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM contacts WHERE user_name = ?")?;
         stmt.query_row([user_name], Self::from_row).optional()
@@ -151,7 +151,7 @@ impl Storable for PartialContact {
 impl PartialContact {
     pub(crate) fn load(
         connection: &Connection,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?;
         stmt.query_row([user_name], Self::from_row).optional()

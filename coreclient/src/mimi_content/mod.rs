@@ -4,7 +4,7 @@
 
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{AsClientId, Fqdn, UserName},
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -220,7 +220,7 @@ struct MessageDerivedValues {
     mls_group_id: GroupId,
     sender_leaf_index: u32,
     sender_client_id: AsClientId,
-    sender_user_id: UserName,
+    sender_user_id: QualifiedUserName,
     group_name: TlsStrOwned,
 }
 

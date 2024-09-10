@@ -5,29 +5,25 @@
 use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
-use opaque_ke::{ServerRegistration, ServerSetup};
+use opaque_ke::ServerSetup;
 use phnxtypes::{
     credentials::{
-        keys::AsIntermediateSigningKey, AsCredential, AsIntermediateCredential, ClientCredential,
+        AsCredential, AsIntermediateCredential, ClientCredential,
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
 use privacypass::batched_tokens_ristretto255::server::BatchedKeyStore;
 
-use super::{AsClientRecord, AsUserRecord};
+use super::AsClientRecord;
 
 /// Storage provider trait for the QS.
 #[async_trait]
 pub trait AsStorageProvider: Sync + Send + 'static {
     type PrivacyPassKeyStore: BatchedKeyStore;
     type StorageError: Error + Debug;
-
-    type CreateUserError: Error + Debug;
-    type StoreUserError: Error + Debug;
-    type DeleteUserError: Error + Debug;
 
     type StoreClientError: Error + Debug;
     type CreateClientError: Error + Debug;
@@ -43,29 +39,6 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     type LoadAsCredentialsError: Error + Debug;
 
     type LoadOpaqueKeyError: Error + Debug;
-
-    // === Users ===
-
-    /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
-    /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord>;
-
-    /// Create a new user with the given user name. If a user with the given user
-    /// name already exists, an error is returned.
-    async fn create_user(
-        &self,
-        user_name: &UserName,
-        opaque_record: &ServerRegistration<OpaqueCiphersuite>,
-    ) -> Result<(), Self::StorageError>;
-
-    /// Deletes the AsUserRecord for a given UserId. Returns true if a AsUserRecord
-    /// was deleted, false if no AsUserRecord existed for the given UserId.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - All clients of the user
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError>;
 
     // === Clients ===
 
@@ -115,7 +88,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError>;
 
     // === Messages ===
@@ -142,11 +115,6 @@ pub trait AsStorageProvider: Sync + Send + 'static {
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
 
-    /// Load the currently active signing key and the
-    /// [`AsIntermediateCredential`].
-    async fn load_signing_key(&self)
-        -> Result<AsIntermediateSigningKey, Self::LoadSigningKeyError>;
-
     /// Load all currently active [`AsCredential`]s and
     /// [`AsIntermediateCredential`]s.
     async fn load_as_credentials(
@@ -168,7 +136,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential>;
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential>;
 
     // === PrivacyPass ===
 
