@@ -6,7 +6,7 @@
 -- Create user records Table
 CREATE TABLE as_user_records(
 id uuid UNIQUE NOT NULL,
-user_name BYTEA UNIQUE NOT NULL,
+user_name TEXT UNIQUE NOT NULL,
 PRIMARY KEY (user_name),
 password_file BYTEA NOT NULL
 );

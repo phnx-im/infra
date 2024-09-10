@@ -177,15 +177,11 @@ use phnxtypes::{
 };
 
 use crate::{
-    ds::ReservedGroupId,
-    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
-    qs::QsConnector,
+    ds::ReservedGroupId, messages::intra_backend::{DsFanOutMessage, DsFanOutPayload}, persistence::StorageError, qs::QsConnector
 };
 
 use super::{
-    group_state::{
-        persistence::StorageError, DsGroupState, SerializableDsGroupState, StorableDsGroupData,
-    },
+    group_state::{DsGroupState, SerializableDsGroupState, StorableDsGroupData},
     Ds,
 };
 

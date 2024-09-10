@@ -283,7 +283,7 @@ impl GroupMembership {
                 params![GroupIdRefWrapper::from(group_id), user_name],
                 |row| {
                     let client_uuid = row.get(0)?;
-                    let client_id = AsClientId::compose(user_name.clone(), client_uuid);
+                    let client_id = AsClientId::new(user_name.clone(), client_uuid);
                     Ok(client_id)
                 },
             )?
@@ -323,7 +323,7 @@ impl GroupMembership {
             .query_map(params![GroupIdRefWrapper::from(group_id)], |row| {
                 let client_uuid = row.get(0)?;
                 let user_name = row.get(1)?;
-                let client_id = AsClientId::compose(user_name, client_uuid);
+                let client_id = AsClientId::new(user_name, client_uuid);
                 Ok(client_id)
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -358,7 +358,7 @@ impl Storable for GroupMembership {
         let user_name = row.get(3)?;
         let leaf_index: i64 = row.get(4)?;
         let signature_ear_key: SignatureEarKeySecret = row.get(5)?;
-        let client_id = AsClientId::compose(user_name, client_uuid);
+        let client_id = AsClientId::new(user_name, client_uuid);
         Ok(Self {
             client_id,
             group_id: group_id.into(),

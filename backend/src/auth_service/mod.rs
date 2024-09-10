@@ -24,6 +24,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
+use sqlx::PgPool;
 use tls_codec::{TlsSerialize, TlsSize};
 use tokio::sync::Mutex;
 
@@ -33,8 +34,10 @@ pub mod client_api;
 pub mod devices;
 pub mod invitations;
 pub mod key_packages;
+mod privacy_pass;
 pub mod registration;
 pub mod storage_provider_trait;
+mod user_record;
 pub mod verification;
 
 /*
@@ -106,11 +109,12 @@ impl AsClientRecord {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct AuthService {
     ephemeral_client_credentials: Arc<Mutex<HashMap<AsClientId, ClientCredential>>>,
     ephemeral_user_logins: Arc<Mutex<HashMap<UserName, ServerLogin<OpaqueCiphersuite>>>>,
     ephemeral_client_logins: Arc<Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>>,
+    db_pool: PgPool,
 }
 
 impl AuthService {

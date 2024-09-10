@@ -37,10 +37,12 @@ chrono = { version = "0.4", features = ["serde"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
+sqlx = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
 
 [features]
-sqlite = ["rusqlite"]
+sqlite = ["dep:rusqlite"]
+sqlx = ["dep:sqlx"]
 test_utils = []

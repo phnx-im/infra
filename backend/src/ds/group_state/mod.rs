@@ -12,7 +12,6 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use persistence::StorageError;
 use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
@@ -30,6 +29,8 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use uuid::Uuid;
+
+use crate::persistence::StorageError;
 
 use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
 
