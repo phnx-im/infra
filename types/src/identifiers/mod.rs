@@ -255,7 +255,18 @@ impl TryFrom<String> for UserName {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    TlsSerialize,
+    TlsSize,
+    TlsDeserializeBytes,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 pub struct QualifiedUserName {
     user_name: UserName,
@@ -311,6 +322,7 @@ impl SafeTryInto<QualifiedUserName> for &str {
     type Error = QualifiedUserNameError;
 
     fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
+        println!("Trying to parse: {}", self);
         let mut split_name = self.split('@');
         let user_name_str = split_name
             .next()

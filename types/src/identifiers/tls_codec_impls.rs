@@ -8,7 +8,7 @@ use tls_codec::{DeserializeBytes, Error, Serialize, Size};
 use url::Host;
 use uuid::Uuid;
 
-use super::{Fqdn, QualifiedUserName, SafeTryInto};
+use super::{Fqdn, UserName};
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
@@ -133,18 +133,16 @@ impl Serialize for Fqdn {
     }
 }
 
-impl DeserializeBytes for QualifiedUserName {
+impl DeserializeBytes for UserName {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
     where
         Self: Sized,
     {
         let (TlsString(user_name_string), rest) = TlsString::tls_deserialize_bytes(bytes)?;
-
-        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(&user_name_string)
-            .map_err(|e| {
-                let e = format!("Couldn't decode user name string: {}.", e);
-                Error::DecodingError(e)
-            })?;
+        let user_name = UserName::try_from(user_name_string).map_err(|e| {
+            let e = format!("Couldn't decode user name string: {}.", e);
+            Error::DecodingError(e)
+        })?;
         Ok((user_name, rest))
     }
 }
