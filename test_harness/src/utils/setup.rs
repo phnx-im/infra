@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    identifiers::{Fqdn, SafeTryInto, QualifiedUserName},
+    identifiers::{Fqdn, QualifiedUserName, SafeTryInto},
     DEFAULT_PORT_HTTP,
 };
 use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng, RngCore};
@@ -147,8 +147,9 @@ impl TestBackend {
         let test_updater = self.users.get_mut(updater_name).unwrap();
         let updater = &mut test_updater.user;
 
-        let pending_removes =
-            HashSet::<QualifiedUserName>::from_iter(updater.pending_removes(conversation_id).await.unwrap());
+        let pending_removes = HashSet::<QualifiedUserName>::from_iter(
+            updater.pending_removes(conversation_id).await.unwrap(),
+        );
         let group_members_before = updater
             .conversation_participants(conversation_id)
             .await
@@ -567,7 +568,10 @@ impl TestBackend {
         message.id()
     }
 
-    pub async fn create_group(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) -> ConversationId {
+    pub async fn create_group(
+        &mut self,
+        user_name: impl SafeTryInto<QualifiedUserName>,
+    ) -> ConversationId {
         let user_name = user_name.try_into().unwrap();
         let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
@@ -901,8 +905,9 @@ impl TestBackend {
                 });
             assert!(conversation.id() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status() {
-                let inactive_status_members =
-                    HashSet::<QualifiedUserName>::from_iter(inactive_status.past_members().to_vec());
+                let inactive_status_members = HashSet::<QualifiedUserName>::from_iter(
+                    inactive_status.past_members().to_vec(),
+                );
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -1090,8 +1095,9 @@ impl TestBackend {
             if let ConversationStatus::Inactive(inactive_status) =
                 &group_member_conversation_after.status()
             {
-                let inactive_status_members =
-                    HashSet::<QualifiedUserName>::from_iter(inactive_status.past_members().to_vec());
+                let inactive_status_members = HashSet::<QualifiedUserName>::from_iter(
+                    inactive_status.past_members().to_vec(),
+                );
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
