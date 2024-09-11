@@ -37,7 +37,8 @@ use phnxtypes::{
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
     identifiers::{
-        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, SafeTryInto, QualifiedUserName,
+        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
+        SafeTryInto,
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
@@ -1042,7 +1043,10 @@ impl CoreUser {
             .map(|g| g.members(connection))
     }
 
-    pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<QualifiedUserName>> {
+    pub async fn pending_removes(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<Vec<QualifiedUserName>> {
         let connection = &self.connection.lock().await;
         let conversation = Conversation::load(connection, &conversation_id).ok()??;
 

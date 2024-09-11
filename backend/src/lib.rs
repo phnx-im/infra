@@ -7,7 +7,7 @@
 pub mod auth_service;
 pub mod ds;
 pub mod messages;
-pub mod qs;
 mod persistence;
+pub mod qs;
 
 pub use mls_assist::messages::{AssistedGroupInfo, AssistedMessageOut};

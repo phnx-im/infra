@@ -12,7 +12,9 @@ use phnxtypes::{
     },
 };
 
-use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
+use crate::auth_service::{
+    client_record::ClientRecord, storage_provider_trait::AsStorageProvider, AuthService,
+};
 
 impl AuthService {
     pub(crate) async fn as_user_clients<S: AsStorageProvider>(
@@ -59,6 +61,7 @@ impl AuthService {
     }
 
     pub(crate) async fn as_enqueue_message<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: EnqueueMessageParams,
     ) -> Result<(), EnqueueMessageError> {
@@ -68,9 +71,12 @@ impl AuthService {
         } = params;
 
         // Fetch the client record.
-        let mut client_record = storage_provider
-            .load_client(&client_id)
+        let mut client_record = ClientRecord::load(&self.db_pool, &client_id)
             .await
+            .map_err(|e| {
+                tracing::warn!("Failed to load client record: {:?}", e);
+                EnqueueMessageError::StorageError
+            })?
             .ok_or(EnqueueMessageError::ClientNotFound)?;
 
         let payload = connection_establishment_ctxt
@@ -94,13 +100,10 @@ impl AuthService {
             })?;
 
         // Store the changed client record.
-        storage_provider
-            .store_client(&client_id, &client_record)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to store client record: {:?}", e);
-                EnqueueMessageError::StorageError
-            })?;
+        client_record.update(&self.db_pool).await.map_err(|e| {
+            tracing::warn!("Failed to store client record: {:?}", e);
+            EnqueueMessageError::StorageError
+        })?;
 
         Ok(())
     }

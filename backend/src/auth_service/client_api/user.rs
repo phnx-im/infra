@@ -20,8 +20,8 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
-    signing_key::IntermediateSigningKey, user_record::UserRecord, AsClientRecord,
-    AsStorageProvider, AuthService,
+    client_record::ClientRecord, credentials::intermediate_signing_key::IntermediateSigningKey,
+    user_record::UserRecord, AsStorageProvider, AuthService,
 };
 
 impl AuthService {
@@ -164,23 +164,25 @@ impl AuthService {
 
         // Create the initial client entry
 
-        let client_record = AsClientRecord {
+        let ratchet_key = initial_ratchet_key
+            .try_into()
+            // Hiding the LibraryError here behind a StorageError
+            .map_err(|_| FinishUserRegistrationError::StorageError)?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection: {:?}", e);
+            FinishUserRegistrationError::StorageError
+        })?;
+        let client_record = ClientRecord::new_and_store(
+            &mut connection,
             queue_encryption_key,
-            ratchet_key: initial_ratchet_key
-                .try_into()
-                // Hiding the LibraryError here behind a StorageError
-                .map_err(|_| FinishUserRegistrationError::StorageError)?,
-            activity_time: TimeStamp::now(),
-            credential: client_credential,
-        };
-
-        storage_provider
-            .create_client(&client_id, &client_record)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
+            ratchet_key,
+            client_credential,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            FinishUserRegistrationError::StorageError
+        })?;
 
         storage_provider
             .store_connection_packages(&client_id, verified_connection_packages)

@@ -4,13 +4,9 @@
 
 use crate::configurations::DatabaseSettings;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use mls_assist::openmls_traits::types::SignatureScheme;
-use num_traits::ToPrimitive;
 use opaque_ke::{rand::rngs::OsRng, ServerSetup};
-use phnxbackend::auth_service::{
-    storage_provider_trait::AsStorageProvider, AsClientRecord
-};
+use phnxbackend::auth_service::storage_provider_trait::AsStorageProvider;
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
@@ -21,17 +17,12 @@ use phnxtypes::{
     crypto::OpaqueCiphersuite,
     identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
-    time::TimeStamp,
 };
 use privacypass::{
     batched_tokens_ristretto255::{server::BatchedKeyStore, Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
-use sqlx::{
-    postgres::PgArguments,
-    types::{BigDecimal, Uuid},
-    Acquire, Arguments, PgConnection, PgPool, Row,
-};
+use sqlx::{postgres::PgArguments, types::Uuid, Acquire, Arguments, PgConnection, PgPool, Row};
 use thiserror::Error;
 
 use super::connect_to_database;
@@ -214,102 +205,6 @@ impl AsStorageProvider for PostgresAsStorage {
 
     type LoadOpaqueKeyError = AsPostgresError;
 
-    // === Clients ===
-
-    async fn create_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::CreateClientError> {
-        let queue_encryption_key_bytes = PhnxCodec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = PhnxCodec::to_vec(&client_record.ratchet_key)?;
-        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
-        let client_credential = PhnxCodec::to_vec(&client_record.credential)?;
-        sqlx::query!(
-            "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-            client_id.client_id(),
-            client_id.user_name().to_string(),
-            queue_encryption_key_bytes,
-            ratchet,
-            activity_time,
-            client_credential,
-            1000, // TODO: Once we use tokens, we should make this configurable.
-        )
-        .execute(&self.pool)
-        .await?;
-        // Initialize the client's queue.
-        let initial_sequence_number = BigDecimal::from(0u8);
-
-        sqlx::query!(
-            "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
-            client_id.client_id(),
-            initial_sequence_number
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    /// Load the info for the client with the given client ID.
-    async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord> {
-        let user_record = sqlx::query!(
-            "SELECT * FROM as_client_records WHERE client_id = $1",
-            client_id.client_id(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?;
-        let queue_encryption_key = PhnxCodec::from_slice(&user_record.queue_encryption_key).ok()?;
-        let ratchet_key = PhnxCodec::from_slice(&user_record.ratchet).ok()?;
-        let activity_time = TimeStamp::from(user_record.activity_time);
-        let credential = PhnxCodec::from_slice(&user_record.client_credential).ok()?;
-        let as_client_record =
-            AsClientRecord::new(queue_encryption_key, ratchet_key, activity_time, credential);
-        Some(as_client_record)
-    }
-
-    /// Saves a client in the storage provider with the given client ID. The
-    /// storage provider must associate this client with the user of the client.
-    async fn store_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::StoreClientError> {
-        let queue_encryption_key_bytes = PhnxCodec::to_vec(&client_record.queue_encryption_key)?;
-        let ratchet = PhnxCodec::to_vec(&client_record.ratchet_key)?;
-        let activity_time = DateTime::<Utc>::from(client_record.activity_time);
-        let client_credential = PhnxCodec::to_vec(&client_record.credential)?;
-        sqlx::query!(
-            "UPDATE as_client_records SET user_name = $2, queue_encryption_key = $3, ratchet = $4, activity_time = $5, client_credential = $6, remaining_tokens = $7 WHERE client_id = $1",
-            client_id.client_id(),
-            client_id.user_name().to_string(),
-            queue_encryption_key_bytes,
-            ratchet,
-            activity_time,
-            client_credential,
-            1000, // TODO: Once we use tokens, we should make this configurable.
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    /// Deletes the client with the given client ID.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - The associated user, if the user has no other clients
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_client(&self, client_id: &AsClientId) -> Result<(), Self::StorageError> {
-        sqlx::query!(
-            "DELETE FROM as_client_records WHERE client_id = $1",
-            client_id.client_id(),
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
     // === Key packages ===
 
     /// Store connection packages for a specific client.
@@ -440,14 +335,9 @@ impl AsStorageProvider for PostgresAsStorage {
         // We're storing things as the NUMERIC postgres type. We need the
         // num-traits crate to convert to u64. If we find a better way to store
         // u64s, we might be able to get rid of that dependency.
-        let sequence_number_decimal: BigDecimal = sequence_number_record.sequence_number;
-        let sequence_number = sequence_number_decimal
-            .to_u64()
-            // The conversion should be successful, as we're only writing u64s
-            // to the DB in the first place.
-            .ok_or_else(|| QueueError::LibraryError)?;
+        let sequence_number = sequence_number_record.sequence_number;
 
-        if sequence_number != message.sequence_number {
+        if sequence_number != message.sequence_number as i64 {
             tracing::warn!(
                 "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
                 message.sequence_number,
@@ -463,13 +353,13 @@ impl AsStorageProvider for PostgresAsStorage {
             "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
             message_id,
             client_id.client_id(),
-            sequence_number_decimal,
+            sequence_number,
             message_bytes,
         )
         .execute(&mut *transaction)
         .await?;
 
-        let new_sequence_number = sequence_number_decimal + BigDecimal::from(1u8);
+        let new_sequence_number = sequence_number + 1;
         // Increase the sequence number and store it.
         sqlx::query!(
             "UPDATE as_queue_data SET sequence_number = $2 WHERE queue_id = $1",
@@ -495,10 +385,6 @@ impl AsStorageProvider for PostgresAsStorage {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError> {
-        let sequence_number_decimal = BigDecimal::from(sequence_number);
-        // TODO: sqlx wants an i64 here and in a few other places below, but
-        // we're using u64s. This is probably a limitation of postgres and we
-        // might want to change some of the input/output types accordingly.
         let number_of_messages =
             i64::try_from(number_of_messages).map_err(|_| QueueError::LibraryError)?;
 
@@ -527,7 +413,7 @@ impl AsStorageProvider for PostgresAsStorage {
 
         let rows = sqlx::query(query)
             .bind(client_id.client_id())
-            .bind(sequence_number_decimal)
+            .bind(sequence_number as i64)
             .bind(number_of_messages)
             .fetch_all(&mut *transaction)
             .await?;

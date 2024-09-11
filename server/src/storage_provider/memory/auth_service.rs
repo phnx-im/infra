@@ -10,9 +10,7 @@ use std::{
 use async_trait::async_trait;
 use mls_assist::openmls_traits::types::SignatureScheme;
 use opaque_ke::{rand::rngs::OsRng, ServerSetup};
-use phnxbackend::auth_service::{
-    storage_provider_trait::AsStorageProvider, AsClientRecord,
-};
+use phnxbackend::auth_service::storage_provider_trait::AsStorageProvider;
 use phnxtypes::{
     credentials::{
         keys::{AsIntermediateSigningKey, AsSigningKey},
@@ -29,7 +27,6 @@ use thiserror::Error;
 use super::qs::QueueData;
 
 pub struct MemoryAsStorage {
-    client_records: RwLock<HashMap<AsClientId, AsClientRecord>>,
     connection_packages: RwLock<HashMap<AsClientId, VecDeque<ConnectionPackage>>>,
     queues: RwLock<HashMap<AsClientId, QueueData>>,
     as_intermediate_signing_key: RwLock<AsIntermediateSigningKey>,
@@ -74,7 +71,6 @@ impl MemoryAsStorage {
 
         let as_signing_key = RwLock::new(as_signing_key);
         let storage_provider = Self {
-            client_records: RwLock::new(HashMap::new()),
             connection_packages: RwLock::new(HashMap::new()),
             queues: RwLock::new(HashMap::new()),
             as_intermediate_signing_key,
@@ -128,7 +124,7 @@ pub enum AsCreateClientError {
     DuplicateClientId,
 }
 
-const DEFAULT_NUMBER_OF_TOKENS: usize = 100;
+const _DEFAULT_NUMBER_OF_TOKENS: usize = 100;
 
 #[async_trait]
 impl AsStorageProvider for MemoryAsStorage {
@@ -149,93 +145,6 @@ impl AsStorageProvider for MemoryAsStorage {
     type LoadAsCredentialsError = AsStorageError;
 
     type LoadOpaqueKeyError = AsStorageError;
-
-    // === Clients ===
-
-    async fn create_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::CreateClientError> {
-        let mut clients = self
-            .client_records
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?;
-        if clients.contains_key(client_id) {
-            return Err(AsCreateClientError::DuplicateClientId);
-        }
-        clients.insert(client_id.clone(), client_record.clone());
-        // If the client is first created, also create a queue and a token
-        // allowance.
-        self.queues
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .insert(client_id.clone(), QueueData::new());
-        self.remaining_tokens
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .insert(client_id.clone(), DEFAULT_NUMBER_OF_TOKENS);
-        Ok(())
-    }
-
-    /// Load the info for the client with the given client ID.
-    async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord> {
-        self.client_records.read().ok()?.get(client_id).cloned()
-    }
-
-    /// Saves a client in the storage provider with the given client ID. The
-    /// storage provider must associate this client with the user of the client.
-    async fn store_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::StoreClientError> {
-        let new_client = self
-            .client_records
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .insert(client_id.clone(), client_record.clone())
-            .is_none();
-        // If the client is first created, also create a queue and a token
-        // allowance.
-        if new_client {
-            self.queues
-                .write()
-                .map_err(|_| AsStorageError::PoisonedLock)?
-                .insert(client_id.clone(), QueueData::new());
-            self.remaining_tokens
-                .write()
-                .map_err(|_| AsStorageError::PoisonedLock)?
-                .insert(client_id.clone(), DEFAULT_NUMBER_OF_TOKENS);
-        }
-        Ok(())
-    }
-
-    /// Deletes the client with the given client ID.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - The associated user, if the user has no other clients
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_client(&self, client_id: &AsClientId) -> Result<(), Self::StorageError> {
-        self.client_records
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .remove(client_id);
-        self.connection_packages
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .remove(client_id);
-        self.queues
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .remove(client_id);
-        self.remaining_tokens
-            .write()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .remove(client_id);
-        Ok(())
-    }
 
     // === Key packages ===
 
@@ -293,23 +202,9 @@ impl AsStorageProvider for MemoryAsStorage {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &QualifiedUserName,
+        _user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
-        let client_records: Vec<_> = self
-            .client_records
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)?
-            .keys()
-            .cloned()
-            .collect();
-        let mut connection_packages = Vec::new();
-        for client_id in &client_records {
-            if &client_id.user_name() == user_name {
-                let connection_package = self.client_connection_package(client_id).await?;
-                connection_packages.push(connection_package);
-            }
-        }
-        Ok(connection_packages)
+        todo!()
     }
 
     // === Messages ===
@@ -427,18 +322,8 @@ impl AsStorageProvider for MemoryAsStorage {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential> {
-        let client_records = match self.client_records.read() {
-            Ok(records) => records,
-            Err(_) => return vec![],
-        };
-        let mut client_credentials = vec![];
-        for (client_id, client_record) in client_records.iter() {
-            if client_id.user_name() == *user_name {
-                client_credentials.push(client_record.credential.clone());
-            }
-        }
-        client_credentials
+    async fn client_credentials(&self, _user_name: &QualifiedUserName) -> Vec<ClientCredential> {
+        todo!()
     }
 
     // === PrivacyPass ===

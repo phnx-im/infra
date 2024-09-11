@@ -21,7 +21,8 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
-    signing_key::IntermediateSigningKey, storage_provider_trait::AsStorageProvider, user_record::UserRecord, AsClientRecord, AuthService
+    client_record::ClientRecord, credentials::intermediate_signing_key::IntermediateSigningKey,
+    storage_provider_trait::AsStorageProvider, user_record::UserRecord, AuthService,
 };
 
 impl AuthService {
@@ -73,10 +74,14 @@ impl AuthService {
         };
 
         // Check if a client entry with the name given in the client_csr already exists for the user
-        let client_id_exists = storage_provider
-            .load_client(&client_credential_payload.identity())
-            .await
-            .is_some();
+        let client_id_exists =
+            ClientRecord::load(&self.db_pool, &client_credential_payload.identity())
+                .await
+                .map_err(|e| {
+                    tracing::error!("Error loading client record: {:?}", e);
+                    InitClientAdditionError::StorageError
+                })?
+                .is_some();
 
         if client_id_exists {
             return Err(InitClientAdditionError::ClientAlreadyExists);
@@ -141,23 +146,25 @@ impl AuthService {
             .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
 
         // Create the new client entry
-        let client_record = AsClientRecord {
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
+        let ratchet_key = initial_ratchet_key
+            .try_into()
+            // Hiding the LibraryError here behind a StorageError
+            .map_err(|_| FinishClientAdditionError::StorageError)?;
+        let client_record = ClientRecord::new_and_store(
+            &mut connection,
             queue_encryption_key,
-            ratchet_key: initial_ratchet_key
-                .try_into()
-                // Hiding the LibraryError here behind a StorageError
-                .map_err(|_| FinishClientAdditionError::StorageError)?,
-            activity_time: TimeStamp::now(),
-            credential: client_credential,
-        };
-
-        storage_provider
-            .create_client(&client_id, &client_record)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishClientAdditionError::StorageError
-            })?;
+            ratchet_key,
+            client_credential,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Error storing client record: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
         let mut client_login_states = self.ephemeral_client_logins.lock().await;
@@ -167,14 +174,14 @@ impl AuthService {
     }
 
     pub(crate) async fn as_delete_client<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: DeleteClientParamsTbs,
     ) -> Result<(), DeleteClientError> {
         let client_id = params.0;
 
         // Delete the client
-        storage_provider
-            .delete_client(&client_id)
+        ClientRecord::delete(&self.db_pool, &client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);

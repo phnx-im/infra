@@ -24,7 +24,6 @@ sqlx = { version = "0.8.2", default-features = false, features = [
     "uuid",
     "chrono",
     "migrate",
-    "bigdecimal",
     "runtime-tokio",
     "tls-rustls",
 ] }

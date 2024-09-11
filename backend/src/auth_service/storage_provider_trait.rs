@@ -8,16 +8,13 @@ use async_trait::async_trait;
 use opaque_ke::ServerSetup;
 use phnxtypes::{
     credentials::{
-        AsCredential, AsIntermediateCredential, ClientCredential,
-        CredentialFingerprint,
+        AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
 use privacypass::batched_tokens_ristretto255::server::BatchedKeyStore;
-
-use super::AsClientRecord;
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -39,33 +36,6 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     type LoadAsCredentialsError: Error + Debug;
 
     type LoadOpaqueKeyError: Error + Debug;
-
-    // === Clients ===
-
-    async fn create_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::CreateClientError>;
-
-    /// Load the info for the client with the given client ID.
-    async fn load_client(&self, client_id: &AsClientId) -> Option<AsClientRecord>;
-
-    /// Saves a client in the storage provider with the given client ID. The
-    /// storage provider must associate this client with the user of the client.
-    async fn store_client(
-        &self,
-        client_id: &AsClientId,
-        client_record: &AsClientRecord,
-    ) -> Result<(), Self::StoreClientError>;
-
-    /// Deletes the client with the given client ID.
-    ///
-    /// The storage provider must also delete the following:
-    ///  - The associated user, if the user has no other clients
-    ///  - All enqueued messages for the respective clients
-    ///  - All key packages for the respective clients
-    async fn delete_client(&self, client_id: &AsClientId) -> Result<(), Self::StorageError>;
 
     // === Key packages ===
 

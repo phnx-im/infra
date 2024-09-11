@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, SafeTryInto, QualifiedUserName},
+    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName, SafeTryInto},
     time::TimeStamp,
 };
 use rusqlite::{

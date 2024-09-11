@@ -16,7 +16,10 @@ use phnxtypes::{
 use rusqlite::{params, OptionalExtension, ToSql};
 use thiserror::Error;
 
-use crate::{clients::api_clients::ApiClientsError, utils::persistence::{SqliteConnection, Storable}};
+use crate::{
+    clients::api_clients::ApiClientsError,
+    utils::persistence::{SqliteConnection, Storable},
+};
 
 use super::*;
 
@@ -94,31 +97,27 @@ impl AsCredentials {
         fingerprint_option: Option<&CredentialFingerprint>,
         domain: &Fqdn,
     ) -> Result<Option<AsIntermediateCredential>, rusqlite::Error> {
-        let mut query_string = 
+        let mut query_string =
             "SELECT credential_type, credential FROM as_credentials WHERE domain = ? AND credential_type = 'as_intermediate_credential'".to_owned();
         if fingerprint_option.is_some() {
             query_string.push_str(" AND fingerprint = ?");
         }
-        let mut statement = connection.prepare(
-            &query_string
-        )?;
+        let mut statement = connection.prepare(&query_string)?;
         if let Some(fingerprint) = fingerprint_option {
-            statement
-                .query_row(params![domain, fingerprint], Self::from_row)
+            statement.query_row(params![domain, fingerprint], Self::from_row)
         } else {
-            statement
-                .query_row(params![domain], Self::from_row)
+            statement.query_row(params![domain], Self::from_row)
         }
-            .optional()
-            .map(|credential_type_option| {
-                credential_type_option.and_then(|credential| {
-                    if let AsCredentials::AsIntermediateCredential(credential) = credential {
-                        Some(credential)
-                    } else {
-                        None
-                    }
-                })
+        .optional()
+        .map(|credential_type_option| {
+            credential_type_option.and_then(|credential| {
+                if let AsCredentials::AsIntermediateCredential(credential) = credential {
+                    Some(credential)
+                } else {
+                    None
+                }
             })
+        })
     }
 
     async fn fetch_credentials(
@@ -153,7 +152,8 @@ impl AsCredentials {
         log::info!("Loading AS credential from db.");
         // Phase 1: Check if there is a credential in the database.
         let connection = connection_mutex.lock().await;
-        let credential_option = AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
+        let credential_option =
+            AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
         drop(connection);
 
         // Phase 2: If there is no credential in the database, fetch it from the AS.

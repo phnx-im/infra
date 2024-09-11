@@ -6,7 +6,7 @@
 -- Create QS Queues Table
 CREATE TABLE qs_queues(
 queue_id uuid NOT NULL,
-sequence_number NUMERIC NOT NULL,
+sequence_number BIGINT NOT NULL,
 message_bytes BYTEA NOT NULL,
 PRIMARY KEY (queue_id, sequence_number),
 FOREIGN KEY (queue_id) REFERENCES qs_queue_data(queue_id) ON DELETE CASCADE

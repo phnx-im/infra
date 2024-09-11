@@ -322,7 +322,6 @@ impl SafeTryInto<QualifiedUserName> for &str {
     type Error = QualifiedUserNameError;
 
     fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
-        println!("Trying to parse: {}", self);
         let mut split_name = self.split('@');
         let user_name_str = split_name
             .next()

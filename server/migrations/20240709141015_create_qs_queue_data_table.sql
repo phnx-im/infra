@@ -7,6 +7,6 @@
 CREATE TABLE qs_queue_data(
 queue_id uuid NOT NULL,
 PRIMARY KEY (queue_id),
-sequence_number NUMERIC NOT NULL,
+sequence_number BIGINT NOT NULL,
 FOREIGN KEY (queue_id) REFERENCES qs_client_records(client_id) ON DELETE CASCADE
 );

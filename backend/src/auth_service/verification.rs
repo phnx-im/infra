@@ -9,7 +9,9 @@ use phnxtypes::{
 };
 use tls_codec::TlsDeserializeBytes;
 
-use super::{AsStorageProvider, AuthService, TlsSize, VerifiedAsRequestParams};
+use super::{
+    client_record::ClientRecord, AsStorageProvider, AuthService, TlsSize, VerifiedAsRequestParams,
+};
 
 /// Wrapper struct around a message from a client to the AS. It does not
 /// implement the [`Verifiable`] trait, but instead is verified depending on the
@@ -48,9 +50,12 @@ impl AuthService {
                     cca.verify(client_credential.verifying_key())
                         .map_err(|_| AsVerificationError::AuthenticationFailed)?
                 } else {
-                    let client_record = as_storage_provider
-                        .load_client(cca.client_id())
+                    let client_record = ClientRecord::load(&self.db_pool, cca.client_id())
                         .await
+                        .map_err(|e| {
+                            tracing::error!("Error loading client record: {:?}", e);
+                            AsVerificationError::UnknownClient
+                        })?
                         .ok_or(AsVerificationError::UnknownClient)?;
                     cca.verify(client_record.credential.verifying_key())
                         .map_err(|_| AsVerificationError::AuthenticationFailed)?
@@ -85,9 +90,12 @@ impl AuthService {
                         AsVerificationError::AuthenticationFailed
                     })?;
 
-                let client_record = as_storage_provider
-                    .load_client(&client_id)
+                let client_record = ClientRecord::load(&self.db_pool, &client_id)
                     .await
+                    .map_err(|e| {
+                        tracing::error!("Error loading client record: {:?}", e);
+                        AsVerificationError::UnknownClient
+                    })?
                     .ok_or(AsVerificationError::UnknownClient)?;
                 let verified_params = auth_info
                     .client_credential_auth
