@@ -19,20 +19,11 @@ uuid = { version = "1.0.0", features = ["v4", "serde"] }
 # Rust crypto dependencies
 tracing = { version = "0.1.35", features = ["log"] }
 opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
-sqlx = { version = "0.7", features = [
-    "macros",
-    "postgres",
-    "uuid",
-    "chrono",
-    "migrate",
-    "bigdecimal",
-    "runtime-tokio",
-    "tls-rustls",
-] }
+sqlx = { workspace = true }
 tokio = "1"
 
 
-phnxtypes = { workspace = true }
+phnxtypes = { workspace = true, features = ["sqlx"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
