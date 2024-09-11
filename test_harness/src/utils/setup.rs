@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    identifiers::{Fqdn, SafeTryInto, UserName},
+    identifiers::{Fqdn, SafeTryInto, QualifiedUserName},
     DEFAULT_PORT_HTTP,
 };
 use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng, RngCore};
@@ -32,7 +32,7 @@ impl AsMut<CoreUser> for TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &UserName, address_option: Option<String>) -> Self {
+    pub async fn new(user_name: &QualifiedUserName, address_option: Option<String>) -> Self {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
@@ -46,7 +46,7 @@ impl TestUser {
     }
 
     pub async fn new_persisted(
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         address_option: Option<String>,
         db_dir: &str,
     ) -> Self {
@@ -78,8 +78,8 @@ enum TestKind {
 }
 
 pub struct TestBackend {
-    pub users: HashMap<UserName, TestUser>,
-    pub groups: HashMap<ConversationId, HashSet<UserName>>,
+    pub users: HashMap<QualifiedUserName, TestUser>,
+    pub groups: HashMap<ConversationId, HashSet<QualifiedUserName>>,
     // This is what we feed to the test clients.
     kind: TestKind,
 }
@@ -111,21 +111,21 @@ impl TestBackend {
         }
     }
 
-    pub async fn add_persisted_user(&mut self, user_name: impl SafeTryInto<UserName>) {
+    pub async fn add_persisted_user(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) {
         let user_name = user_name.try_into().unwrap();
         tracing::info!("Creating {user_name}");
         let user = TestUser::new_persisted(&user_name, self.url(), "./").await;
         self.users.insert(user_name, user);
     }
 
-    pub async fn add_user(&mut self, user_name: impl SafeTryInto<UserName>) {
+    pub async fn add_user(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) {
         let user_name = user_name.try_into().unwrap();
         tracing::info!("Creating {user_name}");
         let user = TestUser::new(&user_name, self.url()).await;
         self.users.insert(user_name, user);
     }
 
-    pub fn get_user(&self, user_name: impl SafeTryInto<UserName>) -> &TestUser {
+    pub fn get_user(&self, user_name: impl SafeTryInto<QualifiedUserName>) -> &TestUser {
         let user_name = user_name.try_into().unwrap();
         self.users.get(&user_name).unwrap()
     }
@@ -135,7 +135,7 @@ impl TestBackend {
     pub async fn commit_to_proposals(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl SafeTryInto<UserName>,
+        updater_name: impl SafeTryInto<QualifiedUserName>,
     ) {
         let updater_name = &updater_name.try_into().unwrap();
         tracing::info!(
@@ -148,7 +148,7 @@ impl TestBackend {
         let updater = &mut test_updater.user;
 
         let pending_removes =
-            HashSet::<UserName>::from_iter(updater.pending_removes(conversation_id).await.unwrap());
+            HashSet::<QualifiedUserName>::from_iter(updater.pending_removes(conversation_id).await.unwrap());
         let group_members_before = updater
             .conversation_participants(conversation_id)
             .await
@@ -160,7 +160,7 @@ impl TestBackend {
             .conversation_participants(conversation_id)
             .await
             .unwrap();
-        let difference: HashSet<UserName> = group_members_before
+        let difference: HashSet<QualifiedUserName> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
             .collect();
@@ -177,7 +177,7 @@ impl TestBackend {
             let group_member = &mut test_group_member.user;
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
-            let pending_removes = HashSet::<UserName>::from_iter(
+            let pending_removes = HashSet::<QualifiedUserName>::from_iter(
                 group_member.pending_removes(conversation_id).await.unwrap(),
             );
             let group_members_before = group_member
@@ -196,7 +196,7 @@ impl TestBackend {
                 let conversation_after = group_member.conversation(&conversation_id).await.unwrap();
                 assert!(matches!(&conversation_after.status(),
                 ConversationStatus::Inactive(ic)
-                if HashSet::<UserName>::from_iter(ic.past_members().to_vec()) ==
+                if HashSet::<QualifiedUserName>::from_iter(ic.past_members().to_vec()) ==
                     group_members_before
                 ));
             } else {
@@ -205,7 +205,7 @@ impl TestBackend {
                     .conversation_participants(conversation_id)
                     .await
                     .unwrap();
-                let difference: HashSet<UserName> = group_members_before
+                let difference: HashSet<QualifiedUserName> = group_members_before
                     .difference(&group_members_after)
                     .map(|s| s.to_owned())
                     .collect();
@@ -217,7 +217,7 @@ impl TestBackend {
     pub async fn update_group(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl SafeTryInto<UserName>,
+        updater_name: impl SafeTryInto<QualifiedUserName>,
     ) {
         let updater_name = &updater_name.try_into().unwrap();
         tracing::info!(
@@ -262,8 +262,8 @@ impl TestBackend {
 
     pub async fn connect_users(
         &mut self,
-        user1_name: impl SafeTryInto<UserName>,
-        user2_name: impl SafeTryInto<UserName>,
+        user1_name: impl SafeTryInto<QualifiedUserName>,
+        user2_name: impl SafeTryInto<QualifiedUserName>,
     ) -> ConversationId {
         let user1_name = user1_name.try_into().unwrap();
         let user2_name = user2_name.try_into().unwrap();
@@ -481,7 +481,7 @@ impl TestBackend {
         let user2_unread_messages = user2.unread_messages_count(user2_conversation_id).await;
         assert_eq!(user2_unread_messages, 0);
 
-        let member_set: HashSet<UserName> = [user1_name, user2_name].into();
+        let member_set: HashSet<QualifiedUserName> = [user1_name, user2_name].into();
         assert_eq!(member_set.len(), 2);
         self.groups.insert(user1_conversation_id, member_set);
         user1_conversation_id
@@ -493,11 +493,11 @@ impl TestBackend {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        sender_name: impl SafeTryInto<UserName>,
-        recipient_names: Vec<impl SafeTryInto<UserName>>,
+        sender_name: impl SafeTryInto<QualifiedUserName>,
+        recipient_names: Vec<impl SafeTryInto<QualifiedUserName>>,
     ) -> ConversationMessageId {
         let sender_name = sender_name.try_into().unwrap();
-        let recipient_names: Vec<UserName> = recipient_names
+        let recipient_names: Vec<QualifiedUserName> = recipient_names
             .into_iter()
             .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
@@ -567,7 +567,7 @@ impl TestBackend {
         message.id()
     }
 
-    pub async fn create_group(&mut self, user_name: impl SafeTryInto<UserName>) -> ConversationId {
+    pub async fn create_group(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) -> ConversationId {
         let user_name = user_name.try_into().unwrap();
         let test_user = self.users.get_mut(&user_name).unwrap();
         let user = &mut test_user.user;
@@ -599,7 +599,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let member_set: HashSet<UserName> = [user_name].into();
+        let member_set: HashSet<QualifiedUserName> = [user_name].into();
         assert_eq!(member_set.len(), 1);
         self.groups.insert(conversation_id, member_set);
 
@@ -611,11 +611,11 @@ impl TestBackend {
     pub async fn invite_to_group(
         &mut self,
         conversation_id: ConversationId,
-        inviter_name: impl SafeTryInto<UserName>,
-        invitee_names: Vec<impl SafeTryInto<UserName>>,
+        inviter_name: impl SafeTryInto<QualifiedUserName>,
+        invitee_names: Vec<impl SafeTryInto<QualifiedUserName>>,
     ) {
         let inviter_name = inviter_name.try_into().unwrap();
-        let invitee_names: Vec<UserName> = invitee_names
+        let invitee_names: Vec<QualifiedUserName> = invitee_names
             .into_iter()
             .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
@@ -793,11 +793,11 @@ impl TestBackend {
     pub async fn remove_from_group(
         &mut self,
         conversation_id: ConversationId,
-        remover_name: impl SafeTryInto<UserName>,
-        removed_names: Vec<impl SafeTryInto<UserName>>,
+        remover_name: impl SafeTryInto<QualifiedUserName>,
+        removed_names: Vec<impl SafeTryInto<QualifiedUserName>>,
     ) {
         let remover_name = remover_name.try_into().unwrap();
-        let removed_names: Vec<UserName> = removed_names
+        let removed_names: Vec<QualifiedUserName> = removed_names
             .into_iter()
             .map(|name| name.try_into().unwrap())
             .collect::<Vec<_>>();
@@ -902,7 +902,7 @@ impl TestBackend {
             assert!(conversation.id() == conversation_id);
             if let ConversationStatus::Inactive(inactive_status) = &conversation.status() {
                 let inactive_status_members =
-                    HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
+                    HashSet::<QualifiedUserName>::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -961,7 +961,7 @@ impl TestBackend {
     pub async fn leave_group(
         &mut self,
         conversation_id: ConversationId,
-        leaver_name: impl SafeTryInto<UserName>,
+        leaver_name: impl SafeTryInto<QualifiedUserName>,
     ) {
         let leaver_name = leaver_name.try_into().unwrap();
         tracing::info!(
@@ -1011,7 +1011,7 @@ impl TestBackend {
     pub async fn delete_group(
         &mut self,
         conversation_id: ConversationId,
-        deleter_name: impl SafeTryInto<UserName>,
+        deleter_name: impl SafeTryInto<QualifiedUserName>,
     ) {
         let deleter_name = deleter_name.try_into().unwrap();
         tracing::info!(
@@ -1053,7 +1053,7 @@ impl TestBackend {
         if let ConversationStatus::Inactive(inactive_status) = &deleter_conversation_after.status()
         {
             let inactive_status_members =
-                HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
+                HashSet::<QualifiedUserName>::from_iter(inactive_status.past_members().to_vec());
             assert_eq!(inactive_status_members, past_members);
         } else {
             panic!("Conversation should be inactive.")
@@ -1091,7 +1091,7 @@ impl TestBackend {
                 &group_member_conversation_after.status()
             {
                 let inactive_status_members =
-                    HashSet::<UserName>::from_iter(inactive_status.past_members().to_vec());
+                    HashSet::<QualifiedUserName>::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
                 panic!("Conversation should be inactive.")
@@ -1100,7 +1100,7 @@ impl TestBackend {
         self.groups.remove(&conversation_id);
     }
 
-    pub fn random_user(&self, rng: &mut impl RngCore) -> UserName {
+    pub fn random_user(&self, rng: &mut impl RngCore) -> QualifiedUserName {
         self.users
             .keys()
             .choose(rng)

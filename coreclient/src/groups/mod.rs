@@ -33,7 +33,7 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{AsClientId, QsClientReference, UserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{AsClientId, QsClientReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
@@ -1281,7 +1281,7 @@ impl Group {
     pub(crate) fn user_client_ids(
         &self,
         connection: &Connection,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Vec<AsClientId> {
         match GroupMembership::user_client_ids(connection, self.group_id(), user_name) {
             Ok(user_client_ids) => user_client_ids,
@@ -1312,7 +1312,7 @@ impl Group {
     }
 
     /// Returns a set containing the [`UserName`] of the members of the group.
-    pub(crate) fn members(&self, connection: &Connection) -> HashSet<UserName> {
+    pub(crate) fn members(&self, connection: &Connection) -> HashSet<QualifiedUserName> {
         let Ok(group_members) = GroupMembership::group_members(connection, self.group_id()) else {
             log::error!("Could not retrieve group members.");
             return HashSet::new();
@@ -1321,7 +1321,7 @@ impl Group {
             .into_iter()
             .map(|client_id| client_id.user_name())
             // Collecting to a HashSet first to deduplicate.
-            .collect::<HashSet<UserName>>()
+            .collect::<HashSet<QualifiedUserName>>()
     }
 
     pub(super) fn update(&mut self, connection: &Connection) -> Result<UpdateClientParamsOut> {
@@ -1442,7 +1442,7 @@ impl Group {
         Ok(())
     }
 
-    pub(crate) fn pending_removes(&self, connection: &Connection) -> Vec<UserName> {
+    pub(crate) fn pending_removes(&self, connection: &Connection) -> Vec<QualifiedUserName> {
         self.mls_group()
             .pending_proposals()
             .filter_map(|proposal| match proposal.proposal() {

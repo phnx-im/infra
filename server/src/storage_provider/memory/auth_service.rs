@@ -21,7 +21,7 @@ use phnxtypes::{
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, Fqdn, UserName},
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
 use privacypass_middleware::memory_stores::MemoryKeyStore;
@@ -30,7 +30,7 @@ use thiserror::Error;
 use super::qs::QueueData;
 
 pub struct MemoryAsStorage {
-    user_records: RwLock<HashMap<UserName, AsUserRecord>>,
+    user_records: RwLock<HashMap<QualifiedUserName, AsUserRecord>>,
     client_records: RwLock<HashMap<AsClientId, AsClientRecord>>,
     connection_packages: RwLock<HashMap<AsClientId, VecDeque<ConnectionPackage>>>,
     queues: RwLock<HashMap<AsClientId, QueueData>>,
@@ -161,7 +161,7 @@ impl AsStorageProvider for MemoryAsStorage {
 
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
+    async fn load_user(&self, user_name: &QualifiedUserName) -> Option<AsUserRecord> {
         self.user_records.read().ok()?.get(user_name).cloned()
     }
 
@@ -169,7 +169,7 @@ impl AsStorageProvider for MemoryAsStorage {
     /// name already exists, an error is returned.
     async fn create_user(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError> {
         let user_record = AsUserRecord::new(user_name.clone(), opaque_record.clone());
@@ -187,7 +187,7 @@ impl AsStorageProvider for MemoryAsStorage {
     ///  - All clients of the user
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
+    async fn delete_user(&self, user_id: &QualifiedUserName) -> Result<(), Self::DeleteUserError> {
         let client_ids: Vec<AsClientId> = self
             .client_records
             .read()
@@ -358,7 +358,7 @@ impl AsStorageProvider for MemoryAsStorage {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
         let client_records: Vec<_> = self
             .client_records
@@ -503,7 +503,7 @@ impl AsStorageProvider for MemoryAsStorage {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential> {
         let client_records = match self.client_records.read() {
             Ok(records) => records,
             Err(_) => return vec![],
@@ -578,7 +578,7 @@ pub struct EphemeralAsStorage {
     client_credentials: RwLock<HashMap<AsClientId, ClientCredential>>,
     client_login_states:
         RwLock<HashMap<AsClientId, (ClientCredential, ServerLogin<OpaqueCiphersuite>)>>,
-    user_login_states: RwLock<HashMap<UserName, ServerLogin<OpaqueCiphersuite>>>,
+    user_login_states: RwLock<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>,
 }
 
 #[async_trait]
@@ -659,7 +659,7 @@ impl AsEphemeralStorageProvider for EphemeralAsStorage {
     /// Store the login state for a given user name.
     async fn store_user_login_state(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         opaque_state: &ServerLogin<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError> {
         let mut login_states = self
@@ -673,7 +673,7 @@ impl AsEphemeralStorageProvider for EphemeralAsStorage {
     /// Load the login state for a given user name.
     async fn load_user_login_state(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Option<ServerLogin<OpaqueCiphersuite>>, Self::StorageError> {
         let login_states = self
             .user_login_states
@@ -685,7 +685,7 @@ impl AsEphemeralStorageProvider for EphemeralAsStorage {
     /// Delete the login state for a given user name.
     async fn delete_user_login_state(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<(), Self::StorageError> {
         let mut login_states = self
             .user_login_states

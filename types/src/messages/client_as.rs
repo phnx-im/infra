@@ -31,7 +31,7 @@ use crate::{
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         ConnectionEncryptionKey, RatchetEncryptionKey,
     },
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     time::ExpirationData,
 };
 
@@ -286,7 +286,7 @@ pub struct FinishUserRegistrationParams {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteUserParamsTbs {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
     pub client_id: AsClientId,
     pub opaque_finish: OpaqueLoginFinish,
 }
@@ -676,7 +676,7 @@ pub struct AsClientConnectionPackageResponse {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct UserClientsParams {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
 }
 
 impl NoAuth for UserClientsParams {
@@ -692,7 +692,7 @@ pub struct UserClientsResponse {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct UserConnectionPackagesParams {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
 }
 
 impl NoAuth for UserConnectionPackagesParams {
@@ -963,7 +963,7 @@ pub struct Client2FaAuth {
 
 #[derive(Debug)]
 pub struct UserAuth {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
     pub opaque_finish: OpaqueLoginFinish,
     pub payload: Box<VerifiedAsRequestParams>,
 }

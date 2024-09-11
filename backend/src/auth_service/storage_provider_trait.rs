@@ -12,7 +12,7 @@ use phnxtypes::{
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
 };
 use privacypass::batched_tokens_ristretto255::server::BatchedKeyStore;
@@ -48,13 +48,13 @@ pub trait AsStorageProvider: Sync + Send + 'static {
 
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord>;
+    async fn load_user(&self, user_name: &QualifiedUserName) -> Option<AsUserRecord>;
 
     /// Create a new user with the given user name. If a user with the given user
     /// name already exists, an error is returned.
     async fn create_user(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError>;
 
@@ -65,7 +65,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     ///  - All clients of the user
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError>;
+    async fn delete_user(&self, user_id: &QualifiedUserName) -> Result<(), Self::DeleteUserError>;
 
     // === Clients ===
 
@@ -115,7 +115,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError>;
 
     // === Messages ===
@@ -168,7 +168,7 @@ pub trait AsStorageProvider: Sync + Send + 'static {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential>;
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential>;
 
     // === PrivacyPass ===
 
@@ -235,17 +235,19 @@ pub trait AsEphemeralStorageProvider: Sync + Send + Debug + 'static {
     /// Store the login state for a given user name.
     async fn store_user_login_state(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         opaque_state: &ServerLogin<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError>;
 
     /// Load the login state for a given user name.
     async fn load_user_login_state(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Option<ServerLogin<OpaqueCiphersuite>>, Self::StorageError>;
 
     /// Delete the login state for a given user name.
-    async fn delete_user_login_state(&self, user_name: &UserName)
-        -> Result<(), Self::StorageError>;
+    async fn delete_user_login_state(
+        &self,
+        user_name: &QualifiedUserName,
+    ) -> Result<(), Self::StorageError>;
 }

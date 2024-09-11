@@ -19,7 +19,7 @@ use phnxtypes::{
         CredentialFingerprint,
     },
     crypto::OpaqueCiphersuite,
-    identifiers::{AsClientId, Fqdn, UserName},
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
     time::TimeStamp,
 };
@@ -222,7 +222,7 @@ impl AsStorageProvider for PostgresAsStorage {
 
     /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
     /// exists for the given UserId.
-    async fn load_user(&self, user_name: &UserName) -> Option<AsUserRecord> {
+    async fn load_user(&self, user_name: &QualifiedUserName) -> Option<AsUserRecord> {
         let user_name_bytes = PhnxCodec::to_vec(user_name).ok()?;
         let user_record = sqlx::query!(
             "SELECT user_name, password_file FROM as_user_records WHERE user_name = $1",
@@ -240,7 +240,7 @@ impl AsStorageProvider for PostgresAsStorage {
     /// name already exists, an error is returned.
     async fn create_user(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
     ) -> Result<(), Self::StorageError> {
         let id = Uuid::new_v4();
@@ -264,7 +264,7 @@ impl AsStorageProvider for PostgresAsStorage {
     ///  - All clients of the user
     ///  - All enqueued messages for the respective clients
     ///  - All key packages for the respective clients
-    async fn delete_user(&self, user_id: &UserName) -> Result<(), Self::DeleteUserError> {
+    async fn delete_user(&self, user_id: &QualifiedUserName) -> Result<(), Self::DeleteUserError> {
         let user_name_bytes = PhnxCodec::to_vec(user_id)?;
         // The database cascades the delete to the clients and their connection packages.
         sqlx::query!(
@@ -391,10 +391,10 @@ impl AsStorageProvider for PostgresAsStorage {
             let id = Uuid::new_v4();
             let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
 
-            // Add values to the query arguments
-            query_args.add(id);
-            query_args.add(client_id.client_id());
-            query_args.add(connection_package_bytes);
+            // Add values to the query arguments. None of these should throw an error.
+            let _ = query_args.add(id);
+            let _ = query_args.add(client_id.client_id());
+            let _ = query_args.add(connection_package_bytes);
 
             if i > 0 {
                 query_string.push(',');
@@ -444,7 +444,7 @@ impl AsStorageProvider for PostgresAsStorage {
     /// user name.
     async fn load_user_connection_packages(
         &self,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
         let user_name_bytes = PhnxCodec::to_vec(user_name)?;
 
@@ -686,7 +686,7 @@ impl AsStorageProvider for PostgresAsStorage {
     // === Anonymous requests ===
 
     /// Return the client credentials of a user for a given username.
-    async fn client_credentials(&self, user_name: &UserName) -> Vec<ClientCredential> {
+    async fn client_credentials(&self, user_name: &QualifiedUserName) -> Vec<ClientCredential> {
         let Ok(user_name_bytes) = PhnxCodec::to_vec(user_name) else {
             return vec![];
         };
