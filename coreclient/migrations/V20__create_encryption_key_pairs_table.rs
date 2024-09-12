@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use barrel::{backend::Sqlite, types, Migration};
 
 use crate::groups::openmls_provider::encryption_key_pairs::StorableEncryptionKeyPair;
 use crate::utils::persistence::Storable;

@@ -33,7 +33,6 @@ kamadak-exif = "0.5.5"
 
 # Persistence
 refinery = { version = "0.8", features = ["rusqlite", "enums"] }
-barrel = { version = "0.7", features = ["sqlite3"] }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.30", features = ["bundled", "uuid", "chrono"] }

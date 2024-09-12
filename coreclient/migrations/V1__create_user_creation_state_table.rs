@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use barrel::{backend::Sqlite, types, Migration};
-
 use crate::clients::store::UserCreationState;
 use crate::utils::persistence::Storable;
 
