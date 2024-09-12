@@ -5,20 +5,24 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use mls_assist::{
-    group::{errors::StorageError as MlsAssistStorageError, Group},
+    group::Group,
     openmls::{
         group::GroupId,
         prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
         treesync::RatchetTree,
     },
+    provider_traits::MlsAssistProvider,
+    MlsAssistRustCrypto,
 };
 use phnxtypes::{
+    codec::PhnxCodec,
     credentials::EncryptedClientCredential,
     crypto::{
         ear::{
             keys::{EncryptedSignatureEarKey, GroupStateEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
+        errors::{DecryptionError, EncryptionError},
         signatures::keys::{UserAuthVerifyingKey, UserKeyHash},
     },
     errors::{CborMlsAssistStorage, UpdateQueueConfigError, ValidationError},
@@ -28,6 +32,7 @@ use phnxtypes::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
+use thiserror::Error;
 use uuid::Uuid;
 
 use crate::persistence::StorageError;
@@ -52,62 +57,6 @@ pub(super) struct ClientProfile {
     pub(super) activity_epoch: GroupEpoch,
 }
 
-#[derive(Serialize, Deserialize)]
-pub(super) struct ProposalStore {}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct SerializableDsGroupState {
-    pub(super) group_id: GroupId,
-    pub(super) serialized_provider: Vec<u8>,
-    pub(super) user_profiles: Vec<(UserKeyHash, UserProfile)>,
-    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
-    pub(super) client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
-}
-
-impl SerializableDsGroupState {
-    pub(super) fn from_group_and_provider(
-        group_state: DsGroupState,
-        provider: &CborMlsAssistStorage,
-    ) -> Result<Self, MlsAssistStorageError<CborMlsAssistStorage>> {
-        let group_id = group_state
-            .group()
-            .group_info()
-            .group_context()
-            .group_id()
-            .clone();
-        let user_profiles = group_state.user_profiles.into_iter().collect();
-        let client_profiles = group_state.client_profiles.into_iter().collect();
-        let serialized_provider = provider.serialize()?;
-        Ok(Self {
-            group_id,
-            serialized_provider,
-            user_profiles,
-            unmerged_users: group_state.unmerged_users,
-            client_profiles,
-        })
-    }
-
-    pub(super) fn into_group_state_and_provider(
-        self,
-    ) -> Result<(DsGroupState, CborMlsAssistStorage), MlsAssistStorageError<CborMlsAssistStorage>>
-    {
-        let provider = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
-        // We unwrap here, because the constructor ensures that `self` always stores a group
-        let group = Group::load(&provider, &self.group_id)?.unwrap();
-        let user_profiles = self.user_profiles.into_iter().collect();
-        let client_profiles = self.client_profiles.into_iter().collect();
-        Ok((
-            DsGroupState {
-                group,
-                user_profiles,
-                unmerged_users: self.unmerged_users,
-                client_profiles,
-            },
-            provider,
-        ))
-    }
-}
-
 /// The `DsGroupState` is the per-group state that the DS persists.
 /// It is encrypted-at-rest with a roster key.
 ///
@@ -115,6 +64,7 @@ impl SerializableDsGroupState {
 /// have to store client credentials externally.
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
+    pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
     // Here we keep users that haven't set their user key yet.
     pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
@@ -124,6 +74,7 @@ pub(crate) struct DsGroupState {
 impl DsGroupState {
     //#[instrument(level = "trace", skip_all)]
     pub(crate) fn new(
+        provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
         creator_user_auth_key: UserAuthVerifyingKey,
         creator_encrypted_client_credential: EncryptedClientCredential,
@@ -149,6 +100,7 @@ impl DsGroupState {
         };
         let client_profiles = [(LeafNodeIndex::new(0u32), creator_client_profile)].into();
         Self {
+            provider,
             group,
             user_profiles,
             client_profiles,
@@ -280,6 +232,41 @@ impl DsGroupState {
         }
         client_information
     }
+
+    pub(super) fn encrypt(
+        self,
+        ear_key: &GroupStateEarKey,
+    ) -> Result<EncryptedDsGroupState, DsGroupStateEncryptionError> {
+        let encrypted =
+            EncryptableDsGroupState::from(SerializableDsGroupState::from_group_state(self)?)
+                .encrypt(ear_key)?;
+        Ok(encrypted)
+    }
+
+    pub(super) fn decrypt(
+        encrypted_group_state: &EncryptedDsGroupState,
+        ear_key: &GroupStateEarKey,
+    ) -> Result<Self, DsGroupStateDecryptionError> {
+        let encryptable = EncryptableDsGroupState::decrypt(ear_key, encrypted_group_state)?;
+        let group_state = SerializableDsGroupState::into_group_state(encryptable.into())?;
+        Ok(group_state)
+    }
+}
+
+#[derive(Debug, Error)]
+pub(super) enum DsGroupStateEncryptionError {
+    #[error("Error decrypting group state: {0}")]
+    EncryptionError(#[from] EncryptionError),
+    #[error("Error deserializing group state: {0}")]
+    DeserializationError(#[from] phnxtypes::codec::Error),
+}
+
+#[derive(Debug, Error)]
+pub(super) enum DsGroupStateDecryptionError {
+    #[error("Error decrypting group state: {0}")]
+    DecryptionError(#[from] DecryptionError),
+    #[error("Error deserializing group state: {0}")]
+    DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -327,5 +314,72 @@ impl AsRef<Ciphertext> for EncryptedDsGroupState {
     }
 }
 
-impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}
-impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for SerializableDsGroupState {}
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SerializableDsGroupState {
+    group_id: GroupId,
+    serialized_provider: Vec<u8>,
+    user_profiles: Vec<(UserKeyHash, UserProfile)>,
+    unmerged_users: Vec<Vec<LeafNodeIndex>>,
+    client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
+}
+
+impl SerializableDsGroupState {
+    pub(super) fn from_group_state(
+        group_state: DsGroupState,
+    ) -> Result<Self, phnxtypes::codec::Error> {
+        let group_id = group_state
+            .group()
+            .group_info()
+            .group_context()
+            .group_id()
+            .clone();
+        let user_profiles = group_state.user_profiles.into_iter().collect();
+        let client_profiles = group_state.client_profiles.into_iter().collect();
+        let serialized_provider = group_state.provider.storage().serialize()?;
+        Ok(Self {
+            group_id,
+            serialized_provider,
+            user_profiles,
+            unmerged_users: group_state.unmerged_users,
+            client_profiles,
+        })
+    }
+
+    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxtypes::codec::Error> {
+        let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
+        // We unwrap here, because the constructor ensures that `self` always stores a group
+        let group = Group::load(&storage, &self.group_id)?.unwrap();
+        let user_profiles = self.user_profiles.into_iter().collect();
+        let client_profiles = self.client_profiles.into_iter().collect();
+        let provider = MlsAssistRustCrypto::from(storage);
+        Ok(DsGroupState {
+            provider,
+            group,
+            user_profiles,
+            unmerged_users: self.unmerged_users,
+            client_profiles,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub(super) enum EncryptableDsGroupState {
+    V1(SerializableDsGroupState),
+}
+
+impl From<EncryptableDsGroupState> for SerializableDsGroupState {
+    fn from(encryptable: EncryptableDsGroupState) -> Self {
+        match encryptable {
+            EncryptableDsGroupState::V1(serializable) => serializable,
+        }
+    }
+}
+
+impl From<SerializableDsGroupState> for EncryptableDsGroupState {
+    fn from(serializable: SerializableDsGroupState) -> Self {
+        EncryptableDsGroupState::V1(serializable)
+    }
+}
+
+impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
