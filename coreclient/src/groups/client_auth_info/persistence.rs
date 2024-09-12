@@ -10,7 +10,7 @@ use phnxtypes::{
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
 
-use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable, Triggerable};
+use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
 use super::{GroupMembership, StorableClientCredential};
 
@@ -367,30 +367,4 @@ impl Storable for GroupMembership {
             client_credential_fingerprint,
         })
     }
-}
-
-impl Triggerable for GroupMembership {
-    // Delete client credentials if their not our own and not used in any group.
-    // Also delete any user profiles of users that are not in any group.
-    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &[
-        "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data 
-        AFTER DELETE ON group_membership
-        FOR EACH ROW
-        BEGIN
-            -- Delete client credentials if they are not our own and not used in any group.
-            DELETE FROM client_credentials
-            WHERE fingerprint = OLD.client_credential_fingerprint AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE client_credential_fingerprint = OLD.client_credential_fingerprint
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_client_uuid = OLD.client_uuid
-            );
-
-            -- Delete user profiles of users that are not in any group and that are not our own.
-            DELETE FROM users
-            WHERE user_name = OLD.user_name AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE user_name = OLD.user_name
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
-            );
-        END"];
 }

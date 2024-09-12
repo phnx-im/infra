@@ -17,11 +17,12 @@ use super::{
     epoch_key_pairs::{StorableEpochKeyPairs, StorableEpochKeyPairsRef},
     group_data::{GroupDataType, StorableGroupData, StorableGroupDataRef},
     key_packages::{StorableHashRef, StorableKeyPackage, StorableKeyPackageRef},
-    own_leaf_nodes::StorableLeafNodeRef,
-    proposals::StorableProposalRef,
+    own_leaf_nodes::{StorableLeafNode, StorableLeafNodeRef},
+    proposals::{StorableProposal, StorableProposalRef},
     psks::{StorablePskBundle, StorablePskBundleRef, StorablePskIdRef},
-    signature_key_pairs::{StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef},
-    StorableLeafNode, StorableProposal, StorableSignatureKeyPairs,
+    signature_key_pairs::{
+        StorableSignatureKeyPairs, StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef,
+    },
 };
 
 pub(crate) struct SqliteStorageProvider<'a> {

@@ -6,8 +6,8 @@ use super::api_clients::ApiClients;
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
     utils::{
+        migration::run_migrations,
         persistence::{SqliteConnection, Storable},
-        set_up_database,
     },
 };
 use phnxserver_test_harness::utils::setup::TestBackend;
@@ -29,7 +29,7 @@ async fn user_stages() {
     let mut client_db_connection = Connection::open_in_memory().unwrap();
 
     // Set up the client db
-    set_up_database(&mut client_db_connection).unwrap();
+    run_migrations(&mut client_db_connection).unwrap();
     // Set up phnx db
     ClientRecord::create_table(&phnx_db_connection).unwrap();
 

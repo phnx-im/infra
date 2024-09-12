@@ -34,7 +34,7 @@ use super::*;
 
 // State before any network queries
 #[derive(Serialize, Deserialize)]
-pub(super) struct BasicUserData {
+pub(crate) struct BasicUserData {
     pub(super) as_client_id: AsClientId,
     pub(super) server_url: String,
     pub(super) password: String,
@@ -115,7 +115,7 @@ impl BasicUserData {
 
 // State pre-AS Registration
 #[derive(Serialize, Deserialize)]
-pub(super) struct InitialUserState {
+pub(crate) struct InitialUserState {
     client_credential_payload: ClientCredentialPayload,
     prelim_signing_key: PreliminaryClientSigningKey,
     opaque_message: Vec<u8>,
@@ -171,7 +171,7 @@ impl InitialUserState {
 
 // State after server response to OPAKE initialization
 #[derive(Serialize, Deserialize)]
-pub(super) struct PostRegistrationInitState {
+pub(crate) struct PostRegistrationInitState {
     initial_user_state: InitialUserState,
     client_credential: VerifiableClientCredential,
     opaque_server_response: Vec<u8>,
@@ -318,7 +318,7 @@ impl PostRegistrationInitState {
 
 // State after server response to OPAKE initialization
 #[derive(Serialize, Deserialize)]
-pub(super) struct UnfinalizedRegistrationState {
+pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
     opaque_client_message: Vec<u8>,
     server_url: String,
@@ -380,7 +380,7 @@ impl UnfinalizedRegistrationState {
 
 // State after querying finish user registration
 #[derive(Serialize, Deserialize)]
-pub(super) struct AsRegisteredUserState {
+pub(crate) struct AsRegisteredUserState {
     key_store: MemoryUserKeyStore,
     server_url: String,
     qs_initial_ratchet_secret: RatchetSecret,
@@ -432,7 +432,7 @@ impl AsRegisteredUserState {
 
 // State after creating QS user
 #[derive(Serialize, Deserialize)]
-pub(super) struct QsRegisteredUserState {
+pub(crate) struct QsRegisteredUserState {
     key_store: MemoryUserKeyStore,
     server_url: String,
     qs_user_id: QsUserId,
@@ -504,7 +504,7 @@ impl QsRegisteredUserState {
 
 // State after creating QS user
 #[derive(Serialize, Deserialize)]
-pub(super) struct PersistedUserState {
+pub(crate) struct PersistedUserState {
     state: QsRegisteredUserState,
 }
 
