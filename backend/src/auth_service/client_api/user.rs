@@ -20,8 +20,10 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
-    client_record::ClientRecord, credentials::intermediate_signing_key::IntermediateSigningKey,
-    user_record::UserRecord, AsStorageProvider, AuthService,
+    client_record::ClientRecord,
+    credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
+    user_record::UserRecord,
+    AsStorageProvider, AuthService,
 };
 
 impl AuthService {
@@ -71,7 +73,7 @@ impl AuthService {
 
         // Sign the credential
         let client_credential: ClientCredential = client_payload
-            .sign(&*signing_key)
+            .sign(&signing_key)
             .map_err(|_| InitUserRegistrationError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
@@ -145,9 +147,10 @@ impl AuthService {
             })?;
 
         // Verify and store connection packages
-        let (_as_credentials, as_intermediate_credentials, _revoked_fingerprints) =
-            storage_provider.load_as_credentials().await.map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
+        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading intermediate credentials: {:?}", e);
                 FinishUserRegistrationError::StorageError
             })?;
         let verified_connection_packages = connection_packages
@@ -163,7 +166,6 @@ impl AuthService {
             .collect::<Result<Vec<_>, FinishUserRegistrationError>>()?;
 
         // Create the initial client entry
-
         let ratchet_key = initial_ratchet_key
             .try_into()
             // Hiding the LibraryError here behind a StorageError
@@ -172,7 +174,7 @@ impl AuthService {
             tracing::error!("Error acquiring connection: {:?}", e);
             FinishUserRegistrationError::StorageError
         })?;
-        let client_record = ClientRecord::new_and_store(
+        ClientRecord::new_and_store(
             &mut connection,
             queue_encryption_key,
             ratchet_key,
@@ -204,7 +206,7 @@ impl AuthService {
     ) -> Result<(), DeleteUserError> {
         let DeleteUserParamsTbs {
             user_name,
-            client_id,
+            client_id: _,
             opaque_finish: _,
         } = params;
 

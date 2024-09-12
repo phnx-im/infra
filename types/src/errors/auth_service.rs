@@ -107,6 +107,9 @@ pub enum FinishClientAdditionError {
     /// Client credential not found
     #[error("Client credential not found")]
     ClientCredentialNotFound,
+    /// Invalid connection package
+    #[error("Invalid connection package")]
+    InvalidConnectionPackage,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]

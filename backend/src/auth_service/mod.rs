@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(unused_variables)]
-
 use std::{collections::HashMap, sync::Arc};
 
 use credentials::{
@@ -36,6 +34,7 @@ use self::{storage_provider_trait::AsStorageProvider, verification::VerifiableCl
 
 pub mod client_api;
 mod client_record;
+mod connection_package;
 mod credentials;
 pub mod devices;
 pub mod invitations;
@@ -88,7 +87,7 @@ pub enum AuthServiceCreationError {
 
 impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
     fn from(e: T) -> Self {
-        Self::Storage(StorageError::DatabaseError(e.into()))
+        Self::Storage(StorageError::from(e.into()))
     }
 }
 
@@ -167,7 +166,7 @@ impl AuthService {
         storage_provider: &Asp,
         message: VerifiableClientToAsMessage,
     ) -> Result<AsProcessResponse, AsProcessingError> {
-        let verified_params = self.verify(storage_provider, message).await?;
+        let verified_params = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
             VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
@@ -184,12 +183,11 @@ impl AuthService {
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::FinishClientAddition(params) => {
-                self.as_finish_client_addition(storage_provider, params)
-                    .await?;
+                self.as_finish_client_addition(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteClient(params) => {
-                self.as_delete_client(storage_provider, params).await?;
+                self.as_delete_client(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DequeueMessages(params) => {
@@ -198,7 +196,8 @@ impl AuthService {
                     .map(AsProcessResponse::DequeueMessages)?
             }
             VerifiedAsRequestParams::PublishConnectionPackages(params) => {
-                AuthService::as_publish_connection_packages(storage_provider, params).await?;
+                self.as_publish_connection_packages(storage_provider, params)
+                    .await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::ClientConnectionPackage(params) => {
@@ -225,11 +224,10 @@ impl AuthService {
                     .await
                     .map(AsProcessResponse::UserClients)?
             }
-            VerifiedAsRequestParams::AsCredentials(params) => {
-                AuthService::as_credentials(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::AsCredentials)?
-            }
+            VerifiedAsRequestParams::AsCredentials(params) => self
+                .as_credentials(params)
+                .await
+                .map(AsProcessResponse::AsCredentials)?,
             VerifiedAsRequestParams::EnqueueMessage(params) => {
                 self.as_enqueue_message(storage_provider, params).await?;
                 AsProcessResponse::Ok

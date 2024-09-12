@@ -6,7 +6,10 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
-    credentials::{keys::AsIntermediateSigningKey, AsIntermediateCredentialCsr},
+    credentials::{
+        keys::AsIntermediateSigningKey, AsIntermediateCredential, AsIntermediateCredentialCsr,
+        CredentialFingerprint,
+    },
     identifiers::Fqdn,
 };
 use serde::{Deserialize, Serialize};
@@ -17,11 +20,28 @@ use crate::persistence::StorageError;
 use super::{signing_key::SigningKey, CredentialGenerationError};
 
 #[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-pub(in crate::auth_service) struct IntermediateSigningKey(AsIntermediateSigningKey);
+pub(in crate::auth_service) enum IntermediateSigningKey {
+    V1(AsIntermediateSigningKey),
+}
 
-impl Deref for IntermediateSigningKey {
-    type Target = AsIntermediateSigningKey;
+impl From<IntermediateSigningKey> for AsIntermediateSigningKey {
+    fn from(signing_key: IntermediateSigningKey) -> Self {
+        match signing_key {
+            IntermediateSigningKey::V1(signing_key) => signing_key,
+        }
+    }
+}
+
+impl From<AsIntermediateSigningKey> for IntermediateSigningKey {
+    fn from(signing_key: AsIntermediateSigningKey) -> Self {
+        IntermediateSigningKey::V1(signing_key)
+    }
+}
+
+pub(in crate::auth_service) struct IntermediateCredential(AsIntermediateCredential);
+
+impl Deref for IntermediateCredential {
+    type Target = AsIntermediateCredential;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -35,10 +55,7 @@ impl IntermediateSigningKey {
         signature_scheme: SignatureScheme,
     ) -> Result<Self, CredentialGenerationError> {
         // Start the transaction
-        let mut transaction = connection
-            .begin()
-            .await
-            .map_err(StorageError::DatabaseError)?;
+        let mut transaction = connection.begin().await.map_err(StorageError::from)?;
 
         // Load the currently active (root) signing key
         let signing_key = SigningKey::load(&mut *transaction)
@@ -47,7 +64,7 @@ impl IntermediateSigningKey {
 
         // Generate an intermediate credential CSR and sign it
         let (csr, prelim_signing_key) = AsIntermediateCredentialCsr::new(signature_scheme, domain)?;
-        let as_intermediate_credential = csr.sign(&*signing_key, None).map_err(|e| {
+        let as_intermediate_credential = csr.sign(&signing_key, None).map_err(|e| {
             tracing::error!("Failed to sign intermediate credential: {:?}", e);
             CredentialGenerationError::SigningError
         })?;
@@ -57,7 +74,7 @@ impl IntermediateSigningKey {
             as_intermediate_credential,
         )
         .unwrap();
-        let intermediate_signing_key = IntermediateSigningKey(as_intermediate_signing_key);
+        let intermediate_signing_key = IntermediateSigningKey::from(as_intermediate_signing_key);
 
         // Store the intermediate signing key
         intermediate_signing_key.store(&mut *transaction).await?;
@@ -66,22 +83,29 @@ impl IntermediateSigningKey {
         intermediate_signing_key.activate(&mut *transaction).await?;
 
         // Commit the transaction
-        transaction
-            .commit()
-            .await
-            .map_err(StorageError::DatabaseError)?;
+        transaction.commit().await.map_err(StorageError::from)?;
 
         Ok(intermediate_signing_key)
+    }
+
+    fn fingerprint(&self) -> &CredentialFingerprint {
+        match self {
+            IntermediateSigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
+        }
     }
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::{
+        codec::PhnxCodec,
+        credentials::{keys::AsIntermediateSigningKey, AsIntermediateCredential},
+    };
     use sqlx::PgExecutor;
+    use uuid::Uuid;
 
     use crate::{auth_service::credentials::CredentialType, persistence::StorageError};
 
-    use super::IntermediateSigningKey;
+    use super::{IntermediateCredential, IntermediateSigningKey};
 
     impl IntermediateSigningKey {
         pub(super) async fn store(
@@ -91,11 +115,12 @@ mod persistence {
             sqlx::query!(
                 "INSERT INTO
                     as_signing_keys
-                    (cred_type, credential_fingerprint, signing_key, currently_active)
+                    (id, cred_type, credential_fingerprint, signing_key, currently_active)
                 VALUES 
-                    ($1, $2, $3, $4)",
+                    ($1, $2, $3, $4, $5)",
+                Uuid::new_v4(),
                 CredentialType::Intermediate as _,
-                self.0.credential().fingerprint().as_bytes(),
+                self.fingerprint().as_bytes(),
                 PhnxCodec::to_vec(&self)?,
                 false,
             )
@@ -106,12 +131,12 @@ mod persistence {
 
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
-        ) -> Result<Option<IntermediateSigningKey>, StorageError> {
+        ) -> Result<Option<AsIntermediateSigningKey>, StorageError> {
             sqlx::query!("SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'")
                 .fetch_optional(connection)
                 .await?.map(|record| {
-                    let signing_key = PhnxCodec::from_slice(&record.signing_key)?;
-                    Ok(IntermediateSigningKey(signing_key))
+                    let signing_key: IntermediateSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
+                    Ok(signing_key.into())
                 }).transpose()
         }
 
@@ -126,11 +151,34 @@ mod persistence {
                     ELSE false
                 END
                 WHERE cred_type = 'intermediate'",
-                self.0.credential().fingerprint().as_bytes(),
+                self.fingerprint().as_bytes(),
             )
             .execute(connection)
             .await?;
             Ok(())
+        }
+    }
+
+    impl IntermediateCredential {
+        pub(in crate::auth_service) async fn load_all(
+            connection: impl PgExecutor<'_>,
+        ) -> Result<Vec<AsIntermediateCredential>, StorageError> {
+            let records = sqlx::query!(
+                "SELECT signing_key FROM as_signing_keys WHERE cred_type = $1",
+                CredentialType::Intermediate as _,
+            )
+            .fetch_all(connection)
+            .await?;
+            let credentials = records
+                .into_iter()
+                .map(|record| {
+                    let signing_key: IntermediateSigningKey =
+                        PhnxCodec::from_slice(&record.signing_key)?;
+                    let as_signing_key = AsIntermediateSigningKey::from(signing_key);
+                    Ok(as_signing_key.credential().clone())
+                })
+                .collect::<Result<Vec<_>, StorageError>>()?;
+            Ok(credentials)
         }
     }
 }

@@ -9,11 +9,7 @@ use opaque_ke::{rand::rngs::OsRng, ServerSetup};
 use phnxbackend::auth_service::storage_provider_trait::AsStorageProvider;
 use phnxtypes::{
     codec::PhnxCodec,
-    credentials::{
-        keys::{AsIntermediateSigningKey, AsSigningKey},
-        AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
-        CredentialFingerprint,
-    },
+    credentials::ClientCredential,
     crypto::OpaqueCiphersuite,
     identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
@@ -33,8 +29,8 @@ pub struct PostgresAsStorage {
 
 impl PostgresAsStorage {
     pub async fn new(
-        as_domain: Fqdn,
-        signature_scheme: SignatureScheme,
+        _as_domain: Fqdn,
+        _signature_scheme: SignatureScheme,
         settings: &DatabaseSettings,
     ) -> Result<Self, CreateAsStorageError> {
         let pool = connect_to_database(settings).await?;
@@ -42,31 +38,6 @@ impl PostgresAsStorage {
         let provider = Self { pool };
 
         // Check if the database has been initialized.
-        let (as_creds, _as_inter_creds, _) = provider.load_as_credentials().await?;
-        if as_creds.is_empty() {
-            let (as_signing_key, as_inter_signing_key) =
-                generate_fresh_credentials(as_domain, signature_scheme)?;
-            let _ = sqlx::query!(
-                r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
-                Uuid::new_v4(),
-                CredentialType::As as _,
-                as_signing_key.credential().fingerprint().as_bytes(),
-                PhnxCodec::to_vec(&as_signing_key)?,
-                true,
-            )
-            .execute(&provider.pool)
-            .await?;
-            let _ = sqlx::query!(
-                r#"INSERT INTO as_signing_keys (id, cred_type, credential_fingerprint, signing_key, currently_active) VALUES ($1, $2, $3, $4, $5)"#,
-                Uuid::new_v4(),
-                CredentialType::Intermediate as _,
-                as_inter_signing_key.credential().fingerprint().as_bytes(),
-                PhnxCodec::to_vec(&as_inter_signing_key)?,
-                true,
-            )
-            .execute(&provider.pool)
-            .await?;
-        }
         if provider.load_opaque_setup().await.is_err() {
             let mut rng = OsRng;
             let opaque_setup = ServerSetup::<OpaqueCiphersuite>::new(&mut rng);
@@ -129,24 +100,6 @@ impl PostgresAsStorage {
 
         Ok(connection_package_bytes_record.connection_package)
     }
-}
-
-pub(crate) fn generate_fresh_credentials(
-    as_domain: Fqdn,
-    signature_scheme: SignatureScheme,
-) -> Result<(AsSigningKey, AsIntermediateSigningKey), CreateAsStorageError> {
-    let (_credential, as_signing_key) =
-        AsCredential::new(signature_scheme, as_domain.clone(), None)
-            .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-    let (csr, prelim_signing_key) = AsIntermediateCredentialCsr::new(signature_scheme, as_domain)
-        .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-    let as_intermediate_credential = csr
-        .sign(&as_signing_key, None)
-        .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-    let as_intermediate_signing_key =
-        AsIntermediateSigningKey::from_prelim_key(prelim_signing_key, as_intermediate_credential)
-            .map_err(|_| CreateAsStorageError::CredentialGenerationError)?;
-    Ok((as_signing_key, as_intermediate_signing_key))
 }
 
 #[async_trait]
@@ -440,43 +393,6 @@ impl AsStorageProvider for PostgresAsStorage {
         };
 
         return Ok((messages, remaining_messages as u64));
-    }
-
-    /// Load all currently active [`AsCredential`]s and
-    /// [`AsIntermediateCredential`]s.
-    async fn load_as_credentials(
-        &self,
-    ) -> Result<
-        (
-            Vec<AsCredential>,
-            Vec<AsIntermediateCredential>,
-            Vec<CredentialFingerprint>,
-        ),
-        Self::LoadAsCredentialsError,
-    > {
-        // TODO: The postgres provider currently does not yet support revoked credentials.
-        let revoked_fingerprints = vec![];
-        let signing_keys_bytes_record = sqlx::query!(
-            r#"SELECT signing_key, cred_type AS "cred_type: CredentialType" FROM as_signing_keys WHERE currently_active = true"#
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        let mut intermed_creds = vec![];
-        let mut as_creds = vec![];
-        for record in signing_keys_bytes_record {
-            match record.cred_type {
-                CredentialType::As => {
-                    let as_cred: AsSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
-                    as_creds.push(as_cred.credential().clone());
-                }
-                CredentialType::Intermediate => {
-                    let intermed_cred: AsIntermediateSigningKey =
-                        PhnxCodec::from_slice(&record.signing_key)?;
-                    intermed_creds.push(intermed_cred.credential().clone());
-                }
-            }
-        }
-        Ok((as_creds, intermed_creds, revoked_fingerprints))
     }
 
     /// Load the OPAQUE [`ServerSetup`].

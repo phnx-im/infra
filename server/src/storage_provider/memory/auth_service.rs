@@ -12,11 +12,7 @@ use mls_assist::openmls_traits::types::SignatureScheme;
 use opaque_ke::{rand::rngs::OsRng, ServerSetup};
 use phnxbackend::auth_service::storage_provider_trait::AsStorageProvider;
 use phnxtypes::{
-    credentials::{
-        keys::{AsIntermediateSigningKey, AsSigningKey},
-        AsCredential, AsIntermediateCredential, AsIntermediateCredentialCsr, ClientCredential,
-        CredentialFingerprint,
-    },
+    credentials::ClientCredential,
     crypto::OpaqueCiphersuite,
     identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
@@ -29,8 +25,6 @@ use super::qs::QueueData;
 pub struct MemoryAsStorage {
     connection_packages: RwLock<HashMap<AsClientId, VecDeque<ConnectionPackage>>>,
     queues: RwLock<HashMap<AsClientId, QueueData>>,
-    as_intermediate_signing_key: RwLock<AsIntermediateSigningKey>,
-    as_signing_key: RwLock<AsSigningKey>,
     opaque_server_setup: RwLock<ServerSetup<OpaqueCiphersuite>>,
     // No RwLock needed, as MemoryKeyStore is already thread-safe.
     privacy_pass_key_store: MemoryKeyStore,
@@ -46,35 +40,16 @@ pub enum StorageInitError {
 
 impl MemoryAsStorage {
     pub fn new(
-        as_domain: Fqdn,
-        signature_scheme: SignatureScheme,
+        _as_domain: Fqdn,
+        _signature_scheme: SignatureScheme,
     ) -> Result<Self, StorageInitError> {
         let mut rng = OsRng;
         let opaque_server_setup = RwLock::new(ServerSetup::<OpaqueCiphersuite>::new(&mut rng));
-        let (_credential, as_signing_key) =
-            AsCredential::new(signature_scheme, as_domain.clone(), None)
-                .map_err(|_| StorageInitError::CredentialGenerationError)?;
-        let (csr, prelim_signing_key) =
-            AsIntermediateCredentialCsr::new(signature_scheme, as_domain)
-                .map_err(|_| StorageInitError::CredentialGenerationError)?;
-        let as_intermediate_credential = csr
-            .sign(&as_signing_key, None)
-            .map_err(|_| StorageInitError::CredentialGenerationError)?;
-        let as_intermediate_signing_key = RwLock::new(
-            AsIntermediateSigningKey::from_prelim_key(
-                prelim_signing_key,
-                as_intermediate_credential,
-            )
-            .map_err(|_| StorageInitError::CredentialGenerationError)?,
-        );
         let privacy_pass_key_store = MemoryKeyStore::default();
 
-        let as_signing_key = RwLock::new(as_signing_key);
         let storage_provider = Self {
             connection_packages: RwLock::new(HashMap::new()),
             queues: RwLock::new(HashMap::new()),
-            as_intermediate_signing_key,
-            as_signing_key,
             opaque_server_setup,
             privacy_pass_key_store,
             remaining_tokens: RwLock::new(HashMap::new()),
@@ -282,31 +257,6 @@ impl AsStorageProvider for MemoryAsStorage {
         // Converting usize to u64 should be safe since we don't consider
         // architectures above 64.
         Ok((return_messages, queue.queue.len() as u64))
-    }
-
-    /// Load all currently active [`AsCredential`]s and
-    /// [`AsIntermediateCredential`]s.
-    async fn load_as_credentials(
-        &self,
-    ) -> Result<
-        (
-            Vec<AsCredential>,
-            Vec<AsIntermediateCredential>,
-            Vec<CredentialFingerprint>,
-        ),
-        Self::LoadAsCredentialsError,
-    > {
-        let as_credentials = vec![self
-            .as_signing_key
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)
-            .map(|key| key.credential().clone())?];
-        let as_intermediate_credentials = vec![self
-            .as_intermediate_signing_key
-            .read()
-            .map_err(|_| AsStorageError::PoisonedLock)
-            .map(|key| key.credential().clone())?];
-        Ok((as_credentials, as_intermediate_credentials, vec![]))
     }
 
     /// Load the OPAQUE [`ServerSetup`].

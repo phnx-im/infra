@@ -7,9 +7,7 @@ use std::{error::Error, fmt::Debug};
 use async_trait::async_trait;
 use opaque_ke::ServerSetup;
 use phnxtypes::{
-    credentials::{
-        AsCredential, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
-    },
+    credentials::ClientCredential,
     crypto::OpaqueCiphersuite,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{client_as::ConnectionPackage, QueueMessage},
@@ -84,19 +82,6 @@ pub trait AsStorageProvider: Sync + Send + 'static {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
-
-    /// Load all currently active [`AsCredential`]s and
-    /// [`AsIntermediateCredential`]s.
-    async fn load_as_credentials(
-        &self,
-    ) -> Result<
-        (
-            Vec<AsCredential>,
-            Vec<AsIntermediateCredential>,
-            Vec<CredentialFingerprint>,
-        ),
-        Self::LoadAsCredentialsError,
-    >;
 
     /// Load the OPAQUE [`ServerSetup`].
     async fn load_opaque_setup(

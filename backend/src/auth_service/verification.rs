@@ -9,9 +9,7 @@ use phnxtypes::{
 };
 use tls_codec::TlsDeserializeBytes;
 
-use super::{
-    client_record::ClientRecord, AsStorageProvider, AuthService, TlsSize, VerifiedAsRequestParams,
-};
+use super::{client_record::ClientRecord, AuthService, TlsSize, VerifiedAsRequestParams};
 
 /// Wrapper struct around a message from a client to the AS. It does not
 /// implement the [`Verifiable`] trait, but instead is verified depending on the
@@ -26,9 +24,8 @@ impl VerifiableClientToAsMessage {
 }
 
 impl AuthService {
-    pub(crate) async fn verify<Asp: AsStorageProvider>(
+    pub(crate) async fn verify(
         &self,
-        as_storage_provider: &Asp,
         message: VerifiableClientToAsMessage,
     ) -> Result<VerifiedAsRequestParams, AsVerificationError> {
         let parameters = match message.into_auth_method() {

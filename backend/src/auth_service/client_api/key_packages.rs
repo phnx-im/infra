@@ -10,10 +10,14 @@ use phnxtypes::{
     },
 };
 
-use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
+use crate::auth_service::{
+    credentials::intermediate_signing_key::IntermediateCredential,
+    storage_provider_trait::AsStorageProvider, AuthService,
+};
 
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages<S: AsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: AsPublishConnectionPackagesParamsTbs,
     ) -> Result<(), PublishConnectionPackageError> {
@@ -22,10 +26,12 @@ impl AuthService {
             connection_packages,
         } = params;
 
-        let (_, as_intermediate_credentials, _) = storage_provider
-            .load_as_credentials()
+        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
             .await
-            .map_err(|_| PublishConnectionPackageError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error loading intermediate credentials: {:?}", e);
+                PublishConnectionPackageError::StorageError
+            })?;
 
         // TODO: Last resort key package
         let connection_packages = connection_packages

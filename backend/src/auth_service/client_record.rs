@@ -16,10 +16,10 @@ use crate::persistence::StorageError;
 
 #[derive(Debug, Clone)]
 pub(super) struct ClientRecord {
-    pub queue_encryption_key: RatchetEncryptionKey,
-    pub ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
-    pub activity_time: TimeStamp,
-    pub credential: ClientCredential,
+    pub(super) queue_encryption_key: RatchetEncryptionKey,
+    pub(super) ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
+    pub(super) activity_time: TimeStamp,
+    pub(super) credential: ClientCredential,
 }
 
 impl ClientRecord {
@@ -38,9 +38,8 @@ impl ClientRecord {
 
         // Initialize the client's queue.
         let mut transaction = connection.begin().await?;
-        let queue_data =
-            ClientQueueData::new_and_store(record.client_id(), &mut transaction).await?;
         record.store(&mut transaction).await?;
+        ClientQueueData::new_and_store(record.client_id(), &mut transaction).await?;
         transaction.commit().await?;
 
         Ok(record)

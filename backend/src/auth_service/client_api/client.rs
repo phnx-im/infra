@@ -11,8 +11,9 @@ use phnxtypes::{
     },
     messages::{
         client_as::{
-            DeleteClientParamsTbs, DequeueMessagesParamsTbs, FinishClientAdditionParamsTbs,
-            InitClientAdditionResponse, InitiateClientAdditionParams,
+            ConnectionPackage, DeleteClientParamsTbs, DequeueMessagesParamsTbs,
+            FinishClientAdditionParamsTbs, InitClientAdditionResponse,
+            InitiateClientAdditionParams,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -21,8 +22,12 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
-    client_record::ClientRecord, credentials::intermediate_signing_key::IntermediateSigningKey,
-    storage_provider_trait::AsStorageProvider, user_record::UserRecord, AuthService,
+    client_record::ClientRecord,
+    connection_package::StorableConnectionPackage,
+    credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
+    storage_provider_trait::AsStorageProvider,
+    user_record::UserRecord,
+    AuthService,
 };
 
 impl AuthService {
@@ -108,7 +113,7 @@ impl AuthService {
 
         // Sign the credential
         let client_credential: ClientCredential = client_credential_payload
-            .sign(&*signing_key)
+            .sign(&signing_key)
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
@@ -126,16 +131,15 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_finish_client_addition<S: AsStorageProvider>(
+    pub(crate) async fn as_finish_client_addition(
         &self,
-        storage_provider: &S,
         params: FinishClientAdditionParamsTbs,
     ) -> Result<(), FinishClientAdditionError> {
         let FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
             initial_ratchet_secret: initial_ratchet_key,
-            connection_package: connection_key_package,
+            connection_package,
         } = params;
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based
@@ -154,7 +158,7 @@ impl AuthService {
             .try_into()
             // Hiding the LibraryError here behind a StorageError
             .map_err(|_| FinishClientAdditionError::StorageError)?;
-        let client_record = ClientRecord::new_and_store(
+        ClientRecord::new_and_store(
             &mut connection,
             queue_encryption_key,
             ratchet_key,
@@ -166,6 +170,33 @@ impl AuthService {
             FinishClientAdditionError::StorageError
         })?;
 
+        // Verify and store connection packages
+        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading intermediate credentials: {:?}", e);
+                FinishClientAdditionError::StorageError
+            })?;
+        let cp = connection_package;
+        let verifying_credential = as_intermediate_credentials
+            .iter()
+            .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
+            .ok_or(FinishClientAdditionError::InvalidConnectionPackage)?;
+        let verified_connection_package: ConnectionPackage = cp
+            .verify(verifying_credential.verifying_key())
+            .map_err(|_| FinishClientAdditionError::InvalidConnectionPackage)?;
+
+        StorableConnectionPackage::store_multiple(
+            &mut connection,
+            vec![verified_connection_package].into_iter(),
+            &client_id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Error storing connection package: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
+
         // Delete the entry in the ephemeral OPAQUE DB
         let mut client_login_states = self.ephemeral_client_logins.lock().await;
         client_login_states.remove(&client_id);
@@ -173,9 +204,8 @@ impl AuthService {
         Ok(())
     }
 
-    pub(crate) async fn as_delete_client<S: AsStorageProvider>(
+    pub(crate) async fn as_delete_client(
         &self,
-        storage_provider: &S,
         params: DeleteClientParamsTbs,
     ) -> Result<(), DeleteClientError> {
         let client_id = params.0;
