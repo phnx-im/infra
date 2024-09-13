@@ -175,6 +175,8 @@ impl ConversationMessage {
     }
 }
 
+// WARNING: If this type is changed, a new `VersionedMessage` variant must be
+// introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(ContentMessage),
@@ -205,6 +207,8 @@ impl Message {
     }
 }
 
+// WARNING: If this type is changed, a new `VersionedMessage` variant must be
+// introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
     pub(super) sender: String,
@@ -234,12 +238,16 @@ impl ContentMessage {
     }
 }
 
+// WARNING: If this type is changed, a new `VersionedMessage` variant must be
+// introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum EventMessage {
     System(SystemMessage),
     Error(ErrorMessage),
 }
 
+// WARNING: If this type is changed, a new `VersionedMessage` variant must be
+// introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
@@ -268,6 +276,10 @@ impl Display for SystemMessage {
     }
 }
 
+// WARNING: If this type is changed, the storage and loading logic in the
+// `crate::conversations::messages::peristence` module must be updated
+// accordingly and the `MESSAGE_CONTENT_FORMAT_VERSION` constant must be
+// incremented by one.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorMessage {
     message: String,

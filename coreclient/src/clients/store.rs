@@ -13,6 +13,8 @@ use super::{
     *,
 };
 
+/// WARNING: This enum is stored in sqlite as a blob. If any changes are made to
+/// this enum, a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) enum UserCreationState {
     BasicUserData(BasicUserData),

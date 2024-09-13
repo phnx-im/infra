@@ -74,8 +74,8 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> DerefMu
     }
 }
 
-pub(crate) type StorableAsQueueRatchet =
-    StorableQueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
+pub(crate) type StorableQsQueueRatchet =
+    StorableQueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
 
 impl StorableQsQueueRatchet {
     pub(crate) fn initialize(
@@ -104,8 +104,8 @@ impl StorableQsQueueRatchet {
     }
 }
 
-pub(crate) type StorableQsQueueRatchet =
-    StorableQueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
+pub(crate) type StorableAsQueueRatchet =
+    StorableQueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
 
 impl StorableAsQueueRatchet {
     pub(crate) fn initialize(
@@ -139,7 +139,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Storabl
 {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS queue_ratchets (
-            queue_type TEXT PRIMARY KEY,
+            queue_type TEXT PRIMARY KEY CHECK (queue_type IN ('as', 'qs')),
             queue_ratchet BLOB NOT NULL,
             sequence_number INTEGER NOT NULL DEFAULT 0
         );";
@@ -174,14 +174,10 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
     fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         let mut stmt = connection
             .prepare("INSERT INTO queue_ratchets (queue_type, queue_ratchet) VALUES (?, ?);")?;
-        stmt.execute(params![self.queue_type.to_string(), self.queue_ratchet,])?;
+        stmt.execute(params![self.queue_type.to_string(), self.queue_ratchet])?;
         Ok(())
     }
-}
 
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
-    StorableQueueRatchet<Ciphertext, Payload>
-{
     fn load_internal(
         connection: &Connection,
         queue_type: QueueType,

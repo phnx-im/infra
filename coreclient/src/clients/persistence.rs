@@ -3,11 +3,45 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, types::FromSql, OptionalExtension, ToSql};
+use serde::{Deserialize, Serialize};
 
 use crate::utils::persistence::{open_phnx_db, Storable};
 
 use super::store::{ClientRecord, ClientRecordState, UserCreationState};
+
+// When adding a variant to this enum, the new variant must be called
+// `CurrentVersion` and the current version must be renamed to `VX`, where `X`
+// is the next version number. The content type of the old `CurrentVersion` must
+// be renamed and otherwise preserved to ensure backwards compatibility.
+#[derive(Serialize, Deserialize)]
+enum StorableUserCreationState {
+    CurrentVersion(UserCreationState),
+}
+
+// Only change this enum in tandem with its non-Ref variant.
+#[derive(Serialize)]
+enum StorableUserCreationStateRef<'a> {
+    CurrentVersion(&'a UserCreationState),
+}
+
+impl FromSql for UserCreationState {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        let state = PhnxCodec::from_slice(value.as_blob()?)?;
+        match state {
+            StorableUserCreationState::CurrentVersion(state) => Ok(state),
+        }
+    }
+}
+
+impl ToSql for UserCreationState {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        let state = StorableUserCreationStateRef::CurrentVersion(self);
+        let bytes = PhnxCodec::to_vec(&state)?;
+
+        Ok(rusqlite::types::ToSqlOutput::from(bytes))
+    }
+}
 
 impl Storable for UserCreationState {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -18,12 +52,7 @@ impl Storable for UserCreationState {
     ";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let state_bytes = row.get_ref(0)?;
-        let state = PhnxCodec::from_slice(state_bytes.as_blob()?).map_err(|e| {
-            log::error!("Failed to deserialize user creation state: {}", e);
-            rusqlite::Error::ToSqlConversionFailure(e.into())
-        })?;
-        Ok(state)
+        row.get(0)
     }
 }
 
@@ -42,13 +71,9 @@ impl UserCreationState {
     }
 
     pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
-        let state_bytes = PhnxCodec::to_vec(self).map_err(|e| {
-            log::error!("Failed to serialize user creation state: {}", e);
-            rusqlite::Error::ToSqlConversionFailure(e.into())
-        })?;
         connection.execute(
             "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?1, ?2)",
-            params![self.client_id(), &state_bytes],
+            params![self.client_id(), self],
         )?;
         Ok(())
     }

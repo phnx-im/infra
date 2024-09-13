@@ -32,7 +32,10 @@ use rand_chacha::rand_core::OsRng;
 
 use super::*;
 
-// State before any network queries
+/// State before any network queries
+///
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct BasicUserData {
     pub(super) as_client_id: AsClientId,
@@ -114,6 +117,8 @@ impl BasicUserData {
 }
 
 // State pre-AS Registration
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct InitialUserState {
     client_credential_payload: ClientCredentialPayload,
@@ -170,6 +175,9 @@ impl InitialUserState {
 }
 
 // State after server response to OPAKE initialization
+//
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct PostRegistrationInitState {
     initial_user_state: InitialUserState,
@@ -317,6 +325,9 @@ impl PostRegistrationInitState {
 }
 
 // State after server response to OPAKE initialization
+//
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
@@ -379,6 +390,9 @@ impl UnfinalizedRegistrationState {
 }
 
 // State after querying finish user registration
+//
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AsRegisteredUserState {
     key_store: MemoryUserKeyStore,
@@ -431,6 +445,9 @@ impl AsRegisteredUserState {
 }
 
 // State after creating QS user
+//
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct QsRegisteredUserState {
     key_store: MemoryUserKeyStore,
@@ -503,6 +520,9 @@ impl QsRegisteredUserState {
 }
 
 // State after creating QS user
+//
+// WARNING: This type is stored in sqlite as a blob. If any changes are made
+// a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct PersistedUserState {
     state: QsRegisteredUserState,
