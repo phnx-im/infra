@@ -8,7 +8,8 @@ use credentials::{
     intermediate_signing_key::IntermediateSigningKey, signing_key::SigningKey,
     CredentialGenerationError,
 };
-use opaque_ke::ServerLogin;
+use opaque::OpaqueSetup;
+use opaque_ke::{rand::rngs::OsRng, ServerLogin};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{signatures::DEFAULT_SIGNATURE_SCHEME, OpaqueCiphersuite},
@@ -28,22 +29,19 @@ use thiserror::Error;
 use tls_codec::{TlsSerialize, TlsSize};
 use tokio::sync::Mutex;
 
-use crate::persistence::StorageError;
-
-use self::{storage_provider_trait::AsStorageProvider, verification::VerifiableClientToAsMessage};
+use crate::persistence::{DatabaseError, StorageError};
 
 pub mod client_api;
 mod client_record;
 mod connection_package;
 mod credentials;
-pub mod devices;
-pub mod invitations;
-pub mod key_packages;
+mod opaque;
 mod privacy_pass;
-pub mod registration;
-pub mod storage_provider_trait;
+mod queue;
 mod user_record;
-pub mod verification;
+mod verification;
+
+pub use verification::VerifiableClientToAsMessage;
 
 /*
 Actions:
@@ -127,6 +125,7 @@ impl AuthService {
         domain: Fqdn,
     ) -> Result<Self, AuthServiceCreationError> {
         sqlx::migrate!("./migrations").run(&db_pool).await?;
+        tracing::info!("Database migration successful");
 
         let auth_service = Self {
             db_pool,
@@ -156,26 +155,35 @@ impl AuthService {
             )
             .await?;
         }
+
+        let opaque_setup_exists = match OpaqueSetup::load(&mut *transaction).await {
+            Ok(_) => true,
+            Err(StorageError::Database(DatabaseError::Sqlx(sqlx::Error::RowNotFound))) => false,
+            Err(e) => return Err(e.into()),
+        };
+        let rng = &mut OsRng;
+        if !opaque_setup_exists {
+            OpaqueSetup::new_and_store(&mut *transaction, rng).await?;
+        }
+
         transaction.commit().await?;
 
         Ok(auth_service)
     }
 
-    pub async fn process<Asp: AsStorageProvider>(
+    pub async fn process(
         &self,
-        storage_provider: &Asp,
         message: VerifiableClientToAsMessage,
     ) -> Result<AsProcessResponse, AsProcessingError> {
         let verified_params = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
             VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
-                .as_init_two_factor_auth(storage_provider, params)
+                .as_init_two_factor_auth(params)
                 .await
                 .map(AsProcessResponse::Init2FactorAuth)?,
             VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                self.as_finish_user_registration(storage_provider, params)
-                    .await?;
+                self.as_finish_user_registration(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteUser(params) => {
@@ -190,50 +198,44 @@ impl AuthService {
                 self.as_delete_client(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::DequeueMessages(params) => {
-                AuthService::as_dequeue_messages(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::DequeueMessages)?
-            }
+            VerifiedAsRequestParams::DequeueMessages(params) => self
+                .as_dequeue_messages(params)
+                .await
+                .map(AsProcessResponse::DequeueMessages)?,
             VerifiedAsRequestParams::PublishConnectionPackages(params) => {
-                self.as_publish_connection_packages(storage_provider, params)
-                    .await?;
+                self.as_publish_connection_packages(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
-                AuthService::as_client_key_package(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::ClientKeyPackage)?
-            }
-            VerifiedAsRequestParams::IssueTokens(params) => {
-                AuthService::as_issue_tokens(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::IssueTokens)?
-            }
-            VerifiedAsRequestParams::UserConnectionPackages(params) => {
-                AuthService::as_user_connection_packages(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::UserKeyPackages)?
-            }
+            VerifiedAsRequestParams::ClientConnectionPackage(params) => self
+                .as_client_key_package(params)
+                .await
+                .map(AsProcessResponse::ClientKeyPackage)?,
+            VerifiedAsRequestParams::IssueTokens(params) => self
+                .as_issue_tokens(params)
+                .await
+                .map(AsProcessResponse::IssueTokens)?,
+            VerifiedAsRequestParams::UserConnectionPackages(params) => self
+                .as_user_connection_packages(params)
+                .await
+                .map(AsProcessResponse::UserKeyPackages)?,
             VerifiedAsRequestParams::InitiateClientAddition(params) => self
-                .as_init_client_addition(storage_provider, params)
+                .as_init_client_addition(params)
                 .await
                 .map(AsProcessResponse::InitiateClientAddition)?,
-            VerifiedAsRequestParams::UserClients(params) => {
-                AuthService::as_user_clients(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::UserClients)?
-            }
+            VerifiedAsRequestParams::UserClients(params) => self
+                .as_user_clients(params)
+                .await
+                .map(AsProcessResponse::UserClients)?,
             VerifiedAsRequestParams::AsCredentials(params) => self
                 .as_credentials(params)
                 .await
                 .map(AsProcessResponse::AsCredentials)?,
             VerifiedAsRequestParams::EnqueueMessage(params) => {
-                self.as_enqueue_message(storage_provider, params).await?;
+                self.as_enqueue_message(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::InitUserRegistration(params) => self
-                .as_init_user_registration(storage_provider, params)
+                .as_init_user_registration(params)
                 .await
                 .map(AsProcessResponse::InitUserRegistration)?,
         };

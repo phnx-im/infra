@@ -24,12 +24,10 @@ use phnxserver::{
     storage_provider::memory::qs_connector::MemoryEnqueueProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxtypes::identifiers::Fqdn;
 use uuid::Uuid;
 
-use phnxserver::storage_provider::postgres::{
-    auth_service::PostgresAsStorage, qs::PostgresQsStorage,
-};
+use phnxserver::storage_provider::postgres::qs::PostgresQsStorage;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -97,13 +95,6 @@ pub async fn spawn_app(
 
     // New database name for the AS provider
     configuration.database.name = Uuid::new_v4().to_string();
-    let as_storage_provider = PostgresAsStorage::new(
-        domain.clone(),
-        DEFAULT_SIGNATURE_SCHEME,
-        &configuration.database,
-    )
-    .await
-    .expect("Failed to connect to database.");
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
     let qs_connector = MemoryEnqueueProvider {
@@ -119,7 +110,6 @@ pub async fn spawn_app(
         ds,
         auth_service,
         qs_storage_provider,
-        as_storage_provider,
         qs_connector,
         network_provider,
         ws_dispatch_notifier.clone(),

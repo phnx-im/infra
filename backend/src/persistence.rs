@@ -7,20 +7,20 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error(transparent)]
-    DatabaseError(#[from] DatabaseError),
+    Database(#[from] DatabaseError),
     #[error("Error deserializing column: {0}")]
     Serde(#[from] phnxtypes::codec::Error),
 }
 
 impl From<sqlx::Error> for StorageError {
     fn from(e: sqlx::Error) -> Self {
-        Self::DatabaseError(e.into())
+        Self::Database(e.into())
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for StorageError {
     fn from(e: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        Self::DatabaseError(e.into())
+        Self::Database(e.into())
     }
 }
 

@@ -173,6 +173,9 @@ pub enum IssueTokensError {
     /// Too many tokens
     #[error("Too many tokens")]
     TooManyTokens,
+    /// Unknown client
+    #[error("Unknown client")]
+    UnknownClient,
     /// PrivacyPass protocol error
     #[error("PrivacyPass protocol error")]
     PrivacyPassError,

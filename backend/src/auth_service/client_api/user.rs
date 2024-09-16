@@ -21,15 +21,16 @@ use tls_codec::Serialize;
 
 use crate::auth_service::{
     client_record::ClientRecord,
+    connection_package::StorableConnectionPackage,
     credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
+    opaque::OpaqueSetup,
     user_record::UserRecord,
-    AsStorageProvider, AuthService,
+    AuthService,
 };
 
 impl AuthService {
-    pub(crate) async fn as_init_user_registration<S: AsStorageProvider>(
+    pub(crate) async fn as_init_user_registration(
         &self,
-        storage_provider: &S,
         params: InitUserRegistrationParams,
     ) -> Result<InitUserRegistrationResponse, InitUserRegistrationError> {
         let InitUserRegistrationParams {
@@ -86,8 +87,8 @@ impl AuthService {
         // Perform OPAQUE registration
 
         // Load server key material
-        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
-            tracing::error!("Error loading opaque setup: {:?}", e);
+        let server_setup = OpaqueSetup::load(&self.db_pool).await.map_err(|e| {
+            tracing::error!("Error loading OPAQUE setup: {:?}", e);
             InitUserRegistrationError::StorageError
         })?;
 
@@ -113,9 +114,8 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_finish_user_registration<S: AsStorageProvider>(
+    pub(crate) async fn as_finish_user_registration(
         &self,
-        storage_provider: &S,
         params: FinishUserRegistrationParamsTbsIn,
     ) -> Result<(), FinishUserRegistrationError> {
         let FinishUserRegistrationParamsTbsIn {
@@ -186,13 +186,16 @@ impl AuthService {
             FinishUserRegistrationError::StorageError
         })?;
 
-        storage_provider
-            .store_connection_packages(&client_id, verified_connection_packages)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
+        StorableConnectionPackage::store_multiple(
+            &self.db_pool,
+            verified_connection_packages,
+            &client_id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            FinishUserRegistrationError::StorageError
+        })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
         let mut client_login_states = self.ephemeral_client_logins.lock().await;

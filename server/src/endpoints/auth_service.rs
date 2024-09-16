@@ -3,23 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix_web::web::{self, Data};
-use phnxbackend::auth_service::{
-    storage_provider_trait::AsStorageProvider, verification::VerifiableClientToAsMessage,
-    AuthService,
-};
+use phnxbackend::auth_service::{AuthService, VerifiableClientToAsMessage};
 use tls_codec::{DeserializeBytes, Serialize};
 
 use super::*;
 
 /// DS endpoint for all group-based functionalities.
 #[tracing::instrument(name = "Perform AS operation", skip_all)]
-pub(crate) async fn as_process_message<Asp: AsStorageProvider>(
+pub(crate) async fn as_process_message(
     message: web::Bytes,
     auth_service: Data<AuthService>,
-    as_storage_provider: Data<Asp>,
 ) -> impl Responder {
-    // Extract the storage provider.
-    let storage_provider = as_storage_provider.get_ref();
     // Create a new group on the DS.
     let message = match VerifiableClientToAsMessage::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
@@ -28,7 +22,7 @@ pub(crate) async fn as_process_message<Asp: AsStorageProvider>(
             return HttpResponse::BadRequest().body(e.to_string());
         }
     };
-    match auth_service.process(storage_provider, message).await {
+    match auth_service.process(message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");

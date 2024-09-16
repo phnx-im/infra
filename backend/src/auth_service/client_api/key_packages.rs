@@ -11,14 +11,13 @@ use phnxtypes::{
 };
 
 use crate::auth_service::{
-    credentials::intermediate_signing_key::IntermediateCredential,
-    storage_provider_trait::AsStorageProvider, AuthService,
+    connection_package::StorableConnectionPackage,
+    credentials::intermediate_signing_key::IntermediateCredential, AuthService,
 };
 
 impl AuthService {
-    pub(crate) async fn as_publish_connection_packages<S: AsStorageProvider>(
+    pub(crate) async fn as_publish_connection_packages(
         &self,
-        storage_provider: &S,
         params: AsPublishConnectionPackagesParamsTbs,
     ) -> Result<(), PublishConnectionPackageError> {
         let AsPublishConnectionPackagesParamsTbs {
@@ -33,7 +32,7 @@ impl AuthService {
                 PublishConnectionPackageError::StorageError
             })?;
 
-        // TODO: Last resort key package
+        // TODO: Last resort connection package
         let connection_packages = connection_packages
             .into_iter()
             .map(|cp| {
@@ -46,26 +45,33 @@ impl AuthService {
             })
             .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;
 
-        storage_provider
-            .store_connection_packages(&client_id, connection_packages)
-            .await
-            .map_err(|_| PublishConnectionPackageError::StorageError)?;
+        StorableConnectionPackage::store_multiple(
+            &self.db_pool,
+            connection_packages.into_iter(),
+            &client_id,
+        )
+        .await
+        .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())
     }
 
-    pub(crate) async fn as_client_key_package<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_client_key_package(
+        &self,
         params: ClientConnectionPackageParamsTbs,
     ) -> Result<AsClientConnectionPackageResponse, ClientKeyPackageError> {
         let client_id = params.0;
 
-        let connection_package = storage_provider
-            .client_connection_package(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                ClientKeyPackageError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Can't acquire a connection: {:?}", e);
+            ClientKeyPackageError::StorageError
+        })?;
+        let connection_package =
+            StorableConnectionPackage::client_connection_package(&mut connection, &client_id)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Storage provider error: {:?}", e);
+                    ClientKeyPackageError::StorageError
+                })?;
 
         let response = AsClientConnectionPackageResponse {
             connection_package: Some(connection_package),

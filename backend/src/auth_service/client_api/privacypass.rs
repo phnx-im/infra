@@ -8,13 +8,15 @@ use phnxtypes::{
 };
 use privacypass::batched_tokens_ristretto255::server::Server;
 
-use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
+use crate::auth_service::{
+    client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider, AuthService,
+};
 
-const MAX_TOKENS_PER_REQUEST: usize = 100;
+const MAX_TOKENS_PER_REQUEST: i32 = 100;
 
 impl AuthService {
-    pub(crate) async fn as_issue_tokens<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_issue_tokens(
+        &self,
         params: IssueTokensParamsTbs,
     ) -> Result<IssueTokensResponse, IssueTokensError> {
         let IssueTokensParamsTbs {
@@ -24,22 +26,33 @@ impl AuthService {
             token_type: _,
             token_request,
         } = params;
+        let tokens_requested = token_request.nr() as i32;
 
-        // Load current token allowance from storage provider
-        let token_allowance = storage_provider
-            .load_client_token_allowance(&client_id)
+        // Start a transaction
+        let mut transaction = self
+            .db_pool
+            .begin()
             .await
             .map_err(|_| IssueTokensError::StorageError)?;
 
-        let tokens_requested = token_request.nr();
+        // Load current token allowance from storage provider
+        let mut client_record = ClientRecord::load(&mut *transaction, &client_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading client record: {:?}", e);
+                IssueTokensError::StorageError
+            })?
+            .ok_or(IssueTokensError::UnknownClient)?;
+
+        let token_allowance = client_record.token_allowance;
         if tokens_requested > token_allowance || tokens_requested > MAX_TOKENS_PER_REQUEST {
             return Err(IssueTokensError::TooManyTokens);
         }
 
-        let pp_key_store = storage_provider.privacy_pass_key_store().await;
         let pp_server = Server::new();
+        let key_store = AuthServiceBatchedKeyStoreProvider::new(&mut transaction);
         let token_response = pp_server
-            .issue_token_response(pp_key_store, token_request)
+            .issue_token_response(&key_store, token_request)
             .await
             .map_err(|_| IssueTokensError::PrivacyPassError)?;
 
@@ -48,8 +61,14 @@ impl AuthService {
         };
 
         // Reduce the token allowance by the number of tokens issued.
-        storage_provider
-            .set_client_token_allowance(&client_id, token_allowance - tokens_requested)
+        client_record.token_allowance -= tokens_requested;
+        client_record.update(&mut *transaction).await.map_err(|e| {
+            tracing::error!("Error updating client record: {:?}", e);
+            IssueTokensError::StorageError
+        })?;
+
+        transaction
+            .commit()
             .await
             .map_err(|_| IssueTokensError::StorageError)?;
 

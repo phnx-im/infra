@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use client_queue::ClientQueueData;
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, RatchetEncryptionKey},
@@ -14,13 +13,18 @@ use sqlx::{Connection, PgConnection};
 
 use crate::persistence::StorageError;
 
+use super::queue::Queue;
+
 #[derive(Debug, Clone)]
 pub(super) struct ClientRecord {
     pub(super) queue_encryption_key: RatchetEncryptionKey,
     pub(super) ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
     pub(super) activity_time: TimeStamp,
     pub(super) credential: ClientCredential,
+    pub(super) token_allowance: i32,
 }
+
+const DEFAULT_TOKEN_ALLOWANCE: i32 = 1000;
 
 impl ClientRecord {
     pub(super) async fn new_and_store(
@@ -34,12 +38,13 @@ impl ClientRecord {
             ratchet_key,
             activity_time: TimeStamp::now(),
             credential,
+            token_allowance: DEFAULT_TOKEN_ALLOWANCE,
         };
 
         // Initialize the client's queue.
         let mut transaction = connection.begin().await?;
         record.store(&mut transaction).await?;
-        ClientQueueData::new_and_store(record.client_id(), &mut transaction).await?;
+        Queue::new_and_store(record.client_id(), &mut transaction).await?;
         transaction.commit().await?;
 
         Ok(record)
@@ -47,52 +52,6 @@ impl ClientRecord {
 
     fn client_id(&self) -> AsClientId {
         self.credential.identity()
-    }
-}
-
-mod client_queue {
-    use phnxtypes::identifiers::AsClientId;
-    use sqlx::PgConnection;
-
-    use crate::persistence::StorageError;
-
-    pub(super) struct ClientQueueData {
-        queue_id: AsClientId,
-        sequence_number: i64,
-    }
-
-    impl ClientQueueData {
-        pub(super) async fn new_and_store<'a>(
-            queue_id: AsClientId,
-            connection: &mut PgConnection,
-        ) -> Result<Self, StorageError> {
-            let queue_data = Self {
-                queue_id,
-                sequence_number: 0,
-            };
-            queue_data.store(connection).await?;
-            Ok(queue_data)
-        }
-    }
-
-    mod persistence {
-        use super::*;
-
-        impl ClientQueueData {
-            pub(super) async fn store(
-                &self,
-                connection: &mut PgConnection,
-            ) -> Result<(), StorageError> {
-                sqlx::query!(
-                    "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
-                    self.queue_id.client_id(),
-                    self.sequence_number
-                )
-                .execute(connection)
-                .await?;
-                Ok(())
-            }
-        }
     }
 }
 
@@ -123,7 +82,7 @@ mod persistence {
                 ratchet,
                 activity_time,
                 client_credential,
-                1000, // TODO: Once we use tokens, we should make this configurable.
+                self.token_allowance,
             )
             .execute(connection)
             .await?;
@@ -140,11 +99,12 @@ mod persistence {
             let client_credential = PhnxCodec::to_vec(&self.credential)?;
             let client_id = self.credential.identity();
             sqlx::query!(
-                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, client_credential = $4 WHERE client_id = $5",
+                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, client_credential = $4, remaining_tokens = $5 WHERE client_id = $6",
                 queue_encryption_key_bytes,
                 ratchet,
                 activity_time,
                 client_credential,
+                self.token_allowance,
                 client_id.client_id(),
             )
             .execute(connection)
@@ -161,7 +121,8 @@ mod persistence {
                     queue_encryption_key,
                     ratchet,
                     activity_time,
-                    client_credential
+                    client_credential,
+                    remaining_tokens
                 FROM as_client_records WHERE client_id = $1",
                 client_id.client_id(),
             )
@@ -177,6 +138,7 @@ mod persistence {
                     ratchet_key: ratchet,
                     activity_time,
                     credential: client_credential,
+                    token_allowance: record.remaining_tokens,
                 })
             })
             .transpose()

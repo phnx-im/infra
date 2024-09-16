@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    codec::PhnxCodec, identifiers::AsClientId, messages::client_as::ConnectionPackage,
+    codec::PhnxCodec,
+    identifiers::{AsClientId, QualifiedUserName},
+    messages::client_as::ConnectionPackage,
 };
-use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection};
+use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
 use uuid::Uuid;
 
 use crate::persistence::StorageError;
@@ -14,8 +16,8 @@ use super::StorableConnectionPackage;
 
 impl StorableConnectionPackage {
     pub(in crate::auth_service) async fn store_multiple(
-        connection: &mut PgConnection,
-        connection_packages: impl Iterator<Item = impl Into<StorableConnectionPackage>>,
+        connection: impl PgExecutor<'_>,
+        connection_packages: impl IntoIterator<Item = impl Into<StorableConnectionPackage>>,
         client_id: &AsClientId,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
@@ -23,7 +25,7 @@ impl StorableConnectionPackage {
             "INSERT INTO connection_packages (id, client_id, connection_package) VALUES",
         );
 
-        for (i, connection_package) in connection_packages.enumerate() {
+        for (i, connection_package) in connection_packages.into_iter().enumerate() {
             let connection_package: StorableConnectionPackage = connection_package.into();
             let id = Uuid::new_v4();
             let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
@@ -60,23 +62,17 @@ impl StorableConnectionPackage {
     async fn load(connection: &mut PgConnection, client_id: Uuid) -> Result<Vec<u8>, StorageError> {
         let mut transaction = connection.begin().await?;
 
-        // TODO: Set the isolation level to SERIALIZABLE. This is necessary
-        // because we're counting the number of packages and then deleting one.
-        // We should do this once we're moving to a proper state-machine model
-        // for server storage and networking.
-
         // This is to ensure that counting and deletion happen atomically. If we
         // don't do this, two concurrent queries might both count 2 and delete,
         // leaving us with 0 packages.
-        //sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-        //    .execute(&mut *savepoint)
-        //    .await?;
-
         let connection_package_bytes_record = sqlx::query!(
             "WITH next_connection_package AS (
                 SELECT id, connection_package 
                 FROM connection_packages 
-                WHERE client_id = $1 LIMIT 1
+                WHERE client_id = $1 
+                LIMIT 1 
+                FOR UPDATE -- make sure two concurrent queries don't return the same package
+                SKIP LOCKED -- skip rows that are already locked by other processes
             ), 
             remaining_packages AS (
                 SELECT COUNT(*) as count 
@@ -104,26 +100,30 @@ impl StorableConnectionPackage {
     }
 
     /// TODO: Last resort key package
-    async fn client_connection_package(
+    pub(in crate::auth_service) async fn client_connection_package(
         connection: &mut PgConnection,
         client_id: &AsClientId,
     ) -> Result<ConnectionPackage, StorageError> {
-        let connection_package_bytes =
-            Self::load_connection(connection, client_id.client_id()).await?;
+        let connection_package_bytes = Self::load(connection, client_id.client_id()).await?;
 
-        let connection_package = PhnxCodec::from_slice(&connection_package_bytes)?;
+        let connection_package: StorableConnectionPackage =
+            PhnxCodec::from_slice(&connection_package_bytes)?;
 
-        Ok(connection_package)
+        Ok(connection_package.into())
     }
 
     /// Return a connection package for each client of a user referenced by a
     /// user name.
-    async fn load_user_connection_packages(
-        &self,
+    pub(in crate::auth_service) async fn user_connection_packages(
+        connection: &mut PgConnection,
         user_name: &QualifiedUserName,
-    ) -> Result<Vec<ConnectionPackage>, Self::StorageError> {
+    ) -> Result<Vec<ConnectionPackage>, StorageError> {
         // Start the transaction
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = connection.begin().await?;
+
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *transaction)
+            .await?;
 
         // Collect all client ids associated with that user.
         let client_ids_record = sqlx::query!(
@@ -137,8 +137,7 @@ impl StorableConnectionPackage {
         let mut connection_packages_bytes = Vec::new();
         for client_id in client_ids_record {
             let connection_package_bytes =
-                Self::load_connection_package_internal(&mut transaction, client_id.client_id)
-                    .await?;
+                Self::load(&mut transaction, client_id.client_id).await?;
             connection_packages_bytes.push(connection_package_bytes);
         }
 
@@ -148,8 +147,12 @@ impl StorableConnectionPackage {
         // Deserialize the connection packages.
         let connection_packages = connection_packages_bytes
             .into_iter()
-            .map(|connection_package_bytes| PhnxCodec::from_slice(&connection_package_bytes))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|connection_package_bytes| {
+                let storable: StorableConnectionPackage =
+                    PhnxCodec::from_slice(&connection_package_bytes)?;
+                Ok(storable.into())
+            })
+            .collect::<Result<Vec<ConnectionPackage>, StorageError>>()?;
 
         Ok(connection_packages)
     }

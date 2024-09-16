@@ -14,42 +14,53 @@ use phnxtypes::{
 
 use crate::auth_service::{
     client_record::ClientRecord,
+    connection_package::StorableConnectionPackage,
     credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
-    storage_provider_trait::AsStorageProvider,
+    queue::Queue,
+    user_record::UserRecord,
     AuthService,
 };
 
 impl AuthService {
-    pub(crate) async fn as_user_clients<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_user_clients(
+        &self,
         params: UserClientsParams,
     ) -> Result<UserClientsResponse, UserClientsError> {
         let UserClientsParams { user_name } = params;
 
         // Look up the user entry in the DB
-        let client_credentials = storage_provider.client_credentials(&user_name).await;
+        let client_credentials = UserRecord::client_credentials(&self.db_pool, &user_name)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Failed to load client credentials: {:?}", e);
+                UserClientsError::StorageError
+            })?;
 
         let response = UserClientsResponse { client_credentials };
 
         Ok(response)
     }
 
-    pub async fn as_user_connection_packages<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub async fn as_user_connection_packages(
+        &self,
         params: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
         let UserConnectionPackagesParams { user_name } = params;
 
-        let connection_packages = storage_provider
-            .load_user_connection_packages(&user_name)
-            .await
-            .map_err(|e| {
-                tracing::warn!(
-                    "Failed to load connection packages due to storage error: {:?}",
-                    e
-                );
-                UserConnectionPackagesError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
+            UserConnectionPackagesError::StorageError
+        })?;
+        let connection_packages =
+            StorableConnectionPackage::user_connection_packages(&mut connection, &user_name)
+                .await
+                .map_err(|e| {
+                    tracing::warn!(
+                        "Failed to load connection packages due to storage error: {:?}",
+                        e
+                    );
+                    UserConnectionPackagesError::StorageError
+                })?;
 
         // If there are no connection packages, we have to conclude that there
         // is no user.
@@ -63,9 +74,8 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_enqueue_message<S: AsStorageProvider>(
+    pub(crate) async fn as_enqueue_message(
         &self,
-        storage_provider: &S,
         params: EnqueueMessageParams,
     ) -> Result<(), EnqueueMessageError> {
         let EnqueueMessageParams {
@@ -94,8 +104,11 @@ impl AuthService {
         // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
-        storage_provider
-            .enqueue(&client_id, queue_message)
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
+            EnqueueMessageError::StorageError
+        })?;
+        Queue::enqueue(&mut connection, &client_id, queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);

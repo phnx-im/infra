@@ -14,12 +14,11 @@ use phnxserver::{
     network_provider::MockNetworkProvider,
     run,
     storage_provider::{
-        memory::qs_connector::MemoryEnqueueProvider,
-        postgres::{auth_service::PostgresAsStorage, qs::PostgresQsStorage},
+        memory::qs_connector::MemoryEnqueueProvider, postgres::qs::PostgresQsStorage,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxtypes::identifiers::Fqdn;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -91,13 +90,6 @@ async fn main() -> std::io::Result<()> {
 
     // New database name for the AS provider
     configuration.database.name = format!("{}_as", base_db_name);
-    let as_storage_provider = PostgresAsStorage::new(
-        domain.clone(),
-        DEFAULT_SIGNATURE_SCHEME,
-        &configuration.database,
-    )
-    .await
-    .expect("Failed to connect to database.");
     let auth_service = AuthService::new(
         &configuration.database.connection_string_without_database(),
         &configuration.database.name,
@@ -120,7 +112,6 @@ async fn main() -> std::io::Result<()> {
         ds,
         auth_service,
         qs_storage_provider,
-        as_storage_provider,
         qs_connector,
         network_provider,
         ws_dispatch_notifier,

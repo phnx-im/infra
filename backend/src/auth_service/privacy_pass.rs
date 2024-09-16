@@ -9,11 +9,23 @@ use privacypass::{
     private_tokens::{Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
+use sqlx::{Acquire, Postgres, Transaction};
+use tokio::sync::Mutex;
 
-use super::AuthService;
+pub(super) struct AuthServiceBatchedKeyStoreProvider<'a, 'b> {
+    transaction_mutex: Mutex<&'b mut Transaction<'a, Postgres>>,
+}
+
+impl<'a, 'b> AuthServiceBatchedKeyStoreProvider<'a, 'b> {
+    pub(super) fn new(transaction: &'b mut Transaction<'a, Postgres>) -> Self {
+        Self {
+            transaction_mutex: Mutex::new(transaction),
+        }
+    }
+}
 
 #[async_trait]
-impl BatchedKeyStore for AuthService {
+impl<'a, 'b> BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'a, 'b> {
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
     async fn insert(
         &self,
@@ -23,12 +35,16 @@ impl BatchedKeyStore for AuthService {
         let Ok(server_bytes) = PhnxCodec::to_vec(&server) else {
             return;
         };
+        let mut transaction = self.transaction_mutex.lock().await;
+        let Ok(connection) = transaction.acquire().await else {
+            return;
+        };
         let _ = sqlx::query!(
             "INSERT INTO as_batched_keys (token_key_id, voprf_server) VALUES ($1, $2)",
             truncated_token_key_id as i16,
             server_bytes,
         )
-        .execute(&self.db_pool)
+        .execute(connection)
         .await;
     }
 
@@ -37,11 +53,13 @@ impl BatchedKeyStore for AuthService {
         &self,
         truncated_token_key_id: &TruncatedTokenKeyId,
     ) -> Option<VoprfServer<Ristretto255>> {
+        let mut transaction = self.transaction_mutex.lock().await;
+        let connection = transaction.acquire().await.ok()?;
         let server_bytes_record = sqlx::query!(
             "SELECT voprf_server FROM as_batched_keys WHERE token_key_id = $1",
             *truncated_token_key_id as i16,
         )
-        .fetch_one(&self.db_pool)
+        .fetch_one(connection)
         .await
         .ok()?;
         PhnxCodec::from_slice(&server_bytes_record.voprf_server).ok()

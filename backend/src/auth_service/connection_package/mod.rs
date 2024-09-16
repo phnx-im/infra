@@ -9,19 +9,19 @@ mod persistence;
 
 #[derive(Serialize, Deserialize)]
 pub(in crate::auth_service) enum StorableConnectionPackage {
-    V1(ConnectionPackage),
+    CurrentVersion(ConnectionPackage),
 }
 
 impl From<StorableConnectionPackage> for ConnectionPackage {
     fn from(connection_package: StorableConnectionPackage) -> Self {
         match connection_package {
-            StorableConnectionPackage::V1(connection_package) => connection_package,
+            StorableConnectionPackage::CurrentVersion(connection_package) => connection_package,
         }
     }
 }
 
 impl From<ConnectionPackage> for StorableConnectionPackage {
     fn from(connection_package: ConnectionPackage) -> Self {
-        StorableConnectionPackage::V1(connection_package)
+        StorableConnectionPackage::CurrentVersion(connection_package)
     }
 }

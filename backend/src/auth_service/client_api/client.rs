@@ -25,15 +25,15 @@ use crate::auth_service::{
     client_record::ClientRecord,
     connection_package::StorableConnectionPackage,
     credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
-    storage_provider_trait::AsStorageProvider,
+    opaque::OpaqueSetup,
+    queue::Queue,
     user_record::UserRecord,
     AuthService,
 };
 
 impl AuthService {
-    pub(crate) async fn as_init_client_addition<S: AsStorageProvider>(
+    pub(crate) async fn as_init_client_addition(
         &self,
-        storage_provider: &S,
         params: InitiateClientAdditionParams,
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
@@ -42,7 +42,7 @@ impl AuthService {
         } = params;
 
         // Load the server setup from storage
-        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
+        let server_setup = OpaqueSetup::load(&self.db_pool).await.map_err(|e| {
             tracing::error!("Storage provider error: {:?}", e);
             InitClientAdditionError::StorageError
         })?;
@@ -187,8 +187,8 @@ impl AuthService {
             .map_err(|_| FinishClientAdditionError::InvalidConnectionPackage)?;
 
         StorableConnectionPackage::store_multiple(
-            &mut connection,
-            vec![verified_connection_package].into_iter(),
+            &self.db_pool,
+            vec![verified_connection_package],
             &client_id,
         )
         .await
@@ -221,8 +221,8 @@ impl AuthService {
         Ok(())
     }
 
-    pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_dequeue_messages(
+        &self,
         params: DequeueMessagesParamsTbs,
     ) -> Result<DequeueMessagesResponse, AsDequeueError> {
         let DequeueMessagesParamsTbs {
@@ -234,13 +234,21 @@ impl AuthService {
         // TODO: The backend should have its own value for max_messages and use
         // that one if the client-given one exceeds it.
         tracing::trace!("Reading and deleting messages from storage provider");
-        let (messages, remaining_messages_number) = storage_provider
-            .read_and_delete(&sender, sequence_number_start, max_message_number)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                AsDequeueError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection: {:?}", e);
+            AsDequeueError::StorageError
+        })?;
+        let (messages, remaining_messages_number) = Queue::read_and_delete(
+            &mut connection,
+            &sender,
+            sequence_number_start,
+            max_message_number,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            AsDequeueError::StorageError
+        })?;
 
         let response = DequeueMessagesResponse {
             messages,

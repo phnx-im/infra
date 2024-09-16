@@ -9,7 +9,7 @@ use phnxtypes::{
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
-use super::{storage_provider_trait::AsStorageProvider, user_record::UserRecord, AuthService};
+use super::{opaque::OpaqueSetup, user_record::UserRecord, AuthService};
 
 use tls_codec::Serialize;
 
@@ -20,9 +20,8 @@ pub mod privacypass;
 pub mod user;
 
 impl AuthService {
-    pub(crate) async fn as_init_two_factor_auth<S: AsStorageProvider>(
+    pub(crate) async fn as_init_two_factor_auth(
         &self,
-        storage_provider: &S,
         params: Init2FactorAuthParamsTbs,
     ) -> Result<Init2FactorAuthResponse, Init2FactorAuthError> {
         let Init2FactorAuthParamsTbs {
@@ -31,7 +30,7 @@ impl AuthService {
         } = params;
 
         // Load the server setup from storage
-        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
+        let server_setup = OpaqueSetup::load(&self.db_pool).await.map_err(|e| {
             tracing::error!("Storage provider error: {:?}", e);
             Init2FactorAuthError::StorageError
         })?;
