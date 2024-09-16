@@ -94,11 +94,10 @@ impl AuthService {
                         AsVerificationError::UnknownClient
                     })?
                     .ok_or(AsVerificationError::UnknownClient)?;
-                let verified_params = auth_info
+                auth_info
                     .client_credential_auth
                     .verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?;
-                verified_params
+                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
             }
             // Authentication using only the user's password via an OPAQUE login flow.
             AsAuthMethod::User(user_auth) => {

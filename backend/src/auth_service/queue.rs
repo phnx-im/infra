@@ -195,7 +195,7 @@ mod persistence {
                 0
             };
 
-            return Ok((messages, remaining_messages as u64));
+            Ok((messages, remaining_messages as u64))
         }
     }
 }

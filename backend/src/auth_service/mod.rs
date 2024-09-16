@@ -142,14 +142,14 @@ impl AuthService {
             let signature_scheme = DEFAULT_SIGNATURE_SCHEME;
             // Generate a new AS signing key
             SigningKey::generate_store_and_activate(
-                &mut *transaction,
+                &mut transaction,
                 domain.clone(),
                 signature_scheme,
             )
             .await?;
             // Generate and sign an intermediate signing key
             IntermediateSigningKey::generate_sign_and_activate(
-                &mut *&mut transaction,
+                &mut transaction,
                 domain,
                 signature_scheme,
             )

@@ -248,7 +248,7 @@ impl TryFrom<String> for UserName {
             value.chars().any(|c| chars.contains(&c))
         }
         if contains_any_of(&value, &['@', '.']) {
-            return Err(UserNameError::InvalidUserName);
+            Err(UserNameError::InvalidUserName)
         } else {
             Ok(Self(TlsString(value.to_string())))
         }

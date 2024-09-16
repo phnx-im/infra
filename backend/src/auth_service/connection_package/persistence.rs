@@ -31,9 +31,9 @@ impl StorableConnectionPackage {
             let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
 
             // Add values to the query arguments. None of these should throw an error.
-            let _ = query_args.add(id)?;
-            let _ = query_args.add(client_id.client_id())?;
-            let _ = query_args.add(connection_package_bytes)?;
+            query_args.add(id)?;
+            query_args.add(client_id.client_id())?;
+            query_args.add(connection_package_bytes)?;
 
             if i > 0 {
                 query_string.push(',');
