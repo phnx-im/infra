@@ -17,7 +17,6 @@ use crate::auth_service::{
     connection_package::StorableConnectionPackage,
     credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
     queue::Queue,
-    user_record::UserRecord,
     AuthService,
 };
 
@@ -29,7 +28,7 @@ impl AuthService {
         let UserClientsParams { user_name } = params;
 
         // Look up the user entry in the DB
-        let client_credentials = UserRecord::client_credentials(&self.db_pool, &user_name)
+        let client_credentials = ClientRecord::load_user_credentials(&self.db_pool, &user_name)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to load client credentials: {:?}", e);

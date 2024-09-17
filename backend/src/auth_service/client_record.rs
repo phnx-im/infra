@@ -56,7 +56,7 @@ impl ClientRecord {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::{codec::PhnxCodec, identifiers::QualifiedUserName};
     use sqlx::{
         types::chrono::{DateTime, Utc},
         PgExecutor,
@@ -155,6 +155,26 @@ mod persistence {
             .execute(connection)
             .await?;
             Ok(())
+        }
+
+        /// Return the client credentials of a user for a given username.
+        pub(in crate::auth_service) async fn load_user_credentials(
+            connection: impl PgExecutor<'_>,
+            user_name: &QualifiedUserName,
+        ) -> Result<Vec<ClientCredential>, StorageError> {
+            let client_records = sqlx::query!(
+                "SELECT client_credential FROM as_client_records WHERE user_name = $1",
+                user_name.to_string(),
+            )
+            .fetch_all(connection)
+            .await?;
+            client_records
+                .into_iter()
+                .map(|record| {
+                    let client_credential = PhnxCodec::from_slice(&record.client_credential)?;
+                    Ok(client_credential)
+                })
+                .collect()
         }
     }
 }
