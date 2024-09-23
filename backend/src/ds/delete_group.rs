@@ -10,18 +10,17 @@ use mls_assist::{
 };
 use phnxtypes::{errors::GroupDeletionError, messages::client_ds::DeleteGroupParams};
 
-use super::{api::Provider, group_state::DsGroupState};
+use super::group_state::DsGroupState;
 
 impl DsGroupState {
     pub(crate) fn delete_group(
         &mut self,
-        provider: &Provider,
         params: DeleteGroupParams,
     ) -> Result<SerializedMlsMessage, GroupDeletionError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider.crypto(), params.commit)
+            .process_assisted_message(self.provider.crypto(), params.commit)
             .map_err(|_| GroupDeletionError::ProcessingError)?;
 
         // Perform DS-level validation

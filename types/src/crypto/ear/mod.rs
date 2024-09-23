@@ -43,11 +43,17 @@ impl Default for Ciphertext {
     }
 }
 
+#[cfg(feature = "test_utils")]
 impl Ciphertext {
     pub fn dummy() -> Self {
         Self {
             ciphertext: VLBytes::new(vec![1u8; 32]),
             nonce: [1u8; AEAD_NONCE_SIZE],
         }
+    }
+
+    pub fn flip_bit(&mut self) {
+        let byte = self.ciphertext.pop().unwrap();
+        self.ciphertext.push(byte ^ 1);
     }
 }

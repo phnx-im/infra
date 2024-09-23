@@ -12,6 +12,7 @@ use std::{
 pub mod setup;
 
 use once_cell::sync::Lazy;
+use phnxbackend::ds::Ds;
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::{
@@ -29,7 +30,7 @@ use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn}
 use uuid::Uuid;
 
 use phnxserver::storage_provider::postgres::{
-    auth_service::PostgresAsStorage, ds::PostgresDsStorage, qs::PostgresQsStorage,
+    auth_service::PostgresAsStorage, qs::PostgresQsStorage,
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -72,9 +73,13 @@ pub async fn spawn_app(
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
     // DS storage provider
-    let ds_storage_provider = PostgresDsStorage::new(&configuration.database, domain.clone())
-        .await
-        .expect("Failed to connect to database.");
+    let ds = Ds::new(
+        domain.clone(),
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+    )
+    .await
+    .expect("Failed to connect to database.");
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();
@@ -107,7 +112,7 @@ pub async fn spawn_app(
     // Start the server
     let server = run(
         listener,
-        ds_storage_provider,
+        ds,
         qs_storage_provider,
         as_storage_provider,
         as_ephemeral_storage_provider,

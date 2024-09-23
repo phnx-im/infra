@@ -14,20 +14,19 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 
 use super::{
-    api::{Provider, USER_EXPIRATION_DAYS},
     group_state::{ClientProfile, DsGroupState, UserProfile},
+    process::USER_EXPIRATION_DAYS,
 };
 
 impl DsGroupState {
     pub(super) fn join_connection_group(
         &mut self,
-        provider: &Provider,
         params: JoinConnectionGroupParams,
     ) -> Result<SerializedMlsMessage, JoinConnectionGroupError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(provider.crypto(), params.external_commit)
+            .process_assisted_message(self.provider.crypto(), params.external_commit)
             .map_err(|e| {
                 tracing::warn!(
                     "Processing error: Could not process assisted message: {:?}",
@@ -87,8 +86,8 @@ impl DsGroupState {
         let sender_credential = processed_message.credential().clone();
 
         // Finalize processing.
-        self.group_mut().accept_processed_message(
-            provider.storage(),
+        self.group.accept_processed_message(
+            self.provider.storage(),
             processed_assisted_message_plus.processed_assisted_message,
             Duration::days(USER_EXPIRATION_DAYS),
         )?;
