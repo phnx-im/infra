@@ -562,6 +562,7 @@ impl ClientCredential {
 // `CurrentVersion` and the current version must be renamed to `VX`, where `X`
 // is the next version number. The content type of the old `CurrentVersion` must
 // be renamed and otherwise preserved to ensure backwards compatibility.
+#[cfg(feature = "sqlite")]
 #[derive(Serialize, Deserialize)]
 enum VersionedClientCredential {
     CurrentVersion(ClientCredential),
@@ -579,6 +580,7 @@ impl FromSql for ClientCredential {
 }
 
 // Only change this enum in tandem with its non-Ref variant.
+#[cfg(feature = "sqlite")]
 #[derive(Serialize)]
 enum VersionedClientCredentialRef<'a> {
     CurrentVersion(&'a ClientCredential),
