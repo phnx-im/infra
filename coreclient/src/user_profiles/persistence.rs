@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::UserName;
+use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::{utils::persistence::Storable, Asset, DisplayName, UserProfile};
@@ -29,7 +29,7 @@ impl Storable for UserProfile {
 impl UserProfile {
     pub(crate) fn load(
         connection: &Connection,
-        user_name: &UserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT user_name, display_name, profile_picture FROM users WHERE user_name = ?",
@@ -54,7 +54,7 @@ impl UserProfile {
     /// Store the user's profile in the database. This will overwrite any existing profile.
     pub(crate) fn store_own_user_profile(
         connection: &Connection,
-        user_name: UserName,
+        user_name: QualifiedUserName,
         display_name_option: Option<DisplayName>,
         profile_picture_option: Option<Asset>,
     ) -> Result<(), rusqlite::Error> {
