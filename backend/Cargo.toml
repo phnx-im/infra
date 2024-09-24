@@ -18,7 +18,7 @@ async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }
 # Rust crypto dependencies
 tracing = { version = "0.1.35", features = ["log"] }
-opaque-ke = { version = "3.0.0-pre.4", features = ["argon2"] }
+opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 sqlx = { workspace = true }
 tokio = "1"
 
