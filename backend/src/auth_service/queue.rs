@@ -4,7 +4,6 @@
 
 use phnxtypes::identifiers::AsClientId;
 use sqlx::PgConnection;
-use thiserror::Error;
 
 use crate::persistence::StorageError;
 
@@ -27,29 +26,12 @@ impl Queue {
     }
 }
 
-/// General error while accessing the requested queue.
-#[derive(Error, Debug)]
-pub(super) enum QueueError {
-    #[error(transparent)]
-    Storage(#[from] StorageError),
-    /// Mismatching sequence numbers.
-    #[error("Mismatching sequence numbers.")]
-    SequenceNumberMismatch,
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError,
-}
-
-impl From<sqlx::Error> for QueueError {
-    fn from(e: sqlx::Error) -> Self {
-        Self::Storage(e.into())
-    }
-}
-
 mod persistence {
     use phnxtypes::{codec::PhnxCodec, messages::QueueMessage};
     use sqlx::{Connection, Row};
     use uuid::Uuid;
+
+    use crate::persistence::QueueError;
 
     use super::*;
 

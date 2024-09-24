@@ -5,8 +5,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use phnxbackend::qs::{
-    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
-    user_record::QsUserRecord, QsConfig, QsSigningKey,
+    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider, QsSigningKey,
 };
 use phnxtypes::{
     codec::PhnxCodec,
@@ -50,13 +49,6 @@ impl PostgresQsStorage {
         if provider.load_signing_key().await.is_err() {
             provider.generate_fresh_signing_key().await?;
         }
-        if provider.load_config().await.is_err() {
-            provider
-                .store_config(QsConfig {
-                    domain: provider.own_domain.clone(),
-                })
-                .await?;
-        }
 
         Ok(provider)
     }
@@ -99,35 +91,12 @@ impl PostgresQsStorage {
         .await?;
         Ok(())
     }
-
-    async fn store_config(&self, config: QsConfig) -> Result<(), StoreConfigError> {
-        // Delete the existing config.
-        sqlx::query!("DELETE FROM qs_config")
-            .execute(&self.pool)
-            .await?;
-
-        // Store the new config.
-        sqlx::query!(
-            "INSERT INTO qs_config (id, config) VALUES ($1, $2)",
-            Uuid::new_v4(),
-            PhnxCodec::to_vec(&config)?,
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
 }
 
 #[async_trait]
 impl QsStorageProvider for PostgresQsStorage {
     type EnqueueError = QueueError;
     type ReadAndDeleteError = ReadAndDeleteError;
-    type CreateUserError = CreateUserError;
-    type StoreUserError = StoreUserError;
-    type DeleteUserError = DeleteUserError;
-    type StoreClientError = StoreClientError;
-    type CreateClientError = CreateClientError;
-    type DeleteClientError = DeleteClientError;
     type StoreKeyPackagesError = StoreKeyPackagesError;
     type LoadUserKeyPackagesError = LoadUserKeyPackagesError;
 
@@ -138,187 +107,6 @@ impl QsStorageProvider for PostgresQsStorage {
 
     async fn own_domain(&self) -> Fqdn {
         self.own_domain.clone()
-    }
-
-    async fn create_user(
-        &self,
-        user_record: QsUserRecord,
-    ) -> Result<QsUserId, Self::CreateUserError> {
-        let user_id = QsUserId::random();
-        sqlx::query!(
-            "INSERT INTO qs_user_records (user_id, friendship_token, verifying_key) VALUES ($1, $2, $3)", 
-            user_id.as_uuid(),
-            user_record.friendship_token().token(),
-            user_record.verifying_key().as_ref(),
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(user_id)
-    }
-
-    async fn load_user(&self, user_id: &QsUserId) -> Option<QsUserRecord> {
-        let user_record = sqlx::query!(
-            "SELECT * FROM qs_user_records WHERE user_id = $1",
-            user_id.as_uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?;
-        let qs_user_record = QsUserRecord::new(
-            QsUserVerifyingKey::from_bytes(user_record.verifying_key),
-            FriendshipToken::from_bytes(user_record.friendship_token),
-        );
-        Some(qs_user_record)
-    }
-
-    async fn store_user(
-        &self,
-        user_id: &QsUserId,
-        user_record: QsUserRecord,
-    ) -> Result<(), Self::StoreUserError> {
-        sqlx::query!(
-            "UPDATE qs_user_records SET friendship_token = $2, verifying_key = $3 WHERE user_id = $1",
-            user_id.as_uuid(),
-            user_record.friendship_token().token(),
-            user_record.verifying_key().as_ref(),
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    async fn delete_user(&self, user_id: &QsUserId) -> Result<(), Self::DeleteUserError> {
-        sqlx::query!(
-            "DELETE FROM qs_user_records WHERE user_id = $1",
-            user_id.as_uuid(),
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // The ON DELETE CASCADE in the table creation statements take care of
-        // deleting dependent client records, key packages, queue data and
-        // queues.
-
-        Ok(())
-    }
-
-    async fn create_client(
-        &self,
-        client_record: QsClientRecord,
-    ) -> Result<QsClientId, Self::CreateClientError> {
-        let client_id = QsClientId::random();
-
-        // Create and store the client record.
-        let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(PhnxCodec::to_vec(ept)?)
-        } else {
-            None
-        };
-        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
-        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
-        let activity_time: &DateTime<Utc> = client_record.activity_time();
-
-        let mut transaction = self.pool.begin().await?;
-
-        sqlx::query!(
-            "INSERT INTO qs_client_records (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time) VALUES ($1, $2, $3, $4, $5, $6, $7)", 
-            client_id.as_uuid(),
-            client_record.user_id().as_uuid(),
-            encrypted_push_token,
-            owner_public_key,
-            owner_signature_key,
-            ratchet,
-            activity_time,
-        )
-        .execute(&mut *transaction)
-        .await?;
-
-        // Initialize the client's queue
-        sqlx::query!(
-            "INSERT INTO qs_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
-            client_id.as_uuid(),
-            0,
-        )
-        .execute(&mut *transaction)
-        .await?;
-
-        transaction.commit().await?;
-
-        Ok(client_id)
-    }
-
-    async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord> {
-        let client_record = sqlx::query!(
-            "SELECT * FROM qs_client_records WHERE client_id = $1",
-            client_id.as_uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .ok()?;
-        let user_id = QsUserId::from(client_record.user_id);
-        let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token {
-            Some(PhnxCodec::from_slice(&ept).ok()?)
-        } else {
-            None
-        };
-        let owner_public_key = PhnxCodec::from_slice(&client_record.owner_public_key).ok()?;
-        let owner_signature_key = PhnxCodec::from_slice(&client_record.owner_signature_key).ok()?;
-        let ratchet = PhnxCodec::from_slice(&client_record.ratchet).ok()?;
-        let activity_time = TimeStamp::from(client_record.activity_time);
-        let result = QsClientRecord::from_db_values(
-            user_id,
-            encrypted_push_token,
-            owner_public_key,
-            owner_signature_key,
-            ratchet,
-            activity_time,
-        );
-        Some(result)
-    }
-
-    async fn store_client(
-        &self,
-        client_id: &QsClientId,
-        client_record: QsClientRecord,
-    ) -> Result<(), Self::StoreClientError> {
-        let encrypted_push_token = if let Some(ept) = client_record.encrypted_push_token() {
-            Some(PhnxCodec::to_vec(ept)?)
-        } else {
-            None
-        };
-        let owner_public_key = PhnxCodec::to_vec(client_record.owner_public_key())?;
-        let owner_signature_key = PhnxCodec::to_vec(client_record.owner_signature_key())?;
-        let ratchet = PhnxCodec::to_vec(client_record.current_ratchet_key())?;
-        let activity_time: &DateTime<Utc> = client_record.activity_time();
-
-        sqlx::query!(
-            "UPDATE qs_client_records SET user_id = $2, encrypted_push_token = $3, owner_public_key = $4, owner_signature_key = $5, ratchet = $6, activity_time = $7 WHERE client_id = $1", 
-            client_id.as_uuid(),
-            client_record.user_id().as_uuid(),
-            encrypted_push_token,
-            owner_public_key,
-            owner_signature_key,
-            ratchet,
-            activity_time,
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError> {
-        sqlx::query!(
-            "DELETE FROM qs_client_records WHERE client_id = $1",
-            client_id.as_uuid(),
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // The ON CASCADE actions in the respective table creation statements
-        // take care of deletion of dependent key packages and queue data.
-
-        Ok(())
     }
 
     async fn store_key_packages(
@@ -602,14 +390,6 @@ impl QsStorageProvider for PostgresQsStorage {
             .await?;
         let decryption_key = PhnxCodec::from_slice(&decryption_key_record.decryption_key)?;
         Ok(decryption_key)
-    }
-
-    async fn load_config(&self) -> Result<QsConfig, Self::LoadConfigError> {
-        let config_record = sqlx::query!("SELECT * FROM qs_config",)
-            .fetch_one(&self.pool)
-            .await?;
-        let config = PhnxCodec::from_slice(&config_record.config)?;
-        Ok(config)
     }
 }
 

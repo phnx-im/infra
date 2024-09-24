@@ -22,7 +22,7 @@ use phnxbackend::{
     ds::Ds,
     qs::{
         errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-        storage_provider_trait::QsStorageProvider, QsConnector,
+        storage_provider_trait::QsStorageProvider, Qs, QsConnector,
     },
 };
 use phnxtypes::{
@@ -51,6 +51,7 @@ pub fn run<
     listener: TcpListener,
     ds: Ds,
     auth_service: AuthService,
+    qs: Qs,
     qs_storage_provider: Arc<Qsp>,
     qs_connector: Qc,
     network_provider: Np,
@@ -59,6 +60,7 @@ pub fn run<
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds);
     let auth_service_data = Data::new(auth_service);
+    let qs_data = Data::new(qs);
     let qs_storage_provider_data = Data::new(qs_storage_provider);
     let qs_connector_data = Data::new(qs_connector);
     let network_provider_data = Data::new(network_provider);
@@ -83,6 +85,7 @@ pub fn run<
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_data.clone())
             .app_data(auth_service_data.clone())
+            .app_data(qs_data.clone())
             .app_data(qs_storage_provider_data.clone())
             .app_data(qs_connector_data.clone())
             .app_data(network_provider_data.clone())

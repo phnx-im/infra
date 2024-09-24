@@ -187,21 +187,13 @@ impl SigningKey for QsClientSigningKey {}
 #[derive(
     Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct QsUserVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", sqlx(transparent))]
+pub struct QsUserVerifyingKey(Vec<u8>);
 
 impl AsRef<[u8]> for QsUserVerifyingKey {
     fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
-    }
-}
-
-impl QsUserVerifyingKey {
-    /// This function is meant to be used only to restore a QsUserSigningKey
-    /// from a DB entry.
-    pub fn from_bytes(verifying_key: Vec<u8>) -> Self {
-        Self { verifying_key }
+        &self.0
     }
 }
 
@@ -219,7 +211,7 @@ impl QsUserSigningKey {
             generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self {
             signing_key,
-            verifying_key: QsUserVerifyingKey { verifying_key },
+            verifying_key: QsUserVerifyingKey(verifying_key),
         })
     }
 

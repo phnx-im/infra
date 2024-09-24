@@ -9,7 +9,7 @@
 pub mod keys;
 mod traits;
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 pub use traits::{
     EarDecryptable, EarEncryptable, EarKey, GenericDeserializable, GenericSerializable,
 };
@@ -29,15 +29,16 @@ const AEAD_NONCE_SIZE: usize = 12;
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 pub struct Ciphertext {
-    ciphertext: VLBytes,
+    ciphertext: Vec<u8>,
     nonce: [u8; AEAD_NONCE_SIZE],
 }
 
 impl Default for Ciphertext {
     fn default() -> Self {
         Self {
-            ciphertext: VLBytes::new(vec![]),
+            ciphertext: vec![],
             nonce: [0u8; AEAD_NONCE_SIZE],
         }
     }
@@ -47,7 +48,7 @@ impl Default for Ciphertext {
 impl Ciphertext {
     pub fn dummy() -> Self {
         Self {
-            ciphertext: VLBytes::new(vec![1u8; 32]),
+            ciphertext: vec![1u8; 32],
             nonce: [1u8; AEAD_NONCE_SIZE],
         }
     }
@@ -57,3 +58,54 @@ impl Ciphertext {
         self.ciphertext.push(byte ^ 1);
     }
 }
+
+//#[cfg(feature = "sqlx")]
+//mod sqlx {
+//    use sqlx::{
+//        encode::IsNull,
+//        error::BoxDynError,
+//        postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef},
+//        Decode, Encode, Postgres,
+//    };
+//
+//    impl sqlx::Type<Postgres> for super::Ciphertext {
+//        fn type_info() -> PgTypeInfo {
+//            <Vec<u8> as sqlx::Type<Postgres>>::type_info()
+//        }
+//    }
+//
+//    //impl Encode<'_, Postgres> for super::Ciphertext {
+//    //    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
+//    //        #[derive(sqlx::Encode)]
+//    //        struct Encodable {
+//    //            ciphertext: Vec<u8>,
+//    //            nonce: [u8; super::AEAD_NONCE_SIZE],
+//    //        };
+//    //        Encodable {
+//    //            ciphertext: self.ciphertext.clone(),
+//    //            nonce: self.nonce,
+//    //        }
+//    //        .encode_by_ref(buf)
+//    //        //let ctxt_is_null = self.ciphertext.as_slice().encode_by_ref(buf)?;
+//    //        //let nonce_is_null = self.nonce.encode_by_ref(buf)?;
+//    //        //if matches!(ctxt_is_null, IsNull::Yes) && matches!(nonce_is_null, IsNull::Yes) {
+//    //        //    Ok(IsNull::Yes)
+//    //        //} else {
+//    //        //    Ok(IsNull::No)
+//    //        //}
+//    //    }
+//    //}
+//
+//    //impl Decode<'_, Postgres> for super::Ciphertext {
+//    //    fn decode(value: PgValueRef) -> Result<Self, BoxDynError> {
+//    //        let (ciphertext, nonce) = <(Vec<u8>, [u8; super::AEAD_NONCE_SIZE])>::decode(value)?;
+//    //        Ok(Self { ciphertext, nonce })
+//    //    }
+//    //}
+//
+//    impl PgHasArrayType for super::Ciphertext {
+//        fn array_type_info() -> PgTypeInfo {
+//            Vec::<u8>::array_type_info()
+//        }
+//    }
+//}

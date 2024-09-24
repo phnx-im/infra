@@ -16,7 +16,7 @@ use crate::messages::{
 };
 
 use super::{
-    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    client_record::QsClientRecord, errors::QsEnqueueError, network_provider_trait::NetworkProvider,
     qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider,
     PushNotificationProvider, Qs, WebsocketNotifier,
 };
@@ -31,18 +31,17 @@ impl Qs {
     /// queues, depending on the FQDN of the client.
     #[tracing::instrument(skip_all, err)]
     pub async fn enqueue_message<
-        S: QsStorageProvider,
         W: WebsocketNotifier,
         N: NetworkProvider,
         P: PushNotificationProvider,
     >(
-        storage_provider: &S,
+        &self,
         websocket_notifier: &W,
         push_notification_provider: &P,
         network_provider: &N,
         message: DsFanOutMessage,
-    ) -> Result<(), QsEnqueueError<S, N>> {
-        let own_domain = storage_provider.own_domain().await;
+    ) -> Result<(), QsEnqueueError<N>> {
+        let own_domain = self.domain.clone();
         if message.client_reference.client_homeserver_domain != own_domain {
             let qs_to_qs_message = QsToQsMessage {
                 protocol_version: MlsInfraVersion::Alpha,
@@ -79,16 +78,24 @@ impl Qs {
                 &[],
             )?;
 
+            let mut transaction = self.db_pool.begin().await.map_err(|e| {
+                tracing::warn!("Failed to start transaction: {:?}", e);
+                QsEnqueueError::StorageError
+            })?;
+
             // Fetch the client record.
-            let mut client_record = storage_provider
-                .load_client(&client_config.client_id)
+            let client_record = QsClientRecord::load(&mut *transaction, &client_config.client_id)
                 .await
+                .map_err(|e| {
+                    tracing::warn!("Failed to load client record: {:?}", e);
+                    QsEnqueueError::StorageError
+                })?
                 .ok_or(QsEnqueueError::QueueNotFound)?;
 
             client_record
                 .enqueue(
+                    &mut transaction,
                     &client_config.client_id,
-                    storage_provider,
                     websocket_notifier,
                     push_notification_provider,
                     message.payload,

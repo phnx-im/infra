@@ -14,13 +14,12 @@ pub use chrono::Duration;
 
 /// A time stamp that can be used to represent a point in time.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, Copy)]
-pub struct TimeStamp {
-    time: DateTime<Utc>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct TimeStamp(DateTime<Utc>);
 
 impl AsRef<DateTime<Utc>> for TimeStamp {
     fn as_ref(&self) -> &DateTime<Utc> {
-        &self.time
+        &self.0
     }
 }
 
@@ -28,19 +27,19 @@ impl Deref for TimeStamp {
     type Target = DateTime<Utc>;
 
     fn deref(&self) -> &Self::Target {
-        &self.time
+        &self.0
     }
 }
 
 impl From<DateTime<Utc>> for TimeStamp {
     fn from(time: DateTime<Utc>) -> Self {
-        Self { time }
+        Self(time)
     }
 }
 
 impl From<TimeStamp> for DateTime<Utc> {
     fn from(time: TimeStamp) -> Self {
-        time.time
+        time.0
     }
 }
 
@@ -48,7 +47,7 @@ impl TryFrom<TimeStamp> for i64 {
     type Error = TimeStampError;
 
     fn try_from(time: TimeStamp) -> Result<Self, Self::Error> {
-        time.time
+        time.0
             .timestamp_nanos_opt()
             .ok_or(TimeStampError::InvalidInput)
     }
@@ -103,7 +102,7 @@ impl TlsDeserializeBytesTrait for TimeStamp {
 #[cfg(feature = "sqlite")]
 impl ToSql for TimeStamp {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.time.to_sql()
+        self.0.to_sql()
     }
 }
 
@@ -123,11 +122,11 @@ impl TimeStamp {
     /// Checks if this time stamp is more than `expiration` in the past.
     pub fn has_expired(&self, expiration: Duration) -> bool {
         let time_left = Utc::now() - expiration;
-        time_left >= self.time
+        time_left >= self.0
     }
 
     fn is_between(&self, start: &Self, end: &Self) -> bool {
-        self.time >= start.time && self.time <= end.time
+        self.0 >= start.0 && self.0 <= end.0
     }
 }
 

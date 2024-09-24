@@ -104,6 +104,7 @@ impl Qs {
     /// Retrieve a key package batch for a given client.
     #[tracing::instrument(skip_all, err)]
     pub(crate) async fn qs_key_package_batch<S: QsStorageProvider>(
+        &self,
         storage_provider: &S,
         params: KeyPackageBatchParams,
     ) -> Result<KeyPackageBatchResponse, QsKeyPackageBatchError> {
@@ -145,13 +146,8 @@ impl Qs {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let config = storage_provider
-            .load_config()
-            .await
-            .map_err(|_| QsKeyPackageBatchError::StorageError)?;
-
         let key_package_batch_tbs =
-            KeyPackageBatchTbs::new(config.domain.clone(), key_package_refs, TimeStamp::now());
+            KeyPackageBatchTbs::new(self.domain.clone(), key_package_refs, TimeStamp::now());
 
         let signing_key = storage_provider
             .load_signing_key()

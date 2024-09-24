@@ -76,8 +76,13 @@ use phnxtypes::{
 
 use async_trait::*;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use thiserror::Error;
 
-use crate::messages::intra_backend::DsFanOutMessage;
+use crate::{
+    messages::intra_backend::DsFanOutMessage,
+    persistence::{InfraService, ServiceCreationError, StorageError},
+};
 
 pub mod client_api;
 pub mod client_record;
@@ -85,8 +90,37 @@ pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;
 pub mod qs_api;
+mod queue;
 pub mod storage_provider_trait;
 pub mod user_record;
+
+#[derive(Debug)]
+pub struct Qs {
+    domain: Fqdn,
+    db_pool: PgPool,
+}
+
+#[derive(Debug, Error)]
+pub enum QsCreationError {
+    #[error(transparent)]
+    Storage(#[from] StorageError),
+}
+
+impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
+    fn from(e: T) -> Self {
+        Self::Storage(StorageError::from(e.into()))
+    }
+}
+
+#[async_trait]
+impl InfraService for Qs {
+    async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
+        Ok(Self {
+            domain,
+            db_pool: db_pool,
+        })
+    }
+}
 
 pub enum WsNotification {
     Event(DsEventMessage),
@@ -164,11 +198,3 @@ impl AsRef<PrivateKey> for QsSigningKey {
 }
 
 impl SigningKey for QsSigningKey {}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QsConfig {
-    pub domain: Fqdn,
-}
-
-#[derive(Debug)]
-pub struct Qs {}

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use opaque_ke::rand::rngs::OsRng;
 use phnxtypes::{
     errors::qs::{QsCreateClientRecordError, QsUpdateClientRecordError},
     messages::client_qs::{
@@ -11,13 +12,13 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
-use crate::qs::{client_record::QsClientRecord, storage_provider_trait::QsStorageProvider, Qs};
+use crate::qs::{client_record::QsClientRecord, Qs};
 
 impl Qs {
     /// Create a new client record.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_create_client_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_create_client_record(
+        &self,
         params: CreateClientRecordParams,
     ) -> Result<CreateClientRecordResponse, QsCreateClientRecordError> {
         let CreateClientRecordParams {
@@ -28,32 +29,41 @@ impl Qs {
             initial_ratchet_secret,
         } = params;
 
-        let client_record = QsClientRecord {
-            user_id: sender,
+        let ratchet_key = initial_ratchet_secret
+            .try_into()
+            .map_err(|_| QsCreateClientRecordError::LibraryError)?;
+        let mut rng = OsRng;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection from pool: {:?}", e);
+            QsCreateClientRecordError::StorageError
+        })?;
+        let client_record = QsClientRecord::new_and_store(
+            &mut connection,
+            &mut rng,
+            TimeStamp::now(),
+            sender,
             encrypted_push_token,
-            owner_public_key: queue_encryption_key,
-            owner_signature_key: client_record_auth_key,
-            current_ratchet_key: initial_ratchet_secret
-                .try_into()
-                .map_err(|_| QsCreateClientRecordError::LibraryError)?,
-            activity_time: TimeStamp::now(),
+            queue_encryption_key,
+            client_record_auth_key,
+            ratchet_key,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Error creating and storing new client record: {:?}", e);
+            QsCreateClientRecordError::StorageError
+        })?;
+
+        let response = CreateClientRecordResponse {
+            client_id: client_record.client_id,
         };
-
-        // Get new client ID
-        let client_id = storage_provider
-            .create_client(client_record)
-            .await
-            .map_err(|_| QsCreateClientRecordError::StorageError)?;
-
-        let response = CreateClientRecordResponse { client_id };
 
         Ok(response)
     }
 
     /// Update a client record.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_update_client_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_update_client_record(
+        &self,
         params: UpdateClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {
         let UpdateClientRecordParams {
@@ -63,38 +73,47 @@ impl Qs {
             encrypted_push_token,
         } = params;
 
-        // TODO: It would be better to do this in an atomic transaction within
-        // the storage provider
-
-        let mut client_record = storage_provider
-            .load_client(&sender)
+        let mut transaction = self.db_pool.begin().await.map_err(|e| {
+            tracing::error!("Error starting transaction: {:?}", e);
+            QsUpdateClientRecordError::StorageError
+        })?;
+        let mut client_record = QsClientRecord::load(&mut *transaction, &sender)
             .await
-            .ok_or(QsUpdateClientRecordError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error loading client record: {:?}", e);
+                QsUpdateClientRecordError::StorageError
+            })?
+            .ok_or(QsUpdateClientRecordError::UnknownClient)?;
 
-        client_record.update(
-            client_record_auth_key,
-            queue_encryption_key,
-            encrypted_push_token,
-        );
+        client_record.auth_key = client_record_auth_key;
+        client_record.queue_encryption_key = queue_encryption_key;
+        client_record.encrypted_push_token = encrypted_push_token;
 
-        storage_provider
-            .store_client(&sender, client_record)
-            .await
-            .map_err(|_| QsUpdateClientRecordError::StorageError)?;
+        client_record.update(&mut transaction).await.map_err(|e| {
+            tracing::error!("Error updating client record: {:?}", e);
+            QsUpdateClientRecordError::StorageError
+        })?;
+
+        transaction.commit().await.map_err(|e| {
+            tracing::error!("Error committing transaction: {:?}", e);
+            QsUpdateClientRecordError::StorageError
+        })?;
 
         Ok(())
     }
 
     /// Delete a client record.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_delete_client_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_delete_client_record(
+        &self,
         params: DeleteClientRecordParams,
     ) -> Result<(), QsUpdateClientRecordError> {
-        storage_provider
-            .delete_client(&params.sender)
+        QsClientRecord::delete(&self.db_pool, &params.sender)
             .await
-            .map_err(|_| QsUpdateClientRecordError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error deleting client record: {:?}", e);
+                QsUpdateClientRecordError::StorageError
+            })?;
 
         Ok(())
     }

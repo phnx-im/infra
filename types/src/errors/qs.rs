@@ -36,6 +36,9 @@ pub enum QsCreateClientRecordError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsUpdateClientRecordError {
+    /// Client not found
+    #[error("Client not found")]
+    UnknownClient,
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
@@ -62,6 +65,9 @@ pub enum QsCreateUserError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsUpdateUserError {
+    /// User not found
+    #[error("User not found")]
+    UnknownUser,
     /// Error updating user record
     #[error("Error updating user record")]
     StorageError,
@@ -150,6 +156,9 @@ pub enum QsEncryptionKeyError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsProcessError {
+    /// Storage Error
+    #[error("Storage Error")]
+    StorageError,
     /// Authentication error
     #[error("Authentication error")]
     AuthenticationError,

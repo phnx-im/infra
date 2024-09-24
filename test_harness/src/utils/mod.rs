@@ -12,7 +12,7 @@ use std::{
 pub mod setup;
 
 use once_cell::sync::Lazy;
-use phnxbackend::{auth_service::AuthService, ds::Ds};
+use phnxbackend::{auth_service::AuthService, ds::Ds, persistence::InfraService, qs::Qs};
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::{
@@ -70,13 +70,20 @@ pub async fn spawn_app(
 
     // DS storage provider
     let ds = Ds::new(
-        domain.clone(),
         &configuration.database.connection_string_without_database(),
         &configuration.database.name,
+        domain.clone(),
     )
     .await
     .expect("Failed to connect to database.");
     let auth_service = AuthService::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+        domain.clone(),
+    )
+    .await
+    .expect("Failed to connect to database.");
+    let qs = Qs::new(
         &configuration.database.connection_string_without_database(),
         &configuration.database.name,
         domain.clone(),
@@ -109,6 +116,7 @@ pub async fn spawn_app(
         listener,
         ds,
         auth_service,
+        qs,
         qs_storage_provider,
         qs_connector,
         network_provider,

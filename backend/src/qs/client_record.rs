@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use opaque_ke::rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
+use sqlx::{Connection, PgConnection};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use phnxtypes::{
@@ -23,12 +25,13 @@ use phnxtypes::{
 
 use crate::{
     messages::intra_backend::DsFanOutPayload,
+    persistence::StorageError,
     qs::{PushNotificationError, WsNotification},
 };
 
 use super::{
-    errors::EnqueueError, storage_provider_trait::QsStorageProvider, PushNotificationProvider,
-    WebsocketNotifier,
+    errors::EnqueueError, queue::Queue, storage_provider_trait::QsStorageProvider,
+    PushNotificationProvider, WebsocketNotifier,
 };
 
 /// An enum defining the different kind of messages that are stored in an QS
@@ -46,81 +49,185 @@ pub(super) enum QueueMessageType {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct QsClientRecord {
-    pub user_id: QsUserId,
-    pub(crate) encrypted_push_token: Option<EncryptedPushToken>,
-    pub(crate) owner_public_key: RatchetEncryptionKey,
-    pub(crate) owner_signature_key: QsClientVerifyingKey,
-    pub(crate) current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
-    pub(crate) activity_time: TimeStamp,
+pub(super) struct QsClientRecord {
+    pub(super) user_id: QsUserId,
+    pub(super) client_id: QsClientId,
+    pub(super) encrypted_push_token: Option<EncryptedPushToken>,
+    pub(super) queue_encryption_key: RatchetEncryptionKey,
+    pub(super) auth_key: QsClientVerifyingKey,
+    pub(super) ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+    pub(super) activity_time: TimeStamp,
 }
 
 impl QsClientRecord {
-    /// Create a new client record.
-    pub fn new(
+    pub(super) async fn new_and_store(
+        connection: &mut PgConnection,
+        rng: &mut (impl CryptoRng + RngCore),
+        now: TimeStamp,
         user_id: QsUserId,
         encrypted_push_token: Option<EncryptedPushToken>,
-        owner_public_key: RatchetEncryptionKey,
-        owner_signature_key: QsClientVerifyingKey,
-        current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
-    ) -> Self {
-        Self {
-            user_id,
-            encrypted_push_token,
-            owner_public_key,
-            owner_signature_key,
-            current_ratchet_key,
-            activity_time: TimeStamp::now(),
-        }
-    }
-
-    /// This function is meant to be used to create a client record from value
-    /// stored in a DB. To create a fresh QS client record, use `new`.
-    pub fn from_db_values(
-        user_id: QsUserId,
-        encrypted_push_token: Option<EncryptedPushToken>,
-        owner_public_key: RatchetEncryptionKey,
-        owner_signature_key: QsClientVerifyingKey,
-        current_ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
-        activity_time: TimeStamp,
-    ) -> Self {
-        Self {
-            user_id,
-            encrypted_push_token,
-            owner_public_key,
-            owner_signature_key,
-            current_ratchet_key,
-            activity_time,
-        }
-    }
-
-    /// Update the client record.
-    pub(crate) fn update(
-        &mut self,
-        client_record_auth_key: QsClientVerifyingKey,
         queue_encryption_key: RatchetEncryptionKey,
-        encrypted_push_token: Option<EncryptedPushToken>,
-    ) {
-        self.owner_signature_key = client_record_auth_key;
-        self.owner_public_key = queue_encryption_key;
-        self.encrypted_push_token = encrypted_push_token;
-        self.activity_time = TimeStamp::now();
-    }
+        auth_key: QsClientVerifyingKey,
+        ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+    ) -> Result<Self, StorageError> {
+        let client_id = QsClientId::random(rng);
 
+        let mut transaction = connection.begin().await?;
+
+        Queue::new_and_store(client_id.clone(), &mut *transaction).await?;
+
+        let record = Self {
+            user_id,
+            client_id,
+            encrypted_push_token,
+            queue_encryption_key,
+            auth_key,
+            ratchet_key,
+            activity_time: now,
+        };
+        record.store(&mut *transaction).await?;
+
+        transaction.commit().await?;
+
+        Ok(record)
+    }
+}
+
+mod persistence {
+    use phnxtypes::codec::PhnxCodec;
+    use sqlx::{PgConnection, PgExecutor};
+
+    use super::*;
+
+    use crate::persistence::StorageError;
+
+    impl QsClientRecord {
+        pub(super) async fn store(
+            &self,
+            connection: impl PgExecutor<'_>,
+        ) -> Result<(), StorageError> {
+            // Create and store the client record.
+            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
+            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
+            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
+
+            sqlx::query!(
+                "INSERT INTO 
+                    qs_client_records 
+                    (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time) 
+                VALUES 
+                    ($1, $2, $3, $4, $5, $6, $7)", 
+                &self.client_id as &QsClientId,
+                &self.user_id as &QsUserId,
+                self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
+                owner_public_key,
+                owner_signature_key,
+                ratchet,
+                &self.activity_time as &TimeStamp,
+            )
+            .execute(connection)
+            .await?;
+
+            Ok(())
+        }
+
+        pub(in crate::qs) async fn load(
+            connection: impl PgExecutor<'_>,
+            client_id: &QsClientId,
+        ) -> Result<Option<QsClientRecord>, StorageError> {
+            let client_id = client_id.as_uuid();
+            sqlx::query!(
+                r#"SELECT 
+                    user_id as "user_id: QsUserId", 
+                    encrypted_push_token as "encrypted_push_token: EncryptedPushToken", 
+                    owner_public_key, 
+                    owner_signature_key, 
+                    ratchet, 
+                    activity_time as "activity_time: TimeStamp"
+                FROM 
+                    qs_client_records 
+                WHERE 
+                    client_id = $1"#,
+                client_id,
+            )
+            .fetch_optional(connection)
+            .await?
+            .map(|record| {
+                let owner_public_key = PhnxCodec::from_slice(&record.owner_public_key)?;
+                let owner_signature_key = PhnxCodec::from_slice(&record.owner_signature_key)?;
+                let ratchet = PhnxCodec::from_slice(&record.ratchet)?;
+                let ratchet_key = QueueRatchet::from(ratchet);
+
+                Ok(QsClientRecord {
+                    user_id: record.user_id,
+                    client_id: client_id.clone().into(),
+                    encrypted_push_token: record.encrypted_push_token,
+                    queue_encryption_key: owner_public_key,
+                    auth_key: owner_signature_key,
+                    ratchet_key,
+                    activity_time: record.activity_time,
+                })
+            })
+            .transpose()
+        }
+
+        pub(in crate::qs) async fn update(
+            &self,
+            connection: &mut PgConnection,
+        ) -> Result<(), StorageError> {
+            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
+            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
+            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
+
+            sqlx::query!(
+                "UPDATE qs_client_records
+                SET 
+                    encrypted_push_token = $1, 
+                    owner_public_key = $2, 
+                    owner_signature_key = $3, 
+                    ratchet = $4, 
+                    activity_time = $5 
+                WHERE 
+                    client_id = $6",
+                self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
+                owner_public_key,
+                owner_signature_key,
+                ratchet,
+                &self.activity_time as &TimeStamp,
+                &self.client_id as &QsClientId,
+            )
+            .execute(connection)
+            .await?;
+
+            Ok(())
+        }
+
+        pub(in crate::qs) async fn delete(
+            connection: impl PgExecutor<'_>,
+            client_id: &QsClientId,
+        ) -> Result<(), StorageError> {
+            sqlx::query!(
+                "DELETE FROM qs_client_records WHERE client_id = $1",
+                client_id as &QsClientId
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
+        }
+    }
+}
+
+impl QsClientRecord {
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<
-        S: QsStorageProvider,
-        W: WebsocketNotifier,
-        P: PushNotificationProvider,
-    >(
+    pub(crate) async fn enqueue<W: WebsocketNotifier, P: PushNotificationProvider>(
         &mut self,
+        connection: &mut PgConnection,
         client_id: &QsClientId,
-        storage_provider: &S,
         websocket_notifier: &W,
         push_notification_provider: &P,
         msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
-    ) -> Result<(), EnqueueError<S>> {
+    ) -> Result<(), EnqueueError> {
         match msg {
             // Enqueue a queue message.
             // Serialize the message so that we can put it in the queue.
@@ -129,17 +236,19 @@ impl QsClientRecord {
             DsFanOutPayload::QueueMessage(queue_message) => {
                 // Encrypt the message under the current ratchet key.
                 let queue_message = self
-                    .current_ratchet_key
+                    .ratchet_key
                     .encrypt(queue_message)
                     .map_err(|_| EnqueueError::LibraryError)?;
 
                 // TODO: Future work: PCS
 
                 tracing::trace!("Enqueueing message in storage provider");
-                storage_provider
-                    .enqueue(client_id, queue_message)
+                Queue::enqueue(connection, &self.client_id, queue_message)
                     .await
-                    .map_err(EnqueueError::StorageProviderEnqueueError::<S>)?;
+                    .map_err(|e| {
+                        tracing::error!("Failed to enqueue message: {:?}", e);
+                        EnqueueError::Storage
+                    })?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier
@@ -202,10 +311,10 @@ impl QsClientRecord {
                 // We also update th client record in the storage provider,
                 // since we need to store the new ratchet key and because we
                 // might have deleted the push token.
-                storage_provider
-                    .store_client(client_id, self.clone())
-                    .await
-                    .map_err(EnqueueError::StorageProviderStoreClientError::<S>)?;
+                self.update(connection).await.map_err(|e| {
+                    tracing::error!("Failed to update client record: {:?}", e);
+                    EnqueueError::Storage
+                })?;
             }
             // Dispatch an event message.
             DsFanOutPayload::EventMessage(event_message) => {
@@ -218,31 +327,5 @@ impl QsClientRecord {
 
         // Success!
         Ok(())
-    }
-
-    pub fn encrypted_push_token(&self) -> Option<&EncryptedPushToken> {
-        self.encrypted_push_token.as_ref()
-    }
-
-    pub fn owner_public_key(&self) -> &RatchetEncryptionKey {
-        &self.owner_public_key
-    }
-
-    pub fn owner_signature_key(&self) -> &QsClientVerifyingKey {
-        &self.owner_signature_key
-    }
-
-    pub fn current_ratchet_key(
-        &self,
-    ) -> &QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload> {
-        &self.current_ratchet_key
-    }
-
-    pub fn activity_time(&self) -> &TimeStamp {
-        &self.activity_time
-    }
-
-    pub fn user_id(&self) -> &QsUserId {
-        &self.user_id
     }
 }

@@ -103,14 +103,17 @@ mod test {
     use sqlx::PgPool;
     use uuid::Uuid;
 
-    use crate::ds::{
-        group_state::{EncryptedDsGroupState, StorableDsGroupData},
-        Ds,
+    use crate::{
+        ds::{
+            group_state::{EncryptedDsGroupState, StorableDsGroupData},
+            Ds,
+        },
+        persistence::InfraService,
     };
 
     #[sqlx::test]
     async fn reserve_group_id(pool: PgPool) {
-        let ds = Ds::new_from_pool(Fqdn::try_from("example.com").unwrap(), pool)
+        let ds = Ds::new_from_pool(pool, Fqdn::try_from("example.com").unwrap())
             .await
             .expect("Error creating ephemeral Ds instance.");
 
@@ -129,7 +132,7 @@ mod test {
 
     #[sqlx::test]
     async fn group_state_lifecycle(pool: PgPool) {
-        let ds = Ds::new_from_pool(Fqdn::try_from("example.com").unwrap(), pool)
+        let ds = Ds::new_from_pool(pool, Fqdn::try_from("example.com").unwrap())
             .await
             .expect("Error creating ephemeral Ds instance.");
 

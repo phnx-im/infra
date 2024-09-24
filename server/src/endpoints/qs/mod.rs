@@ -25,6 +25,7 @@ pub mod ws;
 
 #[tracing::instrument(name = "Process QS message", skip_all)]
 pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
+    qs: Data<Qs>,
     qs_storage_provider: Data<Arc<Qsp>>,
     message: web::Bytes,
 ) -> impl Responder {
@@ -41,7 +42,7 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     };
 
     // Process the message.
-    match Qs::process(storage_provider.as_ref(), message).await {
+    match qs.process(storage_provider.as_ref(), message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");

@@ -23,15 +23,15 @@ pub mod welcome_attribution_info;
 #[derive(
     Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, Clone, Debug,
 )]
-pub struct FriendshipToken {
-    token: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", sqlx(transparent))]
+pub struct FriendshipToken(Vec<u8>);
 
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for FriendshipToken {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(self.token.clone()),
+            rusqlite::types::Value::Blob(self.0.clone()),
         ))
     }
 }
@@ -39,9 +39,7 @@ impl rusqlite::types::ToSql for FriendshipToken {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::FromSql for FriendshipToken {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(Self {
-            token: value.as_blob()?.to_vec(),
-        })
+        Ok(Self(value.as_blob()?.to_vec()))
     }
 }
 
@@ -52,17 +50,11 @@ impl FriendshipToken {
             .random_vec(32)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
 
-        Ok(Self { token })
+        Ok(Self(token))
     }
 
     pub fn token(&self) -> &[u8] {
-        self.token.as_ref()
-    }
-
-    /// This is meant to be used only when restoring the friendship token from a
-    /// DB entry.
-    pub fn from_bytes(token: Vec<u8>) -> Self {
-        Self { token }
+        self.0.as_ref()
     }
 }
 

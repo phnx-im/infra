@@ -16,10 +16,7 @@ use phnxtypes::{
 };
 use thiserror::Error;
 
-use phnxbackend::qs::{
-    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
-    user_record::QsUserRecord, QsConfig, QsSigningKey,
-};
+use phnxbackend::qs::{storage_provider_trait::QsStorageProvider, QsSigningKey};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 #[derive(Debug)]
@@ -72,30 +69,24 @@ impl KeyPackages {
 /// on [`HashMap`]s.
 #[derive(Debug)]
 pub struct MemStorageProvider {
-    users: RwLock<HashMap<QsUserId, QsUserRecord>>,
-    clients: RwLock<HashMap<QsClientId, QsClientRecord>>,
     key_packages: RwLock<HashMap<QsClientId, KeyPackages>>,
     queues: RwLock<HashMap<QsClientId, QueueData>>,
     signing_key: QsSigningKey,
     client_id_decryption_key: ClientIdDecryptionKey,
-    config: QsConfig,
+    domain: Fqdn,
 }
 
 impl MemStorageProvider {
     pub fn new(domain: Fqdn) -> Self {
-        let config = QsConfig { domain };
+        let config = domain;
         let client_id_decryption_key = ClientIdDecryptionKey::generate().unwrap();
         let signing_key = QsSigningKey::generate().unwrap();
-        let users = RwLock::new(HashMap::new());
         let key_packages = RwLock::new(HashMap::new());
-        let clients = RwLock::new(HashMap::new());
         let queues = RwLock::new(HashMap::new());
         Self {
-            config,
+            domain: config,
             client_id_decryption_key,
             signing_key,
-            users,
-            clients,
             key_packages,
             queues,
         }
@@ -106,12 +97,6 @@ impl MemStorageProvider {
 impl QsStorageProvider for MemStorageProvider {
     type EnqueueError = QueueError;
     type ReadAndDeleteError = ReadAndDeleteError;
-    type CreateUserError = CreateUserError;
-    type StoreUserError = StoreUserError;
-    type DeleteUserError = DeleteUserError;
-    type StoreClientError = StoreClientError;
-    type CreateClientError = CreateClientError;
-    type DeleteClientError = DeleteClientError;
     type StoreKeyPackagesError = StoreKeyPackagesError;
     type LoadUserKeyPackagesError = LoadUserKeyPackagesError;
 
@@ -121,150 +106,7 @@ impl QsStorageProvider for MemStorageProvider {
     type LoadConfigError = LoadConfigError;
 
     async fn own_domain(&self) -> Fqdn {
-        self.config.domain.clone()
-    }
-
-    async fn create_user(
-        &self,
-        user_record: QsUserRecord,
-    ) -> Result<QsUserId, Self::CreateUserError> {
-        let user_id = QsUserId::random();
-        if let Ok(mut users) = self.users.write() {
-            users.insert(user_id.clone(), user_record);
-            Ok(user_id)
-        } else {
-            Err(CreateUserError::StorageError)
-        }
-    }
-
-    async fn load_user(&self, user_id: &QsUserId) -> Option<QsUserRecord> {
-        if let Ok(users) = self.users.read() {
-            users.get(user_id).cloned()
-        } else {
-            None
-        }
-    }
-
-    async fn store_user(
-        &self,
-        user_id: &QsUserId,
-        user_record: QsUserRecord,
-    ) -> Result<(), Self::StoreUserError> {
-        if let Ok(mut users) = self.users.write() {
-            users.insert(user_id.clone(), user_record);
-            Ok(())
-        } else {
-            Err(StoreUserError::StorageError)
-        }
-    }
-
-    async fn delete_user(&self, user_id: &QsUserId) -> Result<(), Self::DeleteUserError> {
-        // Get all locks.
-        let mut users = self
-            .users
-            .write()
-            .map_err(|_| DeleteUserError::StorageError)?;
-        let mut clients = self
-            .clients
-            .write()
-            .map_err(|_| DeleteUserError::StorageError)?;
-        let mut key_packages = self
-            .key_packages
-            .write()
-            .map_err(|_| DeleteUserError::StorageError)?;
-        let mut queues = self
-            .queues
-            .write()
-            .map_err(|_| DeleteUserError::StorageError)?;
-        // Delete the user
-        users.remove(user_id).ok_or(DeleteUserError::UnknownUser)?;
-        // Delete all KeyPackages and clients
-        let user_clients = clients
-            .iter()
-            .filter_map(|(client_id, client)| {
-                if &client.user_id == user_id {
-                    Some(client_id.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        for client in user_clients {
-            key_packages.remove(&client);
-            clients.remove(&client);
-            queues.remove(&client);
-        }
-        Ok(())
-    }
-
-    async fn create_client(
-        &self,
-        client_record: QsClientRecord,
-    ) -> Result<QsClientId, Self::CreateClientError> {
-        // TODO: For now, we trust the RNG to prevent collisions.
-        let mut clients = self
-            .clients
-            .write()
-            .map_err(|_| CreateClientError::StorageError)?;
-        let mut key_packages = self
-            .key_packages
-            .write()
-            .map_err(|_| CreateClientError::StorageError)?;
-        let mut queues = self
-            .queues
-            .write()
-            .map_err(|_| CreateClientError::StorageError)?;
-        let client_id = QsClientId::random();
-        key_packages.insert(client_id.clone(), KeyPackages::new());
-        clients.insert(client_id.clone(), client_record);
-        queues.insert(client_id.clone(), QueueData::new());
-
-        Ok(client_id)
-    }
-
-    async fn load_client(&self, client_id: &QsClientId) -> Option<QsClientRecord> {
-        if let Ok(clients) = self.clients.read() {
-            clients.get(client_id).cloned()
-        } else {
-            None
-        }
-    }
-
-    async fn store_client(
-        &self,
-        client_id: &QsClientId,
-        client_record: QsClientRecord,
-    ) -> Result<(), Self::StoreClientError> {
-        if let Ok(mut clients) = self.clients.write() {
-            clients.insert(client_id.clone(), client_record);
-            Ok(())
-        } else {
-            Err(StoreClientError::StorageError)
-        }
-    }
-
-    async fn delete_client(&self, client_id: &QsClientId) -> Result<(), Self::DeleteClientError> {
-        // Get all locks.
-        let mut clients = self
-            .clients
-            .write()
-            .map_err(|_| DeleteClientError::StorageError)?;
-        let mut key_packages = self
-            .key_packages
-            .write()
-            .map_err(|_| DeleteClientError::StorageError)?;
-        let mut queues = self
-            .queues
-            .write()
-            .map_err(|_| DeleteClientError::StorageError)?;
-        // Delete the client record.
-        clients
-            .remove(client_id)
-            .ok_or(DeleteClientError::UnknownClient)?;
-        key_packages.remove(client_id);
-        clients.remove(client_id);
-        queues.remove(client_id);
-        Ok(())
+        self.domain.clone()
     }
 
     async fn store_key_packages(
@@ -429,10 +271,6 @@ impl QsStorageProvider for MemStorageProvider {
         &self,
     ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError> {
         Ok(self.client_id_decryption_key.clone())
-    }
-
-    async fn load_config(&self) -> Result<QsConfig, Self::LoadConfigError> {
-        Ok(self.config.clone())
     }
 }
 

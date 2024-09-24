@@ -35,19 +35,18 @@ impl PushToken {
 #[derive(
     Serialize, Deserialize, PartialEq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct EncryptedPushToken {
-    ctxt: Ciphertext,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct EncryptedPushToken(Ciphertext);
 
 impl AsRef<Ciphertext> for EncryptedPushToken {
     fn as_ref(&self) -> &Ciphertext {
-        &self.ctxt
+        &self.0
     }
 }
 
 impl From<Ciphertext> for EncryptedPushToken {
     fn from(ctxt: Ciphertext) -> Self {
-        Self { ctxt }
+        Self(ctxt)
     }
 }
 
