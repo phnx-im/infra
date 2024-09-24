@@ -61,9 +61,9 @@ impl TryFrom<&GroupId> for ConversationId {
     type Error = tls_codec::Error;
 
     fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
-        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(value.as_slice())?;
+        let qgid = QualifiedGroupId::try_from(value.clone())?;
         let conversation_id = Self {
-            uuid: Uuid::from_bytes(qgid.group_id),
+            uuid: qgid.group_uuid(),
         };
         Ok(conversation_id)
     }
@@ -143,8 +143,8 @@ impl Conversation {
     }
 
     pub(crate) fn owner_domain(&self) -> Fqdn {
-        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(self.group_id.as_slice()).unwrap();
-        qgid.owning_domain
+        let qgid = QualifiedGroupId::try_from(self.group_id.clone()).unwrap();
+        qgid.owning_domain().clone()
     }
 
     pub(crate) fn set_conversation_picture(

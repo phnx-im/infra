@@ -450,7 +450,7 @@ impl CoreUser {
                 )?;
                 let eci: ExternalCommitInfoIn = self
                     .api_clients
-                    .get(&qgid.owning_domain)?
+                    .get(qgid.owning_domain())?
                     .ds_connection_group_info(
                         cep_tbs.connection_group_id.clone(),
                         &cep_tbs.connection_group_ear_key,
@@ -510,7 +510,7 @@ impl CoreUser {
                 // EncryptedConnectionEstablishmentPackage Phase 6: Send the
                 // confirmation by way of commit and group info to the DS.
                 self.api_clients
-                    .get(&qgid.owning_domain)?
+                    .get(qgid.owning_domain())?
                     .ds_join_connection_group(
                         commit,
                         group_info,

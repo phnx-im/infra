@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-use mls_assist::openmls_traits::types::HpkeCiphertext;
+use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 #[cfg(feature = "sqlite")]
 use rusqlite::{
     types::{FromSql, FromSqlError},
@@ -115,6 +115,10 @@ impl TryFrom<&str> for Fqdn {
     type Error = FqdnError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        // Arbitrary upper limit of 100 characters so we know it will cleanly tls-serialize.
+        if value.len() > 100 {
+            return Err(FqdnError::NotADomainName);
+        }
         let domain = Host::<String>::parse(value)?;
         // Fqdns can't be IP addresses.
         if !matches!(domain, Host::Domain(_)) {
@@ -126,13 +130,48 @@ impl TryFrom<&str> for Fqdn {
 
 #[derive(Debug, Clone, PartialEq, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 pub struct QualifiedGroupId {
-    pub group_id: [u8; 16],
-    pub owning_domain: Fqdn,
+    group_uuid: [u8; 16],
+    owning_domain: Fqdn,
+}
+
+impl QualifiedGroupId {
+    pub fn new(uuid: Uuid, owning_domain: Fqdn) -> Self {
+        let group_id = uuid.into_bytes();
+        Self {
+            group_uuid: group_id,
+            owning_domain,
+        }
+    }
+
+    pub fn group_uuid(&self) -> Uuid {
+        Uuid::from_bytes(self.group_uuid)
+    }
+
+    pub fn owning_domain(&self) -> &Fqdn {
+        &self.owning_domain
+    }
+}
+
+impl TryFrom<GroupId> for QualifiedGroupId {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+        Self::tls_deserialize_exact_bytes(value.as_slice())
+    }
+}
+
+impl From<QualifiedGroupId> for GroupId {
+    fn from(value: QualifiedGroupId) -> Self {
+        // We can unwrap here, because we know that neither the uuid nor the
+        // domain will be too long to TLS-serialize.
+        let group_id_bytes = value.tls_serialize_detached().unwrap();
+        GroupId::from_slice(&group_id_bytes)
+    }
 }
 
 impl std::fmt::Display for QualifiedGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let uuid = Uuid::from_bytes(self.group_id);
+        let uuid = Uuid::from_bytes(self.group_uuid);
         write!(f, "{}@{}", uuid, self.owning_domain)
     }
 }
@@ -180,7 +219,7 @@ impl TryFrom<&str> for QualifiedGroupId {
         }
 
         Ok(Self {
-            group_id,
+            group_uuid: group_id,
             owning_domain,
         })
     }

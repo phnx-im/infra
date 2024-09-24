@@ -9,10 +9,10 @@ use mls_assist::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 
-use crate::{
-    codec::PhnxCodec,
-    crypto::errors::{KeyGenerationError, RandomnessError},
-};
+#[cfg(feature = "sqlite")]
+use crate::codec::PhnxCodec;
+
+use crate::crypto::errors::{KeyGenerationError, RandomnessError};
 
 use super::{
     private_keys::{generate_signature_keypair, PrivateKey},

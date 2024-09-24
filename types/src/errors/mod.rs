@@ -133,6 +133,9 @@ pub enum DsProcessingError {
     /// Error adding users.
     #[error(transparent)]
     AddUsersError(#[from] AddUsersError),
+    /// Error creating group.
+    #[error("Failed to create group: Group ID not reserved")]
+    UnreservedGroupId,
     /// Error removing users.
     #[error(transparent)]
     RemoveUsersError(#[from] UserRemovalError),

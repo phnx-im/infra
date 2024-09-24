@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[cfg(feature = "sqlite")]
+use crate::codec::PhnxCodec;
 use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
@@ -9,13 +11,13 @@ use mls_assist::{
 };
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
+
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey};
 
 use crate::{
-    codec::PhnxCodec,
     crypto::{
         ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,

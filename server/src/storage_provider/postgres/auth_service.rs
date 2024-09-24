@@ -701,7 +701,8 @@ impl AsStorageProvider for PostgresAsStorage {
         };
         let mut client_credentials = Vec::new();
         for client_record in client_records {
-            let Ok(client_credential) = PhnxCodec::from_slice(&client_record.client_credential) else {
+            let Ok(client_credential) = PhnxCodec::from_slice(&client_record.client_credential)
+            else {
                 continue;
             };
             client_credentials.push(client_credential);

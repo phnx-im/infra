@@ -20,16 +20,16 @@ use super::{
     AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey,
 };
 
-use crate::{
-    codec::PhnxCodec,
-    crypto::{
-        ear::{keys::SignatureEarKey, EarEncryptable},
-        signatures::{
-            private_keys::{generate_signature_keypair, PrivateKey},
-            signable::Signable,
-            traits::{SigningKey, VerifyingKey},
-            DEFAULT_SIGNATURE_SCHEME,
-        },
+#[cfg(feature = "sqlite")]
+use crate::codec::PhnxCodec;
+
+use crate::crypto::{
+    ear::{keys::SignatureEarKey, EarEncryptable},
+    signatures::{
+        private_keys::{generate_signature_keypair, PrivateKey},
+        signable::Signable,
+        traits::{SigningKey, VerifyingKey},
+        DEFAULT_SIGNATURE_SCHEME,
     },
 };
 

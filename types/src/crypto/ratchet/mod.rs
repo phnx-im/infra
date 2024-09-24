@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::codec::PhnxCodec;
 use errors::{DecryptionError, EncryptionError};
 use serde::de::DeserializeOwned;
 
@@ -126,6 +125,8 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 mod sqlite {
 
     use rusqlite::ToSql;
+
+    use crate::codec::PhnxCodec;
 
     use super::*;
 

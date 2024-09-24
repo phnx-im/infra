@@ -21,7 +21,7 @@ fi
 
 DB_USER=${POSTGRES_USER:=postgres}
 DB_PASSWORD="${POSTGRES_PASSWORD:=password}"
-DB_NAME="${POSTGRES_DB:=ds_db}"
+DB_NAME="${POSTGRES_DB:=phnx_db}"
 DB_PORT="${POSTGRES_PORT:=5432}"
 
 # Name of the directory for the test certs

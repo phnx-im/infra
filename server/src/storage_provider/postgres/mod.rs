@@ -7,11 +7,7 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use crate::configurations::DatabaseSettings;
 
 pub mod auth_service;
-pub mod ds;
 pub mod qs;
-
-#[cfg(test)]
-pub mod tests;
 
 async fn connect_to_database(settings: &DatabaseSettings) -> Result<PgPool, sqlx::Error> {
     let mut connection =
