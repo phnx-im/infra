@@ -30,7 +30,7 @@ impl Storable for OwnClientInfo {
             server_url,
             qs_user_id,
             qs_client_id,
-            as_client_id: AsClientId::compose(as_user_name, as_client_uuid),
+            as_client_id: AsClientId::new(as_user_name, as_client_uuid),
         })
     }
 }

@@ -646,11 +646,11 @@ async fn store_key_packages(
         let id = Uuid::new_v4();
         let encoded_add_package = PhnxCodec::to_vec(encrypted_add_package)?;
 
-        // Add values to the query arguments
-        query_args.add(id);
-        query_args.add(client_uuid);
-        query_args.add(encoded_add_package);
-        query_args.add(is_last_resort);
+        // Add values to the query arguments. None of these should throw an error.
+        let _ = query_args.add(id);
+        let _ = query_args.add(client_uuid);
+        let _ = query_args.add(encoded_add_package);
+        let _ = query_args.add(is_last_resort);
 
         if i > 0 {
             query_string.push(',');

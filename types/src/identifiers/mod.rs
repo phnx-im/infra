@@ -14,6 +14,7 @@ use rusqlite::{
     types::{FromSql, FromSqlError},
     ToSql,
 };
+use tls_codec_impls::{TlsString, TlsUuid};
 use url::Host;
 use uuid::Uuid;
 
@@ -25,11 +26,44 @@ use crate::crypto::{
 
 use super::*;
 
+mod tls_codec_impls;
+
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct Fqdn {
     domain: Host<String>,
+}
+
+#[cfg(feature = "sqlx")]
+impl sqlx::Type<sqlx::Postgres> for Fqdn {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("TEXT")
+    }
+}
+
+#[cfg(feature = "sqlx")]
+impl sqlx::Encode<'_, sqlx::Postgres> for Fqdn {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        self.to_string().encode_by_ref(buf)
+    }
+}
+
+#[cfg(feature = "sqlx")]
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Fqdn {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let string = String::decode(value)?;
+        let fqdn = Fqdn::try_from(string).map_err(|e| {
+            tracing::error!("Error parsing Fqdn from DB: {}", e);
+            sqlx::Error::Decode(Box::new(e))
+        })?;
+        Ok(fqdn)
+    }
 }
 
 #[cfg(feature = "sqlite")]
@@ -49,43 +83,6 @@ impl FromSql for Fqdn {
             FromSqlError::InvalidType
         })?;
         Ok(fqdn)
-    }
-}
-
-impl Size for Fqdn {
-    fn tls_serialized_len(&self) -> usize {
-        if let Host::Domain(domain) = &self.domain {
-            domain.as_str().as_bytes().tls_serialized_len()
-        } else {
-            0
-        }
-    }
-}
-
-impl TlsDeserializeBytesTrait for Fqdn {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (domain_bytes, rest) = <Vec<u8>>::tls_deserialize_bytes(bytes)?;
-        let domain_string = String::from_utf8(domain_bytes).map_err(|_| {
-            tls_codec::Error::DecodingError("Couldn't decode domain string.".to_owned())
-        })?;
-        let domain = Fqdn::try_from(domain_string).map_err(|e| {
-            let e = format!("Couldn't decode domain string: {}.", e);
-            tls_codec::Error::DecodingError(e)
-        })?;
-        Ok((domain, rest))
-    }
-}
-
-impl TlsSerializeTrait for Fqdn {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        if let Host::Domain(domain) = &self.domain {
-            domain.as_str().as_bytes().tls_serialize(writer)
-        } else {
-            Ok(0)
-        }
     }
 }
 
@@ -225,25 +222,59 @@ impl TryFrom<&str> for QualifiedGroupId {
     }
 }
 
+#[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[serde(transparent)]
+#[cfg_attr(feature = "sqlx", sqlx(transparent, type_name = "TEXT"))]
+pub struct UserName(TlsString);
+
+impl std::fmt::Display for UserName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum UserNameError {
+    #[error("The given string does not represent a valid user name.")]
+    InvalidUserName,
+}
+
+impl TryFrom<String> for UserName {
+    type Error = UserNameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        fn contains_any_of(value: &str, chars: &[char]) -> bool {
+            value.chars().any(|c| chars.contains(&c))
+        }
+        if contains_any_of(&value, &['@', '.']) {
+            return Err(UserNameError::InvalidUserName);
+        } else {
+            Ok(Self(TlsString(value.to_string())))
+        }
+    }
+}
+
 #[derive(
     Clone,
     Debug,
-    TlsDeserializeBytes,
     TlsSerialize,
     TlsSize,
+    TlsDeserializeBytes,
     PartialEq,
     Eq,
     Hash,
     Serialize,
     Deserialize,
 )]
-pub struct UserName {
-    pub(crate) user_name: Vec<u8>,
-    pub(crate) domain: Fqdn,
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+pub struct QualifiedUserName {
+    user_name: UserName,
+    domain: Fqdn,
 }
 
 #[cfg(feature = "sqlite")]
-impl ToSql for UserName {
+impl ToSql for QualifiedUserName {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         let string = self.to_string();
         Ok(rusqlite::types::ToSqlOutput::from(string))
@@ -251,10 +282,10 @@ impl ToSql for UserName {
 }
 
 #[cfg(feature = "sqlite")]
-impl FromSql for UserName {
+impl FromSql for QualifiedUserName {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let user_name =
-            <&str as SafeTryInto<UserName>>::try_into(value.as_str()?).map_err(|e| {
+        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(value.as_str()?)
+            .map_err(|e| {
                 tracing::error!("Error parsing UserName: {}", e);
                 FromSqlError::InvalidType
             })?;
@@ -263,11 +294,13 @@ impl FromSql for UserName {
 }
 
 #[derive(Debug, Clone, Error)]
-pub enum UserNameError {
-    #[error("The given string does not represent a valid user name.")]
-    InvalidUserName,
+pub enum QualifiedUserNameError {
+    #[error("Invalid string representation of qualified user name")]
+    InvalidString,
     #[error(transparent)]
-    FqdnError(#[from] FqdnError),
+    InvalidUserName(#[from] UserNameError),
+    #[error(transparent)]
+    InvalidFqdn(#[from] FqdnError),
 }
 
 impl<T> SafeTryInto<T> for T {
@@ -285,92 +318,76 @@ pub trait SafeTryInto<T>: Sized {
 }
 
 // TODO: This string processing is way too simplistic, but it should do for now.
-impl SafeTryInto<UserName> for &str {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for &str {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, Self::Error> {
+    fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
+        println!("Trying to parse: {}", self);
         let mut split_name = self.split('@');
-        let name = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        let user_name_str = split_name
+            .next()
+            .ok_or(QualifiedUserNameError::InvalidString)?;
+        let user_name = UserName::try_from(user_name_str.to_string())?;
         // UserNames MUST be qualified
-        let domain = split_name.next().ok_or(UserNameError::InvalidUserName)?;
+        let domain = split_name
+            .next()
+            .ok_or(QualifiedUserNameError::InvalidString)?;
         if split_name.next().is_some() {
-            return Err(UserNameError::InvalidUserName);
+            return Err(QualifiedUserNameError::InvalidString);
         }
         let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
-        let user_name = name.as_bytes().to_vec();
-        Ok(UserName { user_name, domain })
+        Ok(QualifiedUserName { user_name, domain })
     }
 }
 
-impl SafeTryInto<UserName> for String {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for String {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, UserNameError> {
-        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
+        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
     }
 }
 
-impl SafeTryInto<UserName> for &String {
-    type Error = UserNameError;
+impl SafeTryInto<QualifiedUserName> for &String {
+    type Error = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<UserName, UserNameError> {
-        <&str as SafeTryInto<UserName>>::try_into(self.as_str())
+    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
+        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
     }
 }
 
-impl UserName {
+impl QualifiedUserName {
+    pub fn user_name(&self) -> &UserName {
+        &self.user_name
+    }
+
     pub fn domain(&self) -> Fqdn {
         self.domain.clone()
     }
 }
 
-impl std::fmt::Display for UserName {
+impl std::fmt::Display for QualifiedUserName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}@{}",
-            String::from_utf8_lossy(&self.user_name),
-            self.domain
-        )
+        write!(f, "{}@{}", self.user_name, self.domain)
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
+    TlsSize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 pub struct AsClientId {
-    pub(crate) user_name: UserName,
-    pub(crate) client_id: Uuid,
-}
-
-impl TlsDeserializeBytesTrait for AsClientId {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (user_name, rest) = <UserName>::tls_deserialize_bytes(bytes)?;
-        let (client_id_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(rest)?;
-        let client_id = Uuid::from_bytes(client_id_bytes);
-        Ok((
-            Self {
-                user_name,
-                client_id,
-            },
-            rest,
-        ))
-    }
-}
-
-impl TlsSerializeTrait for AsClientId {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        let mut written = self.user_name.tls_serialize(writer)?;
-        written += self.client_id.as_bytes().tls_serialize(writer)?;
-        Ok(written)
-    }
-}
-
-impl Size for AsClientId {
-    fn tls_serialized_len(&self) -> usize {
-        self.user_name.tls_serialized_len() + self.client_id.as_bytes().len()
-    }
+    user_name: QualifiedUserName,
+    client_id: TlsUuid,
 }
 
 impl std::fmt::Display for AsClientId {
@@ -381,26 +398,23 @@ impl std::fmt::Display for AsClientId {
 }
 
 impl AsClientId {
-    pub fn compose(user_name: UserName, client_id: Uuid) -> Self {
+    pub fn new(user_name: QualifiedUserName, client_id: Uuid) -> Self {
         Self {
             user_name,
-            client_id,
+            client_id: TlsUuid(client_id),
         }
     }
 
-    pub fn random(user_name: UserName) -> Result<Self, RandomnessError> {
-        Ok(Self {
-            user_name,
-            client_id: Uuid::new_v4(),
-        })
+    pub fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
+        Ok(Self::new(user_name, Uuid::new_v4()))
     }
 
-    pub fn user_name(&self) -> UserName {
+    pub fn user_name(&self) -> QualifiedUserName {
         self.user_name.clone()
     }
 
     pub fn client_id(&self) -> Uuid {
-        self.client_id
+        *self.client_id
     }
 }
 
@@ -411,7 +425,7 @@ pub enum AsClientIdError {
     #[error("The UUID of this client id is invalid: {0}")]
     InvalidClientUuid(#[from] uuid::Error),
     #[error("The user name of the client id is invalid: {0}")]
-    UserNameError(#[from] UserNameError),
+    UserNameError(#[from] QualifiedUserNameError),
 }
 
 impl TryFrom<String> for AsClientId {
@@ -421,8 +435,8 @@ impl TryFrom<String> for AsClientId {
         let Some((client_id_str, user_name_str)) = value.split_once('.') else {
             return Err(AsClientIdError::InvalidClientId);
         };
-        let client_id = Uuid::parse_str(client_id_str)?;
-        let user_name = <&str as SafeTryInto<UserName>>::try_into(user_name_str)?;
+        let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
+        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name_str)?;
         Ok(Self {
             user_name,
             client_id,
@@ -504,26 +518,21 @@ impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientCon
 impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
 
 /// This is the pseudonymous client id used on the QS.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    TlsSize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 pub struct QsClientId {
-    pub(crate) client_id: Uuid,
-}
-
-impl tls_codec::Serialize for QsClientId {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        self.client_id.as_bytes().tls_serialize(writer)
-    }
-}
-
-impl tls_codec::DeserializeBytes for QsClientId {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(bytes)?;
-        let client_id = Uuid::from_bytes(uuid_bytes);
-        Ok((Self { client_id }, rest))
-    }
+    client_id: TlsUuid,
 }
 
 #[cfg(feature = "sqlite")]
@@ -536,21 +545,13 @@ impl ToSql for QsClientId {
 #[cfg(feature = "sqlite")]
 impl FromSql for QsClientId {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let client_id = Uuid::column_result(value)?;
-        Ok(QsClientId { client_id })
-    }
-}
-
-impl tls_codec::Size for QsClientId {
-    fn tls_serialized_len(&self) -> usize {
-        self.client_id.as_bytes().len()
+        Uuid::column_result(value).map(|id| id.into())
     }
 }
 
 impl QsClientId {
     pub fn random() -> Self {
-        let client_id = Uuid::new_v4();
-        Self { client_id }
+        Uuid::new_v4().into()
     }
 
     pub fn as_uuid(&self) -> &Uuid {
@@ -560,13 +561,26 @@ impl QsClientId {
 
 impl From<Uuid> for QsClientId {
     fn from(value: Uuid) -> Self {
-        Self { client_id: value }
+        Self {
+            client_id: TlsUuid(value),
+        }
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    TlsSize,
+    TlsDeserializeBytes,
+    TlsSerialize,
+)]
 pub struct QsUserId {
-    pub(crate) user_id: Uuid,
+    user_id: TlsUuid,
 }
 
 #[cfg(feature = "sqlite")]
@@ -579,48 +593,25 @@ impl ToSql for QsUserId {
 #[cfg(feature = "sqlite")]
 impl FromSql for QsUserId {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let user_id = Uuid::column_result(value)?;
-        Ok(QsUserId { user_id })
+        Uuid::column_result(value).map(|id| id.into())
     }
 }
 
 impl From<Uuid> for QsUserId {
     fn from(value: Uuid) -> Self {
-        Self { user_id: value }
+        Self {
+            user_id: TlsUuid(value),
+        }
     }
 }
 
 impl QsUserId {
     pub fn random() -> Self {
-        let user_id = Uuid::new_v4();
-        Self { user_id }
+        Uuid::new_v4().into()
     }
 
     pub fn as_uuid(&self) -> &Uuid {
         &self.user_id
-    }
-}
-
-impl tls_codec::Serialize for QsUserId {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        self.user_id.as_bytes().tls_serialize(writer)
-    }
-}
-
-impl tls_codec::DeserializeBytes for QsUserId {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(bytes)?;
-        let user_id = Uuid::from_bytes(uuid_bytes);
-        Ok((Self { user_id }, rest))
-    }
-}
-
-impl tls_codec::Size for QsUserId {
-    fn tls_serialized_len(&self) -> usize {
-        self.user_id.as_bytes().len()
     }
 }
 

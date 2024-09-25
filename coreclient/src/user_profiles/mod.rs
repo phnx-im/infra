@@ -7,7 +7,7 @@
 
 use std::fmt::Display;
 
-use phnxtypes::identifiers::UserName;
+use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -19,14 +19,14 @@ pub(crate) mod persistence;
 /// and profile picture.
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
-    user_name: UserName,
+    user_name: QualifiedUserName,
     display_name_option: Option<DisplayName>,
     profile_picture_option: Option<Asset>,
 }
 
 impl UserProfile {
     pub fn new(
-        user_name: UserName,
+        user_name: QualifiedUserName,
         display_name_option: Option<DisplayName>,
         profile_picture_option: Option<Asset>,
     ) -> Self {
@@ -37,7 +37,7 @@ impl UserProfile {
         }
     }
 
-    pub fn user_name(&self) -> &UserName {
+    pub fn user_name(&self) -> &QualifiedUserName {
         &self.user_name
     }
 

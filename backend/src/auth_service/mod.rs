@@ -9,7 +9,7 @@ use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
     errors::auth_service::AsProcessingError,
-    identifiers::UserName,
+    identifiers::QualifiedUserName,
     messages::{
         client_as::{
             AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
@@ -67,12 +67,12 @@ ACTION_AS_CREDENTIALS
 
 #[derive(Debug, Clone)]
 pub struct AsUserRecord {
-    _user_name: UserName,
+    _user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
 }
 
 impl AsUserRecord {
-    pub fn new(user_name: UserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
+    pub fn new(user_name: QualifiedUserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
         Self {
             _user_name: user_name,
             password_file,

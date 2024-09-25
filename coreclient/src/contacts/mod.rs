@@ -17,7 +17,7 @@ use phnxtypes::{
         },
         signatures::signable::Verifiable,
     },
-    identifiers::{AsClientId, UserName},
+    identifiers::{AsClientId, QualifiedUserName},
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::FriendshipToken,
 };
@@ -35,7 +35,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
     pub(crate) clients: Vec<AsClientId>,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
@@ -72,7 +72,7 @@ impl Contact {
     }
 
     /// Get the user name of this contact.
-    pub fn user_name(&self) -> &UserName {
+    pub fn user_name(&self) -> &QualifiedUserName {
         &self.user_name
     }
 
@@ -130,7 +130,7 @@ impl Contact {
 /// Contact which has not yet accepted our connection request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartialContact {
-    pub user_name: UserName,
+    pub user_name: QualifiedUserName,
     // ID of the connection conversation with this contact.
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
@@ -138,7 +138,7 @@ pub struct PartialContact {
 
 impl PartialContact {
     pub(crate) fn new(
-        user_name: UserName,
+        user_name: QualifiedUserName,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {

@@ -4,7 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use phnxcoreclient::Conversation;
-use phnxtypes::identifiers::{SafeTryInto, UserName};
+use phnxtypes::identifiers::{SafeTryInto, QualifiedUserName};
 
 use crate::notifier::dispatch_message_notifications;
 
@@ -93,8 +93,8 @@ impl User {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(<String as SafeTryInto<UserName>>::try_into)
-                    .collect::<Result<Vec<UserName>, _>>()?,
+                    .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
+                    .collect::<Result<Vec<QualifiedUserName>, _>>()?,
             )
             .await?;
         dispatch_message_notifications(&self.notification_hub, conversation_messages).await;
@@ -112,8 +112,8 @@ impl User {
                 conversation_id.into(),
                 &user_names
                     .into_iter()
-                    .map(<String as SafeTryInto<UserName>>::try_into)
-                    .collect::<Result<Vec<UserName>, _>>()?,
+                    .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
+                    .collect::<Result<Vec<QualifiedUserName>, _>>()?,
             )
             .await?;
         dispatch_message_notifications(&self.notification_hub, conversation_messages).await;

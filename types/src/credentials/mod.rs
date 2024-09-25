@@ -630,7 +630,7 @@ pub struct VerifiableClientCredential {
 
 impl VerifiableClientCredential {
     pub fn domain(&self) -> Fqdn {
-        self.payload.csr.client_id.user_name.domain()
+        self.payload.csr.client_id.user_name().domain()
     }
 
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
