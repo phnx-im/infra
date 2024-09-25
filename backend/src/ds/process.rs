@@ -183,7 +183,7 @@ use crate::{
 };
 
 use super::{
-    group_state::{persistence::StorageError, DsGroupState, StorableDsGroupData},
+    group_state::{DsGroupState, StorableDsGroupData},
     Ds,
 };
 

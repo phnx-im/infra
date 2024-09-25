@@ -14,7 +14,6 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
     MlsAssistRustCrypto,
 };
-use persistence::StorageError;
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::EncryptedClientCredential,
