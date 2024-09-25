@@ -15,7 +15,7 @@ impl<LeafNode: Entity<CURRENT_VERSION>> Storable for StorableLeafNode<LeafNode> 
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS own_leaf_nodes (
         group_id BLOB PRIMARY KEY,
         leaf_node BLOB NOT NULL
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let EntityWrapper(leaf_node) = row.get(0)?;

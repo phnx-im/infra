@@ -15,7 +15,7 @@ impl<KeyPackage: Entity<CURRENT_VERSION>> Storable for StorableKeyPackage<KeyPac
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS key_packages (
         key_package_ref BLOB PRIMARY KEY,
         key_package BLOB NOT NULL
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(key_package) = row.get(0)?;

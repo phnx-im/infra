@@ -24,7 +24,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>> St
         proposal_ref BLOB NOT NULL,
         proposal BLOB NOT NULL,
         PRIMARY KEY (group_id, proposal_ref)
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(proposal_ref) = row.get(0)?;

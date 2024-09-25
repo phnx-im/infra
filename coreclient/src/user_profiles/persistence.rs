@@ -12,7 +12,7 @@ impl Storable for UserProfile {
                 user_name TEXT PRIMARY KEY,
                 display_name TEXT,
                 profile_picture BLOB
-            )";
+            );";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let user_name = row.get(0)?;

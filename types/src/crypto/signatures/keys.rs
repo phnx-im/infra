@@ -86,8 +86,8 @@ impl rusqlite::types::ToSql for UserAuthSigningKey {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::FromSql for UserAuthSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let bytes = value.as_blob()?;
-        PhnxCodec::from_slice(bytes).map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
+        let key = PhnxCodec::from_slice(value.as_blob()?)?;
+        Ok(key)
     }
 }
 
