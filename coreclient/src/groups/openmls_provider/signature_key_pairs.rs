@@ -21,7 +21,7 @@ impl<SignatureKeyPairs: Entity<CURRENT_VERSION>> Storable
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS signature_keys (
         public_key BLOB PRIMARY KEY,
         signature_key BLOB NOT NULL
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(signature_key_pairs) = row.get(0)?;

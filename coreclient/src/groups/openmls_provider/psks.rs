@@ -15,7 +15,7 @@ impl<PskBundle: Entity<CURRENT_VERSION>> Storable for StorablePskBundle<PskBundl
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS psks (
         psk_id BLOB PRIMARY KEY,
         psk_bundle BLOB NOT NULL
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(psk) = row.get(0)?;

@@ -48,8 +48,7 @@ impl Storable for UserCreationState {
         CREATE TABLE IF NOT EXISTS user_creation_state (
             client_id BLOB PRIMARY KEY,
             state BLOB NOT NULL
-        )
-    ";
+        );";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         row.get(0)

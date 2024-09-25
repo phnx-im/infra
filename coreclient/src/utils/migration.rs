@@ -31,9 +31,8 @@ pub(crate) fn run_migrations(
 
 fn post_process(migration: Migration) {
     match migration.into() {
-        EmbeddedMigration::CreateAsCredentialsTable(_) => {
+        EmbeddedMigration::CreateInitialTablesAndTriggers(_) => {
             // Perform post-processing for arbitrary migrations here.
         }
-        _ => (),
     }
 }

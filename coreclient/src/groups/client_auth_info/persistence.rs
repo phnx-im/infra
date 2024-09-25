@@ -19,7 +19,7 @@ impl Storable for StorableClientCredential {
                 fingerprint BLOB PRIMARY KEY,
                 client_id TEXT NOT NULL,
                 client_credential BLOB NOT NULL
-            )";
+            );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let client_credential = row.get(0)?;
@@ -349,7 +349,7 @@ impl Storable for GroupMembership {
                 status TEXT DEFAULT 'staged_update' NOT NULL CHECK (status IN ('staged_update', 'staged_removal', 'staged_add', 'merged')),
                 FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
                 PRIMARY KEY (group_id, leaf_index, status)
-            )";
+            );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let client_credential_fingerprint = row.get(0)?;
