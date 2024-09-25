@@ -4,10 +4,18 @@
 
 use crate::{
     clients::{own_client_info::OwnClientInfo, store::UserCreationState},
-    contacts::{Contact, PartialContact},
+    contacts::{
+        persistence::{
+            CONTACT_INSERT_TRIGGER, CONTACT_UPDATE_TRIGGER, PARTIAL_CONTACT_INSERT_TRIGGER,
+            PARTIAL_CONTACT_UPDATE_TRIGGER,
+        },
+        Contact, PartialContact,
+    },
     conversations::{messages::ConversationMessage, Conversation},
     groups::{
-        client_auth_info::{GroupMembership, StorableClientCredential},
+        client_auth_info::{
+            persistence::GROUP_MEMBERSHIP_TRIGGER, GroupMembership, StorableClientCredential,
+        },
         openmls_provider::{
             encryption_key_pairs::StorableEncryptionKeyPair,
             epoch_key_pairs::StorableEpochKeyPairs, group_data::StorableGroupData,
@@ -24,76 +32,6 @@ use crate::{
     user_profiles::UserProfile,
     utils::persistence::Storable,
 };
-
-const GROUP_MEMBERSHIP_TRIGGER: &str = 
-    "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data 
-        AFTER DELETE ON group_membership
-        FOR EACH ROW
-        BEGIN
-            -- Delete client credentials if they are not our own and not used in any group.
-            DELETE FROM client_credentials
-            WHERE fingerprint = OLD.client_credential_fingerprint AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE client_credential_fingerprint = OLD.client_credential_fingerprint
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_client_uuid = OLD.client_uuid
-            );
-
-            -- Delete user profiles of users that are not in any group and that are not our own.
-            DELETE FROM users
-            WHERE user_name = OLD.user_name AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE user_name = OLD.user_name
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
-            );
-        END;";
-const PARTIAL_CONTACT_INSERT_TRIGGER: &str = 
-    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_insert;
-
-    CREATE TRIGGER no_partial_contact_overlap_on_insert
-    BEFORE INSERT ON contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t insert Contact: There already exists a partial contact with this user_name')
-        END;
-    END;";
-const PARTIAL_CONTACT_UPDATE_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_update;
-
-    CREATE TRIGGER no_partial_contact_overlap_on_update
-    BEFORE UPDATE ON contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t update Contact: There already exists a partial contact with this user_name')
-        END;
-    END;";
-const CONTACT_INSERT_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_contact_overlap_on_insert;
-
-    CREATE TRIGGER no_contact_overlap_on_insert
-    BEFORE INSERT ON partial_contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t insert PartialContact: There already exists a contact with this user_name')
-        END;
-    END;";
-const CONTACT_UPDATE_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_contact_overlap_on_update;
-
-    CREATE TRIGGER no_contact_overlap_on_update
-    BEFORE UPDATE ON partial_contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t update PartialContact: There already exists a contact with this user_name')
-        END;
-    END;";
 
 pub fn migration() -> String {
     [

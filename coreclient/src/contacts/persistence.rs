@@ -10,6 +10,31 @@ use crate::{
     PartialContact,
 };
 
+pub(crate) const CONTACT_INSERT_TRIGGER: &str =
+    "DROP TRIGGER IF EXISTS no_contact_overlap_on_insert;
+
+    CREATE TRIGGER no_contact_overlap_on_insert
+    BEFORE INSERT ON partial_contacts
+    FOR EACH ROW
+    BEGIN
+        SELECT CASE
+            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
+            THEN RAISE(FAIL, 'Can''t insert PartialContact: There already exists a contact with this user_name')
+        END;
+    END;";
+pub(crate) const CONTACT_UPDATE_TRIGGER: &str =
+    "DROP TRIGGER IF EXISTS no_contact_overlap_on_update;
+
+    CREATE TRIGGER no_contact_overlap_on_update
+    BEFORE UPDATE ON partial_contacts
+    FOR EACH ROW
+    BEGIN
+        SELECT CASE
+            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
+            THEN RAISE(FAIL, 'Can''t update PartialContact: There already exists a contact with this user_name')
+        END;
+    END;";
+
 impl Storable for Contact {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS contacts (
@@ -96,6 +121,32 @@ impl Contact {
         Ok(())
     }
 }
+
+pub(crate) const PARTIAL_CONTACT_INSERT_TRIGGER: &str = 
+    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_insert;
+
+    CREATE TRIGGER no_partial_contact_overlap_on_insert
+    BEFORE INSERT ON contacts
+    FOR EACH ROW
+    BEGIN
+        SELECT CASE
+            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
+            THEN RAISE(FAIL, 'Can''t insert Contact: There already exists a partial contact with this user_name')
+        END;
+    END;";
+
+pub(crate) const PARTIAL_CONTACT_UPDATE_TRIGGER: &str =
+    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_update;
+
+    CREATE TRIGGER no_partial_contact_overlap_on_update
+    BEFORE UPDATE ON contacts
+    FOR EACH ROW
+    BEGIN
+        SELECT CASE
+            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
+            THEN RAISE(FAIL, 'Can''t update Contact: There already exists a partial contact with this user_name')
+        END;
+    END;";
 
 impl Storable for PartialContact {
     const CREATE_TABLE_STATEMENT: &'static str = "
