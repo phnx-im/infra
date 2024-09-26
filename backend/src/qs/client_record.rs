@@ -71,11 +71,9 @@ impl QsClientRecord {
 
         let mut transaction = connection.begin().await?;
 
-        Queue::new_and_store(client_id.clone(), &mut *transaction).await?;
-
         let record = Self {
             user_id,
-            client_id,
+            client_id: client_id.clone(),
             encrypted_push_token,
             queue_encryption_key,
             auth_key,
@@ -83,6 +81,8 @@ impl QsClientRecord {
             activity_time: now,
         };
         record.store(&mut *transaction).await?;
+
+        Queue::new_and_store(client_id, &mut *transaction).await?;
 
         transaction.commit().await?;
 

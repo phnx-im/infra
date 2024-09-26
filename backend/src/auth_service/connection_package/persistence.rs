@@ -80,7 +80,7 @@ impl StorableConnectionPackage {
                 AND (SELECT count FROM remaining_packages) > 1
                 RETURNING connection_package
             )
-            SELECT id, connection_package FROM next_connection_package",
+            SELECT connection_package FROM next_connection_package",
             client_id,
         )
         .fetch_one(&mut *transaction)

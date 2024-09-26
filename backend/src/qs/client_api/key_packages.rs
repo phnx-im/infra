@@ -72,7 +72,10 @@ impl Qs {
                 &last_resort_add_package,
             )
             .await
-            .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
+            .map_err(|e| {
+                tracing::warn!("Failed to store last resort key package: {:?}", e);
+                QsPublishKeyPackagesError::StorageError
+            })?;
         }
 
         StorableEncryptedAddPackage::store_multiple(
@@ -81,7 +84,10 @@ impl Qs {
             &encrypted_add_packages,
         )
         .await
-        .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
+        .map_err(|e| {
+            tracing::warn!("Failed to store last resort key package: {:?}", e);
+            QsPublishKeyPackagesError::StorageError
+        })?;
 
         Ok(())
     }

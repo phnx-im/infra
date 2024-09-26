@@ -46,14 +46,13 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let user_id = QsUserId::random();
             sqlx::query!(
                 "INSERT INTO 
                     qs_user_records 
                     (user_id, verifying_key, friendship_token)
                 VALUES 
                     ($1, $2, $3)",
-                user_id.as_uuid(),
+                &self.user_id as &QsUserId,
                 &self.verifying_key as &QsUserVerifyingKey,
                 &self.friendship_token as &FriendshipToken,
             )

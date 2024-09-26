@@ -29,7 +29,11 @@ const AEAD_NONCE_SIZE: usize = 12;
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "aead_ciphertext")
+)]
 pub struct Ciphertext {
     ciphertext: Vec<u8>,
     nonce: [u8; AEAD_NONCE_SIZE],
