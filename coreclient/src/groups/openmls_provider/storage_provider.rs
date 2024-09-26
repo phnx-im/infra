@@ -17,11 +17,12 @@ use super::{
     epoch_key_pairs::{StorableEpochKeyPairs, StorableEpochKeyPairsRef},
     group_data::{GroupDataType, StorableGroupData, StorableGroupDataRef},
     key_packages::{StorableHashRef, StorableKeyPackage, StorableKeyPackageRef},
-    own_leaf_nodes::StorableLeafNodeRef,
-    proposals::StorableProposalRef,
+    own_leaf_nodes::{StorableLeafNode, StorableLeafNodeRef},
+    proposals::{StorableProposal, StorableProposalRef},
     psks::{StorablePskBundle, StorablePskBundleRef, StorablePskIdRef},
-    signature_key_pairs::{StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef},
-    StorableLeafNode, StorableProposal, StorableSignatureKeyPairs,
+    signature_key_pairs::{
+        StorableSignatureKeyPairs, StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef,
+    },
 };
 
 pub(crate) struct SqliteStorageProvider<'a> {
@@ -39,10 +40,7 @@ pub(super) struct KeyRefWrapper<'a, T: Key<CURRENT_VERSION>>(pub &'a T);
 
 impl<T: Key<CURRENT_VERSION>> ToSql for KeyRefWrapper<'_, T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let key_bytes = PhnxCodec::to_vec(&self.0).map_err(|e| {
-            log::error!("Failed to serialize key: {}", e);
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let key_bytes = PhnxCodec::to_vec(&self.0)?;
         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(key_bytes)))
     }
 }
@@ -51,10 +49,7 @@ pub(super) struct EntityWrapper<T: Entity<CURRENT_VERSION>>(pub T);
 
 impl<T: Entity<CURRENT_VERSION>> FromSql for EntityWrapper<T> {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let entity = PhnxCodec::from_slice(value.as_blob()?).map_err(|e| {
-            log::error!("Failed to deserialize entity: {}", e);
-            rusqlite::types::FromSqlError::Other(Box::new(e))
-        })?;
+        let entity = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(Self(entity))
     }
 }
@@ -63,10 +58,7 @@ pub(super) struct EntityRefWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a T);
 
 impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntityRefWrapper<'a, T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let entity_bytes = PhnxCodec::to_vec(&self.0).map_err(|e| {
-            log::error!("Failed to serialize entity: {}", e);
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let entity_bytes = PhnxCodec::to_vec(&self.0)?;
         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
             entity_bytes,
         )))
@@ -77,10 +69,7 @@ pub(super) struct EntitySliceWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a [T]
 
 impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntitySliceWrapper<'a, T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let entity_bytes = PhnxCodec::to_vec(&self.0).map_err(|e| {
-            log::error!("Failed to serialize entity: {}", e);
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let entity_bytes = PhnxCodec::to_vec(&self.0)?;
         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
             entity_bytes,
         )))
@@ -91,10 +80,7 @@ pub(super) struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
 
 impl<T: Entity<CURRENT_VERSION>> FromSql for EntityVecWrapper<T> {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let entities = PhnxCodec::from_slice(value.as_blob()?).map_err(|e| {
-            log::error!("Failed to deserialize entity: {}", e);
-            rusqlite::types::FromSqlError::Other(Box::new(e))
-        })?;
+        let entities = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(Self(entities))
     }
 }

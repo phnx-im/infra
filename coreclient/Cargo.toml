@@ -32,6 +32,10 @@ image = "0.25.1"
 kamadak-exif = "0.5.5"
 
 # Persistence
+refinery = { version = "0.8", features = [
+    "rusqlite",
+    "enums",
+], git = "https://github.com/manuteleco/refinery/", rev = "63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d" }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.32", features = ["bundled", "uuid", "chrono"] }

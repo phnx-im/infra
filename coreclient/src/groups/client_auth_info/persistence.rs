@@ -10,7 +10,7 @@ use phnxtypes::{
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
 
-use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable, Triggerable};
+use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
 use super::{GroupMembership, StorableClientCredential};
 
@@ -19,7 +19,7 @@ impl Storable for StorableClientCredential {
                 fingerprint BLOB PRIMARY KEY,
                 client_id TEXT NOT NULL,
                 client_credential BLOB NOT NULL
-            )";
+            );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let client_credential = row.get(0)?;
@@ -349,7 +349,7 @@ impl Storable for GroupMembership {
                 status TEXT DEFAULT 'staged_update' NOT NULL CHECK (status IN ('staged_update', 'staged_removal', 'staged_add', 'merged')),
                 FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
                 PRIMARY KEY (group_id, leaf_index, status)
-            )";
+            );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let client_credential_fingerprint = row.get(0)?;
@@ -369,11 +369,8 @@ impl Storable for GroupMembership {
     }
 }
 
-impl Triggerable for GroupMembership {
-    // Delete client credentials if their not our own and not used in any group.
-    // Also delete any user profiles of users that are not in any group.
-    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str] = &[
-        "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data 
+pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str = 
+    "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data 
         AFTER DELETE ON group_membership
         FOR EACH ROW
         BEGIN
@@ -392,5 +389,4 @@ impl Triggerable for GroupMembership {
             ) AND NOT EXISTS (
                 SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
             );
-        END"];
-}
+        END;";

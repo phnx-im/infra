@@ -133,20 +133,6 @@ pub(crate) trait Storable {
         Self: Sized;
 }
 
-pub(crate) trait Triggerable {
-    const CREATE_TRIGGER_STATEMENTS: &'static [&'static str];
-
-    /// Helper function that creates a trigger for the given data type.
-    fn create_trigger(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
-        for statement in Self::CREATE_TRIGGER_STATEMENTS.iter() {
-            let mut stmt = conn.prepare(statement)?;
-            stmt.execute([])?;
-        }
-
-        Ok(())
-    }
-}
-
 /// Helper struct that allows us to use GroupId as sqlite input.
 pub(crate) struct GroupIdRefWrapper<'a>(&'a GroupId);
 
