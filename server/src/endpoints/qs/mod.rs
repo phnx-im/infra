@@ -58,12 +58,11 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
 
 #[tracing::instrument(name = "Process federated QS message", skip_all)]
 pub(crate) async fn qs_process_federated_message<
-    Qc: QsConnector<EnqueueError = QsEnqueueError<S, N>, VerifyingKeyError = QsVerifyingKeyError>,
-    S: QsStorageProvider,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<N>, VerifyingKeyError = QsVerifyingKeyError>,
     N: NetworkProvider,
 >(
     qs_connector: Data<Qc>,
-    storage_provider: Data<Arc<S>>,
+    qs: Data<Qs>,
     message: web::Bytes,
 ) -> impl Responder {
     // Deserialize the message.
@@ -76,12 +75,9 @@ pub(crate) async fn qs_process_federated_message<
     };
 
     // Process the message.
-    match Qs::process_federated_message(
-        qs_connector.get_ref(),
-        storage_provider.get_ref().as_ref(),
-        message,
-    )
-    .await
+    match qs
+        .process_federated_message(qs_connector.get_ref(), message)
+        .await
     {
         // If the message was processed successfully, return the response.
         Ok(response) => {

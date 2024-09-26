@@ -4,6 +4,3 @@
 
 pub mod qs;
 pub mod qs_connector;
-
-#[cfg(test)]
-mod tests;

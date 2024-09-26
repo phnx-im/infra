@@ -99,7 +99,8 @@ impl Qs {
                 QsProcessResponse::Ok
             }
             QsRequestParams::PublishKeyPackages(params) => {
-                Self::qs_publish_key_packages(storage_provider, params).await?;
+                self.qs_publish_key_packages(storage_provider, params)
+                    .await?;
                 QsProcessResponse::Ok
             }
             QsRequestParams::ClientKeyPackage(params) => QsProcessResponse::ClientKeyPackage(
@@ -112,10 +113,10 @@ impl Qs {
                 QsProcessResponse::DequeueMessages(self.qs_dequeue_messages(params).await?)
             }
             QsRequestParams::VerifyingKey => {
-                QsProcessResponse::VerifyingKey(Self::qs_verifying_key(storage_provider).await?)
+                QsProcessResponse::VerifyingKey(self.qs_verifying_key().await?)
             }
             QsRequestParams::EncryptionKey => {
-                QsProcessResponse::EncryptionKey(Self::qs_encryption_key(storage_provider).await?)
+                QsProcessResponse::EncryptionKey(self.qs_encryption_key().await?)
             }
         })
     }

@@ -16,9 +16,10 @@ use crate::messages::{
 };
 
 use super::{
-    client_record::QsClientRecord, errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult, storage_provider_trait::QsStorageProvider,
-    PushNotificationProvider, Qs, WebsocketNotifier,
+    client_id_decryption_key::StorableClientIdDecryptionKey, client_record::QsClientRecord,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
+    qs_api::FederatedProcessingResult, signing_key::QsSigningKey, PushNotificationProvider, Qs,
+    WebsocketNotifier,
 };
 
 impl Qs {
@@ -67,10 +68,11 @@ impl Qs {
                     }
                 })?
         } else {
-            let decryption_key = storage_provider
-                .load_decryption_key()
+            let decryption_key = StorableClientIdDecryptionKey::load(&self.db_pool)
                 .await
-                .map_err(|_| QsEnqueueError::StorageError)?;
+                .map_err(|_| QsEnqueueError::StorageError)?
+                // There should always be a decryption key in the database.
+                .ok_or(QsEnqueueError::LibraryError)?;
             let client_config = ClientConfig::decrypt(
                 message.client_reference.sealed_reference,
                 &decryption_key,
@@ -84,13 +86,14 @@ impl Qs {
             })?;
 
             // Fetch the client record.
-            let client_record = QsClientRecord::load(&mut *transaction, &client_config.client_id)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("Failed to load client record: {:?}", e);
-                    QsEnqueueError::StorageError
-                })?
-                .ok_or(QsEnqueueError::QueueNotFound)?;
+            let mut client_record =
+                QsClientRecord::load(&mut *transaction, &client_config.client_id)
+                    .await
+                    .map_err(|e| {
+                        tracing::warn!("Failed to load client record: {:?}", e);
+                        QsEnqueueError::StorageError
+                    })?
+                    .ok_or(QsEnqueueError::QueueNotFound)?;
 
             client_record
                 .enqueue(
@@ -101,23 +104,25 @@ impl Qs {
                     message.payload,
                     client_config.push_token_ear_key,
                 )
-                .await?
+                .await?;
+
+            transaction.commit().await.map_err(|e| {
+                tracing::warn!("Failed to commit transaction: {:?}", e);
+                QsEnqueueError::StorageError
+            })?;
         }
         Ok(())
-
-        // TODO: client now has new ratchet key, store it in the storage
-        // provider.
     }
 
     /// Fetch the verifying key of the server with the given domain
     #[tracing::instrument(skip_all, err)]
-    pub async fn verifying_key<S: QsStorageProvider, N: NetworkProvider>(
-        storage_provider: &S,
+    pub async fn verifying_key<N: NetworkProvider>(
+        &self,
         network_provider: &N,
         domain: Fqdn,
     ) -> Result<QsVerifyingKey, QsVerifyingKeyError> {
-        let own_domain = storage_provider.own_domain().await;
-        let verifying_key = if domain != own_domain {
+        let own_domain = &self.domain;
+        let verifying_key = if &domain != own_domain {
             let qs_to_qs_message = QsToQsMessage {
                 protocol_version: MlsInfraVersion::Alpha,
                 sender: own_domain.clone(),
@@ -137,10 +142,13 @@ impl Qs {
                 return Err(QsVerifyingKeyError::InvalidResponse);
             }
         } else {
-            storage_provider
-                .load_signing_key()
+            QsSigningKey::load(&self.db_pool)
                 .await
-                .map_err(|_| QsVerifyingKeyError::StorageError)?
+                .map_err(|e| {
+                    tracing::warn!("Failed to load signing key: {:?}", e);
+                    QsVerifyingKeyError::StorageError
+                })?
+                .ok_or(QsVerifyingKeyError::LibraryError)?
                 .verifying_key()
                 .clone()
         };

@@ -45,7 +45,7 @@ use crate::endpoints::{
 #[allow(clippy::too_many_arguments)]
 pub fn run<
     Qsp: QsStorageProvider,
-    Qc: QsConnector<EnqueueError = QsEnqueueError<Qsp, Np>, VerifyingKeyError = QsVerifyingKeyError>,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>, VerifyingKeyError = QsVerifyingKeyError>,
     Np: NetworkProvider,
 >(
     listener: TcpListener,
@@ -97,7 +97,7 @@ pub fn run<
             // QS federationendpoint
             .route(
                 ENDPOINT_QS_FEDERATION,
-                web::post().to(qs_process_federated_message::<Qc, Qsp, Np>),
+                web::post().to(qs_process_federated_message::<Qc, Np>),
             )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message))

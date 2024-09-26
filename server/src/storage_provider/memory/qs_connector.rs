@@ -24,6 +24,7 @@ pub struct MemoryEnqueueProvider<
     N: NetworkProvider,
     P: PushNotificationProvider,
 > {
+    pub qs: Qs,
     pub storage: Arc<S>,
     pub notifier: DispatchWebsocketNotifier,
     pub push_notification_provider: P,
@@ -34,12 +35,12 @@ pub struct MemoryEnqueueProvider<
 impl<S: QsStorageProvider, N: NetworkProvider, P: PushNotificationProvider> QsConnector
     for MemoryEnqueueProvider<S, N, P>
 {
-    type EnqueueError = QsEnqueueError<S, N>;
+    type EnqueueError = QsEnqueueError<N>;
     type VerifyingKeyError = QsVerifyingKeyError;
 
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
         Qs::enqueue_message(
-            self.storage.deref(),
+            &self.qs,
             &self.notifier,
             &self.push_notification_provider,
             &self.network,
@@ -49,6 +50,6 @@ impl<S: QsStorageProvider, N: NetworkProvider, P: PushNotificationProvider> QsCo
     }
 
     async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError> {
-        Qs::verifying_key(self.storage.deref(), &self.network, domain).await
+        self.qs.verifying_key(&self.network, domain).await
     }
 }

@@ -62,20 +62,12 @@
 //! messages.
 
 use phnxtypes::{
-    crypto::{
-        errors::RandomnessError,
-        signatures::{
-            keys::QsVerifyingKey,
-            private_keys::{generate_signature_keypair, PrivateKey},
-            traits::SigningKey,
-        },
-    },
+    crypto::signatures::keys::QsVerifyingKey,
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
 use async_trait::*;
-use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -84,17 +76,20 @@ use crate::{
     persistence::{InfraService, ServiceCreationError, StorageError},
 };
 
+mod add_package;
 pub mod client_api;
+mod client_id_decryption_key;
 pub mod client_record;
 pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;
 pub mod qs_api;
 mod queue;
+mod signing_key;
 pub mod storage_provider_trait;
 pub mod user_record;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Qs {
     domain: Fqdn,
     db_pool: PgPool,
@@ -168,33 +163,3 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
     async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QsSigningKey {
-    signing_key: PrivateKey,
-    verifiying_key: QsVerifyingKey,
-}
-
-impl QsSigningKey {
-    pub fn generate() -> Result<Self, RandomnessError> {
-        let (signing_key, verifying_key) =
-            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
-        let key = Self {
-            signing_key,
-            verifiying_key: QsVerifyingKey::new(verifying_key),
-        };
-        Ok(key)
-    }
-
-    pub fn verifying_key(&self) -> &QsVerifyingKey {
-        &self.verifiying_key
-    }
-}
-
-impl AsRef<PrivateKey> for QsSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
-        &self.signing_key
-    }
-}
-
-impl SigningKey for QsSigningKey {}

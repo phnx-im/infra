@@ -146,6 +146,9 @@ pub enum QsVerifyingKeyError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsEncryptionKeyError {
+    /// Library error
+    #[error("Library Error")]
+    LibraryError,
     /// Error retrieving encryption key
     #[error("Error retrieving encryption key")]
     StorageError,

@@ -29,10 +29,7 @@ use crate::{
     qs::{PushNotificationError, WsNotification},
 };
 
-use super::{
-    errors::EnqueueError, queue::Queue, storage_provider_trait::QsStorageProvider,
-    PushNotificationProvider, WebsocketNotifier,
-};
+use super::{errors::EnqueueError, queue::Queue, PushNotificationProvider, WebsocketNotifier};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.

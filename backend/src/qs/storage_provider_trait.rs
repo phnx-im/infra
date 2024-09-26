@@ -12,7 +12,7 @@ use phnxtypes::{
     messages::{FriendshipToken, QueueMessage},
 };
 
-use super::{client_record::QsClientRecord, Fqdn, QsClientId, QsSigningKey};
+use super::{client_record::QsClientRecord, Fqdn, QsClientId};
 
 /// Storage provider trait for the QS.
 #[async_trait]
@@ -95,14 +95,4 @@ pub trait QsStorageProvider: Sync + Send + Debug + 'static {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError>;
-
-    // === Key Material ===
-
-    /// Load the QS signing key.
-    async fn load_signing_key(&self) -> Result<QsSigningKey, Self::LoadSigningKeyError>;
-
-    /// Load the key used to decrypt client ids.
-    async fn load_decryption_key(
-        &self,
-    ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError>;
 }

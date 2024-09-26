@@ -229,15 +229,13 @@ impl AsRef<PrivateKey> for QsUserSigningKey {
 impl SigningKey for QsUserSigningKey {}
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-pub struct QsVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+pub struct QsVerifyingKey(Vec<u8>);
 
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for QsVerifyingKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.verifying_key),
+            rusqlite::types::ValueRef::Blob(&self.0),
         ))
     }
 }
@@ -245,21 +243,19 @@ impl rusqlite::types::ToSql for QsVerifyingKey {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::FromSql for QsVerifyingKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(Self {
-            verifying_key: value.as_blob()?.to_vec(),
-        })
+        Ok(Self(value.as_blob()?.to_vec()))
     }
 }
 
 impl QsVerifyingKey {
     pub fn new(verifying_key: Vec<u8>) -> Self {
-        Self { verifying_key }
+        Self(verifying_key)
     }
 }
 
 impl AsRef<[u8]> for QsVerifyingKey {
     fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
+        &self.0
     }
 }
 

@@ -16,7 +16,7 @@ use phnxtypes::{
 };
 use thiserror::Error;
 
-use phnxbackend::qs::{storage_provider_trait::QsStorageProvider, QsSigningKey};
+use phnxbackend::qs::storage_provider_trait::QsStorageProvider;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 #[derive(Debug)]
@@ -71,7 +71,6 @@ impl KeyPackages {
 pub struct MemStorageProvider {
     key_packages: RwLock<HashMap<QsClientId, KeyPackages>>,
     queues: RwLock<HashMap<QsClientId, QueueData>>,
-    signing_key: QsSigningKey,
     client_id_decryption_key: ClientIdDecryptionKey,
     domain: Fqdn,
 }
@@ -80,13 +79,11 @@ impl MemStorageProvider {
     pub fn new(domain: Fqdn) -> Self {
         let config = domain;
         let client_id_decryption_key = ClientIdDecryptionKey::generate().unwrap();
-        let signing_key = QsSigningKey::generate().unwrap();
         let key_packages = RwLock::new(HashMap::new());
         let queues = RwLock::new(HashMap::new());
         Self {
             domain: config,
             client_id_decryption_key,
-            signing_key,
             key_packages,
             queues,
         }
@@ -146,11 +143,6 @@ impl QsStorageProvider for MemStorageProvider {
         user_id: &QsUserId,
         client_id: &QsClientId,
     ) -> Option<QsEncryptedAddPackage> {
-        let clients = self.clients.read().ok()?;
-        let client = clients.get(client_id)?;
-        if &client.user_id != user_id {
-            return None;
-        }
         let mut key_packages = self.key_packages.write().ok()?;
         let client_key_packages = key_packages.get_mut(client_id)?;
         client_key_packages.load_key_package()
@@ -160,42 +152,11 @@ impl QsStorageProvider for MemStorageProvider {
         &self,
         friendship_token: &FriendshipToken,
     ) -> Result<Vec<QsEncryptedAddPackage>, LoadUserKeyPackagesError> {
-        let users = self.users.read().map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            LoadUserKeyPackagesError::StorageError
-        })?;
-        let clients = self.clients.read().map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            LoadUserKeyPackagesError::StorageError
-        })?;
-        let (user_id, _record) = users
-            .iter()
-            .find(|(_user_id, user_record)| user_record.friendship_token() == friendship_token)
-            .ok_or(LoadUserKeyPackagesError::UnknownUser)?;
         let mut user_key_packages = vec![];
         let mut key_packages = self.key_packages.write().map_err(|e| {
             tracing::error!("Storage provider error: {:?}", e);
             LoadUserKeyPackagesError::StorageError
         })?;
-        let user_clients = clients.iter().filter_map(|(client_id, client)| {
-            if &client.user_id == user_id {
-                Some(client_id)
-            } else {
-                None
-            }
-        });
-        for client in user_clients {
-            if let Some(client_key_packages) = key_packages.get_mut(client) {
-                let client_key_package = client_key_packages
-                    .load_key_package()
-                    // We unwrap here for now, because there should always be one key package.
-                    .unwrap();
-                user_key_packages.push(client_key_package);
-            } else {
-                tracing::error!("Client without key packages: {:?}", client);
-                return Err(LoadUserKeyPackagesError::StorageError);
-            }
-        }
         Ok(user_key_packages)
     }
 
@@ -261,16 +222,6 @@ impl QsStorageProvider for MemStorageProvider {
         // Converting usize to u64 should be safe since we don't consider
         // architectures above 64.
         Ok((return_messages, queue.queue.len() as u64))
-    }
-
-    async fn load_signing_key(&self) -> Result<QsSigningKey, Self::LoadSigningKeyError> {
-        Ok(self.signing_key.clone())
-    }
-
-    async fn load_decryption_key(
-        &self,
-    ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError> {
-        Ok(self.client_id_decryption_key.clone())
     }
 }
 

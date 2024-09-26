@@ -104,10 +104,18 @@ async fn main() -> std::io::Result<()> {
     )
     .await
     .expect("Failed to connect to database.");
+    let qs = Qs::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+        domain.clone(),
+    )
+    .await
+    .expect("Failed to connect to database.");
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
     let qs_connector = MemoryEnqueueProvider {
+        qs: qs.clone(),
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
         push_notification_provider,

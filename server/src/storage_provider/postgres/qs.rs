@@ -4,9 +4,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use phnxbackend::qs::{
-    client_record::QsClientRecord, storage_provider_trait::QsStorageProvider, QsSigningKey,
-};
+use phnxbackend::qs::storage_provider_trait::QsStorageProvider;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
@@ -43,12 +41,6 @@ impl PostgresQsStorage {
 
         // TODO: This should probably go into its own function and be made more
         // explicit and robust.
-        if provider.load_decryption_key().await.is_err() {
-            provider.generate_fresh_decryption_key().await?;
-        }
-        if provider.load_signing_key().await.is_err() {
-            provider.generate_fresh_signing_key().await?;
-        }
 
         Ok(provider)
     }
@@ -56,41 +48,41 @@ impl PostgresQsStorage {
     // The following functions should probably be part of the QS storage provider trait.
     // TODO: All the functions below use two queries. This can probably be optimized.
 
-    async fn generate_fresh_signing_key(&self) -> Result<(), GenerateKeyError> {
-        // Delete the existing key.
-        sqlx::query!("DELETE FROM qs_signing_key")
-            .execute(&self.pool)
-            .await?;
+    //async fn generate_fresh_signing_key(&self) -> Result<(), GenerateKeyError> {
+    //    // Delete the existing key.
+    //    sqlx::query!("DELETE FROM qs_signing_key")
+    //        .execute(&self.pool)
+    //        .await?;
 
-        // Generate a new one and add it to the table
-        let signing_key = QsSigningKey::generate()?;
-        sqlx::query!(
-            "INSERT INTO qs_signing_key (id, signing_key) VALUES ($1, $2)",
-            Uuid::new_v4(),
-            PhnxCodec::to_vec(&signing_key)?,
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
+    //    // Generate a new one and add it to the table
+    //    let signing_key = QsSigningKey::generate()?;
+    //    sqlx::query!(
+    //        "INSERT INTO qs_signing_key (id, signing_key) VALUES ($1, $2)",
+    //        Uuid::new_v4(),
+    //        PhnxCodec::to_vec(&signing_key)?,
+    //    )
+    //    .execute(&self.pool)
+    //    .await?;
+    //    Ok(())
+    //}
 
-    async fn generate_fresh_decryption_key(&self) -> Result<(), GenerateKeyError> {
-        // Delete the existing key.
-        sqlx::query!("DELETE FROM qs_decryption_key")
-            .execute(&self.pool)
-            .await?;
+    //async fn generate_fresh_decryption_key(&self) -> Result<(), GenerateKeyError> {
+    //    // Delete the existing key.
+    //    sqlx::query!("DELETE FROM qs_decryption_key")
+    //        .execute(&self.pool)
+    //        .await?;
 
-        // Generate a new one and add it to the table
-        let decryption_key = ClientIdDecryptionKey::generate()?;
-        sqlx::query!(
-            "INSERT INTO qs_decryption_key (id, decryption_key) VALUES ($1, $2)",
-            Uuid::new_v4(),
-            PhnxCodec::to_vec(&decryption_key)?,
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
+    //    // Generate a new one and add it to the table
+    //    let decryption_key = ClientIdDecryptionKey::generate()?;
+    //    sqlx::query!(
+    //        "INSERT INTO qs_decryption_key (id, decryption_key) VALUES ($1, $2)",
+    //        Uuid::new_v4(),
+    //        PhnxCodec::to_vec(&decryption_key)?,
+    //    )
+    //    .execute(&self.pool)
+    //    .await?;
+    //    Ok(())
+    //}
 }
 
 #[async_trait]
@@ -372,24 +364,6 @@ impl QsStorageProvider for PostgresQsStorage {
         };
 
         return Ok((messages, remaining_messages as u64));
-    }
-
-    async fn load_signing_key(&self) -> Result<QsSigningKey, Self::LoadSigningKeyError> {
-        let signing_key_record = sqlx::query!("SELECT * FROM qs_signing_key",)
-            .fetch_one(&self.pool)
-            .await?;
-        let signing_key = PhnxCodec::from_slice(&signing_key_record.signing_key)?;
-        Ok(signing_key)
-    }
-
-    async fn load_decryption_key(
-        &self,
-    ) -> Result<ClientIdDecryptionKey, Self::LoadDecryptionKeyError> {
-        let decryption_key_record = sqlx::query!("SELECT * FROM qs_decryption_key",)
-            .fetch_one(&self.pool)
-            .await?;
-        let decryption_key = PhnxCodec::from_slice(&decryption_key_record.decryption_key)?;
-        Ok(decryption_key)
     }
 }
 

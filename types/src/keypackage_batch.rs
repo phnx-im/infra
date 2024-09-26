@@ -180,19 +180,18 @@ impl AddPackageIn {
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-pub struct QsEncryptedAddPackage {
-    ctxt: Ciphertext,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsEncryptedAddPackage(Ciphertext);
 
 impl AsRef<Ciphertext> for QsEncryptedAddPackage {
     fn as_ref(&self) -> &Ciphertext {
-        &self.ctxt
+        &self.0
     }
 }
 
 impl From<Ciphertext> for QsEncryptedAddPackage {
     fn from(ctxt: Ciphertext) -> Self {
-        Self { ctxt }
+        Self(ctxt)
     }
 }
 

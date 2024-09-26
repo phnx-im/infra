@@ -99,12 +99,20 @@ pub async fn spawn_app(
             .await
             .expect("Failed to connect to database."),
     );
+    let qs = Qs::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+        domain.clone(),
+    )
+    .await
+    .expect("Failed to connect to database.");
 
     // New database name for the AS provider
     configuration.database.name = Uuid::new_v4().to_string();
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
     let qs_connector = MemoryEnqueueProvider {
+        qs: qs.clone(),
         storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
         push_notification_provider,
