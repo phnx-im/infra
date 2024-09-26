@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, client_credential = $4, remaining_tokens = $5 WHERE client_id = $6",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Timestamptz",
+        "Bytea",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b8ee58fbc8e69a8eff6b18bf00ccd59745a6af3879ef9d2819609f364c925735"
+}
