@@ -24,7 +24,6 @@ mod persistence {
         messages::FriendshipToken,
     };
     use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
-    use uuid::Uuid;
 
     use crate::persistence::StorageError;
 
@@ -56,15 +55,11 @@ mod persistence {
         ) -> Result<(), StorageError> {
             let mut query_args = PgArguments::default();
             let mut query_string = String::from(
-                "INSERT INTO key_packages (id, client_id, encrypted_add_package, is_last_resort) VALUES",
+                "INSERT INTO key_packages (client_id, encrypted_add_package, is_last_resort) VALUES",
             );
 
             for (i, encrypted_add_package) in encrypted_add_packages.into_iter().enumerate() {
-                let id = Uuid::new_v4();
-                //let encoded_add_package = PhnxCodec::to_vec(encrypted_add_package)?;
-
                 // Add values to the query arguments. None of these should throw an error.
-                query_args.add(id)?;
                 query_args.add(&client_id)?;
                 query_args.add(&*encrypted_add_package)?;
                 query_args.add(is_last_resort)?;
@@ -75,11 +70,10 @@ mod persistence {
 
                 // Add placeholders for each value
                 query_string.push_str(&format!(
-                    " (${}, ${}, ${}, ${})",
-                    i * 4 + 1,
-                    i * 4 + 2,
-                    i * 4 + 3,
-                    i * 4 + 4
+                    " (${}, ${}, ${})",
+                    i * 3 + 1,
+                    i * 3 + 2,
+                    i * 3 + 3,
                 ));
             }
 

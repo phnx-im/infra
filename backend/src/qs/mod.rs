@@ -69,7 +69,7 @@ use phnxtypes::{
 };
 
 use async_trait::*;
-use signing_key::QsSigningKey;
+use signing_key::StorableQsSigningKey;
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -112,9 +112,9 @@ impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
 impl InfraService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
-        let signing_key_exists = QsSigningKey::load(&db_pool).await?.is_some();
+        let signing_key_exists = StorableQsSigningKey::load(&db_pool).await?.is_some();
         if !signing_key_exists {
-            QsSigningKey::generate_and_store(&db_pool)
+            StorableQsSigningKey::generate_and_store(&db_pool)
                 .await
                 .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
         }

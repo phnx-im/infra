@@ -43,7 +43,7 @@ use crate::{
     LibraryError,
 };
 
-use super::traits::{SignatureVerificationError, SigningKey, VerifyingKey};
+use super::traits::{SignatureVerificationError, SigningKeyBehaviour, VerifyingKeyBehaviour};
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct Signature {
@@ -167,7 +167,10 @@ pub trait Signable: Sized + std::fmt::Debug {
     /// Sign the payload.
     ///
     /// Returns a `Signature`.
-    fn sign(self, signing_key: &impl SigningKey) -> Result<Self::SignedOutput, LibraryError>
+    fn sign(
+        self,
+        signing_key: &impl SigningKeyBehaviour,
+    ) -> Result<Self::SignedOutput, LibraryError>
     where
         Self::SignedOutput: SignedStruct<Self>,
     {
@@ -210,7 +213,7 @@ pub trait Verifiable: Sized + std::fmt::Debug {
     /// `CredentialError::InvalidSignature` otherwise.
     fn verify<T>(
         self,
-        signature_public_key: &impl VerifyingKey,
+        signature_public_key: &impl VerifyingKeyBehaviour,
     ) -> Result<T, SignatureVerificationError>
     where
         T: VerifiedStruct<Self>,

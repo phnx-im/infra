@@ -5,8 +5,7 @@
 -- migrations/{timestamp}_create_opaque_setup_table.sql
 -- Create opaque setup Table
 CREATE TABLE opaque_setup(
-id uuid NOT NULL,
-PRIMARY KEY (id),
+id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 opaque_setup BYTEA NOT NULL
 );
 

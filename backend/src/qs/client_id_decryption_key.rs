@@ -8,6 +8,8 @@ use phnxtypes::crypto::{errors::KeyGenerationError, hpke::ClientIdDecryptionKey}
 
 use super::errors::GenerateAndStoreError;
 
+#[derive(sqlx::Type)]
+#[sqlx(transparent)]
 pub(super) struct StorableClientIdDecryptionKey(ClientIdDecryptionKey);
 
 impl Deref for StorableClientIdDecryptionKey {
@@ -31,7 +33,6 @@ impl StorableClientIdDecryptionKey {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
     use sqlx::PgExecutor;
 
     use crate::persistence::StorageError;
@@ -45,7 +46,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO qs_decryption_key (decryption_key) VALUES ($1)",
-                PhnxCodec::to_vec(&self.0)?
+                self as &Self
             )
             .execute(connection)
             .await?;
@@ -55,14 +56,10 @@ mod persistence {
         pub(in crate::qs) async fn load(
             connection: impl PgExecutor<'_>,
         ) -> Result<Option<Self>, StorageError> {
-            sqlx::query!("SELECT * FROM qs_decryption_key",)
+            sqlx::query_scalar!(r#"SELECT decryption_key as "dk: _" FROM qs_decryption_key"#)
                 .fetch_optional(connection)
-                .await?
-                .map(|record| {
-                    let decryption_key = PhnxCodec::from_slice(&record.decryption_key)?;
-                    Ok(Self(decryption_key))
-                })
-                .transpose()
+                .await
+                .map_err(Into::into)
         }
     }
 }

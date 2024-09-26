@@ -17,7 +17,7 @@ use sqlx::{Connection, PgConnection};
 
 use crate::persistence::StorageError;
 
-use super::{signing_key::SigningKey, CredentialGenerationError};
+use super::{signing_key::StorableSigningKey, CredentialGenerationError};
 
 #[derive(Serialize, Deserialize)]
 pub(in crate::auth_service) enum IntermediateSigningKey {
@@ -58,7 +58,7 @@ impl IntermediateSigningKey {
         let mut transaction = connection.begin().await.map_err(StorageError::from)?;
 
         // Load the currently active (root) signing key
-        let signing_key = SigningKey::load(&mut *transaction)
+        let signing_key = StorableSigningKey::load(&mut *transaction)
             .await?
             .ok_or(CredentialGenerationError::NoActiveCredential)?;
 
@@ -101,7 +101,6 @@ mod persistence {
         credentials::{keys::AsIntermediateSigningKey, AsIntermediateCredential},
     };
     use sqlx::PgExecutor;
-    use uuid::Uuid;
 
     use crate::{auth_service::credentials::CredentialType, persistence::StorageError};
 
@@ -115,10 +114,9 @@ mod persistence {
             sqlx::query!(
                 "INSERT INTO
                     as_signing_keys
-                    (id, cred_type, credential_fingerprint, signing_key, currently_active)
+                    (cred_type, credential_fingerprint, signing_key, currently_active)
                 VALUES 
-                    ($1, $2, $3, $4, $5)",
-                Uuid::new_v4(),
+                    ($1, $2, $3, $4)",
                 CredentialType::Intermediate as _,
                 self.fingerprint().as_bytes(),
                 PhnxCodec::to_vec(&self)?,

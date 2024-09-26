@@ -12,7 +12,7 @@
 #![allow(unused_variables)]
 use std::marker::PhantomData;
 
-use hpke::{DecryptionPrivateKey, EncryptionPublicKey};
+use hpke::{DecryptionKey, EncryptionPublicKey};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use thiserror::Error;
@@ -48,26 +48,20 @@ pub type RatchetKeyUpdate = Vec<u8>;
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct RatchetEncryptionKey {
-    encryption_key: EncryptionPublicKey,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct RatchetDecryptionKey {
-    decryption_key: DecryptionPrivateKey,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct RatchetDecryptionKey(DecryptionKey);
 
 impl RatchetDecryptionKey {
     pub fn generate() -> Result<Self, RandomnessError> {
-        Ok(Self {
-            decryption_key: DecryptionPrivateKey::generate()?,
-        })
+        Ok(Self(DecryptionKey::generate()?))
     }
 
     pub fn encryption_key(&self) -> RatchetEncryptionKey {
-        RatchetEncryptionKey {
-            encryption_key: self.decryption_key.public_key().clone(),
-        }
+        RatchetEncryptionKey(self.0.public_key().clone())
     }
 }
 
@@ -86,11 +80,11 @@ impl HpkeEncryptionKey for ConnectionEncryptionKey {}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ConnectionDecryptionKey {
-    decryption_key: DecryptionPrivateKey,
+    decryption_key: DecryptionKey,
 }
 
-impl AsRef<DecryptionPrivateKey> for ConnectionDecryptionKey {
-    fn as_ref(&self) -> &DecryptionPrivateKey {
+impl AsRef<DecryptionKey> for ConnectionDecryptionKey {
+    fn as_ref(&self) -> &DecryptionKey {
         &self.decryption_key
     }
 }
@@ -100,7 +94,7 @@ impl HpkeDecryptionKey for ConnectionDecryptionKey {}
 impl ConnectionDecryptionKey {
     pub fn generate() -> Result<Self, RandomnessError> {
         Ok(Self {
-            decryption_key: DecryptionPrivateKey::generate()?,
+            decryption_key: DecryptionKey::generate()?,
         })
     }
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{Lifetime, OpenMlsProvider, SignaturePublicKey, SignatureScheme},
+    openmls::prelude::{Lifetime, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::{
         random::OpenMlsRand,
@@ -17,7 +17,7 @@ use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerializ
 
 use super::{
     infra_credentials::{InfraCredential, InfraCredentialTbs},
-    AsCredential, AsIntermediateCredential, PreliminaryAsSigningKey,
+    AsCredential, AsIntermediateCredential,
 };
 
 #[cfg(feature = "sqlite")]
@@ -25,38 +25,39 @@ use crate::codec::PhnxCodec;
 
 use crate::crypto::{
     ear::{keys::SignatureEarKey, EarEncryptable},
+    errors::KeyGenerationError,
     signatures::{
-        private_keys::{generate_signature_keypair, PrivateKey},
+        private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
-        traits::{SigningKey, VerifyingKey},
+        traits::{SigningKeyBehaviour, VerifyingKeyBehaviour},
         DEFAULT_SIGNATURE_SCHEME,
     },
 };
 
 use thiserror::Error;
 
-use super::{ClientCredential, PreliminaryClientSigningKey};
+use super::ClientCredential;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AsIntermediateSigningKey {
-    signing_key: PrivateKey,
+    signing_key: SigningKey,
     credential: AsIntermediateCredential,
 }
 
-impl AsRef<PrivateKey> for AsIntermediateSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
+impl AsRef<SigningKey> for AsIntermediateSigningKey {
+    fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
-impl SigningKey for AsIntermediateSigningKey {}
+impl SigningKeyBehaviour for AsIntermediateSigningKey {}
 
 impl AsIntermediateSigningKey {
     pub fn from_prelim_key(
-        prelim_key: PreliminaryAsSigningKey,
+        prelim_key: PreliminaryAsIntermediateSigningKey,
         credential: AsIntermediateCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if &prelim_key.verifying_key != credential.verifying_key() {
+        if &prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
@@ -78,19 +79,19 @@ pub enum SigningKeyCreationError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AsSigningKey {
-    signing_key: PrivateKey,
+    signing_key: SigningKey,
     credential: AsCredential,
 }
 
-impl AsRef<PrivateKey> for AsSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
+impl AsRef<SigningKey> for AsSigningKey {
+    fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
 impl AsSigningKey {
     pub(super) fn from_private_key_and_credential(
-        private_key: PrivateKey,
+        private_key: SigningKey,
         credential: AsCredential,
     ) -> Self {
         Self {
@@ -104,64 +105,52 @@ impl AsSigningKey {
     }
 }
 
-impl SigningKey for AsSigningKey {}
+impl SigningKeyBehaviour for AsSigningKey {}
 
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
-pub struct AsVerifyingKey {
-    verifying_key_bytes: SignaturePublicKey,
-}
+pub struct AsVerifyingKey(pub(super) VerifyingKey);
 
-impl VerifyingKey for AsVerifyingKey {}
+impl VerifyingKeyBehaviour for AsVerifyingKey {}
 
-impl AsRef<[u8]> for AsVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key_bytes.as_slice()
-    }
-}
-
-impl From<Vec<u8>> for AsVerifyingKey {
-    fn from(value: Vec<u8>) -> Self {
-        Self {
-            verifying_key_bytes: value.into(),
-        }
+impl AsRef<VerifyingKey> for AsVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
 #[derive(
     Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
 )]
-pub struct AsIntermediateVerifyingKey {
-    pub(super) verifying_key_bytes: SignaturePublicKey,
-}
+pub struct AsIntermediateVerifyingKey(pub(super) VerifyingKey);
 
-impl VerifyingKey for AsIntermediateVerifyingKey {}
+impl VerifyingKeyBehaviour for AsIntermediateVerifyingKey {}
 
-impl AsRef<[u8]> for AsIntermediateVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key_bytes.as_slice()
+impl AsRef<VerifyingKey> for AsIntermediateVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {
-    signing_key: PrivateKey,
+    signing_key: SigningKey,
     credential: ClientCredential,
 }
 
-impl AsRef<PrivateKey> for ClientSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
+impl AsRef<SigningKey> for ClientSigningKey {
+    fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
-impl SigningKey for ClientSigningKey {}
+impl SigningKeyBehaviour for ClientSigningKey {}
 
 impl ClientSigningKey {
     pub fn from_prelim_key(
         prelim_key: PreliminaryClientSigningKey,
         credential: ClientCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if &prelim_key.verifying_key != credential.verifying_key() {
+        if &prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
@@ -178,21 +167,19 @@ impl ClientSigningKey {
 #[derive(
     Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
 )]
-pub struct ClientVerifyingKey {
-    pub(super) verifying_key_bytes: SignaturePublicKey,
-}
+pub struct ClientVerifyingKey(pub(super) VerifyingKey);
 
-impl VerifyingKey for ClientVerifyingKey {}
+impl VerifyingKeyBehaviour for ClientVerifyingKey {}
 
-impl AsRef<[u8]> for ClientVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key_bytes.as_slice()
+impl AsRef<VerifyingKey> for ClientVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InfraCredentialSigningKey {
-    signing_key: PrivateKey,
+    signing_key: SigningKey,
     credential: InfraCredential,
 }
 
@@ -223,13 +210,13 @@ pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
 impl InfraCredentialSigningKey {
     pub fn generate(client_signer: &ClientSigningKey, ear_key: &SignatureEarKey) -> Self {
-        let keypair = generate_signature_keypair().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
         let tbs = InfraCredentialTbs {
             identity,
             expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
             signature_scheme: DEFAULT_SIGNATURE_SCHEME,
-            verifying_key: keypair.1.clone().into(),
+            verifying_key: signing_key.verifying_key().clone().into(),
         };
         let plaintext_credential = tbs.sign(client_signer).unwrap();
         let encrypted_signature = plaintext_credential.signature.encrypt(ear_key).unwrap();
@@ -241,7 +228,7 @@ impl InfraCredentialSigningKey {
             encrypted_signature.tls_serialize_detached().unwrap().into(),
         );
         Self {
-            signing_key: keypair.0,
+            signing_key,
             credential,
         }
     }
@@ -251,23 +238,58 @@ impl InfraCredentialSigningKey {
     }
 }
 
-impl SigningKey for InfraCredentialSigningKey {}
-impl SigningKey for &InfraCredentialSigningKey {}
+impl SigningKeyBehaviour for InfraCredentialSigningKey {}
+impl SigningKeyBehaviour for &InfraCredentialSigningKey {}
 
-impl AsRef<PrivateKey> for InfraCredentialSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
+impl AsRef<SigningKey> for InfraCredentialSigningKey {
+    fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
 impl Signer for InfraCredentialSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
-        <Self as SigningKey>::sign(self, payload)
+        <Self as SigningKeyBehaviour>::sign(self, payload)
             .map_err(|_| SignerError::SigningError)
             .map(|s| s.into_bytes())
     }
 
     fn signature_scheme(&self) -> SignatureScheme {
         self.credential.signature_scheme()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PreliminaryClientSigningKey(SigningKey);
+
+impl PreliminaryClientSigningKey {
+    pub(super) fn generate() -> Result<Self, KeyGenerationError> {
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
+    }
+
+    pub(super) fn into_signing_key(self) -> SigningKey {
+        self.0
+    }
+
+    pub(super) fn verifying_key(&self) -> ClientVerifyingKey {
+        ClientVerifyingKey(self.0.verifying_key().clone())
+    }
+}
+
+pub struct PreliminaryAsIntermediateSigningKey(SigningKey);
+
+impl PreliminaryAsIntermediateSigningKey {
+    pub(super) fn generate() -> Result<Self, KeyGenerationError> {
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
+    }
+
+    pub(super) fn into_signing_key(self) -> SigningKey {
+        self.0
+    }
+
+    pub(super) fn verifying_key(&self) -> AsIntermediateVerifyingKey {
+        AsIntermediateVerifyingKey(self.0.verifying_key().clone())
     }
 }

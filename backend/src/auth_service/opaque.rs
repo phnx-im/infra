@@ -37,8 +37,6 @@ impl OpaqueSetup {
 mod persistence {
     use phnxtypes::codec::PhnxCodec;
 
-    use uuid::Uuid;
-
     use super::*;
 
     impl OpaqueSetup {
@@ -47,8 +45,7 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "INSERT INTO opaque_setup (id, opaque_setup) VALUES ($1, $2)",
-                Uuid::new_v4(),
+                "INSERT INTO opaque_setup (opaque_setup) VALUES ($1)",
                 PhnxCodec::to_vec(&self.0)?
             )
             .execute(connection)

@@ -18,8 +18,8 @@ use crate::messages::{
 use super::{
     client_id_decryption_key::StorableClientIdDecryptionKey, client_record::QsClientRecord,
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult, signing_key::QsSigningKey, PushNotificationProvider, Qs,
-    WebsocketNotifier,
+    qs_api::FederatedProcessingResult, signing_key::StorableQsSigningKey, PushNotificationProvider,
+    Qs, WebsocketNotifier,
 };
 
 impl Qs {
@@ -142,7 +142,7 @@ impl Qs {
                 return Err(QsVerifyingKeyError::InvalidResponse);
             }
         } else {
-            QsSigningKey::load(&self.db_pool)
+            StorableQsSigningKey::load(&self.db_pool)
                 .await
                 .map_err(|e| {
                     tracing::warn!("Failed to load signing key: {:?}", e);

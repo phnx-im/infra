@@ -5,8 +5,7 @@
 -- migrations/{timestamp}_create_key_packages_table.sql
 -- Create KeyPackages Table
 CREATE TABLE key_packages(
-id uuid NOT NULL,
-PRIMARY KEY (id),
+id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 client_id uuid NOT NULL,
 encrypted_add_package BYTEA NOT NULL,
 is_last_resort BOOLEAN NOT NULL,

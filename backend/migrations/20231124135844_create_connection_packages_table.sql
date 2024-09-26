@@ -5,8 +5,7 @@
 -- migrations/{timestamp}_create_connection_packages_table.sql
 -- Create ConnectionPackages Table
 CREATE TABLE connection_packages(
-id uuid NOT NULL,
-PRIMARY KEY (id),
+id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 client_id uuid NOT NULL,
 connection_package BYTEA NOT NULL,
 FOREIGN KEY (client_id) REFERENCES as_client_records(client_id) ON DELETE CASCADE

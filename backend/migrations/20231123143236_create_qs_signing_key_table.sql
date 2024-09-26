@@ -4,8 +4,13 @@
 
 -- migrations/{timestamp}_create_qs_signing_key_table.sql
 -- Create signing key Table
+
+CREATE TYPE signing_key_data AS (
+    signing_key BYTEA,
+    verifying_key BYTEA
+);
+
 CREATE TABLE qs_signing_key(
-id uuid NOT NULL,
-PRIMARY KEY (id),
-signing_key BYTEA NOT NULL
+id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+signing_key signing_key_data NOT NULL
 );

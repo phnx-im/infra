@@ -23,18 +23,18 @@ use crate::identifiers::{ClientConfig, SealedClientReference};
 use super::{
     ear::{GenericDeserializable, GenericSerializable},
     errors::{DecryptionError, EncryptionError, RandomnessError},
+    secrets::SecretBytes,
 };
 
 #[derive(
     Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct EncryptionPublicKey {
-    public_key: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct EncryptionPublicKey(Vec<u8>);
 
 impl From<Vec<u8>> for EncryptionPublicKey {
     fn from(value: Vec<u8>) -> Self {
-        Self { public_key: value }
+        Self(value)
     }
 }
 
@@ -50,23 +50,28 @@ impl EncryptionPublicKey {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
-            .hpke_seal(HPKE_CONFIG, &self.public_key, info, aad, plain_txt)
+            .hpke_seal(HPKE_CONFIG, &self.0, info, aad, plain_txt)
             // TODO: get rid of unwrap
             .unwrap()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DecryptionPrivateKey {
-    private_key: HpkePrivateKey,
-    public_key: EncryptionPublicKey,
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "decryption_key_data")
+)]
+pub struct DecryptionKey {
+    decryption_key: SecretBytes,
+    encryption_key: EncryptionPublicKey,
 }
 
-impl DecryptionPrivateKey {
-    pub fn new(private_key: HpkePrivateKey, public_key: EncryptionPublicKey) -> Self {
+impl DecryptionKey {
+    pub fn new(decryption_key: HpkePrivateKey, encryption_key: EncryptionPublicKey) -> Self {
         Self {
-            private_key,
-            public_key,
+            decryption_key: decryption_key.as_ref().to_vec().into(),
+            encryption_key,
         }
     }
 
@@ -79,7 +84,7 @@ impl DecryptionPrivateKey {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
-            .hpke_open(HPKE_CONFIG, ct, &self.private_key, info, aad)
+            .hpke_open(HPKE_CONFIG, ct, &self.decryption_key, info, aad)
             .map_err(|_| DecryptionError::DecryptionError)
     }
 
@@ -93,16 +98,14 @@ impl DecryptionPrivateKey {
             .crypto()
             .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self {
-            private_key: keypair.private,
-            public_key: EncryptionPublicKey {
-                public_key: keypair.public,
-            },
-        })
+        Ok(Self::new(
+            keypair.private,
+            EncryptionPublicKey(keypair.public),
+        ))
     }
 
     pub fn public_key(&self) -> &EncryptionPublicKey {
-        &self.public_key
+        &self.encryption_key
     }
 }
 
@@ -146,7 +149,7 @@ pub trait HpkeDecryptable<
     }
 }
 
-pub trait HpkeDecryptionKey: AsRef<DecryptionPrivateKey> {}
+pub trait HpkeDecryptionKey: AsRef<DecryptionKey> {}
 
 pub struct JoinerInfoEncryptionKey {
     encryption_key: EncryptionPublicKey,
@@ -179,21 +182,20 @@ impl AsRef<EncryptionPublicKey> for JoinerInfoEncryptionKey {
 impl HpkeEncryptionKey for JoinerInfoEncryptionKey {}
 
 pub struct JoinerInfoDecryptionKey {
-    decryption_key: DecryptionPrivateKey,
+    decryption_key: DecryptionKey,
 }
 
 impl JoinerInfoDecryptionKey {
     pub fn public_key(&self) -> JoinerInfoEncryptionKey {
-        let encryption_key: HpkePublicKey =
-            self.decryption_key.public_key.public_key.clone().into();
+        let encryption_key: HpkePublicKey = self.decryption_key.encryption_key.0.clone().into();
         encryption_key.into()
     }
 }
 
 impl HpkeDecryptionKey for JoinerInfoDecryptionKey {}
 
-impl AsRef<DecryptionPrivateKey> for JoinerInfoDecryptionKey {
-    fn as_ref(&self) -> &DecryptionPrivateKey {
+impl AsRef<DecryptionKey> for JoinerInfoDecryptionKey {
+    fn as_ref(&self) -> &DecryptionKey {
         &self.decryption_key
     }
 }
@@ -205,7 +207,7 @@ impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
     fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
         let vec: Vec<u8> = init_key.key().as_slice().to_vec();
         Self {
-            decryption_key: DecryptionPrivateKey::new(sk, vec.into()),
+            decryption_key: DecryptionKey::new(sk.into(), vec.into()),
         }
     }
 }
@@ -237,14 +239,13 @@ impl ClientIdEncryptionKey {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIdDecryptionKey {
-    private_key: DecryptionPrivateKey,
-    encryption_key: ClientIdEncryptionKey,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[serde(transparent)]
+pub struct ClientIdDecryptionKey(DecryptionKey);
 
-impl AsRef<DecryptionPrivateKey> for ClientIdDecryptionKey {
-    fn as_ref(&self) -> &DecryptionPrivateKey {
-        &self.private_key
+impl AsRef<DecryptionKey> for ClientIdDecryptionKey {
+    fn as_ref(&self) -> &DecryptionKey {
+        &self.0
     }
 }
 
@@ -263,17 +264,13 @@ impl ClientIdDecryptionKey {
     //}
 
     pub fn generate() -> Result<Self, RandomnessError> {
-        let private_key = DecryptionPrivateKey::generate()?;
-        let encryption_key = ClientIdEncryptionKey {
-            public_key: private_key.public_key().clone(),
-        };
-        Ok(Self {
-            private_key,
-            encryption_key,
-        })
+        let private_key = DecryptionKey::generate()?;
+        Ok(Self(private_key))
     }
 
-    pub fn encryption_key(&self) -> &ClientIdEncryptionKey {
-        &self.encryption_key
+    pub fn encryption_key(&self) -> ClientIdEncryptionKey {
+        ClientIdEncryptionKey {
+            public_key: self.0.encryption_key.clone(),
+        }
     }
 }

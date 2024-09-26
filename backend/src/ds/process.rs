@@ -164,7 +164,7 @@ use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::{
         ear::keys::EncryptedSignatureEarKey,
-        signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
+        signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::DsProcessingError,
     identifiers::QualifiedGroupId,
@@ -295,7 +295,7 @@ impl Ds {
         // Verify the message.
         let verified_message: DsRequestParams = match message.sender() {
             DsSender::LeafIndex(leaf_index) => {
-                let verifying_key: LeafVerifyingKeyRef = group_state
+                let verifying_key: LeafVerifyingKey = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
@@ -306,7 +306,7 @@ impl Ds {
                     .map_err(|_| DsProcessingError::InvalidSignature)?
             }
             DsSender::LeafSignatureKey(verifying_key) => message
-                .verify(&LeafVerifyingKeyRef::from(&verifying_key))
+                .verify(&LeafVerifyingKey::from(&verifying_key))
                 .map_err(|_| DsProcessingError::InvalidSignature)?,
             DsSender::UserKeyHash(user_key_hash) => {
                 let verifying_key =

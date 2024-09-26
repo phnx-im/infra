@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use credentials::{
-    intermediate_signing_key::IntermediateSigningKey, signing_key::SigningKey,
+    intermediate_signing_key::IntermediateSigningKey, signing_key::StorableSigningKey,
     CredentialGenerationError,
 };
 use opaque::OpaqueSetup;
@@ -102,12 +102,13 @@ impl InfraService for AuthService {
 
         // Check if there is an active AS signing key
         let mut transaction = auth_service.db_pool.begin().await?;
-        let active_signing_key_exists = SigningKey::load(&mut *transaction).await?.is_some();
+        let active_signing_key_exists =
+            StorableSigningKey::load(&mut *transaction).await?.is_some();
 
         if !active_signing_key_exists {
             let signature_scheme = DEFAULT_SIGNATURE_SCHEME;
             // Generate a new AS signing key
-            SigningKey::generate_store_and_activate(
+            StorableSigningKey::generate_store_and_activate(
                 &mut transaction,
                 domain.clone(),
                 signature_scheme,

@@ -26,7 +26,7 @@ use phnxtypes::{
 
 use crate::qs::{
     add_package::StorableEncryptedAddPackage,
-    client_id_decryption_key::StorableClientIdDecryptionKey, signing_key::QsSigningKey, Qs,
+    client_id_decryption_key::StorableClientIdDecryptionKey, signing_key::StorableQsSigningKey, Qs,
 };
 
 impl Qs {
@@ -166,7 +166,7 @@ impl Qs {
         let key_package_batch_tbs =
             KeyPackageBatchTbs::new(self.domain.clone(), key_package_refs, TimeStamp::now());
 
-        let signing_key = QsSigningKey::load(&self.db_pool)
+        let signing_key = StorableQsSigningKey::load(&self.db_pool)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to load signing key: {:?}", e);
@@ -175,7 +175,7 @@ impl Qs {
             .ok_or(QsKeyPackageBatchError::LibraryError)?;
 
         let key_package_batch = key_package_batch_tbs
-            .sign(&signing_key)
+            .sign(&*signing_key)
             .map_err(|_| QsKeyPackageBatchError::LibraryError)?;
 
         let response = KeyPackageBatchResponse {
@@ -190,7 +190,7 @@ impl Qs {
     pub(crate) async fn qs_verifying_key(
         &self,
     ) -> Result<VerifyingKeyResponse, QsVerifyingKeyError> {
-        QsSigningKey::load(&self.db_pool)
+        StorableQsSigningKey::load(&self.db_pool)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to load signing key: {:?}", e);
@@ -215,7 +215,7 @@ impl Qs {
                 QsEncryptionKeyError::StorageError
             })?
             .map(|decryption_key| {
-                let encryption_key = decryption_key.encryption_key().clone();
+                let encryption_key = decryption_key.encryption_key();
                 EncryptionKeyResponse { encryption_key }
             })
             .ok_or(QsEncryptionKeyError::LibraryError)

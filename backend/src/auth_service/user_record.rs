@@ -45,7 +45,6 @@ mod persistence {
         identifiers::{QualifiedUserName, UserName},
     };
     use sqlx::PgExecutor;
-    use uuid::Uuid;
 
     use crate::persistence::StorageError;
 
@@ -77,11 +76,9 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let id = Uuid::new_v4();
             let password_file_bytes = PhnxCodec::to_vec(&self.password_file)?;
             sqlx::query!(
-                "INSERT INTO as_user_records (id, user_name, password_file) VALUES ($1, $2, $3)",
-                id,
+                "INSERT INTO as_user_records (user_name, password_file) VALUES ($1, $2)",
                 self.user_name.to_string(),
                 password_file_bytes,
             )

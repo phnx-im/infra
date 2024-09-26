@@ -228,8 +228,6 @@ impl QsClientRecord {
         match msg {
             // Enqueue a queue message.
             // Serialize the message so that we can put it in the queue.
-            // TODO: The message should be serialized differently, using a struct
-            // with the sequence number
             DsFanOutPayload::QueueMessage(queue_message) => {
                 // Encrypt the message under the current ratchet key.
                 let queue_message = self

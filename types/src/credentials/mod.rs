@@ -18,14 +18,17 @@ use rusqlite::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use keys::{AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey};
+use keys::{
+    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
+    PreliminaryClientSigningKey,
+};
 
 use crate::{
     crypto::{
         ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
         signatures::{
-            private_keys::{generate_signature_keypair, PrivateKey},
+            private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
@@ -170,8 +173,8 @@ impl AsCredential {
         // Create lifetime valid until 5 years in the future.
         let expiration_data =
             expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
-        let (private_key, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = verifying_key_bytes.into();
+        let signing_key = SigningKey::generate()?;
+        let verifying_key = AsVerifyingKey(signing_key.verifying_key().clone());
         let body = AsCredentialBody {
             version,
             as_domain,
@@ -182,7 +185,7 @@ impl AsCredential {
         let fingerprint = body.hash();
         let credential = Self { body, fingerprint };
         let signing_key =
-            AsSigningKey::from_private_key_and_credential(private_key, credential.clone());
+            AsSigningKey::from_private_key_and_credential(signing_key, credential.clone());
         Ok((credential, signing_key))
     }
 
@@ -205,17 +208,6 @@ impl AsCredential {
 
 const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365);
 
-pub struct PreliminaryAsSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: AsIntermediateVerifyingKey,
-}
-
-impl PreliminaryAsSigningKey {
-    pub(crate) fn into_signing_key(self) -> PrivateKey {
-        self.signing_key
-    }
-}
-
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
@@ -234,20 +226,13 @@ impl AsIntermediateCredentialCsr {
     pub fn new(
         signature_scheme: SignatureScheme,
         as_domain: Fqdn,
-    ) -> Result<(Self, PreliminaryAsSigningKey), KeyGenerationError> {
+    ) -> Result<(Self, PreliminaryAsIntermediateSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        let (signing_key, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = AsIntermediateVerifyingKey {
-            verifying_key_bytes: verifying_key_bytes.into(),
-        };
-        let prelim_signing_key = PreliminaryAsSigningKey {
-            signing_key,
-            verifying_key: verifying_key.clone(),
-        };
+        let prelim_signing_key = PreliminaryAsIntermediateSigningKey::generate()?;
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key,
+            verifying_key: prelim_signing_key.verifying_key(),
             as_domain,
         };
         Ok((credential, prelim_signing_key))
@@ -444,18 +429,11 @@ impl ClientCredentialCsr {
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = ClientVerifyingKey {
-            verifying_key_bytes: verifying_key_bytes.into(),
-        };
-        let prelim_signing_key = PreliminaryClientSigningKey {
-            signing_key: signing_key_bytes,
-            verifying_key: verifying_key.clone(),
-        };
+        let prelim_signing_key = PreliminaryClientSigningKey::generate()?;
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key,
+            verifying_key: prelim_signing_key.verifying_key(),
             client_id,
         };
         Ok((credential, prelim_signing_key))
@@ -513,18 +491,6 @@ impl ClientCredentialPayload {
 
     pub fn identity_ref(&self) -> &AsClientId {
         &self.csr.client_id
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PreliminaryClientSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: ClientVerifyingKey,
-}
-
-impl PreliminaryClientSigningKey {
-    pub(super) fn into_signing_key(self) -> PrivateKey {
-        self.signing_key
     }
 }
 
