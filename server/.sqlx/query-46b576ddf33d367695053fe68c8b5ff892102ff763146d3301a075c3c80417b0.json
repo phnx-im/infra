@@ -7,7 +7,7 @@
       "Left": [
         "Uuid",
         "Uuid",
-        "Numeric",
+        "Int8",
         "Bytea"
       ]
     },
