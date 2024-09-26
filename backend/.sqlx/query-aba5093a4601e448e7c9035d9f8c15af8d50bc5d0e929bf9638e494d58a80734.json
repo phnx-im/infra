@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO \n                    qs_user_records \n                    (user_id, verifying_key, friendship_token)\n                VALUES \n                    ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aba5093a4601e448e7c9035d9f8c15af8d50bc5d0e929bf9638e494d58a80734"
+}

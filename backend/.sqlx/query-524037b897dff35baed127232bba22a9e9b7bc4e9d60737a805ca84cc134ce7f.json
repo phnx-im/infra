@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO qs_signing_key (signing_key) VALUES ($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "524037b897dff35baed127232bba22a9e9b7bc4e9d60737a805ca84cc134ce7f"
+}

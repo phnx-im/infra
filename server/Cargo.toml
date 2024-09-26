@@ -49,7 +49,6 @@ chrono = { workspace = true }
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
 mls-assist = { workspace = true }
-sqlx = { workspace = true }
 
 [dev-dependencies]
 actix-rt = "^2.7"

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH deleted_package AS (\n                    DELETE FROM key_packages\n                    USING qs_client_records qcr\n                    WHERE \n                        key_packages.client_id = qcr.client_id\n                        AND key_packages.client_id = $1\n                        AND qcr.user_id = $2\n                    RETURNING key_packages.id, key_packages.encrypted_add_package\n                )\n                SELECT encrypted_add_package as \"eap: _\" FROM deleted_package\n                FOR UPDATE SKIP LOCKED",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "eap: _",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3e3e2473ea1df9764a2c7c57472ddeb3479b0e3dddf1a25a76b0001ced7bebf6"
+}
