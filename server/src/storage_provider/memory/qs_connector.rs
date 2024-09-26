@@ -2,14 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::Deref, sync::Arc};
-
 use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
-        errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-        storage_provider_trait::QsStorageProvider, PushNotificationProvider, Qs, QsConnector,
+        errors::QsEnqueueError, network_provider_trait::NetworkProvider, PushNotificationProvider,
+        Qs, QsConnector,
     },
 };
 use phnxtypes::{
@@ -19,22 +17,15 @@ use phnxtypes::{
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
 #[derive(Debug)]
-pub struct MemoryEnqueueProvider<
-    S: QsStorageProvider,
-    N: NetworkProvider,
-    P: PushNotificationProvider,
-> {
+pub struct MemoryEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
     pub qs: Qs,
-    pub storage: Arc<S>,
     pub notifier: DispatchWebsocketNotifier,
     pub push_notification_provider: P,
     pub network: N,
 }
 
 #[async_trait]
-impl<S: QsStorageProvider, N: NetworkProvider, P: PushNotificationProvider> QsConnector
-    for MemoryEnqueueProvider<S, N, P>
-{
+impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for MemoryEnqueueProvider<N, P> {
     type EnqueueError = QsEnqueueError<N>;
     type VerifyingKeyError = QsVerifyingKeyError;
 

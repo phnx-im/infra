@@ -110,6 +110,9 @@ pub enum QsClientKeyPackageError {
     /// Error retrieving client key package
     #[error("Error retrieving client key package")]
     StorageError,
+    /// No KeyPackages are available
+    #[error("No KeyPackages are available")]
+    NoKeyPackages,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]

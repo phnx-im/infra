@@ -26,16 +26,14 @@ use phnxtypes::{
 
 use crate::qs::{
     add_package::StorableEncryptedAddPackage,
-    client_id_decryption_key::StorableClientIdDecryptionKey, signing_key::QsSigningKey,
-    storage_provider_trait::QsStorageProvider, Qs,
+    client_id_decryption_key::StorableClientIdDecryptionKey, signing_key::QsSigningKey, Qs,
 };
 
 impl Qs {
     /// Clients publish key packages to the server.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_publish_key_packages<S: QsStorageProvider>(
+    pub(crate) async fn qs_publish_key_packages(
         &self,
-        storage_provider: &S,
         params: PublishKeyPackagesParams,
     ) -> Result<(), QsPublishKeyPackagesError> {
         let PublishKeyPackagesParams {
@@ -44,7 +42,7 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        let mut verified_add_packages = vec![];
+        let mut encrypted_add_packages = vec![];
         let mut last_resort_add_package = None;
         for add_package in add_packages {
             let verified_add_package: AddPackage = add_package
@@ -53,26 +51,19 @@ impl Qs {
                     ProtocolVersion::default(),
                 )
                 .map_err(|_| QsPublishKeyPackagesError::InvalidKeyPackage)?;
-            if verified_add_package.key_package().last_resort() {
-                // For now, we only allow the upload of one last resort add
-                // package at a time and ignore all following add packages.
-                last_resort_add_package = Some(
-                    verified_add_package
-                        .encrypt(&friendship_ear_key)
-                        .map_err(|_| QsPublishKeyPackagesError::LibraryError)?,
-                );
+
+            let is_last_resort = verified_add_package.key_package().last_resort();
+
+            let eap = verified_add_package
+                .encrypt(&friendship_ear_key)
+                .map_err(|_| QsPublishKeyPackagesError::LibraryError)?;
+
+            if is_last_resort {
+                last_resort_add_package = Some(eap);
             } else {
-                verified_add_packages.push(verified_add_package);
+                encrypted_add_packages.push(eap);
             }
         }
-
-        let encrypted_add_packages = verified_add_packages
-            .into_iter()
-            .map(|ap| {
-                ap.encrypt(&friendship_ear_key)
-                    .map_err(|_| QsPublishKeyPackagesError::LibraryError)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
 
         if let Some(last_resort_add_package) = last_resort_add_package {
             StorableEncryptedAddPackage::store_last_resort(
@@ -83,6 +74,7 @@ impl Qs {
             .await
             .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
         }
+
         StorableEncryptedAddPackage::store_multiple(
             &self.db_pool,
             &sender,
@@ -90,25 +82,31 @@ impl Qs {
         )
         .await
         .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
-        storage_provider
-            .store_key_packages(&sender, encrypted_add_packages)
-            .await
-            .map_err(|_| QsPublishKeyPackagesError::StorageError)?;
+
         Ok(())
     }
 
     /// Retrieve a key package for the given client.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_client_key_package<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_client_key_package(
+        &self,
         params: ClientKeyPackageParams,
     ) -> Result<ClientKeyPackageResponse, QsClientKeyPackageError> {
         let ClientKeyPackageParams { sender, client_id } = params;
 
-        let encrypted_key_package = storage_provider
-            .load_key_package(&sender, &client_id)
-            .await
-            .ok_or(QsClientKeyPackageError::StorageError)?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection: {:?}", e);
+            QsClientKeyPackageError::StorageError
+        })?;
+
+        let StorableEncryptedAddPackage(encrypted_key_package) =
+            StorableEncryptedAddPackage::load(&mut connection, &sender, &client_id)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("Failed to load key package: {:?}", e);
+                    QsClientKeyPackageError::StorageError
+                })?
+                .ok_or(QsClientKeyPackageError::NoKeyPackages)?;
 
         let response = ClientKeyPackageResponse {
             encrypted_key_package,
@@ -118,9 +116,8 @@ impl Qs {
 
     /// Retrieve a key package batch for a given client.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_key_package_batch<S: QsStorageProvider>(
+    pub(crate) async fn qs_key_package_batch(
         &self,
-        storage_provider: &S,
         params: KeyPackageBatchParams,
     ) -> Result<KeyPackageBatchResponse, QsKeyPackageBatchError> {
         let KeyPackageBatchParams {
@@ -128,13 +125,18 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        let encrypted_key_packages = storage_provider
-            .load_user_key_packages(&sender)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Storage provider error: {:?}", e);
-                QsKeyPackageBatchError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection: {:?}", e);
+            QsKeyPackageBatchError::StorageError
+        })?;
+
+        let encrypted_key_packages =
+            StorableEncryptedAddPackage::load_user_key_packages(&mut connection, &sender)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("Storage provider error: {:?}", e);
+                    QsKeyPackageBatchError::StorageError
+                })?;
 
         let add_packages = encrypted_key_packages
             .into_iter()

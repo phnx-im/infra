@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::persistence::StorageError;
+
 use super::network_provider_trait::NetworkProvider;
-use phnxtypes::crypto::errors::DecryptionError;
+use phnxtypes::crypto::errors::{DecryptionError, KeyGenerationError};
 use thiserror::Error;
 
 // === DS API errors ===
@@ -46,4 +48,14 @@ pub enum EnqueueError {
     /// Error sending push notification.
     #[error("Error sending push notification.")]
     PushNotificationError,
+}
+
+// === Internal errors ===
+
+#[derive(Debug, Error)]
+pub(super) enum GenerateAndStoreError {
+    #[error("Error generating signature keypair")]
+    KeyGenerationError(#[from] KeyGenerationError),
+    #[error("Error storing key")]
+    StorageError(#[from] StorageError),
 }

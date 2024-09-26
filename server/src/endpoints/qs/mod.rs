@@ -2,18 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
 use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
-    qs::{
-        errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-        storage_provider_trait::QsStorageProvider, Qs, QsConnector,
-    },
+    qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
 };
 use phnxtypes::{
     errors::qs::QsVerifyingKeyError, messages::client_qs::VerifiableClientToQsMessage,
@@ -24,13 +19,8 @@ pub mod push_notification_provider;
 pub mod ws;
 
 #[tracing::instrument(name = "Process QS message", skip_all)]
-pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
-    qs: Data<Qs>,
-    qs_storage_provider: Data<Arc<Qsp>>,
-    message: web::Bytes,
-) -> impl Responder {
+pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> impl Responder {
     // Extract the storage provider.
-    let storage_provider = qs_storage_provider.get_ref();
 
     // Deserialize the message.
     let message = match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(message.as_ref()) {
@@ -42,7 +32,7 @@ pub(crate) async fn qs_process_message<Qsp: QsStorageProvider>(
     };
 
     // Process the message.
-    match qs.process(storage_provider.as_ref(), message).await {
+    match qs.process(message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
             tracing::trace!("Processed message successfully");

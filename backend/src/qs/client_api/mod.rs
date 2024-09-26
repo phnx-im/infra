@@ -11,19 +11,15 @@ use phnxtypes::{
     },
 };
 
-use super::{
-    client_record::QsClientRecord, queue::Queue, storage_provider_trait::QsStorageProvider,
-    user_record::UserRecord, Qs,
-};
+use super::{client_record::QsClientRecord, queue::Queue, user_record::UserRecord, Qs};
 
 pub(crate) mod client_records;
 pub(crate) mod key_packages;
 pub(crate) mod user_records;
 
 impl Qs {
-    pub async fn process<S: QsStorageProvider>(
+    pub async fn process(
         &self,
-        storage_provider: &S,
         message: VerifiableClientToQsMessage,
     ) -> Result<QsProcessResponse, QsProcessError> {
         let request_params = match message.sender() {
@@ -99,16 +95,15 @@ impl Qs {
                 QsProcessResponse::Ok
             }
             QsRequestParams::PublishKeyPackages(params) => {
-                self.qs_publish_key_packages(storage_provider, params)
-                    .await?;
+                self.qs_publish_key_packages(params).await?;
                 QsProcessResponse::Ok
             }
-            QsRequestParams::ClientKeyPackage(params) => QsProcessResponse::ClientKeyPackage(
-                Self::qs_client_key_package(storage_provider, params).await?,
-            ),
-            QsRequestParams::KeyPackageBatch(params) => QsProcessResponse::KeyPackageBatch(
-                self.qs_key_package_batch(storage_provider, params).await?,
-            ),
+            QsRequestParams::ClientKeyPackage(params) => {
+                QsProcessResponse::ClientKeyPackage(self.qs_client_key_package(params).await?)
+            }
+            QsRequestParams::KeyPackageBatch(params) => {
+                QsProcessResponse::KeyPackageBatch(self.qs_key_package_batch(params).await?)
+            }
             QsRequestParams::DequeueMessages(params) => {
                 QsProcessResponse::DequeueMessages(self.qs_dequeue_messages(params).await?)
             }

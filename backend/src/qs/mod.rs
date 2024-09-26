@@ -61,6 +61,7 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
+use client_id_decryption_key::StorableClientIdDecryptionKey;
 use phnxtypes::{
     crypto::signatures::keys::QsVerifyingKey,
     identifiers::{Fqdn, QsClientId},
@@ -68,6 +69,7 @@ use phnxtypes::{
 };
 
 use async_trait::*;
+use signing_key::QsSigningKey;
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -79,15 +81,14 @@ use crate::{
 mod add_package;
 pub mod client_api;
 mod client_id_decryption_key;
-pub mod client_record;
+mod client_record;
 pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;
 pub mod qs_api;
 mod queue;
 mod signing_key;
-pub mod storage_provider_trait;
-pub mod user_record;
+mod user_record;
 
 #[derive(Debug, Clone)]
 pub struct Qs {
@@ -110,10 +111,24 @@ impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
 #[async_trait]
 impl InfraService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
-        Ok(Self {
-            domain,
-            db_pool: db_pool,
-        })
+        // Check if the requisite key material exists and if it doesn't, generate it.
+        let signing_key_exists = QsSigningKey::load(&db_pool).await?.is_some();
+        if !signing_key_exists {
+            QsSigningKey::generate_and_store(&db_pool)
+                .await
+                .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+        }
+
+        let decryption_key_exists = StorableClientIdDecryptionKey::load(&db_pool)
+            .await?
+            .is_some();
+        if !decryption_key_exists {
+            StorableClientIdDecryptionKey::generate_and_store(&db_pool)
+                .await
+                .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+        }
+
+        Ok(Self { domain, db_pool })
     }
 }
 

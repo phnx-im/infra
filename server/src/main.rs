@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{net::TcpListener, sync::Arc};
+use std::net::TcpListener;
 
 use phnxbackend::{auth_service::AuthService, ds::Ds, persistence::InfraService, qs::Qs};
 use phnxserver::{
@@ -13,9 +13,7 @@ use phnxserver::{
     },
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::{
-        memory::qs_connector::MemoryEnqueueProvider, postgres::qs::PostgresQsStorage,
-    },
+    storage_provider::memory::qs_connector::MemoryEnqueueProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
@@ -89,11 +87,6 @@ async fn main() -> std::io::Result<()> {
     )
     .await
     .expect("Failed to connect to database.");
-    let qs_storage_provider = Arc::new(
-        PostgresQsStorage::new(&configuration.database, domain.clone())
-            .await
-            .expect("Failed to connect to database."),
-    );
 
     // New database name for the AS provider
     configuration.database.name = format!("{}_as", base_db_name);
@@ -104,19 +97,12 @@ async fn main() -> std::io::Result<()> {
     )
     .await
     .expect("Failed to connect to database.");
-    let qs = Qs::new(
-        &configuration.database.connection_string_without_database(),
-        &configuration.database.name,
-        domain.clone(),
-    )
-    .await
-    .expect("Failed to connect to database.");
+
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
     let qs_connector = MemoryEnqueueProvider {
         qs: qs.clone(),
-        storage: qs_storage_provider.clone(),
         notifier: ws_dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
@@ -127,7 +113,6 @@ async fn main() -> std::io::Result<()> {
         ds,
         auth_service,
         qs,
-        qs_storage_provider,
         qs_connector,
         network_provider,
         ws_dispatch_notifier,

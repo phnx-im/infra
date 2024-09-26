@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, identifiers::QsClientId, messages::QueueMessage};
-use sqlx::{Connection, PgConnection, PgExecutor, Row};
+use sqlx::{Connection, PgConnection, PgExecutor};
 
 use crate::persistence::{QueueError, StorageError};
 
@@ -36,20 +36,29 @@ impl Queue {
         // Begin the transaction
         let mut transaction = connection.begin().await?;
 
-        // Update and get the sequence number
-        let sequence_number_record = sqlx::query!(
-            "UPDATE qs_queue_data 
-            SET sequence_number = sequence_number + 1 
-            WHERE queue_id = $1 
-            RETURNING sequence_number - 1 as sequence_number",
+        // Update and get the sequence number, saving one query
+        let sequence_number = sqlx::query_scalar!(
+            r#"
+            WITH updated_sequence AS (
+                -- Step 1: Update and return the current sequence number.
+                UPDATE qs_queue_data 
+                SET sequence_number = sequence_number + 1 
+                WHERE queue_id = $1 
+                RETURNING sequence_number - 1 as sequence_number
+            )
+            -- Step 2: Insert the message with the new sequence number.
+            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) 
+            SELECT $1, sequence_number, $2 FROM updated_sequence
+            RETURNING sequence_number
+            "#,
             queue_id as &QsClientId,
+            message_bytes,
         )
         .fetch_one(&mut *transaction)
         .await?;
 
-        // Sequence number can't be NULL
-        let sequence_number = sequence_number_record.sequence_number.unwrap();
-
+        // Check if the sequence number matches the one we got from the query. If it doesn't,
+        // we return an error and automatically rollback the transaction.
         if sequence_number != message.sequence_number as i64 {
             tracing::warn!(
                 "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
@@ -58,16 +67,6 @@ impl Queue {
             );
             return Err(QueueError::SequenceNumberMismatch);
         }
-
-        // Store the message in the DB
-        sqlx::query!(
-            "INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3)",
-            queue_id as &QsClientId,
-            sequence_number,
-            message_bytes,
-        )
-        .execute(&mut *transaction)
-        .await?;
 
         transaction.commit().await?;
 
@@ -85,34 +84,35 @@ impl Queue {
 
         let mut transaction = connection.begin().await?;
 
-        // This query is idempotent, so there's no need to lock anything.
-        let query = "WITH deleted AS (
-                    DELETE FROM qs_queues 
-                    WHERE queue_id = $1 AND sequence_number < $2
-                    RETURNING *
-                ),
-                fetched AS (
-                    SELECT message_bytes FROM qs_queues
-                    WHERE queue_id = $1 AND sequence_number >= $2
-                    ORDER BY sequence_number ASC
-                    LIMIT $3
-                ),
-                remaining AS (
-                    SELECT COUNT(*) AS count 
-                    FROM qs_queues
-                    WHERE queue_id = $1 AND sequence_number >= $2
-                )
-                SELECT 
-                    fetched.message_bytes,
-                    remaining.count
-                FROM fetched, remaining";
-
-        let rows = sqlx::query(query)
-            .bind(queue_id)
-            .bind(sequence_number as i64)
-            .bind(number_of_messages)
-            .fetch_all(&mut *transaction)
-            .await?;
+        let rows = sqlx::query!(
+            r#"
+            WITH deleted AS (
+                DELETE FROM qs_queues 
+                WHERE queue_id = $1 AND sequence_number < $2
+                RETURNING *
+            ),
+            fetched AS (
+                SELECT message_bytes FROM qs_queues
+                WHERE queue_id = $1 AND sequence_number >= $2
+                ORDER BY sequence_number ASC
+                LIMIT $3
+            ),
+            remaining AS (
+                SELECT COALESCE(COUNT(*)) AS count 
+                FROM qs_queues
+                WHERE queue_id = $1 AND sequence_number >= $2
+            )
+            SELECT 
+                fetched.message_bytes,
+                remaining.count
+            FROM fetched, remaining
+            "#,
+            queue_id as &QsClientId,
+            sequence_number as i64,
+            number_of_messages,
+        )
+        .fetch_all(&mut *transaction)
+        .await?;
 
         transaction.commit().await?;
 
@@ -120,15 +120,13 @@ impl Queue {
         let messages = rows
             .iter()
             .map(|row| {
-                let message_bytes: &[u8] = row.try_get("message_bytes")?;
-                //tracing::info!("Message bytes: {:?}", message_bytes);
-                let message = PhnxCodec::from_slice(message_bytes)?;
+                let message = PhnxCodec::from_slice(&row.message_bytes)?;
                 Ok(message)
             })
             .collect::<Result<Vec<_>, QueueError>>()?;
 
         let remaining_messages = if let Some(row) = rows.first() {
-            let remaining_count: i64 = row.try_get("count")?;
+            let remaining_count: i64 = row.count.unwrap_or_default();
             // Subtract the number of messages we've read from the remaining
             // count to get the number of unread messages.
             remaining_count - messages.len() as i64
