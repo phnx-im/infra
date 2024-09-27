@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -17,7 +17,7 @@ use phnxtypes::{
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
 #[derive(Debug)]
-pub struct MemoryEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
+pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
     pub qs: Qs,
     pub notifier: DispatchWebsocketNotifier,
     pub push_notification_provider: P,
@@ -25,7 +25,7 @@ pub struct MemoryEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider
 }
 
 #[async_trait]
-impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for MemoryEnqueueProvider<N, P> {
+impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqueueProvider<N, P> {
     type EnqueueError = QsEnqueueError<N>;
     type VerifyingKeyError = QsVerifyingKeyError;
 

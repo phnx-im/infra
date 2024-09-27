@@ -11,9 +11,9 @@ use phnxserver::{
         push_notification_provider::ProductionPushNotificationProvider,
         ws::DispatchWebsocketNotifier,
     },
+    enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::memory::qs_connector::MemoryEnqueueProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
@@ -101,7 +101,7 @@ async fn main() -> std::io::Result<()> {
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
-    let qs_connector = MemoryEnqueueProvider {
+    let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
         notifier: ws_dispatch_notifier.clone(),
         push_notification_provider,
