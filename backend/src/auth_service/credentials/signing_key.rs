@@ -15,21 +15,21 @@ use sqlx::{Connection, PgConnection, PgExecutor};
 use super::CredentialGenerationError;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(in crate::auth_service) enum SigningKey {
+pub(in crate::auth_service) enum StorableSigningKey {
     V1(AsSigningKey),
 }
 
-impl From<SigningKey> for AsSigningKey {
-    fn from(signing_key: SigningKey) -> Self {
+impl From<StorableSigningKey> for AsSigningKey {
+    fn from(signing_key: StorableSigningKey) -> Self {
         match signing_key {
-            SigningKey::V1(signing_key) => signing_key,
+            StorableSigningKey::V1(signing_key) => signing_key,
         }
     }
 }
 
-impl From<AsSigningKey> for SigningKey {
+impl From<AsSigningKey> for StorableSigningKey {
     fn from(signing_key: AsSigningKey) -> Self {
-        SigningKey::V1(signing_key)
+        StorableSigningKey::V1(signing_key)
     }
 }
 
@@ -43,14 +43,14 @@ impl Deref for Credential {
     }
 }
 
-impl SigningKey {
+impl StorableSigningKey {
     pub(in crate::auth_service) async fn generate_store_and_activate(
         connection: &mut PgConnection,
         domain: Fqdn,
         scheme: SignatureScheme,
     ) -> Result<Self, CredentialGenerationError> {
         let (_, signing_key) = AsCredential::new(scheme, domain, None)?;
-        let signing_key = SigningKey::V1(signing_key);
+        let signing_key = StorableSigningKey::V1(signing_key);
         let mut transaction = connection.begin().await?;
         signing_key.store(&mut *transaction).await?;
         signing_key.activate(&mut *transaction).await?;
@@ -60,20 +60,19 @@ impl SigningKey {
 
     fn fingerprint(&self) -> &CredentialFingerprint {
         match self {
-            SigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
+            StorableSigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
         }
     }
 }
 
 mod persistence {
     use phnxtypes::codec::PhnxCodec;
-    use uuid::Uuid;
 
     use crate::{auth_service::credentials::CredentialType, persistence::StorageError};
 
     use super::*;
 
-    impl SigningKey {
+    impl StorableSigningKey {
         pub(super) async fn store(
             &self,
             connection: impl PgExecutor<'_>,
@@ -81,10 +80,9 @@ mod persistence {
             sqlx::query!(
                 "INSERT INTO
                     as_signing_keys
-                    (id, cred_type, credential_fingerprint, signing_key, currently_active)
+                    (cred_type, credential_fingerprint, signing_key, currently_active)
                 VALUES 
-                    ($1, $2, $3, $4, $5)",
-                Uuid::new_v4(),
+                    ($1, $2, $3, $4)",
                 CredentialType::As as _,
                 self.fingerprint().as_bytes(),
                 PhnxCodec::to_vec(&self)?,
@@ -105,7 +103,7 @@ mod persistence {
             .fetch_optional(connection)
             .await?
             .map(|record| {
-                let signing_key: SigningKey = PhnxCodec::from_slice(&record.signing_key)?;
+                let signing_key: StorableSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
                 Ok(signing_key.into())
             })
             .transpose()
@@ -144,7 +142,8 @@ mod persistence {
             let credentials = records
                 .into_iter()
                 .map(|record| {
-                    let signing_key: SigningKey = PhnxCodec::from_slice(&record.signing_key)?;
+                    let signing_key: StorableSigningKey =
+                        PhnxCodec::from_slice(&record.signing_key)?;
                     let as_signing_key = AsSigningKey::from(signing_key);
                     Ok(as_signing_key.credential().clone())
                 })

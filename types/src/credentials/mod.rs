@@ -15,14 +15,17 @@ use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use keys::{AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey};
+use keys::{
+    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
+    PreliminaryClientSigningKey,
+};
 
 use crate::{
     crypto::{
         ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
         signatures::{
-            private_keys::{generate_signature_keypair, PrivateKey},
+            private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
@@ -54,13 +57,12 @@ use self::keys::ClientVerifyingKey;
     Serialize,
     Deserialize,
 )]
-pub struct CredentialFingerprint {
-    value: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct CredentialFingerprint(Vec<u8>);
 
 impl std::fmt::Display for CredentialFingerprint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let fp = hex::encode(&self.value);
+        let fp = hex::encode(&self.0);
         write!(f, "{}", fp)
     }
 }
@@ -75,11 +77,11 @@ impl CredentialFingerprint {
             .crypto()
             .hash(HashType::Sha2_256, &input)
             .unwrap_or_default();
-        Self { value }
+        Self(value)
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.value
+        &self.0
     }
 }
 
@@ -87,7 +89,7 @@ impl CredentialFingerprint {
 impl ToSql for CredentialFingerprint {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.value),
+            rusqlite::types::ValueRef::Blob(&self.0),
         ))
     }
 }
@@ -96,9 +98,7 @@ impl ToSql for CredentialFingerprint {
 impl FromSql for CredentialFingerprint {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        Ok(Self {
-            value: value.to_vec(),
-        })
+        Ok(Self(value.to_vec()))
     }
 }
 
@@ -167,8 +167,8 @@ impl AsCredential {
         // Create lifetime valid until 5 years in the future.
         let expiration_data =
             expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
-        let (private_key, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = verifying_key_bytes.into();
+        let signing_key = SigningKey::generate()?;
+        let verifying_key = AsVerifyingKey(signing_key.verifying_key().clone());
         let body = AsCredentialBody {
             version,
             as_domain,
@@ -179,7 +179,7 @@ impl AsCredential {
         let fingerprint = body.hash();
         let credential = Self { body, fingerprint };
         let signing_key =
-            AsSigningKey::from_private_key_and_credential(private_key, credential.clone());
+            AsSigningKey::from_private_key_and_credential(signing_key, credential.clone());
         Ok((credential, signing_key))
     }
 
@@ -202,17 +202,6 @@ impl AsCredential {
 
 const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365);
 
-pub struct PreliminaryAsSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: AsIntermediateVerifyingKey,
-}
-
-impl PreliminaryAsSigningKey {
-    pub(crate) fn into_signing_key(self) -> PrivateKey {
-        self.signing_key
-    }
-}
-
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     version: MlsInfraVersion,
@@ -231,20 +220,13 @@ impl AsIntermediateCredentialCsr {
     pub fn new(
         signature_scheme: SignatureScheme,
         as_domain: Fqdn,
-    ) -> Result<(Self, PreliminaryAsSigningKey), KeyGenerationError> {
+    ) -> Result<(Self, PreliminaryAsIntermediateSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        let (signing_key, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = AsIntermediateVerifyingKey {
-            verifying_key_bytes: verifying_key_bytes.into(),
-        };
-        let prelim_signing_key = PreliminaryAsSigningKey {
-            signing_key,
-            verifying_key: verifying_key.clone(),
-        };
+        let prelim_signing_key = PreliminaryAsIntermediateSigningKey::generate()?;
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key,
+            verifying_key: prelim_signing_key.verifying_key(),
             as_domain,
         };
         Ok((credential, prelim_signing_key))
@@ -444,18 +426,11 @@ impl ClientCredentialCsr {
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
-        let (signing_key_bytes, verifying_key_bytes) = generate_signature_keypair()?;
-        let verifying_key = ClientVerifyingKey {
-            verifying_key_bytes: verifying_key_bytes.into(),
-        };
-        let prelim_signing_key = PreliminaryClientSigningKey {
-            signing_key: signing_key_bytes,
-            verifying_key: verifying_key.clone(),
-        };
+        let prelim_signing_key = PreliminaryClientSigningKey::generate()?;
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key,
+            verifying_key: prelim_signing_key.verifying_key(),
             client_id,
         };
         Ok((credential, prelim_signing_key))
@@ -516,18 +491,6 @@ impl ClientCredentialPayload {
 
     pub fn identity_ref(&self) -> &AsClientId {
         &self.csr.client_id
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PreliminaryClientSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: ClientVerifyingKey,
-}
-
-impl PreliminaryClientSigningKey {
-    pub(super) fn into_signing_key(self) -> PrivateKey {
-        self.signing_key
     }
 }
 
@@ -672,5 +635,63 @@ impl From<Ciphertext> for EncryptedClientCredential {
 impl AsRef<Ciphertext> for EncryptedClientCredential {
     fn as_ref(&self) -> &Ciphertext {
         &self.encrypted_client_credential
+    }
+}
+
+#[cfg(feature = "sqlx")]
+pub mod persistence {
+    use crate::{
+        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,
+        time::ExpirationData,
+    };
+
+    use super::{
+        keys::ClientVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        CredentialFingerprint,
+    };
+
+    #[derive(Debug, sqlx::Type)]
+    #[sqlx(type_name = "client_credential")]
+    pub struct FlatClientCredential {
+        version: Vec<u8>,
+        client_id: AsClientId,
+        signature_scheme: Vec<u8>,
+        verifying_key: ClientVerifyingKey,
+        expiration_data: ExpirationData,
+        signer_fingerprint: CredentialFingerprint,
+        signature: Signature,
+    }
+
+    impl From<ClientCredential> for FlatClientCredential {
+        fn from(credential: ClientCredential) -> Self {
+            Self {
+                version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
+                client_id: credential.payload.csr.client_id.clone(),
+                signature_scheme: PhnxCodec::to_vec(&credential.payload.csr.signature_scheme)
+                    .unwrap(),
+                verifying_key: credential.payload.csr.verifying_key.clone(),
+                expiration_data: credential.payload.expiration_data.clone(),
+                signer_fingerprint: credential.payload.signer_fingerprint.clone(),
+                signature: credential.signature.clone(),
+            }
+        }
+    }
+
+    impl From<FlatClientCredential> for ClientCredential {
+        fn from(flat_credential: FlatClientCredential) -> Self {
+            let payload = ClientCredentialPayload {
+                csr: ClientCredentialCsr {
+                    version: PhnxCodec::from_slice(&flat_credential.version).unwrap(),
+                    client_id: flat_credential.client_id,
+                    signature_scheme: PhnxCodec::from_slice(&flat_credential.signature_scheme)
+                        .unwrap(),
+                    verifying_key: flat_credential.verifying_key,
+                },
+                expiration_data: flat_credential.expiration_data,
+                signer_fingerprint: flat_credential.signer_fingerprint,
+            };
+            let signature = flat_credential.signature;
+            Self { payload, signature }
+        }
     }
 }

@@ -13,7 +13,7 @@ use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
 use phnxtypes::{
     credentials::{
-        AsIntermediateCredential, PreliminaryClientSigningKey, VerifiableClientCredential,
+        keys::PreliminaryClientSigningKey, AsIntermediateCredential, VerifiableClientCredential,
     },
     crypto::{
         ear::{EarKey, GenericSerializable},
@@ -247,7 +247,7 @@ impl PostRegistrationInitState {
         StorableQsQueueRatchet::initialize(connection, qs_initial_ratchet_secret.clone())?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
-        let qs_user_signing_key = QsUserSigningKey::random()?;
+        let qs_user_signing_key = QsUserSigningKey::generate()?;
 
         // TODO: The following five keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.

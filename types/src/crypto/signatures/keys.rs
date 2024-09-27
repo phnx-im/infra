@@ -12,31 +12,27 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 #[cfg(feature = "sqlite")]
 use crate::codec::PhnxCodec;
 
-use crate::crypto::errors::{KeyGenerationError, RandomnessError};
+use crate::crypto::errors::KeyGenerationError;
 
 use super::{
-    private_keys::{generate_signature_keypair, PrivateKey},
-    traits::{SigningKey, VerifyingKey},
+    private_keys::{SigningKey, VerifyingKey},
+    traits::{SigningKeyBehaviour, VerifyingKeyBehaviour},
 };
 
 #[derive(Debug)]
-pub struct LeafVerifyingKeyRef<'a> {
-    verifying_key: &'a SignaturePublicKey,
-}
+pub struct LeafVerifyingKey(VerifyingKey);
 
-impl<'a> VerifyingKey for LeafVerifyingKeyRef<'a> {}
+impl VerifyingKeyBehaviour for LeafVerifyingKey {}
 
-impl<'a> AsRef<[u8]> for LeafVerifyingKeyRef<'a> {
-    fn as_ref(&self) -> &[u8] {
-        self.verifying_key.as_slice()
+impl AsRef<VerifyingKey> for LeafVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
-impl<'a> From<&'a SignaturePublicKey> for LeafVerifyingKeyRef<'a> {
-    fn from(pk_ref: &'a SignaturePublicKey) -> Self {
-        Self {
-            verifying_key: pk_ref,
-        }
+impl From<&SignaturePublicKey> for LeafVerifyingKey {
+    fn from(pk_ref: &SignaturePublicKey) -> Self {
+        Self(pk_ref.clone().into())
     }
 }
 
@@ -44,33 +40,28 @@ impl<'a> From<&'a SignaturePublicKey> for LeafVerifyingKeyRef<'a> {
 /// key is used by pseudomnymous clients to prove they belong to a certain
 /// pseudonymous user account.
 #[derive(Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct UserAuthVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+pub struct UserAuthVerifyingKey(VerifyingKey);
 
-impl AsRef<[u8]> for UserAuthVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
+impl AsRef<VerifyingKey> for UserAuthVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
-impl VerifyingKey for UserAuthVerifyingKey {}
+impl VerifyingKeyBehaviour for UserAuthVerifyingKey {}
 
 impl UserAuthVerifyingKey {
     pub fn hash(&self) -> UserKeyHash {
         let hash = OpenMlsRustCrypto::default()
             .crypto()
-            .hash(HashType::Sha2_256, &self.verifying_key)
+            .hash(HashType::Sha2_256, self.0.as_slice())
             .unwrap_or_default();
         UserKeyHash::new(hash)
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserAuthSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: UserAuthVerifyingKey,
-}
+pub struct UserAuthSigningKey(SigningKey);
 
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for UserAuthSigningKey {
@@ -92,30 +83,24 @@ impl rusqlite::types::FromSql for UserAuthSigningKey {
 }
 
 impl UserAuthSigningKey {
-    pub fn verifying_key(&self) -> &UserAuthVerifyingKey {
-        &self.verifying_key
+    pub fn verifying_key(&self) -> UserAuthVerifyingKey {
+        UserAuthVerifyingKey(self.0.verifying_key().clone())
     }
 
     pub fn generate() -> Result<Self, KeyGenerationError> {
-        let keypair = generate_signature_keypair()?;
-        let verifying_key = UserAuthVerifyingKey {
-            verifying_key: keypair.1,
-        };
-        Ok(Self {
-            signing_key: keypair.0,
-            verifying_key,
-        })
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
     }
 }
 
-impl AsRef<PrivateKey> for UserAuthSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
-        &self.signing_key
+impl AsRef<SigningKey> for UserAuthSigningKey {
+    fn as_ref(&self) -> &SigningKey {
+        &self.0
     }
 }
 
-impl SigningKey for UserAuthSigningKey {}
-impl SigningKey for &UserAuthSigningKey {}
+impl super::traits::SigningKeyBehaviour for UserAuthSigningKey {}
+impl super::traits::SigningKeyBehaviour for &UserAuthSigningKey {}
 
 #[derive(
     Debug,
@@ -142,133 +127,127 @@ impl UserKeyHash {
 #[derive(
     Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct QsClientVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsClientVerifyingKey(VerifyingKey);
 
-impl AsRef<[u8]> for QsClientVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
+impl AsRef<VerifyingKey> for QsClientVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
-impl VerifyingKey for QsClientVerifyingKey {}
+impl VerifyingKeyBehaviour for QsClientVerifyingKey {}
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct QsClientSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: QsClientVerifyingKey,
-}
+pub struct QsClientSigningKey(SigningKey);
 
 impl QsClientSigningKey {
-    pub fn random() -> Result<Self, RandomnessError> {
+    pub fn random() -> Result<Self, KeyGenerationError> {
         let rust_crypto = OpenMlsRustCrypto::default();
-        let (signing_key, verifying_key) =
-            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self {
-            signing_key,
-            verifying_key: QsClientVerifyingKey { verifying_key },
-        })
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
     }
 
-    pub fn verifying_key(&self) -> &QsClientVerifyingKey {
-        &self.verifying_key
+    pub fn verifying_key(&self) -> QsClientVerifyingKey {
+        QsClientVerifyingKey(self.0.verifying_key().clone())
     }
 }
 
-impl AsRef<PrivateKey> for QsClientSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
-        &self.signing_key
+impl AsRef<SigningKey> for QsClientSigningKey {
+    fn as_ref(&self) -> &SigningKey {
+        &self.0
     }
 }
 
-impl SigningKey for QsClientSigningKey {}
+impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 
 #[derive(
     Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct QsUserVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsUserVerifyingKey(VerifyingKey);
 
-impl AsRef<[u8]> for QsUserVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
+impl AsRef<VerifyingKey> for QsUserVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
-impl QsUserVerifyingKey {
-    /// This function is meant to be used only to restore a QsUserSigningKey
-    /// from a DB entry.
-    pub fn from_bytes(verifying_key: Vec<u8>) -> Self {
-        Self { verifying_key }
-    }
-}
-
-impl VerifyingKey for QsUserVerifyingKey {}
+impl VerifyingKeyBehaviour for QsUserVerifyingKey {}
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct QsUserSigningKey {
-    signing_key: PrivateKey,
-    verifying_key: QsUserVerifyingKey,
-}
+pub struct QsUserSigningKey(SigningKey);
 
 impl QsUserSigningKey {
-    pub fn random() -> Result<Self, RandomnessError> {
-        let (signing_key, verifying_key) =
-            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self {
-            signing_key,
-            verifying_key: QsUserVerifyingKey { verifying_key },
-        })
+    pub fn generate() -> Result<Self, KeyGenerationError> {
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
     }
 
-    pub fn verifying_key(&self) -> &QsUserVerifyingKey {
-        &self.verifying_key
+    pub fn verifying_key(&self) -> QsUserVerifyingKey {
+        QsUserVerifyingKey(self.0.verifying_key().clone())
     }
 }
 
-impl AsRef<PrivateKey> for QsUserSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
-        &self.signing_key
+impl AsRef<SigningKey> for QsUserSigningKey {
+    fn as_ref(&self) -> &SigningKey {
+        &self.0
     }
 }
 
-impl SigningKey for QsUserSigningKey {}
+impl SigningKeyBehaviour for QsUserSigningKey {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsSigningKey(SigningKey);
+
+impl QsSigningKey {
+    pub fn generate() -> Result<Self, KeyGenerationError> {
+        let signing_key = SigningKey::generate()?;
+        Ok(Self(signing_key))
+    }
+
+    pub fn verifying_key(&self) -> QsVerifyingKey {
+        QsVerifyingKey(self.0.verifying_key().clone())
+    }
+}
+
+impl AsRef<SigningKey> for QsSigningKey {
+    fn as_ref(&self) -> &SigningKey {
+        &self.0
+    }
+}
+
+impl SigningKeyBehaviour for QsSigningKey {}
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-pub struct QsVerifyingKey {
-    verifying_key: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsVerifyingKey(VerifyingKey);
 
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for QsVerifyingKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.verifying_key),
-        ))
+        self.0.to_sql()
     }
 }
 
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::FromSql for QsVerifyingKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(Self {
-            verifying_key: value.as_blob()?.to_vec(),
-        })
+        Ok(Self(VerifyingKey::column_result(value)?))
     }
 }
 
-impl QsVerifyingKey {
-    pub fn new(verifying_key: Vec<u8>) -> Self {
-        Self { verifying_key }
+impl From<VerifyingKey> for QsVerifyingKey {
+    fn from(key: VerifyingKey) -> Self {
+        Self(key)
     }
 }
 
-impl AsRef<[u8]> for QsVerifyingKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.verifying_key
+impl AsRef<VerifyingKey> for QsVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey {
+        &self.0
     }
 }
 
-impl VerifyingKey for QsVerifyingKey {}
+impl VerifyingKeyBehaviour for QsVerifyingKey {}

@@ -21,17 +21,14 @@ impl StorableConnectionPackage {
         client_id: &AsClientId,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
-        let mut query_string = String::from(
-            "INSERT INTO connection_packages (id, client_id, connection_package) VALUES",
-        );
+        let mut query_string =
+            String::from("INSERT INTO connection_packages (client_id, connection_package) VALUES");
 
         for (i, connection_package) in connection_packages.into_iter().enumerate() {
             let connection_package: StorableConnectionPackage = connection_package.into();
-            let id = Uuid::new_v4();
             let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
 
             // Add values to the query arguments. None of these should throw an error.
-            query_args.add(id)?;
             query_args.add(client_id.client_id())?;
             query_args.add(connection_package_bytes)?;
 
@@ -40,12 +37,7 @@ impl StorableConnectionPackage {
             }
 
             // Add placeholders for each value
-            query_string.push_str(&format!(
-                " (${}, ${}, ${})",
-                i * 3 + 1,
-                i * 3 + 2,
-                i * 3 + 3
-            ));
+            query_string.push_str(&format!(" (${}, ${})", i * 2 + 1, i * 2 + 2,));
         }
 
         // Finalize the query string
@@ -88,7 +80,7 @@ impl StorableConnectionPackage {
                 AND (SELECT count FROM remaining_packages) > 1
                 RETURNING connection_package
             )
-            SELECT id, connection_package FROM next_connection_package",
+            SELECT connection_package FROM next_connection_package",
             client_id,
         )
         .fetch_one(&mut *transaction)

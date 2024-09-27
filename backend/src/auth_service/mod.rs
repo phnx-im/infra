@@ -4,8 +4,9 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use async_trait::async_trait;
 use credentials::{
-    intermediate_signing_key::IntermediateSigningKey, signing_key::SigningKey,
+    intermediate_signing_key::IntermediateSigningKey, signing_key::StorableSigningKey,
     CredentialGenerationError,
 };
 use opaque::OpaqueSetup;
@@ -24,12 +25,12 @@ use phnxtypes::{
         client_qs::DequeueMessagesResponse,
     },
 };
-use sqlx::{Executor, PgPool};
+use sqlx::PgPool;
 use thiserror::Error;
 use tls_codec::{TlsSerialize, TlsSize};
 use tokio::sync::Mutex;
 
-use crate::persistence::{DatabaseError, StorageError};
+use crate::persistence::{DatabaseError, InfraService, ServiceCreationError, StorageError};
 
 pub mod client_api;
 mod client_record;
@@ -89,44 +90,9 @@ impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
     }
 }
 
-impl AuthService {
-    pub async fn new(
-        connection_string: &str,
-        db_name: &str,
-        domain: Fqdn,
-    ) -> Result<Self, AuthServiceCreationError> {
-        let connection = PgPool::connect(connection_string).await?;
-
-        let db_exists = sqlx::query!(
-            "select exists (
-            SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
-        )",
-            db_name,
-        )
-        .fetch_one(&connection)
-        .await?;
-
-        if !db_exists.exists.unwrap_or(false) {
-            connection
-                .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
-                .await?;
-        }
-
-        let connection_string_with_db = format!("{}/{}", connection_string, db_name);
-
-        let db_pool = PgPool::connect(&connection_string_with_db).await?;
-
-        // Migrate database
-        Self::new_from_pool(db_pool, domain).await
-    }
-
-    async fn new_from_pool(
-        db_pool: PgPool,
-        domain: Fqdn,
-    ) -> Result<Self, AuthServiceCreationError> {
-        sqlx::migrate!("./migrations").run(&db_pool).await?;
-        tracing::info!("Database migration successful");
-
+#[async_trait]
+impl InfraService for AuthService {
+    async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let auth_service = Self {
             db_pool,
             ephemeral_client_credentials: Arc::new(Mutex::new(HashMap::new())),
@@ -136,24 +102,27 @@ impl AuthService {
 
         // Check if there is an active AS signing key
         let mut transaction = auth_service.db_pool.begin().await?;
-        let active_signing_key_exists = SigningKey::load(&mut *transaction).await?.is_some();
+        let active_signing_key_exists =
+            StorableSigningKey::load(&mut *transaction).await?.is_some();
 
         if !active_signing_key_exists {
             let signature_scheme = DEFAULT_SIGNATURE_SCHEME;
             // Generate a new AS signing key
-            SigningKey::generate_store_and_activate(
+            StorableSigningKey::generate_store_and_activate(
                 &mut transaction,
                 domain.clone(),
                 signature_scheme,
             )
-            .await?;
+            .await
+            .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
             // Generate and sign an intermediate signing key
             IntermediateSigningKey::generate_sign_and_activate(
                 &mut transaction,
                 domain,
                 signature_scheme,
             )
-            .await?;
+            .await
+            .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
         }
 
         let opaque_setup_exists = match OpaqueSetup::load(&mut *transaction).await {
@@ -170,7 +139,9 @@ impl AuthService {
 
         Ok(auth_service)
     }
+}
 
+impl AuthService {
     pub async fn process(
         &self,
         message: VerifiableClientToAsMessage,

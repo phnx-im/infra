@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use opaque_ke::rand::rngs::OsRng;
 use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
@@ -19,7 +20,7 @@ async fn ws_reconnect() {
     let (address, _ws_dispatch) =
         spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
-    let client_id = QsClientId::random();
+    let client_id = QsClientId::random(&mut OsRng::default());
 
     // Websocket parameters
     let timeout = 1;
@@ -57,7 +58,7 @@ async fn ws_sending() {
     let (address, ws_dispatch) =
         spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
-    let client_id = QsClientId::random();
+    let client_id = QsClientId::random(&mut OsRng::default());
 
     // Websocket parameters
     let timeout = 1;

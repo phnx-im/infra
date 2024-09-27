@@ -18,7 +18,7 @@ use phnxtypes::{
         signatures::{
             keys::{UserAuthSigningKey, UserAuthVerifyingKey},
             signable::Signable,
-            traits::SigningKey,
+            traits::SigningKeyBehaviour,
         },
     },
     endpoint_paths::ENDPOINT_DS_GROUPS,
@@ -57,12 +57,12 @@ pub enum DsRequestError {
     DsError(String),
 }
 
-pub enum AuthenticationMethod<'a, T: SigningKey> {
+pub enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
     Signature(&'a T),
     None,
 }
 
-impl<'a, T: SigningKey + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
+impl<'a, T: SigningKeyBehaviour + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
     fn from(key: &'a T) -> Self {
         AuthenticationMethod::Signature(key)
     }
@@ -126,7 +126,7 @@ impl ApiClient {
         }
     }
 
-    async fn prepare_and_send_ds_group_message<'a, T: SigningKey + 'a>(
+    async fn prepare_and_send_ds_group_message<'a, T: SigningKeyBehaviour + 'a>(
         &self,
         request_params: DsRequestParamsOut,
         auth_method: impl Into<AuthenticationMethod<'a, T>>,

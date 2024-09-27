@@ -9,6 +9,7 @@ use std::{
 };
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
+use rand::{CryptoRng, Rng, RngCore};
 #[cfg(feature = "sqlite")]
 use rusqlite::{
     types::{FromSql, FromSqlError},
@@ -38,7 +39,7 @@ pub struct Fqdn {
 #[cfg(feature = "sqlx")]
 impl sqlx::Type<sqlx::Postgres> for Fqdn {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("TEXT")
+        String::type_info()
     }
 }
 
@@ -223,9 +224,7 @@ impl TryFrom<&str> for QualifiedGroupId {
 }
 
 #[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[serde(transparent)]
-#[cfg_attr(feature = "sqlx", sqlx(transparent, type_name = "TEXT"))]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct UserName(TlsString);
 
 impl std::fmt::Display for UserName {
@@ -267,7 +266,11 @@ impl TryFrom<String> for UserName {
     Serialize,
     Deserialize,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "qualified_user_name")
+)]
 pub struct QualifiedUserName {
     user_name: UserName,
     domain: Fqdn,
@@ -383,7 +386,7 @@ impl std::fmt::Display for QualifiedUserName {
     TlsSerialize,
     TlsDeserializeBytes,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "as_client_id"))]
 pub struct AsClientId {
     user_name: QualifiedUserName,
     client_id: TlsUuid,
@@ -529,15 +532,13 @@ impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientCon
     TlsSerialize,
     TlsDeserializeBytes,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-pub struct QsClientId {
-    client_id: TlsUuid,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsClientId(TlsUuid);
 
 #[cfg(feature = "sqlite")]
 impl ToSql for QsClientId {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.client_id.to_sql()
+        self.0.to_sql()
     }
 }
 
@@ -549,20 +550,19 @@ impl FromSql for QsClientId {
 }
 
 impl QsClientId {
-    pub fn random() -> Self {
-        Uuid::new_v4().into()
+    pub fn random(rng: &mut (impl CryptoRng + RngCore)) -> Self {
+        let random_bytes = rng.gen::<[u8; 16]>();
+        Uuid::from_bytes(random_bytes).into()
     }
 
     pub fn as_uuid(&self) -> &Uuid {
-        &self.client_id
+        &self.0
     }
 }
 
 impl From<Uuid> for QsClientId {
     fn from(value: Uuid) -> Self {
-        Self {
-            client_id: TlsUuid(value),
-        }
+        Self(TlsUuid(value))
     }
 }
 
@@ -578,14 +578,13 @@ impl From<Uuid> for QsClientId {
     TlsDeserializeBytes,
     TlsSerialize,
 )]
-pub struct QsUserId {
-    user_id: TlsUuid,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsUserId(TlsUuid);
 
 #[cfg(feature = "sqlite")]
 impl ToSql for QsUserId {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.user_id.to_sql()
+        self.0.to_sql()
     }
 }
 
@@ -598,9 +597,7 @@ impl FromSql for QsUserId {
 
 impl From<Uuid> for QsUserId {
     fn from(value: Uuid) -> Self {
-        Self {
-            user_id: TlsUuid(value),
-        }
+        Self(TlsUuid(value))
     }
 }
 
@@ -610,7 +607,7 @@ impl QsUserId {
     }
 
     pub fn as_uuid(&self) -> &Uuid {
-        &self.user_id
+        &self.0
     }
 }
 

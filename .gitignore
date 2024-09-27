@@ -7,4 +7,4 @@ target
 .DS_Store
 Cargo.lock
 .vscode
-server/test_certs/
+backend/test_certs/

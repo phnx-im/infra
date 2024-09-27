@@ -6,12 +6,12 @@
 //! accessible only within the [`crate::crypto`] module. This
 //! module should stay private, such that the [`Secret`] struct can stay public
 //! and the type checker happy.
-use std::fmt::Display;
+use std::{fmt::Display, ops::Deref};
 
 use rand::{RngCore, SeedableRng};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
-use secrecy::Zeroize;
+use secrecy::{zeroize::ZeroizeOnDrop, CloneableSecret, DebugSecret, SerializableSecret, Zeroize};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -58,6 +58,8 @@ impl<const LENGTH: usize> Zeroize for Secret<LENGTH> {
     }
 }
 
+impl<const LENGTH: usize> ZeroizeOnDrop for Secret<LENGTH> {}
+
 // Ensures that secrets are not printed in debug outputs.
 impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -90,3 +92,47 @@ impl FromSql for Secret<32> {
         })
     }
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub(super) struct SecretBytes(Vec<u8>);
+
+impl From<Vec<u8>> for SecretBytes {
+    fn from(secret: Vec<u8>) -> Self {
+        Self(secret)
+    }
+}
+
+impl Deref for SecretBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Zeroize for SecretBytes {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for SecretBytes {}
+
+// Ensures that secrets are not printed in debug outputs.
+impl std::fmt::Debug for SecretBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Secret: [[REDACTED]]").finish()
+    }
+}
+
+// Ensures that secrets are not printed in format strings.
+impl Display for SecretBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[[REDACTED]]")
+    }
+}
+
+impl SerializableSecret for SecretBytes {}
+impl CloneableSecret for SecretBytes {}
+impl DebugSecret for SecretBytes {}

@@ -6,8 +6,8 @@
 
 pub mod configurations;
 pub mod endpoints;
+pub mod enqueue_provider;
 pub mod network_provider;
-pub mod storage_provider;
 pub mod telemetry;
 
 use endpoints::{ds::*, qs::ws::DispatchWebsocketNotifier};
@@ -20,10 +20,7 @@ use actix_web::{
 use phnxbackend::{
     auth_service::AuthService,
     ds::Ds,
-    qs::{
-        errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-        storage_provider_trait::QsStorageProvider, QsConnector,
-    },
+    qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
 };
 use phnxtypes::{
     endpoint_paths::{
@@ -32,7 +29,7 @@ use phnxtypes::{
     },
     errors::qs::QsVerifyingKeyError,
 };
-use std::{net::TcpListener, sync::Arc};
+use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
 use crate::endpoints::{
@@ -44,14 +41,13 @@ use crate::endpoints::{
 /// Configure and run the server application.
 #[allow(clippy::too_many_arguments)]
 pub fn run<
-    Qsp: QsStorageProvider,
-    Qc: QsConnector<EnqueueError = QsEnqueueError<Qsp, Np>, VerifyingKeyError = QsVerifyingKeyError>,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>, VerifyingKeyError = QsVerifyingKeyError>,
     Np: NetworkProvider,
 >(
     listener: TcpListener,
     ds: Ds,
     auth_service: AuthService,
-    qs_storage_provider: Arc<Qsp>,
+    qs: Qs,
     qs_connector: Qc,
     network_provider: Np,
     ws_dispatch_notifier: DispatchWebsocketNotifier,
@@ -59,7 +55,7 @@ pub fn run<
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds);
     let auth_service_data = Data::new(auth_service);
-    let qs_storage_provider_data = Data::new(qs_storage_provider);
+    let qs_data = Data::new(qs);
     let qs_connector_data = Data::new(qs_connector);
     let network_provider_data = Data::new(network_provider);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
@@ -83,18 +79,18 @@ pub fn run<
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_data.clone())
             .app_data(auth_service_data.clone())
-            .app_data(qs_storage_provider_data.clone())
+            .app_data(qs_data.clone())
             .app_data(qs_connector_data.clone())
             .app_data(network_provider_data.clone())
             .app_data(ws_dispatch_notifier_data.clone())
             // DS enpoint
             .route(ENDPOINT_DS_GROUPS, web::post().to(ds_process_message::<Qc>))
             // QS endpoint
-            .route(ENDPOINT_QS, web::post().to(qs_process_message::<Qsp>))
+            .route(ENDPOINT_QS, web::post().to(qs_process_message))
             // QS federationendpoint
             .route(
                 ENDPOINT_QS_FEDERATION,
-                web::post().to(qs_process_federated_message::<Qc, Qsp, Np>),
+                web::post().to(qs_process_federated_message::<Qc, Np>),
             )
             // QS endpoint
             .route(ENDPOINT_AS, web::post().to(as_process_message))

@@ -8,12 +8,12 @@ use mls_assist::{
 };
 use thiserror::Error;
 
-use super::{private_keys::PrivateKey, DEFAULT_SIGNATURE_SCHEME};
+use super::{private_keys::VerifyingKey, DEFAULT_SIGNATURE_SCHEME};
 use crate::LibraryError;
 
 use super::signable::Signature;
 
-pub trait SigningKey: AsRef<PrivateKey> {
+pub trait SigningKeyBehaviour: AsRef<super::private_keys::SigningKey> {
     /// Sign the given payload with this signing key.
     fn sign(&self, payload: &[u8]) -> Result<Signature, LibraryError> {
         let rust_crypto = OpenMlsRustCrypto::default();
@@ -42,7 +42,7 @@ pub enum SignatureVerificationError {
 
 pub const SIGNATURE_PUBLIC_KEY_SIZE: usize = 32;
 
-pub trait VerifyingKey: AsRef<[u8]> + std::fmt::Debug {
+pub trait VerifyingKeyBehaviour: AsRef<VerifyingKey> + std::fmt::Debug {
     /// Verify the given signature with the given payload. Returns an error if the
     /// verification fails or if the signature does not have the right length.
     fn verify(
@@ -56,7 +56,7 @@ pub trait VerifyingKey: AsRef<[u8]> + std::fmt::Debug {
             .verify_signature(
                 DEFAULT_SIGNATURE_SCHEME,
                 payload,
-                self.as_ref(),
+                self.as_ref().as_slice(),
                 signature.as_slice(),
             )
             .map_err(|_| SignatureVerificationError::VerificationFailure)

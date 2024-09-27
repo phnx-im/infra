@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT signing_key as \"sk: _\" FROM qs_signing_key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sk: _",
+        "type_info": {
+          "Custom": {
+            "name": "signing_key_data",
+            "kind": {
+              "Composite": [
+                [
+                  "signing_key",
+                  "Bytea"
+                ],
+                [
+                  "verifying_key",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0b41514241dbb628b83de78b07490de2f36ecb0cc4aa86d27236846148f4f336"
+}

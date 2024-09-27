@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH user_info AS (\n                    -- Step 1: Fetch the user_id based on the friendship token.\n                    SELECT user_id FROM qs_user_records WHERE friendship_token = $1\n                ),\n\n                client_ids AS (\n                    -- Step 2: Retrieve client IDs for the user from the `user_info`.\n                    SELECT client_id FROM qs_client_records WHERE user_id = (SELECT user_id FROM user_info)\n                ),\n\n                ranked_packages AS (\n                    -- Step 3: Rank key packages for each client.\n                    SELECT p.id, p.encrypted_add_package, p.is_last_resort,\n                           ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY p.is_last_resort ASC) AS rn\n                    FROM key_packages p\n                    INNER JOIN client_ids c ON p.client_id = c.client_id\n                ),\n\n                selected_add_packages AS (\n                    -- Step 4: Select the best-ranked package per client (rn = 1), skipping locked rows.\n                    SELECT id, encrypted_add_package, is_last_resort\n                    FROM ranked_packages\n                    WHERE rn = 1\n                    FOR UPDATE SKIP LOCKED\n                ),\n\n                deleted_packages AS (\n                    -- Step 5: Delete the selected packages that are not marked as last_resort.\n                    DELETE FROM key_packages\n                    WHERE id IN (SELECT id FROM selected_add_packages WHERE is_last_resort = FALSE)\n                    RETURNING encrypted_add_package\n                )\n\n                -- Step 6: Return the encrypted_add_package from the selected packages.\n                SELECT encrypted_add_package as \"eap: _\" FROM selected_add_packages",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "eap: _",
+        "type_info": {
+          "Custom": {
+            "name": "aead_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  "Bytea"
+                ],
+                [
+                  "nonce",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "20c06b30d2ffc0e73742524e7c8409fcedb7d90f6cb8ea988d22c58a02dd216b"
+}

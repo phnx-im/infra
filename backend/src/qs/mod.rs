@@ -61,32 +61,76 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
+use client_id_decryption_key::StorableClientIdDecryptionKey;
 use phnxtypes::{
-    crypto::{
-        errors::RandomnessError,
-        signatures::{
-            keys::QsVerifyingKey,
-            private_keys::{generate_signature_keypair, PrivateKey},
-            traits::SigningKey,
-        },
-    },
+    crypto::signatures::keys::QsVerifyingKey,
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
 use async_trait::*;
-use serde::{Deserialize, Serialize};
+use signing_key::StorableQsSigningKey;
+use sqlx::PgPool;
+use thiserror::Error;
 
-use crate::messages::intra_backend::DsFanOutMessage;
+use crate::{
+    messages::intra_backend::DsFanOutMessage,
+    persistence::{InfraService, ServiceCreationError, StorageError},
+};
 
+mod add_package;
 pub mod client_api;
-pub mod client_record;
+mod client_id_decryption_key;
+mod client_record;
 pub mod ds_api;
 pub mod errors;
 pub mod network_provider_trait;
 pub mod qs_api;
-pub mod storage_provider_trait;
-pub mod user_record;
+mod queue;
+mod signing_key;
+mod user_record;
+
+#[derive(Debug, Clone)]
+pub struct Qs {
+    domain: Fqdn,
+    db_pool: PgPool,
+}
+
+#[derive(Debug, Error)]
+pub enum QsCreationError {
+    #[error(transparent)]
+    Storage(#[from] StorageError),
+}
+
+impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
+    fn from(e: T) -> Self {
+        Self::Storage(StorageError::from(e.into()))
+    }
+}
+
+#[async_trait]
+impl InfraService for Qs {
+    async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
+        // Check if the requisite key material exists and if it doesn't, generate it.
+        let signing_key_exists = StorableQsSigningKey::load(&db_pool).await?.is_some();
+        if !signing_key_exists {
+            StorableQsSigningKey::generate_and_store(&db_pool)
+                .await
+                .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+        }
+
+        let decryption_key_exists = StorableClientIdDecryptionKey::load(&db_pool)
+            .await?
+            .is_some();
+        if !decryption_key_exists {
+            StorableClientIdDecryptionKey::generate_and_store(&db_pool)
+                .await
+                .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+        }
+
+        Ok(Self { domain, db_pool })
+    }
+}
 
 pub enum WsNotification {
     Event(DsEventMessage),
@@ -134,41 +178,3 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
     async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QsSigningKey {
-    signing_key: PrivateKey,
-    verifiying_key: QsVerifyingKey,
-}
-
-impl QsSigningKey {
-    pub fn generate() -> Result<Self, RandomnessError> {
-        let (signing_key, verifying_key) =
-            generate_signature_keypair().map_err(|_| RandomnessError::InsufficientRandomness)?;
-        let key = Self {
-            signing_key,
-            verifiying_key: QsVerifyingKey::new(verifying_key),
-        };
-        Ok(key)
-    }
-
-    pub fn verifying_key(&self) -> &QsVerifyingKey {
-        &self.verifiying_key
-    }
-}
-
-impl AsRef<PrivateKey> for QsSigningKey {
-    fn as_ref(&self) -> &PrivateKey {
-        &self.signing_key
-    }
-}
-
-impl SigningKey for QsSigningKey {}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QsConfig {
-    pub domain: Fqdn,
-}
-
-#[derive(Debug)]
-pub struct Qs {}

@@ -9,7 +9,7 @@
 pub mod keys;
 mod traits;
 
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 pub use traits::{
     EarDecryptable, EarEncryptable, EarKey, GenericDeserializable, GenericSerializable,
 };
@@ -29,15 +29,20 @@ const AEAD_NONCE_SIZE: usize = 12;
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "aead_ciphertext")
+)]
 pub struct Ciphertext {
-    ciphertext: VLBytes,
+    ciphertext: Vec<u8>,
     nonce: [u8; AEAD_NONCE_SIZE],
 }
 
 impl Default for Ciphertext {
     fn default() -> Self {
         Self {
-            ciphertext: VLBytes::new(vec![]),
+            ciphertext: vec![],
             nonce: [0u8; AEAD_NONCE_SIZE],
         }
     }
@@ -47,7 +52,7 @@ impl Default for Ciphertext {
 impl Ciphertext {
     pub fn dummy() -> Self {
         Self {
-            ciphertext: VLBytes::new(vec![1u8; 32]),
+            ciphertext: vec![1u8; 32],
             nonce: [1u8; AEAD_NONCE_SIZE],
         }
     }

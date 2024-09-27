@@ -9,15 +9,15 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
 use super::{
-    errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    storage_provider_trait::QsStorageProvider, Qs, QsConnector, QsVerifyingKey,
+    errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector,
+    QsVerifyingKey,
 };
 
 #[derive(Error, Debug)]
-pub enum FederatedProcessingError<S: QsStorageProvider, N: NetworkProvider> {
+pub enum FederatedProcessingError<N: NetworkProvider> {
     /// Error enqueueing message
     #[error(transparent)]
-    EnqueueError(#[from] QsEnqueueError<S, N>),
+    EnqueueError(#[from] QsEnqueueError<N>),
     /// Error getting verifying key
     #[error(transparent)]
     VerifyingKeyError(#[from] QsVerifyingKeyError),
@@ -33,14 +33,13 @@ pub enum FederatedProcessingResult {
 impl Qs {
     /// Process the QsToQsMessage.
     pub async fn process_federated_message<
-        Qc: QsConnector<EnqueueError = QsEnqueueError<S, N>, VerifyingKeyError = QsVerifyingKeyError>,
-        S: QsStorageProvider,
+        Qc: QsConnector<EnqueueError = QsEnqueueError<N>, VerifyingKeyError = QsVerifyingKeyError>,
         N: NetworkProvider,
     >(
+        &self,
         qs_connector: &Qc,
-        storage_provider: &S,
         message: QsToQsMessage,
-    ) -> Result<FederatedProcessingResult, FederatedProcessingError<S, N>> {
+    ) -> Result<FederatedProcessingResult, FederatedProcessingError<N>> {
         let QsToQsMessage {
             protocol_version: _,
             sender: _,
@@ -59,7 +58,7 @@ impl Qs {
                 FederatedProcessingResult::Ok
             }
             QsToQsPayload::VerificationKeyRequest => {
-                let verifying_key_response = Self::qs_verifying_key(storage_provider).await?;
+                let verifying_key_response = self.qs_verifying_key().await?;
                 FederatedProcessingResult::VerifyingKey(verifying_key_response.verifying_key)
             }
         };

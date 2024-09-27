@@ -4,30 +4,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    net::{SocketAddr, TcpListener},
-    sync::Arc,
-};
+use std::net::{SocketAddr, TcpListener};
 
 pub mod setup;
 
 use once_cell::sync::Lazy;
-use phnxbackend::{auth_service::AuthService, ds::Ds};
+use phnxbackend::{auth_service::AuthService, ds::Ds, persistence::InfraService, qs::Qs};
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::{
         push_notification_provider::ProductionPushNotificationProvider,
         ws::DispatchWebsocketNotifier,
     },
+    enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     run,
-    storage_provider::memory::qs_connector::MemoryEnqueueProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
 use uuid::Uuid;
-
-use phnxserver::storage_provider::postgres::qs::PostgresQsStorage;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -70,12 +65,16 @@ pub async fn spawn_app(
 
     // DS storage provider
     let ds = Ds::new(
-        domain.clone(),
         &configuration.database.connection_string_without_database(),
         &configuration.database.name,
+        domain.clone(),
     )
     .await
     .expect("Failed to connect to database.");
+
+    // New database name for the AS provider
+    configuration.database.name = Uuid::new_v4().to_string();
+
     let auth_service = AuthService::new(
         &configuration.database.connection_string_without_database(),
         &configuration.database.name,
@@ -86,19 +85,19 @@ pub async fn spawn_app(
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();
-    // QS storage provider
-    let qs_storage_provider = Arc::new(
-        PostgresQsStorage::new(&configuration.database, domain.clone())
-            .await
-            .expect("Failed to connect to database."),
-    );
 
-    // New database name for the AS provider
-    configuration.database.name = Uuid::new_v4().to_string();
+    let qs = Qs::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
+        domain.clone(),
+    )
+    .await
+    .expect("Failed to connect to database.");
+
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 
-    let qs_connector = MemoryEnqueueProvider {
-        storage: qs_storage_provider.clone(),
+    let qs_connector = SimpleEnqueueProvider {
+        qs: qs.clone(),
         notifier: ws_dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
@@ -109,7 +108,7 @@ pub async fn spawn_app(
         listener,
         ds,
         auth_service,
-        qs_storage_provider,
+        qs,
         qs_connector,
         network_provider,
         ws_dispatch_notifier.clone(),

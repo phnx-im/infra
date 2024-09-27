@@ -9,7 +9,7 @@ use phnxtypes::{
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
             signable::Signable,
-            traits::SigningKey,
+            traits::SigningKeyBehaviour,
         },
         RatchetEncryptionKey,
     },
@@ -58,14 +58,14 @@ pub enum QsRequestError {
 }
 
 // TODO: This is a workaround that allows us to use the Signable trait.
-enum AuthenticationMethod<'a, T: SigningKey> {
+enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
     Token(FriendshipToken),
     SigningKey(&'a T),
     None,
 }
 
 impl ApiClient {
-    async fn prepare_and_send_qs_message<'a, T: SigningKey>(
+    async fn prepare_and_send_qs_message<'a, T: SigningKeyBehaviour>(
         &self,
         request_params: QsRequestParamsOut,
         token_or_signing_key: AuthenticationMethod<'a, T>,

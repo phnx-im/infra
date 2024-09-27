@@ -10,14 +10,14 @@ use phnxtypes::{
     },
 };
 
-use crate::qs::{storage_provider_trait::QsStorageProvider, user_record::QsUserRecord, Qs};
+use crate::qs::{user_record::UserRecord, Qs};
 
 impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the
     /// owner of the queue.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_create_user_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_create_user_record(
+        &self,
         params: CreateUserRecordParams,
     ) -> Result<CreateUserRecordResponse, QsCreateUserError> {
         let CreateUserRecordParams {
@@ -29,38 +29,39 @@ impl Qs {
             initial_ratchet_secret,
         } = params;
 
-        let user_record = QsUserRecord::new(user_record_auth_key, friendship_token);
-
-        let user_id = storage_provider
-            .create_user(user_record)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                QsCreateUserError::StorageError
-            })?;
+        let user_record =
+            UserRecord::new_and_store(&self.db_pool, user_record_auth_key, friendship_token)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Error creating and storing new user record: {:?}", e);
+                    QsCreateUserError::StorageError
+                })?;
 
         let create_client_params = CreateClientRecordParams {
-            sender: user_id.clone(),
+            sender: user_record.user_id.clone(),
             client_record_auth_key,
             queue_encryption_key,
             encrypted_push_token,
             initial_ratchet_secret,
         };
 
-        let CreateClientRecordResponse { client_id } =
-            Self::qs_create_client_record(storage_provider, create_client_params)
-                .await
-                .map_err(|_| QsCreateUserError::StorageError)?;
+        let CreateClientRecordResponse { client_id } = self
+            .qs_create_client_record(create_client_params)
+            .await
+            .map_err(|_| QsCreateUserError::StorageError)?;
 
-        let response = CreateUserRecordResponse { user_id, client_id };
+        let response = CreateUserRecordResponse {
+            user_id: user_record.user_id,
+            client_id,
+        };
 
         Ok(response)
     }
 
     /// Update a user record.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_update_user_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_update_user_record(
+        &self,
         params: UpdateUserRecordParams,
     ) -> Result<(), QsUpdateUserError> {
         let UpdateUserRecordParams {
@@ -69,32 +70,47 @@ impl Qs {
             friendship_token,
         } = params;
 
-        let mut user_record = storage_provider
-            .load_user(&sender)
+        let mut transaction = self.db_pool.begin().await.map_err(|e| {
+            tracing::error!("Error starting transaction: {:?}", e);
+            QsUpdateUserError::StorageError
+        })?;
+        let mut user_record = UserRecord::load(&mut *transaction, &sender)
             .await
-            .ok_or(QsUpdateUserError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error loading user record: {:?}", e);
+                QsUpdateUserError::StorageError
+            })?
+            .ok_or(QsUpdateUserError::UnknownUser)?;
 
-        user_record.update(user_record_auth_key, friendship_token);
+        user_record.friendship_token = friendship_token;
+        user_record.verifying_key = user_record_auth_key;
 
-        storage_provider
-            .store_user(&sender, user_record)
-            .await
-            .map_err(|_| QsUpdateUserError::StorageError)?;
+        user_record.update(&mut *transaction).await.map_err(|e| {
+            tracing::error!("Error updating user record: {:?}", e);
+            QsUpdateUserError::StorageError
+        })?;
+
+        transaction.commit().await.map_err(|e| {
+            tracing::error!("Error committing transaction: {:?}", e);
+            QsUpdateUserError::StorageError
+        })?;
         Ok(())
     }
 
     /// Delete a user record.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_delete_user_record<S: QsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn qs_delete_user_record(
+        &self,
         params: DeleteUserRecordParams,
     ) -> Result<(), QsDeleteUserError> {
         let DeleteUserRecordParams { sender } = params;
 
-        storage_provider
-            .delete_user(&sender)
+        UserRecord::delete(&self.db_pool, sender)
             .await
-            .map_err(|_| QsDeleteUserError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error deleting user record: {:?}", e);
+                QsDeleteUserError::StorageError
+            })?;
 
         Ok(())
     }
