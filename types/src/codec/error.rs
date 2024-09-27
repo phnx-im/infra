@@ -27,3 +27,17 @@ impl std::fmt::Display for CodecError {
         write!(f, "{:?}: {}", self.codec_version, self.error)
     }
 }
+
+#[cfg(feature = "sqlite")]
+impl From<Error> for rusqlite::types::FromSqlError {
+    fn from(e: Error) -> Self {
+        rusqlite::types::FromSqlError::Other(Box::new(e))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl From<Error> for rusqlite::Error {
+    fn from(e: Error) -> Self {
+        rusqlite::Error::ToSqlConversionFailure(e.into())
+    }
+}

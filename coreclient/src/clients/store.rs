@@ -2,24 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{
-    groups::{
-        client_auth_info::{GroupMembership, StorableClientCredential},
-        openmls_provider::{
-            StorableEncryptionKeyPair, StorableEpochKeyPairs, StorableGroupData,
-            StorableKeyPackage, StorableLeafNode, StorableProposal, StorablePskBundle,
-            StorableSignatureKeyPairs,
-        },
-        persistence::StorableGroup,
-    },
-    key_stores::{
-        leaf_keys::LeafKeys, qs_verifying_keys::StorableQsVerifyingKey,
-        queue_ratchets::StorableAsQueueRatchet,
-    },
-    utils::persistence::{Storable, Triggerable},
-};
 use anyhow::bail;
-use own_client_info::OwnClientInfo;
 use phnxtypes::messages::push_token::PushToken;
 
 use super::{
@@ -30,8 +13,10 @@ use super::{
     *,
 };
 
+/// WARNING: This enum is stored in sqlite as a blob. If any changes are made to
+/// this enum, a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
-pub(super) enum UserCreationState {
+pub(crate) enum UserCreationState {
     BasicUserData(BasicUserData),
     InitialUserState(InitialUserState),
     PostRegistrationInitState(PostRegistrationInitState),
@@ -205,47 +190,4 @@ impl ClientRecord {
     pub(super) fn finish(&mut self) {
         self.client_record_state = ClientRecordState::Finished;
     }
-}
-
-/// Create all tables for a client database by calling the `create_table`
-/// function of all structs that implement `Persistable`.
-pub(crate) fn create_all_tables(client_db_connection: &Connection) -> Result<(), rusqlite::Error> {
-    <UserCreationState as Storable>::create_table(client_db_connection)?;
-    <OwnClientInfo as Storable>::create_table(client_db_connection)?;
-    <UserProfile as Storable>::create_table(client_db_connection)?;
-    <StorableGroup as Storable>::create_table(client_db_connection)?;
-    <StorableClientCredential as Storable>::create_table(client_db_connection)?;
-    <GroupMembership as Storable>::create_table(client_db_connection)?;
-    <Contact as Storable>::create_table(client_db_connection)?;
-    <PartialContact as Storable>::create_table(client_db_connection)?;
-    <Conversation as Storable>::create_table(client_db_connection)?;
-    <ConversationMessage as Storable>::create_table(client_db_connection)?;
-    <AsCredentials as Storable>::create_table(client_db_connection)?;
-    <LeafKeys as Storable>::create_table(client_db_connection)?;
-    <StorableQsVerifyingKey as Storable>::create_table(client_db_connection)?;
-    // The table for queue ratchets contains both the AsQueueRatchet and the
-    // QsQueueRatchet.
-    <StorableAsQueueRatchet as Storable>::create_table(client_db_connection)?;
-
-    // OpenMLS provider data
-    <StorableGroupData<u8> as Storable>::create_table(client_db_connection)?;
-    <StorableLeafNode<u8> as Storable>::create_table(client_db_connection)?;
-    <StorableProposal<u8, u8> as Storable>::create_table(client_db_connection)?;
-    <StorableSignatureKeyPairs<u8> as Storable>::create_table(client_db_connection)?;
-    <StorableEpochKeyPairs<u8> as Storable>::create_table(client_db_connection)?;
-    <StorableEncryptionKeyPair<u8> as Storable>::create_table(client_db_connection)?;
-    <StorableKeyPackage<u8> as Storable>::create_table(client_db_connection)?;
-    <StorablePskBundle<u8> as Storable>::create_table(client_db_connection)?;
-
-    Ok(())
-}
-
-pub(crate) fn create_all_triggers(
-    client_db_connection: &Connection,
-) -> Result<(), rusqlite::Error> {
-    <GroupMembership as Triggerable>::create_trigger(client_db_connection)?;
-    <Contact as Triggerable>::create_trigger(client_db_connection)?;
-    <PartialContact as Triggerable>::create_trigger(client_db_connection)?;
-
-    Ok(())
 }

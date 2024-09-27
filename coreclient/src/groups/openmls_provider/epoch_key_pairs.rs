@@ -18,7 +18,7 @@ impl<EpochKeyPairs: Entity<CURRENT_VERSION>> Storable for StorableEpochKeyPairs<
         leaf_index INTEGER NOT NULL,
         key_pairs BLOB NOT NULL,
         PRIMARY KEY (group_id, epoch_id, leaf_index)
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityVecWrapper(key_pairs) = row.get(0)?;

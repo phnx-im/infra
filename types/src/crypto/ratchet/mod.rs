@@ -3,11 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use errors::{DecryptionError, EncryptionError};
-#[cfg(feature = "sqlite")]
-use rusqlite::ToSql;
-
-#[cfg(feature = "sqlite")]
-use crate::codec::PhnxCodec;
+use serde::de::DeserializeOwned;
 
 use super::{errors::RandomnessError, *};
 
@@ -24,8 +20,13 @@ impl<Ciphertext: RatchetCiphertext, T> RatchetPayload<Ciphertext> for T where
     T: EarEncryptable<RatchetKey, Ciphertext> + EarDecryptable<RatchetKey, Ciphertext>
 {
 }
-impl<T> RatchetCiphertext for T where T: AsRef<Ciphertext> + From<Ciphertext> {}
+impl<T> RatchetCiphertext for T where
+    T: AsRef<Ciphertext> + From<Ciphertext> + Serialize + DeserializeOwned
+{
+}
 
+// WARNING: If this struct is changed its implementation of ToSql and FromSql in the sqlite module
+// must be updated and a new `QueueRatchetVersion` introduced.
 #[derive(
     Serialize, PartialEq, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
@@ -34,30 +35,6 @@ pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<C
     secret: RatchetSecret,
     key: RatchetKey,
     _phantom: PhantomData<(Ciphertext, Payload)>,
-}
-
-#[cfg(feature = "sqlite")]
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> ToSql
-    for QueueRatchet<Ciphertext, Payload>
-{
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> rusqlite::types::FromSql
-    for QueueRatchet<Ciphertext, Payload>
-{
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let bytes = value.as_blob()?;
-        PhnxCodec::from_slice(bytes).map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
-    }
 }
 
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom<RatchetSecret>
@@ -141,5 +118,51 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 
     pub fn key(&self) -> &RatchetKey {
         &self.key
+    }
+}
+
+#[cfg(feature = "sqlite")]
+mod sqlite {
+
+    use rusqlite::ToSql;
+
+    use crate::codec::PhnxCodec;
+
+    use super::*;
+
+    // When adding a variant to this enum, the new variant must be called
+    // `CurrentVersion` and the current version must be renamed to `VX`, where `X`
+    // is the next version number. The content type of the old `CurrentVersion` must
+    // be renamed and otherwise preserved to ensure backwards compatibility.
+    #[derive(Serialize, Deserialize)]
+    enum VersionedQueueRatchet {
+        CurrentVersion(Vec<u8>),
+    }
+
+    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> ToSql
+        for QueueRatchet<Ciphertext, Payload>
+    {
+        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+            let ratchet_bytes = PhnxCodec::to_vec(self)?;
+            let versioned_ratchet_bytes =
+                PhnxCodec::to_vec(&VersionedQueueRatchet::CurrentVersion(ratchet_bytes))?;
+            Ok(rusqlite::types::ToSqlOutput::Owned(
+                rusqlite::types::Value::Blob(versioned_ratchet_bytes),
+            ))
+        }
+    }
+
+    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
+        rusqlite::types::FromSql for QueueRatchet<Ciphertext, Payload>
+    {
+        fn column_result(
+            value: rusqlite::types::ValueRef<'_>,
+        ) -> rusqlite::types::FromSqlResult<Self> {
+            let bytes = value.as_blob()?;
+            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
+                PhnxCodec::from_slice(bytes)?;
+            let ratchet = PhnxCodec::from_slice(&ratchet_bytes)?;
+            Ok(ratchet)
+        }
     }
 }

@@ -19,7 +19,7 @@ impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> Storable
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS encryption_keys (
         public_key BLOB PRIMARY KEY,
         key_pair BLOB NOT NULL
-    )";
+    );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let EntityWrapper(encryption_key_pair) = row.get(0)?;

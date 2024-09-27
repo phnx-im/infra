@@ -10,10 +10,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 #[cfg(feature = "sqlite")]
-use rusqlite::{
-    types::{FromSql, FromSqlError},
-    ToSql,
-};
+use rusqlite::{types::FromSql, ToSql};
 
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -148,8 +145,8 @@ impl ToSql for AsCredentialBody {
 #[cfg(feature = "sqlite")]
 impl FromSql for AsCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        PhnxCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        let body = PhnxCodec::from_slice(value.as_blob()?)?;
+        Ok(body)
     }
 }
 
@@ -304,8 +301,8 @@ impl ToSql for AsIntermediateCredentialBody {
 #[cfg(feature = "sqlite")]
 impl FromSql for AsIntermediateCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        PhnxCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        let body = PhnxCodec::from_slice(value.as_blob()?)?;
+        Ok(body)
     }
 }
 
@@ -409,6 +406,9 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
 const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
 const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 
+// WARNING: If this type is changed, a new variant of the
+// VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
+// implementations of `ClientCredential` must be updated accordingly.
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialCsr {
     version: MlsInfraVersion,
@@ -440,6 +440,9 @@ impl ClientCredentialCsr {
     }
 }
 
+// WARNING: If this type is changed, a new variant of the
+// VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
+// implementations of `ClientCredential` must be updated accordingly.
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialPayload {
     csr: ClientCredentialCsr,
@@ -494,6 +497,9 @@ impl ClientCredentialPayload {
     }
 }
 
+// WARNING: If this type is changed, a new variant of the
+// VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
+// implementations of `ClientCredential` must be updated accordingly.
 #[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
@@ -518,23 +524,43 @@ impl ClientCredential {
     }
 }
 
+// When adding a variant to this enum, the new variant must be called
+// `CurrentVersion` and the current version must be renamed to `VX`, where `X`
+// is the next version number. The content type of the old `CurrentVersion` must
+// be renamed and otherwise preserved to ensure backwards compatibility.
 #[cfg(feature = "sqlite")]
-impl ToSql for ClientCredential {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
-    }
+#[derive(Serialize, Deserialize)]
+enum VersionedClientCredential {
+    CurrentVersion(ClientCredential),
 }
 
 #[cfg(feature = "sqlite")]
 impl FromSql for ClientCredential {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        PhnxCodec::from_slice(value).map_err(|e| FromSqlError::Other(Box::new(e)))
+        let versioned_credential = PhnxCodec::from_slice(value)?;
+        match versioned_credential {
+            VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
+        }
+    }
+}
+
+// Only change this enum in tandem with its non-Ref variant.
+#[cfg(feature = "sqlite")]
+#[derive(Serialize)]
+enum VersionedClientCredentialRef<'a> {
+    CurrentVersion(&'a ClientCredential),
+}
+
+#[cfg(feature = "sqlite")]
+impl ToSql for ClientCredential {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(rusqlite::types::ToSqlOutput::Owned(
+            rusqlite::types::Value::Blob(
+                PhnxCodec::to_vec(&VersionedClientCredentialRef::CurrentVersion(self))
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            ),
+        ))
     }
 }
 

@@ -186,10 +186,7 @@ pub struct InfraCredentialSigningKey {
 #[cfg(feature = "sqlite")]
 impl ToSql for InfraCredentialSigningKey {
     fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
-        let bytes = PhnxCodec::to_vec(self).map_err(|e| {
-            tracing::error!("Error serializing InfraCredentialSigningKey: {:?}", e);
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let bytes = PhnxCodec::to_vec(self)?;
         Ok(ToSqlOutput::from(bytes))
     }
 }
@@ -197,11 +194,8 @@ impl ToSql for InfraCredentialSigningKey {
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::FromSql for InfraCredentialSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let bytes = value.as_blob()?;
-        PhnxCodec::from_slice(bytes).map_err(|e| {
-            tracing::error!("Error deserializing InfraCredentialSigningKey: {:?}", e);
-            rusqlite::types::FromSqlError::Other(Box::new(e))
-        })
+        let key = PhnxCodec::from_slice(value.as_blob()?)?;
+        Ok(key)
     }
 }
 

@@ -61,7 +61,10 @@ use crate::{
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     user_profiles::UserProfile,
-    utils::persistence::{open_client_db, open_phnx_db},
+    utils::{
+        migration::run_migrations,
+        persistence::{open_client_db, open_phnx_db},
+    },
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -70,10 +73,7 @@ use crate::{
 use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
 use crate::{mimi_content::MimiContent, CorelibError};
 use crate::{
-    utils::{
-        persistence::{SqliteConnection, Storable},
-        set_up_database,
-    },
+    utils::persistence::{SqliteConnection, Storable},
     Message,
 };
 
@@ -149,7 +149,7 @@ impl CoreUser {
         let mut client_db_connection = client_db_connection_mutex.lock().await;
         let phnx_db_connection = phnx_db_connection_mutex.lock().await;
 
-        set_up_database(&mut client_db_connection)?;
+        run_migrations(&mut client_db_connection)?;
 
         let user_creation_state = UserCreationState::new(
             &client_db_connection,
@@ -223,7 +223,7 @@ impl CoreUser {
 
         let mut client_db_connection = open_client_db(&as_client_id, db_path)?;
 
-        set_up_database(&mut client_db_connection)?;
+        run_migrations(&mut client_db_connection)?;
 
         let Some(user_creation_state) =
             UserCreationState::load(&client_db_connection, &as_client_id)?
