@@ -11,9 +11,8 @@ use uuid::Uuid;
 use super::{Fqdn, UserName};
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 #[serde(transparent)]
-#[cfg_attr(feature = "sqlx", sqlx(transparent))]
 pub(super) struct TlsUuid(pub Uuid);
 
 impl Deref for TlsUuid {
@@ -64,9 +63,8 @@ impl Serialize for TlsStr<'_> {
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 #[serde(transparent)]
-#[cfg_attr(feature = "sqlx", sqlx(transparent, type_name = "TEXT"))]
 pub(super) struct TlsString(pub String);
 
 impl std::fmt::Display for TlsString {

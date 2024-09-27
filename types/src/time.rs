@@ -149,6 +149,7 @@ mod timestamp_conversion {
 }
 
 #[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "expiration"))]
 pub struct ExpirationData {
     not_before: TimeStamp,
     not_after: TimeStamp,

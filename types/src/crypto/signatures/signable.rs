@@ -34,6 +34,8 @@
 //! Similarly, only the [`Verifiable`] struct should implement the
 //! [`tls_codec::Deserialize`] trait.
 
+use std::vec;
+
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -46,33 +48,28 @@ use crate::{
 use super::traits::{SignatureVerificationError, SigningKeyBehaviour, VerifyingKeyBehaviour};
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-pub struct Signature {
-    signature: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct Signature(Vec<u8>);
 
 impl Signature {
     pub fn empty() -> Self {
-        Self {
-            signature: Vec::new(),
-        }
+        Self(vec![])
     }
 
     pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.signature
+        &self.0
     }
 
     pub(super) fn from_bytes(bytes: Vec<u8>) -> Self {
-        Self { signature: bytes }
+        Self(bytes)
     }
 
     pub(crate) fn from_token(token: FriendshipToken) -> Self {
-        Self {
-            signature: token.token().to_vec(),
-        }
+        Self(token.token().to_vec())
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.signature
+        self.0
     }
 }
 

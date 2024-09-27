@@ -56,7 +56,10 @@ impl ClientRecord {
 }
 
 mod persistence {
-    use phnxtypes::{codec::PhnxCodec, identifiers::QualifiedUserName};
+    use phnxtypes::{
+        codec::PhnxCodec, credentials::persistence::FlatClientCredential,
+        identifiers::QualifiedUserName,
+    };
     use sqlx::{
         types::chrono::{DateTime, Utc},
         PgExecutor,
@@ -72,16 +75,16 @@ mod persistence {
             let queue_encryption_key_bytes = PhnxCodec::to_vec(&self.queue_encryption_key)?;
             let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = PhnxCodec::to_vec(&self.credential)?;
+            let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, client_credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
                 client_id.user_name().to_string(),
                 queue_encryption_key_bytes,
                 ratchet,
                 activity_time,
-                client_credential,
+                client_credential as FlatClientCredential,
                 self.token_allowance,
             )
             .execute(connection)
@@ -96,14 +99,14 @@ mod persistence {
             let queue_encryption_key_bytes = PhnxCodec::to_vec(&self.queue_encryption_key)?;
             let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = PhnxCodec::to_vec(&self.credential)?;
+            let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, client_credential = $4, remaining_tokens = $5 WHERE client_id = $6",
+                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, credential = $4, remaining_tokens = $5 WHERE client_id = $6",
                 queue_encryption_key_bytes,
                 ratchet,
                 activity_time,
-                client_credential,
+                client_credential as FlatClientCredential,
                 self.token_allowance,
                 client_id.client_id(),
             )
@@ -117,13 +120,13 @@ mod persistence {
             client_id: &AsClientId,
         ) -> Result<Option<ClientRecord>, StorageError> {
             sqlx::query!(
-                "SELECT
+                r#"SELECT
                     queue_encryption_key,
                     ratchet,
                     activity_time,
-                    client_credential,
+                    credential as "client_credential: FlatClientCredential",
                     remaining_tokens
-                FROM as_client_records WHERE client_id = $1",
+                FROM as_client_records WHERE client_id = $1"#,
                 client_id.client_id(),
             )
             .fetch_optional(connection)
@@ -132,12 +135,12 @@ mod persistence {
                 let queue_encryption_key = PhnxCodec::from_slice(&record.queue_encryption_key)?;
                 let ratchet = PhnxCodec::from_slice(&record.ratchet)?;
                 let activity_time = record.activity_time.into();
-                let client_credential = PhnxCodec::from_slice(&record.client_credential)?;
+                //let client_credential = PhnxCodec::from_slice(&record.client_credential)?;
                 Ok(ClientRecord {
                     queue_encryption_key,
                     ratchet_key: ratchet,
                     activity_time,
-                    credential: client_credential,
+                    credential: record.client_credential.into(),
                     token_allowance: record.remaining_tokens,
                 })
             })
@@ -162,19 +165,16 @@ mod persistence {
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,
         ) -> Result<Vec<ClientCredential>, StorageError> {
-            let client_records = sqlx::query!(
-                "SELECT client_credential FROM as_client_records WHERE user_name = $1",
+            sqlx::query_scalar!(
+                r#"SELECT credential as "client_credential: FlatClientCredential" FROM as_client_records WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_all(connection)
-            .await?;
-            client_records
-                .into_iter()
-                .map(|record| {
-                    let client_credential = PhnxCodec::from_slice(&record.client_credential)?;
+            .await?.into_iter()
+                .map(|flat_credential| {
+                    let client_credential = flat_credential.into();
                     Ok(client_credential)
-                })
-                .collect()
+                }).collect()
         }
     }
 }

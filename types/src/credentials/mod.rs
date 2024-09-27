@@ -57,13 +57,12 @@ use self::keys::ClientVerifyingKey;
     Serialize,
     Deserialize,
 )]
-pub struct CredentialFingerprint {
-    value: Vec<u8>,
-}
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct CredentialFingerprint(Vec<u8>);
 
 impl std::fmt::Display for CredentialFingerprint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let fp = hex::encode(&self.value);
+        let fp = hex::encode(&self.0);
         write!(f, "{}", fp)
     }
 }
@@ -78,11 +77,11 @@ impl CredentialFingerprint {
             .crypto()
             .hash(HashType::Sha2_256, &input)
             .unwrap_or_default();
-        Self { value }
+        Self(value)
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.value
+        &self.0
     }
 }
 
@@ -90,7 +89,7 @@ impl CredentialFingerprint {
 impl ToSql for CredentialFingerprint {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.value),
+            rusqlite::types::ValueRef::Blob(&self.0),
         ))
     }
 }
@@ -99,9 +98,7 @@ impl ToSql for CredentialFingerprint {
 impl FromSql for CredentialFingerprint {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_blob()?;
-        Ok(Self {
-            value: value.to_vec(),
-        })
+        Ok(Self(value.to_vec()))
     }
 }
 
@@ -638,5 +635,63 @@ impl From<Ciphertext> for EncryptedClientCredential {
 impl AsRef<Ciphertext> for EncryptedClientCredential {
     fn as_ref(&self) -> &Ciphertext {
         &self.encrypted_client_credential
+    }
+}
+
+#[cfg(feature = "sqlx")]
+pub mod persistence {
+    use crate::{
+        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,
+        time::ExpirationData,
+    };
+
+    use super::{
+        keys::ClientVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        CredentialFingerprint,
+    };
+
+    #[derive(Debug, sqlx::Type)]
+    #[sqlx(type_name = "client_credential")]
+    pub struct FlatClientCredential {
+        version: Vec<u8>,
+        client_id: AsClientId,
+        signature_scheme: Vec<u8>,
+        verifying_key: ClientVerifyingKey,
+        expiration_data: ExpirationData,
+        signer_fingerprint: CredentialFingerprint,
+        signature: Signature,
+    }
+
+    impl From<ClientCredential> for FlatClientCredential {
+        fn from(credential: ClientCredential) -> Self {
+            Self {
+                version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
+                client_id: credential.payload.csr.client_id.clone(),
+                signature_scheme: PhnxCodec::to_vec(&credential.payload.csr.signature_scheme)
+                    .unwrap(),
+                verifying_key: credential.payload.csr.verifying_key.clone(),
+                expiration_data: credential.payload.expiration_data.clone(),
+                signer_fingerprint: credential.payload.signer_fingerprint.clone(),
+                signature: credential.signature.clone(),
+            }
+        }
+    }
+
+    impl From<FlatClientCredential> for ClientCredential {
+        fn from(flat_credential: FlatClientCredential) -> Self {
+            let payload = ClientCredentialPayload {
+                csr: ClientCredentialCsr {
+                    version: PhnxCodec::from_slice(&flat_credential.version).unwrap(),
+                    client_id: flat_credential.client_id,
+                    signature_scheme: PhnxCodec::from_slice(&flat_credential.signature_scheme)
+                        .unwrap(),
+                    verifying_key: flat_credential.verifying_key,
+                },
+                expiration_data: flat_credential.expiration_data,
+                signer_fingerprint: flat_credential.signer_fingerprint,
+            };
+            let signature = flat_credential.signature;
+            Self { payload, signature }
+        }
     }
 }

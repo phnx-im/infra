@@ -39,7 +39,7 @@ pub struct Fqdn {
 #[cfg(feature = "sqlx")]
 impl sqlx::Type<sqlx::Postgres> for Fqdn {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("TEXT")
+        String::type_info()
     }
 }
 
@@ -224,12 +224,7 @@ impl TryFrom<&str> for QualifiedGroupId {
 }
 
 #[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(transparent, type_name = "TEXT")
-)]
-#[serde(transparent)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct UserName(TlsString);
 
 impl std::fmt::Display for UserName {
@@ -271,7 +266,11 @@ impl TryFrom<String> for UserName {
     Serialize,
     Deserialize,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "qualified_user_name")
+)]
 pub struct QualifiedUserName {
     user_name: UserName,
     domain: Fqdn,
@@ -387,7 +386,7 @@ impl std::fmt::Display for QualifiedUserName {
     TlsSerialize,
     TlsDeserializeBytes,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "as_client_id"))]
 pub struct AsClientId {
     user_name: QualifiedUserName,
     client_id: TlsUuid,
