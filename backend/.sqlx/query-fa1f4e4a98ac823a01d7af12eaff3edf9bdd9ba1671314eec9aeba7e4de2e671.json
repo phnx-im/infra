@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, credential = $4, remaining_tokens = $5 WHERE client_id = $6",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Timestamptz",
+        {
+          "Custom": {
+            "name": "client_credential",
+            "kind": {
+              "Composite": [
+                [
+                  "version",
+                  "Bytea"
+                ],
+                [
+                  "client_id",
+                  {
+                    "Custom": {
+                      "name": "as_client_id",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "user_name",
+                            {
+                              "Custom": {
+                                "name": "qualified_user_name",
+                                "kind": {
+                                  "Composite": [
+                                    [
+                                      "user_name",
+                                      "Text"
+                                    ],
+                                    [
+                                      "domain",
+                                      "Text"
+                                    ]
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          [
+                            "client_id",
+                            "Uuid"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "signature_scheme",
+                  "Bytea"
+                ],
+                [
+                  "verifying_key",
+                  "Bytea"
+                ],
+                [
+                  "expiration_data",
+                  {
+                    "Custom": {
+                      "name": "expiration",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "not_before",
+                            "Timestamptz"
+                          ],
+                          [
+                            "not_after",
+                            "Timestamptz"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "signer_fingerprint",
+                  "Bytea"
+                ],
+                [
+                  "signature",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa1f4e4a98ac823a01d7af12eaff3edf9bdd9ba1671314eec9aeba7e4de2e671"
+}

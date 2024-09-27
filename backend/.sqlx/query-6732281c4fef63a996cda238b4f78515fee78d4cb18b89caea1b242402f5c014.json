@@ -5,7 +5,23 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea"
+        {
+          "Custom": {
+            "name": "decryption_key_data",
+            "kind": {
+              "Composite": [
+                [
+                  "encryption_key",
+                  "Bytea"
+                ],
+                [
+                  "decryption_key",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
       ]
     },
     "nullable": []

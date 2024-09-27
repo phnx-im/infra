@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT credential as \"client_credential: FlatClientCredential\" FROM as_client_records WHERE user_name = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_credential: FlatClientCredential",
+        "type_info": {
+          "Custom": {
+            "name": "client_credential",
+            "kind": {
+              "Composite": [
+                [
+                  "version",
+                  "Bytea"
+                ],
+                [
+                  "client_id",
+                  {
+                    "Custom": {
+                      "name": "as_client_id",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "user_name",
+                            {
+                              "Custom": {
+                                "name": "qualified_user_name",
+                                "kind": {
+                                  "Composite": [
+                                    [
+                                      "user_name",
+                                      "Text"
+                                    ],
+                                    [
+                                      "domain",
+                                      "Text"
+                                    ]
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          [
+                            "client_id",
+                            "Uuid"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "signature_scheme",
+                  "Bytea"
+                ],
+                [
+                  "verifying_key",
+                  "Bytea"
+                ],
+                [
+                  "expiration_data",
+                  {
+                    "Custom": {
+                      "name": "expiration",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "not_before",
+                            "Timestamptz"
+                          ],
+                          [
+                            "not_after",
+                            "Timestamptz"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "signer_fingerprint",
+                  "Bytea"
+                ],
+                [
+                  "signature",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "384b8e70478378f287e40cbfe7a43075e86eb9d1952a1abf84ef4b45bfb64169"
+}

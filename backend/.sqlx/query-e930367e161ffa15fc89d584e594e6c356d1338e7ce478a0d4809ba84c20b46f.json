@@ -7,7 +7,23 @@
       "Left": [
         "Uuid",
         "Uuid",
-        "Bytea",
+        {
+          "Custom": {
+            "name": "aead_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  "Bytea"
+                ],
+                [
+                  "nonce",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        },
         "Bytea",
         "Bytea",
         "Bytea",

@@ -5,7 +5,23 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea",
+        {
+          "Custom": {
+            "name": "aead_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  "Bytea"
+                ],
+                [
+                  "nonce",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        },
         "Bytea",
         "Bytea",
         "Bytea",

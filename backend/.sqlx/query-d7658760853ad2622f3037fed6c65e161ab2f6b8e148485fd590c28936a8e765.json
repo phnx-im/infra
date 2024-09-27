@@ -11,7 +11,23 @@
       {
         "ordinal": 1,
         "name": "encrypted_push_token: EncryptedPushToken",
-        "type_info": "Bytea"
+        "type_info": {
+          "Custom": {
+            "name": "aead_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  "Bytea"
+                ],
+                [
+                  "nonce",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 2,

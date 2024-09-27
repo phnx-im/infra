@@ -6,7 +6,23 @@
       {
         "ordinal": 0,
         "name": "dk: _",
-        "type_info": "Bytea"
+        "type_info": {
+          "Custom": {
+            "name": "decryption_key_data",
+            "kind": {
+              "Composite": [
+                [
+                  "encryption_key",
+                  "Bytea"
+                ],
+                [
+                  "decryption_key",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
       }
     ],
     "parameters": {

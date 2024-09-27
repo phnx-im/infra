@@ -6,7 +6,23 @@
       {
         "ordinal": 0,
         "name": "eap: _",
-        "type_info": "Bytea"
+        "type_info": {
+          "Custom": {
+            "name": "aead_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  "Bytea"
+                ],
+                [
+                  "nonce",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
       }
     ],
     "parameters": {

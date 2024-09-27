@@ -5,7 +5,23 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea"
+        {
+          "Custom": {
+            "name": "signing_key_data",
+            "kind": {
+              "Composite": [
+                [
+                  "signing_key",
+                  "Bytea"
+                ],
+                [
+                  "verifying_key",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
       ]
     },
     "nullable": []
