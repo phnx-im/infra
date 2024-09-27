@@ -85,8 +85,8 @@ pub trait InfraService: Sized {
 
         let db_exists = sqlx::query!(
             "select exists (
-            SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
-        )",
+                SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
+            )",
             db_name,
         )
         .fetch_one(&connection)
@@ -106,6 +106,7 @@ pub trait InfraService: Sized {
     }
 
     async fn new_from_pool(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
+        tracing::info!("Running database migration");
         sqlx::migrate!("./migrations").run(&db_pool).await?;
         tracing::info!("Database migration successful");
 

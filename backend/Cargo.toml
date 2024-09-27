@@ -7,9 +7,7 @@ name = "phnxbackend"
 version = "0.1.0"
 authors = ["Phoenix R&D <hello@phoenix.im>"]
 edition = "2021"
-
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+include = ["./migrations/**"]
 
 [dependencies]
 thiserror = "^1.0"
