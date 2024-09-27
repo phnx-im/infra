@@ -135,7 +135,6 @@ mod persistence {
                 let queue_encryption_key = PhnxCodec::from_slice(&record.queue_encryption_key)?;
                 let ratchet = PhnxCodec::from_slice(&record.ratchet)?;
                 let activity_time = record.activity_time.into();
-                //let client_credential = PhnxCodec::from_slice(&record.client_credential)?;
                 Ok(ClientRecord {
                     queue_encryption_key,
                     ratchet_key: ratchet,
