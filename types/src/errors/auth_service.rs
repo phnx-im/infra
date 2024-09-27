@@ -22,6 +22,9 @@ pub enum AsDequeueError {
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum InitUserRegistrationError {
+    /// Could not find signing key
+    #[error("Could not find signing key")]
+    SigningKeyNotFound,
     /// Library error
     #[error("Library error")]
     LibraryError,
@@ -78,6 +81,9 @@ pub enum InitClientAdditionError {
     /// Library error
     #[error("Library error")]
     LibraryError,
+    /// Could not find signing key
+    #[error("Could not find signing key")]
+    SigningKeyNotFound,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -101,6 +107,9 @@ pub enum FinishClientAdditionError {
     /// Client credential not found
     #[error("Client credential not found")]
     ClientCredentialNotFound,
+    /// Invalid connection package
+    #[error("Invalid connection package")]
+    InvalidConnectionPackage,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
@@ -164,6 +173,9 @@ pub enum IssueTokensError {
     /// Too many tokens
     #[error("Too many tokens")]
     TooManyTokens,
+    /// Unknown client
+    #[error("Unknown client")]
+    UnknownClient,
     /// PrivacyPass protocol error
     #[error("PrivacyPass protocol error")]
     PrivacyPassError,

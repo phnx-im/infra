@@ -2,40 +2,46 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(unused_variables)]
+use std::{collections::HashMap, sync::Arc};
 
-use opaque_ke::ServerRegistration;
+use credentials::{
+    intermediate_signing_key::IntermediateSigningKey, signing_key::SigningKey,
+    CredentialGenerationError,
+};
+use opaque::OpaqueSetup;
+use opaque_ke::{rand::rngs::OsRng, ServerLogin};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{ratchet::QueueRatchet, OpaqueCiphersuite, RatchetEncryptionKey},
+    crypto::{signatures::DEFAULT_SIGNATURE_SCHEME, OpaqueCiphersuite},
     errors::auth_service::AsProcessingError,
-    identifiers::QualifiedUserName,
+    identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, AsQueueMessagePayload,
-            Init2FactorAuthResponse, InitClientAdditionResponse, InitUserRegistrationResponse,
-            IssueTokensResponse, UserClientsResponse, UserConnectionPackagesResponse,
-            VerifiedAsRequestParams,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, Init2FactorAuthResponse,
+            InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
+            UserClientsResponse, UserConnectionPackagesResponse, VerifiedAsRequestParams,
         },
         client_qs::DequeueMessagesResponse,
-        EncryptedAsQueueMessage,
     },
-    time::TimeStamp,
 };
+use sqlx::{Executor, PgPool};
+use thiserror::Error;
 use tls_codec::{TlsSerialize, TlsSize};
+use tokio::sync::Mutex;
 
-use self::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    verification::VerifiableClientToAsMessage,
-};
+use crate::persistence::{DatabaseError, StorageError};
 
 pub mod client_api;
-pub mod devices;
-pub mod invitations;
-pub mod key_packages;
-pub mod registration;
-pub mod storage_provider_trait;
-pub mod verification;
+mod client_record;
+mod connection_package;
+mod credentials;
+mod opaque;
+mod privacy_pass;
+mod queue;
+mod user_record;
+mod verification;
+
+pub use verification::VerifiableClientToAsMessage;
 
 /*
 Actions:
@@ -61,155 +67,177 @@ ACTION_AS_ENQUEUE_MESSAGE
 ACTION_AS_CREDENTIALS
 */
 
-// === Authentication ===
-
-// === User ===
-
-#[derive(Debug, Clone)]
-pub struct AsUserRecord {
-    _user_name: QualifiedUserName,
-    password_file: ServerRegistration<OpaqueCiphersuite>,
+#[derive(Clone)]
+pub struct AuthService {
+    ephemeral_client_credentials: Arc<Mutex<HashMap<AsClientId, ClientCredential>>>,
+    ephemeral_user_logins: Arc<Mutex<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>>,
+    ephemeral_client_logins: Arc<Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>>,
+    db_pool: PgPool,
 }
 
-impl AsUserRecord {
-    pub fn new(user_name: QualifiedUserName, password_file: ServerRegistration<OpaqueCiphersuite>) -> Self {
-        Self {
-            _user_name: user_name,
-            password_file,
-        }
+#[derive(Debug, Error)]
+pub enum AuthServiceCreationError {
+    #[error(transparent)]
+    Storage(#[from] StorageError),
+    #[error("Error generating initial credentials")]
+    Credential(#[from] CredentialGenerationError),
+}
+
+impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
+    fn from(e: T) -> Self {
+        Self::Storage(StorageError::from(e.into()))
     }
 }
-
-// === Client ===
-
-#[derive(Debug, Clone)]
-pub struct AsClientRecord {
-    pub queue_encryption_key: RatchetEncryptionKey,
-    pub ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
-    pub activity_time: TimeStamp,
-    pub credential: ClientCredential,
-}
-
-impl AsClientRecord {
-    pub fn new(
-        queue_encryption_key: RatchetEncryptionKey,
-        ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
-        activity_time: TimeStamp,
-        credential: ClientCredential,
-    ) -> Self {
-        Self {
-            queue_encryption_key,
-            ratchet_key,
-            activity_time,
-            credential,
-        }
-    }
-}
-
-pub struct AuthService {}
 
 impl AuthService {
-    pub async fn process<Asp: AsStorageProvider, Eph: AsEphemeralStorageProvider>(
-        storage_provider: &Asp,
-        ephemeral_storage_provider: &Eph,
+    pub async fn new(
+        connection_string: &str,
+        db_name: &str,
+        domain: Fqdn,
+    ) -> Result<Self, AuthServiceCreationError> {
+        let connection = PgPool::connect(connection_string).await?;
+
+        let db_exists = sqlx::query!(
+            "select exists (
+            SELECT datname FROM pg_catalog.pg_database WHERE datname = $1
+        )",
+            db_name,
+        )
+        .fetch_one(&connection)
+        .await?;
+
+        if !db_exists.exists.unwrap_or(false) {
+            connection
+                .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+                .await?;
+        }
+
+        let connection_string_with_db = format!("{}/{}", connection_string, db_name);
+
+        let db_pool = PgPool::connect(&connection_string_with_db).await?;
+
+        // Migrate database
+        Self::new_from_pool(db_pool, domain).await
+    }
+
+    async fn new_from_pool(
+        db_pool: PgPool,
+        domain: Fqdn,
+    ) -> Result<Self, AuthServiceCreationError> {
+        sqlx::migrate!("./migrations").run(&db_pool).await?;
+        tracing::info!("Database migration successful");
+
+        let auth_service = Self {
+            db_pool,
+            ephemeral_client_credentials: Arc::new(Mutex::new(HashMap::new())),
+            ephemeral_user_logins: Arc::new(Mutex::new(HashMap::new())),
+            ephemeral_client_logins: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        // Check if there is an active AS signing key
+        let mut transaction = auth_service.db_pool.begin().await?;
+        let active_signing_key_exists = SigningKey::load(&mut *transaction).await?.is_some();
+
+        if !active_signing_key_exists {
+            let signature_scheme = DEFAULT_SIGNATURE_SCHEME;
+            // Generate a new AS signing key
+            SigningKey::generate_store_and_activate(
+                &mut transaction,
+                domain.clone(),
+                signature_scheme,
+            )
+            .await?;
+            // Generate and sign an intermediate signing key
+            IntermediateSigningKey::generate_sign_and_activate(
+                &mut transaction,
+                domain,
+                signature_scheme,
+            )
+            .await?;
+        }
+
+        let opaque_setup_exists = match OpaqueSetup::load(&mut *transaction).await {
+            Ok(_) => true,
+            Err(StorageError::Database(DatabaseError::Sqlx(sqlx::Error::RowNotFound))) => false,
+            Err(e) => return Err(e.into()),
+        };
+        let rng = &mut OsRng;
+        if !opaque_setup_exists {
+            OpaqueSetup::new_and_store(&mut *transaction, rng).await?;
+        }
+
+        transaction.commit().await?;
+
+        Ok(auth_service)
+    }
+
+    pub async fn process(
+        &self,
         message: VerifiableClientToAsMessage,
     ) -> Result<AsProcessResponse, AsProcessingError> {
-        let verified_params = message
-            .verify(storage_provider, ephemeral_storage_provider)
-            .await?;
+        let verified_params = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
-                AuthService::as_init_two_factor_auth(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
+                .as_init_two_factor_auth(params)
                 .await
-                .map(AsProcessResponse::Init2FactorAuth)?
-            }
+                .map(AsProcessResponse::Init2FactorAuth)?,
             VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                AuthService::as_finish_user_registration(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
-                .await?;
+                self.as_finish_user_registration(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteUser(params) => {
-                AuthService::as_delete_user(storage_provider, params).await?;
+                self.as_delete_user(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::FinishClientAddition(params) => {
-                AuthService::as_finish_client_addition(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
-                .await?;
+                self.as_finish_client_addition(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DeleteClient(params) => {
-                AuthService::as_delete_client(storage_provider, params).await?;
+                self.as_delete_client(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::DequeueMessages(params) => {
-                AuthService::as_dequeue_messages(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::DequeueMessages)?
-            }
+            VerifiedAsRequestParams::DequeueMessages(params) => self
+                .as_dequeue_messages(params)
+                .await
+                .map(AsProcessResponse::DequeueMessages)?,
             VerifiedAsRequestParams::PublishConnectionPackages(params) => {
-                AuthService::as_publish_connection_packages(storage_provider, params).await?;
+                self.as_publish_connection_packages(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
-                AuthService::as_client_key_package(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::ClientKeyPackage)?
-            }
-            VerifiedAsRequestParams::IssueTokens(params) => {
-                AuthService::as_issue_tokens(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::IssueTokens)?
-            }
-            VerifiedAsRequestParams::UserConnectionPackages(params) => {
-                AuthService::as_user_connection_packages(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::UserKeyPackages)?
-            }
-            VerifiedAsRequestParams::InitiateClientAddition(params) => {
-                AuthService::as_init_client_addition(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::ClientConnectionPackage(params) => self
+                .as_client_key_package(params)
                 .await
-                .map(AsProcessResponse::InitiateClientAddition)?
-            }
-            VerifiedAsRequestParams::UserClients(params) => {
-                AuthService::as_user_clients(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::UserClients)?
-            }
-            VerifiedAsRequestParams::AsCredentials(params) => {
-                AuthService::as_credentials(storage_provider, params)
-                    .await
-                    .map(AsProcessResponse::AsCredentials)?
-            }
+                .map(AsProcessResponse::ClientKeyPackage)?,
+            VerifiedAsRequestParams::IssueTokens(params) => self
+                .as_issue_tokens(params)
+                .await
+                .map(AsProcessResponse::IssueTokens)?,
+            VerifiedAsRequestParams::UserConnectionPackages(params) => self
+                .as_user_connection_packages(params)
+                .await
+                .map(AsProcessResponse::UserKeyPackages)?,
+            VerifiedAsRequestParams::InitiateClientAddition(params) => self
+                .as_init_client_addition(params)
+                .await
+                .map(AsProcessResponse::InitiateClientAddition)?,
+            VerifiedAsRequestParams::UserClients(params) => self
+                .as_user_clients(params)
+                .await
+                .map(AsProcessResponse::UserClients)?,
+            VerifiedAsRequestParams::AsCredentials(params) => self
+                .as_credentials(params)
+                .await
+                .map(AsProcessResponse::AsCredentials)?,
             VerifiedAsRequestParams::EnqueueMessage(params) => {
-                AuthService::as_enqueue_message(storage_provider, params).await?;
+                self.as_enqueue_message(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::InitUserRegistration(params) => {
-                AuthService::as_init_user_registration(
-                    storage_provider,
-                    ephemeral_storage_provider,
-                    params,
-                )
+            VerifiedAsRequestParams::InitUserRegistration(params) => self
+                .as_init_user_registration(params)
                 .await
-                .map(AsProcessResponse::InitUserRegistration)?
-            }
+                .map(AsProcessResponse::InitUserRegistration)?,
         };
         Ok(response)
     }

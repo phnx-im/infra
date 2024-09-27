@@ -12,39 +12,54 @@ use phnxtypes::{
     },
 };
 
-use crate::auth_service::{storage_provider_trait::AsStorageProvider, AuthService};
+use crate::auth_service::{
+    client_record::ClientRecord,
+    connection_package::StorableConnectionPackage,
+    credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
+    queue::Queue,
+    AuthService,
+};
 
 impl AuthService {
-    pub(crate) async fn as_user_clients<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_user_clients(
+        &self,
         params: UserClientsParams,
     ) -> Result<UserClientsResponse, UserClientsError> {
         let UserClientsParams { user_name } = params;
 
         // Look up the user entry in the DB
-        let client_credentials = storage_provider.client_credentials(&user_name).await;
+        let client_credentials = ClientRecord::load_user_credentials(&self.db_pool, &user_name)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Failed to load client credentials: {:?}", e);
+                UserClientsError::StorageError
+            })?;
 
         let response = UserClientsResponse { client_credentials };
 
         Ok(response)
     }
 
-    pub async fn as_user_connection_packages<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub async fn as_user_connection_packages(
+        &self,
         params: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
         let UserConnectionPackagesParams { user_name } = params;
 
-        let connection_packages = storage_provider
-            .load_user_connection_packages(&user_name)
-            .await
-            .map_err(|e| {
-                tracing::warn!(
-                    "Failed to load connection packages due to storage error: {:?}",
-                    e
-                );
-                UserConnectionPackagesError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
+            UserConnectionPackagesError::StorageError
+        })?;
+        let connection_packages =
+            StorableConnectionPackage::user_connection_packages(&mut connection, &user_name)
+                .await
+                .map_err(|e| {
+                    tracing::warn!(
+                        "Failed to load connection packages due to storage error: {:?}",
+                        e
+                    );
+                    UserConnectionPackagesError::StorageError
+                })?;
 
         // If there are no connection packages, we have to conclude that there
         // is no user.
@@ -58,8 +73,8 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_enqueue_message<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_enqueue_message(
+        &self,
         params: EnqueueMessageParams,
     ) -> Result<(), EnqueueMessageError> {
         let EnqueueMessageParams {
@@ -68,9 +83,12 @@ impl AuthService {
         } = params;
 
         // Fetch the client record.
-        let mut client_record = storage_provider
-            .load_client(&client_id)
+        let mut client_record = ClientRecord::load(&self.db_pool, &client_id)
             .await
+            .map_err(|e| {
+                tracing::warn!("Failed to load client record: {:?}", e);
+                EnqueueMessageError::StorageError
+            })?
             .ok_or(EnqueueMessageError::ClientNotFound)?;
 
         let payload = connection_establishment_ctxt
@@ -85,8 +103,11 @@ impl AuthService {
         // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
-        storage_provider
-            .enqueue(&client_id, queue_message)
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
+            EnqueueMessageError::StorageError
+        })?;
+        Queue::enqueue(&mut connection, &client_id, queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);
@@ -94,29 +115,33 @@ impl AuthService {
             })?;
 
         // Store the changed client record.
-        storage_provider
-            .store_client(&client_id, &client_record)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to store client record: {:?}", e);
-                EnqueueMessageError::StorageError
-            })?;
+        client_record.update(&self.db_pool).await.map_err(|e| {
+            tracing::warn!("Failed to store client record: {:?}", e);
+            EnqueueMessageError::StorageError
+        })?;
 
         Ok(())
     }
 
-    pub(crate) async fn as_credentials<S: AsStorageProvider>(
-        storage_provider: &S,
-        params: AsCredentialsParams,
+    pub(crate) async fn as_credentials(
+        &self,
+        _params: AsCredentialsParams,
     ) -> Result<AsCredentialsResponse, AsCredentialsError> {
-        let (as_credentials, as_intermediate_credentials, revoked_credentials) = storage_provider
-            .load_as_credentials()
+        let as_credentials = Credential::load_all(&self.db_pool).await.map_err(|e| {
+            tracing::error!("Error loading AS credentials: {:?}", e);
+            AsCredentialsError::StorageError
+        })?;
+        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
             .await
-            .map_err(|_| AsCredentialsError::StorageError)?;
+            .map_err(|e| {
+                tracing::error!("Error loading intermediate credentials: {:?}", e);
+                AsCredentialsError::StorageError
+            })?;
         Ok(AsCredentialsResponse {
             as_credentials,
             as_intermediate_credentials,
-            revoked_credentials,
+            // We don't support revocation yet
+            revoked_credentials: vec![],
         })
     }
 }

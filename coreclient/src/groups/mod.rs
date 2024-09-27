@@ -33,7 +33,9 @@ use phnxtypes::{
             signable::{Signable, Verifiable},
         },
     },
-    identifiers::{AsClientId, QsClientReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{
+        AsClientId, QsClientReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+    },
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{

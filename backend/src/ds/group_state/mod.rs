@@ -14,7 +14,6 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
     MlsAssistRustCrypto,
 };
-use persistence::StorageError;
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::EncryptedClientCredential,
@@ -35,6 +34,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::persistence::StorageError;
 
 use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
 

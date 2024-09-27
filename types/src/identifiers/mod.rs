@@ -248,7 +248,7 @@ impl TryFrom<String> for UserName {
             value.chars().any(|c| chars.contains(&c))
         }
         if contains_any_of(&value, &['@', '.']) {
-            return Err(UserNameError::InvalidUserName);
+            Err(UserNameError::InvalidUserName)
         } else {
             Ok(Self(TlsString(value.to_string())))
         }
@@ -322,7 +322,6 @@ impl SafeTryInto<QualifiedUserName> for &str {
     type Error = QualifiedUserNameError;
 
     fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
-        println!("Trying to parse: {}", self);
         let mut split_name = self.split('@');
         let user_name_str = split_name
             .next()

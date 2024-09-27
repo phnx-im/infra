@@ -4,7 +4,7 @@
 
 use std::{net::TcpListener, sync::Arc};
 
-use phnxbackend::ds::Ds;
+use phnxbackend::{auth_service::AuthService, ds::Ds};
 use phnxserver::{
     configurations::*,
     endpoints::qs::{
@@ -14,12 +14,11 @@ use phnxserver::{
     network_provider::MockNetworkProvider,
     run,
     storage_provider::{
-        memory::{auth_service::EphemeralAsStorage, qs_connector::MemoryEnqueueProvider},
-        postgres::{auth_service::PostgresAsStorage, qs::PostgresQsStorage},
+        memory::qs_connector::MemoryEnqueueProvider, postgres::qs::PostgresQsStorage,
     },
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxtypes::identifiers::Fqdn;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -78,7 +77,7 @@ async fn main() -> std::io::Result<()> {
         )
         .await;
     }
-    let ds_storage_provider = ds_result.unwrap();
+    let ds = ds_result.unwrap();
 
     // New database name for the QS provider
     configuration.database.name = format!("{}_qs", base_db_name);
@@ -91,14 +90,13 @@ async fn main() -> std::io::Result<()> {
 
     // New database name for the AS provider
     configuration.database.name = format!("{}_as", base_db_name);
-    let as_storage_provider = PostgresAsStorage::new(
+    let auth_service = AuthService::new(
+        &configuration.database.connection_string_without_database(),
+        &configuration.database.name,
         domain.clone(),
-        DEFAULT_SIGNATURE_SCHEME,
-        &configuration.database,
     )
     .await
     .expect("Failed to connect to database.");
-    let as_ephemeral_storage_provider = EphemeralAsStorage::default();
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
@@ -111,10 +109,9 @@ async fn main() -> std::io::Result<()> {
     // Start the server
     run(
         listener,
-        ds_storage_provider,
+        ds,
+        auth_service,
         qs_storage_provider,
-        as_storage_provider,
-        as_ephemeral_storage_provider,
         qs_connector,
         network_provider,
         ws_dispatch_notifier,

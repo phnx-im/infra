@@ -9,25 +9,26 @@ use phnxtypes::{
 };
 use tls_codec::TlsDeserializeBytes;
 
-use super::{AsEphemeralStorageProvider, AsStorageProvider, TlsSize, VerifiedAsRequestParams};
+use super::{client_record::ClientRecord, AuthService, TlsSize, VerifiedAsRequestParams};
 
 /// Wrapper struct around a message from a client to the AS. It does not
 /// implement the [`Verifiable`] trait, but instead is verified depending on the
 /// verification method of the individual payload.
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct VerifiableClientToAsMessage {
-    message: ClientToAsMessageIn,
-}
+pub struct VerifiableClientToAsMessage(ClientToAsMessageIn);
 
 impl VerifiableClientToAsMessage {
-    /// Verify/authenticate the message. The authentication method depends on
-    /// the request type and is specified for each request in `auth_method`.
-    pub(crate) async fn verify<Asp: AsStorageProvider, Eph: AsEphemeralStorageProvider>(
-        self,
-        as_storage_provider: &Asp,
-        ephemeral_storage_provider: &Eph,
+    fn into_auth_method(self) -> AsAuthMethod {
+        self.0.auth_method()
+    }
+}
+
+impl AuthService {
+    pub(crate) async fn verify(
+        &self,
+        message: VerifiableClientToAsMessage,
     ) -> Result<VerifiedAsRequestParams, AsVerificationError> {
-        let parameters = match self.message.auth_method() {
+        let parameters = match message.into_auth_method() {
             // No authentication at all. We just return the parameters without
             // verification.
             AsAuthMethod::None(params) => params,
@@ -39,16 +40,19 @@ impl VerifiableClientToAsMessage {
                 // credential from the persistend storage, or the ephemeral
                 // storage.
                 if cca.is_finish_user_registration_request() {
-                    let client_credential = ephemeral_storage_provider
-                        .load_credential(cca.client_id())
-                        .await
+                    let client_credentials = self.ephemeral_client_credentials.lock().await;
+                    let client_credential = client_credentials
+                        .get(cca.client_id())
                         .ok_or(AsVerificationError::UnknownClient)?;
                     cca.verify(client_credential.verifying_key())
                         .map_err(|_| AsVerificationError::AuthenticationFailed)?
                 } else {
-                    let client_record = as_storage_provider
-                        .load_client(cca.client_id())
+                    let client_record = ClientRecord::load(&self.db_pool, cca.client_id())
                         .await
+                        .map_err(|e| {
+                            tracing::error!("Error loading client record: {:?}", e);
+                            AsVerificationError::UnknownClient
+                        })?
                         .ok_or(AsVerificationError::UnknownClient)?;
                     cca.verify(client_record.credential.verifying_key())
                         .map_err(|_| AsVerificationError::AuthenticationFailed)?
@@ -71,10 +75,9 @@ impl VerifiableClientToAsMessage {
             AsAuthMethod::Client2Fa(auth_info) => {
                 // We authenticate opaque first.
                 let client_id = auth_info.client_credential_auth.client_id().clone();
-                let (_client_credential, opaque_state) = ephemeral_storage_provider
-                    .load_client_login_state(&client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
+                let mut client_login_states = self.ephemeral_client_logins.lock().await;
+                let opaque_state = client_login_states
+                    .remove(&client_id)
                     .ok_or(AsVerificationError::UnknownClient)?;
                 // Finish the OPAQUE handshake
                 opaque_state
@@ -84,26 +87,23 @@ impl VerifiableClientToAsMessage {
                         AsVerificationError::AuthenticationFailed
                     })?;
 
-                let client_record = as_storage_provider
-                    .load_client(&client_id)
+                let client_record = ClientRecord::load(&self.db_pool, &client_id)
                     .await
+                    .map_err(|e| {
+                        tracing::error!("Error loading client record: {:?}", e);
+                        AsVerificationError::UnknownClient
+                    })?
                     .ok_or(AsVerificationError::UnknownClient)?;
-                let verified_params = auth_info
+                auth_info
                     .client_credential_auth
                     .verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?;
-                ephemeral_storage_provider
-                    .delete_client_login_state(&client_id)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?;
-                verified_params
+                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
             }
             // Authentication using only the user's password via an OPAQUE login flow.
             AsAuthMethod::User(user_auth) => {
-                let opaque_state = ephemeral_storage_provider
-                    .load_user_login_state(&user_auth.user_name)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?
+                let mut user_login_states = self.ephemeral_user_logins.lock().await;
+                let opaque_state = user_login_states
+                    .remove(&user_auth.user_name)
                     .ok_or(AsVerificationError::UnknownUser)?;
                 // Finish the OPAQUE handshake
                 opaque_state
@@ -112,11 +112,6 @@ impl VerifiableClientToAsMessage {
                         tracing::error!("Error during OPAQUE login handshake: {e}");
                         AsVerificationError::AuthenticationFailed
                     })?;
-
-                ephemeral_storage_provider
-                    .delete_user_login_state(&user_auth.user_name)
-                    .await
-                    .map_err(|_| AsVerificationError::StorageError)?;
                 *user_auth.payload
             }
         };

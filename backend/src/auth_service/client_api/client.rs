@@ -11,8 +11,9 @@ use phnxtypes::{
     },
     messages::{
         client_as::{
-            DeleteClientParamsTbs, DequeueMessagesParamsTbs, FinishClientAdditionParamsTbs,
-            InitClientAdditionResponse, InitiateClientAdditionParams,
+            ConnectionPackage, DeleteClientParamsTbs, DequeueMessagesParamsTbs,
+            FinishClientAdditionParamsTbs, InitClientAdditionResponse,
+            InitiateClientAdditionParams,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -21,17 +22,18 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
-    storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
-    AsClientRecord, AuthService,
+    client_record::ClientRecord,
+    connection_package::StorableConnectionPackage,
+    credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
+    opaque::OpaqueSetup,
+    queue::Queue,
+    user_record::UserRecord,
+    AuthService,
 };
 
 impl AuthService {
-    pub(crate) async fn as_init_client_addition<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
-        storage_provider: &S,
-        ephemeral_storage_provider: &E,
+    pub(crate) async fn as_init_client_addition(
+        &self,
         params: InitiateClientAdditionParams,
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
@@ -40,17 +42,20 @@ impl AuthService {
         } = params;
 
         // Load the server setup from storage
-        let server_setup = storage_provider.load_opaque_setup().await.map_err(|e| {
+        let server_setup = OpaqueSetup::load(&self.db_pool).await.map_err(|e| {
             tracing::error!("Storage provider error: {:?}", e);
             InitClientAdditionError::StorageError
         })?;
 
         // Load the user record from storage
         let user_name = client_credential_payload.identity().user_name();
-        let password_file_option = storage_provider
-            .load_user(&user_name)
+        let password_file_option = UserRecord::load(&self.db_pool, &user_name)
             .await
-            .map(|record| record.password_file);
+            .map_err(|e| {
+                tracing::error!("Error loading user record: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?
+            .map(|record| record.into_password_file());
 
         let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
             &mut OsRng,
@@ -74,10 +79,14 @@ impl AuthService {
         };
 
         // Check if a client entry with the name given in the client_csr already exists for the user
-        let client_id_exists = storage_provider
-            .load_client(&client_credential_payload.identity())
-            .await
-            .is_some();
+        let client_id_exists =
+            ClientRecord::load(&self.db_pool, &client_credential_payload.identity())
+                .await
+                .map_err(|e| {
+                    tracing::error!("Error loading client record: {:?}", e);
+                    InitClientAdditionError::StorageError
+                })?
+                .is_some();
 
         if client_id_exists {
             return Err(InitClientAdditionError::ClientAlreadyExists);
@@ -94,10 +103,13 @@ impl AuthService {
         }
 
         // Load the signature key from storage.
-        let signing_key = storage_provider.load_signing_key().await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            InitClientAdditionError::StorageError
-        })?;
+        let signing_key = IntermediateSigningKey::load(&self.db_pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error loading signing key: {:?}", e);
+                InitClientAdditionError::StorageError
+            })?
+            .ok_or(InitClientAdditionError::SigningKeyNotFound)?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_credential_payload
@@ -105,17 +117,11 @@ impl AuthService {
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        ephemeral_storage_provider
-            .store_client_login_state(
-                client_credential.identity(),
-                &client_credential,
-                &server_login_result.state,
-            )
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?;
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        client_credentials.insert(
+            client_credential.identity().clone(),
+            client_credential.clone(),
+        );
 
         let response = InitClientAdditionResponse {
             client_credential,
@@ -125,72 +131,87 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_finish_client_addition<
-        S: AsStorageProvider,
-        E: AsEphemeralStorageProvider,
-    >(
-        storage_provider: &S,
-        ephemeral_storage_provider: &E,
+    pub(crate) async fn as_finish_client_addition(
+        &self,
         params: FinishClientAdditionParamsTbs,
     ) -> Result<(), FinishClientAdditionError> {
         let FinishClientAdditionParamsTbs {
             client_id,
             queue_encryption_key,
             initial_ratchet_secret: initial_ratchet_key,
-            connection_package: connection_key_package,
+            connection_package,
         } = params;
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based
         // on the client_id
-        let (client_credential, _opaque_state) = ephemeral_storage_provider
-            .load_client_login_state(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishClientAdditionError::StorageError
-            })?
+        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let client_credential = client_credentials
+            .remove(&client_id)
             .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
 
         // Create the new client entry
-        let client_record = AsClientRecord {
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
+        let ratchet_key = initial_ratchet_key
+            .try_into()
+            // Hiding the LibraryError here behind a StorageError
+            .map_err(|_| FinishClientAdditionError::StorageError)?;
+        ClientRecord::new_and_store(
+            &mut connection,
             queue_encryption_key,
-            ratchet_key: initial_ratchet_key
-                .try_into()
-                // Hiding the LibraryError here behind a StorageError
-                .map_err(|_| FinishClientAdditionError::StorageError)?,
-            activity_time: TimeStamp::now(),
-            credential: client_credential,
-        };
+            ratchet_key,
+            client_credential,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Error storing client record: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
 
-        storage_provider
-            .create_client(&client_id, &client_record)
+        // Verify and store connection packages
+        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
             .await
             .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
+                tracing::error!("Error loading intermediate credentials: {:?}", e);
                 FinishClientAdditionError::StorageError
             })?;
+        let cp = connection_package;
+        let verifying_credential = as_intermediate_credentials
+            .iter()
+            .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
+            .ok_or(FinishClientAdditionError::InvalidConnectionPackage)?;
+        let verified_connection_package: ConnectionPackage = cp
+            .verify(verifying_credential.verifying_key())
+            .map_err(|_| FinishClientAdditionError::InvalidConnectionPackage)?;
+
+        StorableConnectionPackage::store_multiple(
+            &self.db_pool,
+            vec![verified_connection_package],
+            &client_id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Error storing connection package: {:?}", e);
+            FinishClientAdditionError::StorageError
+        })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        ephemeral_storage_provider
-            .delete_client_login_state(&client_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishClientAdditionError::StorageError
-            })?;
+        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        client_login_states.remove(&client_id);
 
         Ok(())
     }
 
-    pub(crate) async fn as_delete_client<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_delete_client(
+        &self,
         params: DeleteClientParamsTbs,
     ) -> Result<(), DeleteClientError> {
         let client_id = params.0;
 
         // Delete the client
-        storage_provider
-            .delete_client(&client_id)
+        ClientRecord::delete(&self.db_pool, &client_id)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -200,8 +221,8 @@ impl AuthService {
         Ok(())
     }
 
-    pub(crate) async fn as_dequeue_messages<S: AsStorageProvider>(
-        storage_provider: &S,
+    pub(crate) async fn as_dequeue_messages(
+        &self,
         params: DequeueMessagesParamsTbs,
     ) -> Result<DequeueMessagesResponse, AsDequeueError> {
         let DequeueMessagesParamsTbs {
@@ -213,13 +234,21 @@ impl AuthService {
         // TODO: The backend should have its own value for max_messages and use
         // that one if the client-given one exceeds it.
         tracing::trace!("Reading and deleting messages from storage provider");
-        let (messages, remaining_messages_number) = storage_provider
-            .read_and_delete(&sender, sequence_number_start, max_message_number)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                AsDequeueError::StorageError
-            })?;
+        let mut connection = self.db_pool.acquire().await.map_err(|e| {
+            tracing::error!("Error acquiring connection: {:?}", e);
+            AsDequeueError::StorageError
+        })?;
+        let (messages, remaining_messages_number) = Queue::read_and_delete(
+            &mut connection,
+            &sender,
+            sequence_number_start,
+            max_message_number,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            AsDequeueError::StorageError
+        })?;
 
         let response = DequeueMessagesResponse {
             messages,

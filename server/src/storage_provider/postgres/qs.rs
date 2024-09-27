@@ -4,7 +4,6 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use num_traits::ToPrimitive;
 use phnxbackend::qs::{
     client_record::QsClientRecord, storage_provider_trait::QsStorageProvider,
     user_record::QsUserRecord, QsConfig, QsSigningKey,
@@ -19,11 +18,7 @@ use phnxtypes::{
     messages::{FriendshipToken, QueueMessage},
     time::TimeStamp,
 };
-use sqlx::{
-    postgres::PgArguments,
-    types::{BigDecimal, Uuid},
-    Arguments, PgPool, Row,
-};
+use sqlx::{postgres::PgArguments, types::Uuid, Arguments, PgPool, Row};
 use thiserror::Error;
 
 use crate::configurations::DatabaseSettings;
@@ -243,7 +238,7 @@ impl QsStorageProvider for PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
             client_id.as_uuid(),
-            BigDecimal::from(0u64),
+            0,
         )
         .execute(&mut *transaction)
         .await?;
@@ -487,14 +482,9 @@ impl QsStorageProvider for PostgresQsStorage {
         // We're storing things as the NUMERIC postgres type. We need the
         // num-traits crate to convert to u64. If we find a better way to store
         // u64s, we might be able to get rid of that dependency.
-        let sequence_number_decimal: BigDecimal = sequence_number_record.sequence_number;
-        let sequence_number = sequence_number_decimal
-            .to_u64()
-            // The conversion should be successful, as we're only writing u64s
-            // to the DB in the first place.
-            .ok_or_else(|| QueueError::LibraryError)?;
+        let sequence_number = sequence_number_record.sequence_number;
 
-        if sequence_number != message.sequence_number {
+        if sequence_number != message.sequence_number as i64 {
             tracing::warn!(
                 "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
                 message.sequence_number,
@@ -507,13 +497,13 @@ impl QsStorageProvider for PostgresQsStorage {
         sqlx::query!(
             "INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3)",
             client_id.as_uuid(),
-            sequence_number_decimal,
+            sequence_number,
             message_bytes,
         )
         .execute(&mut *transaction)
         .await?;
 
-        let new_sequence_number = sequence_number_decimal + BigDecimal::from(1u8);
+        let new_sequence_number = sequence_number + 1;
         // Increase the sequence number and store it.
         sqlx::query!(
             "UPDATE qs_queue_data SET sequence_number = $2 WHERE queue_id = $1",
@@ -534,10 +524,6 @@ impl QsStorageProvider for PostgresQsStorage {
         sequence_number: u64,
         number_of_messages: u64,
     ) -> Result<(Vec<QueueMessage>, u64), Self::ReadAndDeleteError> {
-        let sequence_number_decimal = BigDecimal::from(sequence_number);
-        // TODO: sqlx wants an i64 here and in a few other places below, but
-        // we're using u64s. This is probably a limitation of postgres and we
-        // might want to change some of the input/output types accordingly.
         let number_of_messages =
             i64::try_from(number_of_messages).map_err(|_| ReadAndDeleteError::LibraryError)?;
 
@@ -567,7 +553,7 @@ impl QsStorageProvider for PostgresQsStorage {
 
         let rows = sqlx::query(query)
             .bind(client_id.as_uuid())
-            .bind(sequence_number_decimal)
+            .bind(sequence_number as i64)
             .bind(number_of_messages)
             .fetch_all(&mut *transaction)
             .await?;

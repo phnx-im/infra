@@ -18,7 +18,7 @@ use actix_web::{
     App, HttpServer,
 };
 use phnxbackend::{
-    auth_service::storage_provider_trait::{AsEphemeralStorageProvider, AsStorageProvider},
+    auth_service::AuthService,
     ds::Ds,
     qs::{
         errors::QsEnqueueError, network_provider_trait::NetworkProvider,
@@ -47,23 +47,19 @@ pub fn run<
     Qsp: QsStorageProvider,
     Qc: QsConnector<EnqueueError = QsEnqueueError<Qsp, Np>, VerifyingKeyError = QsVerifyingKeyError>,
     Np: NetworkProvider,
-    Asp: AsStorageProvider,
-    Aesp: AsEphemeralStorageProvider,
 >(
     listener: TcpListener,
     ds: Ds,
+    auth_service: AuthService,
     qs_storage_provider: Arc<Qsp>,
-    as_storage_provider: Asp,
-    as_ephemeral_storage_provider: Aesp,
     qs_connector: Qc,
     network_provider: Np,
     ws_dispatch_notifier: DispatchWebsocketNotifier,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds);
+    let auth_service_data = Data::new(auth_service);
     let qs_storage_provider_data = Data::new(qs_storage_provider);
-    let as_storage_provider_data = Data::new(as_storage_provider);
-    let as_ephemeral_storage_provider_data = Data::new(as_ephemeral_storage_provider);
     let qs_connector_data = Data::new(qs_connector);
     let network_provider_data = Data::new(network_provider);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
@@ -86,9 +82,8 @@ pub fn run<
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
             .app_data(ds_data.clone())
+            .app_data(auth_service_data.clone())
             .app_data(qs_storage_provider_data.clone())
-            .app_data(as_storage_provider_data.clone())
-            .app_data(as_ephemeral_storage_provider_data.clone())
             .app_data(qs_connector_data.clone())
             .app_data(network_provider_data.clone())
             .app_data(ws_dispatch_notifier_data.clone())
@@ -102,7 +97,7 @@ pub fn run<
                 web::post().to(qs_process_federated_message::<Qc, Qsp, Np>),
             )
             // QS endpoint
-            .route(ENDPOINT_AS, web::post().to(as_process_message::<Asp, Aesp>))
+            .route(ENDPOINT_AS, web::post().to(as_process_message))
             // WS endpoint
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
     })

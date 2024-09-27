@@ -6,7 +6,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Numeric"
+        "Int8"
       ]
     },
     "nullable": []

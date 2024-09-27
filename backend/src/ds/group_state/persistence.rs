@@ -8,17 +8,10 @@ use sqlx::{
     types::chrono::{DateTime, Utc},
     PgExecutor,
 };
-use thiserror::Error;
+
+use crate::persistence::StorageError;
 
 use super::StorableDsGroupData;
-
-#[derive(Debug, Error)]
-pub enum StorageError {
-    #[error(transparent)]
-    DatabaseError(#[from] sqlx::Error),
-    #[error("Error deserializing column: {0}")]
-    Serde(#[from] phnxtypes::codec::Error),
-}
 
 impl StorableDsGroupData {
     pub(super) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {

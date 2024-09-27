@@ -16,7 +16,7 @@ use phnxcoreclient::{
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
-use phnxtypes::identifiers::{Fqdn, SafeTryInto, QualifiedUserName};
+use phnxtypes::identifiers::{Fqdn, QualifiedUserName, SafeTryInto};
 use png::Encoder;
 
 #[actix_rt::test]

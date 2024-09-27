@@ -4,7 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use phnxcoreclient::Conversation;
-use phnxtypes::identifiers::{SafeTryInto, QualifiedUserName};
+use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 
 use crate::notifier::dispatch_message_notifications;
 

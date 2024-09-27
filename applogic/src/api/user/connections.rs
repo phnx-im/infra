@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
-use phnxtypes::identifiers::{SafeTryInto, QualifiedUserName};
+use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 
 use crate::{
     api::types::{UiContact, UiUserProfile},
