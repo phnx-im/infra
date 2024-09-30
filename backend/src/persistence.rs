@@ -99,6 +99,8 @@ pub trait InfraService: Sized {
         }
 
         let connection_string_with_db = format!("{}/{}", connection_string, db_name);
+        tracing::info!("Successfully created database {}", db_name);
+        tracing::info!("Connecting to postgres {}", connection_string_with_db);
 
         let db_pool = PgPool::connect(&connection_string_with_db).await?;
 
