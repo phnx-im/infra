@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::network_provider_trait::NetworkProvider;
 use phnxtypes::crypto::errors::{DecryptionError, KeyGenerationError};

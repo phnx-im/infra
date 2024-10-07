@@ -5,7 +5,7 @@
 use phnxtypes::crypto::errors::KeyGenerationError;
 use thiserror::Error;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 pub(in crate::auth_service) mod intermediate_signing_key;
 pub(in crate::auth_service) mod signing_key;

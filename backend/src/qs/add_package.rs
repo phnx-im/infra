@@ -25,7 +25,7 @@ mod persistence {
     };
     use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
 
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     use super::*;
     impl StorableEncryptedAddPackage {

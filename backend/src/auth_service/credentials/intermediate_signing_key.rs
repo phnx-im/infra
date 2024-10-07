@@ -15,7 +15,7 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::{signing_key::StorableSigningKey, CredentialGenerationError};
 
@@ -102,7 +102,7 @@ mod persistence {
     };
     use sqlx::PgExecutor;
 
-    use crate::{auth_service::credentials::CredentialType, persistence::StorageError};
+    use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 
     use super::{IntermediateCredential, IntermediateSigningKey};
 

@@ -10,7 +10,7 @@ use phnxtypes::{
 use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
 use uuid::Uuid;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::StorableConnectionPackage;
 

@@ -5,7 +5,7 @@
 use opaque_ke::ServerRegistration;
 use phnxtypes::{crypto::OpaqueCiphersuite, identifiers::QualifiedUserName};
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 #[derive(Debug, Clone)]
 pub(super) struct UserRecord {
@@ -46,7 +46,7 @@ mod persistence {
     };
     use sqlx::PgExecutor;
 
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     use super::UserRecord;
 

@@ -177,8 +177,8 @@ use phnxtypes::{
 
 use crate::{
     ds::ReservedGroupId,
+    errors::StorageError,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
-    persistence::StorageError,
     qs::QsConnector,
 };
 

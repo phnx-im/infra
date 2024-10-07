@@ -5,7 +5,7 @@
 use phnxtypes::{codec::PhnxCodec, identifiers::QsClientId, messages::QueueMessage};
 use sqlx::{Connection, PgConnection, PgExecutor};
 
-use crate::persistence::{QueueError, StorageError};
+use crate::errors::{QueueError, StorageError};
 
 pub(super) struct Queue {
     queue_id: QsClientId,

@@ -10,7 +10,7 @@ use sqlx::PgPool;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::persistence::{InfraService, ServiceCreationError};
+use crate::infra_service::{InfraService, ServiceCreationError};
 
 mod add_clients;
 mod add_users;

@@ -35,7 +35,7 @@ impl StorableClientIdDecryptionKey {
 mod persistence {
     use sqlx::PgExecutor;
 
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     use super::StorableClientIdDecryptionKey;
 

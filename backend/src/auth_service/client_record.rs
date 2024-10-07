@@ -11,7 +11,7 @@ use phnxtypes::{
 };
 use sqlx::{Connection, PgConnection};
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::queue::Queue;
 

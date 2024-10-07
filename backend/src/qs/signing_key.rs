@@ -33,7 +33,7 @@ impl StorableQsSigningKey {
 }
 
 mod persistence {
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     use super::*;
 

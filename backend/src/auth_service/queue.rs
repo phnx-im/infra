@@ -5,7 +5,7 @@
 use phnxtypes::identifiers::AsClientId;
 use sqlx::PgConnection;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 pub(super) struct Queue {
     queue_id: AsClientId,
@@ -31,7 +31,7 @@ mod persistence {
     use sqlx::{Connection, Row};
     use uuid::Uuid;
 
-    use crate::persistence::QueueError;
+    use crate::errors::QueueError;
 
     use super::*;
 

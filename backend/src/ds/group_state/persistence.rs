@@ -9,7 +9,7 @@ use sqlx::{
     PgExecutor,
 };
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::StorableDsGroupData;
 
@@ -108,7 +108,7 @@ mod test {
             group_state::{EncryptedDsGroupState, StorableDsGroupData},
             Ds,
         },
-        persistence::InfraService,
+        infra_service::InfraService,
     };
 
     #[sqlx::test]

@@ -24,8 +24,8 @@ use phnxtypes::{
 };
 
 use crate::{
+    errors::StorageError,
     messages::intra_backend::DsFanOutPayload,
-    persistence::StorageError,
     qs::{PushNotificationError, WsNotification},
 };
 
@@ -96,7 +96,7 @@ mod persistence {
 
     use super::*;
 
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     impl QsClientRecord {
         pub(super) async fn store(
