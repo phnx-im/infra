@@ -4,7 +4,10 @@
 
 use async_trait::async_trait;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
-use phnxbackend::qs::{PushNotificationError, PushNotificationProvider};
+use phnxbackend::{
+    qs::{PushNotificationError, PushNotificationProvider},
+    settings::ApnsSettings,
+};
 use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -14,8 +17,6 @@ use std::{
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
-
-use crate::configurations::ApnsSettings;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {

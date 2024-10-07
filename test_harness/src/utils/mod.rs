@@ -9,7 +9,7 @@ use std::net::{SocketAddr, TcpListener};
 pub mod setup;
 
 use once_cell::sync::Lazy;
-use phnxbackend::{auth_service::AuthService, ds::Ds, persistence::InfraService, qs::Qs};
+use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
     configurations::get_configuration,
     endpoints::qs::{
@@ -64,35 +64,23 @@ pub async fn spawn_app(
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
     // DS storage provider
-    let ds = Ds::new(
-        &configuration.database.connection_string_without_database(),
-        &configuration.database.name,
-        domain.clone(),
-    )
-    .await
-    .expect("Failed to connect to database.");
+    let ds = Ds::new(&configuration.database, domain.clone())
+        .await
+        .expect("Failed to connect to database.");
 
     // New database name for the AS provider
     configuration.database.name = Uuid::new_v4().to_string();
 
-    let auth_service = AuthService::new(
-        &configuration.database.connection_string_without_database(),
-        &configuration.database.name,
-        domain.clone(),
-    )
-    .await
-    .expect("Failed to connect to database.");
+    let auth_service = AuthService::new(&configuration.database, domain.clone())
+        .await
+        .expect("Failed to connect to database.");
 
     // New database name for the QS provider
     configuration.database.name = Uuid::new_v4().to_string();
 
-    let qs = Qs::new(
-        &configuration.database.connection_string_without_database(),
-        &configuration.database.name,
-        domain.clone(),
-    )
-    .await
-    .expect("Failed to connect to database.");
+    let qs = Qs::new(&configuration.database, domain.clone())
+        .await
+        .expect("Failed to connect to database.");
 
     let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
 

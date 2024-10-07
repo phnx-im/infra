@@ -30,7 +30,10 @@ use thiserror::Error;
 use tls_codec::{TlsSerialize, TlsSize};
 use tokio::sync::Mutex;
 
-use crate::persistence::{DatabaseError, InfraService, ServiceCreationError, StorageError};
+use crate::{
+    errors::{DatabaseError, StorageError},
+    infra_service::{InfraService, ServiceCreationError},
+};
 
 pub mod client_api;
 mod client_record;

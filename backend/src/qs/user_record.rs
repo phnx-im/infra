@@ -7,7 +7,7 @@ use phnxtypes::{
 };
 use sqlx::PgExecutor;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct UserRecord {
@@ -37,7 +37,7 @@ mod persistence {
     use phnxtypes::identifiers::QsUserId;
     use sqlx::PgExecutor;
 
-    use crate::persistence::StorageError;
+    use crate::errors::StorageError;
 
     use super::*;
 

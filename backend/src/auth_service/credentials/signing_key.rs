@@ -68,7 +68,7 @@ impl StorableSigningKey {
 mod persistence {
     use phnxtypes::codec::PhnxCodec;
 
-    use crate::{auth_service::credentials::CredentialType, persistence::StorageError};
+    use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 
     use super::*;
 

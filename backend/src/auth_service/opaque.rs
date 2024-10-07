@@ -11,7 +11,7 @@ use opaque_ke::{
 use phnxtypes::crypto::OpaqueCiphersuite;
 use sqlx::PgExecutor;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 pub(super) struct OpaqueSetup(ServerSetup<OpaqueCiphersuite>);
 

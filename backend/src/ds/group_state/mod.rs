@@ -35,7 +35,7 @@ use sqlx::PgExecutor;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::persistence::StorageError;
+use crate::errors::StorageError;
 
 use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
 

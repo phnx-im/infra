@@ -74,8 +74,9 @@ use sqlx::PgPool;
 use thiserror::Error;
 
 use crate::{
+    errors::StorageError,
+    infra_service::{InfraService, ServiceCreationError},
     messages::intra_backend::DsFanOutMessage,
-    persistence::{InfraService, ServiceCreationError, StorageError},
 };
 
 mod add_package;
