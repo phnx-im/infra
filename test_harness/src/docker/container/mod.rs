@@ -13,7 +13,7 @@ pub(super) struct Container {
     hostname: Option<String>,
     network: Option<String>,
     port: Option<String>,
-    run_parameters: Vec<(String, String)>,
+    run_parameters: Vec<String>,
     detach: bool,
     volumes: Vec<String>,
 }
@@ -47,9 +47,7 @@ impl Container {
             command.args(["-d"]);
         }
         command.args([&self.image]);
-        for (flag, parameter) in &self.run_parameters {
-            command.args([flag, parameter]);
-        }
+        command.args(&self.run_parameters);
         command.spawn().unwrap()
     }
 }

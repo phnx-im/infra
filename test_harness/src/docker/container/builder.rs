@@ -11,7 +11,7 @@ pub struct ContainerBuilder {
     hostname: Option<String>,
     network: Option<String>,
     port: Option<String>,
-    run_parameters: Vec<(String, String)>,
+    run_parameters: Vec<String>,
     detach: bool,
     volumes: Vec<String>,
 }
@@ -51,9 +51,9 @@ impl ContainerBuilder {
         self
     }
 
-    pub fn with_run_parameter(mut self, flag: &str, parameter: &str) -> Self {
+    pub fn with_run_parameters(mut self, parameters: &[&str]) -> Self {
         self.run_parameters
-            .push((flag.to_string(), parameter.to_string()));
+            .extend(parameters.iter().map(|p| p.to_string()));
         self
     }
 

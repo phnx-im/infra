@@ -171,12 +171,11 @@ fn create_and_start_server_container(
             "{}:/etc/postgres_certs:ro",
             absolute_cert_dir.to_str().unwrap()
         ))
-        .with_run_parameter("-N", "1000")
-        .with_run_parameter("-c", "ssl=on")
-        .with_run_parameter("-c", "ssl_cert_file=/etc/postgres_certs/server.crt")
-        .with_run_parameter("-c", "ssl_key_file=/etc/postgres_certs/server.key")
-        .with_run_parameter("-c", "ssl_ca_file=/etc/postgres_certs/root.crt")
-        //.with_run_parameter("-i", "")
+        .with_run_parameters(&["-N", "1000"])
+        .with_run_parameters(&["-c", "ssl=on"])
+        .with_run_parameters(&["-c", "ssl_cert_file=/etc/postgres_certs/server.crt"])
+        .with_run_parameters(&["-c", "ssl_key_file=/etc/postgres_certs/server.key"])
+        .with_run_parameters(&["-c", "ssl_ca_file=/etc/postgres_certs/root.crt"])
         .with_detach(false);
 
     if let Some(network_name) = network_name_option {
@@ -188,6 +187,24 @@ fn create_and_start_server_container(
     let server_image_name = "phnxserver_image";
 
     build_docker_image("server/Dockerfile", server_image_name);
+
+    // Chown the certs to the postgres user (we do this after building the
+    // server image to give the postgres container time to start)
+    docker_exec(
+        &db_container_name,
+        "root",
+        &["chown", "-R", "postgres:postgres", "/etc/postgres_certs"],
+    );
+    docker_exec(
+        &db_container_name,
+        "root",
+        &["chmod", "600", "/etc/postgres_certs/server.key"],
+    );
+    docker_exec(
+        &db_container_name,
+        "postgres",
+        &["pg_ctl reload -D /var/lib/postgresql/data"],
+    );
 
     let mut server_container = Container::builder(
         server_image_name,
@@ -213,8 +230,6 @@ fn create_and_start_server_container(
     }
 
     let server = server_container.build().run();
-
-    //sleep(Duration::from_secs(6000));
 
     (server, db)
 }
@@ -328,7 +343,7 @@ pub async fn run_server_restart_test() {
         .with_env(&db_user_env_variable)
         .with_env(&db_password_env_variable)
         .with_env(&db_name_env_variable)
-        .with_run_parameter("-N", "1000")
+        .with_run_parameters(&["-N", "1000"])
         .with_detach(false);
 
     let _db = db_builder.build().run();
@@ -382,4 +397,14 @@ pub async fn run_server_restart_test() {
     stop_docker_container(&db_container_name);
 
     tracing::info!("Done running server restart test");
+}
+
+fn docker_exec(container_name: &str, user: &str, args: &[&str]) -> String {
+    let output = Command::new("docker")
+        .args(["exec", "-u", user, container_name])
+        .args(args)
+        .output()
+        .expect("failed to execute process");
+
+    String::from_utf8(output.stdout).unwrap()
 }
