@@ -193,7 +193,32 @@ fn create_and_start_server_container(
     docker_exec(
         &db_container_name,
         "root",
-        &["chown", "-R", "postgres:postgres", "/etc/postgres_certs"],
+        &[
+            "chown",
+            "-R",
+            "postgres:postgres",
+            "/etc/postgres_certs/server.crt",
+        ],
+    );
+    docker_exec(
+        &db_container_name,
+        "root",
+        &[
+            "chown",
+            "-R",
+            "postgres:postgres",
+            "/etc/postgres_certs/server.key",
+        ],
+    );
+    docker_exec(
+        &db_container_name,
+        "root",
+        &[
+            "chown",
+            "-R",
+            "postgres:postgres",
+            "/etc/postgres_certs/root.crt",
+        ],
     );
     docker_exec(
         &db_container_name,
@@ -203,7 +228,7 @@ fn create_and_start_server_container(
     docker_exec(
         &db_container_name,
         "postgres",
-        &["pg_ctl reload -D /var/lib/postgresql/data"],
+        &["pg_ctl restart -D /var/lib/postgresql/data"],
     );
 
     let mut server_container = Container::builder(
@@ -405,6 +430,8 @@ fn docker_exec(container_name: &str, user: &str, args: &[&str]) -> String {
         .args(args)
         .output()
         .expect("failed to execute process");
+
+    tracing::info!("Output of docker exec: {:?}", output);
 
     String::from_utf8(output.stdout).unwrap()
 }
