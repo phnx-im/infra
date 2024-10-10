@@ -46,25 +46,34 @@ impl DatabaseSettings {
     fn add_tls_mode(&self, mut connection_string: String) -> String {
         if let Some(ref ca_cert_path) = self.cacertpath {
             connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={}", ca_cert_path));
+        } else {
+            tracing::warn!(
+                "No CA certificate path set for database connection. TLS will not be enabled."
+            );
         }
         connection_string
     }
 
+    /// Compose the base connection string without the database name.
+    fn base_connection_string(&self) -> String {
+        format!(
+            "postgres://{}:{}@{}:{}",
+            self.username, self.password, self.host, self.port
+        )
+    }
+
     /// Get the connection string for the database.
     pub fn connection_string(&self) -> String {
-        let connection_string = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.name
-        );
+        let mut connection_string = self.base_connection_string();
+        connection_string.push('/');
+        connection_string.push_str(&self.name);
         self.add_tls_mode(connection_string)
     }
 
     /// Get the connection string for the database without the database name.
+    /// Enables TLS by default.
     pub fn connection_string_without_database(&self) -> String {
-        let connection_string = format!(
-            "postgres://{}:{}@{}:{}",
-            self.username, self.password, self.host, self.port
-        );
+        let connection_string = self.base_connection_string();
         self.add_tls_mode(connection_string)
     }
 }
