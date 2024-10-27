@@ -10,9 +10,9 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 
 class TextMessageTile extends StatefulWidget {
-  final UiContentMessage contentMessage;
+  final List<UiContentMessage> contentFlight;
   final String timestamp;
-  const TextMessageTile(this.contentMessage, this.timestamp, {super.key});
+  const TextMessageTile(this.contentFlight, this.timestamp, {super.key});
 
   @override
   State<TextMessageTile> createState() => _TextMessageTileState();
@@ -25,7 +25,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
   void initState() {
     super.initState();
     coreClient.user
-        .userProfile(userName: widget.contentMessage.sender)
+        .userProfile(userName: widget.contentFlight.last.sender)
         .then((p) {
       if (mounted) {
         setState(() {
@@ -36,7 +36,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
   }
 
   bool isSender() {
-    return widget.contentMessage.sender == coreClient.username;
+    return widget.contentFlight.last.sender == coreClient.username;
   }
 
   @override
@@ -50,6 +50,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
   }
 
   Widget _messageSpace() {
+    // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox());
     return Row(
       mainAxisAlignment:
@@ -80,7 +81,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
 
   Widget _sender() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -94,8 +95,8 @@ class _TextMessageTileState extends State<TextMessageTile> {
 
   Widget _avatar() {
     return FutureUserAvatar(
-      profile:
-          coreClient.user.userProfile(userName: widget.contentMessage.sender),
+      profile: coreClient.user
+          .userProfile(userName: widget.contentFlight.last.sender),
     );
   }
 
@@ -131,29 +132,42 @@ class _TextMessageTileState extends State<TextMessageTile> {
   }
 
   Widget _textContent(BuildContext context) {
-    return Container(
-      alignment: isSender()
-          ? AlignmentDirectional.topEnd
-          : AlignmentDirectional.topStart,
+    final textMessages = widget.contentFlight
+        .map((c) => _textMessage(context, c.content.body))
+        .toList();
+    return Column(
+      children: textMessages,
+    );
+  }
+
+  Widget _textMessage(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 1.0),
       child: Container(
-        padding: EdgeInsets.only(
-          top: isLargeScreen(context) ? 1 : 4,
-          right: isLargeScreen(context) ? 10 : 11,
-          left: isLargeScreen(context) ? 10 : 11,
-          bottom: isLargeScreen(context) ? 5 : 6,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(7),
-          color: isSender() ? colorDMB : colorDMBSuperLight,
-        ),
-        child: RichText(
-          text: buildTextSpanFromText(
-              ["@Alice", "@Bob", "@Carol", "@Dave", "@Eve"],
-              widget.contentMessage.content.body,
-              messageTextStyle(context, isSender()),
-              HostWidget.richText),
-          selectionRegistrar: SelectionContainer.maybeOf(context),
-          selectionColor: Colors.blue.withOpacity(0.3),
+        alignment: isSender()
+            ? AlignmentDirectional.topEnd
+            : AlignmentDirectional.topStart,
+        child: Container(
+          padding: EdgeInsets.only(
+            top: isLargeScreen(context) ? 1 : 4,
+            right: isLargeScreen(context) ? 10 : 11,
+            left: isLargeScreen(context) ? 10 : 11,
+            bottom: isLargeScreen(context) ? 5 : 6,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: isSender() ? colorDMB : colorDMBSuperLight,
+          ),
+          child: RichText(
+            text: buildTextSpanFromText(
+                ["@Alice", "@Bob", "@Carol", "@Dave", "@Eve"],
+                text,
+                messageTextStyle(context, isSender()),
+                HostWidget.richText),
+            selectionRegistrar: SelectionContainer.maybeOf(context),
+            selectionColor: Colors.blue.withOpacity(0.3),
+            textWidthBasis: TextWidthBasis.longestLine,
+          ),
         ),
       ),
     );
@@ -164,7 +178,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
       child: Text(
         isSender()
             ? "You"
-            : widget.contentMessage.sender.split("@").firstOrNull ?? "",
+            : widget.contentFlight.last.sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
           fontVariations: variationSemiBold,

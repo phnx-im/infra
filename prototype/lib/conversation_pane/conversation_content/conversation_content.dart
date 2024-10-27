@@ -132,8 +132,9 @@ class _ConversationContentState extends State<ConversationContent> {
   void messageListener(UiConversationMessage cm) {
     if (cm.conversationId.bytes.equals(_currentConversation!.id.bytes)) {
       setState(() {
-        _messages.add(cm);
-        scrollToEnd(animated: true);
+        updateMessages().then((_) {
+          scrollToEnd(animated: true);
+        });
       });
     } else {
       print('A message for another group was received');

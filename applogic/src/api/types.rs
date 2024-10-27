@@ -205,7 +205,7 @@ impl From<ConversationMessage> for UiConversationMessage {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum UiMessage {
-    Content(UiContentMessage),
+    ContentFlight(Vec<UiContentMessage>),
     Display(UiEventMessage),
     Unsent(UiMimiContent),
 }
@@ -214,7 +214,7 @@ impl From<Message> for UiMessage {
     fn from(message: Message) -> Self {
         match message {
             Message::Content(content_message) => {
-                UiMessage::Content(UiContentMessage::from(content_message))
+                UiMessage::ContentFlight(vec![UiContentMessage::from(content_message)])
             }
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))

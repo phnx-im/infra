@@ -5,14 +5,15 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use phnxcoreclient::{
-    clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, MimiContent,
+    clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, Message,
+    MimiContent,
 };
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
 use super::{
     notifications::LocalNotificationContent,
-    types::{ConversationIdBytes, UiConversationMessage},
+    types::{ConversationIdBytes, UiConversationMessage, UiMessage},
     user::User,
 };
 
@@ -158,13 +159,13 @@ impl User {
         conversation_id: ConversationIdBytes,
         last_n: u32,
     ) -> Vec<UiConversationMessage> {
-        self.user
+        let messages = self
+            .user
             .get_messages(conversation_id.into(), last_n as usize)
             .await
-            .unwrap_or_default()
-            .into_iter()
-            .map(|m| m.into())
-            .collect()
+            .unwrap_or_default();
+
+        group_messages(messages)
     }
 
     /// This function is called from the flutter side to mark messages as read.
@@ -197,4 +198,51 @@ impl User {
             .await
             .unwrap_or_default()
     }
+}
+
+pub(crate) fn group_messages(messages: Vec<ConversationMessage>) -> Vec<UiConversationMessage> {
+    let mut grouped_messages = Vec::new();
+    let mut iter = messages.into_iter().peekable();
+
+    while let Some(conversation_message) = iter.next() {
+        let mut timestamp = conversation_message.timestamp();
+        match conversation_message.message() {
+            Message::Content(content_message) => {
+                let mut current_flight = vec![content_message.clone().into()];
+                let current_sender = content_message.sender().to_string();
+
+                // Keep collecting messages from the same sender
+                while let Some(next_message) = iter.peek() {
+                    let temp_timestamp = next_message.timestamp();
+                    match next_message.message() {
+                        Message::Content(next_content_message) => {
+                            if next_content_message.sender() == current_sender {
+                                let next_content_message = next_content_message.clone();
+                                // Consume the next message and add it to the current flight
+                                let _ = iter.next();
+                                timestamp = temp_timestamp;
+                                current_flight.push(next_content_message.into());
+                            } else {
+                                break;
+                            }
+                        }
+                        _ => break,
+                    }
+                }
+
+                // Add the grouped messages to the result
+                grouped_messages.push(UiConversationMessage {
+                    message: UiMessage::ContentFlight(current_flight),
+                    timestamp: timestamp.to_rfc3339(),
+                    ..conversation_message.into()
+                });
+            }
+            _ => {
+                // Directly add non-content messages
+                grouped_messages.push(conversation_message.into());
+            }
+        }
+    }
+
+    grouped_messages
 }
