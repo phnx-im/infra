@@ -206,41 +206,36 @@ pub(crate) fn group_messages(messages: Vec<ConversationMessage>) -> Vec<UiConver
 
     while let Some(conversation_message) = iter.next() {
         let mut timestamp = conversation_message.timestamp();
-        match conversation_message.message() {
-            Message::Content(content_message) => {
-                let mut current_flight = vec![content_message.clone().into()];
-                let current_sender = content_message.sender().to_string();
+        if let Message::Content(content_message) = conversation_message.message() {
+            let mut current_flight = vec![content_message.clone().into()];
+            let current_sender = content_message.sender().to_string();
 
-                // Keep collecting messages from the same sender
-                while let Some(next_message) = iter.peek() {
-                    let temp_timestamp = next_message.timestamp();
-                    match next_message.message() {
-                        Message::Content(next_content_message) => {
-                            if next_content_message.sender() == current_sender {
-                                let next_content_message = next_content_message.clone();
-                                // Consume the next message and add it to the current flight
-                                let _ = iter.next();
-                                timestamp = temp_timestamp;
-                                current_flight.push(next_content_message.into());
-                            } else {
-                                break;
-                            }
-                        }
-                        _ => break,
+            // Keep collecting messages from the same sender
+            while let Some(next_message) = iter.peek() {
+                let temp_timestamp = next_message.timestamp();
+                if let Message::Content(next_content_message) = next_message.message() {
+                    if next_content_message.sender() != current_sender {
+                        break;
                     }
+                    let next_content_message = next_content_message.clone();
+                    // Consume the next message and add it to the current flight
+                    let _ = iter.next();
+                    timestamp = temp_timestamp;
+                    current_flight.push(next_content_message.into());
+                } else {
+                    break;
                 }
+            }
 
-                // Add the grouped messages to the result
-                grouped_messages.push(UiConversationMessage {
-                    message: UiMessage::ContentFlight(current_flight),
-                    timestamp: timestamp.to_rfc3339(),
-                    ..conversation_message.into()
-                });
-            }
-            _ => {
-                // Directly add non-content messages
-                grouped_messages.push(conversation_message.into());
-            }
+            // Add the grouped messages to the result
+            grouped_messages.push(UiConversationMessage {
+                message: UiMessage::ContentFlight(current_flight),
+                timestamp: timestamp.to_rfc3339(),
+                ..conversation_message.into()
+            });
+        } else {
+            // Directly add non-content messages
+            grouped_messages.push(conversation_message.into());
         }
     }
 
