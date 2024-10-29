@@ -466,7 +466,7 @@ impl Group {
                 Some(ratchet_tree_in),
                 verifiable_group_info,
                 &mls_group_config,
-                None,
+                Some(default_capabilities()),
                 None,
                 &aad.tls_serialize_detached()?,
                 credential_with_key,
