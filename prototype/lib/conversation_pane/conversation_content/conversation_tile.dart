@@ -21,7 +21,8 @@ class ConversationTile extends StatelessWidget {
       title: Container(
         alignment: AlignmentDirectional.centerStart,
         child: (message.message.when(
-          content: (content) => TextMessageTile(content, message.timestamp),
+          contentFlight: (contentFlight) =>
+              TextMessageTile(contentFlight, message.timestamp),
           display: (display) => DisplayMessageTile(display, message.timestamp),
           unsent: (unsent) => const Text("⚠️ UNSENT MESSAGE ⚠️ {unsent}",
               style: TextStyle(color: Colors.red)),
