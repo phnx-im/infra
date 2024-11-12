@@ -148,11 +148,12 @@ class _ConversationListState extends State<ConversationList> {
 
     if (lastMessage != null) {
       lastMessage.message.when(
-          content: (c) {
-            if (c.sender == coreClient.username) {
+          contentFlight: (c) {
+            final lastContentMessage = c.last;
+            if (lastContentMessage.sender == coreClient.username) {
               sender = 'You: ';
             }
-            displayedLastMessage = c.content.body;
+            displayedLastMessage = lastContentMessage.content.body;
           },
           display: (d) => '',
           unsent: (u) => '⚠️ Unsent message: ${u.body}');
@@ -259,7 +260,7 @@ class _ConversationListState extends State<ConversationList> {
         width: 300,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5.0),
+          borderRadius: BorderRadius.circular(10),
           color: _selectionColor(index),
         ),
         child: Row(
