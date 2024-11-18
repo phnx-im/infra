@@ -48,7 +48,6 @@ pub fn init_logger() {
 
         CombinedLogger::init(vec![
             Box::new(SendToDartLogger::new(level)),
-            Box::new(MyMobileLogger::new(level)),
             // #[cfg(not(any(target_os = "android", target_os = "ios")))]
             TermLogger::new(
                 level,
@@ -150,62 +149,6 @@ impl Log for SendToDartLogger {
 }
 
 impl SharedLogger for SendToDartLogger {
-    fn level(&self) -> LevelFilter {
-        self.level
-    }
-
-    fn config(&self) -> Option<&Config> {
-        None
-    }
-
-    fn as_log(self: Box<Self>) -> Box<dyn Log> {
-        Box::new(*self)
-    }
-}
-
-pub struct MyMobileLogger {
-    level: LevelFilter,
-    #[cfg(target_os = "ios")]
-    ios_logger: oslog::OsLogger,
-}
-
-impl MyMobileLogger {
-    pub fn new(level: LevelFilter) -> Self {
-        MyMobileLogger {
-            level,
-            #[cfg(target_os = "ios")]
-            ios_logger: oslog::OsLogger::new("vision_utils_rs"),
-        }
-    }
-}
-
-impl Log for MyMobileLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-    }
-
-    #[allow(unused_variables)]
-    fn log(&self, record: &Record) {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        let modified_record = {
-            let override_level = Level::Info;
-
-            record.to_builder().level(override_level).build()
-        };
-
-        #[cfg(target_os = "android")]
-        android_logger::log(&modified_record);
-
-        #[cfg(target_os = "ios")]
-        self.ios_logger.log(&modified_record);
-    }
-
-    fn flush(&self) {
-        // no need
-    }
-}
-
-impl SharedLogger for MyMobileLogger {
     fn level(&self) -> LevelFilter {
         self.level
     }
