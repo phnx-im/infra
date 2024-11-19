@@ -69,7 +69,6 @@ frb-generate:
 android-create:
 	rm -Rf android/
 	flutter create --platforms=android .
-	./conf-android.sh
 
 macos-create:
 	rm -Rf macos/
