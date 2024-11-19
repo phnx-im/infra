@@ -30,3 +30,7 @@ License: AGPL-3.0-or-later
 Files: prototype/ios/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
+
+Files: prototype/android/*
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
