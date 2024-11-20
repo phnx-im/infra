@@ -28,7 +28,7 @@ dependencies:
   flutter:
     sdk: flutter
   convert: ^3.0.0
-  flutter_rust_bridge: 2.2.0
+  flutter_rust_bridge: 2.6.0
   freezed_annotation: ^2.2.0
   path_provider: ^2.1.1
   image_picker: ^1.0.7

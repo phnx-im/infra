@@ -29,7 +29,7 @@ anyhow = { version = "1", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.39", features = ["rt", "macros"] }
-flutter_rust_bridge = { version = "=2.2.0", features = ["chrono", "uuid"] }
+flutter_rust_bridge = { version = "=2.6.0", features = ["chrono", "uuid"] }
 notify-rust = "4"
 lazy_static = "1.5"
 chrono = { workspace = true }

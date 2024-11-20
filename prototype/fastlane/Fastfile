@@ -22,9 +22,8 @@ platform :ios do
   desc "Build app for TestFlight"
   lane :beta_ios do |options|
     # Set XCode version
-    xcversion(version: "15.4")
     xcodes(
-      version: '15.4',
+      version: '16.1',
       select_for_current_build_only: true,
     )
   

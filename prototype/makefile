@@ -36,7 +36,7 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	cargo install flutter_rust_bridge_codegen@2.2.0
+	cargo install flutter_rust_bridge_codegen@2.6.0
 	cargo install cargo-expand
 	cargo install cargo-ndk
 
@@ -69,7 +69,6 @@ frb-generate:
 android-create:
 	rm -Rf android/
 	flutter create --platforms=android .
-	./conf-android.sh
 
 macos-create:
 	rm -Rf macos/
