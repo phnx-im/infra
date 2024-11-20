@@ -168,7 +168,7 @@ fn create_and_start_server_container(
         .with_env(&db_password_env_variable)
         .with_env(&db_name_env_variable)
         .with_volume(&format!(
-            "{}:/etc/postgres_certs:ro",
+            "{}:/etc/postgres_certs:rw",
             absolute_cert_dir.to_str().unwrap()
         ))
         .with_run_parameters(&["-N", "1000"])
@@ -228,7 +228,7 @@ fn create_and_start_server_container(
     docker_exec(
         &db_container_name,
         "postgres",
-        &["pg_ctl restart -D /var/lib/postgresql/data"],
+        &["pg_ctl", "start", "-D", "/var/lib/postgresql/data"],
     );
 
     let mut server_container = Container::builder(
