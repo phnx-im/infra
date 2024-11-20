@@ -69,7 +69,6 @@ Runner.ipa
 Runner.app.dSYM.zip
 
 # Other platforms
-android/
 macos/
 windows/
 linux/
