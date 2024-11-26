@@ -71,7 +71,7 @@ platform :android do
 
       # Upload to Google Play Store
       supply(
-        validate_only: true,
+        validate_only: false,
         release_status: "draft",
         version_code: current_build_number,
         track: track,

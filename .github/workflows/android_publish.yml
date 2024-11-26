@@ -20,6 +20,8 @@ on:
       - 'prototype/**'
       - 'Cargo.toml'
   workflow_dispatch:
+  pull_request:
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
