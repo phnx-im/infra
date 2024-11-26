@@ -158,13 +158,19 @@ fn create_and_start_server_container(
         .output()
         .expect("failed to execute process");
 
+    println!("Output of cert generation: {:?}", cert_gen_output);
+
     assert!(cert_gen_output.status.success());
 
-    docker_exec(
-        &db_container_name,
-        "root",
-        &["chown", "70", "/etc/postgres_certs/server.crt"],
-    );
+    // Chown the certs to the postgres user
+    //let chown_output = Command::new("chown")
+    //    .args(["-R", "70", absolute_cert_dir.to_str().unwrap()])
+    //    .output()
+    //    .expect("failed to execute process");
+
+    //println!("Output of chown: {:?}", chown_output);
+
+    //assert!(chown_output.status.success());
 
     let mut db_container = Container::builder(db_image_name, &db_container_name)
         .with_port(db_port)
