@@ -45,12 +45,14 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Set up CI
+      - name: Set up Android CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd prototype && make setup-ci
+        run: cd prototype && make setup-android-ci
 
       - name: Integrate bridge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cd prototype && make frb-integrate
 
       - name: Build and upload to Play Store
