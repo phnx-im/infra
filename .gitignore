@@ -8,3 +8,5 @@ target
 Cargo.lock
 .vscode
 backend/test_certs/
+.ruby-version
+.env
