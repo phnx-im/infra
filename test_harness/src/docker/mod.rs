@@ -160,6 +160,12 @@ fn create_and_start_server_container(
 
     assert!(cert_gen_output.status.success());
 
+    docker_exec(
+        &db_container_name,
+        "root",
+        &["chown", "70", "/etc/postgres_certs/server.crt"],
+    );
+
     let mut db_container = Container::builder(db_image_name, &db_container_name)
         .with_port(db_port)
         .with_hostname(&db_domain)
@@ -190,46 +196,41 @@ fn create_and_start_server_container(
 
     // Chown the certs to the postgres user (we do this after building the
     // server image to give the postgres container time to start)
-    docker_exec(
-        &db_container_name,
-        "root",
-        &[
-            "chown",
-            "-R",
-            "postgres:postgres",
-            "/etc/postgres_certs/server.crt",
-        ],
-    );
-    docker_exec(
-        &db_container_name,
-        "root",
-        &[
-            "chown",
-            "-R",
-            "postgres:postgres",
-            "/etc/postgres_certs/server.key",
-        ],
-    );
-    docker_exec(
-        &db_container_name,
-        "root",
-        &[
-            "chown",
-            "-R",
-            "postgres:postgres",
-            "/etc/postgres_certs/root.crt",
-        ],
-    );
-    docker_exec(
-        &db_container_name,
-        "root",
-        &["chmod", "600", "/etc/postgres_certs/server.key"],
-    );
-    docker_exec(
-        &db_container_name,
-        "postgres",
-        &["pg_ctl", "start", "-D", "/var/lib/postgresql/data"],
-    );
+    //docker_exec(
+    //    &db_container_name,
+    //    "root",
+    //    &[
+    //        "chown",
+    //        "-R",
+    //        "postgres:postgres",
+    //        "/etc/postgres_certs/server.crt",
+    //    ],
+    //);
+    //docker_exec(
+    //    &db_container_name,
+    //    "root",
+    //    &[
+    //        "chown",
+    //        "-R",
+    //        "postgres:postgres",
+    //        "/etc/postgres_certs/server.key",
+    //    ],
+    //);
+    //docker_exec(
+    //    &db_container_name,
+    //    "root",
+    //    &[
+    //        "chown",
+    //        "-R",
+    //        "postgres:postgres",
+    //        "/etc/postgres_certs/root.crt",
+    //    ],
+    //);
+    //docker_exec(
+    //    &db_container_name,
+    //    "root",
+    //    &["chmod", "600", "/etc/postgres_certs/server.key"],
+    //);
 
     let mut server_container = Container::builder(
         server_image_name,

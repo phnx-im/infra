@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+set -euo pipefail
+
 echo "Test directory: $TEST_CERT_DIR_NAME"
 
 # Check if directory exists
@@ -23,7 +25,7 @@ else
   
   # Sign the server certificate with the CA certificate
   openssl x509 -req -in "$TEST_CERT_DIR_NAME/server.csr" -CA "$TEST_CERT_DIR_NAME/root.crt" -CAkey "$TEST_CERT_DIR_NAME/root.key" -CAcreateserial -out "$TEST_CERT_DIR_NAME/server.crt" -days 36500
-  
+
   # Set permissions for the server key
   chmod 600 "$TEST_CERT_DIR_NAME/server.key"
   
