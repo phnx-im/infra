@@ -36,10 +36,10 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Set up macOS CI
+      - name: Set up iOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd prototype && make setup-macos-ci
+        run: cd prototype && make setup-ios-ci
 
       - name: Integrate bridge
         run: cd prototype && make frb-integrate

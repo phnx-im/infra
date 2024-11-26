@@ -60,7 +60,7 @@ platform :android do
       gradle(
         task: "bundle",
         build_type: "Release",
-        project_dir: "android",
+        project_dir: File.expand_path("android"),
         properties: {
           "android.injected.signing.store.file" => File.expand_path(keystore_path),
           "android.injected.signing.store.password" => ENV["ANDROID_KEY_PASSWORD"],

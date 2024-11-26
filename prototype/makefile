@@ -39,11 +39,14 @@ setup-ci:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y flutter_rust_bridge_codegen@2.6.0
 	cargo binstall -y cargo-expand
-	cargo binstall -y cargo-ndk
+
+setup-ios-ci: setup-ci
+	brew install xcodesorg/made/xcodes	
 	cd fastlane && bundle install
 
-setup-macos-ci: setup-ci
-	brew install xcodesorg/made/xcodes
+setup-android-ci: setup-ci
+	cargo binstall -y cargo-ndk
+	cd fastlane && bundle install
 
 frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
