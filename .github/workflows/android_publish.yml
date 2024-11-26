@@ -9,8 +9,17 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    branches: ["main"]
+  push:
+    branches:
+      - main
+    paths:
+      - 'coreclient/**'
+      - 'apiclient/**'
+      - 'applogic/**'
+      - 'types/**'
+      - 'prototype/**'
+      - 'Cargo.toml'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
