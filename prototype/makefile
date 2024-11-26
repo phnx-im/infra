@@ -36,14 +36,14 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	cargo binstall flutter_rust_bridge_codegen@2.6.0
-	cargo binstall cargo-expand
-	cargo binstall cargo-ndk
+	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	cargo binstall -y flutter_rust_bridge_codegen@2.6.0
+	cargo binstall -y cargo-expand
+	cargo binstall -y cargo-ndk
 
 setup-macos-ci:
 	brew install xcodesorg/made/xcodes
 	cd fastlane && bundle install
-	cd fastlane && bundle exec fastlane add_plugin flutter
 
 frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp

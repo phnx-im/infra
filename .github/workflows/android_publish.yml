@@ -50,6 +50,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cd prototype && make setup-ci
 
+      - name: Set up macOS CI
+        run: cd prototype && make setup-macos-ci
+
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
 
@@ -59,6 +62,4 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_PLAYSTORE_KEY_JSON: ${{ secrets.ANDROID_PLAYSTORE_KEY_JSON }}
         run: |
-          cd prototype/fastlane
-          bundle install
-          bundle exec fastlane android deploy
+          cd prototype/fastlane && bundle exec fastlane android deploy
