@@ -51,4 +51,4 @@ jobs:
         run: cd prototype && make frb-integrate
 
       - name: Build Android app
-        run: cd prototype && make android-release
+        run: cd prototype && flutter build appbundle --release --target-platform android-arm64

@@ -83,10 +83,10 @@ ios-create:
 	flutter create --platforms=ios --org im.phnx .
 
 android-debug:
-	flutter build apk --debug
+	flutter build appbundle --debug
 
 android-release:
-	flutter build apk --release
+	flutter build appbundle --release
 
 ios-release:
 	flutter build ios --release

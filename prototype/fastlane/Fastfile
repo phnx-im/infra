@@ -56,6 +56,9 @@ platform :android do
         version_code: current_build_number
       )
 
+      # We build the app in release mode with Flutter first to set up gradle
+      sh "flutter build appbundle --release"
+
       # Build the bundle in release mode and sign it
       gradle(
         task: "bundle",

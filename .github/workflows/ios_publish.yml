@@ -38,9 +38,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-
       - name: Set up iOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
