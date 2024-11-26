@@ -16,7 +16,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  android-build:
+  android-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -46,7 +46,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Set up CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cd prototype && make setup-ci
+
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
 
@@ -56,4 +59,6 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_PLAYSTORE_KEY_JSON: ${{ secrets.ANDROID_PLAYSTORE_KEY_JSON }}
         run: |
-          cd prototype/fastlane && bundle exec fastlane android deploy
+          cd prototype/fastlane
+          bundle install
+          bundle exec fastlane android deploy

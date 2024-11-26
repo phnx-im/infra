@@ -36,9 +36,9 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	cargo install flutter_rust_bridge_codegen@2.6.0
-	cargo install cargo-expand
-	cargo install cargo-ndk
+	cargo binstall flutter_rust_bridge_codegen@2.6.0
+	cargo binstall cargo-expand
+	cargo binstall cargo-ndk
 
 setup-macos-ci:
 	brew install xcodesorg/made/xcodes
