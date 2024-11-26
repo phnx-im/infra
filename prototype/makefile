@@ -40,10 +40,10 @@ setup-ci:
 	cargo binstall -y flutter_rust_bridge_codegen@2.6.0
 	cargo binstall -y cargo-expand
 	cargo binstall -y cargo-ndk
-
-setup-macos-ci:
-	brew install xcodesorg/made/xcodes
 	cd fastlane && bundle install
+
+setup-macos-ci: setup-ci
+	brew install xcodesorg/made/xcodes
 
 frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp

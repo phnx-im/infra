@@ -50,9 +50,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cd prototype && make setup-ci
 
-      - name: Set up macOS CI
-        run: cd prototype && make setup-macos-ci
-
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
 
