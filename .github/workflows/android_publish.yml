@@ -2,24 +2,13 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Build Android app
+name: Publish Android app
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'coreclient/**'
-      - 'apiclient/**'
-      - 'applogic/**'
-      - 'types/**'
-      - 'prototype/**'
-      - 'Cargo.toml'
-  workflow_dispatch:
   pull_request:
     branches: ["main"]
 
