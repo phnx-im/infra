@@ -174,8 +174,6 @@ fn create_and_start_server_container(
 
     assert!(ls_output.status.success());
 
-    panic!("stop here");
-
     // Chown the certs to the postgres user
     //let chown_output = Command::new("chown")
     //    .args(["-R", "70", absolute_cert_dir.to_str().unwrap()])
