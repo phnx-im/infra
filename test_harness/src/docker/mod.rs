@@ -153,7 +153,7 @@ fn create_and_start_server_container(
     let absolute_cert_dir = std::env::current_dir().unwrap().join(cert_dir);
     std::env::set_var("TEST_CERT_DIR_NAME", cert_dir);
     // Call script to generate the TLS certs
-    let cert_gen_output = Command::new("sh")
+    let cert_gen_output = Command::new("bash")
         .arg("backend/scripts/generate_test_certs.sh")
         .output()
         .expect("failed to execute process");
