@@ -32,10 +32,10 @@ else
   echo "Certificates and configuration file generated in $TEST_CERT_DIR_NAME."
 fi
 
-# Check and change ownership if the current user is root
-if [ "$(id -u)" -eq 0 ]; then
-  echo "Running as root, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
-  chown -R 70:70 "$TEST_CERT_DIR_NAME"
+# Check and change ownership if we're running on the CI
+if [[ "${CI:-}" == "true" ]]; then
+  echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
+  sudo chown -R 70:70 "$TEST_CERT_DIR_NAME"
 else
-  echo "Not running as root. Skipping ownership change."
+  echo "Not running on CI. Skipping ownership change."
 fi
