@@ -163,6 +163,8 @@ fn create_and_start_server_container(
 
     assert!(cert_gen_output.status.success());
 
+    sleep(Duration::from_secs(5));
+
     let ls_output = Command::new("ls")
         .args(["-lash", absolute_cert_dir.to_str().unwrap()])
         .output()

@@ -30,12 +30,13 @@ else
   chmod 600 "$TEST_CERT_DIR_NAME/server.key"
   
   echo "Certificates and configuration file generated in $TEST_CERT_DIR_NAME."
+
+  # Check and change ownership if we're running on the CI
+  if [[ "${CI:-}" == "true" ]]; then
+    echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
+    sudo chown -R 70:70 "$TEST_CERT_DIR_NAME"
+  else
+    echo "Not running on CI. Skipping ownership change."
+  fi
 fi
 
-# Check and change ownership if we're running on the CI
-if [[ "${CI:-}" == "true" ]]; then
-  echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
-  sudo chown -R 70:70 "$TEST_CERT_DIR_NAME"
-else
-  echo "Not running on CI. Skipping ownership change."
-fi
