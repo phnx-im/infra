@@ -34,7 +34,7 @@ else
   # Check and change ownership if we're running on the CI
   if [[ "${CI:-}" == "true" ]]; then
     echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
-    sudo chown -R 70:70 "$TEST_CERT_DIR_NAME"
+    sudo chown -R 999:999 "$TEST_CERT_DIR_NAME"
   else
     echo "Not running on CI. Skipping ownership change."
   fi
