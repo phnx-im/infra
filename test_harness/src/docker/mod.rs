@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use core::panic;
 use std::{
     collections::{HashMap, HashSet},
     process::{Child, Command, Stdio},
@@ -161,6 +162,17 @@ fn create_and_start_server_container(
     println!("Output of cert generation: {:?}", cert_gen_output);
 
     assert!(cert_gen_output.status.success());
+
+    let ls_output = Command::new("ls")
+        .args(["-lash", absolute_cert_dir.to_str().unwrap()])
+        .output()
+        .expect("failed to execute process");
+
+    println!("Output of ls: {:?}", ls_output);
+
+    assert!(ls_output.status.success());
+
+    panic!("stop here");
 
     // Chown the certs to the postgres user
     //let chown_output = Command::new("chown")
