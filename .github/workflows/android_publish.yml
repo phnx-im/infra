@@ -2,21 +2,30 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Build Android app
+name: Publish Android app
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
-  pull_request:
-    branches: ["main"]
+  push:
+    branches:
+      - main
+    paths:
+      - 'coreclient/**'
+      - 'apiclient/**'
+      - 'applogic/**'
+      - 'types/**'
+      - 'prototype/**'
+      - 'Cargo.toml'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  android-build:
+  android-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +57,14 @@ jobs:
         run: cd prototype && make setup-android-ci
 
       - name: Integrate bridge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cd prototype && make frb-integrate
 
-      - name: Build Android app
-        run: cd prototype && flutter build appbundle --release --target-platform android-arm64
+      - name: Build and upload to Play Store
+        env:
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_PLAYSTORE_KEY_JSON: ${{ secrets.ANDROID_PLAYSTORE_KEY_JSON }}
+        run: |
+          cd prototype/fastlane && bundle exec fastlane android deploy
