@@ -59,9 +59,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-
       - name: Set up CI
         run: cd prototype && make setup-ci
       - name: Integrate bridge
