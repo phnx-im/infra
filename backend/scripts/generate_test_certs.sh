@@ -33,8 +33,8 @@ else
 
   # Check and change ownership if we're running on the CI
   if [[ "${CI:-}" == "true" ]]; then
-    echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 70."
-    sudo chown -R 999:999 "$TEST_CERT_DIR_NAME"
+    echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 999, which corresponds to the postgres user in the postgres docker container."
+    sudo chown -R 999:999 "$TEST_CERT_DIR_NAME/server.crt" "$TEST_CERT_DIR_NAME/server.key"
   else
     echo "Not running on CI. Skipping ownership change."
   fi
