@@ -22,9 +22,33 @@ else
   
   # Generate server private key and certificate signing request (CSR)
   openssl req -new -nodes -out "$TEST_CERT_DIR_NAME/server.csr" -keyout "$TEST_CERT_DIR_NAME/server.key" -subj "/CN=test.postgres.server"
+
+  # Create a config file for X.509v3 extensions (this is necessary, because the
+  # openssl version on the CI doesn't generate the correct extensions by
+  # default)
+  cat > "$TEST_CERT_DIR_NAME/server.cnf" <<EOF
+[req]
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+CN = test.postgres.server
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+EOF
   
   # Sign the server certificate with the CA certificate
-  openssl x509 -req -in "$TEST_CERT_DIR_NAME/server.csr" -CA "$TEST_CERT_DIR_NAME/root.crt" -CAkey "$TEST_CERT_DIR_NAME/root.key" -CAcreateserial -out "$TEST_CERT_DIR_NAME/server.crt" -days 36500
+  openssl x509 -req -days 36500 \
+    -in "$TEST_CERT_DIR_NAME/server.csr" \
+    -CA "$TEST_CERT_DIR_NAME/root.crt" \
+    -CAkey "$TEST_CERT_DIR_NAME/root.key" \
+    -CAcreateserial \
+    -out "$TEST_CERT_DIR_NAME/server.crt" \
+    -extfile "$TEST_CERT_DIR_NAME/server.cnf" \
+    -extensions v3_req
 
   # Set permissions for the server key
   chmod 600 "$TEST_CERT_DIR_NAME/server.key"
