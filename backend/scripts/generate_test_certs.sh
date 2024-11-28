@@ -31,9 +31,6 @@ else
   
   echo "Certificates and configuration file generated in $TEST_CERT_DIR_NAME."
 
-  echo "Server Certificate Details:"
-  openssl x509 -in "$TEST_CERT_DIR_NAME/server.crt" -text -noout | cat
-
   # Check and change ownership if we're running on the CI
   if [[ "${CI:-}" == "true" ]]; then
     echo "Running on CI, changing ownership of files in $TEST_CERT_DIR_NAME to user with UID 999, which corresponds to the postgres user in the postgres docker container."
@@ -42,4 +39,8 @@ else
     echo "Not running on CI. Skipping ownership change."
   fi
 fi
+
+echo "Server Certificate Details:"
+openssl x509 -in "$TEST_CERT_DIR_NAME/server.crt" -text -noout | cat
+
 
