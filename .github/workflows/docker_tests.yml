@@ -48,6 +48,9 @@ jobs:
           EOF
           docker restart --time 0 postgres
           sleep 5
+      
+      - name: Update OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y openssl
 
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
