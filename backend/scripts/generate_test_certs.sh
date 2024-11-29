@@ -26,19 +26,19 @@ else
   # Create a config file for X.509v3 extensions (this is necessary, because the
   # openssl version on the CI doesn't generate the correct extensions by
   # default)
-#  cat > "$TEST_CERT_DIR_NAME/server.cnf" <<EOF
-#[req]
-#distinguished_name = req_distinguished_name
-#[req_distinguished_name]
-#CN = test.postgres.server
-#
-#[v3_req]
-#basicConstraints = CA:FALSE
-#keyUsage = digitalSignature, keyEncipherment
-#extendedKeyUsage = serverAuth
-#subjectKeyIdentifier = hash
-#authorityKeyIdentifier = keyid,issuer
-#EOF
+  cat > "$TEST_CERT_DIR_NAME/server.cnf" <<EOF
+[req]
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+CN = test.postgres.server
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+EOF
   
   # Sign the server certificate with the CA certificate
   openssl x509 -req -days 36500 \
@@ -47,8 +47,8 @@ else
     -CAkey "$TEST_CERT_DIR_NAME/root.key" \
     -CAcreateserial \
     -out "$TEST_CERT_DIR_NAME/server.crt" \
-    #-extfile "$TEST_CERT_DIR_NAME/server.cnf" \
-    #-extensions v3_req
+    -extfile "$TEST_CERT_DIR_NAME/server.cnf" \
+    -extensions v3_req
 
   # Set permissions for the server key
   chmod 600 "$TEST_CERT_DIR_NAME/server.key"
@@ -63,8 +63,3 @@ else
     echo "Not running on CI. Skipping ownership change."
   fi
 fi
-
-echo "Server Certificate Details:"
-openssl x509 -in "$TEST_CERT_DIR_NAME/server.crt" -text -noout | cat
-
-
