@@ -153,26 +153,14 @@ fn create_and_start_server_container(
     let cert_dir = "backend/test_certs";
     let absolute_cert_dir = std::env::current_dir().unwrap().join(cert_dir);
     std::env::set_var("TEST_CERT_DIR_NAME", cert_dir);
+
     // Call script to generate the TLS certs
     let cert_gen_output = Command::new("bash")
         .arg("backend/scripts/generate_test_certs.sh")
         .output()
         .expect("failed to execute process");
 
-    println!("Output of cert generation: {:?}", cert_gen_output);
-
     assert!(cert_gen_output.status.success());
-
-    sleep(Duration::from_secs(5));
-
-    let ls_output = Command::new("ls")
-        .args(["-lash", absolute_cert_dir.to_str().unwrap()])
-        .output()
-        .expect("failed to execute process");
-
-    println!("Output of ls: {:?}", ls_output);
-
-    assert!(ls_output.status.success());
 
     let mut db_container = Container::builder(db_image_name, &db_container_name)
         .with_port(db_port)
@@ -392,16 +380,4 @@ pub async fn run_server_restart_test() {
     stop_docker_container(&db_container_name);
 
     tracing::info!("Done running server restart test");
-}
-
-fn docker_exec(container_name: &str, user: &str, args: &[&str]) -> String {
-    let output = Command::new("docker")
-        .args(["exec", "-u", user, container_name])
-        .args(args)
-        .output()
-        .expect("failed to execute process");
-
-    tracing::info!("Output of docker exec: {:?}", output);
-
-    String::from_utf8(output.stdout).unwrap()
 }
