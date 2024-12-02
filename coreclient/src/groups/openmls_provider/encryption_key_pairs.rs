@@ -47,8 +47,8 @@ pub(crate) struct StorableEncryptionKeyPairRef<'a, EncryptionKeyPair: Entity<CUR
     pub &'a EncryptionKeyPair,
 );
 
-impl<'a, EncryptionKeyPair: Entity<CURRENT_VERSION>>
-    StorableEncryptionKeyPairRef<'a, EncryptionKeyPair>
+impl<EncryptionKeyPair: Entity<CURRENT_VERSION>>
+    StorableEncryptionKeyPairRef<'_, EncryptionKeyPair>
 {
     pub(super) fn store<EncryptionKey: Key<CURRENT_VERSION>>(
         &self,
@@ -67,8 +67,8 @@ pub(crate) struct StorableEncryptionPublicKeyRef<'a, EncryptionPublicKey: Key<CU
     pub &'a EncryptionPublicKey,
 );
 
-impl<'a, EncryptionPublicKey: Key<CURRENT_VERSION>>
-    StorableEncryptionPublicKeyRef<'a, EncryptionPublicKey>
+impl<EncryptionPublicKey: Key<CURRENT_VERSION>>
+    StorableEncryptionPublicKeyRef<'_, EncryptionPublicKey>
 {
     pub(super) fn delete(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         connection.execute(

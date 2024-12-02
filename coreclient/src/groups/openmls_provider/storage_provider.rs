@@ -56,7 +56,7 @@ impl<T: Entity<CURRENT_VERSION>> FromSql for EntityWrapper<T> {
 
 pub(super) struct EntityRefWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a T);
 
-impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntityRefWrapper<'a, T> {
+impl<T: Entity<CURRENT_VERSION>> ToSql for EntityRefWrapper<'_, T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         let entity_bytes = PhnxCodec::to_vec(&self.0)?;
         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
@@ -67,7 +67,7 @@ impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntityRefWrapper<'a, T> {
 
 pub(super) struct EntitySliceWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a [T]);
 
-impl<'a, T: Entity<CURRENT_VERSION>> ToSql for EntitySliceWrapper<'a, T> {
+impl<T: Entity<CURRENT_VERSION>> ToSql for EntitySliceWrapper<'_, T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         let entity_bytes = PhnxCodec::to_vec(&self.0)?;
         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
@@ -87,7 +87,7 @@ impl<T: Entity<CURRENT_VERSION>> FromSql for EntityVecWrapper<T> {
 
 pub(super) struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
-impl<'a> StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'a> {
+impl StorageProvider<{ CURRENT_VERSION }> for SqliteStorageProvider<'_> {
     type Error = rusqlite::Error;
 
     fn write_mls_join_config<

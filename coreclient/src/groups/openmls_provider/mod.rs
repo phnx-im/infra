@@ -55,7 +55,7 @@ impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
     }
 }
 
-impl<'a> OpenMlsRand for PhnxOpenMlsProvider<'a> {
+impl OpenMlsRand for PhnxOpenMlsProvider<'_> {
     type Error = PhnxRandomnessError;
 
     fn random_array<const N: usize>(&self) -> std::result::Result<[u8; N], Self::Error> {

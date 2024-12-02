@@ -207,7 +207,7 @@ impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
     fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
         let vec: Vec<u8> = init_key.key().as_slice().to_vec();
         Self {
-            decryption_key: DecryptionKey::new(sk.into(), vec.into()),
+            decryption_key: DecryptionKey::new(sk, vec.into()),
         }
     }
 }

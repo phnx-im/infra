@@ -559,6 +559,7 @@ pub struct ExternalCommitInfo {
     pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponse {

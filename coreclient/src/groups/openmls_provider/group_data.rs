@@ -107,7 +107,7 @@ impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupData<GroupData> {
     }
 }
 
-impl<'a, GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'a, GroupData> {
+impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'_, GroupData> {
     pub(super) fn store<GroupId: Key<CURRENT_VERSION>>(
         &self,
         connection: &Connection,
@@ -122,7 +122,7 @@ impl<'a, GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'a, GroupData>
     }
 }
 
-impl<'a, GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'a, GroupId> {
+impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
     pub(super) fn delete_group_data(
         &self,
         connection: &Connection,

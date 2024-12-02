@@ -122,7 +122,7 @@ impl Contact {
     }
 }
 
-pub(crate) const PARTIAL_CONTACT_INSERT_TRIGGER: &str = 
+pub(crate) const PARTIAL_CONTACT_INSERT_TRIGGER: &str =
     "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_insert;
 
     CREATE TRIGGER no_partial_contact_overlap_on_insert
