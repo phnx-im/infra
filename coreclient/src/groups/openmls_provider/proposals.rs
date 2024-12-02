@@ -72,8 +72,8 @@ pub(super) struct StorableProposalRef<
     ProposalRef: Entity<CURRENT_VERSION>,
 >(pub &'a ProposalRef, pub &'a Proposal);
 
-impl<'a, Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
-    StorableProposalRef<'a, Proposal, ProposalRef>
+impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
+    StorableProposalRef<'_, Proposal, ProposalRef>
 {
     pub(super) fn store<GroupId: Key<CURRENT_VERSION>>(
         &self,
@@ -92,7 +92,7 @@ impl<'a, Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>
     }
 }
 
-impl<'a, GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'a, GroupId> {
+impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
     pub(super) fn delete_all_proposals(
         &self,
         connection: &rusqlite::Connection,

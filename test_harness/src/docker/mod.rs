@@ -291,6 +291,7 @@ fn assert_docker_is_running() {
     }
 }
 
+#[expect(clippy::zombie_processes, reason = "Allow zombie processes in tests")]
 pub async fn run_server_restart_test() {
     Lazy::force(&TRACING);
 

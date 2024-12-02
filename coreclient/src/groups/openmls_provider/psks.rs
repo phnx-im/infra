@@ -53,7 +53,7 @@ impl<PskBundle: Entity<CURRENT_VERSION>> StorablePskBundleRef<'_, PskBundle> {
 
 pub(super) struct StorablePskIdRef<'a, PskId: Key<CURRENT_VERSION>>(pub &'a PskId);
 
-impl<'a, PskId: Key<CURRENT_VERSION>> StorablePskIdRef<'a, PskId> {
+impl<PskId: Key<CURRENT_VERSION>> StorablePskIdRef<'_, PskId> {
     pub(super) fn delete(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM psks WHERE psk_id = ?1",
