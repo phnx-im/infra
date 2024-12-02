@@ -35,13 +35,11 @@ check-git-clean:
 	fi
 
 setup-ci:
-	rustup update
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-	cargo binstall -y flutter_rust_bridge_codegen@2.6.0
-	cargo binstall -y cargo-expand
+	cargo binstall -y flutter_rust_bridge_codegen@2.6.0 cargo-expand
 
 setup-ios-ci: setup-ci
-	brew install xcodesorg/made/xcodes	
+	brew install xcodesorg/made/xcodes
 	cd fastlane && bundle install
 
 setup-android-ci: setup-ci
