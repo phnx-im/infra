@@ -369,8 +369,8 @@ impl Storable for GroupMembership {
     }
 }
 
-pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str = 
-    "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data 
+pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str =
+    "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data
         AFTER DELETE ON group_membership
         FOR EACH ROW
         BEGIN
