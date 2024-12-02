@@ -41,6 +41,9 @@ chrono = { version = "0.4.38", features = ["serde"] }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 openmls = { git = "https://github.com/openmls/openmls" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
+openmls_traits = { git = "https://github.com/openmls/openmls" }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
 phnxtypes = { path = "./types" }
 

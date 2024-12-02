@@ -3,6 +3,10 @@ Upstream-Name: Phnx Infra
 Upstream-Contact: Phoenix R&D GmbH <hello@phnx.im>
 Source: https://github.com/phnx-im/infra
 
+Files: Cargo.lock
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
+
 Files: server/.sqlx/*
 Copyright: 2023 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later

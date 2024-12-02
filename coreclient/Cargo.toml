@@ -12,9 +12,9 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
-openmls_traits = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
+openmls_traits = { workspace = true }
+openmls_rust_crypto = { workspace = true }
+openmls_memory_storage = { workspace = true }
 log = "0.4"
 url = "2.5"
 base64 = "0.13"
