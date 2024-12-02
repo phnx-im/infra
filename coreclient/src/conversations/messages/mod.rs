@@ -27,7 +27,7 @@ impl TimestampedMessage {
     }
 
     /// Mark the message as sent and update the timestamp. If the message was
-    /// already marked as sent, nothing happens.  
+    /// already marked as sent, nothing happens.
     pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
         if let Message::Content(content) = &mut self.message {
             self.timestamp = ds_timestamp;
@@ -177,6 +177,7 @@ impl ConversationMessage {
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
 // introduced and the storage logic changed accordingly.
+#[expect(clippy::large_enum_variant)]
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(ContentMessage),
@@ -295,6 +296,7 @@ impl ErrorMessage {
     }
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.

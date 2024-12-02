@@ -319,7 +319,7 @@ pub async fn run_server_restart_test() {
     let db_name_env_variable = format!("POSTGRES_DB={db_name}");
 
     let db_builder = Container::builder("postgres", &db_container_name)
-        .with_port(&db_port)
+        .with_port(db_port)
         .with_hostname(&db_domain)
         .with_network(network_name)
         .with_env(&db_domain_env_variable)

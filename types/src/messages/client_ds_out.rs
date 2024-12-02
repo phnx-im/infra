@@ -48,6 +48,7 @@ pub struct ExternalCommitInfoIn {
     pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
@@ -146,6 +147,7 @@ pub struct DeleteGroupParamsOut {
     pub sender: UserKeyHash,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
@@ -197,6 +199,7 @@ impl ClientToDsMessageTbsOut {
     }
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsMessageTypeOut {

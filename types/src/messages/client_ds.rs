@@ -109,6 +109,7 @@ pub struct ExtractedQsQueueMessage {
     pub payload: ExtractedQsQueueMessagePayload,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
@@ -386,6 +387,7 @@ pub struct DeleteGroupParams {
 }
 
 /// This enum contains variants for each DS endpoint.
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParams {
@@ -590,6 +592,7 @@ pub(crate) struct ClientToDsMessageIn {
     signature: Signature,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum DsMessageTypeIn {
