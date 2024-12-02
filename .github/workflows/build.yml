@@ -20,6 +20,29 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - run: cargo fmt -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Integrate bridge
+        run: cd prototype && make frb-integrate
+      # Note: this also verifies that the lock file is up to date
+      - run: cargo clippy --locked --all-targets
+
   rust-build:
     runs-on: ubuntu-latest
     services:
