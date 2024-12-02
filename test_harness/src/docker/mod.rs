@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use core::panic;
 use std::{
     collections::{HashMap, HashSet},
     process::{Child, Command, Stdio},
@@ -14,6 +15,10 @@ use phnxapiclient::ApiClient;
 use phnxtypes::{identifiers::Fqdn, DEFAULT_PORT_HTTP};
 
 use crate::{test_scenarios::FederationTestScenario, TRACING};
+
+use container::Container;
+
+mod container;
 
 pub(crate) struct DockerTestBed {
     // (server, db)
@@ -77,30 +82,24 @@ impl DockerTestBed {
 
         let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_scenario_name);
 
-        let mut env_variables = vec![test_scenario_env_variable, "TEST_LOG=true".to_owned()];
+        let mut test_runner_builder = Container::builder(&image_name, &container_name)
+            .with_env(&test_scenario_env_variable)
+            .with_env("TEST_LOG=true")
+            .with_network(&self.network_name)
+            .with_detach(false);
 
         for (index, server) in self.servers.keys().enumerate() {
-            env_variables.push(format!("PHNX_SERVER_{}={}", index, server));
+            test_runner_builder =
+                test_runner_builder.with_env(&format!("PHNX_SERVER_{}={}", index, server));
         }
 
         // Forward the random seed env variable
         if let Ok(seed) = std::env::var("PHNX_TEST_RANDOM_SEED") {
-            env_variables.push(format!("PHNX_TEST_RANDOM_SEED={}", seed))
+            test_runner_builder =
+                test_runner_builder.with_env(&format!("PHNX_TEST_RANDOM_SEED={}", seed));
         };
 
-        let test_runner_result = run_docker_container(
-            &image_name,
-            &container_name,
-            &env_variables,
-            // No hostname required for the test container
-            None,
-            Some(&self.network_name),
-            None,
-            &[],
-            false,
-        )
-        .wait()
-        .unwrap();
+        let test_runner_result = test_runner_builder.build().run().wait().unwrap();
 
         assert!(test_runner_result.success());
     }
@@ -119,41 +118,6 @@ fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
         .expect("failed to execute process");
 
     debug_assert!(build_output.success());
-}
-
-#[allow(clippy::too_many_arguments)]
-fn run_docker_container(
-    image_name: &str,
-    container_name: &str,
-    env_variables: &[String],
-    hostname_option: Option<&str>,
-    network_name_option: Option<&str>,
-    port_option: Option<&str>,
-    run_parameters: &[String],
-    detach: bool,
-) -> Child {
-    let mut command = Command::new("docker");
-    command.arg("run");
-    for env_variable in env_variables {
-        command.args(["--env", env_variable]);
-    }
-    if let Some(network_name) = network_name_option {
-        command.args(["--network", network_name]);
-    }
-    if let Some(hostname) = hostname_option {
-        command.args(["--hostname", hostname]);
-    }
-    command.args(["--name", container_name]);
-    if let Some(port) = port_option {
-        command.args(["-p", port.to_string().as_str()]);
-    }
-    command.args(["--rm"]);
-    if detach {
-        command.args(["-d"]);
-    }
-    command.args([image_name]);
-    command.args(run_parameters);
-    command.spawn().unwrap()
 }
 
 fn stop_docker_container(container_name: &str) {
@@ -185,52 +149,70 @@ fn create_and_start_server_container(
     let db_password_env_variable = format!("POSTGRES_PASSWORD={db_password}");
     let db_name_env_variable = format!("POSTGRES_DB={db_name}");
 
-    let db = run_docker_container(
-        db_image_name,
-        &db_container_name,
-        &[
-            db_domain_env_variable,
-            db_user_env_variable,
-            db_password_env_variable,
-            db_name_env_variable,
-        ],
-        Some(&db_domain),
-        network_name_option,
-        Some(db_port),
-        &["-N".to_string(), "1000".to_string(), "-i".to_string()],
-        false,
-    );
+    // Set the env variable in which to generate the TLS certs
+    let cert_dir = "backend/test_certs";
+    let absolute_cert_dir = std::env::current_dir().unwrap().join(cert_dir);
+    std::env::set_var("TEST_CERT_DIR_NAME", cert_dir);
+
+    // Call script to generate the TLS certs
+    let cert_gen_output = Command::new("bash")
+        .arg("backend/scripts/generate_test_certs.sh")
+        .output()
+        .expect("failed to execute process");
+
+    assert!(cert_gen_output.status.success());
+
+    let mut db_container = Container::builder(db_image_name, &db_container_name)
+        .with_port(db_port)
+        .with_hostname(&db_domain)
+        .with_env(&db_domain_env_variable)
+        .with_env(&db_user_env_variable)
+        .with_env(&db_password_env_variable)
+        .with_env(&db_name_env_variable)
+        .with_volume(&format!(
+            "{}:/etc/postgres_certs:rw",
+            absolute_cert_dir.to_str().unwrap()
+        ))
+        .with_run_parameters(&["-N", "1000"])
+        .with_run_parameters(&["-c", "ssl=on"])
+        .with_run_parameters(&["-c", "ssl_cert_file=/etc/postgres_certs/server.crt"])
+        .with_run_parameters(&["-c", "ssl_key_file=/etc/postgres_certs/server.key"])
+        .with_detach(false);
+
+    if let Some(network_name) = network_name_option {
+        db_container = db_container.with_network(network_name);
+    }
+
+    let db = db_container.build().run();
 
     let server_image_name = "phnxserver_image";
-    let server_container_name = format!("{server_domain}_server_container");
 
     build_docker_image("server/Dockerfile", server_image_name);
 
-    let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
-    let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
-    let server_db_password_env_variable = format!("PHNX_DATABASE_PASSWORD={}", db_password);
-    let server_db_port_env_variable = format!("PHNX_DATABASE_PORT={}", db_port);
-    let server_host_env_variable = format!("PHNX_DATABASE_HOST={}", db_domain);
-    let server_db_name_env_variable = format!("PHNX_DATABASE_NAME={}", db_name);
-    let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
-    let server = run_docker_container(
+    let mut server_container = Container::builder(
         server_image_name,
-        &server_container_name,
-        &[
-            server_domain_env_variable,
-            server_host_env_variable,
-            server_db_name_env_variable,
-            server_db_user_env_variable,
-            server_db_password_env_variable,
-            server_db_port_env_variable,
-            server_sqlx_offline_env_variable,
-        ],
-        Some(&server_domain.to_string()),
-        network_name_option,
-        None,
-        &[],
-        false,
-    );
+        &format!("{server_domain}_server_container"),
+    )
+    .with_env(&format!("PHNX_APPLICATION_DOMAIN={server_domain}"))
+    .with_env(&format!("PHNX_DATABASE_USERNAME={db_user}"))
+    .with_env(&format!("PHNX_DATABASE_PASSWORD={db_password}"))
+    .with_env(&format!("PHNX_DATABASE_PORT={db_port}"))
+    .with_env(&format!("PHNX_DATABASE_HOST={db_domain}"))
+    .with_env(&format!("PHNX_DATABASE_NAME={db_name}"))
+    .with_env("PHNX_DATABASE_CACERTPATH=/test_certs/root.crt")
+    .with_env("SQLX_OFFLINE=true")
+    .with_hostname(&server_domain.to_string())
+    .with_volume(&format!(
+        "{}:/test_certs:ro",
+        absolute_cert_dir.to_str().unwrap()
+    ))
+    .with_detach(false);
+
+    if let Some(network_name) = network_name_option {
+        server_container = server_container.with_network(network_name);
+    }
+
+    let server = server_container.build().run();
 
     (server, db)
 }
@@ -324,7 +306,6 @@ pub async fn run_server_restart_test() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
 
-    let db_image_name = "postgres";
     let db_container_name = format!("{server_domain}_db_container");
     let db_domain = format!("db.{server_domain}");
     let db_user = "postgres";
@@ -337,21 +318,18 @@ pub async fn run_server_restart_test() {
     let db_password_env_variable = format!("POSTGRES_PASSWORD={db_password}");
     let db_name_env_variable = format!("POSTGRES_DB={db_name}");
 
-    let _db = run_docker_container(
-        db_image_name,
-        &db_container_name,
-        &[
-            db_domain_env_variable,
-            db_user_env_variable,
-            db_password_env_variable,
-            db_name_env_variable,
-        ],
-        Some(&db_domain),
-        Some(network_name),
-        Some(db_port),
-        &["-N".to_string(), "1000".to_string(), "-i".to_string()],
-        false,
-    );
+    let db_builder = Container::builder("postgres", &db_container_name)
+        .with_port(&db_port)
+        .with_hostname(&db_domain)
+        .with_network(network_name)
+        .with_env(&db_domain_env_variable)
+        .with_env(&db_user_env_variable)
+        .with_env(&db_password_env_variable)
+        .with_env(&db_name_env_variable)
+        .with_run_parameters(&["-N", "1000"])
+        .with_detach(false);
+
+    let _db = db_builder.build().run();
 
     let server_image_name = "phnxserver_image";
     let server_container_name = format!("{server_domain}_server_container");
@@ -367,24 +345,20 @@ pub async fn run_server_restart_test() {
     let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
 
     tracing::info!("Starting phnx server");
-    let _server = run_docker_container(
-        server_image_name,
-        &server_container_name,
-        &[
-            server_domain_env_variable.clone(),
-            server_host_env_variable.clone(),
-            server_db_name_env_variable.clone(),
-            server_db_user_env_variable.clone(),
-            server_db_password_env_variable.clone(),
-            server_db_port_env_variable.clone(),
-            server_sqlx_offline_env_variable.clone(),
-        ],
-        Some(server_domain),
-        Some(network_name),
-        None,
-        &[],
-        false,
-    );
+    let server_builder = Container::builder(server_image_name, &server_container_name)
+        .with_env(&server_domain_env_variable)
+        .with_env(&server_host_env_variable)
+        .with_env(&server_db_name_env_variable)
+        .with_env(&server_db_user_env_variable)
+        .with_env(&server_db_password_env_variable)
+        .with_env(&server_db_port_env_variable)
+        .with_env(&server_sqlx_offline_env_variable)
+        .with_network(network_name)
+        .with_hostname(server_domain)
+        .with_detach(false);
+
+    let server_container = server_builder.build();
+    let _server = server_container.run();
 
     sleep(Duration::from_secs(3));
 
@@ -398,24 +372,7 @@ pub async fn run_server_restart_test() {
     tracing::info!("Waited three seconds, starting server again.");
 
     // Start server container again
-    let _server = run_docker_container(
-        server_image_name,
-        &server_container_name,
-        &[
-            server_domain_env_variable,
-            server_host_env_variable,
-            server_db_name_env_variable,
-            server_db_user_env_variable,
-            server_db_password_env_variable,
-            server_db_port_env_variable,
-            server_sqlx_offline_env_variable,
-        ],
-        Some(server_domain),
-        Some(network_name),
-        None,
-        &[],
-        false,
-    );
+    let _server = server_container.run();
 
     sleep(Duration::from_secs(3));
 

@@ -38,14 +38,10 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Set up CI
-        run: cd prototype && make setup-ci
-
-      - name: Set up macOS CI
-        run: cd prototype && make setup-macos-ci
+      - name: Set up iOS CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cd prototype && make setup-ios-ci
 
       - name: Integrate bridge
         run: cd prototype && make frb-integrate

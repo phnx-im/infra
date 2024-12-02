@@ -1339,7 +1339,8 @@ impl Group {
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
-            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
+            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
+            .into_messages();
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self
@@ -1378,7 +1379,8 @@ impl Group {
         let (commit, _welcome_option, group_info_option) = self
             .mls_group
             .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
-            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?;
+            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
+            .into_messages();
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
 
         for remove in self

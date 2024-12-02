@@ -36,14 +36,17 @@ check-git-clean:
 
 setup-ci:
 	rustup update
-	cargo install flutter_rust_bridge_codegen@2.6.0
-	cargo install cargo-expand
-	cargo install cargo-ndk
+	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	cargo binstall -y flutter_rust_bridge_codegen@2.6.0
+	cargo binstall -y cargo-expand
 
-setup-macos-ci:
-	brew install xcodesorg/made/xcodes
+setup-ios-ci: setup-ci
+	brew install xcodesorg/made/xcodes	
 	cd fastlane && bundle install
-	cd fastlane && bundle exec fastlane add_plugin flutter
+
+setup-android-ci: setup-ci
+	cargo binstall -y cargo-ndk
+	cd fastlane && bundle install
 
 frb-integrate:
 	mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
@@ -80,10 +83,10 @@ ios-create:
 	flutter create --platforms=ios --org im.phnx .
 
 android-debug:
-	flutter build apk --debug
+	flutter build appbundle --debug
 
 android-release:
-	flutter build apk --release
+	flutter build appbundle --release
 
 ios-release:
 	flutter build ios --release
