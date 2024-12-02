@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use jni::{
+    objects::{JClass, JString},
+    sys::jstring,
+    JNIEnv,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     ffi::{CStr, CString},
@@ -72,6 +77,34 @@ pub unsafe extern "C" fn free_string(s: *mut c_char) {
     unsafe {
         let _ = CString::from_raw(s);
     }
+}
+
+/// This methos gets called from the Android Messaging Service
+#[no_mangle]
+pub extern "C" fn Java_im_phnx_prototype_NativeLib_process_1new_1messages(
+    mut env: JNIEnv,
+    _class: JClass,
+    content: JString,
+) -> jstring {
+    init_logger();
+    // Convert Java string to Rust string
+    let input: String = env
+        .get_string(&content)
+        .expect("Couldn't get Java string")
+        .into();
+
+    let incoming_content: IncomingNotificationContent = serde_json::from_str(&input).unwrap();
+
+    // Retrieve messages
+    let batch = retrieve_messages_sync(incoming_content.path);
+
+    let response = serde_json::to_string(&batch).unwrap_or_default();
+
+    // Convert Rust string back to Java string
+    let output = env
+        .new_string(response)
+        .expect("Couldn't create Java string");
+    output.into_raw()
 }
 
 /// TODO: Debug code to be removed

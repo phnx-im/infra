@@ -1,8 +1,16 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
+    id 'org.jetbrains.kotlin.plugin.serialization' version '2.1.0'
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+    id 'com.google.gms.google-services'
+}
+
+dependencies {
+  implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
+  implementation platform('com.google.firebase:firebase-bom:33.6.0')
+  implementation 'com.google.firebase:firebase-messaging'
 }
 
 android {

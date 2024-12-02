@@ -35,8 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
       statusText = "Initializing core client...";
     });
 
-    // iOS specific initialization
-    if (Platform.isIOS) {
+    // Mobile initialization
+    if (Platform.isAndroid || Platform.isIOS) {
       // Initialize the method channel
       initMethodChannel();
 
@@ -56,15 +56,19 @@ class _HomeScreenState extends State<HomeScreen> {
     await coreClient.loadUser().then((exists) {
       if (exists) {
         print("User loaded successfully");
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation1, animation2) =>
-                const MessengerView(),
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-          ),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation1, animation2) =>
+                  const MessengerView(),
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+            ),
+          );
+        } else {
+          print("Could not push the messenger view");
+        }
       } else {
         print("No user found, showing signup button");
         setState(() {
