@@ -37,16 +37,11 @@ tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"
 tracing-actix-web = "0.7"
 jsonwebtoken = "9"
-openmls_rust_crypto = { workspace = true }
-privacypass = { workspace = true }
-privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 
 # Workspace dependencies
-chrono = { workspace = true }
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
-mls-assist = { workspace = true }
 
 [dev-dependencies]
 actix-rt = "^2.7"
