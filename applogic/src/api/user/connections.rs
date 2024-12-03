@@ -34,7 +34,7 @@ impl User {
         self.user.contact(&user_name).await.map(|c| c.into())
     }
 
-    /// Get the user profile of the user with the given [`UserName`].
+    /// Get the user profile of the user with the given [`QualifiedUserName`].
     pub async fn user_profile(&self, user_name: String) -> Result<Option<UiUserProfile>> {
         let user_name = SafeTryInto::try_into(user_name)?;
         let user_profile = self

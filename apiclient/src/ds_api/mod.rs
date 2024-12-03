@@ -292,7 +292,7 @@ impl ApiClient {
     }
 
     /// Update your client in this group. Note that the given commit needs to
-    /// have [`UpdateClientParamsAad`] in its AAD.
+    /// have [`phnxtypes::messages::client_ds::UpdateClientParamsAad`] in its AAD.
     pub async fn ds_update_client(
         &self,
         params: UpdateClientParamsOut,

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! API client for the phnx server.
+//! HTTP client for the server REST API
 
 use std::time::Duration;
 

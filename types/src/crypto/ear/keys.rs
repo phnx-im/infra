@@ -85,7 +85,7 @@ pub type PushTokenEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 pub type RatchetKeySecret = Secret<AEAD_KEY_SIZE>;
 
-/// EAR key for the [`PushToken`] structs.
+/// EAR key for the [`crate::messages::push_token::PushToken`] structs.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct PushTokenEarKey {
     key: PushTokenEarKeySecret,

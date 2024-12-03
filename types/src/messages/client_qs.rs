@@ -66,13 +66,6 @@ pub struct QsQueueUpdate {
     pub owner_signature_key_option: Option<QsClientVerifyingKey>,
 }
 
-/// Error struct for deserialization of an [`UnverifiedGroupOperationParams`]
-/// struct.
-pub enum GroupOpsDeserializationError {
-    DeserializationError,
-    WrongRequestType,
-}
-
 // === User ===
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Multi-platform client application logic
+
 pub(crate) use frb_generated::*;
 
 pub mod api;

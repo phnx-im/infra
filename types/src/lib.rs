@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Common data model used in the server and client.
+
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
