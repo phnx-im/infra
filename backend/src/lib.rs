@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Implements the local and the federation part of the protocol logic on the server side
+
 #![deny(unreachable_pub)]
 
 pub mod auth_service;

@@ -109,7 +109,6 @@ pub struct ExtractedQsQueueMessage {
     pub payload: ExtractedQsQueueMessagePayload,
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),

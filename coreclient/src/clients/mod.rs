@@ -314,7 +314,7 @@ impl CoreUser {
         Ok(buf)
     }
 
-    /// Get the user profile of the user with the given [`UserName`].
+    /// Get the user profile of the user with the given [`QualifiedUserName`].
     pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
         let connection = &self.connection.lock().await;
         let user = UserProfile::load(connection, user_name)?;

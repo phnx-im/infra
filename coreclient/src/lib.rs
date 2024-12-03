@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Implements the protocol logic of the client component
+
 #[macro_use]
 mod errors;
 pub mod clients;

@@ -7,6 +7,8 @@ name = "phnxapplogic"
 version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2021"
+publish = false
+description = "Multi-platform client application logic"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "lib"]

@@ -30,13 +30,13 @@ split across multiple crates:
   repository. This crate allows us to compile client and server components
   separately.
 - `backend`: Implements both the local and the federation part of the protocol
-  logic on the server side. Inspired by the type-based verificaiton design of
+  logic on the server side. Inspired by the type-based verification design of
   the OpenMLS crate (on which both `coreclient` and `backend` are built),
   verification of incoming messages is enforced using Rust's type system. The
   `backend` is written to work with arbitrary storage providers. The crate
   itself provides an in-memory and a Postgres-based storage provider.
 - `server`: The server component that makes the logic implemented in the
-  `backend` available to clients a REST API. Beside the REST API, the `server`
+  `backend` available to clients via a REST API. Beside the REST API, the `server`
   also supports web-sockets, which the backend can use to notify clients of new
   messages. The `server` crate can be compiled into a binary that can be run to
   expose the HTTP endpoints. A `Dockerfile` is available to build a Docker image

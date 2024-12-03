@@ -4,7 +4,7 @@
 
 //! This module contains code that allows the derivation of serde
 //! Serialize/Deserialize for arrays. The code is untested and taken from
-//! workaround taken from https://github.com/serde-rs/serde/issues/1937
+//! workaround taken from <https://github.com/serde-rs/serde/issues/1937>
 use std::{convert::TryInto, marker::PhantomData};
 
 use serde::{
