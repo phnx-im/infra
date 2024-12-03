@@ -85,7 +85,7 @@ class CoreClient {
     return ownProfile.userName;
   }
 
-  Future<String> dbPath() async {
+  Future<String> _dbPath() async {
     final String path;
 
     if (Platform.isAndroid || Platform.isIOS) {
@@ -100,18 +100,18 @@ class CoreClient {
   }
 
   Future<void> deleteDatabase() async {
-    await deleteDatabases(clientDbPath: await dbPath());
+    await deleteDatabases(clientDbPath: await _dbPath());
   }
 
   Future<bool> loadUser() async {
     try {
-      user = await User.loadDefault(path: await dbPath());
+      user = await User.loadDefault(path: await _dbPath());
 
       ownProfile = await user.ownUserProfile();
 
       print("Loaded user: ${ownProfile.userName}");
 
-      stageUser(ownProfile.userName);
+      _stageUser(ownProfile.userName);
 
       return true;
     } catch (e) {
@@ -142,16 +142,16 @@ class CoreClient {
       userName: userName,
       password: password,
       address: address,
-      path: await dbPath(),
+      path: await _dbPath(),
       pushToken: pushToken,
     );
 
     print("User registered");
 
-    stageUser(userName);
+    _stageUser(userName);
   }
 
-  Future<void> stageUser(String userName) async {
+  Future<void> _stageUser(String userName) async {
     // Load existing conversations
     await conversations();
 

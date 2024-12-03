@@ -1,61 +1,34 @@
-// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
-//
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
-import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/messenger_view.dart';
+import 'package:prototype/state_provider.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 import 'conversation_content/conversation_content.dart';
+import 'conversation_cubit.dart';
 import 'message_composer.dart';
 
-class ConversationPane extends StatefulWidget {
-  final GlobalKey<NavigatorState> navigatorKey;
-
-  const ConversationPane(this.navigatorKey, {super.key});
-
-  @override
-  State<ConversationPane> createState() => _ConversationPaneState();
-}
-
-class _ConversationPaneState extends State<ConversationPane> {
-  UiConversationDetails? _currentConversation;
-  late StreamSubscription<UiConversationDetails> _listener;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentConversation = coreClient.currentConversation;
-    _listener = coreClient.onConversationSwitch.listen((conversation) {
-      setState(() {
-        _currentConversation = conversation;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _listener.cancel();
-    super.dispose();
-  }
+class ConversationPane extends StatelessWidget {
+  const ConversationPane({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Navigator(
-      key: widget.navigatorKey,
+      key: navigatorKey,
       onGenerateInitialRoutes: (navigator, initialRoute) {
         return [
           MaterialPageRoute(
-            builder: (context) => ConversationMessages(
-              currentConversation: _currentConversation,
-              context: context,
-            ),
+            builder: (context) => StateProvider<CurrentConversationCubit>(
+                create: (context) => CurrentConversationCubit(
+                      // TODO: This should be injected via a Provider and not singleton
+                      coreClient: coreClient,
+                    ),
+                child: const ConversationMessages()),
           ),
         ];
       },
@@ -64,23 +37,19 @@ class _ConversationPaneState extends State<ConversationPane> {
 }
 
 class ConversationMessages extends StatelessWidget {
-  const ConversationMessages({
-    super.key,
-    required UiConversationDetails? currentConversation,
-    required this.context,
-  }) : _currentConversation = currentConversation;
-
-  final UiConversationDetails? _currentConversation;
-  final BuildContext context;
+  const ConversationMessages({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final currentConversation = context.watch<CurrentConversationCubit>().state;
+
     return Scaffold(
       body: Stack(children: <Widget>[
         Column(
           children: [
             ConversationContent(
-              conversation: _currentConversation,
+              // TODO: this should be passed via a provider
+              conversation: currentConversation,
             ),
             const MessageComposer(),
           ],
@@ -91,21 +60,21 @@ class ConversationMessages extends StatelessWidget {
           right: 0,
           child: AppBar(
             title: Text(
-              _currentConversation?.conversationType.when(
+              currentConversation?.conversationType.when(
                       unconfirmedConnection: (e) => '⏳ $e',
                       connection: (e) => e,
-                      group: () => _currentConversation?.attributes.title) ??
+                      group: () => currentConversation.attributes.title) ??
                   "",
             ),
             backgroundColor: Colors.white,
             forceMaterialTransparency: true,
             actions: [
               // Conversation details
-              _currentConversation != null
-                  ? _detailsButton(context)
-                  : Container(),
+              currentConversation != null
+                  ? const _DetailsButton()
+                  : const SizedBox.shrink(),
             ],
-            leading: isSmallScreen(context) ? _backButton() : null,
+            leading: isSmallScreen(context) ? const _BackButton() : null,
             elevation: 0,
             // Applying blur effect
             flexibleSpace: FrostedGlass(
@@ -116,8 +85,33 @@ class ConversationMessages extends StatelessWidget {
       ]),
     );
   }
+}
 
-  IconButton _detailsButton(BuildContext context) {
+class _BackButton extends StatelessWidget {
+  const _BackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      color: Colors.black,
+      hoverColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onPressed: () async {
+        if (appNavigator.currentState != null) {
+          appNavigator.currentState!.maybePop();
+        }
+      },
+    );
+  }
+}
+
+class _DetailsButton extends StatelessWidget {
+  const _DetailsButton();
+
+  @override
+  Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(
         Icons.more_horiz,
@@ -130,21 +124,6 @@ class ConversationMessages extends StatelessWidget {
       highlightColor: Colors.transparent,
       onPressed: () {
         pushToNavigator(context, const ConversationDetails());
-      },
-    );
-  }
-
-  IconButton _backButton() {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      color: Colors.black,
-      hoverColor: Colors.transparent,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      onPressed: () async {
-        if (appNavigator.currentState != null) {
-          appNavigator.currentState!.maybePop();
-        }
       },
     );
   }

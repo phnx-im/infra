@@ -69,7 +69,7 @@ class _ConversationListState extends State<ConversationList> {
     print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
     coreClient.selectConversation(conversationId);
     if (isSmallScreen(context)) {
-      pushToNavigator(context, ConversationPane(navigatorKey));
+      pushToNavigator(context, const ConversationPane());
     }
   }
 

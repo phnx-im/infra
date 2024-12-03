@@ -26,15 +26,15 @@ class MessengerView extends StatelessWidget {
         if (isSmallScreen(context)) {
           return const ConversationView();
         } else {
-          return Scaffold(
+          return const Scaffold(
             body: Row(
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 300,
                   child: ConversationView(),
                 ),
                 Expanded(
-                  child: ConversationPane(navigatorKey),
+                  child: ConversationPane(),
                 ),
               ],
             ),

@@ -5,12 +5,18 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/homescreen.dart';
 import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
 
 void main() async {
+  Logger.root.level = Level.ALL; // defaults to Level.INFO
+  Logger.root.onRecord.listen((record) {
+    print('${record.level.name}: ${record.time}: ${record.message}');
+  });
+
   // Initialize the FRB
   await coreClient.init();
 
