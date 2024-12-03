@@ -93,7 +93,7 @@ impl QsQueueMessagePayload {
             }
             QsQueueMessageType::MlsMessage => {
                 let message = MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
-                ExtractedQsQueueMessagePayload::MlsMessage(message)
+                ExtractedQsQueueMessagePayload::MlsMessage(Box::new(message))
             }
         };
         Ok(ExtractedQsQueueMessage {
@@ -109,11 +109,10 @@ pub struct ExtractedQsQueueMessage {
     pub payload: ExtractedQsQueueMessagePayload,
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
-    MlsMessage(MlsMessageIn),
+    MlsMessage(Box<MlsMessageIn>),
 }
 
 impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {

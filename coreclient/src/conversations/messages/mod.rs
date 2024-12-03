@@ -43,7 +43,11 @@ impl TimestampedMessage {
         sender_name: QualifiedUserName,
     ) -> Result<Self, tls_codec::Error> {
         let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
-        let message = Message::Content(ContentMessage::new(sender_name.to_string(), true, content));
+        let message = Message::Content(Box::new(ContentMessage::new(
+            sender_name.to_string(),
+            true,
+            content,
+        )));
         Ok(Self {
             timestamp: ds_timestamp,
             message,
@@ -126,7 +130,7 @@ impl ConversationMessage {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
-        let message = Message::Content(ContentMessage::new(sender, false, content));
+        let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
         let timestamped_message =
             TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
         ConversationMessage {
@@ -177,10 +181,9 @@ impl ConversationMessage {
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
 // introduced and the storage logic changed accordingly.
-#[expect(clippy::large_enum_variant)]
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
-    Content(ContentMessage),
+    Content(Box<ContentMessage>),
     Event(EventMessage),
 }
 
@@ -296,7 +299,6 @@ impl ErrorMessage {
     }
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
