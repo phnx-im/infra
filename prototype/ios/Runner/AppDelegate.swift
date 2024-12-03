@@ -75,7 +75,7 @@ import UIKit
     private func handleMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
         if call.method == "getDeviceToken" {
             self.getDeviceToken(result: result)
-        } else if call.method == "getSharedDocumentsDirectory" {
+        } else if call.method == "getDatabasesDirectory" {
             self.getSharedDocumentsDirectory(result: result)
         }
         else if call.method == "setBadgeCount" {

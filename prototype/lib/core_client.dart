@@ -28,7 +28,7 @@ class CoreClient {
   CoreClient._internal();
 
   List<UiConversationDetails> _conversations = [];
-  late User user;
+  User? _user;
   Timer pollingTimer = Timer(Duration.zero, () => {});
   UiConversationDetails? _currentConversation;
 
@@ -64,6 +64,13 @@ class CoreClient {
 
   Stream<UiUserProfile> get onOwnProfileUpdate => ownProfileUpdate.stream;
 
+  User? get maybeUser => _user;
+
+  User get user => _user!;
+  set user(User user) {
+    _user = user;
+  }
+
   Future<void> init() async {
     // FRB
     await RustLib.init();
@@ -81,15 +88,14 @@ class CoreClient {
   Future<String> dbPath() async {
     final String path;
 
-    // iOS-specific path
-    if (Platform.isIOS) {
-      path = await getSharedDocumentsDirectoryIos();
+    if (Platform.isAndroid || Platform.isIOS) {
+      path = await getDatabaseDirectoryMobile();
     } else {
       final directory = await getApplicationDocumentsDirectory();
       path = directory.path;
     }
 
-    print("Document path: $path");
+    print("Database path: $path");
     return path;
   }
 
@@ -118,7 +124,13 @@ class CoreClient {
       String userName, String password, String address) async {
     PlatformPushToken? pushToken;
 
-    if (Platform.isIOS) {
+    if (Platform.isAndroid) {
+      final String? deviceToken = await getDeviceToken();
+
+      if (deviceToken != null) {
+        pushToken = PlatformPushToken.google(deviceToken);
+      }
+    } else if (Platform.isIOS) {
       final String? deviceToken = await getDeviceToken();
 
       if (deviceToken != null) {
