@@ -203,6 +203,7 @@ impl From<ConversationMessage> for UiConversationMessage {
     }
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum UiMessage {
     ContentFlight(Vec<UiContentMessage>),

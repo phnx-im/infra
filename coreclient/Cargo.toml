@@ -14,15 +14,12 @@ edition = "2021"
 thiserror = "1.0"
 openmls_traits = { workspace = true }
 openmls_rust_crypto = { workspace = true }
-openmls_memory_storage = { workspace = true }
 log = "0.4"
 url = "2.5"
-base64 = "0.13"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types", features = ["sqlite"] }
 opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
-futures = { version = "0.3", features = ["executor"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
@@ -36,7 +33,6 @@ refinery = { version = "0.8", features = [
     "rusqlite",
     "enums",
 ], git = "https://github.com/manuteleco/refinery/", rev = "63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d" }
-async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.32", features = ["bundled", "uuid", "chrono"] }
 
@@ -45,10 +41,14 @@ chrono = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 openmls = { workspace = true }
-reqwest = { workspace = true }
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }
 actix-rt = "^2.7"
 
 [build-dependencies]
+
+[package.metadata.cargo-machete]
+ignored = [
+    "kamadak-exif", # false positive due to a different crate name: exif
+]

@@ -20,6 +20,13 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
+  rust-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@cargo-machete
+      - run: cargo machete
+
   rust-build:
     runs-on: ubuntu-latest
     services:
@@ -58,12 +65,21 @@ jobs:
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
 
       - name: Set up CI
         run: cd prototype && make setup-ci
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
-      - name: Build 
+
+      - name: Rustfmt
+        run: cargo fmt -- --check
+      - name: Clippy
+        # Note: this also verifies that the lock file is up to date
+        run: cargo clippy --locked --all-targets
+      - name: Build
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
