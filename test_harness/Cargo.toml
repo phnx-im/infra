@@ -25,11 +25,6 @@ rand = "0.8"
 rand_chacha = { version = "0.3" }
 uuid = { version = "1.0.0", features = ["v4"] }
 tracing = { version = "0.1", features = ["log"] }
-tracing-log = "0.2"
-tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
-tracing-bunyan-formatter = "0.3"
 
 # Workspace dependencies
 phnxtypes = { workspace = true }
-mls-assist = { workspace = true }
-chrono = { workspace = true }

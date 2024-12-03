@@ -5,7 +5,7 @@
 pub(crate) use frb_generated::*;
 
 pub mod api;
-pub mod nse;
+pub mod background_execution;
 
 pub(crate) mod app_state;
 pub(crate) mod frb_generated;

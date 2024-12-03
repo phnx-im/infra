@@ -69,7 +69,7 @@ impl Message {
                         sent,
                         content,
                     };
-                    Ok(Message::Content(content_message))
+                    Ok(Message::Content(Box::new(content_message)))
                 }
             },
         }
@@ -162,12 +162,12 @@ impl ConversationMessage {
         let mut statement = connection.prepare(
             "SELECT *
             FROM (
-                SELECT 
-                    message_id, 
-                    conversation_id, 
-                    timestamp, 
-                    sender, 
-                    content, 
+                SELECT
+                    message_id,
+                    conversation_id,
+                    timestamp,
+                    sender,
+                    content,
                     sent
                 FROM conversation_messages
                 WHERE conversation_id = ?

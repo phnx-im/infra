@@ -25,7 +25,6 @@ phnxtypes = { workspace = true, features = ["sqlx"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
-privacypass-middleware = { workspace = true }
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils", "sqlx"] }

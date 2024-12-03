@@ -15,7 +15,6 @@ sha2 = { version = "0.10" }
 digest = { version = "0.10.2" }
 rand = { version = "0.8" }
 rand_chacha = { version = "0.3" }
-subtle = { version = "2.4.1" }
 hkdf = { version = "0.12" }
 aes-gcm = { version = "0.10" }
 ed25519 = { version = "2.2", features = ["serde"] }

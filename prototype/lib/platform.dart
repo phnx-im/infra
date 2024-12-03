@@ -31,29 +31,26 @@ Future<void> _handleMethod(MethodCall call) async {
 }
 
 Future<String?> getDeviceToken() async {
-  // Make sure we are on iOS
-  if (!Platform.isIOS) {
-    return null;
+  if (Platform.isAndroid || Platform.isIOS) {
+    try {
+      return await platform.invokeMethod('getDeviceToken');
+    } on PlatformException catch (e) {
+      print("Failed to get device token: '${e.message}'.");
+    }
   }
-  try {
-    return await platform.invokeMethod('getDeviceToken');
-  } on PlatformException catch (e) {
-    print("Failed to get device token: '${e.message}'.");
-    return null;
-  }
+  return null;
 }
 
-Future<String> getSharedDocumentsDirectoryIos() async {
-  // Make sure we are on iOS
-  if (!Platform.isIOS) {
-    throw PlatformException(code: 'platform_not_supported');
+Future<String> getDatabaseDirectoryMobile() async {
+  if (Platform.isAndroid || Platform.isIOS) {
+    try {
+      return await platform.invokeMethod('getDatabasesDirectory');
+    } on PlatformException catch (e) {
+      print("Failed to get database directory: '${e.message}'.");
+      throw PlatformException(code: 'failed_to_get_database_directory');
+    }
   }
-  try {
-    return await platform.invokeMethod('getSharedDocumentsDirectory');
-  } on PlatformException catch (e) {
-    print("Failed to get shared documents directory: '${e.message}'.");
-    throw PlatformException(code: 'failed_to_get_shared_documents_directory');
-  }
+  return '';
 }
 
 Future<void> setBadgeCount(int count) async {

@@ -22,13 +22,11 @@ base64 = "0.22"
 mls-assist = { workspace = true }
 privacypass = { workspace = true }
 tls_codec = { workspace = true }
-serde = { version = "1", features = ["derive"] }
 url = "2"
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }
 uuid = "1.0.0"
-wiremock = "0.5"
 actix = "0.13.0"
 actix-web = "^4.0"
 actix-web-actors = "4.1.0"

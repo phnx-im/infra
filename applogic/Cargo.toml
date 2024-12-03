@@ -18,7 +18,6 @@ android_logger = { version = "0.14" }
 oslog = { version = "0.2" }
 
 [dependencies]
-thiserror = "1.0"
 log = { version = "0.4", features = ["kv"] }
 simplelog = { version = "0.12" }
 uuid = { version = "1", features = ["v4"] }
@@ -33,7 +32,7 @@ flutter_rust_bridge = { version = "=2.6.0", features = ["chrono", "uuid"] }
 notify-rust = "4"
 lazy_static = "1.5"
 chrono = { workspace = true }
+jni = "0.21"
 
 # Workspace dependencies
 openmls = { workspace = true }
-tls_codec = { workspace = true }
