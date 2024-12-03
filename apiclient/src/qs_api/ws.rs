@@ -233,7 +233,7 @@ impl ApiClient {
     /// [`QsWebSocket`] object that can be used to receive the following
     /// events:
     ///
-    ///  - [`WsEvent::NewMessageEvent`]: A new message has been put in the queue
+    ///  - [`WsEvent::MessageEvent`]: A new message has been put in the queue
     ///        on the QS
     ///  - [`WsEvent::DisconnectedEvent`]: The client has not received any
     ///        messages from the QS for a while (longer than the `timeout`

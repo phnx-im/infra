@@ -135,7 +135,7 @@ impl User {
     }
 
     /// Get a list of contacts to be added to the conversation with the given
-    /// [`ConversationId`].
+    /// [`phnxcoreclient::ConversationId`].
     pub async fn member_candidates(
         &self,
         conversation_id: ConversationIdBytes,

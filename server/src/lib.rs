@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! PHNX server.
+//! Server that makes the logic implemented in the backend available to clients via a REST API
 
 pub mod configurations;
 pub mod endpoints;

@@ -215,7 +215,7 @@ impl AsIntermediateCredentialCsr {
     /// generated signature keypair.
     ///
     /// Returns the CSR and a preliminary signing key. The preliminary signing
-    /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
+    /// key can be turned into a [`keys::AsIntermediateSigningKey`] once the CSR is
     /// signed.
     pub fn new(
         signature_scheme: SignatureScheme,
@@ -419,7 +419,7 @@ impl ClientCredentialCsr {
     /// generated signature keypair.
     ///
     /// Returns the CSR and a preliminary signing key. The preliminary signing
-    /// key can be turned into a [`AsIntermediateSigningKey`] once the CSR is
+    /// key can be turned into a [`keys::AsIntermediateSigningKey`] once the CSR is
     /// signed.
     pub fn new(
         client_id: AsClientId,
