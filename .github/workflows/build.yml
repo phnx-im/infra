@@ -20,6 +20,13 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
+  rust-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@cargo-machete
+      - run: cargo machete
+
   rust-build:
     runs-on: ubuntu-latest
     services:
