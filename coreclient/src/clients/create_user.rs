@@ -540,13 +540,14 @@ impl PersistedUserState {
             qs_user_id,
             qs_client_id,
         } = self.state;
-        CoreUser {
+        let inner = Arc::new(CoreUserInner {
             connection,
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id,
             api_clients: api_clients.clone(),
-        }
+        });
+        CoreUser { inner }
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {

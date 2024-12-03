@@ -22,6 +22,7 @@ impl CoreUser {
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<ConversationId> {
         let group_id = self
+            .inner
             .api_clients
             .default_client()?
             .ds_request_group_id()
@@ -33,10 +34,10 @@ impl CoreUser {
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
 
         // Phase 1: Create and store the group in the OpenMLS provider
-        let mut connection = self.connection.lock().await;
+        let mut connection = self.inner.connection.lock().await;
         let (group, partial_params) = Group::create_group(
             &mut connection,
-            &self.key_store.signing_key,
+            &self.inner.key_store.signing_key,
             group_id.clone(),
             group_data,
         )?;
@@ -48,12 +49,14 @@ impl CoreUser {
 
         // Phase 2: Create the group on the DS
         let encrypted_client_credential = self
+            .inner
             .key_store
             .signing_key
             .credential()
             .encrypt(group.credential_ear_key())?;
         let params = partial_params.into_params(encrypted_client_credential, client_reference);
-        self.api_clients
+        self.inner
+            .api_clients
             .default_client()?
             .ds_create_group(
                 params,
@@ -70,7 +73,7 @@ impl CoreUser {
         conversation_id: ConversationId,
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
-        let connection = &self.connection.lock().await;
+        let connection = &self.inner.connection.lock().await;
         let mut conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
@@ -85,7 +88,7 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> Option<ConversationMessage> {
-        let connection = &self.connection.lock().await;
+        let connection = &self.inner.connection.lock().await;
         ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(|e| {
             log::error!("Error while fetching last message: {:?}", e);
             None
@@ -93,7 +96,7 @@ impl CoreUser {
     }
 
     pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let connection = &self.connection.lock().await;
+        let connection = &self.inner.connection.lock().await;
         let conversations = Conversation::load_all(connection)?;
         Ok(conversations)
     }
