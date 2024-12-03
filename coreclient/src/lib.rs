@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#[macro_use]
-mod errors;
 pub mod clients;
 mod contacts;
 mod conversations;
@@ -12,8 +10,6 @@ mod key_stores;
 mod mimi_content;
 mod user_profiles;
 mod utils;
-
-pub(crate) use crate::errors::*;
 
 pub use crate::{
     contacts::{Contact, PartialContact},

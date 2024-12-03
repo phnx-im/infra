@@ -181,7 +181,6 @@ impl ConversationMessage {
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
 // introduced and the storage logic changed accordingly.
-#[expect(clippy::large_enum_variant)]
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     Content(Box<ContentMessage>),
@@ -300,7 +299,6 @@ impl ErrorMessage {
     }
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
