@@ -32,6 +32,7 @@ flutter_rust_bridge = { version = "=2.6.0", features = ["chrono", "uuid"] }
 notify-rust = "4"
 lazy_static = "1.5"
 chrono = { workspace = true }
+jni = "0.21"
 
 # Workspace dependencies
 openmls = { workspace = true }
