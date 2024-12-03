@@ -27,7 +27,7 @@ impl TimestampedMessage {
     }
 
     /// Mark the message as sent and update the timestamp. If the message was
-    /// already marked as sent, nothing happens.  
+    /// already marked as sent, nothing happens.
     pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
         if let Message::Content(content) = &mut self.message {
             self.timestamp = ds_timestamp;
@@ -43,7 +43,11 @@ impl TimestampedMessage {
         sender_name: QualifiedUserName,
     ) -> Result<Self, tls_codec::Error> {
         let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
-        let message = Message::Content(ContentMessage::new(sender_name.to_string(), true, content));
+        let message = Message::Content(Box::new(ContentMessage::new(
+            sender_name.to_string(),
+            true,
+            content,
+        )));
         Ok(Self {
             timestamp: ds_timestamp,
             message,
@@ -126,7 +130,7 @@ impl ConversationMessage {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
-        let message = Message::Content(ContentMessage::new(sender, false, content));
+        let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
         let timestamped_message =
             TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
         ConversationMessage {
@@ -179,7 +183,7 @@ impl ConversationMessage {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
-    Content(ContentMessage),
+    Content(Box<ContentMessage>),
     Event(EventMessage),
 }
 

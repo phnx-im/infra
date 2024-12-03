@@ -11,13 +11,13 @@ use uuid::Uuid;
 
 use super::{ContentType, ExternalPartUrl, MessageId, SinglePart, TlsStr, TlsStrOwned};
 
-impl<'a> Size for TlsStr<'a> {
+impl Size for TlsStr<'_> {
     fn tls_serialized_len(&self) -> usize {
         self.value.as_bytes().tls_serialized_len()
     }
 }
 
-impl<'a> Serialize for TlsStr<'a> {
+impl Serialize for TlsStr<'_> {
     fn tls_serialize<W: std::io::prelude::Write>(
         &self,
         writer: &mut W,

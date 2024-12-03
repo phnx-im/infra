@@ -1355,7 +1355,7 @@ impl Group {
                 remove.remove_proposal().removed(),
             )?;
         }
-        let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
+        let commit = AssistedMessageOut::new(mls_message, Some(group_info))?;
         Ok(UpdateClientParamsOut {
             commit,
             sender: self.mls_group.own_leaf_index(),
@@ -1404,7 +1404,7 @@ impl Group {
         diff.user_auth_key = Some(user_auth_signing_key);
         self.pending_diff = Some(diff.stage());
 
-        let commit = AssistedMessageOut::new(commit, Some(group_info.into()))?;
+        let commit = AssistedMessageOut::new(commit, Some(group_info))?;
         let params = UpdateClientParamsOut {
             commit,
             sender: self.mls_group.own_leaf_index(),

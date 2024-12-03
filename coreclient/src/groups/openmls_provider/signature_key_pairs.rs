@@ -33,8 +33,8 @@ pub(crate) struct StorableSignatureKeyPairsRef<'a, SignatureKeyPairs: Entity<CUR
     pub &'a SignatureKeyPairs,
 );
 
-impl<'a, SignatureKeyPairs: Entity<CURRENT_VERSION>>
-    StorableSignatureKeyPairsRef<'a, SignatureKeyPairs>
+impl<SignatureKeyPairs: Entity<CURRENT_VERSION>>
+    StorableSignatureKeyPairsRef<'_, SignatureKeyPairs>
 {
     pub(super) fn store<SignaturePublicKey: Key<CURRENT_VERSION>>(
         &self,
@@ -71,8 +71,8 @@ pub(super) struct StorableSignaturePublicKeyRef<'a, SignaturePublicKey: Key<CURR
     pub &'a SignaturePublicKey,
 );
 
-impl<'a, SignaturePublicKey: Key<CURRENT_VERSION>>
-    StorableSignaturePublicKeyRef<'a, SignaturePublicKey>
+impl<SignaturePublicKey: Key<CURRENT_VERSION>>
+    StorableSignaturePublicKeyRef<'_, SignaturePublicKey>
 {
     pub(super) fn delete(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         connection.execute(

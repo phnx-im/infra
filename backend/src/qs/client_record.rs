@@ -57,6 +57,7 @@ pub(super) struct QsClientRecord {
 }
 
 impl QsClientRecord {
+    #[expect(clippy::too_many_arguments)]
     pub(super) async fn new_and_store(
         connection: &mut PgConnection,
         rng: &mut (impl CryptoRng + RngCore),
@@ -109,11 +110,11 @@ mod persistence {
             let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
 
             sqlx::query!(
-                "INSERT INTO 
-                    qs_client_records 
-                    (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time) 
-                VALUES 
-                    ($1, $2, $3, $4, $5, $6, $7)", 
+                "INSERT INTO
+                    qs_client_records
+                    (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time)
+                VALUES
+                    ($1, $2, $3, $4, $5, $6, $7)",
                 &self.client_id as &QsClientId,
                 &self.user_id as &QsUserId,
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
@@ -134,16 +135,16 @@ mod persistence {
         ) -> Result<Option<QsClientRecord>, StorageError> {
             let client_id = client_id.as_uuid();
             sqlx::query!(
-                r#"SELECT 
-                    user_id as "user_id: QsUserId", 
-                    encrypted_push_token as "encrypted_push_token: EncryptedPushToken", 
-                    owner_public_key, 
-                    owner_signature_key, 
-                    ratchet, 
+                r#"SELECT
+                    user_id as "user_id: QsUserId",
+                    encrypted_push_token as "encrypted_push_token: EncryptedPushToken",
+                    owner_public_key,
+                    owner_signature_key,
+                    ratchet,
                     activity_time as "activity_time: TimeStamp"
-                FROM 
-                    qs_client_records 
-                WHERE 
+                FROM
+                    qs_client_records
+                WHERE
                     client_id = $1"#,
                 client_id,
             )
@@ -152,12 +153,11 @@ mod persistence {
             .map(|record| {
                 let owner_public_key = PhnxCodec::from_slice(&record.owner_public_key)?;
                 let owner_signature_key = PhnxCodec::from_slice(&record.owner_signature_key)?;
-                let ratchet = PhnxCodec::from_slice(&record.ratchet)?;
-                let ratchet_key = QueueRatchet::from(ratchet);
+                let ratchet_key = PhnxCodec::from_slice(&record.ratchet)?;
 
                 Ok(QsClientRecord {
                     user_id: record.user_id,
-                    client_id: client_id.clone().into(),
+                    client_id: (*client_id).into(),
                     encrypted_push_token: record.encrypted_push_token,
                     queue_encryption_key: owner_public_key,
                     auth_key: owner_signature_key,
@@ -178,13 +178,13 @@ mod persistence {
 
             sqlx::query!(
                 "UPDATE qs_client_records
-                SET 
-                    encrypted_push_token = $1, 
-                    owner_public_key = $2, 
-                    owner_signature_key = $3, 
-                    ratchet = $4, 
-                    activity_time = $5 
-                WHERE 
+                SET
+                    encrypted_push_token = $1,
+                    owner_public_key = $2,
+                    owner_signature_key = $3,
+                    ratchet = $4,
+                    activity_time = $5
+                WHERE
                     client_id = $6",
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
                 owner_public_key,

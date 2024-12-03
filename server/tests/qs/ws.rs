@@ -20,7 +20,7 @@ async fn ws_reconnect() {
     let (address, _ws_dispatch) =
         spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
-    let client_id = QsClientId::random(&mut OsRng::default());
+    let client_id = QsClientId::random(&mut OsRng);
 
     // Websocket parameters
     let timeout = 1;
@@ -58,7 +58,7 @@ async fn ws_sending() {
     let (address, ws_dispatch) =
         spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
 
-    let client_id = QsClientId::random(&mut OsRng::default());
+    let client_id = QsClientId::random(&mut OsRng);
 
     // Websocket parameters
     let timeout = 1;

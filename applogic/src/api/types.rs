@@ -207,7 +207,7 @@ impl From<ConversationMessage> for UiConversationMessage {
 pub enum UiMessage {
     ContentFlight(Vec<UiContentMessage>),
     Display(UiEventMessage),
-    Unsent(UiMimiContent),
+    Unsent(Box<UiMimiContent>),
 }
 
 impl From<Message> for UiMessage {
@@ -294,6 +294,12 @@ impl From<ContentMessage> for UiContentMessage {
             sent: content_message.was_sent(),
             content: UiMimiContent::from(content_message.content().clone()),
         }
+    }
+}
+
+impl From<Box<ContentMessage>> for UiContentMessage {
+    fn from(content_message: Box<ContentMessage>) -> Self {
+        Self::from(*content_message)
     }
 }
 

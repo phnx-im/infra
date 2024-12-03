@@ -116,7 +116,6 @@ pub(crate) fn open_client_db(
 
 /// Helper function to read one or more values from the database. If
 /// `number_of_entries` is set, it will load at most that number of entries.
-
 pub(crate) trait Storable {
     const CREATE_TABLE_STATEMENT: &'static str;
 
@@ -142,7 +141,7 @@ impl<'a> From<&'a GroupId> for GroupIdRefWrapper<'a> {
     }
 }
 
-impl<'a> ToSql for GroupIdRefWrapper<'a> {
+impl ToSql for GroupIdRefWrapper<'_> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.0.as_slice().to_sql()
     }

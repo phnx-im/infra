@@ -60,7 +60,7 @@ mod persistence {
 
             for (i, encrypted_add_package) in encrypted_add_packages.into_iter().enumerate() {
                 // Add values to the query arguments. None of these should throw an error.
-                query_args.add(&client_id)?;
+                query_args.add(client_id)?;
                 query_args.add(&*encrypted_add_package)?;
                 query_args.add(is_last_resort)?;
 
@@ -99,7 +99,7 @@ mod persistence {
                 r#"WITH deleted_package AS (
                     DELETE FROM key_packages
                     USING qs_client_records qcr
-                    WHERE 
+                    WHERE
                         key_packages.client_id = qcr.client_id
                         AND key_packages.client_id = $1
                         AND qcr.user_id = $2

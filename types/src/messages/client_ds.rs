@@ -93,7 +93,7 @@ impl QsQueueMessagePayload {
             }
             QsQueueMessageType::MlsMessage => {
                 let message = MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
-                ExtractedQsQueueMessagePayload::MlsMessage(message)
+                ExtractedQsQueueMessagePayload::MlsMessage(Box::new(message))
             }
         };
         Ok(ExtractedQsQueueMessage {
@@ -112,7 +112,7 @@ pub struct ExtractedQsQueueMessage {
 #[derive(Debug)]
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
-    MlsMessage(MlsMessageIn),
+    MlsMessage(Box<MlsMessageIn>),
 }
 
 impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
@@ -386,6 +386,7 @@ pub struct DeleteGroupParams {
 }
 
 /// This enum contains variants for each DS endpoint.
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParams {
@@ -590,6 +591,7 @@ pub(crate) struct ClientToDsMessageIn {
     signature: Signature,
 }
 
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum DsMessageTypeIn {

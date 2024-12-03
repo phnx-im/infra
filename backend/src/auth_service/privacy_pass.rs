@@ -25,7 +25,7 @@ impl<'a, 'b> AuthServiceBatchedKeyStoreProvider<'a, 'b> {
 }
 
 #[async_trait]
-impl<'a, 'b> BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'a, 'b> {
+impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
     async fn insert(
         &self,

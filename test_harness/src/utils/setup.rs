@@ -538,11 +538,11 @@ impl TestBackend {
 
         assert_eq!(
             message.message(),
-            &Message::Content(ContentMessage::new(
+            &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_name().to_string(),
                 true,
                 orig_message.clone()
-            ))
+            )))
         );
 
         for recipient_name in &recipient_names {
@@ -558,11 +558,11 @@ impl TestBackend {
 
             assert_eq!(
                 messages.last().unwrap().message(),
-                &Message::Content(ContentMessage::new(
+                &Message::Content(Box::new(ContentMessage::new(
                     sender_user_name.to_string(),
                     true,
                     orig_message.clone()
-                ))
+                )))
             );
         }
         message.id()
