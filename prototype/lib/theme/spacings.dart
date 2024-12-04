@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 abstract final class Spacings {
   static const double xxxs = 4.0;
   static const double xxs = 8.0;   // + 4
