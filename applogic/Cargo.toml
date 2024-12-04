@@ -36,8 +36,5 @@ lazy_static = "1.5"
 chrono = { workspace = true }
 jni = "0.21"
 
-# testing cargo machete and cargo lock failure in CI
-insta = "1"
-
 # Workspace dependencies
 openmls = { workspace = true }
