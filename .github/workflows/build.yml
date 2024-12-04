@@ -86,7 +86,6 @@ jobs:
       - name: Rustfmt
         run: cargo fmt -- --check
       - name: Clippy
-        # Note: this also verifies that the lock file is up to date
         run: cargo clippy --locked --all-targets
       - name: Build
         run: cargo build --verbose
