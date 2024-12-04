@@ -7,10 +7,6 @@ import 'package:prototype/conversation_list_pane/pane.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/styles.dart';
 
-void main() {
-  runApp(const MessengerView());
-}
-
 // Combined navigator
 void pushToNavigator(BuildContext context, Widget widget) {
   Navigator.of(context).push(MaterialPageRoute(builder: (context) => widget));
@@ -26,18 +22,16 @@ class MessengerView extends StatelessWidget {
         if (isSmallScreen(context)) {
           return const ConversationView();
         } else {
-          return Scaffold(
-            body: Row(
-              children: [
-                const SizedBox(
-                  width: 300,
-                  child: ConversationView(),
-                ),
-                Expanded(
-                  child: ConversationPane(navigatorKey),
-                ),
-              ],
-            ),
+          return const Row(
+            children: [
+              SizedBox(
+                width: 300,
+                child: ConversationView(),
+              ),
+              Expanded(
+                child: ConversationPane(),
+              ),
+            ],
           );
         }
       },
