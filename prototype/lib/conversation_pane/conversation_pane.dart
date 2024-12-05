@@ -16,9 +16,7 @@ import 'conversation_content/conversation_content.dart';
 import 'message_composer.dart';
 
 class ConversationPane extends StatefulWidget {
-  final GlobalKey<NavigatorState> navigatorKey;
-
-  const ConversationPane(this.navigatorKey, {super.key});
+  const ConversationPane({super.key});
 
   @override
   State<ConversationPane> createState() => _ConversationPaneState();
@@ -48,7 +46,7 @@ class _ConversationPaneState extends State<ConversationPane> {
   @override
   Widget build(BuildContext context) {
     return Navigator(
-      key: widget.navigatorKey,
+      key: navigatorKey,
       onGenerateInitialRoutes: (navigator, initialRoute) {
         return [
           MaterialPageRoute(
