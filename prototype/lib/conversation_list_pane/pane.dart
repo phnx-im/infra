@@ -10,6 +10,7 @@ import 'package:prototype/conversation_list_pane/footer.dart';
 import 'package:prototype/conversation_list_pane/top.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 
 class ConversationView extends StatefulWidget {
   const ConversationView({super.key});
@@ -37,9 +38,7 @@ class _ConversationViewState extends State<ConversationView> {
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         shape: BoxShape.rectangle,
@@ -52,22 +51,16 @@ class _ConversationViewState extends State<ConversationView> {
       ),
       child: Scaffold(
         backgroundColor: convPaneBackgroundColor,
-        body: Stack(
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const ConversationList(),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: ConversationListTop(
-                  displayName: displayName, profilePicture: profilePicture),
+            ConversationListTop(
+              displayName: displayName,
+              profilePicture: profilePicture,
             ),
-            const Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: ConversationListFooter(),
-            ),
+            const SizedBox(height: Spacings.s),
+            const Expanded(child: ConversationList()),
+            const ConversationListFooter(),
           ],
         ),
       ),
