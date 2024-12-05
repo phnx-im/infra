@@ -81,8 +81,9 @@ impl SendToDartLogger {
     pub fn set_stream_sink(stream_sink: StreamSink<LogEntry>) {
         let prev_stream_sink = {
             let mut guard = SEND_TO_DART_LOGGER_STREAM_SINK.write().expect("poisoned");
-            // Note: previous stream sink MUST NOT be dropped before the `guard` is released.
-            // On drop, it will log and because the `RwLock` is not reentrant, this will deadlock.
+            // Note: The previous stream sink MUST NOT be dropped before the `guard` is released.
+            // On drop, it will log a message, and therefore lock the sink for reading. Because the
+            // `RwLock` is not reentrant, this will deadlock.
             guard.replace(stream_sink)
         };
         if prev_stream_sink.is_some() {
