@@ -79,14 +79,14 @@ pub struct SendToDartLogger {
 
 impl SendToDartLogger {
     pub fn set_stream_sink(stream_sink: StreamSink<LogEntry>) {
-        let mut guard = SEND_TO_DART_LOGGER_STREAM_SINK.write().unwrap();
-        let overriding = guard.is_some();
-
-        *guard = Some(stream_sink);
-
-        drop(guard);
-
-        if overriding {
+        let prev_stream_sink = {
+            let mut guard = SEND_TO_DART_LOGGER_STREAM_SINK.write().expect("poisoned");
+            // Note: The previous stream sink MUST NOT be dropped before the `guard` is released.
+            // On drop, it will log a message, and therefore lock the sink for reading. Because the
+            // `RwLock` is not reentrant, this will deadlock.
+            guard.replace(stream_sink)
+        };
+        if prev_stream_sink.is_some() {
             warn!(
                 "SendToDartLogger::set_stream_sink but already exist a sink, thus overriding. \
                 (This may or may not be a problem. It will happen normally if hot-reload Flutter app.)"
