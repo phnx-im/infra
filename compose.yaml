@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+services:
+  postgres:
+    image: postgres:17.2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: phnx_db
+    command: >
+      postgres
+      -c max_connections=1000
+      -c shared_buffers=2GB
+      -c ssl=on
+      -c ssl_cert_file=/etc/postgresql/certs/server.crt
+      -c ssl_key_file=/etc/postgresql/certs/server.key
+      -c ssl_ca_file=/etc/postgresql/certs/root.crt
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres", "-h", "127.0.0.1"]
+      start_period: 1s
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    ports:
+      - ${COMPOSE_BIND_HOST:-127.0.0.1}:5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:z
+      - ./backend/test_certs:/etc/postgresql/certs:ro,z
+
+volumes:
+  postgres_data:
