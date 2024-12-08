@@ -11,6 +11,7 @@ import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/messenger_view.dart';
+import 'package:prototype/theme/theme.dart';
 import '../styles.dart';
 import 'package:convert/convert.dart';
 import 'package:collection/collection.dart';
@@ -69,7 +70,7 @@ class _ConversationListState extends State<ConversationList> {
     print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
     coreClient.selectConversation(conversationId);
     if (isSmallScreen(context)) {
-      pushToNavigator(context, ConversationPane(navigatorKey));
+      pushToNavigator(context, const ConversationPane());
     }
   }
 
@@ -110,7 +111,7 @@ class _ConversationListState extends State<ConversationList> {
 
   Widget _convTitle(int index) {
     return Baseline(
-      baseline: _topBaseline,
+      baseline: Spacings.s,
       baselineType: TextBaseline.alphabetic,
       child: Text(
         _conversations[index].conversationType.when(
@@ -252,7 +253,10 @@ class _ConversationListState extends State<ConversationList> {
   Widget _listTile(int index) {
     return ListTile(
       horizontalTitleGap: 0,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Spacings.xxs,
+        vertical: Spacings.xxxs,
+      ),
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.topStart,
@@ -268,10 +272,10 @@ class _ConversationListState extends State<ConversationList> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _userAvatar(index),
-            const SizedBox(width: 16),
+            const SizedBox(width: Spacings.s),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   _topPart(index),
@@ -304,18 +308,10 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  double _paddingHeight() {
-    final height = (isPointer() ? 30 : kToolbarHeight) + 60;
-    return height + 10;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_conversations.isNotEmpty) {
       return ListView.builder(
-        padding: EdgeInsets.only(
-          top: _paddingHeight(),
-        ),
         itemCount: _conversations.length,
         physics: const BouncingScrollPhysics().applyTo(
           const AlwaysScrollableScrollPhysics(),

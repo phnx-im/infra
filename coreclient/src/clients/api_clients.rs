@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::hash_map::Entry;
 use std::{collections::HashMap, sync::Mutex};
 
 use phnxtypes::identifiers::Fqdn;
@@ -40,10 +41,14 @@ impl ApiClients {
             .clients
             .lock()
             .map_err(|_| ApiClientsError::MutexPoisonError)?;
-        let client = clients
-            .entry(lookup_domain.clone())
-            .or_insert(ApiClient::initialize(lookup_domain)?);
-        Ok(client.clone())
+        match clients.entry(lookup_domain.clone()) {
+            Entry::Occupied(entry) => Ok(entry.get().clone()),
+            Entry::Vacant(entry) => {
+                let client = ApiClient::initialize(lookup_domain.clone())?;
+                entry.insert(client.clone());
+                Ok(client)
+            }
+        }
     }
 
     pub(super) fn default_client(&self) -> Result<ApiClient, ApiClientsError> {
