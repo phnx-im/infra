@@ -82,7 +82,7 @@ pub async fn spawn_app(
         .await
         .expect("Failed to connect to database.");
 
-    let push_notification_provider = ProductionPushNotificationProvider::new(None).unwrap();
+    let push_notification_provider = ProductionPushNotificationProvider::new(None, None).unwrap();
 
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),

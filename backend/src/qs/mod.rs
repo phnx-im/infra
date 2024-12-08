@@ -165,6 +165,10 @@ pub enum PushNotificationError {
     UnsupportedType,
     /// The JWT token for APNS could not be created.
     JwtCreationError(String),
+    /// OAuth error.
+    OAuthError(String),
+    /// Configuration error.
+    InvalidConfiguration(String),
 }
 
 #[async_trait]

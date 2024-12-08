@@ -6,28 +6,73 @@ use async_trait::async_trait;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use phnxbackend::{
     qs::{PushNotificationError, PushNotificationProvider},
-    settings::ApnsSettings,
+    settings::{ApnsSettings, FcmSettings},
 };
 use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::{
     fs::File,
     io::Read,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::sync::Mutex;
+
+#[derive(Debug, Serialize)]
+struct FcmClaims {
+    iss: String,
+    scope: String,
+    aud: String,
+    iat: usize,
+    exp: usize,
+}
+
+// Struct for the Google OAuth2 response
+#[derive(Debug, Deserialize)]
+struct OauthTokenResponse {
+    access_token: String,
+    _token_type: String,
+    expires_in: u64,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
+struct ApnsClaims {
     iss: String,
     iat: usize,
 }
 
 #[derive(Debug, Clone)]
-pub struct ApnsToken {
+struct ApnsToken {
     jwt: String,
     issued_at: u64,
+}
+
+#[derive(Debug, Clone)]
+struct FcmToken {
+    token: String,
+    expires_at: u64, // Seconds since UNIX_EPOCH
+}
+
+impl FcmToken {
+    fn token(&self) -> &str {
+        &self.token
+    }
+
+    fn is_expired(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        now >= self.expires_at
+    }
+}
+
+#[derive(Debug, Clone)]
+struct FcmState {
+    service_account: Value,
+    token: Arc<Mutex<Option<FcmToken>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,42 +85,125 @@ pub struct ApnsState {
 
 #[derive(Debug, Clone)]
 pub struct ProductionPushNotificationProvider {
+    fcm_state: Option<FcmState>,
     apns_state: Option<ApnsState>,
 }
 
 impl ProductionPushNotificationProvider {
-    // Create a new ProductionPushNotificationProvider. If the config_option is
-    // None, the provider will effectively not send push notifications.
-    pub fn new(config_option: Option<ApnsSettings>) -> Result<Self, Box<dyn std::error::Error>> {
-        let Some(config) = config_option else {
-            return Ok(Self { apns_state: None });
+    // Create a new ProductionPushNotificationProvider. If the settings are
+    // None, the provider will effectively not send push notifications for that
+    // platform.
+    pub fn new(
+        fcm_settings: Option<FcmSettings>,
+        apns_settings: Option<ApnsSettings>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Read the FCN service account file
+        let fcm_state = if let Some(fcm_settings) = fcm_settings {
+            let mut service_account_file = File::open(fcm_settings.path)?;
+            let mut service_account = String::new();
+            service_account_file.read_to_string(&mut service_account)?;
+
+            Some(FcmState {
+                service_account: serde_json::from_str(&service_account)?,
+                token: Arc::new(Mutex::new(None)),
+            })
+        } else {
+            None
         };
-        // Read the private key
-        let mut private_key_file = File::open(&config.privatekeypath)?;
-        let mut private_key_p8 = String::new();
-        private_key_file.read_to_string(&mut private_key_p8)?;
+
+        // Read the parameters for APNS
+        let apns_state = if let Some(apns_settings) = apns_settings {
+            // Read the private key
+            let mut private_key_file = File::open(&apns_settings.privatekeypath)?;
+            let mut private_key_p8 = String::new();
+            private_key_file.read_to_string(&mut private_key_p8)?;
+
+            Some(ApnsState {
+                key_id: apns_settings.keyid,
+                team_id: apns_settings.teamid,
+                private_key: private_key_p8.into_bytes(),
+                token: Arc::new(Mutex::new(None)),
+            })
+        } else {
+            None
+        };
 
         Ok(Self {
-            apns_state: Some(ApnsState {
-                key_id: config.keyid,
-                team_id: config.teamid,
-                private_key: private_key_p8.as_bytes().to_vec(),
-                token: Arc::new(Mutex::new(None)),
-            }),
+            fcm_state,
+            apns_state,
         })
     }
 
-    /// Return the JWT. If the token is older than 40 minutes, a new token is
-    /// issued (as JWTs must be between 20 and 60 minutes old).
-    fn issue_jwt(&self) -> Result<String, Box<dyn std::error::Error>> {
+    async fn issue_fcm_token(&self) -> Result<FcmToken, Box<dyn std::error::Error + Send + Sync>> {
+        let fcm_state = self.fcm_state.as_ref().ok_or("Missing Service Account")?;
+
+        // Check whether we already have a token and if it is still valid
+        let mut token_option = fcm_state.token.lock().await;
+        if let Some(token) = token_option.as_ref() {
+            if !token.is_expired() {
+                return Ok(token.clone());
+            }
+        }
+
+        let service_account = &fcm_state.service_account;
+
+        // Extract necessary fields from the service account
+        let private_key = service_account["private_key"].as_str().unwrap();
+        let client_email = service_account["client_email"].as_str().unwrap();
+
+        // Generate JWT claims
+        let iat = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
+        let exp = iat + 3600; // Token valid for 1 hour
+
+        let claims = FcmClaims {
+            iss: client_email.to_string(),
+            scope: "https://www.googleapis.com/auth/firebase.messaging".to_string(),
+            aud: "https://oauth2.googleapis.com/token".to_string(),
+            iat,
+            exp,
+        };
+
+        // Create the JWT
+        let header = Header::new(Algorithm::RS256);
+        let encoding_key = EncodingKey::from_rsa_pem(private_key.as_bytes())?;
+        let jwt = encode(&header, &claims, &encoding_key)?;
+
+        // Send the JWT to Google's OAuth2 token endpoint and get a bearer token
+        // back
+        let client = Client::new();
+        let response = client
+            .post("https://oauth2.googleapis.com/token")
+            .form(&[
+                ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
+                ("assertion", &jwt),
+            ])
+            .send()
+            .await?;
+
+        let token_response: OauthTokenResponse = response.json().await?;
+
+        // Create the FcmToken
+        let fcm_token = FcmToken {
+            token: token_response.access_token,
+            // Save the expiration time
+            expires_at: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+                + token_response.expires_in,
+        };
+
+        // Store the token
+        *token_option = Some(fcm_token.clone());
+
+        Ok(fcm_token)
+    }
+
+    /// Return a JWT for APNS. If the token is older than 40 minutes, a new
+    /// token is issued (as JWTs must be between 20 and 60 minutes old).
+    async fn issue_apns_jwt(&self) -> Result<String, Box<dyn std::error::Error>> {
         let apns_state = self.apns_state.as_ref().ok_or("Missing ApnsState")?;
 
         // Check whether we already have a token and if it is still valid, i.e.
         // not older than 40 minutes
-        let mut token_option = apns_state
-            .token
-            .lock()
-            .map_err(|_| "Could not lock token mutex")?;
+        let mut token_option = apns_state.token.lock().await;
 
         if let Some(token) = &*token_option {
             let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
@@ -87,7 +215,7 @@ impl ProductionPushNotificationProvider {
         let iat = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 
         // Create the JWT claims
-        let claims = Claims {
+        let claims = ApnsClaims {
             iss: apns_state.team_id.clone(),
             iat,
         };
@@ -111,77 +239,143 @@ impl ProductionPushNotificationProvider {
 
         Ok(token)
     }
+
+    async fn push_google(&self, push_token: PushToken) -> Result<(), PushNotificationError> {
+        // If we don't have an FCM state, we can't send push notifications
+        let Some(fcm_state) = &self.fcm_state else {
+            return Ok(());
+        };
+
+        let service_account = &fcm_state.service_account;
+
+        let bearer_token = self
+            .issue_fcm_token()
+            .await
+            .map_err(|e| PushNotificationError::OAuthError(e.to_string()))?;
+
+        // Extract the project ID from the service account
+        let Some(project_id) = service_account["project_id"].as_str() else {
+            return Err(PushNotificationError::InvalidConfiguration(
+                "Missing project ID in service account".to_string(),
+            ));
+        };
+
+        // Create the URL
+        let url = format!(
+            "https://fcm.googleapis.com/v1/projects/{}/messages:send",
+            project_id
+        );
+
+        // Construct the message payload
+        let message = json!({
+            "message": {
+                "token": push_token.token(),
+                "data": {
+                    "id": "",
+                }
+            }
+        });
+
+        // Send the request
+        let client = Client::new();
+        let res = client
+            .post(&url)
+            .bearer_auth(bearer_token.token())
+            .json(&message)
+            .send()
+            .await
+            .map_err(|e| PushNotificationError::NetworkError(e.to_string()))?;
+
+        match res.status() {
+            StatusCode::OK => Ok(()),
+            // If the token is invalid, we might want to know it and
+            // delete it
+            StatusCode::NOT_FOUND => Err(PushNotificationError::InvalidToken(
+                res.text().await.unwrap_or_default(),
+            )),
+            // If the status code is not OK or NOT_FOUND, we might want to
+            // log the error
+            s => Err(PushNotificationError::Other(format!(
+                "Unexpected status code: {} with body: {}",
+                s,
+                res.text().await.unwrap_or_default()
+            ))),
+        }
+    }
+
+    async fn push_apple(&self, push_token: PushToken) -> Result<(), PushNotificationError> {
+        // If we don't have an APNS state, we can't send push notifications
+        if self.apns_state.is_none() {
+            return Ok(());
+        }
+
+        // Issue the JWT
+        let jwt = self
+            .issue_apns_jwt()
+            .await
+            .map_err(|e| PushNotificationError::JwtCreationError(e.to_string()))?;
+
+        // Create the URL
+        let url = format!(
+            "https://api.push.apple.com:443/3/device/{}",
+            push_token.token()
+        );
+
+        // Create the headers and payload
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("authorization", format!("bearer {}", jwt).parse().unwrap());
+        headers.insert("apns-topic", "im.phnx.prototype".parse().unwrap());
+        headers.insert("apns-push-type", "alert".parse().unwrap());
+        headers.insert("apns-priority", "10".parse().unwrap());
+        headers.insert("apns-expiration", "0".parse().unwrap());
+
+        let body = r#"
+        {
+            "aps": {
+                "alert": {
+                "title": "Empty notification",
+                "body": "This artefact should disappear once the app is in public beta."
+                },
+                 "mutable-content": 1
+            },
+            "data": "data",
+        }
+        "#;
+
+        // Send the push notification
+        let client = Client::new();
+        let res = client
+            .post(url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| PushNotificationError::NetworkError(e.to_string()))?;
+
+        match res.status() {
+            StatusCode::OK => Ok(()),
+            // If the token is invalid, we might want to know it and
+            // delete it
+            StatusCode::GONE => Err(PushNotificationError::InvalidToken(
+                res.text().await.unwrap_or_default(),
+            )),
+            // If the status code is not OK or GONE, we might want to
+            // log the error
+            s => Err(PushNotificationError::Other(format!(
+                "Unexpected status code: {} with body: {}",
+                s,
+                res.text().await.unwrap_or_default()
+            ))),
+        }
+    }
 }
 
 #[async_trait]
 impl PushNotificationProvider for ProductionPushNotificationProvider {
     async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError> {
         match push_token.operator() {
-            PushTokenOperator::Apple => {
-                // If we don't have an APNS state, we can't send push notifications
-                if self.apns_state.is_none() {
-                    return Ok(());
-                }
-
-                // Issue the JWT
-                let jwt = self
-                    .issue_jwt()
-                    .map_err(|e| PushNotificationError::JwtCreationError(e.to_string()))?;
-
-                // Create the URL
-                let url = format!(
-                    "https://api.push.apple.com:443/3/device/{}",
-                    push_token.token()
-                );
-
-                // Create the headers and payload
-                let mut headers = reqwest::header::HeaderMap::new();
-                headers.insert("authorization", format!("bearer {}", jwt).parse().unwrap());
-                headers.insert("apns-topic", "im.phnx.prototype".parse().unwrap());
-                headers.insert("apns-push-type", "alert".parse().unwrap());
-                headers.insert("apns-priority", "10".parse().unwrap());
-                headers.insert("apns-expiration", "0".parse().unwrap());
-
-                let body = r#"
-                {
-                    "aps": {
-                        "alert": {
-                        "title": "Empty notification",
-                        "body": "Please report this issue"
-                        },
-                         "mutable-content": 1
-                    },
-                    "data": "data",
-                }
-                "#;
-
-                // Send the push notification
-                let client = Client::new();
-                let res = client
-                    .post(url)
-                    .headers(headers)
-                    .body(body)
-                    .send()
-                    .await
-                    .map_err(|e| PushNotificationError::NetworkError(e.to_string()))?;
-
-                match res.status() {
-                    StatusCode::OK => Ok(()),
-                    // If the token is invalid, we might want to know it and
-                    // delete it
-                    StatusCode::GONE => Err(PushNotificationError::InvalidToken(
-                        res.text().await.unwrap_or_default(),
-                    )),
-                    // If the status code is not OK or GONE, we might want to
-                    // log the error
-                    s => Err(PushNotificationError::Other(format!(
-                        "Unexpected status code: {} with body: {}",
-                        s,
-                        res.text().await.unwrap_or_default()
-                    ))),
-                }
-            }
-            PushTokenOperator::Google => Err(PushNotificationError::UnsupportedType),
+            PushTokenOperator::Apple => self.push_apple(push_token).await,
+            PushTokenOperator::Google => self.push_google(push_token).await,
         }
     }
 }
