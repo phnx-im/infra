@@ -12,6 +12,9 @@ pub struct Settings {
     // If this isn't present, the provider will not send push notifications to
     // apple devices.
     pub apns: Option<ApnsSettings>,
+    // If this isn't present, the provider will not send push notifications to
+    // android devices.
+    pub fcm: Option<FcmSettings>,
 }
 
 /// Configuration for the application.
@@ -31,6 +34,11 @@ pub struct DatabaseSettings {
     pub host: String,
     pub name: String,
     pub cacertpath: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct FcmSettings {
+    pub path: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

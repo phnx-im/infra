@@ -81,8 +81,9 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to connect to database.");
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
-    let push_notification_provider = ProductionPushNotificationProvider::new(configuration.apns)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let push_notification_provider =
+        ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
         notifier: ws_dispatch_notifier.clone(),
