@@ -23,6 +23,9 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v4
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -45,10 +48,10 @@ jobs:
       - name: Set up Android CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd prototype && make setup-android-ci
+        run: just setup-android-ci
 
       - name: Integrate bridge
-        run: cd prototype && make frb-integrate
+        run: just frb-integrate
 
       - name: Build Android app
-        run: cd prototype && flutter build appbundle --release --target-platform android-arm64
+        run: just build-android
