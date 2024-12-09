@@ -38,7 +38,7 @@ class ConversationListTop extends StatelessWidget {
         children: [
           UserAvatar(
             size: 32,
-            username: coreClient.username,
+            username: context.coreClient.username,
             image: profilePicture,
             onPressed: () {
               Navigator.push(
@@ -54,7 +54,7 @@ class ConversationListTop extends StatelessWidget {
     );
   }
 
-  Column _usernameSpace() {
+  Column _usernameSpace(String username) {
     return Column(
       children: [
         Text(
@@ -68,7 +68,7 @@ class ConversationListTop extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Text(
-          coreClient.username,
+          username,
           style: const TextStyle(
             color: colorDMB,
             fontSize: 10,
@@ -118,7 +118,7 @@ class ConversationListTop extends StatelessWidget {
             children: [
               _avatar(context),
               Expanded(
-                child: _usernameSpace(),
+                child: _usernameSpace(context.coreClient.username),
               ),
               _settingsButton(context),
             ],

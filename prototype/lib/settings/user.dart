@@ -19,14 +19,19 @@ class UserSettingsScreen extends StatefulWidget {
 }
 
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
-  Uint8List? avatar = coreClient.ownProfile.profilePictureOption;
-  String? displayName = coreClient.ownProfile.displayName;
+  Uint8List? avatar;
+  String? displayName;
   bool imageChanged = false;
   bool displayNameChanged = false;
 
   @override
   void initState() {
     super.initState();
+    final coreClient = context.coreClient;
+    setState(() {
+      displayName = coreClient.ownProfile.displayName;
+      avatar = coreClient.ownProfile.profilePictureOption;
+    });
   }
 
   bool changed() {
@@ -35,8 +40,8 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   void save(BuildContext context) {
     try {
-      coreClient.setOwnProfile(displayName ?? "", avatar).then((value) {
-        if (mounted) {
+      context.coreClient.setOwnProfile(displayName ?? "", avatar).then((value) {
+        if (context.mounted) {
           Navigator.of(context).pop();
         }
       });
@@ -51,6 +56,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final coreClient = context.coreClient;
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Settings'),

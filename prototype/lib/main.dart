@@ -2,111 +2,34 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/core_client.dart';
-import 'package:prototype/homescreen.dart';
-import 'package:prototype/platform.dart';
-import 'package:prototype/styles.dart';
+import 'package:logging/logging.dart';
+import 'package:prototype/app.dart';
+import 'package:prototype/core/api/mobile_logging.dart';
+import 'package:prototype/core/frb_generated.dart';
 
 void main() async {
-  // Initialize the FRB
-  await coreClient.init();
+  _initRust();
+  _initLogging();
 
-  runApp(const MyApp());
+  runApp(const App());
 }
 
-final GlobalKey<NavigatorState> appNavigator = GlobalKey<NavigatorState>();
-
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
+void _initLogging() {
+  Logger.root.level = kDebugMode ? Level.FINE : Level.INFO;
+  Logger.root.onRecord.listen((record) {
+    print('${record.level.name}: ${record.time}: ${record.message}');
+  });
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    onStateChanged(state);
-  }
-
-  Future<void> onStateChanged(AppLifecycleState state) async {
-    if (state == AppLifecycleState.paused) {
-      // The app is in the background
-      print('App is in the background');
-
-      // iOS only
-      if (Platform.isIOS) {
-        final count = await coreClient.user.globalUnreadMessagesCount();
-        await setBadgeCount(count);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Prototype',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        appBarTheme: AppBarTheme(
-          color: Colors.white,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black),
-          surfaceTintColor: Colors.black,
-          titleTextStyle: boldLabelStyle.copyWith(color: Colors.black),
-        ),
-        fontFamily: fontFamily,
-        textTheme: const TextTheme(),
-        canvasColor: Colors.white,
-        cardColor: Colors.white,
-        colorScheme: ColorScheme.fromSwatch(
-          accentColor: swatchColor,
-          backgroundColor: Colors.white,
-          brightness: Brightness.light,
-        ),
-        dialogBackgroundColor: Colors.white,
-        dialogTheme: const DialogTheme(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-        ),
-        primaryColor: swatchColor,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        outlinedButtonTheme:
-            OutlinedButtonThemeData(style: buttonStyle(context, true)),
-        iconButtonTheme: IconButtonThemeData(
-          style: ButtonStyle(
-            splashFactory: NoSplash.splashFactory,
-            surfaceTintColor:
-                WidgetStateProperty.all<Color>(Colors.transparent),
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-          ),
-        ),
-        textSelectionTheme:
-            const TextSelectionThemeData(cursorColor: Colors.blue),
-      ),
-      navigatorKey: appNavigator,
-      home: const HomeScreen(),
-    );
-  }
+Future<void> _initRust() async {
+  // FRB
+  await RustLib.init();
+  // Logging
+  createLogStream().listen((event) {
+    print('Rust: ${event.level} ${event.tag} ${event.msg} ${event.timeMillis}');
+  });
 }
 
 void showErrorBanner(BuildContext context, String errorDescription) {

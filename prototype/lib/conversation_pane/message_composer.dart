@@ -116,6 +116,7 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void initState() {
     super.initState();
+    final coreClient = context.coreClient;
     _listener = coreClient.onConversationSwitch.listen(conversationListener);
     _currentConversation = coreClient.currentConversation;
     _focusNode.onKeyEvent = onKeyEvent;
@@ -156,6 +157,7 @@ class _MessageComposerState extends State<MessageComposer> {
       _focusNode.requestFocus();
     });
 
+    final coreClient = context.coreClient;
     await coreClient.sendMessage(
         coreClient.currentConversation!.id, messageText);
   }

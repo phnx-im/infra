@@ -6,14 +6,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
+import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/api/mobile_logging.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core/api/utils.dart';
-import 'package:prototype/core/frb_generated.dart';
 import 'package:prototype/core/lib.dart';
 import 'package:prototype/platform.dart';
+import 'package:provider/provider.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -69,16 +69,6 @@ class CoreClient {
   User get user => _user!;
   set user(User user) {
     _user = user;
-  }
-
-  Future<void> init() async {
-    // FRB
-    await RustLib.init();
-    // Logging
-    createLogStream().listen((event) {
-      print(
-          'Rust: ${event.level} ${event.tag} ${event.msg} ${event.timeMillis}');
-    });
   }
 
   String get username {
@@ -215,7 +205,7 @@ class CoreClient {
       await user.fetchMessages();
       // iOS only
       if (Platform.isIOS) {
-        final count = await coreClient.user.globalUnreadMessagesCount();
+        final count = await user.globalUnreadMessagesCount();
         await setBadgeCount(count);
       }
       conversationListUpdates.add(ConversationIdBytes(bytes: U8Array16.init()));
@@ -304,4 +294,6 @@ class CoreClient {
   }
 }
 
-final coreClient = CoreClient();
+extension BuildContextExtension on BuildContext {
+  CoreClient get coreClient => read<CoreClient>();
+}
