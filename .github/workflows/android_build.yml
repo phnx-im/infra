@@ -45,10 +45,10 @@ jobs:
       - name: Set up Android CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd prototype && make setup-android-ci
+        run: just setup-android-ci
 
       - name: Integrate bridge
-        run: cd prototype && make frb-integrate
+        run: just frb-generate
 
       - name: Build Android app
-        run: cd prototype && flutter build appbundle --release --target-platform android-arm64
+        run: just build-android-debug
