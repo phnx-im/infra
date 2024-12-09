@@ -23,6 +23,9 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v4
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
