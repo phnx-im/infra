@@ -51,7 +51,7 @@ jobs:
         run: just setup-android-ci
 
       - name: Integrate bridge
-        run: just frb-generate
+        run: just frb-integrate
 
       - name: Build Android app
         run: just build-android-debug

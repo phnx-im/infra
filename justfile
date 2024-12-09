@@ -43,7 +43,7 @@ frb-integrate:
 	cd {{app_dir}} && cat /tmp/header.tmp flutter_rust_bridge.yaml.generated.tmp > flutter_rust_bridge.yaml.generated
 	cd {{app_dir}} && mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
 	cd {{app_dir}} && rm flutter_rust_bridge.yaml.generated.tmp
-	cd {{app_dir}} && make frb-generate
+	just frb-generate
 
 # set up the CI environment for the app
 setup-ci:
