@@ -295,6 +295,14 @@ impl QsClientRecord {
                                         "Push notification failed because the JWT token could not be created: {}",
                                         e
                                     ),
+                                    PushNotificationError::OAuthError(e) => tracing::error!(
+                                        "Push notification failed because of an OAuth error: {}",
+                                        e
+                                    ),
+                                    PushNotificationError::InvalidConfiguration(e) => tracing::error!(
+                                        "Push notification failed because of an invalid configuration: {}",
+                                        e
+                                    ),
                                 }
                                     }
                                 }
