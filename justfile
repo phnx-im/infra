@@ -56,7 +56,7 @@ setup-android-ci: setup-ci
 	cargo binstall -y cargo-ndk
 	cd {{app_dir}}/fastlane && bundle install
 
-# build Android in debug mode
+# build Android
 # we limit it to android-arm64 to speed up the build process
-build-android-debug:
-     cd {{app_dir}} && flutter build appbundle --debug --target-platform android-arm64
+build-android:
+     cd {{app_dir}} && flutter build appbundle --target-platform android-arm64
