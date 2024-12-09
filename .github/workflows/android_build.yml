@@ -54,4 +54,4 @@ jobs:
         run: just frb-integrate
 
       - name: Build Android app
-        run: just build-android-debug
+        run: just build-android
