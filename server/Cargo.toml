@@ -40,6 +40,7 @@ tracing-bunyan-formatter = "0.3"
 tracing-actix-web = "0.7"
 jsonwebtoken = "9"
 opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
+zeroize = "1.8.1"
 
 # Workspace dependencies
 tls_codec = { workspace = true }

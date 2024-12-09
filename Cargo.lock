@@ -3502,6 +3502,7 @@ dependencies = [
  "tracing-futures",
  "tracing-log 0.2.0",
  "tracing-subscriber",
+ "zeroize",
 ]
 
 [[package]]

@@ -38,6 +38,7 @@ pub struct DatabaseSettings {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct FcmSettings {
+    // The path to the service account key file.
     pub path: String,
 }
 

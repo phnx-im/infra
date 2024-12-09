@@ -11,7 +11,7 @@ use phnxbackend::{
 use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{
     fs::File,
     io::Read,
@@ -19,6 +19,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Mutex;
+use zeroize::Zeroize;
 
 #[derive(Debug, Serialize)]
 struct FcmClaims {
@@ -49,7 +50,7 @@ struct ApnsToken {
     issued_at: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Zeroize)]
 struct FcmToken {
     token: String,
     expires_at: u64, // Seconds since UNIX_EPOCH
@@ -71,7 +72,7 @@ impl FcmToken {
 
 #[derive(Debug, Clone)]
 struct FcmState {
-    service_account: Value,
+    service_account: ServiceAccount,
     token: Arc<Mutex<Option<FcmToken>>>,
 }
 
@@ -81,6 +82,22 @@ pub struct ApnsState {
     pub team_id: String,
     pub private_key: Vec<u8>,
     token: Arc<Mutex<Option<ApnsToken>>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize)]
+pub struct ServiceAccount {
+    #[serde(rename = "type")]
+    pub key_type: Option<String>,
+    pub project_id: Option<String>,
+    pub private_key_id: Option<String>,
+    pub private_key: String,
+    pub client_email: String,
+    pub client_id: Option<String>,
+    pub auth_uri: Option<String>,
+    pub token_uri: String,
+    pub auth_provider_x509_cert_url: Option<String>,
+    pub client_x509_cert_url: Option<String>,
+    pub universe_domain: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -99,9 +116,7 @@ impl ProductionPushNotificationProvider {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Read the FCN service account file
         let fcm_state = if let Some(fcm_settings) = fcm_settings {
-            let mut service_account_file = File::open(fcm_settings.path)?;
-            let mut service_account = String::new();
-            service_account_file.read_to_string(&mut service_account)?;
+            let service_account = std::fs::read_to_string(fcm_settings.path)?;
 
             Some(FcmState {
                 service_account: serde_json::from_str(&service_account)?,
@@ -135,6 +150,7 @@ impl ProductionPushNotificationProvider {
     }
 
     async fn issue_fcm_token(&self) -> Result<FcmToken, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO #237: Proactively refresh the token before it expires
         let fcm_state = self.fcm_state.as_ref().ok_or("Missing Service Account")?;
 
         // Check whether we already have a token and if it is still valid
@@ -148,8 +164,8 @@ impl ProductionPushNotificationProvider {
         let service_account = &fcm_state.service_account;
 
         // Extract necessary fields from the service account
-        let private_key = service_account["private_key"].as_str().unwrap();
-        let client_email = service_account["client_email"].as_str().unwrap();
+        let private_key = &service_account.private_key;
+        let client_email = &service_account.client_email;
 
         // Generate JWT claims
         let iat = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
@@ -199,6 +215,7 @@ impl ProductionPushNotificationProvider {
     /// Return a JWT for APNS. If the token is older than 40 minutes, a new
     /// token is issued (as JWTs must be between 20 and 60 minutes old).
     async fn issue_apns_jwt(&self) -> Result<String, Box<dyn std::error::Error>> {
+        // TODO #237: Proactively refresh the jwt before it expires
         let apns_state = self.apns_state.as_ref().ok_or("Missing ApnsState")?;
 
         // Check whether we already have a token and if it is still valid, i.e.
@@ -254,17 +271,14 @@ impl ProductionPushNotificationProvider {
             .map_err(|e| PushNotificationError::OAuthError(e.to_string()))?;
 
         // Extract the project ID from the service account
-        let Some(project_id) = service_account["project_id"].as_str() else {
+        let Some(ref project_id) = service_account.project_id else {
             return Err(PushNotificationError::InvalidConfiguration(
                 "Missing project ID in service account".to_string(),
             ));
         };
 
         // Create the URL
-        let url = format!(
-            "https://fcm.googleapis.com/v1/projects/{}/messages:send",
-            project_id
-        );
+        let url = format!("https://fcm.googleapis.com/v1/projects/{project_id}/messages:send");
 
         // Construct the message payload
         let message = json!({
