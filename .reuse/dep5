@@ -23,18 +23,18 @@ Files: *.png
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: CC-BY-4.0
 
-Files: prototype/test_driver/*
+Files: app/test_driver/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-Files: prototype/fastlane/*
+Files: app/fastlane/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-Files: prototype/ios/*
+Files: app/ios/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
 
-Files: prototype/android/*
+Files: app/android/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
