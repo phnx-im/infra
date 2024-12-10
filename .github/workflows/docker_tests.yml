@@ -56,12 +56,15 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Set up CI
-        run: cd prototype && make setup-ci
+        run: just setup-ci
       - name: Integrate bridge
-        run: cd prototype && make frb-integrate
+        run: just frb-integrate
       - name: Run docker-based tests
         run: cargo test --verbose -- --ignored
