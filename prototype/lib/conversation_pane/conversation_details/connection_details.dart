@@ -19,6 +19,7 @@ class ConnectionDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final coreClient = context.coreClient;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,

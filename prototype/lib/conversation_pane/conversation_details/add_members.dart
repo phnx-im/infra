@@ -31,7 +31,7 @@ class _AddMembersState extends State<AddMembers> {
   void initState() {
     super.initState();
     _conversationListener =
-        coreClient.onConversationSwitch.listen(conversationListener);
+        context.coreClient.onConversationSwitch.listen(conversationListener);
     getContacts();
   }
 
@@ -42,13 +42,14 @@ class _AddMembersState extends State<AddMembers> {
   }
 
   getContacts() async {
-    contacts = await coreClient.getContacts();
+    contacts = await context.coreClient.getContacts();
     setState(() {});
   }
 
   addContacts() async {
     for (var contact in selectedContacts) {
-      await coreClient.addUserToConversation(widget.conversation.id, contact);
+      await context.coreClient
+          .addUserToConversation(widget.conversation.id, contact);
     }
   }
 
@@ -92,7 +93,7 @@ class _AddMembersState extends State<AddMembers> {
                       final contact = contacts[index];
                       return ListTile(
                         leading: FutureUserAvatar(
-                          profile: coreClient.user
+                          profile: context.coreClient.user
                               .userProfile(userName: contact.userName),
                         ),
                         title: Text(

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prototype/app.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
@@ -48,6 +49,8 @@ class _DisplayNameAvatarChoiceState extends State<DisplayNameAvatarChoice> {
   }
 
   Future<void> signup() async {
+    final coreClient = context.coreClient;
+
     final domain = widget.domain;
     final username = widget.username;
     final password = widget.password;

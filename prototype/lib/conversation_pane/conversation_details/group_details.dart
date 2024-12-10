@@ -38,7 +38,7 @@ class _GroupDetailsState extends State<GroupDetails> {
 
   Future<void> fetchMembers() async {
     // Fetch member list from the core client
-    members = await coreClient.getMembers(widget.conversation.id);
+    members = await context.coreClient.getMembers(widget.conversation.id);
     setState(() {});
   }
 
@@ -65,7 +65,7 @@ class _GroupDetailsState extends State<GroupDetails> {
                 image?.readAsBytes().then((value) {
                   setState(() {
                     avatar = value;
-                    coreClient.user.setConversationPicture(
+                    context.coreClient.user.setConversationPicture(
                         conversationId: widget.conversation.id,
                         conversationPicture: value);
                   });
@@ -107,7 +107,7 @@ class _GroupDetailsState extends State<GroupDetails> {
                           return ListTile(
                             leading: FutureUserAvatar(
                               size: 24,
-                              profile: coreClient.user
+                              profile: context.coreClient.user
                                   .userProfile(userName: members[index]),
                             ),
                             title: Text(

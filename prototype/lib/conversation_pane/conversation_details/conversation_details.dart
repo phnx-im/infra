@@ -26,6 +26,7 @@ class _ConversationDetailsState extends State<ConversationDetails> {
   @override
   void initState() {
     super.initState();
+    final coreClient = context.coreClient;
     _conversationListener =
         coreClient.onConversationSwitch.listen(conversationListener);
 

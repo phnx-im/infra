@@ -3,12 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/messenger_view.dart';
-import 'package:prototype/platform.dart';
 import 'package:prototype/registration/server_choice.dart';
 import 'package:prototype/settings/developer.dart';
 import 'package:prototype/styles.dart';
@@ -35,25 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
       statusText = "Initializing core client...";
     });
 
-    // Mobile initialization
-    if (Platform.isAndroid || Platform.isIOS) {
-      // Initialize the method channel
-      initMethodChannel();
-
-      // Ask for notification permission
-      var status = await Permission.notification.status;
-      switch (status) {
-        case PermissionStatus.denied:
-          print("Notification permission denied, will ask the user");
-          var requestStatus = await Permission.notification.request();
-          print("The status is $requestStatus");
-          break;
-        default:
-          print("Notification permission status: $status");
-      }
-    }
-
-    await coreClient.loadUser().then((exists) {
+    await context.coreClient.loadUser().then((exists) {
       if (exists) {
         print("User loaded successfully");
         if (mounted) {

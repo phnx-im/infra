@@ -20,12 +20,19 @@ class ConversationView extends StatefulWidget {
 }
 
 class _ConversationViewState extends State<ConversationView> {
-  String? displayName = coreClient.ownProfile.displayName;
-  Uint8List? profilePicture = coreClient.ownProfile.profilePictureOption;
+  String? displayName;
+  Uint8List? profilePicture;
 
   @override
   void initState() {
     super.initState();
+
+    final coreClient = context.coreClient;
+    setState(() {
+      displayName = coreClient.ownProfile.displayName;
+      profilePicture = coreClient.ownProfile.profilePictureOption;
+    });
+
     // Listen for changes to the user's profile picture
     coreClient.onOwnProfileUpdate.listen((profile) {
       if (mounted) {

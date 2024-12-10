@@ -41,6 +41,7 @@ class _ConversationContentState extends State<ConversationContent> {
     super.initState();
     _scrollController.addListener(_onScroll);
 
+    final coreClient = context.coreClient;
     _conversationListener =
         coreClient.onConversationSwitch.listen(conversationListener);
     _messageListener = coreClient.onMessageUpdate.listen(messageListener);
@@ -100,7 +101,7 @@ class _ConversationContentState extends State<ConversationContent> {
 
   void _onMessageVisible(String timestamp) {
     if (_currentConversation != null) {
-      coreClient.user.markMessagesAsReadDebounced(
+      context.coreClient.user.markMessagesAsReadDebounced(
           conversationId: _currentConversation!.id, timestamp: timestamp);
     }
   }
@@ -113,7 +114,7 @@ class _ConversationContentState extends State<ConversationContent> {
 
   Future<void> updateMessages() async {
     if (_currentConversation != null) {
-      final messages = await coreClient.user
+      final messages = await context.coreClient.user
           .getMessages(conversationId: _currentConversation!.id, lastN: 50);
       setState(() {
         print("Number of messages: ${messages.length}");

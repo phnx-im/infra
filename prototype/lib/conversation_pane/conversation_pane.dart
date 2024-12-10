@@ -5,11 +5,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prototype/app.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/main.dart';
 import 'package:prototype/messenger_view.dart';
 import 'package:prototype/styles.dart';
 import 'conversation_content/conversation_content.dart';
@@ -29,6 +29,7 @@ class _ConversationPaneState extends State<ConversationPane> {
   @override
   void initState() {
     super.initState();
+    final coreClient = context.coreClient;
     _currentConversation = coreClient.currentConversation;
     _listener = coreClient.onConversationSwitch.listen((conversation) {
       setState(() {

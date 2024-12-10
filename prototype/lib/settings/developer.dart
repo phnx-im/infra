@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prototype/app.dart';
 import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
@@ -36,10 +37,10 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   }
 
   bool canReRegisterPushToken() {
-    return isTouch() && coreClient.maybeUser != null;
+    return isTouch() && context.coreClient.maybeUser != null;
   }
 
-  void reRegisterPushToken() async {
+  void reRegisterPushToken(CoreClient coreClient) async {
     if (canReRegisterPushToken()) {
       final deviceToken = await getDeviceToken();
       if (deviceToken != null) {
@@ -83,7 +84,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   void eraseDatabase() {
     // Perform database erase operation
     try {
-      coreClient.deleteDatabase().then((value) {
+      context.coreClient.deleteDatabase().then((value) {
         if (appNavigator.currentState != null) {
           // Remove all routes from the navigator stack and push the HomeScreen
           var appContext = appNavigator.currentState!.context;
@@ -143,7 +144,9 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
           OutlinedButton(
             style: buttonStyle(context, canReRegisterPushToken()),
             onPressed: () async {
-              if (canReRegisterPushToken()) reRegisterPushToken();
+              if (canReRegisterPushToken()) {
+                reRegisterPushToken(context.coreClient);
+              }
             },
             child: const Text('Re-register push token'),
           ),
