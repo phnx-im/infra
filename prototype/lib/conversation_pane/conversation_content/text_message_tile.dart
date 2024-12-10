@@ -24,7 +24,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
   @override
   void initState() {
     super.initState();
-    coreClient.user
+    context.coreClient.user
         .userProfile(userName: widget.contentFlight.last.sender)
         .then((p) {
       if (mounted) {
@@ -36,7 +36,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
   }
 
   bool isSender() {
-    return widget.contentFlight.last.sender == coreClient.username;
+    return widget.contentFlight.last.sender == context.coreClient.username;
   }
 
   @override
@@ -95,7 +95,7 @@ class _TextMessageTileState extends State<TextMessageTile> {
 
   Widget _avatar() {
     return FutureUserAvatar(
-      profile: coreClient.user
+      profile: context.coreClient.user
           .userProfile(userName: widget.contentFlight.last.sender),
     );
   }

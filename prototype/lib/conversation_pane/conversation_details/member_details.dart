@@ -33,8 +33,10 @@ class _MemberDetailsState extends State<MemberDetails> {
     super.initState();
     // Listen for conversation switch events and close the member details pane
     // when the conversation changes
-    _conversationListener = coreClient.onConversationSwitch.listen((event) {
-      Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    _conversationListener =
+        context.coreClient.onConversationSwitch.listen((event) {
+      navigator.pop();
     });
   }
 
@@ -45,7 +47,7 @@ class _MemberDetailsState extends State<MemberDetails> {
   }
 
   bool isSelf() {
-    return widget.username == coreClient.username;
+    return widget.username == context.coreClient.username;
   }
 
   @override
@@ -68,8 +70,8 @@ class _MemberDetailsState extends State<MemberDetails> {
                 const SizedBox(height: _padding),
                 FutureUserAvatar(
                   size: 64,
-                  profile:
-                      coreClient.user.userProfile(userName: widget.username),
+                  profile: context.coreClient.user
+                      .userProfile(userName: widget.username),
                 ),
                 const SizedBox(height: _padding),
                 Text(
@@ -100,14 +102,14 @@ class _MemberDetailsState extends State<MemberDetails> {
                                       style: textButtonStyle(context),
                                       child: const Text("Cancel")),
                                   TextButton(
-                                    onPressed: () {
-                                      coreClient
+                                    onPressed: () async {
+                                      await context.coreClient
                                           .removeUserFromConversation(
                                               widget.conversation.id,
-                                              widget.username)
-                                          .then((value) => {
-                                                Navigator.of(context).pop(true)
-                                              });
+                                              widget.username);
+                                      if (context.mounted) {
+                                        Navigator.of(context).pop(true);
+                                      }
                                     },
                                     style: textButtonStyle(context),
                                     child: const Text("Remove user"),
@@ -116,7 +118,7 @@ class _MemberDetailsState extends State<MemberDetails> {
                               );
                             },
                           );
-                          if (confirmed) {
+                          if (confirmed && context.mounted) {
                             Navigator.of(context).pop(true);
                           }
                         },

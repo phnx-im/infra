@@ -16,6 +16,7 @@ class ConversationListFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final coreClient = context.coreClient;
     return Container(
       alignment: AlignmentDirectional.topStart,
       padding: const EdgeInsets.fromLTRB(15, 15, 15, 30),
@@ -43,8 +44,10 @@ class ConversationListFooter extends StatelessWidget {
                 try {
                   await coreClient.createConnection(connectionUsername);
                 } catch (e) {
-                  showErrorBanner(context,
-                      'The user $connectionUsername could not be found');
+                  if (context.mounted) {
+                    showErrorBanner(context,
+                        'The user $connectionUsername could not be found');
+                  }
                 }
               }
             },

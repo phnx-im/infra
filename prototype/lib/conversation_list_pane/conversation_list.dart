@@ -11,8 +11,8 @@ import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/messenger_view.dart';
+import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
-import '../styles.dart';
 import 'package:convert/convert.dart';
 import 'package:collection/collection.dart';
 
@@ -24,6 +24,8 @@ class ConversationList extends StatefulWidget {
 }
 
 class _ConversationListState extends State<ConversationList> {
+  _ConversationListState();
+
   late List<UiConversationDetails> _conversations;
   UiConversationDetails? _currentConversation;
   StreamSubscription<ConversationIdBytes>? _conversationListUpdateListener;
@@ -32,19 +34,19 @@ class _ConversationListState extends State<ConversationList> {
 
   static const double _topBaseline = 12;
 
-  _ConversationListState() {
+  @override
+  void initState() {
+    super.initState();
+
+    final coreClient = context.coreClient;
     _conversations = coreClient.conversationsList;
     _currentConversation = coreClient.currentConversation;
     _conversationListUpdateListener = coreClient.onConversationListUpdate
         .listen(conversationListUpdateListener);
     _conversationSwitchListener =
         coreClient.onConversationSwitch.listen(conversationSwitchListener);
-  }
 
-  @override
-  void initState() {
-    super.initState();
-    updateConversationList();
+    updateConversationList(coreClient);
   }
 
   @override
@@ -66,7 +68,10 @@ class _ConversationListState extends State<ConversationList> {
     }
   }
 
-  void selectConversation(ConversationIdBytes conversationId) {
+  void selectConversation(
+    CoreClient coreClient,
+    ConversationIdBytes conversationId,
+  ) {
     print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
     coreClient.selectConversation(conversationId);
     if (isSmallScreen(context)) {
@@ -75,10 +80,10 @@ class _ConversationListState extends State<ConversationList> {
   }
 
   void conversationListUpdateListener(ConversationIdBytes uuid) async {
-    updateConversationList();
+    updateConversationList(context.coreClient);
   }
 
-  void updateConversationList() async {
+  void updateConversationList(CoreClient coreClient) async {
     await coreClient.conversations().then((conversations) {
       setState(() {
         if (_currentConversation == null && conversations.isNotEmpty) {
@@ -146,6 +151,8 @@ class _ConversationListState extends State<ConversationList> {
         : style;
 
     final senderStyle = style.copyWith(fontVariations: variationSemiBold);
+
+    final coreClient = context.coreClient;
 
     if (lastMessage != null) {
       lastMessage.message.when(
@@ -290,7 +297,10 @@ class _ConversationListState extends State<ConversationList> {
       selected: isConversationSelected(
           _currentConversation, _conversations[index], context),
       focusColor: convListItemSelectedColor,
-      onTap: () => selectConversation(_conversations[index].id),
+      onTap: () => selectConversation(
+        context.coreClient,
+        _conversations[index].id,
+      ),
     );
   }
 
