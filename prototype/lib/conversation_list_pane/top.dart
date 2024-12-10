@@ -7,9 +7,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/settings/developer.dart';
-import 'package:prototype/settings/user.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
 class ConversationListTop extends StatelessWidget {
   const ConversationListTop({
@@ -41,12 +41,7 @@ class ConversationListTop extends StatelessWidget {
             username: context.coreClient.username,
             image: profilePicture,
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UserSettingsScreen(),
-                ),
-              );
+              context.read<NavigationCubit>().openUserSettings();
             },
           )
         ],
@@ -84,12 +79,7 @@ class ConversationListTop extends StatelessWidget {
   Widget _settingsButton(BuildContext context) {
     return IconButton(
       onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const DeveloperSettingsScreen(),
-          ),
-        );
+        context.read<NavigationCubit>().openDeveloperSettings();
       },
       hoverColor: Colors.transparent,
       focusColor: Colors.transparent,

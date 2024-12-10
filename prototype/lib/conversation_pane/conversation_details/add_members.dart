@@ -13,16 +13,15 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 
 class AddMembers extends StatefulWidget {
-  final UiConversationDetails conversation;
-
-  const AddMembers({super.key, required this.conversation});
+  const AddMembers({super.key});
 
   @override
   State<AddMembers> createState() => _AddMembersState();
 }
 
 class _AddMembersState extends State<AddMembers> {
-  late StreamSubscription<UiConversationDetails> _conversationListener;
+  UiConversationDetails? conversation;
+  late final StreamSubscription<UiConversationDetails> _conversationListener;
   List<UiContact> contacts = [];
   HashSet<String> selectedContacts = HashSet();
   bool isButtonEnabled = false;
@@ -30,6 +29,11 @@ class _AddMembersState extends State<AddMembers> {
   @override
   void initState() {
     super.initState();
+
+    var coreClient = context.coreClient;
+    setState(() {
+      conversation = coreClient.currentConversation;
+    });
     _conversationListener =
         context.coreClient.onConversationSwitch.listen(conversationListener);
     getContacts();
@@ -48,8 +52,7 @@ class _AddMembersState extends State<AddMembers> {
 
   addContacts() async {
     for (var contact in selectedContacts) {
-      await context.coreClient
-          .addUserToConversation(widget.conversation.id, contact);
+      await context.coreClient.addUserToConversation(conversation!.id, contact);
     }
   }
 

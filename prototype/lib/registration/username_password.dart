@@ -5,53 +5,15 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/registration/display_name_picture.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 
-class UsernamePasswordChoice extends StatefulWidget {
-  final String domain;
+import 'registration_cubit.dart';
 
-  const UsernamePasswordChoice({super.key, required this.domain});
-
-  @override
-  State<UsernamePasswordChoice> createState() => _UsernamePasswordChoiceState();
-}
-
-class _UsernamePasswordChoiceState extends State<UsernamePasswordChoice> {
-  String _domain = '';
-  String _username = '';
-  String _password = '';
-  bool _isUsernameValid = false;
-  bool _isPasswordValid = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _domain = widget.domain;
-  }
-
-  String? usernameValidator(String? value) {
-    // alphanumeric
-    final validCharacters = RegExp(r'^[a-zA-Z0-9@.]+$');
-    var containsInvalidChars =
-        value!.isNotEmpty && !validCharacters.hasMatch(value);
-    var isTooLong = value.length >= 64;
-    var isTooShort = value.isEmpty;
-    var hasRightLength = !isTooShort && !isTooLong;
-    _isUsernameValid = hasRightLength && !containsInvalidChars;
-    if (_isUsernameValid) {
-      _username = value;
-      return null;
-    } else {
-      if (containsInvalidChars) {
-        return 'Please use alphanumeric characters only';
-      } else if (isTooLong) {
-        return 'Maximum length is 64 characters';
-      }
-    }
-    return null;
-  }
+class UsernamePasswordChoice extends StatelessWidget {
+  const UsernamePasswordChoice({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -80,28 +42,7 @@ class _UsernamePasswordChoiceState extends State<UsernamePasswordChoice> {
                     const SizedBox(height: 5),
                     ConstrainedBox(
                       constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: TextFormField(
-                        autofocus: (Platform.isIOS || Platform.isAndroid)
-                            ? false
-                            : true,
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'USERNAME',
-                        ),
-                        style: inputTextStyle,
-                        validator: usernameValidator,
-                        onChanged: (String value) {
-                          final validCharacters = RegExp(r'^[a-zA-Z0-9@.]+$');
-                          var containsInvalidChars = value.isNotEmpty &&
-                              !validCharacters.hasMatch(value);
-                          var hasRightLength =
-                              value.isNotEmpty && value.length <= 64;
-                          setState(() {
-                            _isUsernameValid =
-                                hasRightLength && !containsInvalidChars;
-                            _username = value;
-                          });
-                        },
-                      ),
+                      child: const _UsernameTextField(),
                     ),
                     const SizedBox(height: 5),
                     ConstrainedBox(
@@ -113,10 +54,7 @@ class _UsernamePasswordChoiceState extends State<UsernamePasswordChoice> {
                         style: inputTextStyle,
                         obscureText: true,
                         onChanged: (String value) {
-                          setState(() {
-                            _isPasswordValid = value.isNotEmpty;
-                            _password = value;
-                          });
+                          context.read<RegistrationCubit>().setPassword(value);
                         },
                       ),
                     )
@@ -127,35 +65,68 @@ class _UsernamePasswordChoiceState extends State<UsernamePasswordChoice> {
                 crossAxisAlignment: isSmallScreen(context)
                     ? CrossAxisAlignment.stretch
                     : CrossAxisAlignment.center,
-                children: [
-                  OutlinedButton(
-                    style: buttonStyle(
-                        context, _isUsernameValid && _isPasswordValid),
-                    child: const Text('Next'),
-                    onPressed: () => {
-                      if (_isUsernameValid && _isPasswordValid)
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation1, animation2) =>
-                                DisplayNameAvatarChoice(
-                                    domain: _domain,
-                                    username: _username,
-                                    password: _password),
-                            transitionDuration:
-                                const Duration(milliseconds: 150),
-                            transitionsBuilder: (_, a, __, c) =>
-                                FadeTransition(opacity: a, child: c),
-                          ),
-                        )
-                    },
-                  )
-                ],
+                children: const [_NextButton()],
               )
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _UsernameTextField extends StatelessWidget {
+  const _UsernameTextField();
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      autofocus: (Platform.isIOS || Platform.isAndroid) ? false : true,
+      decoration: inputDecoration.copyWith(
+        hintText: 'USERNAME',
+      ),
+      style: inputTextStyle,
+      validator: _usernameValidator,
+      onChanged: (String value) {
+        context.read<RegistrationCubit>().setUsername(value);
+      },
+    );
+  }
+
+  String? _usernameValidator(String? value) {
+    // alphanumeric
+    final validCharacters = RegExp(r'^[a-zA-Z0-9@.]+$');
+    var containsInvalidChars =
+        value!.isNotEmpty && !validCharacters.hasMatch(value);
+    var isTooLong = value.length >= 64;
+    var isTooShort = value.isEmpty;
+    var hasRightLength = !isTooShort && !isTooLong;
+    if (hasRightLength && !containsInvalidChars) {
+      return null;
+    } else if (containsInvalidChars) {
+      return 'Please use alphanumeric characters only';
+    } else if (isTooLong) {
+      return 'Maximum length is 64 characters';
+    }
+    return null;
+  }
+}
+
+class _NextButton extends StatelessWidget {
+  const _NextButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = context.select((RegistrationCubit cubit) =>
+        cubit.state.isUsernameValid && cubit.state.isPasswordValid);
+    return OutlinedButton(
+      style: buttonStyle(context, isActive),
+      onPressed: isActive
+          ? () => context
+              .read<NavigationCubit>()
+              .openIntroScreen(IntroScreenType.displayNamePicture)
+          : null,
+      child: const Text('Next'),
     );
   }
 }

@@ -20,6 +20,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -40,6 +43,9 @@ jobs:
 
       - name: Integrate bridge
         run: cd prototype && make frb-integrate
+
+      - name: Generate Dart files
+        run: just generate-dart-files
 
       - name: Build iOS app
         env:
