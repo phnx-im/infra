@@ -39,10 +39,10 @@ jobs:
       - name: Set up iOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd prototype && make setup-ios-ci
+        run: just setup-ios-ci
 
       - name: Integrate bridge
-        run: cd prototype && make frb-integrate
+        run: just frb-integrate
 
       - name: Generate Dart files
         run: just generate-dart-files

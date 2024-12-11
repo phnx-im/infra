@@ -72,6 +72,9 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -79,9 +82,9 @@ jobs:
           components: clippy, rustfmt
 
       - name: Set up CI
-        run: cd prototype && make setup-ci
+        run: just setup-ci
       - name: Integrate bridge
-        run: cd prototype && make frb-integrate
+        run: just frb-integrate
 
       - name: Rustfmt
         run: cargo fmt -- --check
