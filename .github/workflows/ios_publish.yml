@@ -13,7 +13,7 @@ on:
       - 'apiclient/**'
       - 'applogic/**'
       - 'types/**'
-      - 'prototype/**'
+      - 'app/**'
       - 'Cargo.toml'
   workflow_dispatch:
 
@@ -60,4 +60,4 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
-          cd prototype && fastlane beta_ios upload_to_test_flight:true --verbose
+          cd app && fastlane beta_ios upload_to_test_flight:true --verbose
