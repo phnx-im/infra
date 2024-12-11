@@ -18,7 +18,7 @@ generate-db-certs:
 
 # === App ===
 
-app_dir := "prototype"
+app_dir := "app"
 app_lib_name := "applogic"
 app_rust_base_dir := app_lib_name
 

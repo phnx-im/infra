@@ -17,7 +17,7 @@ on:
       - 'apiclient/**'
       - 'applogic/**'
       - 'types/**'
-      - 'prototype/**'
+      - 'app/**'
       - 'Cargo.toml'
   workflow_dispatch:
 
@@ -73,4 +73,4 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_PLAYSTORE_KEY_JSON: ${{ secrets.ANDROID_PLAYSTORE_KEY_JSON }}
         run: |
-          cd prototype/fastlane && bundle exec fastlane android deploy
+          cd app/fastlane && bundle exec fastlane android deploy
