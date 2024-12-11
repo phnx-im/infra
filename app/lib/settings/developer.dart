@@ -6,11 +6,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:prototype/app.dart';
 import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/homescreen.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
@@ -40,7 +38,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     return isTouch() && context.coreClient.maybeUser != null;
   }
 
-  void reRegisterPushToken(CoreClient coreClient) async {
+  void _reRegisterPushToken(CoreClient coreClient) async {
     if (canReRegisterPushToken()) {
       final deviceToken = await getDeviceToken();
       if (deviceToken != null) {
@@ -55,7 +53,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     }
   }
 
-  void confirmEraseDatabase() {
+  void _confirmEraseDatabase() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -72,7 +70,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
             ),
             TextButton(
               style: textButtonStyle(context),
-              onPressed: eraseDatabase,
+              onPressed: _eraseDatabase,
               child: const Text('Erase'),
             ),
           ],
@@ -81,29 +79,13 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     );
   }
 
-  void eraseDatabase() {
+  void _eraseDatabase() async {
     // Perform database erase operation
+    final messengerState = ScaffoldMessenger.of(context);
     try {
-      context.coreClient.deleteDatabase().then((value) {
-        if (appNavigator.currentState != null) {
-          // Remove all routes from the navigator stack and push the HomeScreen
-          var appContext = appNavigator.currentState!.context;
-          if (appContext.mounted) {
-            Navigator.pushAndRemoveUntil(
-              appContext,
-              PageRouteBuilder(
-                pageBuilder: (context, animation1, animation2) =>
-                    const HomeScreen(),
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
-              ),
-              (route) => false,
-            );
-          }
-        }
-      });
+      await context.coreClient.deleteDatabase();
     } catch (e) {
-      showErrorBanner(context, "Could not delete databases: $e");
+      showErrorBanner(messengerState, "Could not delete databases: $e");
       print(e);
     }
   }
@@ -145,7 +127,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
             style: buttonStyle(context, canReRegisterPushToken()),
             onPressed: () async {
               if (canReRegisterPushToken()) {
-                reRegisterPushToken(context.coreClient);
+                _reRegisterPushToken(context.coreClient);
               }
             },
             child: const Text('Re-register push token'),
@@ -162,7 +144,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   Widget eraseDatabaseElement() {
     return OutlinedButton(
       style: buttonStyle(context, true),
-      onPressed: confirmEraseDatabase,
+      onPressed: _confirmEraseDatabase,
       child: const Text('Erase Database'),
     );
   }

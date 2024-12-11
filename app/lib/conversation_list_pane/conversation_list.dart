@@ -8,13 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
-import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/messenger_view.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:convert/convert.dart';
 import 'package:collection/collection.dart';
+import 'package:provider/provider.dart';
 
 class ConversationList extends StatefulWidget {
   const ConversationList({super.key});
@@ -28,8 +28,10 @@ class _ConversationListState extends State<ConversationList> {
 
   late List<UiConversationDetails> _conversations;
   UiConversationDetails? _currentConversation;
-  StreamSubscription<ConversationIdBytes>? _conversationListUpdateListener;
-  StreamSubscription<UiConversationDetails>? _conversationSwitchListener;
+  late final StreamSubscription<ConversationIdBytes>
+      _conversationListUpdateListener;
+  late final StreamSubscription<UiConversationDetails>
+      _conversationSwitchListener;
   final ScrollController _scrollController = ScrollController();
 
   static const double _topBaseline = 12;
@@ -43,20 +45,27 @@ class _ConversationListState extends State<ConversationList> {
     _currentConversation = coreClient.currentConversation;
     _conversationListUpdateListener = coreClient.onConversationListUpdate
         .listen(conversationListUpdateListener);
-    _conversationSwitchListener =
-        coreClient.onConversationSwitch.listen(conversationSwitchListener);
+
+    final navigationCubit = context.read<NavigationCubit>();
+    _conversationSwitchListener = coreClient.onConversationSwitch.listen(
+      (conversationDetails) =>
+          conversationSwitchListener(navigationCubit, conversationDetails),
+    );
 
     updateConversationList(coreClient);
   }
 
   @override
   void dispose() {
-    _conversationListUpdateListener?.cancel();
-    _conversationSwitchListener?.cancel();
+    _conversationListUpdateListener.cancel();
+    _conversationSwitchListener.cancel();
     super.dispose();
   }
 
-  void conversationSwitchListener(UiConversationDetails cc) {
+  void conversationSwitchListener(
+    NavigationCubit navigationCubit,
+    UiConversationDetails cc,
+  ) {
     if (_currentConversation != null) {
       if (_currentConversation!.id != cc.id) {
         setState(() {
@@ -66,6 +75,7 @@ class _ConversationListState extends State<ConversationList> {
     } else {
       _currentConversation = cc;
     }
+    navigationCubit.openConversation(cc.id);
   }
 
   void selectConversation(
@@ -74,9 +84,7 @@ class _ConversationListState extends State<ConversationList> {
   ) {
     print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
     coreClient.selectConversation(conversationId);
-    if (isSmallScreen(context)) {
-      pushToNavigator(context, const ConversationPane());
-    }
+    context.read<NavigationCubit>().openConversation(conversationId);
   }
 
   void conversationListUpdateListener(ConversationIdBytes uuid) async {

@@ -6,21 +6,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/registration/username_password.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
-class ServerChoice extends StatefulWidget {
+import 'registration_cubit.dart';
+
+class ServerChoice extends StatelessWidget {
   const ServerChoice({super.key});
-
-  @override
-  State<ServerChoice> createState() => _ServerChoiceState();
-}
-
-const initialDomain = '';
-
-class _ServerChoiceState extends State<ServerChoice> {
-  String _domain = initialDomain;
-  final bool _isProcessing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +49,11 @@ class _ServerChoiceState extends State<ServerChoice> {
                         decoration: inputDecoration.copyWith(
                           hintText: 'DOMAIN NAME',
                         ),
-                        initialValue: initialDomain,
+                        initialValue:
+                            context.read<RegistrationCubit>().state.domain,
                         style: inputTextStyle,
                         onChanged: (String value) {
-                          setState(() {
-                            _domain = value;
-                          });
+                          context.read<RegistrationCubit>().setDomain(value);
                         },
                       ),
                     ),
@@ -72,31 +64,32 @@ class _ServerChoiceState extends State<ServerChoice> {
                 crossAxisAlignment: isSmallScreen(context)
                     ? CrossAxisAlignment.stretch
                     : CrossAxisAlignment.center,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => {
-                      if (!_isProcessing)
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation1, animation2) =>
-                                UsernamePasswordChoice(domain: _domain),
-                            transitionDuration:
-                                const Duration(milliseconds: 150),
-                            transitionsBuilder: (_, a, __, c) =>
-                                FadeTransition(opacity: a, child: c),
-                          ),
-                        )
-                    },
-                    style: buttonStyle(context, !_isProcessing),
-                    child: const Text('Next'),
-                  )
-                ],
+                children: const [_NextButton()],
               )
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NextButton extends StatelessWidget {
+  const _NextButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDomainValid = context.select(
+      (RegistrationCubit cubit) => cubit.state.isDomainValid,
+    );
+    return OutlinedButton(
+      onPressed: isDomainValid
+          ? () => context
+              .read<NavigationCubit>()
+              .openIntroScreen(IntroScreenType.usernamePassword)
+          : null,
+      style: buttonStyle(context, isDomainValid),
+      child: const Text('Next'),
     );
   }
 }

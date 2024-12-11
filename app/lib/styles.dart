@@ -5,8 +5,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 // === Devices ===
 
 bool isSmallScreen(BuildContext context) {

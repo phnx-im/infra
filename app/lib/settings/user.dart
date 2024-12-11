@@ -50,7 +50,10 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
         displayNameChanged = false;
       });
     } catch (e) {
-      showErrorBanner(context, "Error when saving profile: ${e.toString()}");
+      showErrorBanner(
+        ScaffoldMessenger.of(context),
+        "Error when saving profile: ${e.toString()}",
+      );
     }
   }
 

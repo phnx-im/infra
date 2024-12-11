@@ -5,18 +5,21 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core_client.dart';
-import 'package:prototype/homescreen.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/platform.dart';
+import 'package:prototype/observable_user.dart';
 import 'package:provider/provider.dart';
 
+import 'registration/registration.dart';
 import 'theme/theme.dart';
 
-final GlobalKey<NavigatorState> appNavigator = GlobalKey<NavigatorState>();
-
 final _log = Logger('App');
+
+final _appRouter = AppRouter();
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -64,17 +67,40 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: This provider should be moved below the `MaterialApp`. This can be
-    // done when the app router is introduced. We can't just wrap the
-    // `HomeScreen` because it is replaced in other places by another screens.
-    return Provider.value(
-      value: _coreClient,
-      child: MaterialApp(
-        title: 'Prototype',
-        debugShowCheckedModeBanner: false,
-        theme: themeData(context),
-        navigatorKey: appNavigator,
-        home: const HomeScreen(),
+    return MaterialApp.router(
+      title: 'Prototype',
+      debugShowCheckedModeBanner: false,
+      theme: themeData(context),
+      routerConfig: _appRouter,
+      builder: (context, router) => MultiBlocProvider(
+        providers: [
+          Provider.value(value: _coreClient),
+          BlocProvider<NavigationCubit>(create: (context) => NavigationCubit()),
+          BlocProvider<RegistrationCubit>(
+              create: (context) => RegistrationCubit(coreClient: _coreClient)),
+          BlocProvider<ObservableUser>(
+            create: (context) =>
+                // loads the user on startup
+                ObservableUser((_coreClient..loadUser()).userStream),
+          ),
+        ],
+        child: BlocListener<ObservableUser, UserState>(
+          listenWhen: (previous, current) =>
+              // only fire the side effect when the user logs in or out
+              (current.user == null || previous.user == null) &&
+              current.user != previous.user,
+          listener: (context, user) {
+            // Side Effect: navigate to the home screen or away to the intro
+            // screen, depending on whether the user was loaded or unloaded.
+            switch (user) {
+              case LoadedUserState(user: final _?):
+                context.read<NavigationCubit>().openHome();
+              case LoadingUserState() || LoadedUserState(user: null):
+                context.read<NavigationCubit>().openIntro();
+            }
+          },
+          child: router!,
+        ),
       ),
     );
   }

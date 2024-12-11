@@ -2,110 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/app.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
-import 'package:prototype/messenger_view.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
-class DisplayNameAvatarChoice extends StatefulWidget {
-  final String domain;
-  final String username;
-  final String password;
-  const DisplayNameAvatarChoice(
-      {super.key,
-      required this.domain,
-      required this.username,
-      required this.password});
+import 'registration_cubit.dart';
 
-  @override
-  State<DisplayNameAvatarChoice> createState() =>
-      _DisplayNameAvatarChoiceState();
-}
-
-class _DisplayNameAvatarChoiceState extends State<DisplayNameAvatarChoice> {
-  Uint8List? _avatar;
-  String? _displayName;
-  bool _isProcessing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayName = widget.username;
-  }
-
-  @override
-  void deactivate() {
-    super.deactivate();
-    if (appNavigator.currentState != null) {
-      ScaffoldMessenger.of(appNavigator.currentState!.context)
-          .hideCurrentMaterialBanner();
-    }
-  }
-
-  Future<void> signup() async {
-    final coreClient = context.coreClient;
-
-    final domain = widget.domain;
-    final username = widget.username;
-    final password = widget.password;
-    final fqun = "$username@$domain";
-    final url = "https://$domain:443";
-
-    print("Registering user $username ...");
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      await coreClient.createUser(fqun, password, url);
-    } catch (e) {
-      print("Error when registering user: $e");
-      if (mounted) {
-        showErrorBanner(
-            context, "Error when registering user: ${e.toString()}");
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-      return;
-    }
-
-    // Set the user's display name and profile picture
-    try {
-      await coreClient.setOwnProfile(_displayName ?? "", _avatar);
-    } catch (e) {
-      print("Error when setting profile: $e");
-      if (mounted) {
-        showErrorBanner(context, "Error when setting profile: ${e.toString()}");
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-      return;
-    }
-
-    // Replace all previous routes with the MessengerView
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation1, animation2) =>
-              const MessengerView(),
-          transitionDuration: const Duration(milliseconds: 150),
-          transitionsBuilder: (_, a, __, c) =>
-              FadeTransition(opacity: a, child: c),
-        ),
-        (route) => false,
-      );
-    }
-  }
+class DisplayNameAvatarChoice extends StatelessWidget {
+  const DisplayNameAvatarChoice({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -122,23 +30,7 @@ class _DisplayNameAvatarChoiceState extends State<DisplayNameAvatarChoice> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              UserAvatar(
-                username: widget.username,
-                size: 100,
-                image: _avatar,
-                onPressed: () async {
-                  // Image picker
-                  final ImagePicker picker = ImagePicker();
-                  // Pick an image.
-                  final XFile? image =
-                      await picker.pickImage(source: ImageSource.gallery);
-                  image?.readAsBytes().then((value) {
-                    setState(() {
-                      _avatar = value;
-                    });
-                  });
-                },
-              ),
+              const _UserAvatarPicker(),
               Column(
                 children: [
                   const Text('Choose a picture and a display name'),
@@ -147,48 +39,114 @@ class _DisplayNameAvatarChoiceState extends State<DisplayNameAvatarChoice> {
                     autovalidateMode: AutovalidateMode.always,
                     child: ConstrainedBox(
                       constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: TextFormField(
-                        autofocus: isSmallScreen(context) ? false : true,
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'DISPLAY NAME',
-                        ),
-                        initialValue: widget.username,
-                        style: inputTextStyle,
-                        onChanged: (value) {
-                          setState(() {
-                            _displayName = value;
-                          });
-                        },
-                      ),
+                      child: const _DisplayNameTextField(),
                     ),
                   ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: isSmallScreen(context)
-                    ? CrossAxisAlignment.stretch
-                    : CrossAxisAlignment.center,
-                children: [
-                  if (!_isProcessing)
-                    OutlinedButton(
-                      onPressed: () => {if (!_isProcessing) signup()},
-                      style: buttonStyle(context, !_isProcessing),
-                      child: const Text('Sign up'),
-                    ),
-                  if (_isProcessing)
-                    const Align(
-                      child: CircularProgressIndicator(
-                        value: null,
-                        valueColor: AlwaysStoppedAnimation<Color>(colorDMB),
-                        backgroundColor: Colors.transparent,
-                      ),
-                    ),
-                ],
-              )
+              const _SignUpFooter()
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DisplayNameTextField extends StatelessWidget {
+  const _DisplayNameTextField();
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName =
+        context.select((RegistrationCubit cubit) => cubit.state.displayName);
+
+    return TextFormField(
+      autofocus: isSmallScreen(context) ? false : true,
+      decoration: inputDecoration.copyWith(
+        hintText: 'DISPLAY NAME',
+      ),
+      initialValue: displayName,
+      style: inputTextStyle,
+      onChanged: (value) {
+        context.read<RegistrationCubit>().setDisplayName(value);
+      },
+    );
+  }
+}
+
+class _UserAvatarPicker extends StatelessWidget {
+  const _UserAvatarPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final (username, avatar) = context.select(
+      (RegistrationCubit cubit) => (
+        cubit.state.username,
+        cubit.state.avatar,
+      ),
+    );
+
+    return UserAvatar(
+      username: username,
+      size: 100,
+      image: avatar,
+      onPressed: () async {
+        var registrationCubit = context.read<RegistrationCubit>();
+        // Image picker
+        final ImagePicker picker = ImagePicker();
+        // Pick an image.
+        final XFile? image =
+            await picker.pickImage(source: ImageSource.gallery);
+        final bytes = await image?.readAsBytes();
+        registrationCubit.setAvatar(bytes);
+      },
+    );
+  }
+}
+
+class _SignUpFooter extends StatelessWidget {
+  const _SignUpFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final isSigningUp =
+        context.select((RegistrationCubit cubit) => cubit.state.isSigningUp);
+
+    return Column(
+      crossAxisAlignment: isSmallScreen(context)
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.center,
+      children: [
+        if (!isSigningUp)
+          OutlinedButton(
+            onPressed: !isSigningUp
+                ? () async {
+                    final navigationCubit = context.read<NavigationCubit>();
+                    final error =
+                        await context.read<RegistrationCubit>().signUp();
+                    if (error == null) {
+                      navigationCubit.openHome();
+                    } else if (context.mounted) {
+                      showErrorBanner(
+                        ScaffoldMessenger.of(context),
+                        error.message,
+                      );
+                    }
+                  }
+                : null,
+            style: buttonStyle(context, !isSigningUp),
+            child: const Text('Sign up'),
+          ),
+        if (isSigningUp)
+          const Align(
+            child: CircularProgressIndicator(
+              value: null,
+              valueColor: AlwaysStoppedAnimation<Color>(colorDMB),
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+      ],
     );
   }
 }

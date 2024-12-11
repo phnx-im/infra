@@ -32,8 +32,11 @@ Future<void> _initRust() async {
   });
 }
 
-void showErrorBanner(BuildContext context, String errorDescription) {
-  ScaffoldMessenger.of(context).showMaterialBanner(
+void showErrorBanner(
+  ScaffoldMessengerState messengerState,
+  String errorDescription,
+) {
+  messengerState.showMaterialBanner(
     MaterialBanner(
       backgroundColor: Colors.red,
       leading: const Icon(Icons.error),
@@ -46,7 +49,7 @@ void showErrorBanner(BuildContext context, String errorDescription) {
             style: TextStyle(color: Colors.white),
           ),
           onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+            messengerState.hideCurrentMaterialBanner();
           },
         ),
       ],

@@ -5,13 +5,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/app.dart';
-import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
-import 'package:prototype/messenger_view.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/theme/theme.dart';
+import 'package:provider/provider.dart';
 import 'conversation_content/conversation_content.dart';
 import 'message_composer.dart';
 
@@ -24,7 +23,7 @@ class ConversationPane extends StatefulWidget {
 
 class _ConversationPaneState extends State<ConversationPane> {
   UiConversationDetails? _currentConversation;
-  late StreamSubscription<UiConversationDetails> _listener;
+  late final StreamSubscription<UiConversationDetails> _listener;
 
   @override
   void initState() {
@@ -46,19 +45,7 @@ class _ConversationPaneState extends State<ConversationPane> {
 
   @override
   Widget build(BuildContext context) {
-    return Navigator(
-      key: navigatorKey,
-      onGenerateInitialRoutes: (navigator, initialRoute) {
-        return [
-          MaterialPageRoute(
-            builder: (context) => ConversationMessages(
-              currentConversation: _currentConversation,
-              context: context,
-            ),
-          ),
-        ];
-      },
-    );
+    return ConversationMessages(currentConversation: _currentConversation);
   }
 }
 
@@ -66,14 +53,18 @@ class ConversationMessages extends StatelessWidget {
   const ConversationMessages({
     super.key,
     required UiConversationDetails? currentConversation,
-    required this.context,
   }) : _currentConversation = currentConversation;
 
   final UiConversationDetails? _currentConversation;
-  final BuildContext context;
 
   @override
   Widget build(BuildContext context) {
+    final conversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    // only use current conversation if the navigation actually points to it
+    final currentConversation =
+        conversationId != null ? _currentConversation : null;
+
     return Scaffold(
       body: Stack(children: <Widget>[
         Column(
@@ -90,7 +81,7 @@ class ConversationMessages extends StatelessWidget {
           right: 0,
           child: AppBar(
             title: Text(
-              _currentConversation?.conversationType.when(
+              currentConversation?.conversationType.when(
                       unconfirmedConnection: (e) => '⏳ $e',
                       connection: (e) => e,
                       group: () => _currentConversation?.attributes.title) ??
@@ -100,11 +91,13 @@ class ConversationMessages extends StatelessWidget {
             forceMaterialTransparency: true,
             actions: [
               // Conversation details
-              _currentConversation != null
+              currentConversation != null
                   ? _detailsButton(context)
                   : Container(),
             ],
-            leading: isSmallScreen(context) ? _backButton() : null,
+            leading: context.responsiveScreenType == ResponsiveScreenType.mobile
+                ? const _BackButton()
+                : null,
             elevation: 0,
             // Applying blur effect
             flexibleSpace: FrostedGlass(
@@ -128,22 +121,25 @@ class ConversationMessages extends StatelessWidget {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onPressed: () {
-        pushToNavigator(context, const ConversationDetails());
+        context.read<NavigationCubit>().openConversationDetails();
       },
     );
   }
+}
 
-  IconButton _backButton() {
+class _BackButton extends StatelessWidget {
+  const _BackButton();
+
+  @override
+  Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
       color: Colors.black,
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
-      onPressed: () async {
-        if (appNavigator.currentState != null) {
-          appNavigator.currentState!.maybePop();
-        }
+      onPressed: () {
+        context.read<NavigationCubit>().closeConversation();
       },
     );
   }

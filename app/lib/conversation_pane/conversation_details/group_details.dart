@@ -7,12 +7,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/conversation_pane/conversation_details/add_members.dart';
-import 'package:prototype/conversation_pane/conversation_details/member_details.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
 // Constant for padding between the elements
 const double _padding = 32;
@@ -116,17 +116,10 @@ class _GroupDetailsState extends State<GroupDetails> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: const Icon(Icons.more_horiz),
-                            onTap: () async {
-                              bool? res = await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => MemberDetails(
-                                      conversation: widget.conversation,
-                                      username: members[index]),
-                                ),
-                              );
-                              if (res ?? false) {
-                                fetchMembers();
-                              }
+                            onTap: () {
+                              context
+                                  .read<NavigationCubit>()
+                                  .openMemberDetails(members[index]);
                             },
                           );
                         },
@@ -139,13 +132,8 @@ class _GroupDetailsState extends State<GroupDetails> {
           ),
           const SizedBox(height: _padding),
           OutlinedButton(
-              onPressed: () async {
-                bool? res = await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) =>
-                        AddMembers(conversation: widget.conversation)));
-                if (res ?? false) {
-                  fetchMembers();
-                }
+              onPressed: () {
+                context.read<NavigationCubit>().openAddMembers();
               },
               child: const Text("Add members")),
           const SizedBox(height: _padding),
