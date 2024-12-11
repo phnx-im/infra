@@ -95,13 +95,6 @@ class RegistrationCubit extends Cubit<RegistrationState> {
       final message = "Error when registering user: ${e.toString()}";
       _log.severe(message);
       emit(state.copyWith(isSigningUp: false));
-      // if (mounted) {
-      //   showErrorBanner(
-      //       context, "Error when registering user: ${e.toString()}");
-      //   setState(() {
-      //     _isProcessing = false;
-      //   });
-      // }
       return SignUpError(message);
     }
 

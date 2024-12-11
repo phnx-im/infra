@@ -58,3 +58,9 @@ jobs:
 
       - name: Build Android app
         run: just build-android
+
+      - name: Archive Android app
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: build/app/outputs/bundle/release/app-release.aab
