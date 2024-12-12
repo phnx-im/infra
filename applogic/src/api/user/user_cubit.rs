@@ -100,9 +100,8 @@ impl UserCubitBase {
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 
-        // TODO: We are missing subscription to changes of the user from the core user. Since,
-        // there is no way to change the user profile from other place than this cubit, it is not a
-        // problem currently. However, in a multi-client scenario, this will become one.
+        // TODO: Subscribe to the change notifications from the core user.
+        // See <https://github.com/phnx-im/infra/issues/254>
 
         Self {
             state,
