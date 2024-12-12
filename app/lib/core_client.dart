@@ -32,7 +32,11 @@ class CoreClient {
   Timer pollingTimer = Timer(Duration.zero, () => {});
   UiConversationDetails? _currentConversation;
 
-  late UiUserProfile ownProfile;
+  UiUserProfile? _ownProfile;
+
+  UiUserProfile get ownProfile => _ownProfile!;
+
+  final StreamController<User?> _userController = StreamController<User?>();
 
   // This event is dispatched whenever we switch to a new conversation
 
@@ -66,14 +70,15 @@ class CoreClient {
 
   User? get maybeUser => _user;
 
+  Stream<User?> get userStream => _userController.stream;
+
   User get user => _user!;
   set user(User user) {
+    _userController.add(user);
     _user = user;
   }
 
-  String get username {
-    return ownProfile.userName;
-  }
+  String get username => ownProfile.userName;
 
   Future<String> dbPath() async {
     final String path;
@@ -91,14 +96,16 @@ class CoreClient {
 
   Future<void> deleteDatabase() async {
     await deleteDatabases(clientDbPath: await dbPath());
+    _userController.add(null);
+    _user = null;
   }
 
   Future<bool> loadUser() async {
     try {
       user = await User.loadDefault(path: await dbPath());
 
-      ownProfile = await user.ownUserProfile();
-
+      final ownProfile = await user.ownUserProfile();
+      _ownProfile = ownProfile;
       print("Loaded user: ${ownProfile.userName}");
 
       stageUser(ownProfile.userName);
@@ -135,6 +142,8 @@ class CoreClient {
       path: await dbPath(),
       pushToken: pushToken,
     );
+
+    _ownProfile = await user.ownUserProfile();
 
     print("User registered");
 
@@ -289,7 +298,8 @@ class CoreClient {
   Future<void> setOwnProfile(String displayName, Uint8List? picture) async {
     await user.setUserProfile(
         displayName: displayName, profilePictureOption: picture);
-    ownProfile = await user.ownUserProfile();
+    final ownProfile = await user.ownUserProfile();
+    _ownProfile = ownProfile;
     ownProfileUpdate.add(ownProfile);
   }
 }

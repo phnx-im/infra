@@ -31,7 +31,7 @@ jobs:
         with:
           ruby-version: '3.3'
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -52,6 +52,9 @@ jobs:
 
       - name: Integrate bridge
         run: just frb-integrate
+
+      - name: Generate Dart files
+        run: just generate-dart-files
 
       - name: Build Android app
         run: just build-android

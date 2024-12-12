@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_list_pane/conversation_list.dart';
 import 'package:prototype/conversation_list_pane/footer.dart';
 import 'package:prototype/conversation_list_pane/top.dart';
+import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
@@ -22,6 +24,7 @@ class ConversationView extends StatefulWidget {
 class _ConversationViewState extends State<ConversationView> {
   String? displayName;
   Uint8List? profilePicture;
+  late final StreamSubscription<UiUserProfile> _profileSubscription;
 
   @override
   void initState() {
@@ -34,14 +37,18 @@ class _ConversationViewState extends State<ConversationView> {
     });
 
     // Listen for changes to the user's profile picture
-    coreClient.onOwnProfileUpdate.listen((profile) {
-      if (mounted) {
-        setState(() {
-          profilePicture = profile.profilePictureOption;
-          displayName = profile.displayName;
-        });
-      }
+    _profileSubscription = coreClient.onOwnProfileUpdate.listen((profile) {
+      setState(() {
+        profilePicture = profile.profilePictureOption;
+        displayName = profile.displayName;
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _profileSubscription.cancel();
+    super.dispose();
   }
 
   @override

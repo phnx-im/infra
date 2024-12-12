@@ -73,3 +73,5 @@ macos/
 windows/
 linux/
 web/
+
+lib/**/*.freezed.dart

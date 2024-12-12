@@ -45,8 +45,10 @@ class ConversationListFooter extends StatelessWidget {
                   await coreClient.createConnection(connectionUsername);
                 } catch (e) {
                   if (context.mounted) {
-                    showErrorBanner(context,
-                        'The user $connectionUsername could not be found');
+                    showErrorBanner(
+                      ScaffoldMessenger.of(context),
+                      'The user $connectionUsername could not be found',
+                    );
                   }
                 }
               }
