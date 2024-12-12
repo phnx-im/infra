@@ -27,14 +27,12 @@ generate-dart-files:
     cd {{app_dir}} && dart run build_runner build --delete-conflicting-outputs
 
 # generate Rust and Dart flutter bridge files
-frb-generate:
+frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -f {{app_rust_base_dir}}/src/frb_*.rs
     touch {{app_rust_base_dir}}/src/frb_generated.rs
-    mkdir -p {{app_dir}}/lib/core
     rm -Rf {{app_dir}}/lib/core/*
-    cd {{app_dir}} && flutter pub get
+    mkdir -p {{app_dir}}/lib/core
     cd {{app_dir}} && flutter_rust_bridge_codegen generate
-    cd {{app_dir}} && flutter clean
 
 # integrate the Flutter Rust bridge
 frb-integrate:
