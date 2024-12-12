@@ -23,7 +23,7 @@ sealed class NavigationState with _$NavigationState {
   /// Conversations screen: main screen of the app
   ///
   /// Note: this can be represented in a better way disallowing invalid states.
-  /// For now, following KISS we represent the navigation stack a very simple
+  /// For now, following KISS we represent the navigation stack in a very simple
   /// way by just storing true/false or an optional value representing if a
   /// screen is opened.
   const factory NavigationState.home({
