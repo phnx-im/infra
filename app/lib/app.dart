@@ -91,10 +91,10 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         child: BlocConsumer<LoadableUserCubit, LoadableUser>(
           listenWhen: _nullToSomeOrSomeToNull,
           buildWhen: _nullToSomeOrSomeToNull,
-          listener: (context, lodableUser) {
+          listener: (context, loadableUser) {
             // Side Effect: navigate to the home screen or away to the intro
             // screen, depending on whether the user was loaded or unloaded.
-            switch (lodableUser) {
+            switch (loadableUser) {
               case LoadedUser(user: final _?):
                 context.read<NavigationCubit>().openHome();
               case LoadingUser() || LoadedUser(user: null):

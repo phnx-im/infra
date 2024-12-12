@@ -9,6 +9,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/api/user/user_cubit.dart';
 import 'package:prototype/core_client.dart';
 
+/// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
+///
+// See <https://github.com/phnx-im/infra/issues/248>
 class UserCubit implements StateStreamableSource<UiUser> {
   UserCubit({required CoreClient coreClient})
       : _impl = UserCubitBase(user: coreClient.user);
