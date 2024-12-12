@@ -3,16 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{anyhow, Result};
-use phnxcoreclient::Conversation;
+use phnxcoreclient::{Conversation, ConversationId};
 use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 
 use crate::notifier::dispatch_message_notifications;
 
 use super::{
-    types::{
-        ConversationIdBytes, UiContact, UiConversation, UiConversationDetails,
-        UiConversationMessage,
-    },
+    types::{UiContact, UiConversation, UiConversationDetails, UiConversationMessage},
     user::User,
 };
 
@@ -65,32 +62,30 @@ impl User {
         conversation_details
     }
 
-    pub async fn create_conversation(&self, name: String) -> Result<ConversationIdBytes> {
-        Ok(ConversationIdBytes::from(
-            self.user.create_conversation(&name, None).await?,
-        ))
+    pub async fn create_conversation(&self, name: String) -> Result<ConversationId> {
+        self.user.create_conversation(&name, None).await
     }
 
     pub async fn set_conversation_picture(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<()> {
         self.user
-            .set_conversation_picture(conversation_id.into(), conversation_picture)
+            .set_conversation_picture(conversation_id, conversation_picture)
             .await?;
         Ok(())
     }
 
     pub async fn add_users_to_conversation(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         user_names: Vec<String>,
     ) -> Result<()> {
         let conversation_messages = self
             .user
             .invite_users(
-                conversation_id.into(),
+                conversation_id,
                 &user_names
                     .into_iter()
                     .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
@@ -103,13 +98,13 @@ impl User {
 
     pub async fn remove_users_from_conversation(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         user_names: Vec<String>,
     ) -> Result<()> {
         let conversation_messages = self
             .user
             .remove_users(
-                conversation_id.into(),
+                conversation_id,
                 &user_names
                     .into_iter()
                     .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
@@ -122,11 +117,11 @@ impl User {
 
     pub async fn members_of_conversation(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
     ) -> Result<Vec<String>> {
         Ok(self
             .user
-            .conversation_participants(conversation_id.into())
+            .conversation_participants(conversation_id)
             .await
             .unwrap_or_default()
             .into_iter()
@@ -138,11 +133,11 @@ impl User {
     /// [`phnxcoreclient::ConversationId`].
     pub async fn member_candidates(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
     ) -> Result<Vec<UiContact>> {
         let group_members = self
             .user
-            .conversation_participants(conversation_id.into())
+            .conversation_participants(conversation_id)
             .await
             .ok_or(anyhow!("Conversation not found"))?;
         let add_candidates = self
