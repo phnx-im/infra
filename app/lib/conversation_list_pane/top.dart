@@ -2,24 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 class ConversationListTop extends StatelessWidget {
   const ConversationListTop({
     super.key,
-    required this.displayName,
-    required this.profilePicture,
   });
-
-  final String? displayName;
-  final Uint8List? profilePicture;
 
   double _topOffset() {
     return isPointer() ? 30 : kToolbarHeight;
@@ -27,70 +20,6 @@ class ConversationListTop extends StatelessWidget {
 
   double _topHeight() {
     return 60 + _topOffset();
-  }
-
-  Widget _avatar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 18.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          UserAvatar(
-            size: 32,
-            username: context.coreClient.username,
-            image: profilePicture,
-            onPressed: () {
-              context.read<NavigationCubit>().openUserSettings();
-            },
-          )
-        ],
-      ),
-    );
-  }
-
-  Column _usernameSpace(String username) {
-    return Column(
-      children: [
-        Text(
-          displayName ?? "",
-          style: const TextStyle(
-            color: colorDMB,
-            fontVariations: variationBold,
-            fontSize: 13,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          username,
-          style: const TextStyle(
-            color: colorDMB,
-            fontSize: 10,
-            fontVariations: variationMedium,
-            letterSpacing: -0.2,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  Widget _settingsButton(BuildContext context) {
-    return IconButton(
-      onPressed: () {
-        context.read<NavigationCubit>().openDeveloperSettings();
-      },
-      hoverColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      icon: const Icon(
-        Icons.settings,
-        size: 20,
-        color: colorDMB,
-      ),
-    );
   }
 
   @override
@@ -104,17 +33,110 @@ class ConversationListTop extends StatelessWidget {
         ),
         Padding(
           padding: EdgeInsets.only(left: 8, right: 8, top: _topOffset()),
-          child: Row(
+          child: const Row(
             children: [
-              _avatar(context),
+              _Avatar(),
               Expanded(
-                child: _usernameSpace(context.coreClient.username),
+                child: _UsernameSpace(),
               ),
-              _settingsButton(context),
+              _SettingsButton(),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar();
+
+  @override
+  Widget build(BuildContext context) {
+    final (userName, profilePicture) = context.select(
+      (UserCubit cubit) => (
+        cubit.state.userName,
+        cubit.state.profilePicture,
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 18.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          UserAvatar(
+            size: 32,
+            username: userName,
+            image: profilePicture,
+            onPressed: () {
+              context.read<NavigationCubit>().openUserSettings();
+            },
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _UsernameSpace extends StatelessWidget {
+  const _UsernameSpace();
+
+  @override
+  Widget build(BuildContext context) {
+    final (userName, displayName) = context.select(
+      (UserCubit cubit) => (
+        cubit.state.userName,
+        cubit.state.displayName,
+      ),
+    );
+
+    return Column(
+      children: [
+        Text(
+          displayName ?? "",
+          style: const TextStyle(
+            color: colorDMB,
+            fontVariations: variationBold,
+            fontSize: 13,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          userName,
+          style: const TextStyle(
+            color: colorDMB,
+            fontSize: 10,
+            fontVariations: variationMedium,
+            letterSpacing: -0.2,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        context.read<NavigationCubit>().openDeveloperSettings();
+      },
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      icon: const Icon(
+        Icons.settings,
+        size: 20,
+        color: colorDMB,
+      ),
     );
   }
 }

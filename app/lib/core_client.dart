@@ -32,10 +32,6 @@ class CoreClient {
   Timer pollingTimer = Timer(Duration.zero, () => {});
   UiConversationDetails? _currentConversation;
 
-  UiUserProfile? _ownProfile;
-
-  UiUserProfile get ownProfile => _ownProfile!;
-
   final StreamController<User?> _userController = StreamController<User?>();
 
   // This event is dispatched whenever we switch to a new conversation
@@ -63,11 +59,6 @@ class CoreClient {
 
   // This event is dispatched whenever the user's profile is updated
 
-  late StreamController<UiUserProfile> ownProfileUpdate =
-      StreamController<UiUserProfile>.broadcast();
-
-  Stream<UiUserProfile> get onOwnProfileUpdate => ownProfileUpdate.stream;
-
   User? get maybeUser => _user;
 
   Stream<User?> get userStream => _userController.stream;
@@ -77,8 +68,6 @@ class CoreClient {
     _userController.add(user);
     _user = user;
   }
-
-  String get username => ownProfile.userName;
 
   Future<String> dbPath() async {
     final String path;
@@ -103,22 +92,28 @@ class CoreClient {
   Future<bool> loadUser() async {
     try {
       user = await User.loadDefault(path: await dbPath());
+      final userName = await user.userName();
 
-      final ownProfile = await user.ownUserProfile();
-      _ownProfile = ownProfile;
-      print("Loaded user: ${ownProfile.userName}");
+      print("Loaded user: $userName");
 
-      stageUser(ownProfile.userName);
+      stageUser(userName);
 
       return true;
     } catch (e) {
       print("Error when loading user: $e");
+      _userController.add(null);
+      _user = null;
       return false;
     }
   }
 
   Future<void> createUser(
-      String userName, String password, String address) async {
+    String userName,
+    String password,
+    String address,
+    String? displayName,
+    Uint8List? profilePicture,
+  ) async {
     PlatformPushToken? pushToken;
 
     if (Platform.isAndroid) {
@@ -141,9 +136,9 @@ class CoreClient {
       address: address,
       path: await dbPath(),
       pushToken: pushToken,
+      displayName: displayName,
+      profilePicture: profilePicture,
     );
-
-    _ownProfile = await user.ownUserProfile();
 
     print("User registered");
 
@@ -293,14 +288,6 @@ class CoreClient {
     if (_currentConversation != null) {
       conversationSwitch.add(_currentConversation!);
     }
-  }
-
-  Future<void> setOwnProfile(String displayName, Uint8List? picture) async {
-    await user.setUserProfile(
-        displayName: displayName, profilePictureOption: picture);
-    final ownProfile = await user.ownUserProfile();
-    _ownProfile = ownProfile;
-    ownProfileUpdate.add(ownProfile);
   }
 }
 
