@@ -5,12 +5,11 @@
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxcoreclient::{
-    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationMessageId, ConversationStatus, ConversationType, DisplayName,
-    ErrorMessage, EventMessage, InactiveConversation, Message, MessageId, MimiContent,
-    NotificationType, SystemMessage, UserProfile,
+    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
+    ConversationMessage, ConversationMessageId, ConversationStatus, ConversationType, ErrorMessage,
+    EventMessage, InactiveConversation, Message, MessageId, MimiContent, NotificationType,
+    SystemMessage, UserProfile,
 };
-use phnxtypes::identifiers::SafeTryInto;
 use uuid::Uuid;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
@@ -381,30 +380,15 @@ pub struct UiUserProfile {
     pub profile_picture_option: Option<Vec<u8>>,
 }
 
-impl From<UserProfile> for UiUserProfile {
-    fn from(user_profile: UserProfile) -> Self {
+impl UiUserProfile {
+    pub(crate) fn from_profile(user_profile: &UserProfile) -> Self {
         Self {
             user_name: user_profile.user_name().to_string(),
-            display_name: user_profile.display_name().map(|a| a.to_string()),
+            display_name: user_profile.display_name().map(|name| name.to_string()),
             profile_picture_option: user_profile
                 .profile_picture()
-                .and_then(|a| a.value())
-                .map(|a| a.to_vec()),
+                .and_then(|asset| asset.value())
+                .map(|bytes| bytes.to_vec()),
         }
-    }
-}
-
-impl TryFrom<UiUserProfile> for UserProfile {
-    type Error = anyhow::Error;
-
-    fn try_from(value: UiUserProfile) -> Result<Self, Self::Error> {
-        let user_name = <String as SafeTryInto<_>>::try_into(value.user_name)?;
-        let display_name = value.display_name.map(DisplayName::try_from).transpose()?;
-        let profile_picture_option = value.profile_picture_option.map(Asset::Value);
-        Ok(UserProfile::new(
-            user_name,
-            display_name,
-            profile_picture_option,
-        ))
     }
 }

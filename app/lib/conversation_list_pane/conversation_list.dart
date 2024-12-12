@@ -14,6 +14,7 @@ import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:convert/convert.dart';
 import 'package:collection/collection.dart';
+import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 class ConversationList extends StatefulWidget {
@@ -142,7 +143,7 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _lastMessage(int index) {
+  Widget _lastMessage(String userName, int index) {
     var sender = '';
     var displayedLastMessage = '';
     final lastMessage = _conversations[index].lastMessage;
@@ -160,13 +161,11 @@ class _ConversationListState extends State<ConversationList> {
 
     final senderStyle = style.copyWith(fontVariations: variationSemiBold);
 
-    final coreClient = context.coreClient;
-
     if (lastMessage != null) {
       lastMessage.message.when(
           contentFlight: (c) {
             final lastContentMessage = c.last;
-            if (lastContentMessage.sender == coreClient.username) {
+            if (lastContentMessage.sender == userName) {
               sender = 'You: ';
             }
             displayedLastMessage = lastContentMessage.content.body;
@@ -246,14 +245,14 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _bottomPart(int index) {
+  Widget _bottomPart(String userName, int index) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
           child: Align(
             alignment: Alignment.topLeft,
-            child: _lastMessage(index),
+            child: _lastMessage(userName, index),
           ),
         ),
         const SizedBox(width: 16),
@@ -265,7 +264,7 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _listTile(int index) {
+  Widget _listTile(String userName, int index) {
     return ListTile(
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
@@ -295,7 +294,7 @@ class _ConversationListState extends State<ConversationList> {
                 children: [
                   _topPart(index),
                   const SizedBox(height: 2),
-                  Expanded(child: _bottomPart(index)),
+                  Expanded(child: _bottomPart(userName, index)),
                 ],
               ),
             ),
@@ -328,6 +327,8 @@ class _ConversationListState extends State<ConversationList> {
 
   @override
   Widget build(BuildContext context) {
+    final userName = context.select((UserCubit cubit) => cubit.state.userName);
+
     if (_conversations.isNotEmpty) {
       return ListView.builder(
         itemCount: _conversations.length,
@@ -336,7 +337,7 @@ class _ConversationListState extends State<ConversationList> {
         ),
         controller: _scrollController,
         itemBuilder: (BuildContext context, int index) {
-          return _listTile(index);
+          return _listTile(userName, index);
         },
       );
     } else {

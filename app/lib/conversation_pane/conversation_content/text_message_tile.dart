@@ -8,104 +8,83 @@ import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/user_cubit.dart';
+import 'package:provider/provider.dart';
 
-class TextMessageTile extends StatefulWidget {
+class TextMessageTile extends StatelessWidget {
   final List<UiContentMessage> contentFlight;
   final String timestamp;
   const TextMessageTile(this.contentFlight, this.timestamp, {super.key});
 
   @override
-  State<TextMessageTile> createState() => _TextMessageTileState();
-}
-
-class _TextMessageTileState extends State<TextMessageTile> {
-  UiUserProfile? profile;
-
-  @override
-  void initState() {
-    super.initState();
-    context.coreClient.user
-        .userProfile(userName: widget.contentFlight.last.sender)
-        .then((p) {
-      if (mounted) {
-        setState(() {
-          profile = p;
-        });
-      }
-    });
-  }
-
-  bool isSender() {
-    return widget.contentFlight.last.sender == context.coreClient.username;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final userName = context.select((UserCubit cubit) => cubit.state.userName);
+    final isSender = contentFlight.last.sender == userName;
+
     return Column(
       children: [
-        if (!isSender()) _sender(),
-        _messageSpace(),
+        if (!isSender) _sender(context, false),
+        _messageSpace(context, isSender),
       ],
     );
   }
 
-  Widget _messageSpace() {
+  Widget _messageSpace(BuildContext context, bool isSender) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox());
     return Row(
       mainAxisAlignment:
-          isSender() ? MainAxisAlignment.end : MainAxisAlignment.start,
+          isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: [
-        if (isSender()) flex,
+        if (isSender) flex,
         Flexible(
           flex: 5,
           child: Container(
             padding:
                 const EdgeInsets.only(left: 0, right: 0, top: 5, bottom: 5),
             child: Column(
-              crossAxisAlignment: isSender()
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _textContent(context),
+                _textContent(context, isSender),
                 const SizedBox(height: 3),
-                _timestamp(),
+                _timestamp(context),
               ],
             ),
           ),
         ),
-        if (!isSender()) flex,
+        if (!isSender) flex,
       ],
     );
   }
 
-  Widget _sender() {
+  Widget _sender(BuildContext context, bool isSender) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _avatar(),
+          _avatar(context),
           const SizedBox(width: 10),
-          _username(),
+          _username(isSender),
         ],
       ),
     );
   }
 
-  Widget _avatar() {
+  Widget _avatar(BuildContext context) {
     return FutureUserAvatar(
       profile: context.coreClient.user
-          .userProfile(userName: widget.contentFlight.last.sender),
+          .userProfile(userName: contentFlight.last.sender),
     );
   }
 
-  Widget _timestamp() {
+  Widget _timestamp(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7.0),
       child: SelectionContainer.disabled(
         child: Text(
-          timeString(widget.timestamp),
+          timeString(timestamp),
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 11,
@@ -131,20 +110,20 @@ class _TextMessageTileState extends State<TextMessageTile> {
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _textContent(BuildContext context) {
-    final textMessages = widget.contentFlight
-        .map((c) => _textMessage(context, c.content.body))
+  Widget _textContent(BuildContext context, bool isSender) {
+    final textMessages = contentFlight
+        .map((c) => _textMessage(context, c.content.body, isSender))
         .toList();
     return Column(
       children: textMessages,
     );
   }
 
-  Widget _textMessage(BuildContext context, String text) {
+  Widget _textMessage(BuildContext context, String text, bool isSender) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.0),
       child: Container(
-        alignment: isSender()
+        alignment: isSender
             ? AlignmentDirectional.topEnd
             : AlignmentDirectional.topStart,
         child: Container(
@@ -156,13 +135,13 @@ class _TextMessageTileState extends State<TextMessageTile> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(7),
-            color: isSender() ? colorDMB : colorDMBSuperLight,
+            color: isSender ? colorDMB : colorDMBSuperLight,
           ),
           child: RichText(
             text: buildTextSpanFromText(
                 ["@Alice", "@Bob", "@Carol", "@Dave", "@Eve"],
                 text,
-                messageTextStyle(context, isSender()),
+                messageTextStyle(context, isSender),
                 HostWidget.richText),
             selectionRegistrar: SelectionContainer.maybeOf(context),
             selectionColor: Colors.blue.withOpacity(0.3),
@@ -173,12 +152,12 @@ class _TextMessageTileState extends State<TextMessageTile> {
     );
   }
 
-  Widget _username() {
+  Widget _username(bool isSender) {
     return SelectionContainer.disabled(
       child: Text(
-        isSender()
+        isSender
             ? "You"
-            : widget.contentFlight.last.sender.split("@").firstOrNull ?? "",
+            : contentFlight.last.sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
           fontVariations: variationSemiBold,

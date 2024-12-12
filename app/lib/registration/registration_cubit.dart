@@ -90,7 +90,13 @@ class RegistrationCubit extends Cubit<RegistrationState> {
 
     try {
       _log.info("Registering user ${state.username} ...");
-      await _coreClient.createUser(fqun, state.password, url);
+      await _coreClient.createUser(
+        fqun,
+        state.password,
+        url,
+        state.displayName,
+        state.avatar,
+      );
     } catch (e) {
       final message = "Error when registering user: ${e.toString()}";
       _log.severe(message);
@@ -98,15 +104,7 @@ class RegistrationCubit extends Cubit<RegistrationState> {
       return SignUpError(message);
     }
 
-    // Set the user's display name and profile picture
-    try {
-      await _coreClient.setOwnProfile(state.displayName ?? "", state.avatar);
-    } catch (e) {
-      final message = "Error when setting profile: $e";
-      _log.severe(message);
-      emit(state.copyWith(isSigningUp: false));
-      return SignUpError(message);
-    }
+    emit(state.copyWith(isSigningUp: false));
 
     return null;
   }

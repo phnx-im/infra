@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/observable_user.dart';
+import 'package:prototype/loadable_user_cubit.dart';
 import 'package:prototype/styles.dart';
 
 import 'navigation/navigation.dart';
@@ -15,7 +15,7 @@ class IntroScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUserLoading =
-        context.select((ObservableUser user) => user is LoadingUserState);
+        context.select((LoadableUserCubit cubit) => cubit.state is LoadingUser);
 
     return Scaffold(
       body: Center(

@@ -4,45 +4,49 @@
 
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:prototype/core/api/user.dart';
 
-part 'observable_user.freezed.dart';
+part 'loadable_user_cubit.freezed.dart';
 
 /// Ternary user state: loading, loaded some or loaded none
 @freezed
-sealed class UserState with _$UserState {
-  const UserState._();
+sealed class LoadableUser with _$LoadableUser {
+  const LoadableUser._();
 
   /// Initial state before or in process of loading the user
-  const factory UserState.loading() = LoadingUserState;
+  const factory LoadableUser.loading() = LoadingUser;
 
   /// The user has been loaded
   ///
   /// If loading was successful, the [user] will be non-null.
-  const factory UserState.loaded(User? user) = LoadedUserState;
+  const factory LoadableUser.loaded(User? user) = LoadedUser;
 
   User? get user => switch (this) {
-        LoadingUserState() => null,
-        LoadedUserState(:final user) => user,
+        LoadingUser() => null,
+        LoadedUser(:final user) => user,
       };
 }
 
-/// Observe the [User] state as [UserState] initialized from a [User] stream
+/// Observe the [User] state as [LoadableUser] initialized from a [User] stream
 ///
 /// Can be plugged into a [BlocProvider].
-class ObservableUser implements StateStreamableSource<UserState> {
-  ObservableUser(Stream<User?> stream) {
+class LoadableUserCubit implements StateStreamableSource<LoadableUser> {
+  LoadableUserCubit(Stream<User?> stream) {
     // forward the stream to an internal broadcast stream
+    debugPrint("LoadableUserCubit: initializing");
     _subscription = stream.listen((user) {
-      _state = UserState.loaded(user);
+      debugPrint("LodableUserCubit: user loaded: $user");
+      _state = LoadableUser.loaded(user);
       _controller.add(_state);
     });
   }
 
-  UserState _state = const UserState.loading();
-  final StreamController<UserState> _controller = StreamController.broadcast();
+  LoadableUser _state = const LoadableUser.loading();
+  final StreamController<LoadableUser> _controller =
+      StreamController.broadcast();
   late final StreamSubscription<User?> _subscription;
 
   @override
@@ -55,8 +59,8 @@ class ObservableUser implements StateStreamableSource<UserState> {
   bool get isClosed => _controller.isClosed;
 
   @override
-  UserState get state => _state;
+  LoadableUser get state => _state;
 
   @override
-  Stream<UserState> get stream => _controller.stream;
+  Stream<LoadableUser> get stream => _controller.stream;
 }

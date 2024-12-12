@@ -30,11 +30,9 @@ generate-dart-files:
 frb-generate:
     rm -f {{app_rust_base_dir}}/src/frb_*.rs
     touch {{app_rust_base_dir}}/src/frb_generated.rs
+    rm -Rf {{app_dir}}/lib/core
     mkdir -p {{app_dir}}/lib/core
-    rm -Rf {{app_dir}}/lib/core/*
-    cd {{app_dir}} && flutter pub get
     cd {{app_dir}} && flutter_rust_bridge_codegen generate
-    cd {{app_dir}} && flutter clean
 
 # integrate the Flutter Rust bridge
 frb-integrate:

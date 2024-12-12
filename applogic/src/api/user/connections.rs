@@ -41,7 +41,7 @@ impl User {
             .user
             .user_profile(&user_name)
             .await?
-            .map(UiUserProfile::from);
+            .map(|profile| UiUserProfile::from_profile(&profile));
         Ok(user_profile)
     }
 }

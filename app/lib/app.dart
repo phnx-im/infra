@@ -11,7 +11,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/platform.dart';
-import 'package:prototype/observable_user.dart';
+import 'package:prototype/loadable_user_cubit.dart';
+import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 import 'registration/registration.dart';
@@ -78,33 +79,46 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           BlocProvider<NavigationCubit>(create: (context) => NavigationCubit()),
           BlocProvider<RegistrationCubit>(
               create: (context) => RegistrationCubit(coreClient: _coreClient)),
-          BlocProvider<ObservableUser>(
+          BlocProvider<LoadableUserCubit>(
             create: (context) =>
                 // loads the user on startup
-                ObservableUser((_coreClient..loadUser()).userStream),
+                LoadableUserCubit((_coreClient..loadUser()).userStream),
           ),
         ],
-        child: BlocListener<ObservableUser, UserState>(
-          listenWhen: (previous, current) =>
-              // only fire the side effect when the user logs in or out
-              (current.user == null || previous.user == null) &&
-              current.user != previous.user,
-          listener: (context, user) {
+        // This bloc has two tasks:
+        // 1. Listen to the loadable user and switch the navigation accordingly.
+        // 2. Provide the logged in user to the app, when it is loaded.
+        child: BlocConsumer<LoadableUserCubit, LoadableUser>(
+          listenWhen: _nullToSomeOrSomeToNull,
+          buildWhen: _nullToSomeOrSomeToNull,
+          listener: (context, lodableUser) {
             // Side Effect: navigate to the home screen or away to the intro
             // screen, depending on whether the user was loaded or unloaded.
-            switch (user) {
-              case LoadedUserState(user: final _?):
+            switch (lodableUser) {
+              case LoadedUser(user: final _?):
                 context.read<NavigationCubit>().openHome();
-              case LoadingUserState() || LoadedUserState(user: null):
+              case LoadingUser() || LoadedUser(user: null):
                 context.read<NavigationCubit>().openIntro();
             }
           },
-          child: router!,
+          builder: (context, loadableUser) => loadableUser.user != null
+              // Logged in user is accessible everywhere inside the app after
+              // the user is loaded
+              ? BlocProvider<UserCubit>(
+                  create: (context) =>
+                      UserCubit(coreClient: context.coreClient),
+                  child: router!,
+                )
+              : router!,
         ),
       ),
     );
   }
 }
+
+bool _nullToSomeOrSomeToNull(LoadableUser previous, LoadableUser current) =>
+    (previous.user != null || current.user != null) &&
+    previous.user != current.user;
 
 void _requestMobileNotifications() async {
   // Mobile initialization
