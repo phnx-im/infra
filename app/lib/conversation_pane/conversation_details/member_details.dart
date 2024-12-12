@@ -55,7 +55,7 @@ class MemberDetails extends StatelessWidget {
                 const SizedBox(height: _padding),
                 FutureUserAvatar(
                   size: 64,
-                  profile: context.coreClient.user
+                  profile: () => context.coreClient.user
                       .userProfile(userName: memberUsername),
                 ),
                 const SizedBox(height: _padding),
