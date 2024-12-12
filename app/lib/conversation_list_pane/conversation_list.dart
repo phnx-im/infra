@@ -115,6 +115,7 @@ class _ConversationListState extends State<ConversationList> {
   Widget _userAvatar(int index) {
     return UserAvatar(
       size: 48,
+      cacheTag: "conv:${hex.encode(_conversations[index].id.bytes)}",
       image: _conversations[index].attributes.conversationPictureOption,
       username: _conversations[index].conversationType.when(
           unconfirmedConnection: (e) => e,

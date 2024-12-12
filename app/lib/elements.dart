@@ -6,6 +6,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prototype/painting/painting.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/styles.dart';
 
@@ -64,6 +65,7 @@ class UserAvatar extends StatelessWidget {
   final double size;
   final Uint8List? image;
   final VoidCallback? onPressed;
+  final String? cacheTag;
 
   const UserAvatar({
     super.key,
@@ -71,6 +73,7 @@ class UserAvatar extends StatelessWidget {
     this.size = 24.0,
     this.image,
     this.onPressed,
+    this.cacheTag,
   });
 
   @override
@@ -87,9 +90,11 @@ class UserAvatar extends StatelessWidget {
           child: CircleAvatar(
             radius: size / 2,
             backgroundColor: colorDMBLight,
-            foregroundImage: (image != null) ? MemoryImage(image!) : null,
+            foregroundImage: (image != null)
+                ? CachedMemoryImage(cacheTag ?? "avatar:$username", image!)
+                : null,
             child: Text(
-              (username.characters.firstOrNull ?? "").toUpperCase(),
+              username.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10 * size / 24,
