@@ -2,56 +2,39 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// New widget that shows conversation details
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
 // Constant for padding between the elements
 const double _padding = 32;
 
-class MemberDetails extends StatefulWidget {
-  final UiConversationDetails conversation;
-  final String username;
-
-  const MemberDetails(
-      {super.key, required this.conversation, required this.username});
-
-  @override
-  State<MemberDetails> createState() => _MemberDetailsState();
-}
-
-class _MemberDetailsState extends State<MemberDetails> {
-  late StreamSubscription<UiConversationDetails> _conversationListener;
-
-  @override
-  void initState() {
-    super.initState();
-    // Listen for conversation switch events and close the member details pane
-    // when the conversation changes
-    final navigator = Navigator.of(context);
-    _conversationListener =
-        context.coreClient.onConversationSwitch.listen((event) {
-      navigator.pop();
-    });
-  }
-
-  @override
-  void dispose() {
-    _conversationListener.cancel();
-    super.dispose();
-  }
-
-  bool isSelf() {
-    return widget.username == context.coreClient.username;
-  }
+class MemberDetails extends StatelessWidget {
+  const MemberDetails({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final (conversationId, memberUsername) =
+        context.select((NavigationCubit cubit) => switch (cubit.state) {
+              IntroNavigation(screens: final screens) =>
+                throw StateError("No member details for intro screen"),
+              HomeNavigation(
+                conversationId: final conversationId,
+                memberDetails: final memberId,
+              ) =>
+                (conversationId, memberId),
+            });
+
+    final ownUsername = context.coreClient.username;
+    final isSelf = memberUsername == ownUsername;
+
+    if (conversationId == null || memberUsername == null) {
+      return const SizedBox.shrink();
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -71,18 +54,18 @@ class _MemberDetailsState extends State<MemberDetails> {
                 FutureUserAvatar(
                   size: 64,
                   profile: context.coreClient.user
-                      .userProfile(userName: widget.username),
+                      .userProfile(userName: memberUsername),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  widget.username,
+                  memberUsername,
                   style: labelStyle,
                 ),
                 const SizedBox(height: _padding),
               ],
             ),
             // Show the remove user button if the user is not the current user
-            (!isSelf())
+            (!isSelf)
                 ? Padding(
                     padding: const EdgeInsets.all(_padding),
                     child: OutlinedButton(
@@ -105,8 +88,7 @@ class _MemberDetailsState extends State<MemberDetails> {
                                     onPressed: () async {
                                       await context.coreClient
                                           .removeUserFromConversation(
-                                              widget.conversation.id,
-                                              widget.username);
+                                              conversationId, memberUsername);
                                       if (context.mounted) {
                                         Navigator.of(context).pop(true);
                                       }
@@ -124,7 +106,7 @@ class _MemberDetailsState extends State<MemberDetails> {
                         },
                         child: const Text("Remove user")),
                   )
-                : Container(),
+                : const SizedBox.shrink(),
           ],
         ),
       ),

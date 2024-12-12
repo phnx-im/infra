@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:prototype/conversation_pane/conversation_details/add_members.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
+import 'package:prototype/conversation_pane/conversation_details/member_details.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
 import 'package:prototype/homescreen.dart';
 import 'package:prototype/intro_screen.dart';
@@ -178,6 +179,13 @@ extension on HomeNavigation {
         const MaterialPage(
           key: ValueKey("conversation-details-screen"),
           child: ConversationDetails(),
+        ),
+      if (conversationId != null &&
+          conversationDetailsOpen &&
+          memberDetails != null)
+        const MaterialPage(
+          key: ValueKey("conversation-member-details-screen"),
+          child: MemberDetails(),
         ),
       if (conversationId != null && conversationDetailsOpen && addMembersOpen)
         const MaterialPage(
