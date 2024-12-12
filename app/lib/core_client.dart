@@ -158,12 +158,13 @@ class CoreClient {
 
     stream.listen((UiNotificationType event) {
       print("Event: $event");
-      event.when(
-          conversationChange: (uuid) async {
-            conversationListUpdates.add(uuid);
-            await conversations();
-          },
-          message: (message) => {messageUpdates.add(message)});
+      switch (event) {
+        case UiNotificationType_ConversationChange(field0: final uuid):
+          conversationListUpdates.add(uuid);
+          conversations();
+        case UiNotificationType_Message(field0: final message):
+          messageUpdates.add(message);
+      }
     });
 
     print("User created, connecting to websocket");

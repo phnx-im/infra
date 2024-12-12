@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/styles.dart';
 
 enum Direction { right, left }
@@ -163,15 +164,10 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   String? hintText() {
-    if (_currentConversation != null) {
-      final name = _currentConversation!.conversationType.when(
-          unconfirmedConnection: (e) => e,
-          connection: (e) => e,
-          group: () => _currentConversation!.attributes.title);
-      return _currentConversation != null ? 'Message $name' : '';
-    } else {
-      return "";
+    if (_currentConversation case final conversation?) {
+      return "Message ${conversation.title}";
     }
+    return null;
   }
 
   @override

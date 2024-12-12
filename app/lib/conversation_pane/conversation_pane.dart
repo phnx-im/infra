@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -80,13 +81,7 @@ class ConversationMessages extends StatelessWidget {
           left: 0,
           right: 0,
           child: AppBar(
-            title: Text(
-              currentConversation?.conversationType.when(
-                      unconfirmedConnection: (e) => '⏳ $e',
-                      connection: (e) => e,
-                      group: () => _currentConversation?.attributes.title) ??
-                  "",
-            ),
+            title: Text(_currentConversation?.title ?? ""),
             backgroundColor: Colors.white,
             forceMaterialTransparency: true,
             actions: [

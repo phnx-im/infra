@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
@@ -112,13 +113,11 @@ class _ConversationListState extends State<ConversationList> {
   }
 
   Widget _userAvatar(int index) {
+    final conversation = _conversations[index];
     return UserAvatar(
       size: 48,
-      image: _conversations[index].attributes.conversationPictureOption,
-      username: _conversations[index].conversationType.when(
-          unconfirmedConnection: (e) => e,
-          connection: (e) => e,
-          group: () => _conversations[index].attributes.title),
+      image: conversation.attributes.conversationPictureOption,
+      username: conversation.username,
     );
   }
 
@@ -127,10 +126,7 @@ class _ConversationListState extends State<ConversationList> {
       baseline: Spacings.s,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        _conversations[index].conversationType.when(
-            unconfirmedConnection: (e) => '⏳ $e',
-            connection: (e) => e,
-            group: () => _conversations[index].attributes.title),
+        _conversations[index].title,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: convListItemTextColor,
@@ -162,17 +158,20 @@ class _ConversationListState extends State<ConversationList> {
 
     final coreClient = context.coreClient;
 
+    // TODO: Something is wrong here
     if (lastMessage != null) {
-      lastMessage.message.when(
-          contentFlight: (c) {
-            final lastContentMessage = c.last;
-            if (lastContentMessage.sender == coreClient.username) {
-              sender = 'You: ';
-            }
-            displayedLastMessage = lastContentMessage.content.body;
-          },
-          display: (d) => '',
-          unsent: (u) => '⚠️ Unsent message: ${u.body}');
+      switch (lastMessage.message) {
+        case UiMessage_ContentFlight(field0: final contentFlight):
+          final lastContentMessage = contentFlight.last;
+          if (lastContentMessage.sender == coreClient.username) {
+            sender = 'You: ';
+          }
+          displayedLastMessage = lastContentMessage.content.body;
+        case UiMessage_Display():
+          displayedLastMessage = '';
+        case UiMessage_Unsent(field0: final unsent):
+          displayedLastMessage = '⚠️ Unsent message: ${unsent.body}';
+      }
     }
 
     return Text.rich(
