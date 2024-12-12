@@ -83,10 +83,13 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
       child: Navigator(
         key: _navigatorKey,
         pages: pages,
-        // Note: onPopPage is deprecated, and instead we should use onDidRemovePage. However, the latter
-        // does not allow to distinguish whether the page was popped by the user or programmatically.
+        // Note: onPopPage is deprecated, and instead we should use
+        // onDidRemovePage. However, the latter does not allow to distinguish
+        // whether the page was popped by the user or programmatically.
         //
-        // Also see <https://github.com/flutter/flutter/issues/153122>
+        // Also see
+        //   * <https://github.com/phnx-im/infra/issues/244>
+        //   * <https://github.com/flutter/flutter/issues/109494>
         //
         // ignore: deprecated_member_use
         onPopPage: (route, result) {
