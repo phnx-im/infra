@@ -89,8 +89,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         // 1. Listen to the loadable user and switch the navigation accordingly.
         // 2. Provide the logged in user to the app, when it is loaded.
         child: BlocConsumer<LoadableUserCubit, LoadableUser>(
-          listenWhen: _nullToSomeOrSomeToNull,
-          buildWhen: _nullToSomeOrSomeToNull,
+          listenWhen: _isUserLoadedOrUnloaded,
+          buildWhen: _isUserLoadedOrUnloaded,
           listener: (context, loadableUser) {
             // Side Effect: navigate to the home screen or away to the intro
             // screen, depending on whether the user was loaded or unloaded.
@@ -116,7 +116,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   }
 }
 
-bool _nullToSomeOrSomeToNull(LoadableUser previous, LoadableUser current) =>
+/// Checks if [LoadableUser.user] transitioned from loaded to null or vice versa
+bool _isUserLoadedOrUnloaded(LoadableUser previous, LoadableUser current) =>
     (previous.user != null || current.user != null) &&
     previous.user != current.user;
 
