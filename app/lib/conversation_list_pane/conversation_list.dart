@@ -12,8 +12,6 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
-import 'package:convert/convert.dart';
-import 'package:collection/collection.dart';
 import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
@@ -114,7 +112,7 @@ class _ConversationListState extends State<ConversationList> {
   Widget _userAvatar(int index) {
     return UserAvatar(
       size: 48,
-      cacheTag: "conv:${hex.encode(_conversations[index].id.bytes)}",
+      cacheTag: "conv:${_conversations[index].id}",
       image: _conversations[index].attributes.conversationPictureOption,
       username: _conversations[index].conversationType.when(
           unconfirmedConnection: (e) => e,
