@@ -74,7 +74,7 @@ class TextMessageTile extends StatelessWidget {
 
   Widget _avatar(BuildContext context) {
     return FutureUserAvatar(
-      profile: context.coreClient.user
+      profile: () => context.coreClient.user
           .userProfile(userName: contentFlight.last.sender),
     );
   }

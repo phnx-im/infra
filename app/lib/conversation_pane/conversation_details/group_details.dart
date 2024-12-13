@@ -109,7 +109,7 @@ class _GroupDetailsState extends State<GroupDetails> {
                           return ListTile(
                             leading: FutureUserAvatar(
                               size: 24,
-                              profile: coreClient.user
+                              profile: () => coreClient.user
                                   .userProfile(userName: members[index]),
                             ),
                             title: Text(

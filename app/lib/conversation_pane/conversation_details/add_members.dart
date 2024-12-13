@@ -96,7 +96,7 @@ class _AddMembersState extends State<AddMembers> {
                       final contact = contacts[index];
                       return ListTile(
                         leading: FutureUserAvatar(
-                          profile: context.coreClient.user
+                          profile: () => context.coreClient.user
                               .userProfile(userName: contact.userName),
                         ),
                         title: Text(
