@@ -6,10 +6,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/user_cubit.dart';
+import 'package:provider/provider.dart';
 
 class UserSettingsScreen extends StatefulWidget {
   const UserSettingsScreen({super.key});
@@ -19,47 +20,36 @@ class UserSettingsScreen extends StatefulWidget {
 }
 
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
-  Uint8List? avatar;
-  String? displayName;
-  bool imageChanged = false;
-  bool displayNameChanged = false;
+  String? newDisplayName;
+  Uint8List? newProfilePicture;
 
-  @override
-  void initState() {
-    super.initState();
-    final coreClient = context.coreClient;
-    setState(() {
-      displayName = coreClient.ownProfile.displayName;
-      avatar = coreClient.ownProfile.profilePictureOption;
-    });
-  }
+  bool get _isChanged => newDisplayName != null || newProfilePicture != null;
 
-  bool changed() {
-    return imageChanged || displayNameChanged;
-  }
-
-  void save(BuildContext context) {
+  void _save(BuildContext context) async {
+    final user = context.read<UserCubit>();
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      context.coreClient.setOwnProfile(displayName ?? "", avatar).then((value) {
-        if (context.mounted) {
-          Navigator.of(context).pop();
-        }
-      });
+      await user.setProfile(
+          displayName: newDisplayName, profilePicture: newProfilePicture);
       setState(() {
-        imageChanged = false;
-        displayNameChanged = false;
+        newDisplayName = null;
+        newProfilePicture = null;
       });
     } catch (e) {
-      showErrorBanner(
-        ScaffoldMessenger.of(context),
-        "Error when saving profile: ${e.toString()}",
-      );
+      showErrorBanner(messenger, "Error when saving profile: ${e.toString()}");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final coreClient = context.coreClient;
+    final (userName, displayName, profilePicture) = context.select(
+      (UserCubit cubit) => (
+        cubit.state.userName,
+        cubit.state.displayName,
+        cubit.state.profilePicture,
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Settings'),
@@ -73,26 +63,24 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
             Column(
               children: [
                 UserAvatar(
-                  username: coreClient.username,
+                  username: userName,
                   size: 100,
-                  image: avatar,
+                  image: newProfilePicture ?? profilePicture,
                   onPressed: () async {
                     // Image picker
                     final ImagePicker picker = ImagePicker();
                     // Pick an image.
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
-                    image?.readAsBytes().then((value) {
-                      setState(() {
-                        avatar = value;
-                        imageChanged = true;
-                      });
+                    final bytes = await image?.readAsBytes();
+                    setState(() {
+                      newProfilePicture = bytes;
                     });
                   },
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  coreClient.username,
+                  userName,
                   style: const TextStyle(
                     color: colorDMB,
                     fontSize: 12,
@@ -119,8 +107,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                       style: inputTextStyle,
                       onChanged: (value) {
                         setState(() {
-                          displayName = value;
-                          displayNameChanged = true;
+                          newDisplayName = value;
                         });
                       },
                     ),
@@ -129,12 +116,8 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
               ],
             ),
             OutlinedButton(
-              onPressed: () {
-                if (changed()) {
-                  save(context);
-                }
-              },
-              style: buttonStyle(context, changed()),
+              onPressed: _isChanged ? () => _save(context) : null,
+              style: buttonStyle(context, _isChanged),
               child: const Text('Save'),
             )
           ],

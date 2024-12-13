@@ -2,54 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_list_pane/conversation_list.dart';
 import 'package:prototype/conversation_list_pane/footer.dart';
 import 'package:prototype/conversation_list_pane/top.dart';
-import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 
-class ConversationView extends StatefulWidget {
+class ConversationView extends StatelessWidget {
   const ConversationView({super.key});
-
-  @override
-  State<ConversationView> createState() => _ConversationViewState();
-}
-
-class _ConversationViewState extends State<ConversationView> {
-  String? displayName;
-  Uint8List? profilePicture;
-  late final StreamSubscription<UiUserProfile> _profileSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final coreClient = context.coreClient;
-    setState(() {
-      displayName = coreClient.ownProfile.displayName;
-      profilePicture = coreClient.ownProfile.profilePictureOption;
-    });
-
-    // Listen for changes to the user's profile picture
-    _profileSubscription = coreClient.onOwnProfileUpdate.listen((profile) {
-      setState(() {
-        profilePicture = profile.profilePictureOption;
-        displayName = profile.displayName;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _profileSubscription.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,18 +24,15 @@ class _ConversationViewState extends State<ConversationView> {
           ),
         ),
       ),
-      child: Scaffold(
+      child: const Scaffold(
         backgroundColor: convPaneBackgroundColor,
         body: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            ConversationListTop(
-              displayName: displayName,
-              profilePicture: profilePicture,
-            ),
-            const SizedBox(height: Spacings.s),
-            const Expanded(child: ConversationList()),
-            const ConversationListFooter(),
+            ConversationListTop(),
+            SizedBox(height: Spacings.s),
+            Expanded(child: ConversationList()),
+            ConversationListFooter(),
           ],
         ),
       ),

@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prototype/painting/painting.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/styles.dart';
 
@@ -21,7 +22,7 @@ IconButton appBarBackButton(BuildContext context) {
 }
 
 class FutureUserAvatar extends StatefulWidget {
-  final Future<UiUserProfile?> profile;
+  final AsyncValueGetter<UiUserProfile?> profile;
   final VoidCallback? onPressed;
   final double size;
 
@@ -37,33 +38,34 @@ class FutureUserAvatar extends StatefulWidget {
 }
 
 class _FutureUserAvatarState extends State<FutureUserAvatar> {
+  late final Future<UiUserProfile?> _profileFuture;
+
+  @override
+  void initState() {
+    _profileFuture = widget.profile();
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UiUserProfile?>(
-        future: widget.profile,
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return UserAvatar(
-                username: snapshot.data!.userName,
-                size: widget.size,
-                image: snapshot.data!.profilePictureOption,
-                onPressed: widget.onPressed);
-          } else {
-            return UserAvatar(
-                username: " ",
-                size: widget.size,
-                image: null,
-                onPressed: widget.onPressed);
-          }
-        });
+      future: _profileFuture,
+      builder: (context, snapshot) => UserAvatar(
+        username: snapshot.data?.userName ?? " ",
+        image: snapshot.data?.profilePictureOption,
+        size: widget.size,
+        onPressed: widget.onPressed,
+      ),
+    );
   }
 }
 
-class UserAvatar extends StatefulWidget {
+class UserAvatar extends StatelessWidget {
   final String username;
   final double size;
   final Uint8List? image;
   final VoidCallback? onPressed;
+  final String? cacheTag;
 
   const UserAvatar({
     super.key,
@@ -71,34 +73,31 @@ class UserAvatar extends StatefulWidget {
     this.size = 24.0,
     this.image,
     this.onPressed,
+    this.cacheTag,
   });
 
   @override
-  State<UserAvatar> createState() => _UserAvatarState();
-}
-
-class _UserAvatarState extends State<UserAvatar> {
-  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onPressed,
+      onTap: onPressed,
       child: MouseRegion(
-        cursor: widget.onPressed != null
+        cursor: onPressed != null
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
         child: SizedBox(
-          width: widget.size,
-          height: widget.size,
+          width: size,
+          height: size,
           child: CircleAvatar(
-            radius: widget.size / 2,
+            radius: size / 2,
             backgroundColor: colorDMBLight,
-            foregroundImage:
-                (widget.image != null) ? MemoryImage(widget.image!) : null,
+            foregroundImage: (image != null)
+                ? CachedMemoryImage(cacheTag ?? "avatar:$username", image!)
+                : null,
             child: Text(
-              (widget.username.characters.firstOrNull ?? "").toUpperCase(),
+              username.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 10 * widget.size / 24,
+                fontSize: 10 * size / 24,
                 fontWeight: FontWeight.bold,
               ),
             ),

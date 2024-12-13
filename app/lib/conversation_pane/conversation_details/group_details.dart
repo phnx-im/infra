@@ -44,6 +44,8 @@ class _GroupDetailsState extends State<GroupDetails> {
 
   @override
   Widget build(BuildContext context) {
+    final coreClient = context.coreClient;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -107,7 +109,7 @@ class _GroupDetailsState extends State<GroupDetails> {
                           return ListTile(
                             leading: FutureUserAvatar(
                               size: 24,
-                              profile: context.coreClient.user
+                              profile: () => coreClient.user
                                   .userProfile(userName: members[index]),
                             ),
                             title: Text(

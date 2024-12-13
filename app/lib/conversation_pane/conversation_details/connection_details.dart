@@ -26,13 +26,14 @@ class ConnectionDetails extends StatelessWidget {
         children: [
           const SizedBox(height: _padding),
           FutureUserAvatar(
-              size: 64,
-              profile: coreClient.user.userProfile(
-                userName: conversation.conversationType.when(
-                    unconfirmedConnection: (e) => e,
-                    connection: (e) => e,
-                    group: () => ''),
-              )),
+            size: 64,
+            profile: () => coreClient.user.userProfile(
+              userName: conversation.conversationType.when(
+                  unconfirmedConnection: (e) => e,
+                  connection: (e) => e,
+                  group: () => ''),
+            ),
+          ),
           const SizedBox(height: _padding),
           Text(
             conversation.conversationType.when(

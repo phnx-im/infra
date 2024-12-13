@@ -6,12 +6,15 @@ use anyhow::{anyhow, Result};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxcoreclient::{
     clients::{store::ClientRecord, CoreUser},
-    UserProfile,
+    Asset, UserProfile,
 };
-use phnxtypes::messages::{client_ds::QsWsMessage, push_token::PushTokenOperator};
+use phnxtypes::{
+    identifiers::{QualifiedUserName, SafeTryInto},
+    messages::{client_ds::QsWsMessage, push_token::PushTokenOperator},
+};
 
 use crate::{
-    api::types::{UiNotificationType, UiUserProfile},
+    api::types::UiNotificationType,
     app_state::state::AppState,
     notifier::{Notifiable, NotificationHub},
     StreamSink,
@@ -21,6 +24,7 @@ pub(crate) use phnxcoreclient::NotificationType;
 pub(crate) use phnxtypes::messages::push_token::PushToken;
 
 pub mod connections;
+pub mod user_cubit;
 
 pub enum PlatformPushToken {
     Apple(String),
@@ -73,15 +77,28 @@ impl User {
         address: String,
         path: String,
         push_token: Option<PlatformPushToken>,
+        display_name: Option<String>,
+        profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
+        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        let user_profile = UserProfile::new(
+            user_name.clone(),
+            display_name.map(TryFrom::try_from).transpose()?,
+            profile_picture.map(Asset::Value),
+        );
+
         let user = CoreUser::new(
-            &user_name,
+            user_name.clone(),
             &password,
             address,
             &path,
             push_token.map(|p| p.into()),
         )
         .await?;
+
+        if let Err(error) = CoreUser::set_own_user_profile(&user, user_profile).await {
+            log::error!("Could not set own user profile: {:?}", error);
+        }
 
         Ok(Self {
             user: user.clone(),
@@ -164,32 +181,6 @@ impl User {
                 }
             }
         }
-        Ok(())
-    }
-
-    /// Get the own user profile.
-    pub async fn own_user_profile(&self) -> Result<UiUserProfile> {
-        let user_profile = self
-            .user
-            .own_user_profile()
-            .await
-            .map(UiUserProfile::from)?;
-        Ok(user_profile)
-    }
-
-    // TODO: This does not yet send the new user profile to other clients
-    pub async fn set_user_profile(
-        &self,
-        display_name: String,
-        profile_picture_option: Option<Vec<u8>>,
-    ) -> Result<()> {
-        let ui_user_profile = UiUserProfile {
-            display_name: Some(display_name),
-            user_name: self.user.user_name().to_string(),
-            profile_picture_option,
-        };
-        let user_profile = UserProfile::try_from(ui_user_profile)?;
-        self.user.set_own_user_profile(user_profile).await?;
         Ok(())
     }
 

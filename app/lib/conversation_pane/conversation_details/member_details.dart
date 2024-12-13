@@ -7,6 +7,7 @@ import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 // Constant for padding between the elements
@@ -28,7 +29,8 @@ class MemberDetails extends StatelessWidget {
                 (conversationId, memberId),
             });
 
-    final ownUsername = context.coreClient.username;
+    final ownUsername =
+        context.select((UserCubit cubit) => cubit.state.userName);
     final isSelf = memberUsername == ownUsername;
 
     if (conversationId == null || memberUsername == null) {
@@ -53,7 +55,7 @@ class MemberDetails extends StatelessWidget {
                 const SizedBox(height: _padding),
                 FutureUserAvatar(
                   size: 64,
-                  profile: context.coreClient.user
+                  profile: () => context.coreClient.user
                       .userProfile(userName: memberUsername),
                 ),
                 const SizedBox(height: _padding),
