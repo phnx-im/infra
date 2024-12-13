@@ -30,6 +30,8 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
       - name: Set up CI
         run: just setup-ci
       - name: Integrate bridge
