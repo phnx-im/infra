@@ -34,6 +34,8 @@ jobs:
         uses: extractions/setup-just@v2
       - name: Set up CI
         run: just setup-ci
+      - uses: Swatinem/rust-cache@v2
+
       - name: Integrate bridge
         run: just frb-integrate
       - name: Generate Dart files
@@ -70,6 +72,7 @@ jobs:
     needs: generate-app-files
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Restore generated files
         uses: actions/cache/restore@v4
         with:
@@ -87,6 +90,7 @@ jobs:
     needs: generate-app-files
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Restore generated files
         uses: actions/cache/restore@v4
         with:
@@ -108,6 +112,7 @@ jobs:
     needs: generate-app-files
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Restore generated files
         uses: actions/cache/restore@v4
         with:
@@ -128,6 +133,7 @@ jobs:
     needs: generate-app-files
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Restore generated files
         uses: actions/cache/restore@v4
         with:
@@ -172,6 +178,7 @@ jobs:
           sleep 5
 
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Restore generated files
         uses: actions/cache/restore@v4
         with:
