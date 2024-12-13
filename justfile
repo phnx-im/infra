@@ -32,7 +32,7 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     touch {{app_rust_base_dir}}/src/frb_generated.rs
     rm -Rf {{app_dir}}/lib/core
     mkdir {{app_dir}}/lib/core
-    cd {{app_dir}} && flutter_rust_bridge_codegen generate
+    cd {{app_dir}} && env RUST_LOG=debug flutter_rust_bridge_codegen generate
 
 # integrate the Flutter Rust bridge
 frb-integrate:
