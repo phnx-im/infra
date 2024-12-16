@@ -180,8 +180,6 @@ class CoreClient {
           print("Queue update");
           await fetchMessages();
           break;
-        default:
-          break;
       }
     });
 
