@@ -54,16 +54,14 @@ class _ConversationDetailsState extends State<ConversationDetails> {
         leading: appBarBackButton(context),
         title: const Text("Details"),
       ),
-      body: _currentConversation?.conversationType.when(
-              unconfirmedConnection: (e) =>
-                  ConnectionDetails(conversation: _currentConversation!),
-              connection: (e) => ConnectionDetails(
-                    conversation: _currentConversation!,
-                  ),
-              group: () => GroupDetails(
-                    conversation: _currentConversation!,
-                  )) ??
-          Container(),
+      body: switch (_currentConversation?.conversationType) {
+        UiConversationType_UnconfirmedConnection() ||
+        UiConversationType_Connection() =>
+          ConnectionDetails(conversation: _currentConversation!),
+        UiConversationType_Group() =>
+          GroupDetails(conversation: _currentConversation!),
+        null => const SizedBox.shrink(),
+      },
     );
   }
 }

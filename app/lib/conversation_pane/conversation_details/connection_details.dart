@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 
@@ -27,27 +28,16 @@ class ConnectionDetails extends StatelessWidget {
           const SizedBox(height: _padding),
           FutureUserAvatar(
             size: 64,
-            profile: () => coreClient.user.userProfile(
-              userName: conversation.conversationType.when(
-                  unconfirmedConnection: (e) => e,
-                  connection: (e) => e,
-                  group: () => ''),
-            ),
+            profile: () => conversation.userProfile(coreClient),
           ),
           const SizedBox(height: _padding),
           Text(
-            conversation.conversationType.when(
-                unconfirmedConnection: (e) => e,
-                connection: (e) => e,
-                group: () => conversation.attributes.title),
+            conversation.title,
             style: labelStyle,
           ),
           const SizedBox(height: _padding),
           Text(
-            conversation.conversationType.when(
-                unconfirmedConnection: (e) => 'Pending connection request',
-                connection: (e) => '1:1 conversation',
-                group: () => 'Group conversation'),
+            conversation.conversationType.description,
             style: labelStyle,
           ),
           const SizedBox(height: _padding),
