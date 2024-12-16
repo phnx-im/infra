@@ -3,11 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_list_pane/conversation_list.dart';
-import 'package:prototype/conversation_list_pane/footer.dart';
-import 'package:prototype/conversation_list_pane/top.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
+
+import 'conversation_list.dart';
+import 'conversation_list_cubit.dart';
+import 'footer.dart';
+import 'top.dart';
+
+class ConversationViewContainer extends StatelessWidget {
+  const ConversationViewContainer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ConversationListCubit(userCubit: context.read()),
+      child: const ConversationView(),
+    );
+  }
+}
 
 class ConversationView extends StatelessWidget {
   const ConversationView({super.key});

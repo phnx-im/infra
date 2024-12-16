@@ -119,6 +119,7 @@ class _MessageComposerState extends State<MessageComposer> {
     super.initState();
     final coreClient = context.coreClient;
     _listener = coreClient.onConversationSwitch.listen(conversationListener);
+    // TODO: remove this
     _currentConversation = coreClient.currentConversation;
     _focusNode.onKeyEvent = onKeyEvent;
   }

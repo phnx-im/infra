@@ -27,7 +27,7 @@ class CoreClient {
 
   CoreClient._internal();
 
-  List<UiConversationDetails> _conversations = [];
+  final List<UiConversationDetails> _conversations = [];
   User? _user;
   Timer pollingTimer = Timer(Duration.zero, () => {});
   UiConversationDetails? _currentConversation;
@@ -146,9 +146,6 @@ class CoreClient {
   }
 
   Future<void> stageUser(String userName) async {
-    // Load existing conversations
-    await conversations();
-
     final stream = user.notificationStream().asBroadcastStream();
 
     stream.listen((UiNotificationType event) {
@@ -156,7 +153,6 @@ class CoreClient {
       switch (event) {
         case UiNotificationType_ConversationChange(field0: final uuid):
           conversationListUpdates.add(uuid);
-          conversations();
         case UiNotificationType_Message(field0: final message):
           messageUpdates.add(message);
       }
@@ -221,25 +217,12 @@ class CoreClient {
     }
   }
 
-  Future<List<UiConversationDetails>> conversations() async {
-    _conversations = await user.getConversationDetails();
-    return _conversations;
-  }
-
   UiConversationDetails? get currentConversation {
     return _currentConversation;
   }
 
   List<UiConversationDetails> get conversationsList {
     return _conversations;
-  }
-
-  Future<ConversationId> createConversation(String name) async {
-    final conversationId = await user.createConversation(name: name);
-    conversationListUpdates.add(conversationId);
-    conversations();
-    selectConversation(conversationId);
-    return conversationId;
   }
 
   Future<void> sendMessage(
@@ -284,15 +267,6 @@ class CoreClient {
 
   Future<List<UiContact>> getContacts() async {
     return await user.getContacts();
-  }
-
-  void selectConversation(ConversationId conversationId) {
-    _currentConversation = _conversations
-        .where((conversation) => conversation.id == conversationId)
-        .firstOrNull;
-    if (_currentConversation != null) {
-      conversationSwitch.add(_currentConversation!);
-    }
   }
 }
 

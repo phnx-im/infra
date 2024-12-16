@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // New widget that shows conversation details
-import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
 class AddMembers extends StatefulWidget {
   const AddMembers({super.key});
@@ -20,40 +21,20 @@ class AddMembers extends StatefulWidget {
 }
 
 class _AddMembersState extends State<AddMembers> {
-  UiConversationDetails? conversation;
-  late final StreamSubscription<UiConversationDetails> _conversationListener;
   List<UiContact> contacts = [];
   HashSet<String> selectedContacts = HashSet();
-  bool isButtonEnabled = false;
 
   @override
   void initState() {
     super.initState();
-
-    var coreClient = context.coreClient;
-    setState(() {
-      conversation = coreClient.currentConversation;
-    });
-    _conversationListener =
-        context.coreClient.onConversationSwitch.listen(conversationListener);
     getContacts();
   }
 
-  @override
-  void dispose() {
-    _conversationListener.cancel();
-    super.dispose();
-  }
-
   getContacts() async {
-    contacts = await context.coreClient.getContacts();
-    setState(() {});
-  }
-
-  addContacts() async {
-    for (var contact in selectedContacts) {
-      await context.coreClient.addUserToConversation(conversation!.id, contact);
-    }
+    final contacts = await context.coreClient.getContacts();
+    setState(() {
+      this.contacts = contacts;
+    });
   }
 
   void conversationListener(UiConversationDetails conversation) async {
@@ -67,9 +48,6 @@ class _AddMembersState extends State<AddMembers> {
     } else {
       selectedContacts.add(contact.userName);
     }
-    setState(() {
-      isButtonEnabled = selectedContacts.isNotEmpty;
-    });
   }
 
   @override
@@ -129,21 +107,46 @@ class _AddMembersState extends State<AddMembers> {
                     },
                   ),
                 ),
-                OutlinedButton(
-                  onPressed: () {
-                    if (isButtonEnabled) {
-                      addContacts();
-                      Navigator.of(context).pop(true);
-                    }
-                  },
-                  style: buttonStyle(context, isButtonEnabled),
-                  child: const Text("Add member(s)"),
-                )
+                _AddMembersButton(selectedContacts: selectedContacts),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _AddMembersButton extends StatelessWidget {
+  const _AddMembersButton({
+    required this.selectedContacts,
+  });
+
+  final HashSet<String> selectedContacts;
+
+  @override
+  Widget build(BuildContext context) {
+    final conversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId,
+    );
+    var coreClient = context.coreClient;
+    final isEnabled = selectedContacts.isNotEmpty;
+
+    return OutlinedButton(
+      onPressed: isEnabled
+          ? () {
+              _addContacts(coreClient, conversationId!);
+              Navigator.of(context).pop(true);
+            }
+          : null,
+      style: buttonStyle(context, isEnabled),
+      child: const Text("Add member(s)"),
+    );
+  }
+
+  _addContacts(CoreClient coreClient, ConversationId conversationId) async {
+    for (var contact in selectedContacts) {
+      await coreClient.addUserToConversation(conversationId, contact);
+    }
   }
 }

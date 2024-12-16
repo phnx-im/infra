@@ -3,49 +3,48 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // New widget that shows conversation details
-import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prototype/conversation_list_pane/conversation_list_cubit.dart';
 import 'package:prototype/conversation_pane/conversation_details/connection_details.dart';
 import 'package:prototype/conversation_pane/conversation_details/group_details.dart';
 import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 
-class ConversationDetails extends StatefulWidget {
-  const ConversationDetails({super.key});
-
-  @override
-  State<ConversationDetails> createState() => _ConversationDetailsState();
-}
-
-class _ConversationDetailsState extends State<ConversationDetails> {
-  UiConversationDetails? _currentConversation;
-  late StreamSubscription<UiConversationDetails> _conversationListener;
-
-  @override
-  void initState() {
-    super.initState();
-    final coreClient = context.coreClient;
-    _conversationListener =
-        coreClient.onConversationSwitch.listen(conversationListener);
-
-    _currentConversation = coreClient.currentConversation;
-  }
-
-  @override
-  void dispose() {
-    _conversationListener.cancel();
-    super.dispose();
-  }
-
-  void conversationListener(UiConversationDetails conversation) async {
-    Navigator.of(context).pop();
-    return;
-  }
+class ConversationDetailsScreen extends StatelessWidget {
+  const ConversationDetailsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ConversationListCubit(userCubit: context.read()),
+      child: const ConversationDetailsView(),
+    );
+  }
+}
+
+class ConversationDetailsView extends StatelessWidget {
+  const ConversationDetailsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final conversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId,
+    );
+    final conversation = context.select(
+      (ConversationListCubit cubit) => conversationId != null
+          ? cubit.state.conversations.firstWhereOrNull(
+              (conversation) => conversation.id == conversationId)
+          : null,
+    );
+
+    if (conversation == null) {
+      return const SizedBox.shrink();
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -54,13 +53,11 @@ class _ConversationDetailsState extends State<ConversationDetails> {
         leading: appBarBackButton(context),
         title: const Text("Details"),
       ),
-      body: switch (_currentConversation?.conversationType) {
+      body: switch (conversation.conversationType) {
         UiConversationType_UnconfirmedConnection() ||
         UiConversationType_Connection() =>
-          ConnectionDetails(conversation: _currentConversation!),
-        UiConversationType_Group() =>
-          GroupDetails(conversation: _currentConversation!),
-        null => const SizedBox.shrink(),
+          ConnectionDetails(conversation: conversation),
+        UiConversationType_Group() => GroupDetails(conversation: conversation),
       },
     );
   }

@@ -3,16 +3,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
-use log::info;
+use log::{error, info, warn};
+use phnxapiclient::qs_api::ws::WsEvent;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::{Asset, UserProfile};
 use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
+use tokio_util::sync::{CancellationToken, DropGuard};
 
-use crate::util::spawn_from_sync;
+use crate::api::messages::{FetchedMessages, FetchedMessagesBroadcast, FetchedMessagesReceiver};
+use crate::util::{spawn_from_sync, FibonacciBackoff};
 
 use super::{StreamSink, User};
 
@@ -55,7 +60,7 @@ impl UiUser {
                     *state = UiUser::new(state.inner.user_name.clone(), Some(profile));
                 }
                 Err(error) => {
-                    log::error!("Could not load own user profile: {:?}", error);
+                    error!("Could not load own user profile: {:?}", error);
                 }
             }
         });
@@ -87,14 +92,18 @@ impl UiUser {
 pub struct UserCubitBase {
     state: Arc<RwLock<UiUser>>,
     sinks: Option<Vec<StreamSink<UiUser>>>,
-    core_user: CoreUser,
+    pub(crate) core_user: CoreUser,
+    _background_tasks_cancel: DropGuard,
+    fetched_messages_tx: FetchedMessagesBroadcast,
 }
+
+const WEBSOCKET_TIMEOUT: Duration = Duration::from_secs(30);
+const WEBSCOKET_RETRY_INTERVAL: Duration = Duration::from_secs(10);
+const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
 impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User) -> Self {
-        info!("UserCubitBase::new");
-
         let core_user = user.user.clone();
         let state = Arc::new(RwLock::new(UiUser::new(core_user.user_name(), None)));
 
@@ -103,14 +112,34 @@ impl UserCubitBase {
         // TODO: Subscribe to the change notifications from the core user.
         // See <https://github.com/phnx-im/infra/issues/254>
 
+        let fetched_messages_tx = FetchedMessagesBroadcast::new();
+        let cancel = CancellationToken::new();
+        spawn_websocket(
+            core_user.clone(),
+            cancel.clone(),
+            fetched_messages_tx.clone(),
+        );
+        spawn_polling(
+            core_user.clone(),
+            cancel.clone(),
+            fetched_messages_tx.clone(),
+        );
+
         Self {
             state,
             sinks: Some(Default::default()),
             core_user,
+            _background_tasks_cancel: cancel.drop_guard(),
+            fetched_messages_tx,
         }
     }
 
+    pub(crate) fn subscribe_to_fetched_messages(&self) -> FetchedMessagesReceiver {
+        self.fetched_messages_tx.subscribe()
+    }
+
     fn emit(&mut self, state: UiUser) {
+        *self.state.blocking_write() = state.clone();
         if let Some(sinks) = &mut self.sinks {
             sinks.retain(|sink| sink.add(state.clone()).is_ok());
         }
@@ -170,4 +199,112 @@ impl UserCubitBase {
         self.emit(user);
         Ok(())
     }
+}
+
+fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMessagesBroadcast) {
+    spawn_from_sync(async move {
+        let mut backoff = FibonacciBackoff::new();
+        while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff, &tx).await {
+            let timeout = backoff.next_backoff();
+            info!("websocket failed: {error}; reconnect in {timeout:?}");
+            tokio::time::sleep(timeout).await;
+        }
+        info!("websocket handler stopped normally");
+    });
+}
+
+/// Normal return means the websocket handler was cancelled
+async fn run_websocket(
+    core_user: &CoreUser,
+    cancel: &CancellationToken,
+    backoff: &mut FibonacciBackoff,
+    tx: &FetchedMessagesBroadcast,
+) -> anyhow::Result<()> {
+    let mut websocket = core_user
+        .websocket(
+            WEBSOCKET_TIMEOUT.as_secs(),
+            WEBSCOKET_RETRY_INTERVAL.as_secs(),
+        )
+        .await?;
+    loop {
+        let event = tokio::select! {
+            event = websocket.next() => event,
+            _ = cancel.cancelled() => return Ok(()),
+        };
+        match event {
+            Some(event) => process_websocket_message(event, tx, core_user).await?,
+            None => bail!("unexpected disconnect"),
+        }
+        backoff.reset(); // reset backoff after a successful message
+    }
+}
+
+fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMessagesBroadcast) {
+    let user = User::with_empty_state(core_user);
+    spawn_from_sync(async move {
+        let mut backoff = FibonacciBackoff::new();
+        loop {
+            let res = tokio::select! {
+                _ = cancel.cancelled() => break,
+                res = user.fetch_all_messages() => res,
+            };
+            let mut timeout = POLLING_INTERVAL;
+            match res {
+                Ok(fetched_messages) => {
+                    process_fetched_messages(&tx, fetched_messages).await;
+                    backoff.reset();
+                }
+                Err(_error) => {
+                    timeout = backoff.next_backoff().max(timeout);
+                    error!("failed to fetch messages; retry in {timeout:?}");
+                }
+            }
+            tokio::select! {
+                _ = cancel.cancelled() => break,
+                _ = tokio::time::sleep(POLLING_INTERVAL) => {},
+            }
+        }
+    });
+}
+
+async fn process_websocket_message(
+    event: WsEvent,
+    tx: &FetchedMessagesBroadcast,
+    core_user: &CoreUser,
+) -> anyhow::Result<()> {
+    match event {
+        WsEvent::ConnectedEvent => info!("connected to websocket"),
+        WsEvent::DisconnectedEvent => bail!("server disconnect"),
+        WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
+            warn!("ignoring websocket event: {event:?}")
+        }
+        WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
+            let tx = tx.clone();
+            let core_user = core_user.clone();
+            let user = User::with_empty_state(core_user);
+            match user.fetch_all_messages().await {
+                Ok(fetched_messages) => {
+                    process_fetched_messages(&tx, fetched_messages).await;
+                }
+                Err(error) => {
+                    error!("Failed to fetch messages on queue update: {error:?}");
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn process_fetched_messages(
+    tx: &FetchedMessagesBroadcast,
+    fetched_messages: FetchedMessages,
+) {
+    // Send a notification to the OS (desktop only)
+    //
+    // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
+    // we delegate to a different place.
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    crate::notifier::show_desktop_notifications(&fetched_messages.notifications_content);
+
+    let _no_receivers = tx.send(fetched_messages).await;
 }

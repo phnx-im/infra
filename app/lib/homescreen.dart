@@ -12,15 +12,15 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const mobileLayout = ConversationView();
+    const mobileLayout = ConversationViewContainer();
     const desktopLayout = Row(
       children: [
         SizedBox(
           width: 300,
-          child: ConversationView(),
+          child: ConversationViewContainer(),
         ),
         Expanded(
-          child: ConversationPane(),
+          child: ConversationPaneContainer(),
         ),
       ],
     );

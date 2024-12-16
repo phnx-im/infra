@@ -71,6 +71,14 @@ pub struct User {
 }
 
 impl User {
+    pub(crate) fn with_empty_state(user: CoreUser) -> Self {
+        Self {
+            user: user.clone(),
+            app_state: AppState::new(user),
+            notification_hub: Default::default(),
+        }
+    }
+
     pub async fn new(
         user_name: String,
         password: String,
