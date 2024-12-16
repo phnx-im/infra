@@ -52,10 +52,12 @@ class _DisplayMessageTileState extends State<DisplayMessageTile> {
           Expanded(
             child: Container(
               alignment: Alignment.centerLeft,
-              child: (widget.eventMessage.when(
-                error: (message) => ErrorMessageContent(message: message),
-                system: (message) => SystemMessageContent(message: message),
-              )),
+              child: switch (widget.eventMessage) {
+                UiEventMessage_System(field0: final message) =>
+                  SystemMessageContent(message: message),
+                UiEventMessage_Error(field0: final message) =>
+                  ErrorMessageContent(message: message),
+              },
             ),
           ),
           TileTimestamp(hovering: _hovering, timestamp: widget.timestamp)
