@@ -11,9 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core/api/user.dart';
 import 'package:prototype/core/api/utils.dart';
-import 'package:prototype/core/lib.dart';
 import 'package:prototype/platform.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 // Helper definitions
 Function unOrdDeepEq = const DeepCollectionEquality.unordered().equals;
@@ -44,10 +44,10 @@ class CoreClient {
 
   // This event is dispatched whenever there is a change to the conversation list
 
-  late StreamController<ConversationIdBytes> conversationListUpdates =
-      StreamController<ConversationIdBytes>.broadcast();
+  late StreamController<ConversationId> conversationListUpdates =
+      StreamController<ConversationId>.broadcast();
 
-  Stream<ConversationIdBytes> get onConversationListUpdate =>
+  Stream<ConversationId> get onConversationListUpdate =>
       conversationListUpdates.stream;
 
   // This event is dispatched whenever a new message is received from the corelib
@@ -212,7 +212,11 @@ class CoreClient {
         final count = await user.globalUnreadMessagesCount();
         await setBadgeCount(count);
       }
-      conversationListUpdates.add(ConversationIdBytes(bytes: U8Array16.init()));
+      conversationListUpdates.add(
+        const ConversationId(
+          uuid: UuidValue.fromNamespace(Namespace.nil),
+        ),
+      );
     } catch (e) {
       print("Error when fetching messages: $e");
     }
@@ -231,7 +235,7 @@ class CoreClient {
     return _conversations;
   }
 
-  Future<ConversationIdBytes> createConversation(String name) async {
+  Future<ConversationId> createConversation(String name) async {
     final conversationId = await user.createConversation(name: name);
     conversationListUpdates.add(conversationId);
     conversations();
@@ -240,7 +244,7 @@ class CoreClient {
   }
 
   Future<void> sendMessage(
-      ConversationIdBytes conversationId, String message) async {
+      ConversationId conversationId, String message) async {
     UiConversationMessage conversationMessage;
     try {
       conversationMessage = await user.sendMessage(
@@ -251,27 +255,30 @@ class CoreClient {
     }
 
     messageUpdates.add(conversationMessage);
-    conversationListUpdates
-        .add(ConversationIdBytes(bytes: conversationId.bytes));
+    conversationListUpdates.add(conversationId);
   }
 
   Future<void> createConnection(String userName) async {
     await user.createConnection(userName: userName);
-    conversationListUpdates.add(ConversationIdBytes(bytes: U8Array16.init()));
+    conversationListUpdates.add(
+      const ConversationId(
+        uuid: UuidValue.fromNamespace(Namespace.nil),
+      ),
+    );
   }
 
-  Future<List<String>> getMembers(ConversationIdBytes conversationId) async {
+  Future<List<String>> getMembers(ConversationId conversationId) async {
     return await user.membersOfConversation(conversationId: conversationId);
   }
 
   Future<void> addUserToConversation(
-      ConversationIdBytes conversationId, String userName) async {
+      ConversationId conversationId, String userName) async {
     await user.addUsersToConversation(
         conversationId: conversationId, userNames: [userName]);
   }
 
   Future<void> removeUserFromConversation(
-      ConversationIdBytes conversationId, String userName) async {
+      ConversationId conversationId, String userName) async {
     await user.removeUsersFromConversation(
         conversationId: conversationId, userNames: [userName]);
   }
@@ -280,10 +287,9 @@ class CoreClient {
     return await user.getContacts();
   }
 
-  void selectConversation(ConversationIdBytes conversationId) {
+  void selectConversation(ConversationId conversationId) {
     _currentConversation = _conversations
-        .where((conversation) =>
-            conversation.id.bytes.equals(conversationId.bytes))
+        .where((conversation) => conversation.id == conversationId)
         .firstOrNull;
     if (_currentConversation != null) {
       conversationSwitch.add(_currentConversation!);
