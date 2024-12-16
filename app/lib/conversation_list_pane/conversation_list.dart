@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
@@ -110,14 +111,12 @@ class _ConversationListState extends State<ConversationList> {
   }
 
   Widget _userAvatar(int index) {
+    final conversation = _conversations[index];
     return UserAvatar(
       size: 48,
-      cacheTag: "conv:${_conversations[index].id}",
-      image: _conversations[index].attributes.conversationPictureOption,
-      username: _conversations[index].conversationType.when(
-          unconfirmedConnection: (e) => e,
-          connection: (e) => e,
-          group: () => _conversations[index].attributes.title),
+      cacheTag: "conv:${conversation.id}",
+      image: conversation.attributes.conversationPictureOption,
+      username: conversation.username,
     );
   }
 
@@ -126,10 +125,7 @@ class _ConversationListState extends State<ConversationList> {
       baseline: Spacings.s,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        _conversations[index].conversationType.when(
-            unconfirmedConnection: (e) => '⏳ $e',
-            connection: (e) => e,
-            group: () => _conversations[index].attributes.title),
+        _conversations[index].title,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: convListItemTextColor,
@@ -142,8 +138,6 @@ class _ConversationListState extends State<ConversationList> {
   }
 
   Widget _lastMessage(String userName, int index) {
-    var sender = '';
-    var displayedLastMessage = '';
     final lastMessage = _conversations[index].lastMessage;
     final style = TextStyle(
       color: colorDMB,
@@ -159,18 +153,18 @@ class _ConversationListState extends State<ConversationList> {
 
     final senderStyle = style.copyWith(fontVariations: variationSemiBold);
 
-    if (lastMessage != null) {
-      lastMessage.message.when(
-          contentFlight: (c) {
-            final lastContentMessage = c.last;
-            if (lastContentMessage.sender == userName) {
-              sender = 'You: ';
-            }
-            displayedLastMessage = lastContentMessage.content.body;
-          },
-          display: (d) => '',
-          unsent: (u) => '⚠️ Unsent message: ${u.body}');
-    }
+    final (sender, displayedLastMessage) = switch (lastMessage?.message) {
+      UiMessage_ContentFlight(field0: final contentFlight) => (
+          contentFlight.last.sender == userName ? 'You: ' : null,
+          contentFlight.last.content.body
+        ),
+      UiMessage_Display() => (null, null),
+      UiMessage_Unsent(field0: final unsent) => (
+          null,
+          '⚠️ Unsent message: ${unsent.body}'
+        ),
+      null => (null, null),
+    };
 
     return Text.rich(
       maxLines: 2,

@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
+import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
@@ -54,10 +55,7 @@ class _GroupDetailsState extends State<GroupDetails> {
           UserAvatar(
               size: 64,
               image: widget.conversation.attributes.conversationPictureOption,
-              username: widget.conversation.conversationType.when(
-                  unconfirmedConnection: (e) => e,
-                  connection: (e) => e,
-                  group: () => widget.conversation.attributes.title),
+              username: widget.conversation.username,
               onPressed: () async {
                 // Image picker
                 final ImagePicker picker = ImagePicker();
@@ -74,19 +72,10 @@ class _GroupDetailsState extends State<GroupDetails> {
                 });
               }),
           const SizedBox(height: _padding),
-          Text(
-            widget.conversation.conversationType.when(
-                unconfirmedConnection: (e) => e,
-                connection: (e) => e,
-                group: () => widget.conversation.attributes.title),
-            style: labelStyle,
-          ),
+          Text(widget.conversation.title, style: labelStyle),
           const SizedBox(height: _padding),
           Text(
-            widget.conversation.conversationType.when(
-                unconfirmedConnection: (e) => 'Pending connection request',
-                connection: (e) => '1:1 conversation',
-                group: () => 'Group conversation'),
+            widget.conversation.conversationType.description,
             style: labelStyle,
           ),
           const SizedBox(height: _padding),
