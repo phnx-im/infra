@@ -144,7 +144,7 @@ class TextMessageTile extends StatelessWidget {
                 messageTextStyle(context, isSender),
                 HostWidget.richText),
             selectionRegistrar: SelectionContainer.maybeOf(context),
-            selectionColor: Colors.blue.withOpacity(0.3),
+            selectionColor: Colors.blue.withValues(alpha: 0.3),
             textWidthBasis: TextWidthBasis.longestLine,
           ),
         ),
