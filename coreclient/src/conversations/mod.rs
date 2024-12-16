@@ -23,7 +23,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConversationId {
-    uuid: Uuid,
+    pub uuid: Uuid,
 }
 
 impl Display for ConversationId {

@@ -59,7 +59,7 @@ class _MessageComposerState extends State<MessageComposer> {
   UiConversationDetails? _currentConversation;
   late StreamSubscription<UiConversationDetails> _listener;
 
-  HashMap<ConversationIdBytes, String> drafts = HashMap();
+  HashMap<ConversationId, String> drafts = HashMap();
 
   // Override constructor
   _MessageComposerState() {

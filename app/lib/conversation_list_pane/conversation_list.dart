@@ -13,8 +13,7 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
-import 'package:convert/convert.dart';
-import 'package:collection/collection.dart';
+import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 class ConversationList extends StatefulWidget {
@@ -29,8 +28,7 @@ class _ConversationListState extends State<ConversationList> {
 
   late List<UiConversationDetails> _conversations;
   UiConversationDetails? _currentConversation;
-  late final StreamSubscription<ConversationIdBytes>
-      _conversationListUpdateListener;
+  late final StreamSubscription<ConversationId> _conversationListUpdateListener;
   late final StreamSubscription<UiConversationDetails>
       _conversationSwitchListener;
   final ScrollController _scrollController = ScrollController();
@@ -81,14 +79,14 @@ class _ConversationListState extends State<ConversationList> {
 
   void selectConversation(
     CoreClient coreClient,
-    ConversationIdBytes conversationId,
+    ConversationId conversationId,
   ) {
-    print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
+    print("Tapped on conversation $conversationId");
     coreClient.selectConversation(conversationId);
     context.read<NavigationCubit>().openConversation(conversationId);
   }
 
-  void conversationListUpdateListener(ConversationIdBytes uuid) async {
+  void conversationListUpdateListener(ConversationId uuid) async {
     updateConversationList(context.coreClient);
   }
 
@@ -106,7 +104,7 @@ class _ConversationListState extends State<ConversationList> {
   Color? _selectionColor(int index) {
     if (isLargeScreen(context) &&
         _currentConversation != null &&
-        _currentConversation!.id.bytes.equals(_conversations[index].id.bytes)) {
+        _currentConversation!.id == _conversations[index].id) {
       return convPaneFocusColor;
     }
     return null;
@@ -116,6 +114,7 @@ class _ConversationListState extends State<ConversationList> {
     final conversation = _conversations[index];
     return UserAvatar(
       size: 48,
+      cacheTag: "conv:${conversation.id}",
       image: conversation.attributes.conversationPictureOption,
       username: conversation.username,
     );
@@ -138,9 +137,7 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _lastMessage(int index) {
-    var sender = '';
-    var displayedLastMessage = '';
+  Widget _lastMessage(String userName, int index) {
     final lastMessage = _conversations[index].lastMessage;
     final style = TextStyle(
       color: colorDMB,
@@ -156,23 +153,18 @@ class _ConversationListState extends State<ConversationList> {
 
     final senderStyle = style.copyWith(fontVariations: variationSemiBold);
 
-    final coreClient = context.coreClient;
-
-    // TODO: Something is wrong here
-    if (lastMessage != null) {
-      switch (lastMessage.message) {
-        case UiMessage_ContentFlight(field0: final contentFlight):
-          final lastContentMessage = contentFlight.last;
-          if (lastContentMessage.sender == coreClient.username) {
-            sender = 'You: ';
-          }
-          displayedLastMessage = lastContentMessage.content.body;
-        case UiMessage_Display():
-          displayedLastMessage = '';
-        case UiMessage_Unsent(field0: final unsent):
-          displayedLastMessage = '⚠️ Unsent message: ${unsent.body}';
-      }
-    }
+    final (sender, displayedLastMessage) = switch (lastMessage?.message) {
+      UiMessage_ContentFlight(field0: final contentFlight) => (
+          contentFlight.last.sender == userName ? 'You: ' : null,
+          contentFlight.last.content.body
+        ),
+      UiMessage_Display() => (null, null),
+      UiMessage_Unsent(field0: final unsent) => (
+          null,
+          '⚠️ Unsent message: ${unsent.body}'
+        ),
+      null => (null, null),
+    };
 
     return Text.rich(
       maxLines: 2,
@@ -245,14 +237,14 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _bottomPart(int index) {
+  Widget _bottomPart(String userName, int index) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
           child: Align(
             alignment: Alignment.topLeft,
-            child: _lastMessage(index),
+            child: _lastMessage(userName, index),
           ),
         ),
         const SizedBox(width: 16),
@@ -264,7 +256,7 @@ class _ConversationListState extends State<ConversationList> {
     );
   }
 
-  Widget _listTile(int index) {
+  Widget _listTile(String userName, int index) {
     return ListTile(
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
@@ -294,7 +286,7 @@ class _ConversationListState extends State<ConversationList> {
                 children: [
                   _topPart(index),
                   const SizedBox(height: 2),
-                  Expanded(child: _bottomPart(index)),
+                  Expanded(child: _bottomPart(userName, index)),
                 ],
               ),
             ),
@@ -327,6 +319,8 @@ class _ConversationListState extends State<ConversationList> {
 
   @override
   Widget build(BuildContext context) {
+    final userName = context.select((UserCubit cubit) => cubit.state.userName);
+
     if (_conversations.isNotEmpty) {
       return ListView.builder(
         itemCount: _conversations.length,
@@ -335,7 +329,7 @@ class _ConversationListState extends State<ConversationList> {
         ),
         controller: _scrollController,
         itemBuilder: (BuildContext context, int index) {
-          return _listTile(index);
+          return _listTile(userName, index);
         },
       );
     } else {
@@ -347,7 +341,7 @@ class _ConversationListState extends State<ConversationList> {
 bool isConversationSelected(UiConversationDetails? currentConversation,
     UiConversationDetails conversation, BuildContext context) {
   if (isLargeScreen(context) && currentConversation != null) {
-    return currentConversation.id.bytes.equals(conversation.id.bytes);
+    return currentConversation.id == conversation.id;
   }
   return false;
 }

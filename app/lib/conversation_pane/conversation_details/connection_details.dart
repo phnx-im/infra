@@ -28,7 +28,7 @@ class ConnectionDetails extends StatelessWidget {
           const SizedBox(height: _padding),
           FutureUserAvatar(
             size: 64,
-            profile: conversation.userProfile(coreClient),
+            profile: () => conversation.userProfile(coreClient),
           ),
           const SizedBox(height: _padding),
           Text(

@@ -27,7 +27,7 @@ sealed class NavigationState with _$NavigationState {
   /// way by just storing true/false or an optional value representing if a
   /// screen is opened.
   const factory NavigationState.home({
-    ConversationIdBytes? conversationId,
+    ConversationId? conversationId,
     @Default(false) bool developerSettingsOpen,
     @Default(false) bool userSettingsOpen,
     @Default(false) bool conversationDetailsOpen,
@@ -37,7 +37,7 @@ sealed class NavigationState with _$NavigationState {
     String? memberDetails,
   }) = HomeNavigation;
 
-  ConversationIdBytes? get conversationId => switch (this) {
+  ConversationId? get conversationId => switch (this) {
         IntroNavigation() => null,
         HomeNavigation(:final conversationId) => conversationId,
       };
@@ -69,7 +69,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     emit(const NavigationState.home());
   }
 
-  void openConversation(ConversationIdBytes conversationId) {
+  void openConversation(ConversationId conversationId) {
     switch (state) {
       case IntroNavigation():
         emit(const NavigationState.home());

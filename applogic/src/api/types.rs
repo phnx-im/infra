@@ -3,75 +3,61 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use openmls::group::GroupId;
+use flutter_rust_bridge::frb;
+pub use phnxcoreclient::ConversationId;
 use phnxcoreclient::{
-    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationId,
-    ConversationMessage, ConversationMessageId, ConversationStatus, ConversationType, DisplayName,
-    ErrorMessage, EventMessage, InactiveConversation, Message, MessageId, MimiContent,
-    NotificationType, SystemMessage, UserProfile,
+    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
+    ConversationMessageId, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
+    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
+    UserProfile,
 };
-use phnxtypes::identifiers::SafeTryInto;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct _GroupId {
+    pub uuid: Uuid,
+}
+
+#[frb(mirror(ConversationId))]
+#[frb(dart_code = "
+    @override
+    String toString() => 'ConversationId($uuid)';
+")]
+pub struct _ConversationId {
+    pub uuid: Uuid,
+}
+
+#[frb(dart_code = "
+    @override
+    String toString() => 'GroupId(${hex.encode(bytes)})';
+")]
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct GroupIdBytes {
+pub struct GroupId {
     pub bytes: Vec<u8>,
 }
 
-impl From<GroupId> for GroupIdBytes {
-    fn from(group_id: GroupId) -> Self {
+impl From<openmls::group::GroupId> for GroupId {
+    fn from(group_id: openmls::group::GroupId) -> Self {
         Self {
             bytes: group_id.as_slice().to_vec(),
         }
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct ConversationIdBytes {
-    pub bytes: [u8; 16],
-}
-
-impl From<ConversationId> for ConversationIdBytes {
-    fn from(conversation_id: ConversationId) -> Self {
-        Self {
-            bytes: conversation_id.as_uuid().into_bytes(),
-        }
-    }
-}
-
-impl From<ConversationIdBytes> for ConversationId {
-    fn from(conversation_id: ConversationIdBytes) -> Self {
-        ConversationId::from(Uuid::from_bytes(conversation_id.bytes))
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct UuidBytes {
-    pub bytes: [u8; 16],
-}
-
-impl From<Uuid> for UuidBytes {
-    fn from(uuid: Uuid) -> Self {
-        Self {
-            bytes: *uuid.as_bytes(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversation {
-    pub id: ConversationIdBytes,
+    pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
-    pub group_id: GroupIdBytes,
+    pub group_id: GroupId,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
     pub attributes: UiConversationAttributes,
 }
 
 pub struct UiConversationDetails {
-    pub id: ConversationIdBytes,
+    pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
-    pub group_id: GroupIdBytes,
+    pub group_id: GroupId,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
     pub last_used: String,
@@ -158,8 +144,8 @@ impl From<ConversationAttributes> for UiConversationAttributes {
 impl From<Conversation> for UiConversation {
     fn from(conversation: Conversation) -> Self {
         Self {
-            id: ConversationIdBytes::from(conversation.id()),
-            group_id: GroupIdBytes::from(conversation.group_id().clone()),
+            id: conversation.id(),
+            group_id: GroupId::from(conversation.group_id().clone()),
             status: UiConversationStatus::from(conversation.status().clone()),
             conversation_type: UiConversationType::from(conversation.conversation_type().clone()),
             attributes: UiConversationAttributes::from(conversation.attributes().clone()),
@@ -186,7 +172,7 @@ impl From<UiConversationMessageId> for ConversationMessageId {
 
 #[derive(Debug, Clone)]
 pub struct UiConversationMessage {
-    pub conversation_id: ConversationIdBytes,
+    pub conversation_id: ConversationId,
     pub id: UiConversationMessageId,
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
@@ -195,7 +181,7 @@ pub struct UiConversationMessage {
 impl From<ConversationMessage> for UiConversationMessage {
     fn from(conversation_message: ConversationMessage) -> Self {
         Self {
-            conversation_id: ConversationIdBytes::from(conversation_message.conversation_id()),
+            conversation_id: conversation_message.conversation_id(),
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
@@ -225,14 +211,14 @@ impl From<Message> for UiMessage {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UiMessageId {
-    pub id: UuidBytes,
+    pub id: Uuid,
     pub domain: String,
 }
 
 impl From<MessageId> for UiMessageId {
     fn from(message_id: MessageId) -> Self {
         Self {
-            id: UuidBytes::from(message_id.id()),
+            id: message_id.id(),
             domain: message_id.domain().to_string(),
         }
     }
@@ -347,7 +333,7 @@ impl From<ErrorMessage> for UiErrorMessage {
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum UiNotificationType {
-    ConversationChange(ConversationIdBytes), // The id of the changed conversation.
+    ConversationChange(ConversationId), // The id of the changed conversation.
     Message(UiConversationMessage),
 }
 
@@ -355,7 +341,7 @@ impl From<NotificationType> for UiNotificationType {
     fn from(value: NotificationType) -> Self {
         match value {
             NotificationType::ConversationChange(conversation_id) => {
-                UiNotificationType::ConversationChange(conversation_id.into())
+                UiNotificationType::ConversationChange(conversation_id)
             }
             NotificationType::Message(message) => UiNotificationType::Message(message.into()),
         }
@@ -381,30 +367,15 @@ pub struct UiUserProfile {
     pub profile_picture_option: Option<Vec<u8>>,
 }
 
-impl From<UserProfile> for UiUserProfile {
-    fn from(user_profile: UserProfile) -> Self {
+impl UiUserProfile {
+    pub(crate) fn from_profile(user_profile: &UserProfile) -> Self {
         Self {
             user_name: user_profile.user_name().to_string(),
-            display_name: user_profile.display_name().map(|a| a.to_string()),
+            display_name: user_profile.display_name().map(|name| name.to_string()),
             profile_picture_option: user_profile
                 .profile_picture()
-                .and_then(|a| a.value())
-                .map(|a| a.to_vec()),
+                .and_then(|asset| asset.value())
+                .map(|bytes| bytes.to_vec()),
         }
-    }
-}
-
-impl TryFrom<UiUserProfile> for UserProfile {
-    type Error = anyhow::Error;
-
-    fn try_from(value: UiUserProfile) -> Result<Self, Self::Error> {
-        let user_name = <String as SafeTryInto<_>>::try_into(value.user_name)?;
-        let display_name = value.display_name.map(DisplayName::try_from).transpose()?;
-        let profile_picture_option = value.profile_picture_option.map(Asset::Value);
-        Ok(UserProfile::new(
-            user_name,
-            display_name,
-            profile_picture_option,
-        ))
     }
 }

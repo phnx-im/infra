@@ -6,3 +6,5 @@ rust_input: crate::api
 rust_root: ../applogic/
 dart_output: lib/core
 add_mod_to_lib: false
+dart_preamble: |
+  import 'package:convert/convert.dart';
