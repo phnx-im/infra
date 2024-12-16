@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/conversation_content/conversation_tile.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
-import 'package:collection/collection.dart';
 
 class ConversationContent extends StatefulWidget {
   final UiConversationDetails? conversation;
@@ -131,7 +130,7 @@ class _ConversationContentState extends State<ConversationContent> {
   }
 
   void messageListener(UiConversationMessage cm) {
-    if (cm.conversationId.bytes.equals(_currentConversation!.id.bytes)) {
+    if (cm.conversationId == _currentConversation!.id) {
       setState(() {
         updateMessages().then((_) {
           scrollToEnd(animated: true);

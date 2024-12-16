@@ -12,8 +12,6 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
-import 'package:convert/convert.dart';
-import 'package:collection/collection.dart';
 import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
@@ -29,8 +27,7 @@ class _ConversationListState extends State<ConversationList> {
 
   late List<UiConversationDetails> _conversations;
   UiConversationDetails? _currentConversation;
-  late final StreamSubscription<ConversationIdBytes>
-      _conversationListUpdateListener;
+  late final StreamSubscription<ConversationId> _conversationListUpdateListener;
   late final StreamSubscription<UiConversationDetails>
       _conversationSwitchListener;
   final ScrollController _scrollController = ScrollController();
@@ -81,14 +78,14 @@ class _ConversationListState extends State<ConversationList> {
 
   void selectConversation(
     CoreClient coreClient,
-    ConversationIdBytes conversationId,
+    ConversationId conversationId,
   ) {
-    print("Tapped on conversation ${hex.encode(conversationId.bytes)}");
+    print("Tapped on conversation $conversationId");
     coreClient.selectConversation(conversationId);
     context.read<NavigationCubit>().openConversation(conversationId);
   }
 
-  void conversationListUpdateListener(ConversationIdBytes uuid) async {
+  void conversationListUpdateListener(ConversationId uuid) async {
     updateConversationList(context.coreClient);
   }
 
@@ -106,7 +103,7 @@ class _ConversationListState extends State<ConversationList> {
   Color? _selectionColor(int index) {
     if (isLargeScreen(context) &&
         _currentConversation != null &&
-        _currentConversation!.id.bytes.equals(_conversations[index].id.bytes)) {
+        _currentConversation!.id == _conversations[index].id) {
       return convPaneFocusColor;
     }
     return null;
@@ -115,6 +112,7 @@ class _ConversationListState extends State<ConversationList> {
   Widget _userAvatar(int index) {
     return UserAvatar(
       size: 48,
+      cacheTag: "conv:${_conversations[index].id}",
       image: _conversations[index].attributes.conversationPictureOption,
       username: _conversations[index].conversationType.when(
           unconfirmedConnection: (e) => e,
@@ -349,7 +347,7 @@ class _ConversationListState extends State<ConversationList> {
 bool isConversationSelected(UiConversationDetails? currentConversation,
     UiConversationDetails conversation, BuildContext context) {
   if (isLargeScreen(context) && currentConversation != null) {
-    return currentConversation.id.bytes.equals(conversation.id.bytes);
+    return currentConversation.id == conversation.id;
   }
   return false;
 }

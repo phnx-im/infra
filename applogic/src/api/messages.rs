@@ -13,7 +13,7 @@ use crate::notifier::{dispatch_conversation_notifications, dispatch_message_noti
 
 use super::{
     notifications::LocalNotificationContent,
-    types::{ConversationIdBytes, UiConversationMessage, UiMessage},
+    types::{UiConversationMessage, UiMessage},
     user::User,
 };
 
@@ -144,24 +144,24 @@ impl User {
 
     pub async fn send_message(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         message: String,
     ) -> Result<UiConversationMessage> {
         let content = MimiContent::simple_markdown_message(self.user.user_name().domain(), message);
         self.user
-            .send_message(conversation_id.into(), content)
+            .send_message(conversation_id, content)
             .await
             .map(|m| m.into())
     }
 
     pub async fn get_messages(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         last_n: u32,
     ) -> Vec<UiConversationMessage> {
         let messages = self
             .user
-            .get_messages(conversation_id.into(), last_n as usize)
+            .get_messages(conversation_id, last_n as usize)
             .await
             .unwrap_or_default();
 
@@ -174,12 +174,12 @@ impl User {
     /// succession.
     pub async fn mark_messages_as_read_debounced(
         &self,
-        conversation_id: ConversationIdBytes,
+        conversation_id: ConversationId,
         timestamp: String,
     ) -> Result<()> {
         let timestamp = timestamp.parse::<DateTime<Utc>>()?;
         self.app_state
-            .mark_messages_read_debounced(conversation_id.into(), timestamp)
+            .mark_messages_read_debounced(conversation_id, timestamp)
             .await;
         Ok(())
     }
