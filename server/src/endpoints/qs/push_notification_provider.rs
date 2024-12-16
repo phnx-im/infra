@@ -32,10 +32,16 @@ struct FcmClaims {
 
 // Struct for the Google OAuth2 response
 #[derive(Debug, Deserialize)]
-struct OauthTokenResponse {
+struct OauthSuccessResponse {
     access_token: String,
     _token_type: String,
     expires_in: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct OauthErrorResponse {
+    error: String,
+    error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -196,7 +202,21 @@ impl ProductionPushNotificationProvider {
             .send()
             .await?;
 
-        let token_response: OauthTokenResponse = response.json().await?;
+        // Check if the request was successful
+        let status = response.status();
+        let body = response.text().await?;
+
+        if !status.is_success() {
+            let response = serde_json::from_str::<OauthErrorResponse>(&body)?;
+            return Err(format!(
+                "Error response from Google OAuth2: {} {}",
+                response.error,
+                response.error_description.unwrap_or_default()
+            )
+            .into());
+        }
+
+        let token_response: OauthSuccessResponse = serde_json::from_str(&body)?;
 
         // Create the FcmToken
         let fcm_token = FcmToken {
