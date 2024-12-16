@@ -20,13 +20,15 @@ class ConversationTile extends StatelessWidget {
     return ListTile(
       title: Container(
         alignment: AlignmentDirectional.centerStart,
-        child: (message.message.when(
-          contentFlight: (contentFlight) =>
-              TextMessageTile(contentFlight, message.timestamp),
-          display: (display) => DisplayMessageTile(display, message.timestamp),
-          unsent: (unsent) => const Text("⚠️ UNSENT MESSAGE ⚠️ {unsent}",
-              style: TextStyle(color: Colors.red)),
-        )),
+        child: switch (message.message) {
+          UiMessage_ContentFlight(field0: final contentFlight) =>
+            TextMessageTile(contentFlight, message.timestamp),
+          UiMessage_Display(field0: final display) =>
+            DisplayMessageTile(display, message.timestamp),
+          UiMessage_Unsent(field0: final unsent) => Text(
+              "⚠️ UNSENT MESSAGE ⚠️ $unsent",
+              style: const TextStyle(color: Colors.red)),
+        },
       ),
       selected: false,
     );
