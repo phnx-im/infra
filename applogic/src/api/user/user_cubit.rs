@@ -87,7 +87,7 @@ impl UiUser {
 pub struct UserCubitBase {
     state: Arc<RwLock<UiUser>>,
     sinks: Option<Vec<StreamSink<UiUser>>>,
-    core_user: CoreUser,
+    pub(crate) core_user: CoreUser,
 }
 
 impl UserCubitBase {
