@@ -7,5 +7,4 @@ mod fibonacci_backoff;
 mod spawn;
 
 pub(crate) use cubit_sinks::SharedCubitSinks;
-pub(crate) use fibonacci_backoff::FibonacciBackoff;
 pub(crate) use spawn::spawn_from_sync;
