@@ -34,8 +34,9 @@ struct FcmClaims {
 #[derive(Debug, Deserialize)]
 struct OauthSuccessResponse {
     access_token: String,
-    _token_type: String,
     expires_in: u64,
+    #[allow(dead_code)]
+    token_type: String,
 }
 
 #[derive(Debug, Deserialize)]
