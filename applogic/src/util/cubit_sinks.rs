@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
-//
-// SPDX-License-Identifier: AGPL-3.0-or-later
-//
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -39,7 +35,6 @@ where
         if self.is_closed() {
             return;
         }
-        log::info!("Adding sink");
         self.inner.sinks.lock().await.push(sink);
     }
 
@@ -47,9 +42,10 @@ where
         if self.is_closed() {
             return;
         }
-        self.inner.sinks.lock().await.retain(|sink| {
-            log::info!("Emitting state to sink");
-            sink.add(state.clone()).is_ok()
-        });
+        self.inner
+            .sinks
+            .lock()
+            .await
+            .retain(|sink| sink.add(state.clone()).is_ok());
     }
 }
