@@ -92,13 +92,11 @@ impl ConversationDetailsCubitBase {
 
     #[frb(getter, sync)]
     pub fn state(&self) -> ConversationDetailsState {
-        log::info!("ConversationDetailsCubitBase::state");
         // Note: don't lock too long, this is the UI thread
         self.shared.state.blocking_read().clone()
     }
 
     pub async fn stream(&mut self, sink: StreamSink<ConversationDetailsState>) {
-        log::info!("ConversationDetailsCubitBase::stream");
         self.shared.sinks.push(sink).await;
     }
 
@@ -157,12 +155,6 @@ impl ConversationDetailsCubitBase {
             }
             Some(UiConversationType::Group) | None => Ok(None),
         }
-    }
-}
-
-impl Drop for ConversationDetailsCubitBase {
-    fn drop(&mut self) {
-        log::info!("ConversationDetailsCubitBase::drop");
     }
 }
 
