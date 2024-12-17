@@ -4,19 +4,19 @@
 
 use std::sync::Arc;
 
-use anyhow::bail;
 use flutter_rust_bridge::frb;
-use log::error;
+use log::{error, warn};
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 use tokio_util::sync::{CancellationToken, DropGuard};
 
 use crate::util::{spawn_from_sync, SharedCubitSinks};
 use crate::StreamSink;
 
 use super::conversations::converation_into_ui_details;
+use super::messages::{FetchedMessages, FetchedMessagesReceiver};
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
 
@@ -39,36 +39,17 @@ impl ConversationDetailsCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
         let core_user = user_cubit.core_user.clone();
-        let shared = Shared::new(core_user.clone());
+        let shared = Shared::new(core_user.clone(), conversation_id);
         let cancel = CancellationToken::new();
 
         // background task to load the conversation details and listen to changes
         spawn_from_sync({
             let shared = shared.clone();
             let cancel = cancel.clone();
+            let rx = user_cubit.subscribe_to_fetched_messages();
             async move {
-                if let Some(details) =
-                    get_conversation_details_by_id(&shared.core_user, conversation_id).await
-                {
-                    let members = members_of_conversation(&shared.core_user, conversation_id)
-                        .await
-                        .inspect_err(|error| error!("Error when fetching members: {error}"))
-                        .unwrap_or_default();
-                    let new_state = ConversationDetailsState {
-                        conversation: Some(details),
-                        members,
-                    };
-                    shared
-                        .emit(|state| {
-                            *state = new_state;
-                            Some(())
-                        })
-                        .await;
-                }
-
-                // TODO: Subscribe to changes from the store/server/websocket
-                // <https://github.com/phnx-im/infra/issues/254>
-                let _cancel = cancel;
+                shared.load_ui_conversation_details().await;
+                shared.process_fetched_messages(rx, cancel).await;
             }
         });
 
@@ -103,22 +84,11 @@ impl ConversationDetailsCubitBase {
     // Cubit methods
 
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        let conversation_id = self
-            .shared
-            .state
-            .read()
-            .await
-            .conversation
-            .as_ref()
-            .map(|c| c.id);
-        let Some(conversation_id) = conversation_id else {
-            bail!("conversation not found");
-        };
+        let conversation_id = self.shared.conversation_id;
         self.shared
             .core_user
             .set_conversation_picture(conversation_id, bytes.clone())
             .await?;
-
         self.shared
             .emit(|state| {
                 let conversation = state.conversation.as_mut()?;
@@ -126,7 +96,6 @@ impl ConversationDetailsCubitBase {
                 Some(())
             })
             .await;
-
         Ok(())
     }
 
@@ -158,17 +127,20 @@ impl ConversationDetailsCubitBase {
     }
 }
 
+/// Shared state between the UI thread and background tasks of the conversation details cubit
 #[frb(ignore)]
 #[derive(Clone)]
 struct Shared {
+    conversation_id: ConversationId,
     state: Arc<RwLock<ConversationDetailsState>>,
     sinks: SharedCubitSinks<ConversationDetailsState>,
     core_user: CoreUser,
 }
 
 impl Shared {
-    fn new(core_user: CoreUser) -> Self {
+    fn new(core_user: CoreUser, conversation_id: ConversationId) -> Self {
         Self {
+            conversation_id,
             state: State::default(),
             sinks: SharedCubitSinks::default(),
             core_user,
@@ -186,25 +158,79 @@ impl Shared {
         };
         self.sinks.emit(new_state).await;
     }
-}
 
-async fn get_conversation_details_by_id(
-    core_user: &CoreUser,
-    conversation_id: ConversationId,
-) -> Option<UiConversationDetails> {
-    let conversation = core_user.conversation(&conversation_id).await?;
-    Some(converation_into_ui_details(core_user, conversation).await)
-}
+    /// Loads and emits the conversation details
+    async fn load_ui_conversation_details(&self) {
+        let Some(details) = self.load_conversation_details().await else {
+            return;
+        };
+        let members = self
+            .members_of_conversation()
+            .await
+            .inspect_err(|error| error!("Error when fetching members: {error}"))
+            .unwrap_or_default();
+        let new_state = ConversationDetailsState {
+            conversation: Some(details),
+            members,
+        };
+        self.emit(|state| {
+            *state = new_state;
+            Some(())
+        })
+        .await;
+    }
 
-async fn members_of_conversation(
-    core_user: &CoreUser,
-    conversation_id: ConversationId,
-) -> anyhow::Result<Vec<String>> {
-    Ok(core_user
-        .conversation_participants(conversation_id)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|c| c.to_string())
-        .collect())
+    async fn load_conversation_details(&self) -> Option<UiConversationDetails> {
+        let conversation = self.core_user.conversation(&self.conversation_id).await?;
+        Some(converation_into_ui_details(&self.core_user, conversation).await)
+    }
+
+    async fn members_of_conversation(&self) -> anyhow::Result<Vec<String>> {
+        Ok(self
+            .core_user
+            .conversation_participants(self.conversation_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| c.to_string())
+            .collect())
+    }
+
+    /// Returns only when `stop` is cancelled
+    async fn process_fetched_messages(
+        &self,
+        mut fetched_messages_rx: FetchedMessagesReceiver,
+        stop: CancellationToken,
+    ) {
+        loop {
+            let res = tokio::select! {
+                res = fetched_messages_rx.recv() => res,
+                _ = stop.cancelled() => return,
+            };
+            match res {
+                Ok(fetched_messages) => self.handle_fetched_messages(&fetched_messages).await,
+                Err(broadcast::error::RecvError::Closed) => return,
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    warn!("fetched messages lagged {n} messages");
+                }
+            }
+        }
+    }
+
+    async fn handle_fetched_messages(
+        &self,
+        FetchedMessages {
+            new_conversations: _,
+            changed_conversations,
+            new_messages: _,
+            notifications_content: _,
+        }: &FetchedMessages,
+    ) {
+        if changed_conversations
+            .iter()
+            .any(|&id| id == self.conversation_id)
+        {
+            self.load_ui_conversation_details().await;
+        }
+    }
 }
