@@ -2,25 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
-
-use anyhow::bail;
 use flutter_rust_bridge::frb;
 use log::error;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
 
-use crate::util::{spawn_from_sync, SharedCubitSinks};
+use crate::util::spawn_from_sync;
 use crate::StreamSink;
 
 use super::conversations::converation_into_ui_details;
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
-
-type State = Arc<RwLock<ConversationDetailsState>>;
 
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
@@ -31,114 +26,84 @@ pub struct ConversationDetailsState {
 
 #[frb(opaque)]
 pub struct ConversationDetailsCubitBase {
-    shared: Shared,
-    _background_task_cancel: DropGuard,
+    conversation_id: ConversationId,
+    state_tx: watch::Sender<ConversationDetailsState>,
+    sinks_tx: mpsc::Sender<StreamSink<ConversationDetailsState>>,
+    core_user: CoreUser,
+    background_tasks_cancel: Option<DropGuard>,
 }
 
 impl ConversationDetailsCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
         let core_user = user_cubit.core_user.clone();
-        let shared = Shared::new(core_user.clone());
         let cancel = CancellationToken::new();
 
-        // background task to load the conversation details and listen to changes
-        spawn_from_sync({
-            let shared = shared.clone();
-            let cancel = cancel.clone();
-            async move {
-                if let Some(details) =
-                    get_conversation_details_by_id(&shared.core_user, conversation_id).await
-                {
-                    let members = members_of_conversation(&shared.core_user, conversation_id)
-                        .await
-                        .inspect_err(|error| error!("Error when fetching members: {error}"))
-                        .unwrap_or_default();
-                    let new_state = ConversationDetailsState {
-                        conversation: Some(details),
-                        members,
-                    };
-                    shared
-                        .emit(|state| {
-                            *state = new_state;
-                            Some(())
-                        })
-                        .await;
-                }
+        let (state_tx, state_rx) = watch::channel(ConversationDetailsState::default());
+        let (sinks_tx, sinks_rx) = mpsc::channel(16);
 
-                // TODO: Subscribe to changes from the store/server/websocket
-                // <https://github.com/phnx-im/infra/issues/254>
-                let _cancel = cancel;
-            }
-        });
+        spawn_from_sync(emitter_loop(state_rx, sinks_rx, cancel.clone()));
+
+        spawn_from_sync(load_conversation_and_listen(
+            core_user.clone(),
+            state_tx.clone(),
+            cancel.clone(),
+            conversation_id,
+        ));
 
         Self {
-            shared,
-            _background_task_cancel: cancel.drop_guard(),
+            conversation_id,
+            state_tx,
+            sinks_tx,
+            core_user,
+            background_tasks_cancel: Some(cancel.drop_guard()),
         }
     }
 
     // Cubit interface
 
     pub fn close(&mut self) {
-        self.shared.sinks.close();
+        self.background_tasks_cancel.take();
     }
 
     #[frb(getter, sync)]
     pub fn is_closed(&self) -> bool {
-        // Note: don't lock too long, this is the UI thread
-        self.is_closed()
+        self.background_tasks_cancel.is_none()
     }
 
     #[frb(getter, sync)]
     pub fn state(&self) -> ConversationDetailsState {
-        log::info!("ConversationDetailsCubitBase::state");
-        // Note: don't lock too long, this is the UI thread
-        self.shared.state.blocking_read().clone()
+        self.state_tx.borrow().clone()
     }
 
     pub async fn stream(&mut self, sink: StreamSink<ConversationDetailsState>) {
-        log::info!("ConversationDetailsCubitBase::stream");
-        self.shared.sinks.push(sink).await;
+        if self.sinks_tx.send(sink).await.is_err() {
+            self.close();
+        }
     }
 
     // Cubit methods
 
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        let conversation_id = self
-            .shared
-            .state
-            .read()
-            .await
-            .conversation
-            .as_ref()
-            .map(|c| c.id);
-        let Some(conversation_id) = conversation_id else {
-            bail!("conversation not found");
-        };
-        self.shared
-            .core_user
-            .set_conversation_picture(conversation_id, bytes.clone())
+        self.core_user
+            .set_conversation_picture(self.conversation_id, bytes.clone())
             .await?;
-
-        self.shared
-            .emit(|state| {
-                let conversation = state.conversation.as_mut()?;
-                conversation.attributes.conversation_picture_option = bytes;
-                Some(())
-            })
-            .await;
-
+        self.state_tx
+            .send_if_modified(|state| match state.conversation.as_mut() {
+                Some(conversation) => {
+                    conversation.attributes.conversation_picture_option = bytes;
+                    true
+                }
+                None => false,
+            });
         Ok(())
     }
 
-    /// User profile of the conversation (only for non-group conversations)
+    /// Load user profile of the conversation (only for non-group conversations)
     pub async fn load_conversation_user_profile(&self) -> anyhow::Result<Option<UiUserProfile>> {
         let conversation_type = self
-            .shared
-            .state
-            .read()
-            .await
+            .state_tx
+            .borrow()
             .conversation
             .as_ref()
             .map(|c| c.conversation_type.clone());
@@ -148,11 +113,7 @@ impl ConversationDetailsCubitBase {
                 | UiConversationType::Connection(username),
             ) => {
                 let qualified_username = SafeTryInto::try_into(username)?;
-                let profile = self
-                    .shared
-                    .core_user
-                    .user_profile(&qualified_username)
-                    .await?;
+                let profile = self.core_user.user_profile(&qualified_username).await?;
                 Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
             }
             Some(UiConversationType::Group) | None => Ok(None),
@@ -160,40 +121,29 @@ impl ConversationDetailsCubitBase {
     }
 }
 
-impl Drop for ConversationDetailsCubitBase {
-    fn drop(&mut self) {
-        log::info!("ConversationDetailsCubitBase::drop");
-    }
-}
-
-#[frb(ignore)]
-#[derive(Clone)]
-struct Shared {
-    state: Arc<RwLock<ConversationDetailsState>>,
-    sinks: SharedCubitSinks<ConversationDetailsState>,
+async fn load_conversation_and_listen(
     core_user: CoreUser,
-}
-
-impl Shared {
-    fn new(core_user: CoreUser) -> Self {
-        Self {
-            state: State::default(),
-            sinks: SharedCubitSinks::default(),
-            core_user,
+    state_tx: watch::Sender<ConversationDetailsState>,
+    stop: CancellationToken,
+    conversation_id: ConversationId,
+) {
+    if let Some(details) = get_conversation_details_by_id(&core_user, conversation_id).await {
+        let members = members_of_conversation(&core_user, conversation_id)
+            .await
+            .inspect_err(|error| error!("Error when fetching members: {error}"))
+            .unwrap_or_default();
+        let new_state = ConversationDetailsState {
+            conversation: Some(details),
+            members,
+        };
+        if state_tx.send(new_state).is_err() {
+            return;
         }
     }
 
-    /// Updates the state and emits it to the sinks if the `update` function returned `Some`
-    async fn emit(&self, update: impl FnOnce(&mut ConversationDetailsState) -> Option<()>) {
-        let new_state = {
-            let mut state = self.state.write().await;
-            if update(&mut state).is_none() {
-                return;
-            }
-            state.clone()
-        };
-        self.sinks.emit(new_state).await;
-    }
+    // TODO: Subscribe to changes from the store/server/websocket
+    // <https://github.com/phnx-im/infra/issues/254>
+    let _stop = stop;
 }
 
 async fn get_conversation_details_by_id(
@@ -215,4 +165,30 @@ async fn members_of_conversation(
         .into_iter()
         .map(|c| c.to_string())
         .collect())
+}
+
+async fn emitter_loop(
+    mut state_rx: watch::Receiver<ConversationDetailsState>,
+    mut sinks_rx: mpsc::Receiver<StreamSink<ConversationDetailsState>>,
+    stop: CancellationToken,
+) {
+    let mut sinks = Vec::new();
+    loop {
+        tokio::select! {
+            sink = sinks_rx.recv() => {
+                let Some(sink) = sink else { return };
+                sinks.push(sink);
+            },
+            changed = state_rx.changed() => {
+                if changed.is_err() {
+                    return;
+                };
+                let state = state_rx.borrow().clone();
+                sinks.retain(|sink| sink.add(state.clone()).is_ok());
+            },
+            _ = stop.cancelled() => {
+                return;
+            }
+        }
+    }
 }
