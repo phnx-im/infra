@@ -3,11 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_list_pane/create_view.dart';
-import 'package:prototype/core_client.dart';
+import 'package:logging/logging.dart';
+import 'package:prototype/main.dart';
+import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
-import '../main.dart';
-import '../styles.dart';
+import 'conversation_list_cubit.dart';
+import 'create_view.dart';
+
+final _log = Logger("ConversationListFooter");
 
 class ConversationListFooter extends StatelessWidget {
   const ConversationListFooter({
@@ -16,7 +20,6 @@ class ConversationListFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coreClient = context.coreClient;
     return Container(
       alignment: AlignmentDirectional.topStart,
       padding: const EdgeInsets.fromLTRB(15, 15, 15, 30),
@@ -31,6 +34,8 @@ class ConversationListFooter extends StatelessWidget {
               size: 20,
             ),
             onPressed: () async {
+              final conversationListCubit =
+                  context.read<ConversationListCubit>();
               String connectionUsername = await showDialog(
                 context: context,
                 builder: (BuildContext context) => CreateView(
@@ -42,7 +47,9 @@ class ConversationListFooter extends StatelessWidget {
               );
               if (connectionUsername.isNotEmpty) {
                 try {
-                  await coreClient.createConnection(connectionUsername);
+                  await conversationListCubit.createConnection(
+                    userName: connectionUsername,
+                  );
                 } catch (e) {
                   if (context.mounted) {
                     showErrorBanner(
@@ -62,6 +69,8 @@ class ConversationListFooter extends StatelessWidget {
               size: 20,
             ),
             onPressed: () async {
+              final conversationListCubit =
+                  context.read<ConversationListCubit>();
               String newGroup = await showDialog(
                   context: context,
                   builder: (BuildContext context) => CreateView(
@@ -71,8 +80,10 @@ class ConversationListFooter extends StatelessWidget {
                       "CONVERSATION NAME",
                       "Create conversation"));
               if (newGroup.isNotEmpty) {
-                await coreClient.createConversation(newGroup);
-                print('A new group was created: $newGroup');
+                await conversationListCubit.createConversation(
+                  groupName: newGroup,
+                );
+                _log.info('A new group was created: $newGroup');
               }
             },
             label: const Text('New conversation'),

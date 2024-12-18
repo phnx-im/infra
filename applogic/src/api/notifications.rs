@@ -6,6 +6,7 @@ pub(crate) use phnxcoreclient::{ConversationId, ConversationMessage};
 
 use crate::api::user::User;
 
+#[derive(Debug)]
 pub(crate) struct LocalNotificationContent {
     pub(crate) title: String,
     pub(crate) body: String,

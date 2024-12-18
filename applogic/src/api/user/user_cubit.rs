@@ -148,6 +148,10 @@ impl UserCubitBase {
         self.fetched_messages_tx.subscribe()
     }
 
+    pub(crate) fn fetched_messages_tx(&self) -> &FetchedMessagesBroadcast {
+        &self.fetched_messages_tx
+    }
+
     async fn emit(&mut self, state: UiUser) {
         *self.state.write().await = state.clone();
         if let Some(sinks) = &mut self.sinks {

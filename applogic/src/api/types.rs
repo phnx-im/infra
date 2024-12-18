@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt;
+
 use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 pub use phnxcoreclient::ConversationId;
@@ -125,10 +127,22 @@ impl From<ConversationType> for UiConversationType {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
     pub title: String,
     pub conversation_picture_option: Option<Vec<u8>>,
+}
+
+impl fmt::Debug for UiConversationAttributes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UiConversationAttributes")
+            .field("title", &self.title)
+            .field(
+                "conversation_picture_option",
+                &self.conversation_picture_option.as_ref().map(|b| b.len()),
+            )
+            .finish()
+    }
 }
 
 impl From<ConversationAttributes> for UiConversationAttributes {

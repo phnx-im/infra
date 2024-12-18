@@ -41,7 +41,7 @@ class GroupDetails extends StatelessWidget {
                 size: 64,
                 image: conversation.attributes.conversationPictureOption,
                 username: conversation.username,
-                cacheTag: conversation.id.avatarCacheTag,
+                cacheTag: conversation.avatarCacheTag,
                 onPressed: () async {
                   final conversationDetailsCubit =
                       context.read<ConversationDetailsCubit>();

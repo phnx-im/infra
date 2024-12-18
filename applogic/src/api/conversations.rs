@@ -36,10 +36,6 @@ impl User {
         conversation_details
     }
 
-    pub async fn create_conversation(&self, name: String) -> Result<ConversationId> {
-        self.user.create_conversation(&name, None).await
-    }
-
     pub async fn add_users_to_conversation(
         &self,
         conversation_id: ConversationId,
