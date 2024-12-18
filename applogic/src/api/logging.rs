@@ -9,7 +9,6 @@ use crate::StreamSink;
 pub struct LogEntry {
     pub time: DateTime<Utc>,
     pub level: LogEntryLevel,
-    pub tag: String,
     pub target: String,
     pub msg: String,
 }
@@ -34,6 +33,7 @@ impl From<tracing::Level> for LogEntryLevel {
     }
 }
 
-pub fn create_log_stream(s: StreamSink<LogEntry>) {
-    crate::logging::dart::set_stream_sink(s)
+pub fn create_log_stream(_s: StreamSink<LogEntry>) {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    crate::logging::dart::set_stream_sink(_s)
 }

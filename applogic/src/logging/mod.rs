@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub(crate) mod dart;
 
 use std::sync::Once;
@@ -34,7 +35,7 @@ fn do_init_logger() -> Result<(), TryInitError> {
     #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         registry()
-            .with(dart::layer("phnx").with_filter(env_filter))
+            .with(dart::layer().with_filter(env_filter))
             .try_init()?;
     }
 

@@ -20,12 +20,12 @@ static DART_SINK: LazyLock<RwLock<Option<StreamSink<LogEntry>>>> =
     LazyLock::new(|| RwLock::new(None));
 
 /// Tracing layer which forwards logs to the Dart side
-pub(super) fn layer<S>(tag: &'static str) -> impl Layer<S>
+pub(super) fn layer<S>() -> impl Layer<S>
 where
     S: Subscriber,
     for<'span> S: LookupSpan<'span>,
 {
-    SendToDartLayer { tag }
+    SendToDartLayer {}
 }
 
 pub(crate) fn set_stream_sink(stream_sink: StreamSink<LogEntry>) {
@@ -44,9 +44,7 @@ pub(crate) fn set_stream_sink(stream_sink: StreamSink<LogEntry>) {
     }
 }
 
-struct SendToDartLayer {
-    tag: &'static str,
-}
+struct SendToDartLayer {}
 
 impl SendToDartLayer {
     fn log(&self, level: tracing::Level, target: String, logline: String) {
@@ -54,7 +52,6 @@ impl SendToDartLayer {
         let entry = LogEntry {
             time,
             level: level.into(),
-            tag: self.tag.to_string(),
             target,
             msg: logline,
         };
