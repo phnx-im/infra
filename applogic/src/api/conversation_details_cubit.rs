@@ -154,7 +154,6 @@ impl BackgroundTaskContext {
             .await;
     }
 
-    /// Loads and emits the state
     async fn load_and_emit_state(&self) -> Option<()> {
         let details = self.load_conversation_details().await?;
         let members = self
