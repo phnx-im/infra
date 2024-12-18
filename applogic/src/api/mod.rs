@@ -5,6 +5,7 @@
 use flutter_rust_bridge::frb;
 use mobile_logging::init_logger;
 
+pub mod conversation_details_cubit;
 pub mod conversations;
 pub mod messages;
 pub mod mobile_logging;

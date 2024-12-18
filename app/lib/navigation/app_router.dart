@@ -178,7 +178,7 @@ extension on HomeNavigation {
       if (conversationId != null && conversationDetailsOpen)
         const MaterialPage(
           key: ValueKey("conversation-details-screen"),
-          child: ConversationDetails(),
+          child: ConversationDetailsContainer(),
         ),
       if (conversationId != null &&
           conversationDetailsOpen &&

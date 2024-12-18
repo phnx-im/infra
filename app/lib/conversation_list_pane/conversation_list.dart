@@ -114,7 +114,7 @@ class _ConversationListState extends State<ConversationList> {
     final conversation = _conversations[index];
     return UserAvatar(
       size: 48,
-      cacheTag: "conv:${conversation.id}",
+      cacheTag: conversation.id.avatarCacheTag,
       image: conversation.attributes.conversationPictureOption,
       username: conversation.username,
     );

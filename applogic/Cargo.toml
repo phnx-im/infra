@@ -38,3 +38,4 @@ jni = "0.21"
 
 # Workspace dependencies
 openmls = { workspace = true }
+tokio-util = "0.7.13"

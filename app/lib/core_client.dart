@@ -266,10 +266,6 @@ class CoreClient {
     );
   }
 
-  Future<List<String>> getMembers(ConversationId conversationId) async {
-    return await user.membersOfConversation(conversationId: conversationId);
-  }
-
   Future<void> addUserToConversation(
       ConversationId conversationId, String userName) async {
     await user.addUsersToConversation(

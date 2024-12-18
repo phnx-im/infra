@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{anyhow, Result};
-use phnxcoreclient::{Conversation, ConversationId};
+use phnxcoreclient::{clients::CoreUser, Conversation, ConversationId};
 use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 
 use crate::notifier::dispatch_message_notifications;
@@ -25,56 +25,19 @@ impl User {
     }
 
     pub async fn get_conversation_details(&self) -> Vec<UiConversationDetails> {
-        let conversations = self
-            .user
-            .conversations()
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .collect::<Vec<Conversation>>();
+        let conversations = self.user.conversations().await.unwrap_or_default();
         let mut conversation_details = Vec::with_capacity(conversations.len());
         for conversation in conversations {
-            let unread_messages = self.user.unread_messages_count(conversation.id()).await;
-            let last_message = self
-                .user
-                .last_message(conversation.id())
-                .await
-                .map(|m| m.into());
-            let last_used = last_message
-                .as_ref()
-                .map(|m: &UiConversationMessage| m.timestamp.clone())
-                .unwrap_or_default(); // default is UNIX_EPOCH
-
-            let conversation = UiConversation::from(conversation);
-            conversation_details.push(UiConversationDetails {
-                id: conversation.id,
-                group_id: conversation.group_id,
-                status: conversation.status,
-                conversation_type: conversation.conversation_type,
-                last_used,
-                attributes: conversation.attributes,
-                unread_messages,
-                last_message,
-            });
-            // Sort the conversations by last used timestamp in descending order
-            conversation_details.sort_by(|a, b| b.last_used.cmp(&a.last_used));
+            let details = converation_into_ui_details(&self.user, conversation).await;
+            conversation_details.push(details);
         }
+        // Sort the conversations by last used timestamp in descending order
+        conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
         conversation_details
     }
 
     pub async fn create_conversation(&self, name: String) -> Result<ConversationId> {
         self.user.create_conversation(&name, None).await
-    }
-
-    pub async fn set_conversation_picture(
-        &self,
-        conversation_id: ConversationId,
-        conversation_picture: Option<Vec<u8>>,
-    ) -> Result<()> {
-        self.user
-            .set_conversation_picture(conversation_id, conversation_picture)
-            .await?;
-        Ok(())
     }
 
     pub async fn add_users_to_conversation(
@@ -115,20 +78,6 @@ impl User {
         Ok(())
     }
 
-    pub async fn members_of_conversation(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Result<Vec<String>> {
-        Ok(self
-            .user
-            .conversation_participants(conversation_id)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .map(|c| c.to_string())
-            .collect())
-    }
-
     /// Get a list of contacts to be added to the conversation with the given
     /// [`phnxcoreclient::ConversationId`].
     pub async fn member_candidates(
@@ -154,5 +103,32 @@ impl User {
             })
             .collect::<Vec<_>>();
         Ok(add_candidates)
+    }
+}
+
+/// Loads additional details for a conversation and converts it into a
+/// [`UiConversationDetails`]
+pub(crate) async fn converation_into_ui_details(
+    user: &CoreUser,
+    conversation: Conversation,
+) -> UiConversationDetails {
+    let unread_messages = user.unread_messages_count(conversation.id()).await;
+    let last_message = user.last_message(conversation.id()).await.map(|m| m.into());
+    let last_used = last_message
+        .as_ref()
+        .map(|m: &UiConversationMessage| m.timestamp.clone())
+        .unwrap_or_default();
+    // default is UNIX_EPOCH
+
+    let conversation = UiConversation::from(conversation);
+    UiConversationDetails {
+        id: conversation.id,
+        group_id: conversation.group_id,
+        status: conversation.status,
+        conversation_type: conversation.conversation_type,
+        last_used,
+        attributes: conversation.attributes,
+        unread_messages,
+        last_message,
     }
 }

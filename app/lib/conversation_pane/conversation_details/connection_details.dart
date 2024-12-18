@@ -2,45 +2,48 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// New widget that shows conversation details
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
+import 'package:provider/provider.dart';
 
-// Constant for padding between the elements
-const double _padding = 32;
+import 'conversation_details_cubit.dart';
 
+// Details of a 1:1 connection
 class ConnectionDetails extends StatelessWidget {
-  final UiConversationDetails conversation;
-
-  const ConnectionDetails({super.key, required this.conversation});
+  const ConnectionDetails({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final coreClient = context.coreClient;
+    final conversation = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.conversation,
+    );
+
+    if (conversation == null) {
+      return const SizedBox.shrink();
+    }
+
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
+        spacing: Spacings.l,
         children: [
-          const SizedBox(height: _padding),
+          const SizedBox(height: Spacings.l),
           FutureUserAvatar(
             size: 64,
-            profile: () => conversation.userProfile(coreClient),
+            profile: () => context
+                .read<ConversationDetailsCubit>()
+                .loadConversationUserProfile(),
           ),
-          const SizedBox(height: _padding),
           Text(
             conversation.title,
             style: labelStyle,
           ),
-          const SizedBox(height: _padding),
           Text(
             conversation.conversationType.description,
             style: labelStyle,
           ),
-          const SizedBox(height: _padding),
         ],
       ),
     );
