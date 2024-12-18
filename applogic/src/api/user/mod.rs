@@ -12,6 +12,7 @@ use phnxtypes::{
     identifiers::{QualifiedUserName, SafeTryInto},
     messages::{client_ds::QsWsMessage, push_token::PushTokenOperator},
 };
+use tracing::error;
 
 use crate::{
     api::types::UiNotificationType,
@@ -97,7 +98,7 @@ impl User {
         .await?;
 
         if let Err(error) = CoreUser::set_own_user_profile(&user, user_profile).await {
-            log::error!("Could not set own user profile: {:?}", error);
+            error!(%error, "Could not set own user profile");
         }
 
         Ok(Self {

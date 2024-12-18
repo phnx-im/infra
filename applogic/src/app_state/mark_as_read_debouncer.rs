@@ -10,6 +10,7 @@ use tokio::{sync::Mutex, time::sleep};
 use phnxcoreclient::{clients::CoreUser, ConversationId};
 
 use anyhow::{anyhow, Result};
+use tracing::error;
 
 /// The default duration (in milliseconds) it takes for the process to mark all
 /// messages as read.
@@ -186,11 +187,11 @@ async fn debouncing_timer(
         // If the duration has reached zero, we mark the messages as read
         // and remove the debouncer state.
         if debouncer_state.duration == 0 {
-            if let Err(e) = user
+            if let Err(error) = user
                 .mark_as_read(debouncer_state.conversation_timestamps.clone())
                 .await
             {
-                log::error!("Failed to mark messages as read: {}", e);
+                error!(%error, "Failed to mark messages as read");
             };
             debouncer_state_option.take();
             return;
