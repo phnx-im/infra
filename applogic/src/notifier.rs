@@ -100,7 +100,7 @@ pub(crate) fn init_desktop_os_notifications() -> Result<(), notify_rust::error::
     {
         let res = notify_rust::set_application("im.phnx.prototype");
         if res.is_err() {
-            log::warn!("Could not set application for desktop notifications");
+            tracing::warn!("Could not set application for desktop notifications");
         }
     }
 
@@ -112,12 +112,12 @@ pub(crate) fn show_desktop_notifications(
     notifications: &[crate::api::notifications::LocalNotificationContent],
 ) {
     for notification in notifications {
-        if let Err(e) = Notification::new()
+        if let Err(error) = Notification::new()
             .summary(notification.title.as_str())
             .body(notification.body.as_str())
             .show()
         {
-            log::error!("Failed to send desktop notification: {}", e);
+            tracing::error!(%error, "Failed to send desktop notification");
         }
     }
 }

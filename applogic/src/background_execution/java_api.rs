@@ -8,9 +8,7 @@ use jni::{
     JNIEnv,
 };
 
-use crate::{
-    api::mobile_logging::init_logger, background_execution::processing::retrieve_messages_sync,
-};
+use crate::{background_execution::processing::retrieve_messages_sync, logging::init_logger};
 
 use super::IncomingNotificationContent;
 
