@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/core_extension.dart';
@@ -16,129 +15,229 @@ import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
-class ConversationList extends StatefulWidget {
+import 'conversation_list_cubit.dart';
+
+final _log = Logger("ConversationList");
+
+class ConversationList extends StatelessWidget {
   const ConversationList({super.key});
 
   @override
-  State<ConversationList> createState() => _ConversationListState();
+  Widget build(BuildContext context) {
+    final conversations = context
+        .select((ConversationListCubit cubit) => cubit.state.conversations);
+
+    if (conversations.isEmpty) {
+      return const _NoConversations();
+    }
+
+    return ListView.builder(
+      itemCount: conversations.length,
+      physics: const BouncingScrollPhysics().applyTo(
+        const AlwaysScrollableScrollPhysics(),
+      ),
+      itemBuilder: (BuildContext context, int index) {
+        return _ListTile(conversation: conversations[index]);
+      },
+    );
+  }
 }
 
-class _ConversationListState extends State<ConversationList> {
-  _ConversationListState();
-
-  late List<UiConversationDetails> _conversations;
-  UiConversationDetails? _currentConversation;
-  late final StreamSubscription<ConversationId> _conversationListUpdateListener;
-  late final StreamSubscription<UiConversationDetails>
-      _conversationSwitchListener;
-  final ScrollController _scrollController = ScrollController();
-
-  static const double _topBaseline = 12;
+class _NoConversations extends StatelessWidget {
+  const _NoConversations();
 
   @override
-  void initState() {
-    super.initState();
-
-    final coreClient = context.coreClient;
-    _conversations = coreClient.conversationsList;
-    _currentConversation = coreClient.currentConversation;
-    _conversationListUpdateListener = coreClient.onConversationListUpdate
-        .listen(conversationListUpdateListener);
-
-    final navigationCubit = context.read<NavigationCubit>();
-    _conversationSwitchListener = coreClient.onConversationSwitch.listen(
-      (conversationDetails) =>
-          conversationSwitchListener(navigationCubit, conversationDetails),
-    );
-
-    updateConversationList(coreClient);
-  }
-
-  @override
-  void dispose() {
-    _conversationListUpdateListener.cancel();
-    _conversationSwitchListener.cancel();
-    super.dispose();
-  }
-
-  void conversationSwitchListener(
-    NavigationCubit navigationCubit,
-    UiConversationDetails cc,
-  ) {
-    if (_currentConversation != null) {
-      if (_currentConversation!.id != cc.id) {
-        setState(() {
-          _currentConversation = cc;
-        });
-      }
-    } else {
-      _currentConversation = cc;
-    }
-    navigationCubit.openConversation(cc.id);
-  }
-
-  void selectConversation(
-    CoreClient coreClient,
-    ConversationId conversationId,
-  ) {
-    print("Tapped on conversation $conversationId");
-    coreClient.selectConversation(conversationId);
-    context.read<NavigationCubit>().openConversation(conversationId);
-  }
-
-  void conversationListUpdateListener(ConversationId uuid) async {
-    updateConversationList(context.coreClient);
-  }
-
-  void updateConversationList(CoreClient coreClient) async {
-    await coreClient.conversations().then((conversations) {
-      setState(() {
-        if (_currentConversation == null && conversations.isNotEmpty) {
-          coreClient.selectConversation(conversations[0].id);
-        }
-        _conversations = conversations;
-      });
-    });
-  }
-
-  Color? _selectionColor(int index) {
-    if (isLargeScreen(context) &&
-        _currentConversation != null &&
-        _currentConversation!.id == _conversations[index].id) {
-      return convPaneFocusColor;
-    }
-    return null;
-  }
-
-  Widget _userAvatar(int index) {
-    final conversation = _conversations[index];
-    return UserAvatar(
-      size: 48,
-      cacheTag: conversation.id.avatarCacheTag,
-      image: conversation.attributes.conversationPictureOption,
-      username: conversation.username,
-    );
-  }
-
-  Widget _convTitle(int index) {
-    return Baseline(
-      baseline: Spacings.s,
-      baselineType: TextBaseline.alphabetic,
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: AlignmentDirectional.center,
       child: Text(
-        _conversations[index].title,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: convListItemTextColor,
-          fontSize: 14,
-          fontVariations: variationSemiBold,
-          letterSpacing: -0.2,
+        'Create a new connection to get started',
+        style: TextStyle(
+          fontSize: isLargeScreen(context) ? 14 : 15,
+          fontWeight: FontWeight.normal,
+          color: Colors.black54,
         ),
       ),
     );
   }
+}
 
-  Widget _lastMessage(String userName, int index) {
-    final lastMessage = _conversations[index].lastMessage;
+class _ListTile extends StatelessWidget {
+  const _ListTile({required this.conversation});
+
+  final UiConversationDetails conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentConversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    return ListTile(
+      horizontalTitleGap: 0,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Spacings.xxs,
+        vertical: Spacings.xxxs,
+      ),
+      minVerticalPadding: 0,
+      title: Container(
+        alignment: AlignmentDirectional.topStart,
+        height: 74,
+        width: 300,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: _selectionColor(
+            context,
+            conversation.id,
+            currentConversationId,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            UserAvatar(
+              size: 48,
+              cacheTag: conversation.avatarCacheTag,
+              image: conversation.attributes.conversationPictureOption,
+              username: conversation.username,
+            ),
+            const SizedBox(width: Spacings.s),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  _ListTileTop(conversation: conversation),
+                  const SizedBox(height: 2),
+                  Expanded(child: _ListTileBottom(conversation: conversation)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      selected: _isConversationSelected(
+        conversation.id,
+        currentConversationId,
+        context,
+      ),
+      focusColor: convListItemSelectedColor,
+      onTap: () => _onSelectConversation(context, conversation.id),
+    );
+  }
+
+  void _onSelectConversation(
+    BuildContext context,
+    ConversationId conversationId,
+  ) {
+    _log.info("Tapped on conversation $conversationId");
+    context.read<CoreClient>().selectConversation(conversationId);
+    context.read<NavigationCubit>().openConversation(conversationId);
+  }
+
+  Color? _selectionColor(
+    BuildContext context,
+    ConversationId conversationId,
+    ConversationId? currentConversationId,
+  ) =>
+      isLargeScreen(context) && currentConversationId == conversationId
+          ? convPaneFocusColor
+          : null;
+}
+
+class _ListTileTop extends StatelessWidget {
+  const _ListTileTop({required this.conversation});
+
+  final UiConversationDetails conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(child: _ConversationTitle(title: conversation.title)),
+        const SizedBox(width: 8),
+        _LastUpdated(conversation: conversation),
+      ],
+    );
+  }
+}
+
+class _ListTileBottom extends StatelessWidget {
+  const _ListTileBottom({required this.conversation});
+
+  final UiConversationDetails conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final userName = context.select((UserCubit cubit) => cubit.state.userName);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _LastMessage(conversation: conversation, userName: userName),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Align(
+          alignment: Alignment.center,
+          child: _UnreadBadge(count: conversation.unreadMessages),
+        ),
+      ],
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({
+    required this.count,
+  });
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count < 1) {
+      return const SizedBox();
+    }
+    final badgeText = count <= 100 ? "$count" : "100+";
+    const double badgeSize = 20;
+    return Container(
+      alignment: AlignmentDirectional.center,
+      constraints: const BoxConstraints(minWidth: badgeSize),
+      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+      height: badgeSize,
+      decoration: BoxDecoration(
+        color: colorDMB,
+        borderRadius: BorderRadius.circular(badgeSize / 2),
+      ),
+      child: Text(
+        badgeText,
+        style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontVariations: variationSemiBold,
+            letterSpacing: 0),
+      ),
+    );
+  }
+}
+
+class _LastMessage extends StatelessWidget {
+  const _LastMessage({
+    required this.conversation,
+    required this.userName,
+  });
+
+  final UiConversationDetails conversation;
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) {
+    final lastMessage = conversation.lastMessage;
     final style = TextStyle(
       color: colorDMB,
       fontSize: isSmallScreen(context) ? 14 : 13,
@@ -147,7 +246,7 @@ class _ConversationListState extends State<ConversationList> {
       height: 1.2,
     );
 
-    final contentStyle = _conversations[index].unreadMessages > 0
+    final contentStyle = conversation.unreadMessages > 0
         ? style.copyWith(fontVariations: variationMedium)
         : style;
 
@@ -182,40 +281,20 @@ class _ConversationListState extends State<ConversationList> {
       ),
     );
   }
+}
 
-  Widget _unreadBadge(int index) {
-    final count = _conversations[index].unreadMessages;
-    if (count < 1) {
-      return const SizedBox();
-    }
-    final badgeText = count <= 100 ? "$count" : "100+";
-    const double badgeSize = 20;
-    return Container(
-      alignment: AlignmentDirectional.center,
-      constraints: const BoxConstraints(minWidth: badgeSize),
-      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
-      height: badgeSize,
-      decoration: BoxDecoration(
-        color: colorDMB,
-        borderRadius: BorderRadius.circular(badgeSize / 2),
-      ),
-      child: Text(
-        badgeText,
-        style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontVariations: variationSemiBold,
-            letterSpacing: 0),
-      ),
-    );
-  }
+class _LastUpdated extends StatelessWidget {
+  const _LastUpdated({required this.conversation});
 
-  Widget _lastUpdated(int index) {
+  final UiConversationDetails conversation;
+
+  @override
+  Widget build(BuildContext context) {
     return Baseline(
-      baseline: _topBaseline,
+      baseline: Spacings.xs,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        formatTimestamp(_conversations[index].lastUsed),
+        formatTimestamp(conversation.lastUsed),
         style: const TextStyle(
           color: colorDMB,
           fontSize: 11,
@@ -225,125 +304,42 @@ class _ConversationListState extends State<ConversationList> {
       ),
     );
   }
+}
 
-  Widget _topPart(int index) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(child: _convTitle(index)),
-        const SizedBox(width: 8),
-        _lastUpdated(index),
-      ],
-    );
-  }
+class _ConversationTitle extends StatelessWidget {
+  const _ConversationTitle({
+    required this.title,
+  });
 
-  Widget _bottomPart(String userName, int index) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: _lastMessage(userName, index),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Align(
-          alignment: Alignment.center,
-          child: _unreadBadge(index),
-        ),
-      ],
-    );
-  }
-
-  Widget _listTile(String userName, int index) {
-    return ListTile(
-      horizontalTitleGap: 0,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: Spacings.xxs,
-        vertical: Spacings.xxxs,
-      ),
-      minVerticalPadding: 0,
-      title: Container(
-        alignment: AlignmentDirectional.topStart,
-        height: 74,
-        width: 300,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: _selectionColor(index),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _userAvatar(index),
-            const SizedBox(width: Spacings.s),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  _topPart(index),
-                  const SizedBox(height: 2),
-                  Expanded(child: _bottomPart(userName, index)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      selected: isConversationSelected(
-          _currentConversation, _conversations[index], context),
-      focusColor: convListItemSelectedColor,
-      onTap: () => selectConversation(
-        context.coreClient,
-        _conversations[index].id,
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      alignment: AlignmentDirectional.center,
-      child: Text(
-        'Create a new connection to get started',
-        style: TextStyle(
-          fontSize: isLargeScreen(context) ? 14 : 15,
-          fontWeight: FontWeight.normal,
-          color: Colors.black54,
-        ),
-      ),
-    );
-  }
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.select((UserCubit cubit) => cubit.state.userName);
-
-    if (_conversations.isNotEmpty) {
-      return ListView.builder(
-        itemCount: _conversations.length,
-        physics: const BouncingScrollPhysics().applyTo(
-          const AlwaysScrollableScrollPhysics(),
+    return Baseline(
+      baseline: Spacings.s,
+      baselineType: TextBaseline.alphabetic,
+      child: Text(
+        title,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: convListItemTextColor,
+          fontSize: 14,
+          fontVariations: variationSemiBold,
+          letterSpacing: -0.2,
         ),
-        controller: _scrollController,
-        itemBuilder: (BuildContext context, int index) {
-          return _listTile(userName, index);
-        },
-      );
-    } else {
-      return _placeholder();
-    }
+      ),
+    );
   }
 }
 
-bool isConversationSelected(UiConversationDetails? currentConversation,
-    UiConversationDetails conversation, BuildContext context) {
-  if (isLargeScreen(context) && currentConversation != null) {
-    return currentConversation.id == conversation.id;
-  }
-  return false;
+bool _isConversationSelected(
+  ConversationId conversationId,
+  ConversationId? currentConversationId,
+  BuildContext context,
+) {
+  return isLargeScreen(context)
+      ? currentConversationId == conversationId
+      : false;
 }
 
 String formatTimestamp(String t, {DateTime? now}) {

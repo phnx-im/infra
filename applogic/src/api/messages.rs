@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, Message,
     MimiContent,
@@ -20,6 +21,8 @@ use super::{
     user::User,
 };
 
+#[frb(ignore)]
+#[derive(Debug, Default)]
 pub(crate) struct FetchedMessages {
     pub(crate) new_conversations: Vec<ConversationId>,
     pub(crate) changed_conversations: Vec<ConversationId>,

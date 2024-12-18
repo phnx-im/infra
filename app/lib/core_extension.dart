@@ -4,10 +4,6 @@
 
 import 'package:prototype/core/api/types.dart';
 
-extension ConversationIdExtension on ConversationId {
-  String get avatarCacheTag => 'conv:$this';
-}
-
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
   String get username => switch (conversationType) {
@@ -22,6 +18,9 @@ extension UiConversationDetailsExtension on UiConversationDetails {
         UiConversationType_Connection(field0: final e) => e,
         UiConversationType_Group() => attributes.title,
       };
+
+  String get avatarCacheTag =>
+      'conv:$id:${attributes.conversationPictureOption?.hashCode}';
 }
 
 extension UiConversationTypeExtension on UiConversationType {
