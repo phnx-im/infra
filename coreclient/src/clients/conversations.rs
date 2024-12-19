@@ -8,6 +8,7 @@ use phnxtypes::{codec::PhnxCodec, crypto::ear::EarEncryptable};
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     groups::Group,
+    ConversationMessageId,
 };
 
 use super::{ConversationId, CoreUser};
@@ -84,6 +85,14 @@ impl CoreUser {
         Ok(())
     }
 
+    pub(crate) async fn message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        ConversationMessage::load(connection, &message_id.to_uuid())
+    }
+
     pub async fn last_message(
         &self,
         conversation_id: ConversationId,
@@ -93,6 +102,14 @@ impl CoreUser {
             log::error!("Error while fetching last message: {:?}", e);
             None
         })
+    }
+
+    pub(crate) async fn try_last_message(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        ConversationMessage::last_content_message(connection, conversation_id)
     }
 
     pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {

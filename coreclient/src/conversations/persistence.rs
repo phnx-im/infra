@@ -131,36 +131,40 @@ impl Conversation {
     pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         transaction: &mut Transaction,
         mark_as_read_data: T,
-    ) -> Result<(), rusqlite::Error> {
-        for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
-            transaction.execute(
-                "UPDATE conversations 
-                 SET last_read = CASE 
-                                    WHEN last_read < :timestamp 
-                                    THEN :timestamp 
-                                    ELSE last_read 
-                                 END 
-                 WHERE conversation_id = :conversation_id",
-                named_params! {
-                    ":timestamp": timestamp,
-                    ":conversation_id": conversation_id,
-                },
-            )?;
-        }
-        Ok(())
+    ) -> Result<Vec<ConversationId>, rusqlite::Error> {
+        let mut stmt = transaction.prepare(
+            "UPDATE conversations
+                SET last_read = :timestamp
+                WHERE conversation_id = :conversation_id AND last_read < :timestamp
+                RETURNING conversation_id",
+        )?;
+        mark_as_read_data
+            .into_iter()
+            .filter_map(|(conversation_id, timestamp)| {
+                stmt.query_row(
+                    named_params! {
+                        ":timestamp": timestamp,
+                        ":conversation_id": conversation_id,
+                    },
+                    |row| row.get(0),
+                )
+                .optional()
+                .transpose()
+            })
+            .collect()
     }
 
     pub(crate) fn global_unread_message_count(
         connection: &Connection,
     ) -> Result<u32, rusqlite::Error> {
         connection.query_row(
-            "SELECT 
+            "SELECT
                 COUNT(cm.conversation_id) AS total_unread_messages
-            FROM 
+            FROM
                 conversations c
-            LEFT JOIN 
+            LEFT JOIN
                 conversation_messages cm
-            ON 
+            ON
                 c.conversation_id = cm.conversation_id
                 AND cm.sender != 'system'
                 AND cm.timestamp > c.last_read;",
@@ -174,20 +178,20 @@ impl Conversation {
         conversation_id: ConversationId,
     ) -> Result<u32, rusqlite::Error> {
         connection.query_row(
-            "SELECT 
-                    COUNT(*) 
-                FROM 
-                    conversation_messages 
-                WHERE 
-                    conversation_id = :conversation_id 
-                    AND sender != 'system' 
-                    AND timestamp > 
+            "SELECT
+                    COUNT(*)
+                FROM
+                    conversation_messages
+                WHERE
+                    conversation_id = :conversation_id
+                    AND sender != 'system'
+                    AND timestamp >
                     (
-                        SELECT 
-                            last_read 
-                        FROM 
-                            conversations 
-                        WHERE 
+                        SELECT
+                            last_read
+                        FROM
+                            conversations
+                        WHERE
                             conversation_id = :conversation_id
                     )",
             named_params! {":conversation_id": conversation_id},

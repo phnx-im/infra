@@ -227,7 +227,10 @@ impl ConversationMessage {
         conversation_id: ConversationId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT message_id, conversation_id, timestamp, sender, content, sent FROM conversation_messages WHERE conversation_id = ? AND sender != 'system' ORDER BY timestamp DESC LIMIT 1",
+            "SELECT message_id, conversation_id, timestamp, sender, content, sent
+            FROM conversation_messages
+            WHERE conversation_id = ? AND sender != 'system'
+            ORDER BY timestamp DESC LIMIT 1",
         )?;
         statement
             .query_row(params![conversation_id], Self::from_row)

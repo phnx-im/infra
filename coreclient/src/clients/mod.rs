@@ -52,7 +52,6 @@ use store::ClientRecord;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::mimi_content::MimiContent;
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -61,6 +60,7 @@ use crate::{
         Conversation, ConversationAttributes,
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
+    store::StoreNotification,
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
@@ -72,6 +72,7 @@ use crate::{
     Asset,
 };
 use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
+use crate::{mimi_content::MimiContent, store::StoreNotificationsSender};
 use crate::{
     utils::persistence::{SqliteConnection, Storable},
     Message,
@@ -99,15 +100,16 @@ pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Clone)]
 pub struct CoreUser {
-    inner: Arc<CoreUserInner>,
+    pub(crate) inner: Arc<CoreUserInner>,
 }
 
-struct CoreUserInner {
-    connection: SqliteConnection,
-    api_clients: ApiClients,
-    _qs_user_id: QsUserId,
-    qs_client_id: QsClientId,
-    key_store: MemoryUserKeyStore,
+pub(crate) struct CoreUserInner {
+    pub(crate) connection: SqliteConnection,
+    pub(crate) api_clients: ApiClients,
+    pub(crate) _qs_user_id: QsUserId,
+    pub(crate) qs_client_id: QsClientId,
+    pub(crate) key_store: MemoryUserKeyStore,
+    pub(crate) store_notifications_tx: StoreNotificationsSender,
 }
 
 impl CoreUser {
@@ -254,6 +256,10 @@ impl CoreUser {
         let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
 
         Ok(Some(self_user))
+    }
+
+    pub(crate) fn notify(&self, notification: impl Into<Arc<StoreNotification>>) {
+        self.inner.store_notifications_tx.notify(notification);
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
@@ -1024,6 +1030,14 @@ impl CoreUser {
         Contact::load(connection, user_name).ok().flatten()
     }
 
+    pub async fn try_contact(
+        &self,
+        user_name: &QualifiedUserName,
+    ) -> rusqlite::Result<Option<Contact>> {
+        let connection = &self.inner.connection.lock().await;
+        Contact::load(connection, user_name)
+    }
+
     pub async fn partial_contacts(&self) -> Result<Vec<PartialContact>, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
         let partial_contact = PartialContact::load_all(connection)?;
@@ -1064,6 +1078,20 @@ impl CoreUser {
             .map(|g| g.members(connection))
     }
 
+    pub(crate) async fn try_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<HashSet<QualifiedUserName>>> {
+        let connection = &self.inner.connection.lock().await;
+        let Some(conversation) = Conversation::load(connection, &conversation_id)? else {
+            return Ok(None);
+        };
+        let Some(group) = Group::load(connection, conversation.group_id())? else {
+            return Ok(None);
+        };
+        Ok(Some(group.members(connection)))
+    }
+
     pub async fn pending_removes(
         &self,
         conversation_id: ConversationId,
@@ -1088,12 +1116,12 @@ impl CoreUser {
     pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> Result<Vec<ConversationId>, rusqlite::Error> {
         let mut connection = self.inner.connection.lock().await;
         let mut transaction = connection.transaction()?;
-        Conversation::mark_as_read(&mut transaction, mark_as_read_data)?;
+        let ids = Conversation::mark_as_read(&mut transaction, mark_as_read_data)?;
         transaction.commit()?;
-        Ok(())
+        Ok(ids)
     }
 
     /// Returns how many messages are marked as unread across all conversations.
@@ -1111,6 +1139,15 @@ impl CoreUser {
             log::error!("Error while fetching unread messages count: {:?}", e);
             0
         })
+    }
+
+    pub(crate) async fn try_unread_messages_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<usize, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        let count = Conversation::unread_messages_count(connection, conversation_id)?;
+        Ok(usize::try_from(count).expect("usize overflow"))
     }
 
     /// Updates the client's push token on the QS.

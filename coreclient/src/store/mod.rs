@@ -16,8 +16,9 @@ use crate::{
 };
 
 pub use notification::StoreNotification;
-pub(crate) use notification::StoreNotificationBuilder;
+pub(crate) use notification::StoreNotificationsSender;
 
+mod r#impl;
 mod notification;
 
 pub type StoreResult<T> = anyhow::Result<T>;
@@ -35,11 +36,13 @@ pub trait Store {
     // conversations
 
     async fn create_conversation(
+        &self,
         title: &str,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<ConversationId>;
 
     async fn set_conversation_picture(
+        &self,
         conversation_id: ConversationId,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<()>;
@@ -49,7 +52,7 @@ pub trait Store {
     async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<HashSet<QualifiedUserName>>;
+    ) -> StoreResult<Option<HashSet<QualifiedUserName>>>;
 
     async fn delete_conversation(
         &self,

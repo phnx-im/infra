@@ -44,7 +44,7 @@ chrono = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 openmls = { workspace = true }
-tokio-stream = "0.1.17"
+tokio-stream = { version = "0.1.17", features = ["sync"] }
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }
