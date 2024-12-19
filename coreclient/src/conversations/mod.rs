@@ -21,7 +21,7 @@ use uuid::Uuid;
 pub(crate) mod messages;
 pub(crate) mod persistence;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationId {
     pub uuid: Uuid,
 }

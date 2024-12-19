@@ -70,7 +70,7 @@ impl TimestampedMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
     uuid: Uuid,
 }

@@ -31,7 +31,7 @@ mod tls_codec_impls;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Fqdn {
     domain: Host<String>,
 }
@@ -223,7 +223,19 @@ impl TryFrom<&str> for QualifiedGroupId {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsSize, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    TlsSerialize,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct UserName(TlsString);
 
@@ -263,6 +275,8 @@ impl TryFrom<String> for UserName {
     PartialEq,
     Eq,
     Hash,
+    PartialOrd,
+    Ord,
     Serialize,
     Deserialize,
 )]
