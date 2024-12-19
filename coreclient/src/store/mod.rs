@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -91,6 +92,11 @@ pub trait Store {
     async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
 
     async fn global_unread_messages_count(&self) -> StoreResult<usize>;
+
+    async fn mark_as_read(
+        &self,
+        since: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
+    ) -> StoreResult<()>;
 
     async fn send_message(
         &self,
