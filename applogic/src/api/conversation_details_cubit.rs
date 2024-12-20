@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use flutter_rust_bridge::frb;
-use log::error;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
 use tokio::sync::{mpsc, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
+use tracing::error;
 
 use crate::util::spawn_from_sync;
 use crate::StreamSink;
@@ -130,7 +130,7 @@ async fn load_conversation_and_listen(
     if let Some(details) = get_conversation_details_by_id(&core_user, conversation_id).await {
         let members = members_of_conversation(&core_user, conversation_id)
             .await
-            .inspect_err(|error| error!("Error when fetching members: {error}"))
+            .inspect_err(|error| error!(%error, "Error when fetching members"))
             .unwrap_or_default();
         let new_state = ConversationDetailsState {
             conversation: Some(details),

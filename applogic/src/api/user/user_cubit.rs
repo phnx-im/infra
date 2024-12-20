@@ -6,11 +6,11 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
-use log::info;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::{Asset, UserProfile};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::RwLock;
+use tracing::{error, info};
 
 use crate::util::spawn_from_sync;
 
@@ -55,7 +55,7 @@ impl UiUser {
                     *state = UiUser::new(state.inner.user_name.clone(), Some(profile));
                 }
                 Err(error) => {
-                    log::error!("Could not load own user profile: {:?}", error);
+                    error!(%error, "Could not load own user profile");
                 }
             }
         });

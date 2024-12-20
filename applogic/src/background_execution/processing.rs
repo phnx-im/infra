@@ -4,6 +4,7 @@
 
 use std::panic::{self, AssertUnwindSafe};
 use tokio::runtime::Builder;
+use tracing::{error, info};
 
 use crate::api::user::User;
 
@@ -29,18 +30,17 @@ pub(crate) fn retrieve_messages_sync(path: String) -> NotificationBatch {
         .thread_name("nse-thread")
         .enable_all()
         .build()
-        .map_err(|e| {
-            log::error!("Failed to initialize tokio runtime: {}", e);
-            e.to_string()
+        .map_err(|error| {
+            error!(%error, "Failed to initialize tokio runtime");
+            error.to_string()
         })
         .and_then(|runtime| {
             panic::catch_unwind(AssertUnwindSafe(|| {
                 runtime.block_on(async { retrieve_messages(path).await })
             }))
             .map_err(|_| {
-                let e = "Failed to execute async function".to_string();
-                log::error!("{}", e);
-                e
+                error!("Failed to execute async function");
+                "Failed to execute async function".to_string()
             })
         });
 
@@ -52,18 +52,18 @@ pub(crate) fn retrieve_messages_sync(path: String) -> NotificationBatch {
 
 /// Load the user and retrieve messages
 pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
-    log::info!("Retrieving messages with DB path: {}", path);
+    info!(path, "Retrieving messages with DB path");
     let user = match User::load_default(path).await {
         Ok(user) => user,
-        Err(e) => {
-            log::error!("Failed to load user: {}", e);
-            return error_batch(e.to_string());
+        Err(error) => {
+            error!(%error, "Failed to load user");
+            return error_batch(error.to_string());
         }
     };
 
     let notifications = match user.fetch_all_messages().await {
         Ok(fetched_messages) => {
-            log::info!("All messages fetched");
+            info!("All messages fetched");
             fetched_messages
                 .notifications_content
                 .into_iter()
