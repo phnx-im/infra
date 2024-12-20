@@ -2,50 +2,49 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// New widget that shows conversation details
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_pane/conversation_details/connection_details.dart';
-import 'package:prototype/conversation_pane/conversation_details/group_details.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 
-class ConversationDetails extends StatefulWidget {
-  const ConversationDetails({super.key});
+import 'connection_details.dart';
+import 'conversation_details_cubit.dart';
+import 'group_details.dart';
 
-  @override
-  State<ConversationDetails> createState() => _ConversationDetailsState();
-}
-
-class _ConversationDetailsState extends State<ConversationDetails> {
-  UiConversationDetails? _currentConversation;
-  late StreamSubscription<UiConversationDetails> _conversationListener;
-
-  @override
-  void initState() {
-    super.initState();
-    final coreClient = context.coreClient;
-    _conversationListener =
-        coreClient.onConversationSwitch.listen(conversationListener);
-
-    _currentConversation = coreClient.currentConversation;
-  }
-
-  @override
-  void dispose() {
-    _conversationListener.cancel();
-    super.dispose();
-  }
-
-  void conversationListener(UiConversationDetails conversation) async {
-    Navigator.of(context).pop();
-    return;
-  }
+/// Container for [ConversationDetailsScreen]
+///
+/// Wraps the screen with required providers.
+class ConversationDetailsContainer extends StatelessWidget {
+  const ConversationDetailsContainer({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final conversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    if (conversationId == null) {
+      throw StateError("an active conversation is obligatory");
+    }
+
+    return BlocProvider(
+      create: (context) => ConversationDetailsCubit(
+        userCubit: context.read(),
+        conversationId: conversationId,
+      ),
+      child: ConversationDetailsScreen(),
+    );
+  }
+}
+
+/// Screen that shows details of a conversation
+class ConversationDetailsScreen extends StatelessWidget {
+  const ConversationDetailsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final conversationType = context.select((ConversationDetailsCubit cubit) =>
+        cubit.state.conversation?.conversationType);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -54,13 +53,12 @@ class _ConversationDetailsState extends State<ConversationDetails> {
         leading: appBarBackButton(context),
         title: const Text("Details"),
       ),
-      body: switch (_currentConversation?.conversationType) {
+      body: switch (conversationType) {
         UiConversationType_UnconfirmedConnection() ||
         UiConversationType_Connection() =>
-          ConnectionDetails(conversation: _currentConversation!),
-        UiConversationType_Group() =>
-          GroupDetails(conversation: _currentConversation!),
-        null => const SizedBox.shrink(),
+          const ConnectionDetails(),
+        UiConversationType_Group() => const GroupDetails(),
+        null => Center(child: const Text("Unknown conversation")),
       },
     );
   }
