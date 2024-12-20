@@ -148,6 +148,10 @@ impl UserCubitBase {
         self.fetched_messages_tx.subscribe()
     }
 
+    pub(crate) fn fetched_messages_tx(&self) -> &FetchedMessagesBroadcast {
+        &self.fetched_messages_tx
+    }
+
     async fn emit(&mut self, state: UiUser) {
         *self.state.write().await = state.clone();
         if let Some(sinks) = &mut self.sinks {
@@ -215,9 +219,9 @@ fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMe
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff, &tx).await {
-            let retry_after = backoff.next_backoff();
-            info!(%error, ?retry_after, "Websocket failed");
-            tokio::time::sleep(retry_after).await;
+            let timeout = backoff.next_backoff();
+            info!(%error, retry_in =? timeout, "Websocket failed");
+            tokio::time::sleep(timeout).await;
         }
         info!("Websocket handler stopped normally");
     });
@@ -266,7 +270,7 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMess
                 }
                 Err(_error) => {
                     timeout = backoff.next_backoff().max(timeout);
-                    error!(retry_after =? timeout, "Failed to fetch messages");
+                    error!(retry_in =? timeout, "Failed to fetch messages");
                 }
             }
             tokio::select! {
@@ -286,7 +290,7 @@ async fn handle_websocket_message(
         WsEvent::ConnectedEvent => info!("connected to websocket"),
         WsEvent::DisconnectedEvent => bail!("server disconnect"),
         WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
-            warn!(?event, "Ignoring websocket event")
+            warn!("ignoring websocket event: {event:?}")
         }
         WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
             let tx = tx.clone();
@@ -297,7 +301,7 @@ async fn handle_websocket_message(
                     process_fetched_messages(&tx, fetched_messages).await;
                 }
                 Err(error) => {
-                    error!("Failed to fetch messages on queue update: {error:?}");
+                    error!(%error, "Failed to fetch messages on queue update");
                 }
             }
         }
