@@ -7,6 +7,7 @@ use tracing::error;
 
 use crate::logging::init_logger;
 
+pub mod conversation_details_cubit;
 pub mod conversations;
 pub mod logging;
 pub mod messages;

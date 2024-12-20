@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:prototype/core/api/user.dart';
@@ -36,9 +35,7 @@ sealed class LoadableUser with _$LoadableUser {
 class LoadableUserCubit implements StateStreamableSource<LoadableUser> {
   LoadableUserCubit(Stream<User?> stream) {
     // forward the stream to an internal broadcast stream
-    debugPrint("LoadableUserCubit: initializing");
     _subscription = stream.listen((user) {
-      debugPrint("LodableUserCubit: user loaded: $user");
       _state = LoadableUser.loaded(user);
       _controller.add(_state);
     });

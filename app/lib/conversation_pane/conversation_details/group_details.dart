@@ -2,133 +2,113 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// New widget that shows conversation details
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/api/types.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
-// Constant for padding between the elements
-const double _padding = 32;
+import 'conversation_details_cubit.dart';
 
-class GroupDetails extends StatefulWidget {
-  final UiConversationDetails conversation;
-
-  const GroupDetails({super.key, required this.conversation});
-
-  @override
-  State<GroupDetails> createState() => _GroupDetailsState();
-}
-
-class _GroupDetailsState extends State<GroupDetails> {
-  Uint8List? avatar;
-  List<String> members = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchMembers();
-  }
-
-  Future<void> fetchMembers() async {
-    // Fetch member list from the core client
-    members = await context.coreClient.getMembers(widget.conversation.id);
-    setState(() {});
-  }
+/// Shows conversation details
+class GroupDetails extends StatelessWidget {
+  const GroupDetails({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final coreClient = context.coreClient;
+    final (conversation, members) = context.select(
+      (ConversationDetailsCubit cubit) {
+        final state = cubit.state;
+        return (state.conversation, state.members);
+      },
+    );
+
+    if (conversation == null) {
+      return const SizedBox.shrink();
+    }
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          const SizedBox(height: _padding),
-          UserAvatar(
-              size: 64,
-              image: widget.conversation.attributes.conversationPictureOption,
-              username: widget.conversation.username,
-              onPressed: () async {
-                // Image picker
-                final ImagePicker picker = ImagePicker();
-                // Pick an image.
-                final XFile? image =
-                    await picker.pickImage(source: ImageSource.gallery);
-                image?.readAsBytes().then((value) {
-                  setState(() {
-                    avatar = value;
-                    context.coreClient.user.setConversationPicture(
-                        conversationId: widget.conversation.id,
-                        conversationPicture: value);
-                  });
-                });
-              }),
-          const SizedBox(height: _padding),
-          Text(widget.conversation.title, style: labelStyle),
-          const SizedBox(height: _padding),
-          Text(
-            widget.conversation.conversationType.description,
-            style: labelStyle,
-          ),
-          const SizedBox(height: _padding),
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 100, maxWidth: 600),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: _padding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Members",
-                      style: boldLabelStyle,
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: members.length,
-                        itemBuilder: (context, index) {
-                          return ListTile(
-                            leading: FutureUserAvatar(
-                              size: 24,
-                              profile: () => coreClient.user
-                                  .userProfile(userName: members[index]),
-                            ),
-                            title: Text(
-                              members[index],
-                              style: labelStyle,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: const Icon(Icons.more_horiz),
-                            onTap: () {
-                              context
-                                  .read<NavigationCubit>()
-                                  .openMemberDetails(members[index]);
-                            },
-                          );
-                        },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Spacings.l),
+        child: Column(
+          spacing: Spacings.l,
+          children: [
+            UserAvatar(
+                size: 64,
+                image: conversation.attributes.conversationPictureOption,
+                username: conversation.username,
+                cacheTag: conversation.id.avatarCacheTag,
+                onPressed: () async {
+                  final conversationDetailsCubit =
+                      context.read<ConversationDetailsCubit>();
+                  // Image picker
+                  final ImagePicker picker = ImagePicker();
+                  // Pick an image.
+                  final XFile? image =
+                      await picker.pickImage(source: ImageSource.gallery);
+                  final bytes = await image?.readAsBytes();
+                  conversationDetailsCubit.setConversationPicture(bytes: bytes);
+                }),
+            Text(conversation.title, style: labelStyle),
+            Text(
+              conversation.conversationType.description,
+              style: labelStyle,
+            ),
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 100, maxWidth: 600),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Spacings.l),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Members",
+                        style: boldLabelStyle,
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: members.length,
+                          itemBuilder: (context, index) {
+                            final member = members[index];
+                            return ListTile(
+                              leading: FutureUserAvatar(
+                                size: 24,
+                                profile: () => context.coreClient.user
+                                    .userProfile(userName: member),
+                              ),
+                              title: Text(
+                                member,
+                                style: labelStyle,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: const Icon(Icons.more_horiz),
+                              onTap: () {
+                                context
+                                    .read<NavigationCubit>()
+                                    .openMemberDetails(member);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: _padding),
-          OutlinedButton(
+            OutlinedButton(
               onPressed: () {
                 context.read<NavigationCubit>().openAddMembers();
               },
-              child: const Text("Add members")),
-          const SizedBox(height: _padding),
-        ],
+              child: const Text("Add members"),
+            ),
+          ],
+        ),
       ),
     );
   }
