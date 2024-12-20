@@ -303,12 +303,14 @@ impl CoreUser {
                                 &connection,
                                 conversation_picture_option,
                             )?;
+                            let store_notifications_tx = connection.notifications_tx().clone();
                             let mut transaction = connection.transaction()?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact.mark_as_complete(
                                 &mut transaction,
                                 friendship_package,
                                 sender_client_id.clone(),
+                                &store_notifications_tx,
                             )?;
                             transaction.commit()?;
 
@@ -514,7 +516,7 @@ impl CoreUser {
                     conversation.id(),
                     cep_tbs.friendship_package,
                 )
-                .store(&connection)?;
+                .store(&connection, connection.notifications_tx())?;
                 drop(connection);
 
                 let qs_client_reference = self.create_own_client_reference();

@@ -6,8 +6,10 @@ use phnxtypes::identifiers::{AsClientId, QualifiedUserName};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
-    clients::connection_establishment::FriendshipPackage, utils::persistence::Storable, Contact,
-    PartialContact,
+    clients::connection_establishment::FriendshipPackage,
+    store::{StoreEntityId, StoreNotificationsSender},
+    utils::persistence::Storable,
+    Contact, PartialContact,
 };
 
 pub(crate) const CONTACT_INSERT_TRIGGER: &str =
@@ -98,7 +100,11 @@ impl Contact {
         rows.collect()
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        store_notifications_tx: &StoreNotificationsSender,
+    ) -> Result<(), rusqlite::Error> {
         let clients_str = self
             .clients
             .iter()
@@ -118,6 +124,7 @@ impl Contact {
                 self.signature_ear_key_wrapper_key,
             ],
         )?;
+        store_notifications_tx.notify(StoreEntityId::from(self.user_name.clone()).added());
         Ok(())
     }
 }
@@ -212,6 +219,7 @@ impl PartialContact {
         transaction: &mut Transaction,
         friendship_package: FriendshipPackage,
         client: AsClientId,
+        store_notifications_tx: &StoreNotificationsSender,
     ) -> Result<(), rusqlite::Error> {
         let savepoint = transaction.savepoint()?;
 
@@ -228,7 +236,7 @@ impl PartialContact {
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id,
         };
-        contact.store(&savepoint)?;
+        contact.store(&savepoint, store_notifications_tx)?;
 
         savepoint.commit()?;
 

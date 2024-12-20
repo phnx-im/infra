@@ -66,8 +66,9 @@ async fn user_stages() {
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
 
-    let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
-    let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
+    let client_db_connection_mutex =
+        SqliteConnection::with_noop_notifications(client_db_connection);
+    let phnx_db_connection_mutex = SqliteConnection::with_noop_notifications(phnx_db_connection);
     // We now continue down the path of creating a user.
     let computed_state = loaded_state
         .step(

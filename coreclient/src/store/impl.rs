@@ -9,8 +9,7 @@ use phnxtypes::identifiers::QualifiedUserName;
 use crate::clients::CoreUser;
 use crate::ConversationMessageId;
 
-use super::notification::StoreEntityId;
-use super::{Store, StoreNotification, StoreResult};
+use super::{Store, StoreEntityId, StoreNotification, StoreResult};
 
 impl Store for CoreUser {
     fn user_name(&self) -> QualifiedUserName {
@@ -170,6 +169,6 @@ impl Store for CoreUser {
     fn subcribe(
         &self,
     ) -> impl tokio_stream::Stream<Item = std::sync::Arc<super::StoreNotification>> {
-        self.inner.store_notifications_tx.subscribe()
+        self.inner.connection.notifications_tx().subscribe()
     }
 }

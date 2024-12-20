@@ -60,7 +60,7 @@ use crate::{
         Conversation, ConversationAttributes,
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
-    store::StoreNotification,
+    store::{StoreNotification, StoreNotificationBuilder},
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
@@ -109,7 +109,6 @@ pub(crate) struct CoreUserInner {
     pub(crate) _qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
     pub(crate) key_store: MemoryUserKeyStore,
-    pub(crate) store_notifications_tx: StoreNotificationsSender,
 }
 
 impl CoreUser {
@@ -130,13 +129,15 @@ impl CoreUser {
         // Open client specific db
         let client_db_connection = open_client_db(&as_client_id, db_path)?;
 
+        let store_notifications_tx = StoreNotificationsSender::new();
+
         Self::new_with_connections(
             as_client_id,
             password,
             server_url,
             push_token,
-            SqliteConnection::new(phnx_db_connection),
-            SqliteConnection::new(client_db_connection),
+            SqliteConnection::new(phnx_db_connection, store_notifications_tx.clone()),
+            SqliteConnection::new(client_db_connection, store_notifications_tx),
         )
         .await
     }
@@ -210,13 +211,15 @@ impl CoreUser {
         // Open client specific db
         let client_db_connection = Connection::open_in_memory()?;
 
+        let store_notifications_tx = StoreNotificationsSender::new();
+
         Self::new_with_connections(
             as_client_id,
             password,
             server_url,
             push_token,
-            SqliteConnection::new(phnx_db_connection),
-            SqliteConnection::new(client_db_connection),
+            SqliteConnection::new(phnx_db_connection, store_notifications_tx.clone()),
+            SqliteConnection::new(client_db_connection, store_notifications_tx),
         )
         .await
     }
@@ -242,8 +245,12 @@ impl CoreUser {
             user_creation_state.server_url(),
         );
 
-        let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
-        let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
+        let store_notifications_tx = StoreNotificationsSender::new();
+
+        let client_db_connection_mutex =
+            SqliteConnection::new(client_db_connection, store_notifications_tx.clone());
+        let phnx_db_connection_mutex =
+            SqliteConnection::new(phnx_db_connection, store_notifications_tx);
 
         let final_state = user_creation_state
             .complete_user_creation(
@@ -259,7 +266,10 @@ impl CoreUser {
     }
 
     pub(crate) fn notify(&self, notification: impl Into<Arc<StoreNotification>>) {
-        self.inner.store_notifications_tx.notify(notification);
+        self.inner
+            .connection
+            .notifications_tx()
+            .notify(notification);
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
@@ -424,13 +434,18 @@ impl CoreUser {
 
         // Phase 5: Merge the commit into the group
         let mut connection = self.inner.connection.lock().await;
+        let store_notifications_tx = connection.notifications_tx().clone();
         let mut transaction = connection.transaction()?;
         // Now that we know the commit went through, we can merge the commit
         let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
         group.store_update(&transaction)?;
 
-        let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+        let conversation_messages = Self::store_messages(
+            &mut transaction,
+            conversation_id,
+            group_messages,
+            &store_notifications_tx,
+        )?;
         transaction.commit()?;
         Ok(conversation_messages)
     }
@@ -884,11 +899,13 @@ impl CoreUser {
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
-        let connection = self.inner.connection.lock().await;
+        let mut sequence_number = {
+            let connection = self.inner.connection.lock().await;
+            queue_type.load_sequence_number(&connection)?
+        };
+
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number = queue_type.load_sequence_number(&connection)?;
-        drop(connection);
 
         while remaining_messages > 0 {
             let api_client = self.inner.api_clients.default_client()?;
@@ -917,12 +934,11 @@ impl CoreUser {
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
 
-            let connection = self.inner.connection.lock().await;
             if let Some(message) = messages.last() {
+                let connection = self.inner.connection.lock().await;
                 sequence_number = message.sequence_number + 1;
                 queue_type.update_sequence_number(&connection, sequence_number)?;
             }
-            drop(connection);
         }
         Ok(messages)
     }
@@ -1202,13 +1218,14 @@ impl CoreUser {
         transaction: &mut Transaction,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
+        notification: &mut StoreNotificationBuilder,
     ) -> Result<Vec<ConversationMessage>> {
         let savepoint = transaction.savepoint()?;
         let mut stored_messages = vec![];
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
-            message.store(&savepoint)?;
+            message.store(&savepoint, notification)?;
             stored_messages.push(message);
         }
         savepoint.commit()?;

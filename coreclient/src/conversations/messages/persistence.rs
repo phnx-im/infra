@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    utils::persistence::Storable, ContentMessage, ConversationId, ConversationMessage, Message,
+    store::{StoreEntityId, StoreNotificationBuilder, StoreNotificationsSender},
+    utils::persistence::{SqliteConnectionGuard, Storable},
+    ContentMessage, ConversationId, ConversationMessage, Message,
 };
 
 // When adding a variant to this enum, the new variant must be called
@@ -182,7 +184,11 @@ impl ConversationMessage {
         Ok(messages)
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notification: &mut StoreNotificationBuilder,
+    ) -> Result<(), rusqlite::Error> {
         let sender = match &self.timestamped_message.message {
             Message::Content(content_message) => {
                 format!("user:{}", content_message.sender)
@@ -204,13 +210,16 @@ impl ConversationMessage {
                 },
             ],
         )?;
+        notification
+            .update(StoreEntityId::from(self.conversation_id))
+            .add(StoreEntityId::from(self.conversation_message_id));
         Ok(())
     }
 
     /// Set the message's sent status in the database and update the message's timestamp.
     pub(super) fn update_sent_status(
         &self,
-        connection: &Connection,
+        connection: &SqliteConnectionGuard,
         timestamp: TimeStamp,
         sent: bool,
     ) -> Result<(), rusqlite::Error> {
@@ -218,6 +227,9 @@ impl ConversationMessage {
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
             params![timestamp, sent, self.conversation_message_id],
         )?;
+        connection
+            .notify_on_drop()
+            .update(StoreEntityId::from(self.conversation_id));
         Ok(())
     }
 

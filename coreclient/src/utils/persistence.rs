@@ -15,33 +15,61 @@ use phnxtypes::identifiers::AsClientId;
 use rusqlite::{types::FromSql, Connection, ToSql};
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::clients::store::ClientRecord;
+use crate::{
+    clients::store::ClientRecord,
+    store::{StoreNotificationGuard, StoreNotificationsSender},
+};
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
 #[derive(Debug, Clone)]
 pub(crate) struct SqliteConnection {
     connection_mutex: Arc<Mutex<Connection>>,
+    notifications_tx: StoreNotificationsSender,
 }
 
 impl SqliteConnection {
-    pub fn new(connection: Connection) -> Self {
+    pub(crate) fn new(connection: Connection, notifications_tx: StoreNotificationsSender) -> Self {
         Self {
             connection_mutex: Arc::new(Mutex::new(connection)),
+            notifications_tx,
         }
     }
 
-    pub async fn lock(&self) -> SqliteConnectionGuard {
+    #[cfg(test)]
+    pub(crate) fn with_noop_notifications(connection: Connection) -> Self {
+        Self::new(connection, StoreNotificationsSender::new())
+    }
+
+    pub(crate) async fn lock(&self) -> SqliteConnectionGuard {
         let guard = self.connection_mutex.lock().await;
-        SqliteConnectionGuard { guard }
+        SqliteConnectionGuard {
+            guard,
+            tx: &self.notifications_tx,
+        }
+    }
+
+    pub(crate) fn notifications_tx(&self) -> &StoreNotificationsSender {
+        &self.notifications_tx
     }
 }
 
-pub(crate) struct SqliteConnectionGuard<'a> {
+pub(crate) struct SqliteConnectionGuard<'a, 'b> {
     guard: MutexGuard<'a, Connection>,
+    tx: &'b StoreNotificationsSender,
 }
 
-impl Deref for SqliteConnectionGuard<'_> {
+impl<'b> SqliteConnectionGuard<'_, 'b> {
+    pub(crate) fn notifications_tx(&self) -> &'b StoreNotificationsSender {
+        self.tx
+    }
+
+    pub(crate) fn notify_on_drop(&self) -> StoreNotificationGuard<'b> {
+        self.tx.notify_on_drop()
+    }
+}
+
+impl Deref for SqliteConnectionGuard<'_, '_> {
     type Target = Connection;
 
     fn deref(&self) -> &Self::Target {
@@ -49,7 +77,7 @@ impl Deref for SqliteConnectionGuard<'_> {
     }
 }
 
-impl DerefMut for SqliteConnectionGuard<'_> {
+impl DerefMut for SqliteConnectionGuard<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.guard
     }

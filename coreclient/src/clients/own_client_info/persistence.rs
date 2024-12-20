@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 
-use crate::utils::persistence::Storable;
+use crate::{
+    store::StoreEntityId,
+    utils::persistence::{SqliteConnectionGuard, Storable},
+};
 
 use super::OwnClientInfo;
 
@@ -36,7 +39,7 @@ impl Storable for OwnClientInfo {
 }
 
 impl OwnClientInfo {
-    pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
+    pub(crate) fn store(&self, connection: &SqliteConnectionGuard) -> rusqlite::Result<()> {
         connection.execute(
             "INSERT INTO own_client_info (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid) VALUES (?, ?, ?, ?, ?)",
             params![
@@ -47,6 +50,7 @@ impl OwnClientInfo {
                 self.as_client_id.client_id(),
             ],
         )?;
+        connection.notify_on_drop().add(StoreEntityId::OwnUser);
         Ok(())
     }
 }

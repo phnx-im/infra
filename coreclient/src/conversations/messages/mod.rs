@@ -6,7 +6,7 @@ use std::fmt::Formatter;
 
 use openmls::framing::ApplicationMessage;
 
-use crate::mimi_content::MimiContent;
+use crate::{mimi_content::MimiContent, utils::persistence::SqliteConnectionGuard};
 
 use super::*;
 
@@ -143,7 +143,7 @@ impl ConversationMessage {
     /// Mark the message as sent and update the timestamp.
     pub(crate) fn mark_as_sent(
         &mut self,
-        connection: &Connection,
+        connection: &SqliteConnectionGuard,
         ds_timestamp: TimeStamp,
     ) -> Result<(), rusqlite::Error> {
         self.timestamped_message.mark_as_sent(ds_timestamp);

@@ -15,9 +15,12 @@ use crate::{
     PartialContact, UserProfile,
 };
 
-pub use notification::StoreNotification;
-pub(crate) use notification::StoreNotificationsSender;
+pub(crate) use entity_id::StoreEntityId;
+pub(crate) use notification::{
+    StoreNotification, StoreNotificationBuilder, StoreNotificationGuard, StoreNotificationsSender,
+};
 
+mod entity_id;
 mod r#impl;
 mod notification;
 
