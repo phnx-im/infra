@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
-use log::{error, info, warn};
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::{Asset, UserProfile};
@@ -15,6 +14,7 @@ use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
 use tokio_util::sync::{CancellationToken, DropGuard};
+use tracing::{error, info, warn};
 
 use crate::api::messages::{FetchedMessages, FetchedMessagesBroadcast, FetchedMessagesReceiver};
 use crate::util::{spawn_from_sync, FibonacciBackoff};
@@ -60,7 +60,7 @@ impl UiUser {
                     *state = UiUser::new(state.inner.user_name.clone(), Some(profile));
                 }
                 Err(error) => {
-                    error!("Could not load own user profile: {:?}", error);
+                    error!(%error, "Could not load own user profile");
                 }
             }
         });
@@ -215,11 +215,11 @@ fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMe
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff, &tx).await {
-            let timeout = backoff.next_backoff();
-            info!("websocket failed: {error}; reconnect in {timeout:?}");
-            tokio::time::sleep(timeout).await;
+            let retry_after = backoff.next_backoff();
+            info!(%error, ?retry_after, "Websocket failed");
+            tokio::time::sleep(retry_after).await;
         }
-        info!("websocket handler stopped normally");
+        info!("Websocket handler stopped normally");
     });
 }
 
@@ -266,7 +266,7 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMess
                 }
                 Err(_error) => {
                     timeout = backoff.next_backoff().max(timeout);
-                    error!("failed to fetch messages; retry in {timeout:?}");
+                    error!(retry_after =? timeout, "Failed to fetch messages");
                 }
             }
             tokio::select! {
@@ -286,7 +286,7 @@ async fn handle_websocket_message(
         WsEvent::ConnectedEvent => info!("connected to websocket"),
         WsEvent::DisconnectedEvent => bail!("server disconnect"),
         WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
-            warn!("ignoring websocket event: {event:?}")
+            warn!(?event, "Ignoring websocket event")
         }
         WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
             let tx = tx.clone();
