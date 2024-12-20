@@ -186,7 +186,7 @@ class _ConversationListState extends State<ConversationList> {
   Widget _unreadBadge(int index) {
     final count = _conversations[index].unreadMessages;
     if (count < 1) {
-      return const SizedBox();
+      return const SizedBox.shrink();
     }
     final badgeText = count <= 100 ? "$count" : "100+";
     const double badgeSize = 20;

@@ -88,7 +88,7 @@ class ConversationMessages extends StatelessWidget {
               // Conversation details
               currentConversation != null
                   ? _detailsButton(context)
-                  : Container(),
+                  : const SizedBox.shrink(),
             ],
             leading: context.responsiveScreenType == ResponsiveScreenType.mobile
                 ? const _BackButton()

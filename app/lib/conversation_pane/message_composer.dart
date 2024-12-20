@@ -223,7 +223,7 @@ class _MessageComposerState extends State<MessageComposer> {
                         },
                       ),
                     )
-                  : Container(),
+                  : const SizedBox.shrink(),
             ],
           ),
         ],

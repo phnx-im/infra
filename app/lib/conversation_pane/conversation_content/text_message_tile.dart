@@ -31,7 +31,7 @@ class TextMessageTile extends StatelessWidget {
 
   Widget _messageSpace(BuildContext context, bool isSender) {
     // We use this to make an indent on the side of the receiver
-    const flex = Flexible(child: SizedBox());
+    const flex = Flexible(child: SizedBox.shrink());
     return Row(
       mainAxisAlignment:
           isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
