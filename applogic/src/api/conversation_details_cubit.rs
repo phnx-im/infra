@@ -6,15 +6,15 @@ use flutter_rust_bridge::frb;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::{broadcast, mpsc, watch};
-use tokio_util::sync::{CancellationToken, DropGuard};
+use tokio::sync::{broadcast, watch};
+use tokio_util::sync::CancellationToken;
 use tracing::{error, warn};
 
-use crate::util::spawn_from_sync;
+use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
 use super::conversations::converation_into_ui_details;
-use super::messages::{FetchedMessages, FetchedMessagesReceiver};
+use super::messages::{FetchedMessages, FetchedMessagesBroadcast, FetchedMessagesReceiver};
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
 
@@ -27,57 +27,54 @@ pub struct ConversationDetailsState {
 
 #[frb(opaque)]
 pub struct ConversationDetailsCubitBase {
+    core: CubitCore<ConversationDetailsState>,
     conversation_id: ConversationId,
-    state_tx: watch::Sender<ConversationDetailsState>,
-    sinks_tx: mpsc::Sender<StreamSink<ConversationDetailsState>>,
     core_user: CoreUser,
-    background_tasks_cancel: Option<DropGuard>,
+    fetched_messages_tx: FetchedMessagesBroadcast,
 }
 
 impl ConversationDetailsCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
         let core_user = user_cubit.core_user.clone();
-        let cancel = CancellationToken::new();
+        let core = CubitCore::new();
 
-        let (state_tx, state_rx) = watch::channel(ConversationDetailsState::default());
-        let (sinks_tx, sinks_rx) = mpsc::channel(16);
-
-        spawn_from_sync(emitter_loop(state_rx, sinks_rx, cancel.clone()));
-
-        let task = BackgroundTaskContext::new(core_user.clone(), state_tx.clone(), conversation_id)
-            .run(user_cubit.subscribe_to_fetched_messages(), cancel.clone());
-        spawn_from_sync(task);
+        ConversationDetailsContext::new(
+            core_user.clone(),
+            core.state_tx().clone(),
+            conversation_id,
+        )
+        .spawn(
+            user_cubit.subscribe_to_fetched_messages(),
+            core.cancellation_token().clone(),
+        );
 
         Self {
+            core,
             conversation_id,
-            state_tx,
-            sinks_tx,
             core_user,
-            background_tasks_cancel: Some(cancel.drop_guard()),
+            fetched_messages_tx: user_cubit.fetched_messages_tx().clone(),
         }
     }
 
     // Cubit interface
 
     pub fn close(&mut self) {
-        self.background_tasks_cancel.take();
+        self.core.close();
     }
 
     #[frb(getter, sync)]
     pub fn is_closed(&self) -> bool {
-        self.background_tasks_cancel.is_none()
+        self.core.is_closed()
     }
 
     #[frb(getter, sync)]
     pub fn state(&self) -> ConversationDetailsState {
-        self.state_tx.borrow().clone()
+        self.core.state()
     }
 
     pub async fn stream(&mut self, sink: StreamSink<ConversationDetailsState>) {
-        if self.sinks_tx.send(sink).await.is_err() {
-            self.close();
-        }
+        self.core.stream(sink).await;
     }
 
     // Cubit methods
@@ -86,22 +83,20 @@ impl ConversationDetailsCubitBase {
         self.core_user
             .set_conversation_picture(self.conversation_id, bytes.clone())
             .await?;
-        self.state_tx
-            .send_if_modified(|state| match state.conversation.as_mut() {
-                Some(conversation) => {
-                    conversation.attributes.conversation_picture_option = bytes;
-                    true
-                }
-                None => false,
-            });
+        self.fetched_messages_tx
+            .send(FetchedMessages {
+                changed_conversations: vec![self.conversation_id],
+                ..Default::default()
+            })
+            .await;
         Ok(())
     }
 
     /// Load user profile of the conversation (only for non-group conversations)
     pub async fn load_conversation_user_profile(&self) -> anyhow::Result<Option<UiUserProfile>> {
         let conversation_type = self
-            .state_tx
-            .borrow()
+            .core
+            .borrow_state()
             .conversation
             .as_ref()
             .map(|c| c.conversation_type.clone());
@@ -120,13 +115,14 @@ impl ConversationDetailsCubitBase {
 }
 
 /// Loads the intial state and listen to the changes
-struct BackgroundTaskContext {
+#[frb(ignore)]
+struct ConversationDetailsContext {
     core_user: CoreUser,
     state_tx: watch::Sender<ConversationDetailsState>,
     conversation_id: ConversationId,
 }
 
-impl BackgroundTaskContext {
+impl ConversationDetailsContext {
     fn new(
         core_user: CoreUser,
         state_tx: watch::Sender<ConversationDetailsState>,
@@ -139,19 +135,12 @@ impl BackgroundTaskContext {
         }
     }
 
-    async fn run(self, fetched_messages_rx: FetchedMessagesReceiver, stop: CancellationToken) {
-        self.load_conversation_and_listen(fetched_messages_rx, stop)
-            .await;
-    }
-
-    async fn load_conversation_and_listen(
-        self,
-        fetched_messages_rx: FetchedMessagesReceiver,
-        stop: CancellationToken,
-    ) {
-        self.load_and_emit_state().await;
-        self.fetched_messages_listen_loop(fetched_messages_rx, stop)
-            .await;
+    fn spawn(self, fetched_messages_rx: FetchedMessagesReceiver, stop: CancellationToken) {
+        spawn_from_sync(async move {
+            self.load_and_emit_state().await;
+            self.fetched_messages_listen_loop(fetched_messages_rx, stop)
+                .await;
+        });
     }
 
     async fn load_and_emit_state(&self) -> Option<()> {
@@ -159,7 +148,7 @@ impl BackgroundTaskContext {
         let members = self
             .members_of_conversation()
             .await
-            .inspect_err(|error| error!(%error, "Error when fetching members"))
+            .inspect_err(|error| error!(%error, "Failed fetching members"))
             .unwrap_or_default();
         let new_state = ConversationDetailsState {
             conversation: Some(details),
@@ -218,32 +207,6 @@ impl BackgroundTaskContext {
             || new_conversations.contains(&self.conversation_id)
         {
             self.load_and_emit_state().await;
-        }
-    }
-}
-
-async fn emitter_loop(
-    mut state_rx: watch::Receiver<ConversationDetailsState>,
-    mut sinks_rx: mpsc::Receiver<StreamSink<ConversationDetailsState>>,
-    stop: CancellationToken,
-) {
-    let mut sinks = Vec::new();
-    loop {
-        tokio::select! {
-            sink = sinks_rx.recv() => {
-                let Some(sink) = sink else { return };
-                sinks.push(sink);
-            },
-            changed = state_rx.changed() => {
-                if changed.is_err() {
-                    return;
-                };
-                let state = state_rx.borrow().clone();
-                sinks.retain(|sink| sink.add(state.clone()).is_ok());
-            },
-            _ = stop.cancelled() => {
-                return;
-            }
         }
     }
 }
