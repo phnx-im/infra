@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use flutter_rust_bridge::frb;
-use mobile_logging::init_logger;
+use tracing::error;
 
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod conversations;
+pub mod logging;
 pub mod messages;
-pub mod mobile_logging;
 pub mod notifications;
 pub mod types;
 pub mod user;
@@ -21,8 +21,8 @@ pub fn init() {
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
-        if let Err(e) = crate::notifier::init_desktop_os_notifications() {
-            log::error!("Failed to initialize desktop notifications: {}", e);
+        if let Err(error) = crate::notifier::init_desktop_os_notifications() {
+            error!(%error, "Failed to initialize desktop notifications");
         }
     }
 }

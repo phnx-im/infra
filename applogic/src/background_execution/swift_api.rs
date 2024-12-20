@@ -4,10 +4,10 @@
 
 use std::ffi::{c_char, CStr, CString};
 
-use crate::{
-    api::mobile_logging::init_logger,
-    background_execution::{processing::retrieve_messages_sync, IncomingNotificationContent},
+use crate::background_execution::{
+    processing::retrieve_messages_sync, IncomingNotificationContent,
 };
+use crate::logging::init_logger;
 
 /// This method gets called from the iOS NSE
 ///
