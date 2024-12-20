@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use flutter_rust_bridge::frb;
-use log::{error, warn};
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
 use tokio::sync::{broadcast, watch};
 use tokio_util::sync::CancellationToken;
+use tracing::{error, warn};
 
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
@@ -148,7 +148,7 @@ impl ConversationDetailsContext {
         let members = self
             .members_of_conversation()
             .await
-            .inspect_err(|error| error!("Error when fetching members: {error}"))
+            .inspect_err(|error| error!(%error, "Failed fetching members"))
             .unwrap_or_default();
         let new_state = ConversationDetailsState {
             conversation: Some(details),
@@ -188,7 +188,7 @@ impl ConversationDetailsContext {
                 Ok(fetched_messages) => self.handle_fetched_messages(&fetched_messages).await,
                 Err(broadcast::error::RecvError::Closed) => return,
                 Err(broadcast::error::RecvError::Lagged(n)) => {
-                    warn!("fetched messages lagged {n} messages");
+                    warn!(n, "fetched messages lagged");
                 }
             }
         }

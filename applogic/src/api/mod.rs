@@ -5,6 +5,8 @@
 use flutter_rust_bridge::frb;
 use tracing::error;
 
+use crate::logging::init_logger;
+
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod conversations;

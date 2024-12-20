@@ -4,9 +4,9 @@
 
 use std::fmt;
 
-use log::trace;
 use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
+use tracing::trace;
 
 use crate::{SseEncode, StreamSink};
 
@@ -135,7 +135,7 @@ where
                         return;
                     };
                     let state = state_rx.borrow().clone();
-                    trace!("emitting new state, sinks = {}, state = {:?}", sinks.len(), state);
+                    trace!(num_sinks = sinks.len(), ?state, "emitting new state");
                     sinks.retain(|sink| sink.add(state.clone()).is_ok());
                 },
                 _ = stop.cancelled() => {

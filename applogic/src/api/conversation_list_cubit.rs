@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use flutter_rust_bridge::frb;
-use log::{error, info};
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use tokio::sync::{broadcast, watch};
 use tokio_util::sync::CancellationToken;
+use tracing::error;
 
 use crate::api::user::User;
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
@@ -32,8 +32,6 @@ pub struct ConversationListCubitBase {
 impl ConversationListCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        info!("ConversationListCubitBase::new");
-
         let core_user = user_cubit.core_user.clone();
         let core = CubitCore::new();
 
@@ -131,7 +129,7 @@ impl ConversationListContext {
                     self.process_fetches_messages(&fetched_messages).await;
                 }
                 Err(broadcast::error::RecvError::Lagged(n)) => {
-                    error!("Failed to fetch messages; lagging {n} messages");
+                    error!(n, "Fetch messages lagged");
                 }
                 Err(broadcast::error::RecvError::Closed) => return,
             }
