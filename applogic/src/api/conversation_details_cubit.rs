@@ -6,14 +6,15 @@ use flutter_rust_bridge::frb;
 use phnxcoreclient::clients::CoreUser;
 use phnxcoreclient::ConversationId;
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{broadcast, mpsc, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::util::spawn_from_sync;
 use crate::StreamSink;
 
 use super::conversations::converation_into_ui_details;
+use super::messages::{FetchedMessages, FetchedMessagesReceiver};
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
 
@@ -44,12 +45,9 @@ impl ConversationDetailsCubitBase {
 
         spawn_from_sync(emitter_loop(state_rx, sinks_rx, cancel.clone()));
 
-        spawn_from_sync(load_conversation_and_listen(
-            core_user.clone(),
-            state_tx.clone(),
-            cancel.clone(),
-            conversation_id,
-        ));
+        let task = BackgroundTaskContext::new(core_user.clone(), state_tx.clone(), conversation_id)
+            .run(user_cubit.subscribe_to_fetched_messages(), cancel.clone());
+        spawn_from_sync(task);
 
         Self {
             conversation_id,
@@ -121,14 +119,45 @@ impl ConversationDetailsCubitBase {
     }
 }
 
-async fn load_conversation_and_listen(
+/// Loads the intial state and listen to the changes
+struct BackgroundTaskContext {
     core_user: CoreUser,
     state_tx: watch::Sender<ConversationDetailsState>,
-    stop: CancellationToken,
     conversation_id: ConversationId,
-) {
-    if let Some(details) = get_conversation_details_by_id(&core_user, conversation_id).await {
-        let members = members_of_conversation(&core_user, conversation_id)
+}
+
+impl BackgroundTaskContext {
+    fn new(
+        core_user: CoreUser,
+        state_tx: watch::Sender<ConversationDetailsState>,
+        conversation_id: ConversationId,
+    ) -> Self {
+        Self {
+            core_user,
+            state_tx,
+            conversation_id,
+        }
+    }
+
+    async fn run(self, fetched_messages_rx: FetchedMessagesReceiver, stop: CancellationToken) {
+        self.load_conversation_and_listen(fetched_messages_rx, stop)
+            .await;
+    }
+
+    async fn load_conversation_and_listen(
+        self,
+        fetched_messages_rx: FetchedMessagesReceiver,
+        stop: CancellationToken,
+    ) {
+        self.load_and_emit_state().await;
+        self.fetched_messages_listen_loop(fetched_messages_rx, stop)
+            .await;
+    }
+
+    async fn load_and_emit_state(&self) -> Option<()> {
+        let details = self.load_conversation_details().await?;
+        let members = self
+            .members_of_conversation()
             .await
             .inspect_err(|error| error!(%error, "Error when fetching members"))
             .unwrap_or_default();
@@ -136,35 +165,61 @@ async fn load_conversation_and_listen(
             conversation: Some(details),
             members,
         };
-        if state_tx.send(new_state).is_err() {
-            return;
+        self.state_tx.send(new_state).ok()
+    }
+
+    async fn load_conversation_details(&self) -> Option<UiConversationDetails> {
+        let conversation = self.core_user.conversation(&self.conversation_id).await?;
+        Some(converation_into_ui_details(&self.core_user, conversation).await)
+    }
+
+    async fn members_of_conversation(&self) -> anyhow::Result<Vec<String>> {
+        Ok(self
+            .core_user
+            .conversation_participants(self.conversation_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| c.to_string())
+            .collect())
+    }
+
+    /// Returns only when `stop` is cancelled
+    async fn fetched_messages_listen_loop(
+        self,
+        mut fetched_messages_rx: FetchedMessagesReceiver,
+        stop: CancellationToken,
+    ) {
+        loop {
+            let res = tokio::select! {
+                res = fetched_messages_rx.recv() => res,
+                _ = stop.cancelled() => return,
+            };
+            match res {
+                Ok(fetched_messages) => self.handle_fetched_messages(&fetched_messages).await,
+                Err(broadcast::error::RecvError::Closed) => return,
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    warn!(n, "fetched messages lagged");
+                }
+            }
         }
     }
 
-    // TODO: Subscribe to changes from the store/server/websocket
-    // <https://github.com/phnx-im/infra/issues/254>
-    let _stop = stop;
-}
-
-async fn get_conversation_details_by_id(
-    core_user: &CoreUser,
-    conversation_id: ConversationId,
-) -> Option<UiConversationDetails> {
-    let conversation = core_user.conversation(&conversation_id).await?;
-    Some(converation_into_ui_details(core_user, conversation).await)
-}
-
-async fn members_of_conversation(
-    core_user: &CoreUser,
-    conversation_id: ConversationId,
-) -> anyhow::Result<Vec<String>> {
-    Ok(core_user
-        .conversation_participants(conversation_id)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|c| c.to_string())
-        .collect())
+    async fn handle_fetched_messages(
+        &self,
+        FetchedMessages {
+            new_conversations,
+            changed_conversations,
+            new_messages: _,
+            notifications_content: _,
+        }: &FetchedMessages,
+    ) {
+        if changed_conversations.contains(&self.conversation_id)
+            || new_conversations.contains(&self.conversation_id)
+        {
+            self.load_and_emit_state().await;
+        }
+    }
 }
 
 async fn emitter_loop(
