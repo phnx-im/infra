@@ -136,11 +136,11 @@ impl Store for CoreUser {
         Ok(usize::try_from(count).expect("usize overflow"))
     }
 
-    async fn mark_as_read(
+    async fn mark_conversation_as_read(
         &self,
-        since: impl IntoIterator<Item = (crate::ConversationId, chrono::DateTime<chrono::Utc>)>,
+        until: impl IntoIterator<Item = (crate::ConversationId, chrono::DateTime<chrono::Utc>)>,
     ) -> StoreResult<()> {
-        let conversation_ids = self.mark_as_read(since).await?;
+        let conversation_ids = self.mark_as_read(until).await?;
         self.notify(StoreNotification::builder().update_many(conversation_ids));
         Ok(())
     }
