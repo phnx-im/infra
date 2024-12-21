@@ -38,3 +38,7 @@ License: AGPL-3.0-or-later
 Files: app/android/*
 Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
 License: AGPL-3.0-or-later
+
+Files: app/.fvmrc
+Copyright: 2024 Phoenix R&D GmbH <hello@phnx.im>
+License: AGPL-3.0-or-later
