@@ -61,4 +61,4 @@ jobs:
           cd app && fastlane beta_ios --verbose
 
       - name: Flutter test
-        run: cd app && fvm flutter test
+        run: cd app && flutter test
