@@ -49,9 +49,12 @@ frb-integrate:
     just frb-generate
 
 # set up the CI environment for the app
+[working-directory: 'app']
 setup-ci:
-    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+    curl -L --proto '=https' --tlsv1.3 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
     cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
+    curl -L --proto '=https' --tlsv1.3 -sSf https://fvm.app/install.sh | bash
+    fvm install
 
 # set up the CI environment for Android builds
 setup-android-ci: setup-ci
@@ -65,8 +68,8 @@ setup-ios-ci: setup-ci
 # build Android
 # we limit it to android-arm64 to speed up the build process
 build-android:
-     cd {{app_dir}} && flutter build appbundle --target-platform android-arm64
+     cd {{app_dir}} && fvm flutter build appbundle --target-platform android-arm64
 
 # build iOS
 build-ios:
-	cd {{app_dir}} && flutter build ios --no-codesign
+	cd {{app_dir}} && fvm flutter build ios --no-codesign

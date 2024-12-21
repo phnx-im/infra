@@ -75,3 +75,6 @@ linux/
 web/
 
 lib/**/*.freezed.dart
+
+# FVM Version Cache
+.fvm/

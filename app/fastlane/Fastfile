@@ -57,7 +57,7 @@ platform :android do
       )
 
       # We build the app in release mode with Flutter first to set up gradle
-      sh "flutter build appbundle --release"
+      sh "fvm flutter build appbundle --release"
 
       # Build the bundle in release mode and sign it
       gradle(
@@ -154,7 +154,7 @@ platform :ios do
     end
   
     # Install flutter dependencies
-    sh "flutter pub get"
+    sh "fvm flutter pub get"
   
     # Install CocoaPods dependencies
     cocoapods(
