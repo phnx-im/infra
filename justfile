@@ -53,7 +53,7 @@ frb-integrate:
 setup-ci:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
     cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
-    curl -L --proto '=https' --tlsv1.2 -sSf https://fvm.app/install.sh | bash
+    curl -fsSL https://fvm.app/install.sh | bash
     fvm install
 
 # set up the CI environment for Android builds
