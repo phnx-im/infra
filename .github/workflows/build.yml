@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Set up Flutter FVM
+        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
-          flutter-version: "3.x"
-          channel: "stable"
-          cache: true
+          path: 'app/.fvmrc'
 
       - name: Set up Just
         uses: extractions/setup-just@v2
