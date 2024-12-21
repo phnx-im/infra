@@ -49,12 +49,9 @@ frb-integrate:
     just frb-generate
 
 # set up the CI environment for the app
-[working-directory: 'app']
 setup-ci:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
     cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
-    dart pub global activate fvm
-    fvm install
 
 # set up the CI environment for Android builds
 setup-android-ci: setup-ci
