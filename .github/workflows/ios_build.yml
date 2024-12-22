@@ -59,6 +59,3 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           cd app && fastlane beta_ios --verbose
-
-      - name: Flutter test
-        run: cd app && flutter test

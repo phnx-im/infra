@@ -9,7 +9,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
   pull_request:
     branches: ["main"]
 
@@ -27,20 +26,10 @@ jobs:
       - name: Set up Just
         uses: extractions/setup-just@v2
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Set up Flutter FVM
+        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
-          ruby-version: '3.3'
-
-#      - name: Set up Flutter FVM
-#        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
-#        with:
-#          path: 'app/.fvmrc'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+          path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
