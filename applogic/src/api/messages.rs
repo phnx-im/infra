@@ -8,8 +8,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, Message,
-    MimiContent,
+    clients::process::process_qs::ProcessQsMessageResult, ConversationId, ConversationMessage,
+    Message, MimiContent,
 };
 use tokio::sync::broadcast;
 
