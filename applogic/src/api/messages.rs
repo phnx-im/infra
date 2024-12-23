@@ -8,7 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    clients::process::process_qs::ProcessQsMessageResult, ConversationId, ConversationMessage,
+    clients::process::process_qs::ProcessedQsMessages, ConversationId, ConversationMessage,
     Message, MimiContent,
 };
 use tokio::sync::broadcast;
@@ -30,12 +30,6 @@ pub(crate) struct FetchedMessages {
     pub(crate) notifications_content: Vec<LocalNotificationContent>,
 }
 
-pub(crate) struct FetchedQsMessages {
-    pub(crate) new_conversations: Vec<ConversationId>,
-    pub(crate) changed_conversations: Vec<ConversationId>,
-    pub(crate) new_messages: Vec<ConversationMessage>,
-}
-
 impl User {
     /// Fetch AS messages
     pub(crate) async fn fetch_as_messages(&self) -> Result<Vec<ConversationId>> {
@@ -54,42 +48,9 @@ impl User {
     }
 
     /// Fetch QS messages
-    pub(crate) async fn fetch_qs_messages(&self) -> Result<FetchedQsMessages> {
+    pub(crate) async fn fetch_qs_messages(&self) -> Result<ProcessedQsMessages> {
         let qs_messages = self.user.qs_fetch_messages().await?;
-        // Process each qs message individually and dispatch conversation message notifications
-        let mut new_conversations = vec![];
-        let mut changed_conversations = vec![];
-        let mut new_messages = vec![];
-        for qs_message in qs_messages {
-            let qs_message_plaintext = self.user.decrypt_qs_queue_message(qs_message).await?;
-            match self.user.process_qs_message(qs_message_plaintext).await? {
-                ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
-                    new_messages.extend(conversation_messages);
-                }
-                ProcessQsMessageResult::ConversationChanged(
-                    conversation_id,
-                    conversation_messages,
-                ) => {
-                    new_messages.extend(conversation_messages);
-                    changed_conversations.push(conversation_id)
-                }
-                ProcessQsMessageResult::NewConversation(conversation_id) => {
-                    new_conversations.push(conversation_id)
-                }
-            };
-        }
-
-        // Update user auth keys of newly created conversations.
-        for conversation_id in &new_conversations {
-            let messages = self.user.update_user_key(conversation_id).await?;
-            new_messages.extend(messages);
-        }
-
-        Ok(FetchedQsMessages {
-            new_conversations,
-            changed_conversations,
-            new_messages,
-        })
+        self.user.fully_process_qs_messages(qs_messages).await
     }
 
     /// Fetch both AS and QS messages
@@ -104,7 +65,7 @@ impl User {
         );
 
         // Fetch QS messages
-        let FetchedQsMessages {
+        let ProcessedQsMessages {
             new_conversations,
             changed_conversations,
             new_messages,
