@@ -259,6 +259,7 @@ impl CoreUser {
         Ok((vec![], false))
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn handle_staged_commit_message(
         &self,
         group: &mut Group,

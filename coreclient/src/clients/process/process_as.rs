@@ -142,7 +142,7 @@ impl CoreUser {
 
         let leaf_signer = InfraCredentialSigningKey::generate(
             &self.inner.key_store.signing_key,
-            &signature_ear_key,
+            signature_ear_key,
         );
         let esek =
             signature_ear_key.encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
