@@ -107,7 +107,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - run: cargo clippy --locked --all-targets
+      - run: cargo clippy --locked --all-targets -- -D warnings
 
   rust-build:
     runs-on: ubuntu-latest
