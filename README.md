@@ -1,7 +1,7 @@
 <!--
 SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 
-SPDX-License-Identifier: AGPL-3.0-or-later
+SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
 # Messaging Layer Security Infrastructure Prototype
@@ -50,8 +50,10 @@ split across multiple crates:
   parallely.
 - `apiclient`: A shallow layer that the `coreclient` calls to interact with the
   `backend` via the `server` using HTTP(s).
-- `applogic`: A thin layer for initial testing of higher-level messaging
-  concepts.
+- `applogic`: A layer using cubits to expose the functionality of the
+  `coreclient` to a UI client.
+- `app`: A UI client that uses `applogic` to provide a simple messaging
+  application. The GUI is built using Flutter.
 - `test_harness`: Exclusively used for testing. The `test_harness` contains a
   test framework to conduct integration tests and can be compiled into a binary
   for [docker-based testing](#docker-based-federation-testing) of the protocol's
@@ -75,4 +77,6 @@ whenever a pull request is made.
 
 ## Licensing
 
-All crates in this repository are licensed under the [AGPL 3.0](https://www.gnu.org/licenses/agpl-3.0.html). This README file is licensed under [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+All crates in this repository are licensed under the [AGPL
+3.0](https://www.gnu.org/licenses/agpl-3.0.html). This README file is licensed
+under [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).

@@ -18,6 +18,8 @@ class UserCubit implements StateStreamableSource<UiUser> {
 
   final UserCubitBase _impl;
 
+  UserCubitBase get impl => _impl;
+
   @override
   FutureOr<void> close() {
     _impl.close();

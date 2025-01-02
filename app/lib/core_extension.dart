@@ -4,8 +4,6 @@
 
 import 'package:prototype/core/api/types.dart';
 
-import 'core_client.dart';
-
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
   String get username => switch (conversationType) {
@@ -21,15 +19,8 @@ extension UiConversationDetailsExtension on UiConversationDetails {
         UiConversationType_Group() => attributes.title,
       };
 
-  /// User profile of the conversation (only for non-group conversations)
-  Future<UiUserProfile?> userProfile(CoreClient coreClient) {
-    return switch (conversationType) {
-      UiConversationType_UnconfirmedConnection(field0: final e) ||
-      UiConversationType_Connection(field0: final e) =>
-        coreClient.user.userProfile(userName: e),
-      UiConversationType_Group() => Future.value(null),
-    };
-  }
+  String get avatarCacheTag =>
+      'conv:$id:${attributes.conversationPictureOption?.hashCode}';
 }
 
 extension UiConversationTypeExtension on UiConversationType {

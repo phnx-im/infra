@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt;
+
 use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 pub use phnxcoreclient::ConversationId;
@@ -54,6 +56,7 @@ pub struct UiConversation {
     pub attributes: UiConversationAttributes,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversationDetails {
     pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
@@ -124,10 +127,22 @@ impl From<ConversationType> for UiConversationType {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
     pub title: String,
     pub conversation_picture_option: Option<Vec<u8>>,
+}
+
+impl fmt::Debug for UiConversationAttributes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UiConversationAttributes")
+            .field("title", &self.title)
+            .field(
+                "conversation_picture_option",
+                &self.conversation_picture_option.as_ref().map(|b| b.len()),
+            )
+            .finish()
+    }
 }
 
 impl From<ConversationAttributes> for UiConversationAttributes {
@@ -153,7 +168,7 @@ impl From<Conversation> for UiConversation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct UiConversationMessageId {
     pub uuid: Uuid,
 }
@@ -170,7 +185,7 @@ impl From<UiConversationMessageId> for ConversationMessageId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationId,
     pub id: UiConversationMessageId,
@@ -189,7 +204,7 @@ impl From<ConversationMessage> for UiConversationMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiMessage {
     ContentFlight(Vec<UiContentMessage>),
     Display(UiEventMessage),
@@ -209,7 +224,7 @@ impl From<Message> for UiMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiMessageId {
     pub id: Uuid,
     pub domain: String,
@@ -224,13 +239,13 @@ impl From<MessageId> for UiMessageId {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiReplyToInfo {
     pub message_id: UiMessageId,
     pub hash: Vec<u8>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiMimiContent {
     pub id: UiMessageId,
     pub timestamp: DateTime<Utc>,
@@ -266,7 +281,7 @@ impl From<MimiContent> for UiMimiContent {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
     pub sender: String,
     pub sent: bool,
@@ -289,7 +304,7 @@ impl From<Box<ContentMessage>> for UiContentMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiEventMessage {
     System(UiSystemMessage),
     Error(UiErrorMessage),
@@ -304,7 +319,7 @@ impl From<EventMessage> for UiEventMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiSystemMessage {
     pub message: String,
 }
@@ -317,7 +332,7 @@ impl From<SystemMessage> for UiSystemMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiErrorMessage {
     pub message: String,
 }

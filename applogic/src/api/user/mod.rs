@@ -12,6 +12,7 @@ use phnxtypes::{
     identifiers::{QualifiedUserName, SafeTryInto},
     messages::{client_ds::QsWsMessage, push_token::PushTokenOperator},
 };
+use tracing::error;
 
 use crate::{
     api::types::UiNotificationType,
@@ -71,6 +72,14 @@ pub struct User {
 }
 
 impl User {
+    pub(crate) fn with_empty_state(core_user: CoreUser) -> Self {
+        Self {
+            user: core_user.clone(),
+            app_state: AppState::new(core_user),
+            notification_hub: Default::default(),
+        }
+    }
+
     pub async fn new(
         user_name: String,
         password: String,
@@ -97,7 +106,7 @@ impl User {
         .await?;
 
         if let Err(error) = CoreUser::set_own_user_profile(&user, user_profile).await {
-            log::error!("Could not set own user profile: {:?}", error);
+            error!(%error, "Could not set own user profile");
         }
 
         Ok(Self {

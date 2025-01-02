@@ -2,12 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::process::ProcessQsMessageResult, ConversationId, ConversationMessage, Message,
     MimiContent,
 };
+use tokio::sync::broadcast;
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
@@ -17,6 +21,8 @@ use super::{
     user::User,
 };
 
+#[frb(ignore)]
+#[derive(Debug, Default)]
 pub(crate) struct FetchedMessages {
     pub(crate) new_conversations: Vec<ConversationId>,
     pub(crate) changed_conversations: Vec<ConversationId>,
@@ -240,4 +246,44 @@ pub(crate) fn group_messages(messages: Vec<ConversationMessage>) -> Vec<UiConver
     }
 
     grouped_messages
+}
+
+/// An internal broadcast channel for fetched messages
+///
+/// Must not be exposed to the UI.
+#[derive(Debug, Clone)]
+pub(crate) struct FetchedMessagesBroadcast {
+    tx: broadcast::Sender<Arc<FetchedMessages>>,
+}
+
+impl FetchedMessagesBroadcast {
+    pub(crate) fn new() -> Self {
+        Self {
+            tx: broadcast::channel(128).0,
+        }
+    }
+
+    pub(crate) async fn send(&self, fetched_messages: FetchedMessages) {
+        let _no_receivers = self.tx.send(Arc::new(fetched_messages));
+    }
+
+    pub(crate) fn subscribe(&self) -> FetchedMessagesReceiver {
+        let rx = self.tx.subscribe();
+        FetchedMessagesReceiver { rx }
+    }
+}
+
+/// An internal received channel for fetched messages
+///
+/// Must not be exposed to the UI.
+pub(crate) struct FetchedMessagesReceiver {
+    rx: broadcast::Receiver<Arc<FetchedMessages>>,
+}
+
+impl FetchedMessagesReceiver {
+    pub(crate) async fn recv(
+        &mut self,
+    ) -> Result<Arc<FetchedMessages>, broadcast::error::RecvError> {
+        self.rx.recv().await
+    }
 }

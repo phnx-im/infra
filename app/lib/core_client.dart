@@ -234,14 +234,6 @@ class CoreClient {
     return _conversations;
   }
 
-  Future<ConversationId> createConversation(String name) async {
-    final conversationId = await user.createConversation(name: name);
-    conversationListUpdates.add(conversationId);
-    conversations();
-    selectConversation(conversationId);
-    return conversationId;
-  }
-
   Future<void> sendMessage(
       ConversationId conversationId, String message) async {
     UiConversationMessage conversationMessage;
@@ -255,19 +247,6 @@ class CoreClient {
 
     messageUpdates.add(conversationMessage);
     conversationListUpdates.add(conversationId);
-  }
-
-  Future<void> createConnection(String userName) async {
-    await user.createConnection(userName: userName);
-    conversationListUpdates.add(
-      const ConversationId(
-        uuid: UuidValue.fromNamespace(Namespace.nil),
-      ),
-    );
-  }
-
-  Future<List<String>> getMembers(ConversationId conversationId) async {
-    return await user.membersOfConversation(conversationId: conversationId);
   }
 
   Future<void> addUserToConversation(
@@ -284,6 +263,11 @@ class CoreClient {
 
   Future<List<UiContact>> getContacts() async {
     return await user.getContacts();
+  }
+
+  void setCurrentConversation(UiConversationDetails conversation) {
+    _currentConversation = conversation;
+    conversationSwitch.add(conversation);
   }
 
   void selectConversation(ConversationId conversationId) {
