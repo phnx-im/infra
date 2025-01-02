@@ -148,25 +148,16 @@ impl Conversation {
         let mut stmt = transaction.prepare(
             "UPDATE conversations
                 SET last_read = :timestamp
-                WHERE conversation_id = :conversation_id AND last_read < :timestamp
-                RETURNING conversation_id",
+                WHERE conversation_id = :conversation_id AND last_read < :timestamp",
         )?;
-        let ids = mark_as_read_data
-            .into_iter()
-            .filter_map(|(conversation_id, timestamp)| {
-                stmt.query_row(
-                    named_params! {
-                        ":timestamp": timestamp,
-                        ":conversation_id": conversation_id,
-                    },
-                    |row| row.get(0),
-                )
-                .optional()
-                .transpose()
-            });
-        for res in ids {
-            let id: ConversationId = res?;
-            notifier.update(id);
+        for (conversation_id, timestamp) in mark_as_read_data {
+            let updated = stmt.execute(named_params! {
+                ":timestamp": timestamp,
+                ":conversation_id": conversation_id,
+            })?;
+            if updated == 1 {
+                notifier.update(conversation_id);
+            }
         }
         Ok(())
     }
