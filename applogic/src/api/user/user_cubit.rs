@@ -16,7 +16,7 @@ use tokio::sync::RwLock;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{error, info, warn};
 
-use crate::api::messages::{FetchedMessages, FetchedMessagesBroadcast, FetchedMessagesReceiver};
+use crate::api::messages::FetchedMessages;
 use crate::util::{spawn_from_sync, FibonacciBackoff};
 
 use super::{StreamSink, User};
@@ -103,7 +103,6 @@ pub struct UserCubitBase {
     sinks: Option<Vec<StreamSink<UiUser>>>,
     pub(crate) core_user: CoreUser,
     _background_tasks_cancel: DropGuard,
-    fetched_messages_tx: FetchedMessagesBroadcast,
 }
 
 const WEBSOCKET_TIMEOUT: Duration = Duration::from_secs(30);
@@ -118,38 +117,16 @@ impl UserCubitBase {
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 
-        // TODO: Subscribe to the change notifications from the core user.
-        // See <https://github.com/phnx-im/infra/issues/254>
-
-        let fetched_messages_tx = FetchedMessagesBroadcast::new();
         let cancel = CancellationToken::new();
-        spawn_websocket(
-            core_user.clone(),
-            cancel.clone(),
-            fetched_messages_tx.clone(),
-        );
-        spawn_polling(
-            core_user.clone(),
-            cancel.clone(),
-            fetched_messages_tx.clone(),
-        );
+        spawn_websocket(core_user.clone(), cancel.clone());
+        spawn_polling(core_user.clone(), cancel.clone());
 
         Self {
             state,
             sinks: Some(Default::default()),
             core_user,
             _background_tasks_cancel: cancel.drop_guard(),
-            fetched_messages_tx,
         }
-    }
-
-    /// Subscribe to the messages fetched from the server
-    pub(crate) fn subscribe_to_fetched_messages(&self) -> FetchedMessagesReceiver {
-        self.fetched_messages_tx.subscribe()
-    }
-
-    pub(crate) fn fetched_messages_tx(&self) -> &FetchedMessagesBroadcast {
-        &self.fetched_messages_tx
     }
 
     async fn emit(&mut self, state: UiUser) {
@@ -215,10 +192,10 @@ impl UserCubitBase {
     }
 }
 
-fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMessagesBroadcast) {
+fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
-        while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff, &tx).await {
+        while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff).await {
             let timeout = backoff.next_backoff();
             info!(%error, retry_in =? timeout, "Websocket failed");
             tokio::time::sleep(timeout).await;
@@ -232,7 +209,6 @@ async fn run_websocket(
     core_user: &CoreUser,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
-    tx: &FetchedMessagesBroadcast,
 ) -> anyhow::Result<()> {
     let mut websocket = core_user
         .websocket(
@@ -246,14 +222,14 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, tx, core_user).await?,
+            Some(event) => handle_websocket_message(event, core_user).await?,
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
     }
 }
 
-fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMessagesBroadcast) {
+fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
     let user = User::with_empty_state(core_user);
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
@@ -265,7 +241,7 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMess
             let mut timeout = POLLING_INTERVAL;
             match res {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(&tx, fetched_messages).await;
+                    process_fetched_messages(fetched_messages).await;
                     backoff.reset();
                 }
                 Err(_error) => {
@@ -281,11 +257,7 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken, tx: FetchedMess
     });
 }
 
-async fn handle_websocket_message(
-    event: WsEvent,
-    tx: &FetchedMessagesBroadcast,
-    core_user: &CoreUser,
-) -> anyhow::Result<()> {
+async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) -> anyhow::Result<()> {
     match event {
         WsEvent::ConnectedEvent => info!("connected to websocket"),
         WsEvent::DisconnectedEvent => bail!("server disconnect"),
@@ -293,12 +265,11 @@ async fn handle_websocket_message(
             warn!("ignoring websocket event: {event:?}")
         }
         WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
-            let tx = tx.clone();
             let core_user = core_user.clone();
             let user = User::with_empty_state(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(&tx, fetched_messages).await;
+                    process_fetched_messages(fetched_messages).await;
                 }
                 Err(error) => {
                     error!(%error, "Failed to fetch messages on queue update");
@@ -309,16 +280,11 @@ async fn handle_websocket_message(
     Ok(())
 }
 
-async fn process_fetched_messages(
-    tx: &FetchedMessagesBroadcast,
-    fetched_messages: FetchedMessages,
-) {
+async fn process_fetched_messages(fetched_messages: FetchedMessages) {
     // Send a notification to the OS (desktop only)
     //
     // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
     // we delegate it to a different place.
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     crate::notifier::show_desktop_notifications(&fetched_messages.notifications_content);
-
-    let _no_receivers = tx.send(fetched_messages).await;
 }
