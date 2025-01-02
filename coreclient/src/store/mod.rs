@@ -15,14 +15,20 @@ use crate::{
     PartialContact, UserProfile,
 };
 
-pub use notification::{StoreEntityId, StoreNotification};
+pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
 pub(crate) use notification::{StoreNotificationsSender, StoreNotifier};
 
 mod r#impl;
 mod notification;
 
+/// The result type of a failable [`Store`] method
 pub type StoreResult<T> = anyhow::Result<T>;
 
+/// Unified access to the client data
+///
+/// This trait is used to access the client data, e.g. the user profile, the conversations or
+/// the messages. Additionaly, it is used to listen to changes in the client data via the
+/// [`Store::subcribe`] method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
 pub trait Store {
     // user
