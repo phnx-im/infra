@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use openmls::{
     group::QueuedProposal,
     prelude::{
@@ -134,7 +134,7 @@ impl CoreUser {
 
         // Set the conversation attributes according to the group's
         // group data.
-        let group_data = group.group_data().ok_or(anyhow!("No group data"))?;
+        let group_data = group.group_data().context("No group data")?;
         let attributes: ConversationAttributes = PhnxCodec::from_slice(group_data.bytes())?;
 
         let conversation = Conversation::new_group_conversation(group_id.clone(), attributes);
@@ -146,7 +146,6 @@ impl CoreUser {
         group.store(&transaction)?;
         conversation.store(&transaction)?;
         transaction.commit()?;
-        drop(connection);
 
         Ok(ProcessQsMessageResult::NewConversation(conversation.id()))
     }
@@ -170,12 +169,11 @@ impl CoreUser {
         let group_id = protocol_message.group_id();
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load_by_group_id(&connection, group_id)?
-            .ok_or(anyhow!("No conversation found for group ID {:?}", group_id))?;
+            .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
         let conversation_id = conversation.id();
 
         let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("No group found for group ID {:?}", group_id))?;
-        drop(connection);
+            .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
 
         // MLSMessage Phase 2: Process the message
         let (processed_message, we_were_removed, sender_client_id) = group
@@ -222,7 +220,6 @@ impl CoreUser {
         let conversation_messages =
             Self::store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
-        drop(connection);
         Ok(match (conversation_messages, conversation_changed) {
             (messages, true) => {
                 ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
@@ -255,7 +252,6 @@ impl CoreUser {
         // committed with the next commit.
         let connection = self.inner.connection.lock().await;
         group.store_proposal(&connection, proposal)?;
-        drop(connection);
         Ok((vec![], false))
     }
 
@@ -281,7 +277,6 @@ impl CoreUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
-        drop(connection);
         let mut conversation_changed = false;
 
         if let ConversationType::UnconfirmedConnection(ref user_name) =
@@ -301,7 +296,6 @@ impl CoreUser {
                 "No partial contact found for user name {}",
                 user_name
             ))?;
-            drop(connection);
 
             // This is a bit annoying, since we already
             // de-serialized this in the group processing
@@ -388,7 +382,6 @@ impl CoreUser {
 
             conversation.confirm(&connection)?;
             conversation_changed = true;
-            drop(connection);
         }
 
         // StagedCommitMessage Phase 2: Merge the staged commit into the group.
@@ -401,7 +394,6 @@ impl CoreUser {
         }
         let group_messages =
             group.merge_pending_commit(&connection, staged_commit, ds_timestamp)?;
-        drop(connection);
 
         Ok((group_messages, conversation_changed))
     }
