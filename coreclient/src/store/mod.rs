@@ -19,6 +19,7 @@ pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
 pub(crate) use notification::{StoreNotificationsSender, StoreNotifier};
 
 mod r#impl;
+mod memory;
 mod notification;
 
 /// The result type of a failable [`Store`] method

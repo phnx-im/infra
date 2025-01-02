@@ -28,7 +28,7 @@ impl TimestampedMessage {
 
     /// Mark the message as sent and update the timestamp. If the message was
     /// already marked as sent, nothing happens.
-    pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
+    pub(crate) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
         if let Message::Content(content) = &mut self.message {
             self.timestamp = ds_timestamp;
             content.sent = true
@@ -177,6 +177,10 @@ impl ConversationMessage {
 
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
+    }
+
+    pub(crate) fn timestamped_message_mut(&mut self) -> &mut TimestampedMessage {
+        &mut self.timestamped_message
     }
 }
 
