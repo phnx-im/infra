@@ -56,8 +56,10 @@ setup-ci:
     cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
 
 # set up the CI environment for Android builds
+[working-directory: 'app/fastlane']
 setup-android-ci: setup-ci
     cargo binstall -y cargo-ndk
+    bundle install
 
 # set up the CI environment for iOS builds
 [working-directory: 'app/fastlane']
