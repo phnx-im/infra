@@ -116,7 +116,10 @@ impl StoreNotificationsSender {
     /// The stream will contain all notifications from the moment this function is called.
     pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> {
         BroadcastStream::new(self.tx.subscribe()).filter_map(|res| match res {
-            Ok(notification) => Some(notification),
+            Ok(notification) => {
+                log::debug!("Received store notification: {:?}", notification);
+                Some(notification)
+            }
             Err(BroadcastStreamRecvError::Lagged(n)) => {
                 error!("store notifications lagged by {} messages", n);
                 None

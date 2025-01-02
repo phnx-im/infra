@@ -48,6 +48,7 @@ impl CoreUser {
         conversation.store(&connection, &mut notifier)?;
 
         drop(connection);
+        notifier.notify();
 
         // Phase 2: Create the group on the DS
         let encrypted_client_credential = self

@@ -2,20 +2,24 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use flutter_rust_bridge::frb;
-use phnxcoreclient::clients::CoreUser;
-use phnxcoreclient::ConversationId;
-use tokio::sync::{broadcast, watch};
-use tokio_util::sync::CancellationToken;
-use tracing::error;
+use std::{pin::pin, sync::Arc};
 
-use crate::api::user::User;
+use flutter_rust_bridge::frb;
+use phnxcoreclient::{
+    clients::CoreUser,
+    store::{Store, StoreEntityId, StoreOperation},
+};
+use phnxcoreclient::{store::StoreNotification, ConversationId};
+use tokio::sync::watch;
+use tokio_stream::{Stream, StreamExt};
+use tokio_util::sync::CancellationToken;
+use tracing::debug;
+
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
-use super::messages::{FetchedMessages, FetchedMessagesReceiver};
-use super::types::UiConversationDetails;
 use super::user::user_cubit::UserCubitBase;
+use super::{conversations::ConversationsExt, types::UiConversationDetails};
 
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
@@ -26,20 +30,21 @@ pub struct ConversationListState {
 #[frb(opaque)]
 pub struct ConversationListCubitBase {
     core: CubitCore<ConversationListState>,
-    context: ConversationListContext,
+    context: ConversationListContext<CoreUser>,
 }
 
 impl ConversationListCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        let core_user = user_cubit.core_user.clone();
+        let store = user_cubit.core_user.clone();
+        let store_notifications = store.subscribe();
+
         let core = CubitCore::new();
 
-        let context = ConversationListContext::new(core_user.clone(), core.state_tx().clone());
-        context.clone().spawn(
-            user_cubit.subscribe_to_fetched_messages(),
-            core.cancellation_token().clone(),
-        );
+        let context = ConversationListContext::new(store, core.state_tx().clone());
+        context
+            .clone()
+            .spawn(store_notifications, core.cancellation_token().clone());
 
         Self { core, context }
     }
@@ -67,7 +72,7 @@ impl ConversationListCubitBase {
     // Cubit methods
 
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.core_user.add_contact(user_name).await?;
+        let id = self.context.store.add_contact(user_name).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
@@ -75,7 +80,7 @@ impl ConversationListCubitBase {
     pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ConversationId> {
         let id = self
             .context
-            .core_user
+            .store
             .create_conversation(&group_name, None)
             .await?;
         self.context.load_and_emit_state().await;
@@ -86,70 +91,71 @@ impl ConversationListCubitBase {
 /// Loads the intial state and listen to the changes
 #[frb(ignore)]
 #[derive(Clone)]
-struct ConversationListContext {
-    core_user: CoreUser,
+struct ConversationListContext<S> {
+    store: S,
     state_tx: watch::Sender<ConversationListState>,
 }
 
-impl ConversationListContext {
-    fn new(core_user: CoreUser, state_tx: watch::Sender<ConversationListState>) -> Self {
-        Self {
-            core_user,
-            state_tx,
-        }
+impl<S> ConversationListContext<S>
+where
+    S: Store + Send + Sync + 'static,
+{
+    fn new(store: S, state_tx: watch::Sender<ConversationListState>) -> Self {
+        Self { store, state_tx }
     }
 
-    fn spawn(self, fetched_messages_rx: FetchedMessagesReceiver, stop: CancellationToken) {
+    fn spawn(
+        self,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        stop: CancellationToken,
+    ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(fetched_messages_rx, stop)
+            self.fetched_messages_listen_loop(store_notifications, stop)
                 .await;
         });
     }
 
     async fn load_and_emit_state(&self) {
-        let user = User::with_empty_state(self.core_user.clone());
-        let conversations = user.get_conversation_details().await;
+        let conversations = self.store.conversation_details().await;
+        debug!("load_and_emit_state {conversations:?}");
         self.state_tx
             .send_modify(|state| state.conversations = conversations);
     }
 
     async fn fetched_messages_listen_loop(
         self,
-        mut rx: FetchedMessagesReceiver,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,
     ) {
+        let mut store_notifications = pin!(store_notifications.fuse());
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,
-                res = rx.recv() => res,
+                notification = store_notifications.next() => notification,
             };
             match res {
-                Ok(fetched_messages) => {
-                    self.process_fetches_messages(&fetched_messages).await;
+                Some(notification) => {
+                    self.process_store_notification(&notification).await;
                 }
-                Err(broadcast::error::RecvError::Lagged(n)) => {
-                    error!(n, "Fetch messages lagged");
-                }
-                Err(broadcast::error::RecvError::Closed) => return,
+                None => return,
             }
         }
     }
 
-    async fn process_fetches_messages(
-        &self,
-        FetchedMessages {
-            new_conversations,
-            changed_conversations,
-            new_messages: _,
-            notifications_content: _,
-        }: &FetchedMessages,
-    ) {
-        // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
-        // changed and new conversations, and replace them individually in the `state`.
-        if new_conversations.is_empty() && changed_conversations.is_empty() {
-            return;
+    async fn process_store_notification(&self, notification: &StoreNotification) {
+        let any_conversation_changed = notification.ops.iter().any(|(id, op)| {
+            matches!(
+                (id, op),
+                (StoreEntityId::Conversation(_), StoreOperation::Add)
+                    | (StoreEntityId::Conversation(_), StoreOperation::Remove)
+                    | (StoreEntityId::Conversation(_), StoreOperation::Update)
+            )
+        });
+        if any_conversation_changed {
+            // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
+            // changed and new conversations, and replace them individually in the `state`.
+            self.load_and_emit_state().await;
         }
-        self.load_and_emit_state().await;
     }
 }

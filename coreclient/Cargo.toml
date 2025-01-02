@@ -45,6 +45,7 @@ mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 openmls = { workspace = true }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
+trait-variant = "0.1.2"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

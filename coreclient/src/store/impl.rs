@@ -122,10 +122,11 @@ impl Store for CoreUser {
         Ok(usize::try_from(count).expect("usize overflow"))
     }
 
-    async fn mark_conversation_as_read(
-        &self,
-        until: impl IntoIterator<Item = (crate::ConversationId, chrono::DateTime<chrono::Utc>)>,
-    ) -> StoreResult<()> {
+    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
+    where
+        I: IntoIterator<Item = (crate::ConversationId, chrono::DateTime<chrono::Utc>)> + Send,
+        I::IntoIter: Send,
+    {
         Ok(self.mark_as_read(until).await?)
     }
 
@@ -141,9 +142,10 @@ impl Store for CoreUser {
         self.re_send_message(local_message_id).await
     }
 
-    fn subcribe(
+    fn subscribe(
         &self,
-    ) -> impl tokio_stream::Stream<Item = std::sync::Arc<super::StoreNotification>> {
+    ) -> impl tokio_stream::Stream<Item = std::sync::Arc<super::StoreNotification>> + Send + 'static
+    {
         self.inner.store_notifications_tx.subscribe()
     }
 }

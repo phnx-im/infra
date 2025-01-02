@@ -30,7 +30,8 @@ pub type StoreResult<T> = anyhow::Result<T>;
 /// the messages. Additionaly, it is used to listen to changes in the client data via the
 /// [`Store::subcribe`] method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
-pub trait Store {
+#[trait_variant::make(Store: Send)]
+pub trait LocalStore {
     // user
 
     fn user_name(&self) -> QualifiedUserName;
@@ -60,10 +61,10 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<HashSet<QualifiedUserName>>>;
 
-    async fn mark_conversation_as_read(
-        &self,
-        until: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
-    ) -> StoreResult<()>;
+    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
+    where
+        I: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send,
+        I::IntoIter: Send;
 
     async fn delete_conversation(
         &self,
@@ -117,5 +118,5 @@ pub trait Store {
 
     // observability
 
-    fn subcribe(&self) -> impl Stream<Item = Arc<StoreNotification>>;
+    fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
 }

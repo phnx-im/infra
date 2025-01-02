@@ -3370,6 +3370,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tokio-util",
  "tracing",
  "tracing-subscriber",
@@ -3422,6 +3423,7 @@ dependencies = [
  "tls_codec",
  "tokio",
  "tokio-stream",
+ "trait-variant",
  "url",
  "uuid",
 ]
@@ -5256,6 +5258,17 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
+]
+
+[[package]]
+name = "trait-variant"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70977707304198400eb4835a78f6a9f928bf41bba420deb8fdb175cd965d77a7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
