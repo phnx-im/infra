@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    utils::persistence::Storable, ContentMessage, ConversationId, ConversationMessage, Message,
+    store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
+    ConversationMessage, Message,
 };
 
 // When adding a variant to this enum, the new variant must be called
@@ -182,7 +183,11 @@ impl ConversationMessage {
         Ok(messages)
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         let sender = match &self.timestamped_message.message {
             Message::Content(content_message) => {
                 format!("user:{}", content_message.sender)
@@ -204,6 +209,7 @@ impl ConversationMessage {
                 },
             ],
         )?;
+        notifier.add(self.conversation_message_id);
         Ok(())
     }
 
@@ -211,6 +217,7 @@ impl ConversationMessage {
     pub(super) fn update_sent_status(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         timestamp: TimeStamp,
         sent: bool,
     ) -> Result<(), rusqlite::Error> {
@@ -218,6 +225,7 @@ impl ConversationMessage {
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
             params![timestamp, sent, self.conversation_message_id],
         )?;
+        notifier.update(self.conversation_message_id);
         Ok(())
     }
 

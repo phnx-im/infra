@@ -6,8 +6,8 @@ use phnxtypes::identifiers::{AsClientId, QualifiedUserName};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
-    clients::connection_establishment::FriendshipPackage, utils::persistence::Storable, Contact,
-    PartialContact,
+    clients::connection_establishment::FriendshipPackage, store::StoreNotifier,
+    utils::persistence::Storable, Contact, PartialContact,
 };
 
 pub(crate) const CONTACT_INSERT_TRIGGER: &str =
@@ -98,7 +98,11 @@ impl Contact {
         rows.collect()
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         let clients_str = self
             .clients
             .iter()
@@ -118,6 +122,9 @@ impl Contact {
                 self.signature_ear_key_wrapper_key,
             ],
         )?;
+        notifier
+            .add(self.user_name.clone())
+            .update(self.conversation_id);
         Ok(())
     }
 }
@@ -185,7 +192,11 @@ impl PartialContact {
         rows.collect()
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT INTO partial_contacts (user_name, conversation_id, friendship_package_ear_key) VALUES (?, ?, ?)",
             params![
@@ -194,14 +205,22 @@ impl PartialContact {
                 self.friendship_package_ear_key,
             ],
         )?;
+        notifier
+            .add(self.user_name.clone())
+            .update(self.conversation_id);
         Ok(())
     }
 
-    fn delete(self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    fn delete(
+        self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM partial_contacts WHERE user_name = ?",
             params![self.user_name],
         )?;
+        notifier.remove(self.user_name.clone());
         Ok(())
     }
 
@@ -210,6 +229,7 @@ impl PartialContact {
     pub(crate) fn mark_as_complete(
         self,
         transaction: &mut Transaction,
+        notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
     ) -> Result<(), rusqlite::Error> {
@@ -217,7 +237,7 @@ impl PartialContact {
 
         let conversation_id = self.conversation_id;
         let user_name = self.user_name.clone();
-        self.delete(&savepoint)?;
+        self.delete(&savepoint, notifier)?;
         let contact = Contact {
             user_name,
             clients: vec![client],
@@ -228,7 +248,7 @@ impl PartialContact {
             signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
             conversation_id,
         };
-        contact.store(&savepoint)?;
+        contact.store(&savepoint, notifier)?;
 
         savepoint.commit()?;
 

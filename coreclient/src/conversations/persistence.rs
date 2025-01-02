@@ -7,6 +7,7 @@ use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 
 use crate::{
+    store::StoreNotifier,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
 };
@@ -47,7 +48,11 @@ impl Storable for Conversation {
 }
 
 impl Conversation {
-    pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         log::info!("Storing conversation: {:?}", self.id);
         log::info!("With title: {:?}", self.attributes().title());
         let group_id = GroupIdRefWrapper::from(&self.group_id);
@@ -63,6 +68,7 @@ impl Conversation {
                 self.conversation_type(),
             ],
         )?;
+        notifier.add(self.id);
         Ok(())
     }
 
@@ -93,52 +99,59 @@ impl Conversation {
     pub(super) fn update_conversation_picture(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_picture: Option<&[u8]>,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
             params![conversation_picture, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 
     pub(super) fn update_status(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         status: &ConversationStatus,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
             params![status, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 
     pub(crate) fn delete(
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM conversations WHERE conversation_id = ?",
             params![conversation_id],
         )?;
+        notifier.remove(conversation_id);
         Ok(())
     }
 
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
+    pub(crate) fn mark_as_read(
         transaction: &mut Transaction,
-        mark_as_read_data: T,
-    ) -> Result<Vec<ConversationId>, rusqlite::Error> {
+        notifier: &mut StoreNotifier,
+        mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
+    ) -> Result<(), rusqlite::Error> {
         let mut stmt = transaction.prepare(
             "UPDATE conversations
                 SET last_read = :timestamp
                 WHERE conversation_id = :conversation_id AND last_read < :timestamp
                 RETURNING conversation_id",
         )?;
-        mark_as_read_data
+        let ids = mark_as_read_data
             .into_iter()
             .filter_map(|(conversation_id, timestamp)| {
                 stmt.query_row(
@@ -150,8 +163,12 @@ impl Conversation {
                 )
                 .optional()
                 .transpose()
-            })
-            .collect()
+            });
+        for res in ids {
+            let id: ConversationId = res?;
+            notifier.update(id);
+        }
+        Ok(())
     }
 
     pub(crate) fn global_unread_message_count(
@@ -202,12 +219,14 @@ impl Conversation {
     pub(super) fn set_conversation_type(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_type: &ConversationType,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 }

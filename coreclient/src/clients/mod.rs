@@ -60,7 +60,7 @@ use crate::{
         Conversation, ConversationAttributes,
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
-    store::StoreNotification,
+    store::StoreNotifier,
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
@@ -258,8 +258,8 @@ impl CoreUser {
         Ok(Some(self_user))
     }
 
-    pub(crate) fn notify(&self, notification: impl Into<Arc<StoreNotification>>) {
-        self.inner.store_notifications_tx.notify(notification);
+    pub(crate) fn store_notifier(&self) -> StoreNotifier {
+        StoreNotifier::new(self.inner.store_notifications_tx.clone())
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
@@ -273,7 +273,9 @@ impl CoreUser {
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
         let connection = &self.inner.connection.lock().await;
-        user_profile.update(connection)?;
+        let mut notifier = self.store_notifier();
+        user_profile.update(connection, &mut notifier)?;
+        notifier.notify();
         Ok(())
     }
 
@@ -430,7 +432,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+            self.store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
         Ok(conversation_messages)
     }
@@ -481,7 +483,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+            self.store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
         drop(connection);
 
@@ -497,6 +499,7 @@ impl CoreUser {
     ) -> Result<ConversationMessage> {
         // Phase 1: Load the conversation and group
         let (group, params, conversation, mut conversation_message) = {
+            let mut notifier = self.store_notifier();
             let mut connection = self.inner.connection.lock().await;
             let mut transaction = connection.transaction()?;
             let conversation =
@@ -512,7 +515,7 @@ impl CoreUser {
                 conversation_id,
                 content.clone(),
             );
-            conversation_message.store(&transaction)?;
+            conversation_message.store(&transaction, &mut notifier)?;
             let mut group = Group::load(&transaction, group_id)?
                 .ok_or(anyhow!("Can't find group with id {group_id:?}"))?;
             let params = group.create_message(&transaction, content)?;
@@ -522,9 +525,11 @@ impl CoreUser {
             // Also, mark the message (and all messages preceeding it) as read.
             Conversation::mark_as_read(
                 &mut transaction,
+                &mut notifier,
                 vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
             )?;
             transaction.commit()?;
+            notifier.notify();
             drop(connection);
             (group, params, conversation, conversation_message)
         };
@@ -539,13 +544,16 @@ impl CoreUser {
 
         // Phase 3: Mark the message as sent and read (again).
         let mut connection = self.inner.connection.lock().await;
-        conversation_message.mark_as_sent(&connection, ds_timestamp)?;
+        let mut notifier = self.store_notifier();
+        conversation_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
+            &mut notifier,
             vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
         )?;
         transaction.commit()?;
+        notifier.notify();
 
         Ok(conversation_message)
     }
@@ -584,14 +592,17 @@ impl CoreUser {
 
         // Phase 3: Merge the commit into the group & update conversation
         let mut connection = self.inner.connection.lock().await;
-        unsent_message.mark_as_sent(&connection, ds_timestamp)?;
+        let mut notifier = self.store_notifier();
+        unsent_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
         group.store_update(&connection)?;
         let mut transaction = connection.transaction()?;
         Conversation::mark_as_read(
             &mut transaction,
+            &mut notifier,
             vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
         )?;
         transaction.commit()?;
+        notifier.notify();
 
         Ok(())
     }
@@ -678,7 +689,8 @@ impl CoreUser {
             user_name.clone(),
             conversation_attributes,
         )?;
-        conversation.store(&connection)?;
+        let mut notifier = self.store_notifier();
+        conversation.store(&connection, &mut notifier)?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
@@ -701,11 +713,11 @@ impl CoreUser {
             conversation.id(),
             friendship_package_ear_key.clone(),
         )
-        .store(&connection)?;
+        .store(&connection, &mut notifier)?;
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None).store(&connection)?;
+        UserProfile::new(user_name, None, None).store(&connection, &mut notifier)?;
 
         drop(connection);
 
@@ -763,6 +775,8 @@ impl CoreUser {
                 .await?;
         }
 
+        notifier.notify();
+
         Ok(conversation.id())
     }
 
@@ -809,7 +823,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, *conversation_id, group_messages)?;
+            self.store_messages(&mut transaction, *conversation_id, group_messages)?;
         transaction.commit()?;
         drop(connection);
 
@@ -874,11 +888,18 @@ impl CoreUser {
         // Phase 4: Set the conversation to inactive
         let mut connection = self.inner.connection.lock().await;
         let mut transaction = connection.transaction()?;
-        conversation.set_inactive(&transaction, past_members.into_iter().collect())?;
+        let mut notifier = self.store_notifier();
+        conversation.set_inactive(
+            &transaction,
+            &mut notifier,
+            past_members.into_iter().collect(),
+        )?;
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, messages)?;
+            self.store_messages(&mut transaction, conversation_id, messages)?;
         transaction.commit()?;
         drop(connection);
+
+        notifier.notify();
 
         Ok(conversation_messages)
     }
@@ -1012,7 +1033,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+            self.store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
         drop(connection);
 
@@ -1116,12 +1137,14 @@ impl CoreUser {
     pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
-    ) -> Result<Vec<ConversationId>, rusqlite::Error> {
+    ) -> Result<(), rusqlite::Error> {
         let mut connection = self.inner.connection.lock().await;
         let mut transaction = connection.transaction()?;
-        let ids = Conversation::mark_as_read(&mut transaction, mark_as_read_data)?;
+        let mut notifier = self.store_notifier();
+        Conversation::mark_as_read(&mut transaction, &mut notifier, mark_as_read_data)?;
         transaction.commit()?;
-        Ok(ids)
+        notifier.notify();
+        Ok(())
     }
 
     /// Returns how many messages are marked as unread across all conversations.
@@ -1199,19 +1222,22 @@ impl CoreUser {
     }
 
     fn store_messages(
+        &self,
         transaction: &mut Transaction,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
+        let mut notifier = self.store_notifier();
         let savepoint = transaction.savepoint()?;
         let mut stored_messages = vec![];
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
-            message.store(&savepoint)?;
+            message.store(&savepoint, &mut notifier)?;
             stored_messages.push(message);
         }
         savepoint.commit()?;
+        notifier.notify();
         Ok(stored_messages)
     }
 

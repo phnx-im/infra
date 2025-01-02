@@ -7,10 +7,8 @@ use std::collections::HashSet;
 use phnxtypes::identifiers::QualifiedUserName;
 
 use crate::clients::CoreUser;
-use crate::ConversationMessageId;
 
-use super::notification::StoreEntityId;
-use super::{Store, StoreNotification, StoreResult};
+use super::{Store, StoreResult};
 
 impl Store for CoreUser {
     fn user_name(&self) -> QualifiedUserName {
@@ -22,9 +20,7 @@ impl Store for CoreUser {
     }
 
     async fn set_own_user_profile(&self, user_profile: crate::UserProfile) -> StoreResult<()> {
-        self.set_own_user_profile(user_profile).await?;
-        self.notify(StoreEntityId::OwnUser.updated());
-        Ok(())
+        self.set_own_user_profile(user_profile).await
     }
 
     async fn create_conversation(
@@ -32,9 +28,7 @@ impl Store for CoreUser {
         title: &str,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<crate::ConversationId> {
-        let id = self.create_conversation(title, picture).await?;
-        self.notify(StoreEntityId::from(id).added());
-        Ok(id)
+        self.create_conversation(title, picture).await
     }
 
     async fn set_conversation_picture(
@@ -43,9 +37,7 @@ impl Store for CoreUser {
         picture: Option<Vec<u8>>,
     ) -> StoreResult<()> {
         self.set_conversation_picture(conversation_id, picture)
-            .await?;
-        self.notify(StoreEntityId::Conversation(conversation_id).updated());
-        Ok(())
+            .await
     }
 
     async fn conversations(&self) -> StoreResult<Vec<crate::Conversation>> {
@@ -63,24 +55,18 @@ impl Store for CoreUser {
         &self,
         conversation_id: crate::ConversationId,
     ) -> StoreResult<Vec<crate::ConversationMessage>> {
-        let messages = self.delete_conversation(conversation_id).await?;
-        self.notify(StoreEntityId::from(conversation_id).removed());
-        Ok(messages)
+        self.delete_conversation(conversation_id).await
     }
 
     async fn leave_conversation(&self, conversation_id: crate::ConversationId) -> StoreResult<()> {
-        self.leave_conversation(conversation_id).await?;
-        self.notify(StoreEntityId::from(conversation_id).updated());
-        Ok(())
+        self.leave_conversation(conversation_id).await
     }
 
     async fn add_contact(
         &self,
         user_name: &QualifiedUserName,
     ) -> StoreResult<crate::ConversationId> {
-        let id = self.add_contact(user_name.clone()).await?;
-        self.notify(StoreEntityId::from(id).added());
-        Ok(id)
+        self.add_contact(user_name.clone()).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<crate::Contact>> {
@@ -140,9 +126,7 @@ impl Store for CoreUser {
         &self,
         until: impl IntoIterator<Item = (crate::ConversationId, chrono::DateTime<chrono::Utc>)>,
     ) -> StoreResult<()> {
-        let conversation_ids = self.mark_as_read(until).await?;
-        self.notify(StoreNotification::builder().update_many(conversation_ids));
-        Ok(())
+        Ok(self.mark_as_read(until).await?)
     }
 
     async fn send_message(
@@ -150,21 +134,11 @@ impl Store for CoreUser {
         conversation_id: crate::ConversationId,
         content: crate::MimiContent,
     ) -> StoreResult<crate::ConversationMessage> {
-        let message = self.send_message(conversation_id, content).await?;
-        self.notify(
-            StoreNotification::builder()
-                .add(conversation_id)
-                .add(message.id()),
-        );
-        Ok(message)
+        self.send_message(conversation_id, content).await
     }
 
     async fn resend_message(&self, local_message_id: uuid::Uuid) -> StoreResult<()> {
-        self.re_send_message(local_message_id).await?;
-        self.notify(
-            StoreNotification::builder().update(ConversationMessageId::from_uuid(local_message_id)),
-        );
-        Ok(())
+        self.re_send_message(local_message_id).await
     }
 
     fn subcribe(

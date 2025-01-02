@@ -2,19 +2,82 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 
-use log::error;
+use log::{error, warn};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::broadcast;
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
-use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::StreamExt;
+use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
+use tokio_stream::{Stream, StreamExt};
 
 use crate::{ConversationId, ConversationMessageId};
 
 // 1024 * size_of::<Arc<StoreNotification>>() = 1024 * 8 = 8 KiB
 const NOTIFICATION_CHANNEL_SIZE: usize = 1024;
+
+pub(crate) struct StoreNotifier {
+    tx: StoreNotificationsSender,
+    notification: StoreNotification,
+}
+
+impl StoreNotifier {
+    pub(crate) fn new(tx: StoreNotificationsSender) -> Self {
+        Self {
+            tx,
+            notification: Default::default(),
+        }
+    }
+
+    pub(crate) fn noop() -> Self {
+        Self {
+            tx: StoreNotificationsSender::new(),
+            notification: Default::default(),
+        }
+    }
+
+    pub(crate) fn add(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
+        self.notification.added.push(id.into());
+        self
+    }
+
+    pub(crate) fn update(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
+        self.notification.updated.push(id.into());
+        self
+    }
+
+    pub(crate) fn remove(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
+        self.notification.removed.push(id.into());
+        self
+    }
+
+    pub(crate) fn notify(mut self) {
+        if !self.notification.is_empty() {
+            let mut notification = mem::take(&mut self.notification);
+
+            notification.added.shrink_to_fit();
+            notification.updated.shrink_to_fit();
+            notification.removed.shrink_to_fit();
+            notification.added.sort_unstable();
+            notification.updated.sort_unstable();
+            notification.removed.sort_unstable();
+
+            self.tx.notify(Arc::new(notification));
+        }
+    }
+}
+
+impl Drop for StoreNotifier {
+    fn drop(&mut self) {
+        if !self.notification.is_empty() {
+            // Note: This might be ok. E.g. an error might happen after some notifications were
+            // added to the notifier.
+            warn!(
+                "StoreNotifier dropped with notifications; did you forget to call notify()? notifications = {:?}",
+                self.notification
+            );
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct StoreNotificationsSender {
@@ -31,14 +94,12 @@ impl StoreNotificationsSender {
         let _no_receivers = self.tx.send(notification.into());
     }
 
-    pub(crate) fn subscribe(
-        &self,
-    ) -> impl tokio_stream::Stream<Item = std::sync::Arc<StoreNotification>> {
-        BroadcastStream::new(self.tx.subscribe()).map(|res| match res {
-            Ok(notification) => notification,
+    pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> {
+        BroadcastStream::new(self.tx.subscribe()).filter_map(|res| match res {
+            Ok(notification) => Some(notification),
             Err(BroadcastStreamRecvError::Lagged(n)) => {
                 error!("store notifications lagged by {} messages", n);
-                std::sync::Arc::new(StoreNotification::default())
+                None
             }
         })
     }
@@ -50,7 +111,7 @@ impl Default for StoreNotificationsSender {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct StoreNotification {
     pub added: Vec<StoreEntityId>,
     pub updated: Vec<StoreEntityId>,
@@ -67,25 +128,7 @@ pub enum StoreEntityId {
     Message(ConversationMessageId),
 }
 
-impl StoreEntityId {
-    pub(crate) fn added(self) -> Arc<StoreNotification> {
-        StoreNotification::builder().add(self).build()
-    }
-
-    pub(crate) fn updated(self) -> Arc<StoreNotification> {
-        StoreNotification::builder().update(self).build()
-    }
-
-    pub(crate) fn removed(self) -> Arc<StoreNotification> {
-        StoreNotification::builder().remove(self).build()
-    }
-}
-
 impl StoreNotification {
-    pub(crate) fn builder() -> StoreNotificationBuilder {
-        StoreNotificationBuilder::default()
-    }
-
     pub fn contains_added(&self, id: &StoreEntityId) -> bool {
         self.added.binary_search(id).is_ok()
     }
@@ -97,69 +140,8 @@ impl StoreNotification {
     pub fn contains_removed(&self, id: &StoreEntityId) -> bool {
         self.removed.binary_search(id).is_ok()
     }
-}
 
-#[derive(Debug, Default)]
-pub struct StoreNotificationBuilder {
-    inner: StoreNotification,
-}
-
-impl StoreNotificationBuilder {
-    pub(crate) fn add(mut self, id: impl Into<StoreEntityId>) -> Self {
-        self.inner.added.push(id.into());
-        self
-    }
-
-    #[expect(dead_code)]
-    pub(crate) fn add_many(
-        mut self,
-        ids: impl IntoIterator<Item = impl Into<StoreEntityId>>,
-    ) -> Self {
-        self.inner.added.extend(ids.into_iter().map(Into::into));
-        self
-    }
-
-    pub(crate) fn update(mut self, id: impl Into<StoreEntityId>) -> Self {
-        self.inner.updated.push(id.into());
-        self
-    }
-
-    pub(crate) fn update_many(
-        mut self,
-        ids: impl IntoIterator<Item = impl Into<StoreEntityId>>,
-    ) -> Self {
-        self.inner.updated.extend(ids.into_iter().map(Into::into));
-        self
-    }
-
-    pub(crate) fn remove(mut self, id: impl Into<StoreEntityId>) -> Self {
-        self.inner.removed.push(id.into());
-        self
-    }
-
-    #[expect(dead_code)]
-    pub(crate) fn remove_many(
-        mut self,
-        ids: impl IntoIterator<Item = impl Into<StoreEntityId>>,
-    ) -> Self {
-        self.inner.removed.extend(ids.into_iter().map(Into::into));
-        self
-    }
-
-    pub(crate) fn build(self) -> Arc<StoreNotification> {
-        let mut inner = self.inner;
-        inner.added.shrink_to_fit();
-        inner.updated.shrink_to_fit();
-        inner.removed.shrink_to_fit();
-        inner.added.sort_unstable();
-        inner.updated.sort_unstable();
-        inner.removed.sort_unstable();
-        Arc::new(inner)
-    }
-}
-
-impl From<StoreNotificationBuilder> for Arc<StoreNotification> {
-    fn from(builder: StoreNotificationBuilder) -> Self {
-        builder.build()
+    fn is_empty(&self) -> bool {
+        self.added.is_empty() && self.updated.is_empty() && self.removed.is_empty()
     }
 }

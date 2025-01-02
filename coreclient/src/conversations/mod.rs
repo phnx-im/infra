@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
+use crate::store::StoreNotifier;
+
 pub(crate) mod messages;
 pub(crate) mod persistence;
 
@@ -150,9 +152,10 @@ impl Conversation {
     pub(crate) fn set_conversation_picture(
         &mut self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<(), rusqlite::Error> {
-        self.update_conversation_picture(connection, conversation_picture.as_deref())?;
+        self.update_conversation_picture(connection, notifier, conversation_picture.as_deref())?;
         self.attributes
             .set_conversation_picture_option(conversation_picture);
         Ok(())
@@ -161,20 +164,25 @@ impl Conversation {
     pub(crate) fn set_inactive(
         &mut self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         past_members: Vec<QualifiedUserName>,
     ) -> Result<(), rusqlite::Error> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
-        self.update_status(connection, &new_status)?;
+        self.update_status(connection, notifier, &new_status)?;
         self.status = new_status;
         Ok(())
     }
 
     /// Confirm a connection conversation by setting the conversation type to
     /// `Connection`.
-    pub(crate) fn confirm(&mut self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn confirm(
+        &mut self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
             let conversation_type = ConversationType::Connection(user_name);
-            self.set_conversation_type(connection, &conversation_type)?;
+            self.set_conversation_type(connection, notifier, &conversation_type)?;
             self.conversation_type = conversation_type;
         }
         Ok(())

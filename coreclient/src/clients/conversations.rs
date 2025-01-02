@@ -36,6 +36,7 @@ impl CoreUser {
 
         // Phase 1: Create and store the group in the OpenMLS provider
         let mut connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
         let (group, partial_params) = Group::create_group(
             &mut connection,
             &self.inner.key_store.signing_key,
@@ -44,7 +45,7 @@ impl CoreUser {
         )?;
         group.store(&connection)?;
         let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
-        conversation.store(&connection)?;
+        conversation.store(&connection, &mut notifier)?;
 
         drop(connection);
 
@@ -75,13 +76,15 @@ impl CoreUser {
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
         let connection = &self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
         let mut conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let resized_picture_option = conversation_picture_option
             .and_then(|conversation_picture| self.resize_image(&conversation_picture).ok());
-        conversation.set_conversation_picture(connection, resized_picture_option)?;
+        conversation.set_conversation_picture(connection, &mut notifier, resized_picture_option)?;
+        notifier.notify();
         Ok(())
     }
 

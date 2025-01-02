@@ -107,11 +107,12 @@ impl CoreUser {
                 // new conversation.
                 let mut connection = self.inner.connection.lock().await;
                 let mut transaction = connection.transaction()?;
+                let mut notifier = self.store_notifier();
                 group
                     .members(&transaction)
                     .into_iter()
                     .try_for_each(|user_name| {
-                        UserProfile::new(user_name, None, None).store(&transaction)
+                        UserProfile::new(user_name, None, None).store(&transaction, &mut notifier)
                     })?;
 
                 // Set the conversation attributes according to the group's
@@ -124,12 +125,14 @@ impl CoreUser {
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Conversation::delete(&transaction, conversation.id())?;
+                Conversation::delete(&transaction, &mut notifier, conversation.id())?;
                 Group::delete_from_db(&mut transaction, &group_id)?;
                 group.store(&transaction)?;
-                conversation.store(&transaction)?;
+                conversation.store(&transaction, &mut notifier)?;
                 transaction.commit()?;
                 drop(connection);
+
+                notifier.notify();
 
                 ProcessQsMessageResult::NewConversation(conversation.id())
             }
@@ -200,6 +203,8 @@ impl CoreUser {
                         ))?;
                         drop(connection);
                         let mut conversation_changed = false;
+
+                        let mut notifier = self.store_notifier();
 
                         if let ConversationType::UnconfirmedConnection(ref user_name) =
                             conversation.conversation_type()
@@ -289,7 +294,11 @@ impl CoreUser {
 
                             // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
                             let mut connection = self.inner.connection.lock().await;
-                            friendship_package.user_profile.update(&connection)?;
+                            let mut notifier = self.store_notifier();
+
+                            friendship_package
+                                .user_profile
+                                .update(&connection, &mut notifier)?;
 
                             // Set the picture of the conversation to the one of the contact.
                             let conversation_picture_option = friendship_package
@@ -301,18 +310,20 @@ impl CoreUser {
 
                             conversation.set_conversation_picture(
                                 &connection,
+                                &mut notifier,
                                 conversation_picture_option,
                             )?;
                             let mut transaction = connection.transaction()?;
                             // Now we can turn the partial contact into a full one.
                             partial_contact.mark_as_complete(
                                 &mut transaction,
+                                &mut notifier,
                                 friendship_package,
                                 sender_client_id.clone(),
                             )?;
                             transaction.commit()?;
 
-                            conversation.confirm(&connection)?;
+                            conversation.confirm(&connection, &mut notifier)?;
                             conversation_changed = true;
                             drop(connection);
                         }
@@ -323,7 +334,7 @@ impl CoreUser {
                         let connection = self.inner.connection.lock().await;
                         if we_were_removed {
                             let past_members = group.members(&connection).into_iter().collect();
-                            conversation.set_inactive(&connection, past_members)?;
+                            conversation.set_inactive(&connection, &mut notifier, past_members)?;
                         }
                         let group_messages = group.merge_pending_commit(
                             &connection,
@@ -331,6 +342,8 @@ impl CoreUser {
                             ds_timestamp,
                         )?;
                         drop(connection);
+
+                        notifier.notify();
 
                         (group_messages, conversation_changed)
                     }
@@ -345,7 +358,7 @@ impl CoreUser {
                 group.store_update(&transaction)?;
 
                 let conversation_messages =
-                    Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+                    self.store_messages(&mut transaction, conversation_id, group_messages)?;
                 transaction.commit()?;
                 drop(connection);
                 match (conversation_messages, conversation_changed) {
@@ -384,6 +397,7 @@ impl CoreUser {
         &self,
         as_message_plaintext: ExtractedAsQueueMessagePayload,
     ) -> Result<ConversationId> {
+        let mut notifier = self.store_notifier();
         let conversation_id = match as_message_plaintext {
             ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
                 let cep_in = ConnectionEstablishmentPackageIn::decrypt(
@@ -503,18 +517,21 @@ impl CoreUser {
                         conversation_picture_option,
                     ),
                 )?;
-                conversation.store(&connection)?;
+                conversation.store(&connection, &mut notifier)?;
                 // Store the user profile of the sender.
-                cep_tbs.friendship_package.user_profile.store(&connection)?;
+                cep_tbs
+                    .friendship_package
+                    .user_profile
+                    .store(&connection, &mut notifier)?;
                 // TODO: For now, we automatically confirm conversations.
-                conversation.confirm(&connection)?;
+                conversation.confirm(&connection, &mut notifier)?;
                 // TODO: Here, we want to store a contact
                 Contact::from_friendship_package(
                     sender_client_id,
                     conversation.id(),
                     cep_tbs.friendship_package,
                 )
-                .store(&connection)?;
+                .store(&connection, &mut notifier)?;
                 drop(connection);
 
                 let qs_client_reference = self.create_own_client_reference();
@@ -535,6 +552,7 @@ impl CoreUser {
                 conversation.id()
             }
         };
+        notifier.notify();
         Ok(conversation_id)
     }
 
