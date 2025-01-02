@@ -56,7 +56,7 @@ pub trait Store {
 
     async fn mark_conversation_as_read(
         &self,
-        since: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
+        until: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
     ) -> StoreResult<()>;
 
     async fn delete_conversation(
