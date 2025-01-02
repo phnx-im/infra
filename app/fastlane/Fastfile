@@ -67,29 +67,27 @@ platform :android do
       if upload_to_play_store
         sh "flutter build appbundle --release"
       else
-        sh "flutter build appbundle --debug"
+        sh "flutter build appbundle --target-platform android-arm64 --debug"
       end
 
-      gradle_propperties = {}
       if upload_to_play_store
+        # Prepare the signing properties
         gradle_propperties = {
           "android.injected.signing.store.file" => File.expand_path(keystore_path),
           "android.injected.signing.store.password" => ENV["ANDROID_KEY_PASSWORD"],
           "android.injected.signing.key.alias" => "upload",
           "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
         }
-      end
 
-      # Build the bundle in release mode and sign it
-      gradle(
-        task: "bundle",
-        build_type: upload_to_play_store ? "Release" : "Debug",
-        project_dir: File.expand_path("../android"),
-        properties: gradle_propperties
-      )
+        # Build the bundle in release mode and sign it
+        gradle(
+          task: "bundle",
+          build_type: "Release",
+          project_dir: File.expand_path("../android"),
+          properties: gradle_propperties
+        )
 
-      # Upload to Google Play Store if the parameter is set
-      if upload_to_play_store
+        # Upload to Google Play Store
         supply(
           validate_only: false,
           release_status: "draft",
