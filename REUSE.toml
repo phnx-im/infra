@@ -1,0 +1,64 @@
+version = 1
+SPDX-PackageName = "Phoenix Infra"
+SPDX-PackageSupplier = "Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-PackageDownloadLocation = "https://github.com/phnx-im/infra"
+
+[[annotations]]
+path = "Cargo.lock"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "server/.sqlx/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2023 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "backend/.sqlx/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2023 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "**.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2023 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "**.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "app/test_driver/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/fastlane/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/ios/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/android/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/.fvmrc"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
