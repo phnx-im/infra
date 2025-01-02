@@ -18,34 +18,36 @@ generate-db-certs:
 
 # === App ===
 
-app_dir := "app"
 app_lib_name := "applogic"
-app_rust_base_dir := app_lib_name
+app_rust_base_dir := "../applogic"
 
 # generate Dart files e.g. the data classes a.k.a freezed classes
+[working-directory: 'app']
 generate-dart-files:
-    cd {{app_dir}} && dart run build_runner build --delete-conflicting-outputs
+    dart run build_runner build --delete-conflicting-outputs
 
 # generate Rust and Dart flutter bridge files
+[working-directory: 'app']
 frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -f {{app_rust_base_dir}}/src/frb_*.rs
     touch {{app_rust_base_dir}}/src/frb_generated.rs
-    rm -Rf {{app_dir}}/lib/core
-    mkdir {{app_dir}}/lib/core
-    cd {{app_dir}} && flutter_rust_bridge_codegen generate
+    rm -Rf lib/core
+    mkdir lib/core
+    flutter_rust_bridge_codegen generate
 
 # integrate the Flutter Rust bridge
+[working-directory: 'app']
 frb-integrate:
-    cd {{app_dir}} && mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
-    cd {{app_dir}} && rm -Rf rust_builder test_driver
-    cd {{app_dir}} && flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir ../{{app_rust_base_dir}}
-    cd {{app_dir}} && git restore --source=HEAD --staged --worktree ../{{app_rust_base_dir}} lib
-    cd {{app_dir}} && git clean -fd ../{{app_rust_base_dir}} lib
-    cd {{app_dir}} && mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated.tmp
-    cd {{app_dir}} && echo "# This is only to inspect the generated flutter_rust_bridge.yaml file. Remove if not needed.\n" > /tmp/header.tmp
-    cd {{app_dir}} && cat /tmp/header.tmp flutter_rust_bridge.yaml.generated.tmp > flutter_rust_bridge.yaml.generated
-    cd {{app_dir}} && mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
-    cd {{app_dir}} && rm flutter_rust_bridge.yaml.generated.tmp
+    mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
+    rm -Rf rust_builder test_driver
+    flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir {{app_rust_base_dir}}
+    git restore --source=HEAD --staged --worktree {{app_rust_base_dir}} lib
+    git clean -fd {{app_rust_base_dir}} lib
+    mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated.tmp
+    echo "# This is only to inspect the generated flutter_rust_bridge.yaml file. Remove if not needed.\n" > /tmp/header.tmp
+    cat /tmp/header.tmp flutter_rust_bridge.yaml.generated.tmp > flutter_rust_bridge.yaml.generated
+    mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
+    rm flutter_rust_bridge.yaml.generated.tmp
     just frb-generate
 
 # set up the CI environment for the app
@@ -56,20 +58,22 @@ setup-ci:
 # set up the CI environment for Android builds
 setup-android-ci: setup-ci
     cargo binstall -y cargo-ndk
-    cd {{app_dir}}/fastlane && bundle install
 
 # set up the CI environment for iOS builds
+[working-directory: 'app/fastlane']
 setup-ios-ci: setup-ci
-	cd {{app_dir}}/fastlane && bundle install
+	bundle install
 
 # build Android
 # we limit it to android-arm64 to speed up the build process
+[working-directory: 'app']
 build-android:
-     cd {{app_dir}} && flutter build appbundle --target-platform android-arm64
+     flutter build appbundle --target-platform android-arm64
 
 # build iOS
+[working-directory: 'app']
 build-ios:
-	cd {{app_dir}} && flutter build ios --no-codesign
+	flutter build ios --no-codesign
 
 # analyze Dart code
 [working-directory: 'app']
