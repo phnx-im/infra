@@ -20,7 +20,7 @@ default_platform(:ios)
 
 platform :android do
   desc "Build and release the app"
-  lane :beta_android do
+  lane :beta_android do |options|
     # Package name
     package_name = "im.phnx.prototype"
     track = "internal"
