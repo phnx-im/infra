@@ -67,7 +67,7 @@ platform :android do
       if upload_to_play_store
         sh "flutter build appbundle --release"
       else
-        sh "flutter build appbundle --target-platform android-arm64 --debug"
+        sh "flutter build appbundle --target-platform android-arm64"
       end
 
       if upload_to_play_store
