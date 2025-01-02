@@ -58,4 +58,6 @@ jobs:
 
       - name: Build Android app
         run: |
-          cd app/fastlane && bundle exec fastlane android beta_android --verbose
+          cd app/fastlane
+          bundle install
+          bundle exec fastlane android beta_android --verbose
