@@ -14,7 +14,10 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
-        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+        signatures::{
+            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+            traits::SignatureVerificationError,
+        },
         ConnectionDecryptionKey, ConnectionEncryptionKey,
     },
     messages::{
@@ -127,13 +130,12 @@ impl ConnectionEstablishmentPackageIn {
     pub fn verify(
         self,
         verifying_key: &AsIntermediateVerifyingKey,
-    ) -> ConnectionEstablishmentPackageTbs {
+    ) -> Result<ConnectionEstablishmentPackageTbs, SignatureVerificationError> {
         let sender_client_credential: ClientCredential = self
             .payload
             .sender_client_credential
-            .verify(verifying_key)
-            .unwrap();
-        ConnectionEstablishmentPackageTbs {
+            .verify(verifying_key)?;
+        Ok(ConnectionEstablishmentPackageTbs {
             sender_client_credential,
             connection_group_id: self.payload.connection_group_id,
             connection_group_ear_key: self.payload.connection_group_ear_key,
@@ -143,7 +145,7 @@ impl ConnectionEstablishmentPackageIn {
                 .connection_group_signature_ear_key_wrapper_key,
             friendship_package_ear_key: self.payload.friendship_package_ear_key,
             friendship_package: self.payload.friendship_package,
-        }
+        })
     }
 }
 
