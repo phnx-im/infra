@@ -57,4 +57,5 @@ jobs:
         run: just generate-dart-files
 
       - name: Build Android app
-        run: just build-android
+        run: |
+          cd app/fastlane && bundle exec fastlane android beta_android --verbose
