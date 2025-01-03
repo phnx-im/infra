@@ -6,7 +6,7 @@ use std::fmt::Formatter;
 
 use openmls::framing::ApplicationMessage;
 
-use crate::mimi_content::MimiContent;
+use crate::{mimi_content::MimiContent, store::StoreNotifier};
 
 use super::*;
 
@@ -70,7 +70,7 @@ impl TimestampedMessage {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
     uuid: Uuid,
 }
@@ -144,10 +144,11 @@ impl ConversationMessage {
     pub(crate) fn mark_as_sent(
         &mut self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         ds_timestamp: TimeStamp,
     ) -> Result<(), rusqlite::Error> {
         self.timestamped_message.mark_as_sent(ds_timestamp);
-        self.update_sent_status(connection, ds_timestamp, true)
+        self.update_sent_status(connection, notifier, ds_timestamp, true)
     }
 
     pub fn id_ref(&self) -> &ConversationMessageId {

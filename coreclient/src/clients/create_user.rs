@@ -546,6 +546,7 @@ impl PersistedUserState {
             _qs_user_id: qs_user_id,
             qs_client_id,
             api_clients: api_clients.clone(),
+            store_notifications_tx: Default::default(),
         });
         CoreUser { inner }
     }

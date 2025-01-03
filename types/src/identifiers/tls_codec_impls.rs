@@ -62,7 +62,9 @@ impl Serialize for TlsStr<'_> {
     }
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
+)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 #[serde(transparent)]
 pub(super) struct TlsString(pub String);

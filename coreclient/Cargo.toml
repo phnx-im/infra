@@ -29,6 +29,7 @@ rand_chacha = "0.3.1"
 tokio = { version = "1" }
 image = "0.25.1"
 kamadak-exif = "0.5.5"
+derive_more = { version = "0.99.18", features = ["from"] }
 
 # Persistence
 refinery = { version = "0.8", features = [
@@ -43,6 +44,8 @@ chrono = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 openmls = { workspace = true }
+tokio-stream = { version = "0.1.17", features = ["sync"] }
+trait-variant = "0.1.2"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

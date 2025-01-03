@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::future::Future;
+
 use anyhow::{anyhow, Result};
-use phnxcoreclient::{clients::CoreUser, Conversation, ConversationId};
+use phnxcoreclient::{store::Store, Conversation, ConversationId};
 use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 
 use crate::notifier::dispatch_message_notifications;
@@ -12,6 +14,27 @@ use super::{
     types::{UiContact, UiConversation, UiConversationDetails, UiConversationMessage},
     user::User,
 };
+
+pub(crate) trait ConversationsExt {
+    fn conversation_details(&self) -> impl Future<Output = Vec<UiConversationDetails>> + Send;
+}
+
+impl<S> ConversationsExt for S
+where
+    S: Store + Sync,
+{
+    async fn conversation_details(&self) -> Vec<UiConversationDetails> {
+        let conversations = self.conversations().await.unwrap_or_default();
+        let mut conversation_details = Vec::with_capacity(conversations.len());
+        for conversation in conversations {
+            let details = converation_into_ui_details(self, conversation).await;
+            conversation_details.push(details);
+        }
+        // Sort the conversations by last used timestamp in descending order
+        conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
+        conversation_details
+    }
+}
 
 impl User {
     pub async fn get_conversations(&self) -> Vec<UiConversation> {
@@ -25,15 +48,7 @@ impl User {
     }
 
     pub async fn get_conversation_details(&self) -> Vec<UiConversationDetails> {
-        let conversations = self.user.conversations().await.unwrap_or_default();
-        let mut conversation_details = Vec::with_capacity(conversations.len());
-        for conversation in conversations {
-            let details = converation_into_ui_details(&self.user, conversation).await;
-            conversation_details.push(details);
-        }
-        // Sort the conversations by last used timestamp in descending order
-        conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
-        conversation_details
+        self.user.conversation_details().await
     }
 
     pub async fn add_users_to_conversation(
@@ -105,11 +120,19 @@ impl User {
 /// Loads additional details for a conversation and converts it into a
 /// [`UiConversationDetails`]
 pub(crate) async fn converation_into_ui_details(
-    user: &CoreUser,
+    store: &impl Store,
     conversation: Conversation,
 ) -> UiConversationDetails {
-    let unread_messages = user.unread_messages_count(conversation.id()).await;
-    let last_message = user.last_message(conversation.id()).await.map(|m| m.into());
+    let unread_messages = store
+        .unread_messages_count(conversation.id())
+        .await
+        .unwrap_or_default();
+    let last_message = store
+        .last_message(conversation.id())
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.into());
     let last_used = last_message
         .as_ref()
         .map(|m: &UiConversationMessage| m.timestamp.clone())
@@ -124,7 +147,7 @@ pub(crate) async fn converation_into_ui_details(
         conversation_type: conversation.conversation_type,
         last_used,
         attributes: conversation.attributes,
-        unread_messages,
+        unread_messages: TryInto::try_into(unread_messages).expect("usize overflow"),
         last_message,
     }
 }

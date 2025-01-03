@@ -8,6 +8,7 @@ use phnxtypes::{codec::PhnxCodec, crypto::ear::EarEncryptable};
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
     groups::Group,
+    ConversationMessageId,
 };
 
 use super::{ConversationId, CoreUser};
@@ -35,6 +36,7 @@ impl CoreUser {
 
         // Phase 1: Create and store the group in the OpenMLS provider
         let mut connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
         let (group, partial_params) = Group::create_group(
             &mut connection,
             &self.inner.key_store.signing_key,
@@ -43,9 +45,10 @@ impl CoreUser {
         )?;
         group.store(&connection)?;
         let conversation = Conversation::new_group_conversation(group_id, conversation_attributes);
-        conversation.store(&connection)?;
+        conversation.store(&connection, &mut notifier)?;
 
         drop(connection);
+        notifier.notify();
 
         // Phase 2: Create the group on the DS
         let encrypted_client_credential = self
@@ -74,14 +77,24 @@ impl CoreUser {
         conversation_picture_option: Option<Vec<u8>>,
     ) -> Result<()> {
         let connection = &self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
         let mut conversation = Conversation::load(connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
             conversation_id.as_uuid()
         ))?;
         let resized_picture_option = conversation_picture_option
             .and_then(|conversation_picture| self.resize_image(&conversation_picture).ok());
-        conversation.set_conversation_picture(connection, resized_picture_option)?;
+        conversation.set_conversation_picture(connection, &mut notifier, resized_picture_option)?;
+        notifier.notify();
         Ok(())
+    }
+
+    pub(crate) async fn message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        ConversationMessage::load(connection, &message_id.to_uuid())
     }
 
     pub async fn last_message(
@@ -93,6 +106,14 @@ impl CoreUser {
             log::error!("Error while fetching last message: {:?}", e);
             None
         })
+    }
+
+    pub(crate) async fn try_last_message(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        ConversationMessage::last_content_message(connection, conversation_id)
     }
 
     pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {

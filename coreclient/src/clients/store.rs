@@ -72,6 +72,7 @@ impl UserCreationState {
         // Create user profile entry for own user.
         UserProfile::store_own_user_profile(
             client_db_connection,
+            &mut StoreNotifier::noop(),
             as_client_id.user_name(),
             None,
             None,
