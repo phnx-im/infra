@@ -174,6 +174,7 @@ impl CoreUser {
 
         let mut group = Group::load(&connection, group_id)?
             .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
+        drop(connection);
 
         // MLSMessage Phase 2: Process the message
         let (processed_message, we_were_removed, sender_client_id) = group
@@ -277,6 +278,7 @@ impl CoreUser {
                 "Can't find conversation with id {}",
                 conversation_id.as_uuid()
             ))?;
+        drop(connection);
         let mut conversation_changed = false;
 
         if let ConversationType::UnconfirmedConnection(ref user_name) =
@@ -296,6 +298,7 @@ impl CoreUser {
                 "No partial contact found for user name {}",
                 user_name
             ))?;
+            drop(connection);
 
             // This is a bit annoying, since we already
             // de-serialized this in the group processing
