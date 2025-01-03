@@ -76,3 +76,13 @@ build-android:
 [working-directory: 'app']
 build-ios:
 	flutter build ios --no-codesign
+
+# analyze Dart code
+[working-directory: 'app']
+analyze-dart:
+    flutter analyze
+
+# run Flutter tests
+[working-directory: 'app']
+test-flutter:
+    flutter test

@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Flutter tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  flutter-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
+      - name: Set up Flutter FVM
+        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
+        with:
+          path: 'app/.fvmrc'
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: just setup-ci
+
+      - name: Integrate bridge
+        run: just frb-integrate
+
+      - name: Generate Dart files
+        run: just generate-dart-files
+
+      - name: Analyze dart code
+        run: just analyze-dart
+
+      - name: Run Flutter tests
+        run: just test-flutter
