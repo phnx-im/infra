@@ -68,27 +68,29 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Prototype',
-      debugShowCheckedModeBanner: false,
-      theme: themeData(context),
-      routerConfig: _appRouter,
-      builder: (context, router) => MultiBlocProvider(
-        providers: [
-          Provider.value(value: _coreClient),
-          BlocProvider<NavigationCubit>(create: (context) => NavigationCubit()),
-          BlocProvider<RegistrationCubit>(
-              create: (context) => RegistrationCubit(coreClient: _coreClient)),
-          BlocProvider<LoadableUserCubit>(
-            create: (context) =>
-                // loads the user on startup
-                LoadableUserCubit((_coreClient..loadUser()).userStream),
-          ),
-        ],
+    return MultiBlocProvider(
+      providers: [
+        Provider.value(value: _coreClient),
+        BlocProvider<NavigationCubit>(create: (context) => NavigationCubit()),
+        BlocProvider<RegistrationCubit>(
+            create: (context) => RegistrationCubit(coreClient: _coreClient)),
+        BlocProvider<LoadableUserCubit>(
+          // loads the user on startup
+          create: (context) =>
+              LoadableUserCubit((_coreClient..loadUser()).userStream),
+          lazy: false, // immediately try to load the user
+        ),
+      ],
+      child: MaterialApp.router(
+        title: 'Prototype',
+        debugShowCheckedModeBanner: false,
+        theme: themeData(context),
+        routerConfig: _appRouter,
         // This bloc has two tasks:
         // 1. Listen to the loadable user and switch the navigation accordingly.
         // 2. Provide the logged in user to the app, when it is loaded.
-        child: BlocConsumer<LoadableUserCubit, LoadableUser>(
+        builder: (context, router) =>
+            BlocConsumer<LoadableUserCubit, LoadableUser>(
           listenWhen: _isUserLoadedOrUnloaded,
           buildWhen: _isUserLoadedOrUnloaded,
           listener: (context, loadableUser) {
