@@ -73,4 +73,4 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_PLAYSTORE_KEY_JSON: ${{ secrets.ANDROID_PLAYSTORE_KEY_JSON }}
         run: |
-          cd app/fastlane && bundle exec fastlane android deploy
+          cd app/fastlane && bundle exec fastlane android beta_android upload_to_play_store:true --verbose
