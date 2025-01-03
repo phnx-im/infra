@@ -184,8 +184,7 @@ class _ConversationContentState extends State<ConversationContent> {
             index = _messages.length - 1 - index;
             final key = GlobalKey();
             _tileKeys[index] = key;
-            final message = _messages[index];
-            return ConversationTile(key: key, message: message);
+            return ConversationTile(key: key);
           },
         ),
       ),

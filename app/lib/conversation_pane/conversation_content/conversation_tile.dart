@@ -3,28 +3,37 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_pane/conversation_content/display_message_tile.dart';
-import 'package:prototype/conversation_pane/conversation_content/text_message_tile.dart';
 import 'package:prototype/core/api/types.dart';
+import 'package:provider/provider.dart';
+
+import 'display_message_tile.dart';
+import 'message_cubit.dart';
+import 'text_message_tile.dart';
 
 class ConversationTile extends StatelessWidget {
-  const ConversationTile({
-    required Key key,
-    required this.message,
-  }) : super(key: key);
-
-  final UiConversationMessage message;
+  const ConversationTile({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final (message, timestamp) = context.select(
+      (MessageCubit cubit) => (
+        cubit.state.message?.message,
+        cubit.state.message?.timestamp,
+      ),
+    );
+
+    if (message == null || timestamp == null) {
+      return const SizedBox.shrink();
+    }
+
     return ListTile(
       title: Container(
         alignment: AlignmentDirectional.centerStart,
-        child: switch (message.message) {
+        child: switch (message) {
           UiMessage_ContentFlight(field0: final contentFlight) =>
-            TextMessageTile(contentFlight, message.timestamp),
+            TextMessageTile(contentFlight, timestamp),
           UiMessage_Display(field0: final display) =>
-            DisplayMessageTile(display, message.timestamp),
+            DisplayMessageTile(display, timestamp),
           UiMessage_Unsent(field0: final unsent) => Text(
               "⚠️ UNSENT MESSAGE ⚠️ $unsent",
               style: const TextStyle(color: Colors.red)),
