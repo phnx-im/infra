@@ -14,7 +14,7 @@ use phnxtypes::identifiers::SafeTryInto;
 use tokio::{runtime::Handle, sync::watch, task::block_in_place};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::StreamSink;
 use crate::{
