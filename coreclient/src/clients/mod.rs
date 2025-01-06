@@ -50,6 +50,7 @@ use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
+use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
@@ -60,7 +61,7 @@ use crate::{
         Conversation, ConversationAttributes,
     },
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
-    store::StoreNotifier,
+    store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
@@ -100,16 +101,16 @@ pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Clone)]
 pub struct CoreUser {
-    pub(crate) inner: Arc<CoreUserInner>,
+    inner: Arc<CoreUserInner>,
 }
 
 pub(crate) struct CoreUserInner {
-    pub(crate) connection: SqliteConnection,
-    pub(crate) api_clients: ApiClients,
-    pub(crate) _qs_user_id: QsUserId,
-    pub(crate) qs_client_id: QsClientId,
-    pub(crate) key_store: MemoryUserKeyStore,
-    pub(crate) store_notifications_tx: StoreNotificationsSender,
+    connection: SqliteConnection,
+    api_clients: ApiClients,
+    _qs_user_id: QsUserId,
+    qs_client_id: QsClientId,
+    key_store: MemoryUserKeyStore,
+    store_notifications_tx: StoreNotificationsSender,
 }
 
 impl CoreUser {
@@ -256,6 +257,12 @@ impl CoreUser {
         let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
 
         Ok(Some(self_user))
+    }
+
+    pub(crate) fn subscribe_to_store_notifications(
+        &self,
+    ) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {
+        self.inner.store_notifications_tx.subscribe()
     }
 
     pub(crate) fn store_notifier(&self) -> StoreNotifier {
