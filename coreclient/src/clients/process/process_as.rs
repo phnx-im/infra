@@ -21,6 +21,7 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::Group,
+    store::StoreNotifier,
 };
 
 use super::{
@@ -84,13 +85,23 @@ impl CoreUser {
                 let (mut conversation, contact) =
                     self.create_connection_conversation(&group, &cep_tbs)?;
 
+                let mut notifier = self.store_notifier();
+
                 // Store group, conversation & contact
-                self.store_group_conversation_contact(&group, &mut conversation, contact, &cep_tbs)
-                    .await?;
+                self.store_group_conversation_contact(
+                    &mut notifier,
+                    &group,
+                    &mut conversation,
+                    contact,
+                    &cep_tbs,
+                )
+                .await?;
 
                 // Send confirmation
                 self.send_confirmation_to_ds(&group, commit, group_info, &cep_tbs, qgid)
                     .await?;
+
+                notifier.notify();
 
                 // Return the conversation ID
                 Ok(conversation.id())
@@ -259,6 +270,7 @@ impl CoreUser {
 
     async fn store_group_conversation_contact(
         &self,
+        notifier: &mut StoreNotifier,
         group: &Group,
         conversation: &mut Conversation,
         contact: Contact,
@@ -266,13 +278,16 @@ impl CoreUser {
     ) -> Result<()> {
         let connection = self.inner.connection.lock().await;
         group.store(&connection)?;
-        conversation.store(&connection)?;
+        conversation.store(&connection, notifier)?;
         // Store the user profile of the sender.
-        cep_tbs.friendship_package.user_profile.store(&connection)?;
+        cep_tbs
+            .friendship_package
+            .user_profile
+            .store(&connection, notifier)?;
         // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(&connection)?;
+        conversation.confirm(&connection, notifier)?;
         // TODO: Here, we want to store a contact
-        contact.store(&connection)?;
+        contact.store(&connection, notifier)?;
         Ok(())
     }
 

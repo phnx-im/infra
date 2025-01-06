@@ -7,6 +7,7 @@ use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 
 use crate::{
+    store::StoreNotifier,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
 };
@@ -47,7 +48,11 @@ impl Storable for Conversation {
 }
 
 impl Conversation {
-    pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
+    pub(crate) fn store(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
         log::info!("Storing conversation: {:?}", self.id);
         log::info!("With title: {:?}", self.attributes().title());
         let group_id = GroupIdRefWrapper::from(&self.group_id);
@@ -63,6 +68,7 @@ impl Conversation {
                 self.conversation_type(),
             ],
         )?;
+        notifier.add(self.id);
         Ok(())
     }
 
@@ -93,59 +99,65 @@ impl Conversation {
     pub(super) fn update_conversation_picture(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_picture: Option<&[u8]>,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
             params![conversation_picture, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 
     pub(super) fn update_status(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         status: &ConversationStatus,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
             params![status, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 
     pub(crate) fn delete(
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM conversations WHERE conversation_id = ?",
             params![conversation_id],
         )?;
+        notifier.remove(conversation_id);
         Ok(())
     }
 
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
+    pub(crate) fn mark_as_read(
         transaction: &mut Transaction,
-        mark_as_read_data: T,
+        notifier: &mut StoreNotifier,
+        mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
     ) -> Result<(), rusqlite::Error> {
-        for (conversation_id, timestamp) in mark_as_read_data.into_iter() {
-            transaction.execute(
-                "UPDATE conversations 
-                 SET last_read = CASE 
-                                    WHEN last_read < :timestamp 
-                                    THEN :timestamp 
-                                    ELSE last_read 
-                                 END 
-                 WHERE conversation_id = :conversation_id",
-                named_params! {
-                    ":timestamp": timestamp,
-                    ":conversation_id": conversation_id,
-                },
-            )?;
+        let mut stmt = transaction.prepare(
+            "UPDATE conversations
+                SET last_read = :timestamp
+                WHERE conversation_id = :conversation_id AND last_read < :timestamp",
+        )?;
+        for (conversation_id, timestamp) in mark_as_read_data {
+            let updated = stmt.execute(named_params! {
+                ":timestamp": timestamp,
+                ":conversation_id": conversation_id,
+            })?;
+            if updated == 1 {
+                notifier.update(conversation_id);
+            }
         }
         Ok(())
     }
@@ -154,13 +166,13 @@ impl Conversation {
         connection: &Connection,
     ) -> Result<u32, rusqlite::Error> {
         connection.query_row(
-            "SELECT 
+            "SELECT
                 COUNT(cm.conversation_id) AS total_unread_messages
-            FROM 
+            FROM
                 conversations c
-            LEFT JOIN 
+            LEFT JOIN
                 conversation_messages cm
-            ON 
+            ON
                 c.conversation_id = cm.conversation_id
                 AND cm.sender != 'system'
                 AND cm.timestamp > c.last_read;",
@@ -174,20 +186,20 @@ impl Conversation {
         conversation_id: ConversationId,
     ) -> Result<u32, rusqlite::Error> {
         connection.query_row(
-            "SELECT 
-                    COUNT(*) 
-                FROM 
-                    conversation_messages 
-                WHERE 
-                    conversation_id = :conversation_id 
-                    AND sender != 'system' 
-                    AND timestamp > 
+            "SELECT
+                    COUNT(*)
+                FROM
+                    conversation_messages
+                WHERE
+                    conversation_id = :conversation_id
+                    AND sender != 'system'
+                    AND timestamp >
                     (
-                        SELECT 
-                            last_read 
-                        FROM 
-                            conversations 
-                        WHERE 
+                        SELECT
+                            last_read
+                        FROM
+                            conversations
+                        WHERE
                             conversation_id = :conversation_id
                     )",
             named_params! {":conversation_id": conversation_id},
@@ -198,12 +210,14 @@ impl Conversation {
     pub(super) fn set_conversation_type(
         &self,
         connection: &Connection,
+        notifier: &mut StoreNotifier,
         conversation_type: &ConversationType,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],
         )?;
+        notifier.update(self.id);
         Ok(())
     }
 }

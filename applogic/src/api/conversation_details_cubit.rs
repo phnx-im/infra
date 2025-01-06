@@ -2,19 +2,24 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::Arc;
+
 use flutter_rust_bridge::frb;
-use phnxcoreclient::clients::CoreUser;
-use phnxcoreclient::ConversationId;
+use phnxcoreclient::{
+    clients::CoreUser,
+    store::{Store, StoreEntityId, StoreOperation},
+};
+use phnxcoreclient::{store::StoreNotification, ConversationId};
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::watch;
+use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
 use super::conversations::converation_into_ui_details;
-use super::messages::{FetchedMessages, FetchedMessagesBroadcast, FetchedMessagesReceiver};
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
 
@@ -29,31 +34,24 @@ pub struct ConversationDetailsState {
 pub struct ConversationDetailsCubitBase {
     core: CubitCore<ConversationDetailsState>,
     conversation_id: ConversationId,
-    core_user: CoreUser,
-    fetched_messages_tx: FetchedMessagesBroadcast,
+    store: CoreUser,
 }
 
 impl ConversationDetailsCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
-        let core_user = user_cubit.core_user.clone();
+        let store = user_cubit.core_user.clone();
+        let store_notifications = store.subscribe();
+
         let core = CubitCore::new();
 
-        ConversationDetailsContext::new(
-            core_user.clone(),
-            core.state_tx().clone(),
-            conversation_id,
-        )
-        .spawn(
-            user_cubit.subscribe_to_fetched_messages(),
-            core.cancellation_token().clone(),
-        );
+        ConversationDetailsContext::new(store.clone(), core.state_tx().clone(), conversation_id)
+            .spawn(store_notifications, core.cancellation_token().clone());
 
         Self {
             core,
             conversation_id,
-            core_user,
-            fetched_messages_tx: user_cubit.fetched_messages_tx().clone(),
+            store,
         }
     }
 
@@ -80,16 +78,7 @@ impl ConversationDetailsCubitBase {
     // Cubit methods
 
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        self.core_user
-            .set_conversation_picture(self.conversation_id, bytes.clone())
-            .await?;
-        self.fetched_messages_tx
-            .send(FetchedMessages {
-                changed_conversations: vec![self.conversation_id],
-                ..Default::default()
-            })
-            .await;
-        Ok(())
+        Store::set_conversation_picture(&self.store, self.conversation_id, bytes.clone()).await
     }
 
     /// Load user profile of the conversation (only for non-group conversations)
@@ -106,7 +95,7 @@ impl ConversationDetailsCubitBase {
                 | UiConversationType::Connection(username),
             ) => {
                 let qualified_username = SafeTryInto::try_into(username)?;
-                let profile = self.core_user.user_profile(&qualified_username).await?;
+                let profile = self.store.user_profile(&qualified_username).await?;
                 Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
             }
             Some(UiConversationType::Group) | None => Ok(None),
@@ -135,10 +124,14 @@ impl ConversationDetailsContext {
         }
     }
 
-    fn spawn(self, fetched_messages_rx: FetchedMessagesReceiver, stop: CancellationToken) {
+    fn spawn(
+        self,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        stop: CancellationToken,
+    ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(fetched_messages_rx, stop)
+            self.fetched_messages_listen_loop(store_notifications, stop)
                 .await;
         });
     }
@@ -176,36 +169,28 @@ impl ConversationDetailsContext {
     /// Returns only when `stop` is cancelled
     async fn fetched_messages_listen_loop(
         self,
-        mut fetched_messages_rx: FetchedMessagesReceiver,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,
     ) {
+        let mut store_notifications = std::pin::pin!(store_notifications);
         loop {
             let res = tokio::select! {
-                res = fetched_messages_rx.recv() => res,
+                notification = store_notifications.next() => notification,
                 _ = stop.cancelled() => return,
             };
             match res {
-                Ok(fetched_messages) => self.handle_fetched_messages(&fetched_messages).await,
-                Err(broadcast::error::RecvError::Closed) => return,
-                Err(broadcast::error::RecvError::Lagged(n)) => {
-                    warn!(n, "fetched messages lagged");
-                }
+                Some(notification) => self.handle_store_notification(&notification).await,
+                None => return,
             }
         }
     }
 
-    async fn handle_fetched_messages(
-        &self,
-        FetchedMessages {
-            new_conversations,
-            changed_conversations,
-            new_messages: _,
-            notifications_content: _,
-        }: &FetchedMessages,
-    ) {
-        if changed_conversations.contains(&self.conversation_id)
-            || new_conversations.contains(&self.conversation_id)
-        {
+    async fn handle_store_notification(&self, notification: &StoreNotification) {
+        let conversation_id = StoreEntityId::Conversation(self.conversation_id);
+        let conversation_changed = notification.ops.iter().any(|(id, op)| {
+            id == &conversation_id && matches!(op, StoreOperation::Add | StoreOperation::Update)
+        });
+        if conversation_changed {
             self.load_and_emit_state().await;
         }
     }

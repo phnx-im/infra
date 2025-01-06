@@ -125,11 +125,12 @@ impl CoreUser {
         // new conversation.
         let mut connection = self.inner.connection.lock().await;
         let mut transaction = connection.transaction()?;
+        let mut notifier = self.store_notifier();
         group
             .members(&transaction)
             .into_iter()
             .try_for_each(|user_name| {
-                UserProfile::new(user_name, None, None).store(&transaction)
+                UserProfile::new(user_name, None, None).store(&transaction, &mut notifier)
             })?;
 
         // Set the conversation attributes according to the group's
@@ -141,11 +142,12 @@ impl CoreUser {
         // If we've been in that conversation before, we delete the old
         // conversation (and the corresponding MLS group) first and then
         // create a new one. We do leave the messages intact, though.
-        Conversation::delete(&transaction, conversation.id())?;
+        Conversation::delete(&transaction, &mut notifier, conversation.id())?;
         Group::delete_from_db(&mut transaction, &group_id)?;
         group.store(&transaction)?;
-        conversation.store(&transaction)?;
+        conversation.store(&transaction, &mut notifier)?;
         transaction.commit()?;
+        notifier.notify();
 
         Ok(ProcessQsMessageResult::NewConversation(conversation.id()))
     }
@@ -219,7 +221,7 @@ impl CoreUser {
         group.store_update(&transaction)?;
 
         let conversation_messages =
-            Self::store_messages(&mut transaction, conversation_id, group_messages)?;
+            self.store_messages(&mut transaction, conversation_id, group_messages)?;
         transaction.commit()?;
         Ok(match (conversation_messages, conversation_changed) {
             (messages, true) => {
@@ -280,6 +282,8 @@ impl CoreUser {
             ))?;
         drop(connection);
         let mut conversation_changed = false;
+
+        let mut notifier = self.store_notifier();
 
         if let ConversationType::UnconfirmedConnection(ref user_name) =
             conversation.conversation_type()
@@ -363,7 +367,9 @@ impl CoreUser {
 
             // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
             let mut connection = self.inner.connection.lock().await;
-            friendship_package.user_profile.update(&connection)?;
+            friendship_package
+                .user_profile
+                .update(&connection, &mut notifier)?;
 
             // Set the picture of the conversation to the one of the contact.
             let conversation_picture_option = friendship_package
@@ -373,17 +379,22 @@ impl CoreUser {
                     Asset::Value(value) => value.to_owned(),
                 });
 
-            conversation.set_conversation_picture(&connection, conversation_picture_option)?;
+            conversation.set_conversation_picture(
+                &connection,
+                &mut notifier,
+                conversation_picture_option,
+            )?;
             let mut transaction = connection.transaction()?;
             // Now we can turn the partial contact into a full one.
             partial_contact.mark_as_complete(
                 &mut transaction,
+                &mut notifier,
                 friendship_package,
                 sender_client_id.clone(),
             )?;
             transaction.commit()?;
 
-            conversation.confirm(&connection)?;
+            conversation.confirm(&connection, &mut notifier)?;
             conversation_changed = true;
         }
 
@@ -393,10 +404,12 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         if we_were_removed {
             let past_members = group.members(&connection).into_iter().collect();
-            conversation.set_inactive(&connection, past_members)?;
+            conversation.set_inactive(&connection, &mut notifier, past_members)?;
         }
         let group_messages =
             group.merge_pending_commit(&connection, staged_commit, ds_timestamp)?;
+
+        notifier.notify();
 
         Ok((group_messages, conversation_changed))
     }
