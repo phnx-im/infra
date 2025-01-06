@@ -121,4 +121,27 @@ impl CoreUser {
         let conversations = Conversation::load_all(connection)?;
         Ok(conversations)
     }
+
+    pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
+        let connection = self.inner.connection.lock().await;
+        Conversation::load(&connection, conversation_id)
+            .ok()
+            .flatten()
+    }
+
+    /// Get the most recent `number_of_messages` messages from the conversation
+    /// with the given [`ConversationId`].
+    pub async fn get_messages(
+        &self,
+        conversation_id: ConversationId,
+        number_of_messages: usize,
+    ) -> Result<Vec<ConversationMessage>> {
+        let connection = self.inner.connection.lock().await;
+        let messages = ConversationMessage::load_multiple(
+            &connection,
+            conversation_id,
+            number_of_messages as u32,
+        )?;
+        Ok(messages)
+    }
 }

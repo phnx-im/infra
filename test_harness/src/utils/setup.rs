@@ -557,7 +557,7 @@ impl TestBackend {
                 .unwrap();
 
             assert_eq!(
-                messages.last().unwrap().message(),
+                messages.new_messages.last().unwrap().message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_name.to_string(),
                     true,
@@ -755,7 +755,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let invite_messages = display_messages_to_string_map(invite_messages);
+            let invite_messages = display_messages_to_string_map(invite_messages.new_messages);
 
             assert_eq!(invite_messages, expected_messages);
 
@@ -943,7 +943,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let remove_messages = display_messages_to_string_map(remove_messages);
+            let remove_messages = display_messages_to_string_map(remove_messages.new_messages);
             assert_eq!(remove_messages, expected_messages);
 
             let group_members_after = group_member
