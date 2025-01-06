@@ -104,7 +104,7 @@ pub struct CoreUser {
     inner: Arc<CoreUserInner>,
 }
 
-pub(crate) struct CoreUserInner {
+struct CoreUserInner {
     connection: SqliteConnection,
     api_clients: ApiClients,
     _qs_user_id: QsUserId,
