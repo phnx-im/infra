@@ -65,6 +65,7 @@ pub struct UiConversationDetails {
     pub conversation_type: UiConversationType,
     pub last_used: String,
     pub attributes: UiConversationAttributes,
+    pub messages_count: u32,
     pub unread_messages: u32,
     pub last_message: Option<UiConversationMessage>,
 }

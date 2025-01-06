@@ -11,6 +11,7 @@ pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod conversations;
 pub mod logging;
+pub mod message_cubit;
 pub mod messages;
 pub mod notifications;
 pub mod types;

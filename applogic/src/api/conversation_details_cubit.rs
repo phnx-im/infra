@@ -11,17 +11,20 @@ use phnxcoreclient::{
 };
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::watch;
+use tokio::{runtime::Handle, sync::watch, task::block_in_place};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::error;
+use tracing::{error, info};
 
-use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
+use crate::{
+    util::{spawn_from_sync, Cubit, CubitCore},
+    FLUTTER_RUST_BRIDGE_HANDLER,
+};
 
-use super::conversations::converation_into_ui_details;
 use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
 use super::user::user_cubit::UserCubitBase;
+use super::{conversations::converation_into_ui_details, types::UiConversationMessageId};
 
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
@@ -101,6 +104,34 @@ impl ConversationDetailsCubitBase {
             Some(UiConversationType::Group) | None => Ok(None),
         }
     }
+
+    #[frb(sync, type_64bit_int)]
+    pub fn message_id_from_rev_offset(&self, offset: usize) -> Option<UiConversationMessageId> {
+        // TODO: This is a hack, but we need a sync version of this method. Can we do better?
+        let _rt = FLUTTER_RUST_BRIDGE_HANDLER.async_runtime().0.enter();
+        block_in_place(|| {
+            Handle::current()
+                .block_on(
+                    self.store
+                        .message_id_from_rev_offset(self.conversation_id, offset),
+                )
+                .map(From::from)
+        })
+    }
+
+    #[frb(sync, type_64bit_int)]
+    pub fn rev_offset_from_message_id(&self, message_id: UiConversationMessageId) -> Option<usize> {
+        // TODO: This is a hack, but we need a sync version of this method. Can we do better?
+        let _rt = FLUTTER_RUST_BRIDGE_HANDLER.async_runtime().0.enter();
+        block_in_place(|| {
+            Handle::current()
+                .block_on(
+                    self.store
+                        .rev_offset_from_message_id(self.conversation_id, message_id.into()),
+                )
+                .map(From::from)
+        })
+    }
 }
 
 /// Loads the intial state and listen to the changes
@@ -131,7 +162,7 @@ impl ConversationDetailsContext {
     ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(store_notifications, stop)
+            self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
@@ -167,7 +198,7 @@ impl ConversationDetailsContext {
     }
 
     /// Returns only when `stop` is cancelled
-    async fn fetched_messages_listen_loop(
+    async fn store_notifications_loop(
         self,
         store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,

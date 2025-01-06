@@ -123,6 +123,10 @@ pub(crate) async fn converation_into_ui_details(
     store: &impl Store,
     conversation: Conversation,
 ) -> UiConversationDetails {
+    let messages_count = store
+        .messages_count(conversation.id())
+        .await
+        .unwrap_or_default();
     let unread_messages = store
         .unread_messages_count(conversation.id())
         .await
@@ -147,6 +151,7 @@ pub(crate) async fn converation_into_ui_details(
         conversation_type: conversation.conversation_type,
         last_used,
         attributes: conversation.attributes,
+        messages_count: TryInto::try_into(messages_count).expect("usize overflow"),
         unread_messages: TryInto::try_into(unread_messages).expect("usize overflow"),
         last_message,
     }

@@ -4,7 +4,7 @@
 
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
-    params,
+    named_params, params,
     types::{FromSql, FromSqlError, Type},
     Connection, OptionalExtension, ToSql,
 };
@@ -85,7 +85,7 @@ impl Message {
     }
 }
 
-use super::TimestampedMessage;
+use super::{ConversationMessageId, TimestampedMessage};
 
 impl Storable for ConversationMessage {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -243,5 +243,50 @@ impl ConversationMessage {
         statement
             .query_row(params![conversation_id], Self::from_row)
             .optional()
+    }
+
+    pub(crate) fn id_from_rev_offset(
+        connection: &Connection,
+        conversation_id: ConversationId,
+        offset: usize,
+    ) -> rusqlite::Result<Option<ConversationMessageId>> {
+        // TODO: Add an index on timestamp, otherwise this query is slow
+        connection
+            .query_row(
+                "SELECT message_id FROM conversation_messages
+                WHERE conversation_id = :conversation_id
+                ORDER BY timestamp DESC
+                LIMIT 1 OFFSET :offset",
+                named_params! {
+                    ":conversation_id": conversation_id,
+                    ":offset": offset,
+                },
+                |row| row.get(0),
+            )
+            .optional()
+    }
+
+    pub(crate) fn rev_offset_from_id(
+        connection: &Connection,
+        conversation_id: ConversationId,
+        message_id: ConversationMessageId,
+    ) -> rusqlite::Result<Option<usize>> {
+        let count: usize = connection.query_row(
+            "SELECT COUNT(message_id) FROM conversation_messages
+            WHERE conversation_id = :conversation_id
+            AND timestamp >= (
+                SELECT timestamp FROM conversation_messages
+                WHERE message_id = :message_id
+            )",
+            named_params! {
+                ":conversation_id": conversation_id,
+                ":message_id": message_id,
+            },
+            |row| row.get(0),
+        )?;
+        match count {
+            0 => Ok(None),
+            n => Ok(Some(n - 1)),
+        }
     }
 }

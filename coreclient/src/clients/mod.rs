@@ -65,7 +65,7 @@ use crate::{
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
-        persistence::{open_client_db, open_phnx_db},
+        persistence::{open_client_db, open_phnx_db, SqliteConnectionGuard},
     },
 };
 use crate::{
@@ -1171,6 +1171,15 @@ impl CoreUser {
         })
     }
 
+    pub(crate) async fn try_messages_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<usize, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        let count = Conversation::messages_count(connection, conversation_id)?;
+        Ok(usize::try_from(count).expect("usize overflow"))
+    }
+
     pub(crate) async fn try_unread_messages_count(
         &self,
         conversation_id: ConversationId,
@@ -1254,5 +1263,9 @@ impl CoreUser {
         UserProfile::load(connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
+    }
+
+    pub(crate) async fn lock_connection(&self) -> SqliteConnectionGuard {
+        self.inner.connection.lock().await
     }
 }

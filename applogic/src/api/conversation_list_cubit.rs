@@ -111,24 +111,24 @@ where
     ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(store_notifications, stop)
+            self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
 
     async fn load_and_emit_state(&self) {
         let conversations = self.store.conversation_details().await;
-        debug!("load_and_emit_state {conversations:?}");
+        debug!(?conversations, "load_and_emit_state");
         self.state_tx
             .send_modify(|state| state.conversations = conversations);
     }
 
-    async fn fetched_messages_listen_loop(
+    async fn store_notifications_loop(
         self,
         store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications.fuse());
+        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,

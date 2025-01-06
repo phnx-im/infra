@@ -106,11 +106,33 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
+    async fn message_id_from_rev_offset(
+        &self,
+        conversation_id: ConversationId,
+        offset: usize,
+    ) -> Option<ConversationMessageId> {
+        let connection = self.lock_connection().await;
+        ConversationMessage::id_from_rev_offset(&connection, conversation_id, offset).ok()?
+    }
+
+    async fn rev_offset_from_message_id(
+        &self,
+        conversation_id: ConversationId,
+        message_id: ConversationMessageId,
+    ) -> Option<usize> {
+        let connection = self.lock_connection().await;
+        ConversationMessage::rev_offset_from_id(&connection, conversation_id, message_id).ok()?
+    }
+
     async fn last_message(
         &self,
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>> {
         Ok(self.try_last_message(conversation_id).await?)
+    }
+
+    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
+        Ok(self.try_messages_count(conversation_id).await?)
     }
 
     async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
