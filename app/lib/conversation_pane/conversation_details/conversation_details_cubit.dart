@@ -49,4 +49,7 @@ class ConversationDetailsCubit
 
   int? revOffsetFromMessageId(UiConversationMessageId messageId) =>
       _impl.revOffsetFromMessageId(messageId: messageId);
+
+  void sendMessage(String messageText) =>
+      _impl.sendMessage(messageText: messageText);
 }

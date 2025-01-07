@@ -6,8 +6,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    clients::process::process_qs::ProcessedQsMessages, ConversationId, ConversationMessage,
-    Message, MimiContent,
+    clients::process::process_qs::ProcessedQsMessages, ConversationId, ConversationMessage, Message,
 };
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
@@ -104,18 +103,6 @@ impl User {
         );
 
         Ok(())
-    }
-
-    pub async fn send_message(
-        &self,
-        conversation_id: ConversationId,
-        message: String,
-    ) -> Result<UiConversationMessage> {
-        let content = MimiContent::simple_markdown_message(self.user.user_name().domain(), message);
-        self.user
-            .send_message(conversation_id, content)
-            .await
-            .map(|m| m.into())
     }
 
     pub async fn get_messages(

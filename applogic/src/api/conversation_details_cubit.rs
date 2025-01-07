@@ -8,6 +8,7 @@ use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
+    MimiContent,
 };
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use phnxtypes::identifiers::SafeTryInto;
@@ -131,6 +132,16 @@ impl ConversationDetailsCubitBase {
                 )
                 .map(From::from)
         })
+    }
+
+    pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
+        let domain = self.store.user_name().domain();
+        let content = MimiContent::simple_markdown_message(domain, message_text);
+        self.store
+            .send_message(self.conversation_id, content)
+            .await
+            .inspect_err(|error| error!(%error, "Failed to send message"))?;
+        Ok(())
     }
 }
 
