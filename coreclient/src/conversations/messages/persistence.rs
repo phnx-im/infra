@@ -181,7 +181,7 @@ impl ConversationMessage {
                    cm.timestamp <= c.last_read AS is_read
                 FROM conversation_messages cm
                 INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-                WHERE conversation_id = ?
+                WHERE cm.conversation_id = ?
                 ORDER BY timestamp DESC
                 LIMIT ?
             ) AS messages
