@@ -4,8 +4,10 @@
 
 use std::{pin::pin, sync::Arc};
 
+use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
+    clients::CoreUser,
     store::{Store, StoreNotification, StoreOperation},
     ConversationMessageId,
 };
@@ -33,6 +35,7 @@ pub struct MessageState {
 #[frb(opaque)]
 pub struct MessageCubitBase {
     core: CubitCore<MessageState>,
+    store: CoreUser,
 }
 
 impl MessageCubitBase {
@@ -48,7 +51,7 @@ impl MessageCubitBase {
         MessageContext::new(store.clone(), core.state_tx().clone(), message_id)
             .spawn(store_notifications, core.cancellation_token().clone());
 
-        Self { core }
+        Self { core, store }
     }
 
     // Cubit interface
@@ -69,6 +72,30 @@ impl MessageCubitBase {
 
     pub async fn stream(&mut self, sink: StreamSink<MessageState>) {
         self.core.stream(sink).await;
+    }
+
+    // Cubit methods
+
+    pub async fn mark_as_read(&self) -> anyhow::Result<()> {
+        let Some((conversation_id, timestamp)) = self
+            .core
+            .state_tx()
+            .borrow()
+            .message
+            .as_ref()
+            .filter(|message| !message.is_read)
+            .and_then(|message| {
+                let timestamp: DateTime<Utc> = message.timestamp.parse().ok()?;
+                Some((message.conversation_id, timestamp))
+            })
+        else {
+            return Ok(());
+        };
+        debug!(%conversation_id, %timestamp, "Marking conversation as read");
+        self.store
+            .mark_conversation_as_read([(conversation_id, timestamp)])
+            .await?;
+        Ok(())
     }
 }
 

@@ -107,6 +107,7 @@ impl Storable for ConversationMessage {
         let sender_str: String = row.get(3)?;
         let versioned_message: VersionedMessage = row.get(4)?;
         let sent = row.get(5)?;
+        let is_read = row.get(6)?;
 
         let versioned_message_inputs = match versioned_message {
             VersionedMessage::CurrentVersion(bytes) => {
@@ -132,7 +133,11 @@ impl Storable for ConversationMessage {
             rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
         })?;
 
-        let timestamped_message = TimestampedMessage { timestamp, message };
+        let timestamped_message = TimestampedMessage {
+            timestamp,
+            message,
+            is_read,
+        };
 
         Ok(ConversationMessage {
             conversation_message_id,
@@ -148,7 +153,10 @@ impl ConversationMessage {
         local_message_id: &Uuid,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT message_id, conversation_id, timestamp, sender, content, sent FROM conversation_messages WHERE message_id = ?",
+            "SELECT cm.message_id, cm.conversation_id, cm.timestamp, cm.sender, cm.content, cm.sent, cm.timestamp <= c.last_read AS is_read
+            FROM conversation_messages cm
+            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
+            WHERE message_id = ?"
         )?;
         statement
             .query_row(params![local_message_id], Self::from_row)
@@ -164,13 +172,15 @@ impl ConversationMessage {
             "SELECT *
             FROM (
                 SELECT
-                    message_id,
-                    conversation_id,
-                    timestamp,
-                    sender,
-                    content,
-                    sent
-                FROM conversation_messages
+                   cm.message_id,
+                   cm.conversation_id,
+                   cm.timestamp,
+                   cm.sender,
+                   cm.content,
+                   cm.sent,
+                   cm.timestamp <= c.last_read AS is_read
+                FROM conversation_messages cm
+                INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
                 WHERE conversation_id = ?
                 ORDER BY timestamp DESC
                 LIMIT ?

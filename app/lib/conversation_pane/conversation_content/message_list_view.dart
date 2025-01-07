@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details_cubit.dart';
 import 'package:prototype/core/api/types.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';
 import 'message_cubit.dart';
@@ -49,7 +50,7 @@ class MessageListView extends StatelessWidget {
                         userCubit: context.read(),
                         messageId: messageId,
                       ),
-                      child: const ConversationTile(),
+                      child: _VisibilityConversationTile(messageId: messageId),
                     )
                   : const SizedBox.shrink();
             },
@@ -66,4 +67,30 @@ class MessageListView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _VisibilityConversationTile extends StatelessWidget {
+  const _VisibilityConversationTile({
+    required this.messageId,
+  });
+
+  final UiConversationMessageId messageId;
+
+  @override
+  Widget build(BuildContext context) {
+    return VisibilityDetector(
+      key: ValueKey(_VisibilityKeyValue(messageId)),
+      child: const ConversationTile(),
+      onVisibilityChanged: (visibilityInfo) {
+        if (visibilityInfo.visibleFraction > 0) {
+          context.read<MessageCubit>().markAsRead();
+        }
+      },
+    );
+  }
+}
+
+class _VisibilityKeyValue {
+  const _VisibilityKeyValue(this.id);
+  final UiConversationMessageId id;
 }

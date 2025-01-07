@@ -9,7 +9,8 @@ use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction}
 use crate::{
     store::StoreNotifier,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
-    Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+    Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
+    ConversationStatus, ConversationType,
 };
 
 impl Storable for Conversation {
@@ -145,13 +146,29 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
     ) -> Result<(), rusqlite::Error> {
-        let mut stmt = transaction.prepare(
+        let mut unread_messages_stmt = transaction.prepare(
+            "SELECT message_id from conversation_messages
+            INNER JOIN conversations c ON c.conversation_id = :conversation_id
+            WHERE c.conversation_id = :conversation_id AND timestamp > c.last_read",
+        )?;
+        let mut update_stmt = transaction.prepare(
             "UPDATE conversations
                 SET last_read = :timestamp
                 WHERE conversation_id = :conversation_id AND last_read < :timestamp",
         )?;
         for (conversation_id, timestamp) in mark_as_read_data {
-            let updated = stmt.execute(named_params! {
+            let unread_messages: Result<Vec<ConversationMessageId>, _> = unread_messages_stmt
+                .query_map(
+                    named_params! {
+                        ":conversation_id": conversation_id,
+                    },
+                    |row| row.get(0),
+                )?
+                .collect();
+            for message_id in unread_messages? {
+                notifier.update(message_id);
+            }
+            let updated = update_stmt.execute(named_params! {
                 ":timestamp": timestamp,
                 ":conversation_id": conversation_id,
             })?;
