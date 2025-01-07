@@ -135,7 +135,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
 
     async fn load_and_emit_state(&self) {
         let conversation_message = self.store.message_with_neighbors(self.message_id).await;
-        debug!(?conversation_message, "load_and_emit_state");
+        tracing::info!(?conversation_message, "load_and_emit_state");
         match conversation_message {
             Ok(cm) => {
                 self.state_tx
@@ -168,13 +168,39 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        // TODO: Handle updated of the neighbors
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
             Some(StoreOperation::Remove) => {
                 self.state_tx.send_modify(|state| state.message = None);
             }
-            None => (),
+            None => {
+                // reload on added message when there is no next neighbor
+                // TODO: We could better short-circuit this logic, if we knew the conversation id
+                // of the added message.
+                let has_next_neighbor = self
+                    .state_tx
+                    .borrow()
+                    .message
+                    .as_ref()
+                    .map(|message| message.neighbors.next.is_some())
+                    .unwrap_or(true);
+                let message_id = self.message_id.to_uuid();
+                tracing::info!(has_next_neighbor, %message_id, ?notification, "has_next_neighbor");
+                if !has_next_neighbor {
+                    for item in notification.ops.iter() {
+                        // TODO: There is a bug, where Update of the message overrides the Add
+                        // operation. To mititage this, we check also for the Update operation.
+                        if let (
+                            StoreEntityId::Message(_),
+                            StoreOperation::Add | StoreOperation::Update,
+                        ) = item
+                        {
+                            self.load_and_emit_state().await;
+                            return;
+                        }
+                    }
+                }
+            }
         }
     }
 }
