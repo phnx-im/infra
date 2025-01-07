@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
-    store::{Store, StoreNotification, StoreOperation},
+    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
     ConversationMessageId,
 };
 use tokio::sync::watch;
@@ -134,7 +134,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn load_and_emit_state(&self) {
-        let conversation_message = self.store.message(self.message_id).await;
+        let conversation_message = self.store.message_with_neighbors(self.message_id).await;
         debug!(?conversation_message, "load_and_emit_state");
         match conversation_message {
             Ok(cm) => {
@@ -168,6 +168,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
+        // TODO: Handle updated of the neighbors
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
             Some(StoreOperation::Remove) => {

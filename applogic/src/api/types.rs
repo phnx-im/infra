@@ -9,9 +9,9 @@ use flutter_rust_bridge::frb;
 pub use phnxcoreclient::ConversationId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
-    ConversationMessageId, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
-    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
-    UserProfile,
+    ConversationMessageId, ConversationMessageNeighbor, ConversationMessageNeighbors,
+    ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
+    Message, MessageId, MimiContent, NotificationType, SystemMessage, UserProfile,
 };
 use uuid::Uuid;
 
@@ -193,16 +193,18 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub is_read: bool,
+    pub neighbors: UiConversationMessageNeighbors,
 }
 
 impl From<ConversationMessage> for UiConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
+    fn from(mut conversation_message: ConversationMessage) -> Self {
         Self {
             conversation_id: conversation_message.conversation_id(),
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
             is_read: conversation_message.is_read(),
+            neighbors: dbg!(conversation_message.take_neighbors().into()),
         }
     }
 }
@@ -366,7 +368,51 @@ impl From<NotificationType> for UiNotificationType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
+pub struct UiConversationMessageNeighbors {
+    pub prev: Option<UiConversationMessageNeighbor>,
+    pub next: Option<UiConversationMessageNeighbor>,
+}
+
+impl UiConversationMessageNeighbors {
+    pub(crate) fn prev_message_id(&self) -> Option<UiConversationMessageId> {
+        self.prev.as_ref().map(|n| n.message_id)
+    }
+
+    pub(crate) fn next_message_id(&self) -> Option<UiConversationMessageId> {
+        self.next.as_ref().map(|n| n.message_id)
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct UiConversationMessageNeighbor {
+    pub message_id: UiConversationMessageId,
+    pub sender: UiContact,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl From<ConversationMessageNeighbor> for UiConversationMessageNeighbor {
+    fn from(value: ConversationMessageNeighbor) -> Self {
+        Self {
+            message_id: value.message_id.into(),
+            sender: UiContact {
+                user_name: value.sender,
+            },
+            timestamp: value.timestamp,
+        }
+    }
+}
+
+impl From<ConversationMessageNeighbors> for UiConversationMessageNeighbors {
+    fn from(value: ConversationMessageNeighbors) -> Self {
+        Self {
+            prev: value.prev.map(From::from),
+            next: value.next.map(From::from),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UiContact {
     pub user_name: String,
 }

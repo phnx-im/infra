@@ -12,9 +12,12 @@ import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 class TextMessageTile extends StatelessWidget {
+  const TextMessageTile(this.contentFlight, this.timestamp,
+      {super.key, this.neighbors});
+
   final List<UiContentMessage> contentFlight;
   final String timestamp;
-  const TextMessageTile(this.contentFlight, this.timestamp, {super.key});
+  final UiConversationMessageNeighbors? neighbors;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,18 @@ class TextMessageTile extends StatelessWidget {
   Widget _messageSpace(BuildContext context, bool isSender) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
+
+    final isFirstFlightMessage = _isFlightBreakMessage(
+      neighbors?.prev,
+      contentFlight.first.sender,
+      timestamp,
+    );
+    final isLastFlightMessage = _isFlightBreakMessage(
+      neighbors?.next,
+      contentFlight.last.sender,
+      timestamp,
+    );
+
     return Row(
       mainAxisAlignment:
           isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -40,15 +55,18 @@ class TextMessageTile extends StatelessWidget {
         Flexible(
           flex: 5,
           child: Container(
-            padding:
-                const EdgeInsets.only(left: 0, right: 0, top: 5, bottom: 5),
+            padding: EdgeInsets.only(
+                top: isFirstFlightMessage ? 5 : 0,
+                bottom: isLastFlightMessage ? 5 : 0),
             child: Column(
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 _textContent(context, isSender),
-                const SizedBox(height: 3),
-                _timestamp(context),
+                if (isLastFlightMessage) ...[
+                  const SizedBox(height: 3),
+                  _timestamp(context),
+                ],
               ],
             ),
           ),
@@ -168,4 +186,26 @@ class TextMessageTile extends StatelessWidget {
       ),
     );
   }
+}
+
+const _flightDurationThreshold = Duration(minutes: 1);
+
+bool _isFlightBreakMessage(
+  UiConversationMessageNeighbor? neighbor,
+  String sender,
+  String timestamp,
+) {
+  final senderUser = "user:$sender";
+  if (neighbor?.sender.userName != senderUser) {
+    return true;
+  }
+
+  final prevTimestamp = neighbor?.timestamp;
+  if (prevTimestamp == null) {
+    return true;
+  }
+
+  final thisTimestamp = DateTime.parse(timestamp);
+  final diff = thisTimestamp.difference(prevTimestamp).abs();
+  return _flightDurationThreshold < diff;
 }

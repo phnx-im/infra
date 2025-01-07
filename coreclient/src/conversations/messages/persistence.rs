@@ -85,7 +85,7 @@ impl Message {
     }
 }
 
-use super::{ConversationMessageId, TimestampedMessage};
+use super::{ConversationMessageId, ConversationMessageNeighbor, TimestampedMessage};
 
 impl Storable for ConversationMessage {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -143,7 +143,30 @@ impl Storable for ConversationMessage {
             conversation_message_id,
             conversation_id,
             timestamped_message,
+            neighbors: Default::default(),
         })
+    }
+}
+
+impl ConversationMessageNeighbor {
+    fn from_row(
+        row: &rusqlite::Row,
+        message_id_idx: usize,
+        sender_idx: usize,
+        timestamp_idx: usize,
+    ) -> rusqlite::Result<Option<Self>> {
+        let message_id = row.get(message_id_idx)?;
+        let sender = row.get(sender_idx)?;
+        let timestamp: Option<String> = row.get(timestamp_idx)?;
+        let timestamp = timestamp.and_then(|s| s.parse().ok());
+        match (message_id, sender, timestamp) {
+            (Some(message_id), Some(sender), Some(timestamp)) => Ok(Some(Self {
+                message_id,
+                sender,
+                timestamp,
+            })),
+            _ => Ok(None),
+        }
     }
 }
 
@@ -160,6 +183,63 @@ impl ConversationMessage {
         )?;
         statement
             .query_row(params![local_message_id], Self::from_row)
+            .optional()
+    }
+
+    pub(crate) fn load_with_neighbors(
+        connection: &Connection,
+        local_message_id: &Uuid,
+    ) -> Result<Option<Self>, rusqlite::Error> {
+        let mut statement = connection.prepare(
+            "SELECT
+                cm.message_id,
+                cm.conversation_id,
+                cm.timestamp,
+                cm.sender,
+                cm.content,
+                cm.sent,
+                cm.timestamp <= c.last_read AS is_read,
+                prev.message_id,
+                prev.sender,
+                prev.timestamp,
+                next.message_id,
+                next.sender,
+                next.timestamp
+            FROM conversation_messages cm
+            LEFT JOIN
+                conversation_messages prev
+                ON prev.message_id = (
+                    SELECT prev_inner.message_id
+                    FROM conversation_messages prev_inner
+                    WHERE
+                        prev_inner.conversation_id = cm.conversation_id
+                        AND prev_inner.timestamp <= cm.timestamp
+                        AND prev_inner.message_id != cm.message_id
+                    ORDER BY prev_inner.timestamp desc
+                    LIMIT 1
+                )
+            LEFT JOIN
+                conversation_messages next
+                ON next.message_id = (
+                    SELECT next_inner.message_id
+                    FROM conversation_messages next_inner
+                    WHERE
+                        next_inner.conversation_id = cm.conversation_id
+                        AND next_inner.timestamp >= cm.timestamp
+                        AND next_inner.message_id != cm.message_id
+                    ORDER BY next_inner.timestamp asc
+                    LIMIT 1
+                )
+            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
+            WHERE cm.message_id = ?",
+        )?;
+        statement
+            .query_row(params![local_message_id], |row| {
+                let mut message = Self::from_row(row)?;
+                message.neighbors.prev = ConversationMessageNeighbor::from_row(row, 7, 8, 9)?;
+                message.neighbors.next = ConversationMessageNeighbor::from_row(row, 10, 11, 12)?;
+                Ok(message)
+            })
             .optional()
     }
 

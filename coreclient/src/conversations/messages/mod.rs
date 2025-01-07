@@ -105,6 +105,20 @@ pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
+    pub(super) neighbors: ConversationMessageNeighbors,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ConversationMessageNeighbors {
+    pub prev: Option<ConversationMessageNeighbor>,
+    pub next: Option<ConversationMessageNeighbor>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConversationMessageNeighbor {
+    pub message_id: ConversationMessageId,
+    pub sender: String,
+    pub timestamp: DateTime<Utc>,
 }
 
 impl ConversationMessage {
@@ -118,6 +132,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
+            neighbors: Default::default(),
         }
     }
 
@@ -136,6 +151,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
+            neighbors: Default::default(),
         }
     }
 
@@ -180,6 +196,10 @@ impl ConversationMessage {
 
     pub fn is_read(&self) -> bool {
         self.timestamped_message.is_read
+    }
+
+    pub fn take_neighbors(&mut self) -> ConversationMessageNeighbors {
+        std::mem::take(&mut self.neighbors)
     }
 }
 

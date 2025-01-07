@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/types.dart';
+import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'display_message_tile.dart';
@@ -15,9 +16,10 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (message, timestamp) = context.select(
+    final (message, neighbors, timestamp) = context.select(
       (MessageCubit cubit) => (
         cubit.state.message?.message,
+        cubit.state.message?.neighbors,
         cubit.state.message?.timestamp,
       ),
     );
@@ -27,11 +29,15 @@ class ConversationTile extends StatelessWidget {
     }
 
     return ListTile(
+      contentPadding: EdgeInsets.symmetric(horizontal: Spacings.s),
+      dense: true,
+      visualDensity: VisualDensity(horizontal: 0, vertical: -4),
+      minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.centerStart,
         child: switch (message) {
           UiMessage_ContentFlight(field0: final contentFlight) =>
-            TextMessageTile(contentFlight, timestamp),
+            TextMessageTile(contentFlight, timestamp, neighbors: neighbors),
           UiMessage_Display(field0: final display) =>
             DisplayMessageTile(display, timestamp),
           UiMessage_Unsent(field0: final unsent) => Text(

@@ -99,6 +99,11 @@ pub trait LocalStore {
         message_id: ConversationMessageId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn message_with_neighbors(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>>;
+
     async fn message_id_from_rev_offset(
         &self,
         conversation_id: ConversationId,
