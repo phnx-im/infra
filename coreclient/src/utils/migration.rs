@@ -30,9 +30,9 @@ pub(crate) fn run_migrations(
 }
 
 fn post_process(migration: Migration) {
+    // Perform post-processing for arbitrary migrations here.
     match migration.into() {
-        EmbeddedMigration::CreateInitialTablesAndTriggers(_) => {
-            // Perform post-processing for arbitrary migrations here.
-        }
+        EmbeddedMigration::CreateInitialTablesAndTriggers(_) => {}
+        EmbeddedMigration::AddTimestampIndexes(_) => {}
     }
 }
