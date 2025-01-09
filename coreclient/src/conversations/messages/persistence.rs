@@ -109,8 +109,8 @@ impl Storable for ConversationMessage {
         let sent = row.get(5)?;
         let is_read = row.get(6)?;
 
-        let prev = ConversationMessageNeighbor::from_row(row, 7, 8, 9)?;
-        let next = ConversationMessageNeighbor::from_row(row, 10, 11, 12)?;
+        let prev = ConversationMessageNeighbor::optional_from_row(row, 7, 8, 9)?;
+        let next = ConversationMessageNeighbor::optional_from_row(row, 10, 11, 12)?;
         let neighbors = ConversationMessageNeighbors { prev, next };
 
         let versioned_message_inputs = match versioned_message {
@@ -153,6 +153,23 @@ impl Storable for ConversationMessage {
 }
 
 impl ConversationMessageNeighbor {
+    fn optional_from_row(
+        row: &rusqlite::Row,
+        message_id_idx: usize,
+        sender_idx: usize,
+        timestamp_idx: usize,
+    ) -> rusqlite::Result<Option<Self>> {
+        match Self::from_row(row, message_id_idx, sender_idx, timestamp_idx) {
+            Ok(value) => Ok(value),
+            Err(rusqlite::Error::InvalidColumnIndex(index))
+                if [message_id_idx, sender_idx, timestamp_idx].contains(&index) =>
+            {
+                Ok(None)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     fn from_row(
         row: &rusqlite::Row,
         message_id_idx: usize,
@@ -310,6 +327,7 @@ impl ConversationMessage {
             ],
         )?;
         notifier.add(self.conversation_message_id);
+        notifier.update(self.conversation_id);
         Ok(())
     }
 
@@ -335,10 +353,19 @@ impl ConversationMessage {
         conversation_id: ConversationId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT message_id, conversation_id, timestamp, sender, content, sent
-            FROM conversation_messages
-            WHERE conversation_id = ? AND sender != 'system'
-            ORDER BY timestamp DESC LIMIT 1",
+            "SELECT
+                cm.message_id,
+                cm.conversation_id,
+                cm.timestamp,
+                cm.sender,
+                cm.content,
+                cm.sent,
+                cm.timestamp <= c.last_read AS is_read
+            FROM conversation_messages cm
+            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
+            WHERE cm.conversation_id = ? AND cm.sender != 'system'
+            ORDER BY cm.timestamp DESC
+            LIMIT 1",
         )?;
         statement
             .query_row(params![conversation_id], Self::from_row)

@@ -197,10 +197,11 @@ impl ConversationDetailsContext {
     }
 
     async fn handle_store_notification(&self, notification: &StoreNotification) {
-        let conversation_id = StoreEntityId::Conversation(self.conversation_id);
-        let conversation_changed = notification.ops.iter().any(|(id, op)| {
-            id == &conversation_id && matches!(op, StoreOperation::Add | StoreOperation::Update)
-        });
+        let conversation_changed = notification
+            .ops
+            .get(&self.conversation_id.into())
+            .filter(|op| matches!(op, StoreOperation::Add | StoreOperation::Update))
+            .is_some();
         if conversation_changed {
             self.load_and_emit_state().await;
         }

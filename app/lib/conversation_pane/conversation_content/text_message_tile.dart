@@ -12,8 +12,12 @@ import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 class TextMessageTile extends StatelessWidget {
-  const TextMessageTile(this.contentFlight, this.timestamp,
-      {super.key, this.neighbors});
+  const TextMessageTile(
+    this.contentFlight,
+    this.timestamp, {
+    super.key,
+    this.neighbors,
+  });
 
   final List<UiContentMessage> contentFlight;
   final String timestamp;
@@ -22,20 +26,8 @@ class TextMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userName = context.select((UserCubit cubit) => cubit.state.userName);
+
     final isSender = contentFlight.last.sender == userName;
-
-    return Column(
-      children: [
-        if (!isSender) _sender(context, false),
-        _messageSpace(context, isSender),
-      ],
-    );
-  }
-
-  Widget _messageSpace(BuildContext context, bool isSender) {
-    // We use this to make an indent on the side of the receiver
-    const flex = Flexible(child: SizedBox.shrink());
-
     final isFirstFlightMessage = _isFlightBreakMessage(
       neighbors?.prev,
       contentFlight.first.sender,
@@ -46,6 +38,28 @@ class TextMessageTile extends StatelessWidget {
       contentFlight.last.sender,
       timestamp,
     );
+
+    return Column(
+      children: [
+        if (!isSender && isFirstFlightMessage) _sender(context, false),
+        _messageSpace(
+          context,
+          isSender: isSender,
+          isFirstFlightMessage: isFirstFlightMessage,
+          isLastFlightMessage: isLastFlightMessage,
+        ),
+      ],
+    );
+  }
+
+  Widget _messageSpace(
+    BuildContext context, {
+    required bool isSender,
+    required bool isFirstFlightMessage,
+    required bool isLastFlightMessage,
+  }) {
+    // We use this to make an indent on the side of the receiver
+    const flex = Flexible(child: SizedBox.shrink());
 
     return Row(
       mainAxisAlignment:
