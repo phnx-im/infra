@@ -7,7 +7,7 @@ use std::sync::Arc;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
-    store::{Store, StoreEntityId, StoreOperation},
+    store::{Store, StoreOperation},
     MimiContent,
 };
 use phnxcoreclient::{store::StoreNotification, ConversationId};
