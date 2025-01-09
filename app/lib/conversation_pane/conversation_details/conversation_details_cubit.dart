@@ -44,12 +44,6 @@ class ConversationDetailsCubit
   Future<UiUserProfile?> loadConversationUserProfile() =>
       _impl.loadConversationUserProfile();
 
-  UiConversationMessageId? messageIdFromRevOffset(int offset) =>
-      _impl.messageIdFromRevOffset(offset: offset);
-
-  int? revOffsetFromMessageId(UiConversationMessageId messageId) =>
-      _impl.revOffsetFromMessageId(messageId: messageId);
-
   void sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
 }

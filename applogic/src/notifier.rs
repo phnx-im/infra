@@ -88,7 +88,7 @@ pub(crate) async fn dispatch_message_notifications<T: Notifiable>(
         .dispatch_notifications(
             conversation_messages
                 .into_iter()
-                .map(NotificationType::Message)
+                .map(NotificationType::message)
                 .collect(),
         )
         .await;

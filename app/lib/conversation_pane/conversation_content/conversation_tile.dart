@@ -18,15 +18,11 @@ class ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final (message, neighbors, timestamp) = context.select(
       (MessageCubit cubit) => (
-        cubit.state.message?.message,
-        cubit.state.message?.neighbors,
-        cubit.state.message?.timestamp,
+        cubit.state.message.message,
+        cubit.state.message.neighbors,
+        cubit.state.message.timestamp,
       ),
     );
-
-    if (message == null || timestamp == null) {
-      return const SizedBox.shrink();
-    }
 
     return ListTile(
       contentPadding: EdgeInsets.symmetric(horizontal: Spacings.s),

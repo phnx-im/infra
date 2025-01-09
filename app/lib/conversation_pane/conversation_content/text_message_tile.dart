@@ -196,7 +196,7 @@ bool _isFlightBreakMessage(
   String timestamp,
 ) {
   final senderUser = "user:$sender";
-  if (neighbor?.sender.userName != senderUser) {
+  if (neighbor?.sender != senderUser) {
     return true;
   }
 
@@ -205,7 +205,8 @@ bool _isFlightBreakMessage(
     return true;
   }
 
-  final thisTimestamp = DateTime.parse(timestamp);
-  final diff = thisTimestamp.difference(prevTimestamp).abs();
+  final prevDateTime = DateTime.parse(prevTimestamp);
+  final curDateTime = DateTime.parse(timestamp);
+  final diff = curDateTime.difference(prevDateTime).abs();
   return _flightDurationThreshold < diff;
 }

@@ -65,7 +65,7 @@ class ConversationPane extends StatelessWidget {
       body: Stack(children: <Widget>[
         Column(
           children: [
-            const MessageListView(),
+            const MessageListContainer(),
             const MessageComposer(),
           ],
         ),

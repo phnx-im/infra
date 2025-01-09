@@ -204,7 +204,7 @@ impl From<ConversationMessage> for UiConversationMessage {
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
             is_read: conversation_message.is_read(),
-            neighbors: dbg!(conversation_message.take_neighbors().into()),
+            neighbors: conversation_message.take_neighbors().into(),
         }
     }
 }
@@ -363,7 +363,7 @@ impl From<NotificationType> for UiNotificationType {
             NotificationType::ConversationChange(conversation_id) => {
                 UiNotificationType::ConversationChange(conversation_id)
             }
-            NotificationType::Message(message) => UiNotificationType::Message(message.into()),
+            NotificationType::Message(message) => UiNotificationType::Message((*message).into()),
         }
     }
 }
@@ -374,31 +374,19 @@ pub struct UiConversationMessageNeighbors {
     pub next: Option<UiConversationMessageNeighbor>,
 }
 
-impl UiConversationMessageNeighbors {
-    pub(crate) fn prev_message_id(&self) -> Option<UiConversationMessageId> {
-        self.prev.as_ref().map(|n| n.message_id)
-    }
-
-    pub(crate) fn next_message_id(&self) -> Option<UiConversationMessageId> {
-        self.next.as_ref().map(|n| n.message_id)
-    }
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UiConversationMessageNeighbor {
     pub message_id: UiConversationMessageId,
-    pub sender: UiContact,
-    pub timestamp: DateTime<Utc>,
+    pub sender: String,
+    pub timestamp: String,
 }
 
 impl From<ConversationMessageNeighbor> for UiConversationMessageNeighbor {
     fn from(value: ConversationMessageNeighbor) -> Self {
         Self {
             message_id: value.message_id.into(),
-            sender: UiContact {
-                user_name: value.sender,
-            },
-            timestamp: value.timestamp,
+            sender: value.sender,
+            timestamp: value.timestamp.to_rfc3339(),
         }
     }
 }

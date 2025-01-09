@@ -7,31 +7,43 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details_cubit.dart';
+import 'package:prototype/core/api/message_cubit.dart';
 import 'package:prototype/core/api/types.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';
 import 'message_cubit.dart';
+import 'message_list_cubit.dart';
 
-final ScrollPhysics _scrollPhysics =
-    (Platform.isAndroid || Platform.isWindows || Platform.isLinux)
-        ? const ClampingScrollPhysics()
-        : const BouncingScrollPhysics()
-            .applyTo(const AlwaysScrollableScrollPhysics());
+class MessageListContainer extends StatelessWidget {
+  const MessageListContainer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final conversationId = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.conversation?.id,
+    );
+
+    if (conversationId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return BlocProvider<MessageListCubit>(
+      create: (context) => MessageListCubit(
+        userCubit: context.read(),
+        conversationId: conversationId,
+      ),
+      child: MessageListView(),
+    );
+  }
+}
 
 class MessageListView extends StatelessWidget {
   const MessageListView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final messagesCount = context.select(
-      (ConversationDetailsCubit cubit) =>
-          cubit.state.conversation?.messagesCount,
-    );
-
-    if (messagesCount == null) {
-      return const SizedBox.shrink();
-    }
+    final state = context.select((MessageListCubit cubit) => cubit.state);
 
     return Expanded(
       child: SelectionArea(
@@ -39,29 +51,33 @@ class MessageListView extends StatelessWidget {
           physics: _scrollPhysics,
           reverse: true,
           childrenDelegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final messageId = context
-                  .read<ConversationDetailsCubit>()
-                  .messageIdFromRevOffset(index);
-              return messageId != null
+            (context, reverseIndex) {
+              final index = state.loadedMessagesCount - reverseIndex - 1;
+              final message = state.messageAt(index);
+              return message != null
                   ? BlocProvider(
-                      key: ValueKey(messageId),
-                      create: (context) => MessageCubit(
-                        userCubit: context.read(),
-                        messageId: messageId,
-                      ),
-                      child: _VisibilityConversationTile(messageId: messageId),
+                      key: ValueKey(message.id),
+                      create: (context) {
+                        return MessageCubit(
+                          userCubit: context.read(),
+                          messageId: message.id,
+                          initialState: MessageState(message: message),
+                        );
+                      },
+                      child: _VisibilityConversationTile(messageId: message.id),
                     )
                   : const SizedBox.shrink();
             },
             findChildIndexCallback: (key) {
               final messageKey = key as ValueKey<UiConversationMessageId>;
               final messageId = messageKey.value;
-              return context
-                  .read<ConversationDetailsCubit>()
-                  .revOffsetFromMessageId(messageId);
+              final index = state.messageIdIndex(messageId);
+              // reverse index
+              return index != null
+                  ? state.loadedMessagesCount - index - 1
+                  : null;
             },
-            childCount: messagesCount,
+            childCount: state.loadedMessagesCount,
           ),
         ),
       ),
@@ -94,3 +110,9 @@ class _VisibilityKeyValue {
   const _VisibilityKeyValue(this.id);
   final UiConversationMessageId id;
 }
+
+final ScrollPhysics _scrollPhysics =
+    (Platform.isAndroid || Platform.isWindows || Platform.isLinux)
+        ? const ClampingScrollPhysics()
+        : const BouncingScrollPhysics()
+            .applyTo(const AlwaysScrollableScrollPhysics());

@@ -106,35 +106,6 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
-    async fn message_with_neighbors(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>> {
-        let connection = self.lock_connection().await;
-        Ok(ConversationMessage::load_with_neighbors(
-            &connection,
-            &message_id.to_uuid(),
-        )?)
-    }
-
-    async fn message_id_from_rev_offset(
-        &self,
-        conversation_id: ConversationId,
-        offset: usize,
-    ) -> Option<ConversationMessageId> {
-        let connection = self.lock_connection().await;
-        ConversationMessage::id_from_rev_offset(&connection, conversation_id, offset).ok()?
-    }
-
-    async fn rev_offset_from_message_id(
-        &self,
-        conversation_id: ConversationId,
-        message_id: ConversationMessageId,
-    ) -> Option<usize> {
-        let connection = self.lock_connection().await;
-        ConversationMessage::rev_offset_from_id(&connection, conversation_id, message_id).ok()?
-    }
-
     async fn last_message(
         &self,
         conversation_id: ConversationId,

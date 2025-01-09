@@ -13,9 +13,11 @@ class MessageCubit extends StateStreamableSource<MessageState> {
   MessageCubit({
     required UserCubit userCubit,
     required UiConversationMessageId messageId,
+    required MessageState initialState,
   }) : _impl = MessageCubitBase(
           userCubit: userCubit.impl,
           messageId: messageId,
+          initialState: initialState,
         );
 
   final MessageCubitBase _impl;

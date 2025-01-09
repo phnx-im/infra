@@ -65,7 +65,7 @@ use crate::{
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
-        persistence::{open_client_db, open_phnx_db, SqliteConnectionGuard},
+        persistence::{open_client_db, open_phnx_db},
     },
 };
 use crate::{
@@ -523,6 +523,10 @@ impl CoreUser {
                 content.clone(),
             );
             conversation_message.store(&transaction, &mut notifier)?;
+
+            // Notify as early as possible to react to the not yet sent message
+            notifier.notify();
+
             let mut group = Group::load(&transaction, group_id)?
                 .ok_or(anyhow!("Can't find group with id {group_id:?}"))?;
             let params = group.create_message(&transaction, content)?;
@@ -530,6 +534,7 @@ impl CoreUser {
             // confirm as this is just an application message.
             group.store_update(&transaction)?;
             // Also, mark the message (and all messages preceeding it) as read.
+            let mut notifier = self.store_notifier();
             Conversation::mark_as_read(
                 &mut transaction,
                 &mut notifier,
@@ -1263,9 +1268,5 @@ impl CoreUser {
         UserProfile::load(connection, &self.user_name())
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
-    }
-
-    pub(crate) async fn lock_connection(&self) -> SqliteConnectionGuard {
-        self.inner.connection.lock().await
     }
 }

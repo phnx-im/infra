@@ -4,7 +4,6 @@
 
 use std::{pin::pin, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
@@ -27,9 +26,9 @@ use super::{
 };
 
 #[frb(dart_metadata = ("freezed"))]
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {
-    pub message: Option<UiConversationMessage>,
+    pub message: UiConversationMessage,
 }
 
 #[frb(opaque)]
@@ -40,13 +39,17 @@ pub struct MessageCubitBase {
 
 impl MessageCubitBase {
     #[frb(sync)]
-    pub fn new(user_cubit: &UserCubitBase, message_id: UiConversationMessageId) -> Self {
+    pub fn new(
+        user_cubit: &UserCubitBase,
+        message_id: UiConversationMessageId,
+        initial_state: MessageState,
+    ) -> Self {
         let message_id = message_id.into();
 
         let store = user_cubit.core_user.clone();
         let store_notifications = store.subscribe();
 
-        let core = CubitCore::new();
+        let core = CubitCore::with_initial_state(initial_state);
 
         MessageContext::new(store.clone(), core.state_tx().clone(), message_id)
             .spawn(store_notifications, core.cancellation_token().clone());
@@ -77,19 +80,16 @@ impl MessageCubitBase {
     // Cubit methods
 
     pub async fn mark_as_read(&self) -> anyhow::Result<()> {
-        let Some((conversation_id, timestamp)) = self
-            .core
-            .state_tx()
-            .borrow()
-            .message
-            .as_ref()
-            .filter(|message| !message.is_read)
-            .and_then(|message| {
-                let timestamp: DateTime<Utc> = message.timestamp.parse().ok()?;
-                Some((message.conversation_id, timestamp))
-            })
-        else {
-            return Ok(());
+        let (conversation_id, timestamp) = {
+            let state = self.core.state_tx().borrow();
+            let message = &state.message;
+            if message.is_read {
+                return Ok(());
+            }
+            let Some(timestamp) = message.timestamp.parse().ok() else {
+                return Ok(());
+            };
+            (message.conversation_id, timestamp)
         };
         debug!(%conversation_id, %timestamp, "Marking conversation as read");
         self.store
@@ -127,20 +127,19 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
-            self.load_and_emit_state().await;
             self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
 
     async fn load_and_emit_state(&self) {
-        let conversation_message = self.store.message_with_neighbors(self.message_id).await;
-        tracing::info!(?conversation_message, "load_and_emit_state");
+        let conversation_message = self.store.message(self.message_id).await;
+        tracing::debug!(?conversation_message, "load_and_emit_state");
         match conversation_message {
-            Ok(cm) => {
-                self.state_tx
-                    .send_modify(|state| state.message = cm.map(From::from));
+            Ok(Some(cm)) => {
+                self.state_tx.send_modify(|state| state.message = cm.into());
             }
+            Ok(None) => {}
             Err(error) => {
                 error!(?error, "loading message failed");
             }
@@ -170,22 +169,12 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     async fn process_store_notification(&self, notification: &StoreNotification) {
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
-            Some(StoreOperation::Remove) => {
-                self.state_tx.send_modify(|state| state.message = None);
-            }
+            Some(StoreOperation::Remove) => {}
             None => {
                 // reload on added message when there is no next neighbor
                 // TODO: We could better short-circuit this logic, if we knew the conversation id
                 // of the added message.
-                let has_next_neighbor = self
-                    .state_tx
-                    .borrow()
-                    .message
-                    .as_ref()
-                    .map(|message| message.neighbors.next.is_some())
-                    .unwrap_or(true);
-                let message_id = self.message_id.to_uuid();
-                tracing::info!(has_next_neighbor, %message_id, ?notification, "has_next_neighbor");
+                let has_next_neighbor = self.state_tx.borrow().message.neighbors.next.is_some();
                 if !has_next_neighbor {
                     for item in notification.ops.iter() {
                         // TODO: There is a bug, where Update of the message overrides the Add

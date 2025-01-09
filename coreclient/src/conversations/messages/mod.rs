@@ -118,7 +118,7 @@ pub struct ConversationMessageNeighbors {
 pub struct ConversationMessageNeighbor {
     pub message_id: ConversationMessageId,
     pub sender: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: TimeStamp,
 }
 
 impl ConversationMessage {
@@ -326,5 +326,11 @@ impl ErrorMessage {
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(ConversationMessage),
+    Message(Box<ConversationMessage>),
+}
+
+impl NotificationType {
+    pub fn message(message: ConversationMessage) -> Self {
+        NotificationType::Message(Box::new(message))
+    }
 }
