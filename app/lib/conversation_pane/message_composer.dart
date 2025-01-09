@@ -7,7 +7,6 @@ import 'dart:collection';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
-import 'package:prototype/core_extension.dart';
 import 'package:prototype/styles.dart';
 import 'package:provider/provider.dart';
 
@@ -137,8 +136,8 @@ class _MessageComposerState extends State<MessageComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final conversationTitle = context.select(
-        (ConversationDetailsCubit cubit) => cubit.state.conversation?.title);
+    final conversationTitle = context.select((ConversationDetailsCubit cubit) =>
+        cubit.state.conversation?.attributes.title);
 
     if (conversationTitle == null) {
       return const SizedBox.shrink();
