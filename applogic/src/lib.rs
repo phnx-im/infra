@@ -9,8 +9,9 @@ pub(crate) use frb_generated::*;
 pub mod api;
 pub mod background_execution;
 
-pub(crate) mod app_state;
 pub(crate) mod frb_generated;
 pub(crate) mod logging;
+pub(crate) mod messages;
+pub(crate) mod notifications;
 pub(crate) mod notifier;
 pub(crate) mod util;

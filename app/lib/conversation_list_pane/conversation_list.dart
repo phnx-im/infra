@@ -4,9 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:logging/logging.dart';
 import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
@@ -16,8 +14,6 @@ import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';
-
-final _log = Logger("ConversationList");
 
 class ConversationList extends StatelessWidget {
   const ConversationList({super.key});
@@ -130,8 +126,6 @@ class _ListTile extends StatelessWidget {
     BuildContext context,
     ConversationId conversationId,
   ) {
-    _log.info("Tapped on conversation $conversationId");
-    context.read<CoreClient>().selectConversation(conversationId);
     context.read<NavigationCubit>().openConversation(conversationId);
   }
 

@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     types::{UiConversationMessage, UiConversationMessageId},
-    user::user_cubit::UserCubitBase,
+    user_cubit::UserCubitBase,
 };
 
 #[frb(dart_metadata = ("freezed"))]

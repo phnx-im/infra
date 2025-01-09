@@ -8,18 +8,24 @@ use std::time::Duration;
 use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxcoreclient::clients::CoreUser;
+use phnxcoreclient::{clients::CoreUser, ConversationId};
 use phnxcoreclient::{Asset, UserProfile};
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
 use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{error, info, warn};
 
-use crate::api::messages::FetchedMessages;
-use crate::util::{spawn_from_sync, FibonacciBackoff};
+use crate::{
+    api::types::{UiContact, UiUserProfile},
+    messages::FetchedMessages,
+};
+use crate::{
+    util::{spawn_from_sync, FibonacciBackoff},
+    StreamSink,
+};
 
-use super::{StreamSink, User};
+use super::user::User;
 
 /// Logged in user
 ///
@@ -190,6 +196,50 @@ impl UserCubitBase {
         self.emit(user).await;
         Ok(())
     }
+
+    /// Get the user profile of the user with the given [`QualifiedUserName`].
+    #[frb(positional)]
+    pub async fn user_profile(&self, user_name: String) -> anyhow::Result<Option<UiUserProfile>> {
+        let user_name = SafeTryInto::try_into(user_name)?;
+        let user_profile = self
+            .core_user
+            .user_profile(&user_name)
+            .await?
+            .map(|profile| UiUserProfile::from_profile(&profile));
+        Ok(user_profile)
+    }
+
+    #[frb(positional)]
+    pub async fn add_user_to_conversation(
+        &self,
+        conversation_id: ConversationId,
+        user_name: String,
+    ) -> anyhow::Result<()> {
+        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        self.core_user
+            .invite_users(conversation_id, &[user_name])
+            .await?;
+        Ok(())
+    }
+
+    #[frb(positional)]
+    pub async fn remove_user_from_conversation(
+        &self,
+        conversation_id: ConversationId,
+        user_name: String,
+    ) -> anyhow::Result<()> {
+        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        self.core_user
+            .remove_users(conversation_id, &[user_name])
+            .await?;
+        Ok(())
+    }
+
+    #[frb(getter)]
+    pub async fn contacts(&self) -> anyhow::Result<Vec<UiContact>> {
+        let contacts = self.core_user.contacts().await?;
+        Ok(contacts.into_iter().map(From::from).collect())
+    }
 }
 
 fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken) {
@@ -230,7 +280,7 @@ async fn run_websocket(
 }
 
 fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
-    let user = User::with_empty_state(core_user);
+    let user = User::from_core_user(core_user);
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         loop {
@@ -266,7 +316,7 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) -> anyho
         }
         WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
             let core_user = core_user.clone();
-            let user = User::with_empty_state(core_user);
+            let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
                     process_fetched_messages(fetched_messages).await;
@@ -286,5 +336,5 @@ async fn process_fetched_messages(fetched_messages: FetchedMessages) {
     // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
     // we delegate it to a different place.
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    crate::notifier::show_desktop_notifications(&fetched_messages.notifications_content);
+    crate::notifications::show_desktop_notifications(&fetched_messages.notifications_content);
 }

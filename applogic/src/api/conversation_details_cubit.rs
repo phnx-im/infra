@@ -20,9 +20,11 @@ use tracing::error;
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
-use super::conversations::converation_into_ui_details;
-use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
-use super::user::user_cubit::UserCubitBase;
+use super::{
+    conversation_list_cubit::converation_into_ui_details,
+    types::{UiConversationDetails, UiConversationType, UiUserProfile},
+    user_cubit::UserCubitBase,
+};
 
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
