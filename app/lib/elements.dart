@@ -7,7 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/painting/painting.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/styles.dart';
 
 IconButton appBarBackButton(BuildContext context) {

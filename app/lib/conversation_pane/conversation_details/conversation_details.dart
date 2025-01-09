@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 

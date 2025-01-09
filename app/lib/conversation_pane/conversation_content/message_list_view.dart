@@ -7,8 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details_cubit.dart';
-import 'package:prototype/core/api/message_cubit.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';

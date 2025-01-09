@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
