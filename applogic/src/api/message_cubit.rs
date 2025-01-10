@@ -25,12 +25,17 @@ use super::{
     user::user_cubit::UserCubitBase,
 };
 
+/// State of a single message in a conversation.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {
     pub message: UiConversationMessage,
 }
 
+/// Provides access to a message in a conversation.
+///
+/// Listens to changes to the message and its neighbors (previous and next message in the
+/// conversation timeline).
 #[frb(opaque)]
 pub struct MessageCubitBase {
     core: CubitCore<MessageState>,

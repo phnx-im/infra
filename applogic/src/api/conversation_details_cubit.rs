@@ -5,11 +5,7 @@
 use std::sync::Arc;
 
 use flutter_rust_bridge::frb;
-use phnxcoreclient::{
-    clients::CoreUser,
-    store::{Store, StoreOperation},
-    MimiContent,
-};
+use phnxcoreclient::{clients::CoreUser, store::Store, MimiContent};
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use phnxtypes::identifiers::SafeTryInto;
 use tokio::sync::watch;

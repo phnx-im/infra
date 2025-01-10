@@ -24,6 +24,9 @@ use super::{
     user::user_cubit::UserCubitBase,
 };
 
+/// The state reprensenting a list of messages in a conversation.
+///
+/// The state is cheaply clonable (internally reference counted).
 #[frb(opaque)]
 #[derive(Debug, Default, Clone)]
 pub struct MessageListState {
@@ -34,9 +37,9 @@ pub struct MessageListState {
 #[frb(ignore)]
 #[derive(Debug, Default)]
 struct MessageListStateInner {
-    /// loaded messages (not all messages in the conversation)
+    /// Loaded messages (not all messages in the conversation)
     messages: Vec<UiConversationMessage>,
-    /// lookup index from message id to index in `messages`
+    /// Lookup index mapping a message id to the index in `messages`
     message_ids_index: HashMap<UiConversationMessageId, usize>,
 }
 
@@ -57,22 +60,32 @@ impl MessageListState {
         self.inner = Arc::new(inner); // copy on write
     }
 
+    /// The number of loaded messages in the list.
+    ///
+    /// Note, this is not the number of all messages in the conversation.
     #[frb(sync, getter, type_64bit_int)]
     pub fn loaded_messages_count(&self) -> usize {
         self.inner.messages.len()
     }
 
+    /// Returns the message at the given index.
     #[frb(sync, type_64bit_int, positional)]
     pub fn message_at(&self, index: usize) -> Option<UiConversationMessage> {
         self.inner.messages.get(index).cloned()
     }
 
+    /// Returns the lookup table mapping a message id to the index in the list.
     #[frb(sync, type_64bit_int, positional)]
     pub fn message_id_index(&self, message_id: UiConversationMessageId) -> Option<usize> {
         self.inner.message_ids_index.get(&message_id).copied()
     }
 }
 
+/// Provides access the the list of messages in a conversation.
+///
+/// Currently, only the last 1000 messages are loaded. This is subject to change ([#287]).
+///
+/// [#287]: https://github.com/phnx-im/infra/issues/287
 #[frb(opaque)]
 pub struct MessageListCubitBase {
     core: CubitCore<MessageListState>,
@@ -113,7 +126,7 @@ impl MessageListCubitBase {
     }
 }
 
-/// Loads the intial state and listen to the changes
+/// Loads the initial state and listen to the changes a background task.
 #[frb(ignore)]
 #[derive(Clone)]
 struct MessageListContext<S> {
