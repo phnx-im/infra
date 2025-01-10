@@ -2,78 +2,40 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// New widget that shows conversation details
-import 'dart:async';
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 
-class AddMembers extends StatefulWidget {
+import 'add_members_cubit.dart';
+
+class AddMembers extends StatelessWidget {
   const AddMembers({super.key});
 
   @override
-  State<AddMembers> createState() => _AddMembersState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) =>
+          AddMembersCubit(coreClient: context.read())..loadContacts(),
+      child: const AddMembersView(),
+    );
+  }
 }
 
-class _AddMembersState extends State<AddMembers> {
-  UiConversationDetails? conversation;
-  late final StreamSubscription<UiConversationDetails> _conversationListener;
-  List<UiContact> contacts = [];
-  HashSet<String> selectedContacts = HashSet();
-  bool isButtonEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    var coreClient = context.coreClient;
-    setState(() {
-      conversation = coreClient.currentConversation;
-    });
-    _conversationListener =
-        context.coreClient.onConversationSwitch.listen(conversationListener);
-    getContacts();
-  }
-
-  @override
-  void dispose() {
-    _conversationListener.cancel();
-    super.dispose();
-  }
-
-  getContacts() async {
-    contacts = await context.coreClient.getContacts();
-    setState(() {});
-  }
-
-  addContacts() async {
-    for (var contact in selectedContacts) {
-      await context.coreClient.addUserToConversation(conversation!.id, contact);
-    }
-  }
-
-  void conversationListener(UiConversationDetails conversation) async {
-    Navigator.of(context).pop();
-    return;
-  }
-
-  void toggleContactSelection(UiContact contact) {
-    if (selectedContacts.contains(contact.userName)) {
-      selectedContacts.remove(contact.userName);
-    } else {
-      selectedContacts.add(contact.userName);
-    }
-    setState(() {
-      isButtonEnabled = selectedContacts.isNotEmpty;
-    });
-  }
+class AddMembersView extends StatelessWidget {
+  const AddMembersView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final (contacts, selectedContacts) = context.select(
+      (AddMembersCubit cubit) => (
+        cubit.state.contacts,
+        cubit.state.selectedContacts,
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -114,29 +76,34 @@ class _AddMembersState extends State<AddMembers> {
                               WidgetStateProperty.all(Colors.transparent),
                           side: BorderSide.none,
                           shape: const CircleBorder(),
-                          onChanged: (bool? value) {
-                            setState(() {
-                              toggleContactSelection(contact);
-                            });
-                          },
+                          onChanged: (bool? value) => context
+                              .read<AddMembersCubit>()
+                              .toggleContact(contact),
                         ),
-                        onTap: () {
-                          setState(() {
-                            toggleContactSelection(contact);
-                          });
-                        },
+                        onTap: () => context
+                            .read<AddMembersCubit>()
+                            .toggleContact(contact),
                       );
                     },
                   ),
                 ),
                 OutlinedButton(
-                  onPressed: () {
-                    if (isButtonEnabled) {
-                      addContacts();
-                      Navigator.of(context).pop(true);
-                    }
-                  },
-                  style: buttonStyle(context, isButtonEnabled),
+                  onPressed: selectedContacts.isNotEmpty
+                      ? () async {
+                          final navigation = context.read<NavigationCubit>();
+                          final conversationId =
+                              navigation.state.conversationId;
+                          if (conversationId == null) {
+                            throw StateError(
+                                "an active conversation is obligatory");
+                          }
+                          await context
+                              .read<AddMembersCubit>()
+                              .addContacts(conversationId);
+                          navigation.pop();
+                        }
+                      : null,
+                  style: buttonStyle(context, selectedContacts.isNotEmpty),
                   child: const Text("Add member(s)"),
                 )
               ],
