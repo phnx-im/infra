@@ -184,6 +184,8 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
                     for item in notification.ops.iter() {
                         // TODO: There is a bug, where Update of the message overrides the Add
                         // operation. To mitigate this, we check also for the Update operation.
+                        //
+                        // Issue <https://github.com/phnx-im/infra/issues/286>
                         if let (
                             StoreEntityId::Message(_),
                             StoreOperation::Add | StoreOperation::Update,
