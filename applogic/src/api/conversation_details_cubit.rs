@@ -147,18 +147,21 @@ impl ConversationDetailsContext {
         });
     }
 
-    async fn load_and_emit_state(&self) -> Option<()> {
-        let details = self.load_conversation_details().await?;
-        let members = self
-            .members_of_conversation()
-            .await
-            .inspect_err(|error| error!(%error, "Failed fetching members"))
-            .unwrap_or_default();
+    async fn load_and_emit_state(&self) {
+        let details = self.load_conversation_details().await;
+        let members = if details.is_some() {
+            self.members_of_conversation()
+                .await
+                .inspect_err(|error| error!(%error, "Failed fetching members"))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let new_state = ConversationDetailsState {
-            conversation: Some(details),
+            conversation: details,
             members,
         };
-        self.state_tx.send(new_state).ok()
+        let _ = self.state_tx.send(new_state);
     }
 
     async fn load_conversation_details(&self) -> Option<UiConversationDetails> {
@@ -197,12 +200,7 @@ impl ConversationDetailsContext {
     }
 
     async fn handle_store_notification(&self, notification: &StoreNotification) {
-        let conversation_changed = notification
-            .ops
-            .get(&self.conversation_id.into())
-            .filter(|op| matches!(op, StoreOperation::Add | StoreOperation::Update))
-            .is_some();
-        if conversation_changed {
+        if notification.ops.contains_key(&self.conversation_id.into()) {
             self.load_and_emit_state().await;
         }
     }
