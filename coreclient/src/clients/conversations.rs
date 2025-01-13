@@ -97,6 +97,14 @@ impl CoreUser {
         ConversationMessage::load(connection, &message_id.to_uuid())
     }
 
+    pub(crate) async fn try_message_neighbors(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
+        let connection = &self.inner.connection.lock().await;
+        Ok(ConversationMessage::neighbors(connection, message_id)?)
+    }
+
     pub async fn last_message(
         &self,
         conversation_id: ConversationId,

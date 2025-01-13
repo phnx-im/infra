@@ -85,7 +85,7 @@ impl Message {
     }
 }
 
-use super::{ConversationMessageNeighbor, ConversationMessageNeighbors, TimestampedMessage};
+use super::{ConversationMessageId, TimestampedMessage};
 
 impl Storable for ConversationMessage {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -108,10 +108,6 @@ impl Storable for ConversationMessage {
         let versioned_message: VersionedMessage = row.get(4)?;
         let sent = row.get(5)?;
         let is_read = row.get(6)?;
-
-        let prev = ConversationMessageNeighbor::optional_from_row(row, 7, 8, 9)?;
-        let next = ConversationMessageNeighbor::optional_from_row(row, 10, 11, 12)?;
-        let neighbors = ConversationMessageNeighbors { prev, next };
 
         let versioned_message_inputs = match versioned_message {
             VersionedMessage::CurrentVersion(bytes) => {
@@ -147,46 +143,7 @@ impl Storable for ConversationMessage {
             conversation_message_id,
             conversation_id,
             timestamped_message,
-            neighbors,
         })
-    }
-}
-
-impl ConversationMessageNeighbor {
-    fn optional_from_row(
-        row: &rusqlite::Row,
-        message_id_idx: usize,
-        sender_idx: usize,
-        timestamp_idx: usize,
-    ) -> rusqlite::Result<Option<Self>> {
-        match Self::from_row(row, message_id_idx, sender_idx, timestamp_idx) {
-            Ok(value) => Ok(value),
-            Err(rusqlite::Error::InvalidColumnIndex(index))
-                if [message_id_idx, sender_idx, timestamp_idx].contains(&index) =>
-            {
-                Ok(None)
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    fn from_row(
-        row: &rusqlite::Row,
-        message_id_idx: usize,
-        sender_idx: usize,
-        timestamp_idx: usize,
-    ) -> rusqlite::Result<Option<Self>> {
-        let message_id = row.get(message_id_idx)?;
-        let sender = row.get(sender_idx)?;
-        let timestamp: Option<TimeStamp> = row.get(timestamp_idx)?;
-        match (message_id, sender, timestamp) {
-            (Some(message_id), Some(sender), Some(timestamp)) => Ok(Some(Self {
-                message_id,
-                sender,
-                timestamp,
-            })),
-            _ => Ok(None),
-        }
     }
 }
 
@@ -203,38 +160,8 @@ impl ConversationMessage {
                 cm.sender,
                 cm.content,
                 cm.sent,
-                cm.timestamp <= c.last_read AS is_read,
-                prev.message_id,
-                prev.sender,
-                prev.timestamp,
-                next.message_id,
-                next.sender,
-                next.timestamp
+                cm.timestamp <= c.last_read AS is_read
             FROM conversation_messages cm
-            LEFT JOIN
-                conversation_messages prev
-                ON prev.message_id = (
-                    SELECT prev_inner.message_id
-                    FROM conversation_messages prev_inner
-                    WHERE
-                        prev_inner.conversation_id = cm.conversation_id
-                        AND prev_inner.timestamp <= cm.timestamp
-                        AND prev_inner.message_id != cm.message_id
-                    ORDER BY prev_inner.timestamp desc
-                    LIMIT 1
-                )
-            LEFT JOIN
-                conversation_messages next
-                ON next.message_id = (
-                    SELECT next_inner.message_id
-                    FROM conversation_messages next_inner
-                    WHERE
-                        next_inner.conversation_id = cm.conversation_id
-                        AND next_inner.timestamp >= cm.timestamp
-                        AND next_inner.message_id != cm.message_id
-                    ORDER BY next_inner.timestamp asc
-                    LIMIT 1
-                )
             INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
             WHERE cm.message_id = ?",
         )?;
@@ -256,38 +183,8 @@ impl ConversationMessage {
                cm.sender,
                cm.content,
                cm.sent,
-               cm.timestamp <= c.last_read AS is_read,
-               prev.message_id,
-               prev.sender,
-               prev.timestamp,
-               next.message_id,
-               next.sender,
-               next.timestamp
+               cm.timestamp <= c.last_read AS is_read
             FROM conversation_messages cm
-            LEFT JOIN
-                conversation_messages prev
-                ON prev.message_id = (
-                    SELECT prev_inner.message_id
-                    FROM conversation_messages prev_inner
-                    WHERE
-                        prev_inner.conversation_id = cm.conversation_id
-                        AND prev_inner.timestamp <= cm.timestamp
-                        AND prev_inner.message_id != cm.message_id
-                    ORDER BY prev_inner.timestamp desc
-                    LIMIT 1
-                )
-            LEFT JOIN
-                conversation_messages next
-                ON next.message_id = (
-                    SELECT next_inner.message_id
-                    FROM conversation_messages next_inner
-                    WHERE
-                        next_inner.conversation_id = cm.conversation_id
-                        AND next_inner.timestamp >= cm.timestamp
-                        AND next_inner.message_id != cm.message_id
-                    ORDER BY next_inner.timestamp asc
-                    LIMIT 1
-                )
             INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
             WHERE cm.conversation_id = ?
             ORDER BY cm.timestamp DESC
@@ -328,6 +225,17 @@ impl ConversationMessage {
         )?;
         notifier.add(self.conversation_message_id);
         notifier.update(self.conversation_id);
+
+        // Notify previous and next message of the newly stored message about an update
+        let (prev_message_id, next_message_id) =
+            Self::neighbors(connection, self.conversation_message_id)?;
+        if let Some(message_id) = prev_message_id {
+            notifier.update(message_id);
+        }
+        if let Some(message_id) = next_message_id {
+            notifier.update(message_id);
+        }
+
         Ok(())
     }
 
@@ -370,5 +278,44 @@ impl ConversationMessage {
         statement
             .query_row(params![conversation_id], Self::from_row)
             .optional()
+    }
+
+    pub(crate) fn neighbors(
+        connection: &Connection,
+        message_id: ConversationMessageId,
+    ) -> rusqlite::Result<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
+        connection.query_row(
+            "SELECT
+               prev.message_id,
+               next.message_id
+            FROM conversation_messages cm
+            LEFT JOIN
+                conversation_messages prev
+                ON prev.message_id = (
+                    SELECT prev_inner.message_id
+                    FROM conversation_messages prev_inner
+                    WHERE
+                        prev_inner.conversation_id = cm.conversation_id
+                        AND prev_inner.timestamp <= cm.timestamp
+                        AND prev_inner.message_id != cm.message_id
+                    ORDER BY prev_inner.timestamp desc
+                    LIMIT 1
+                )
+            LEFT JOIN
+                conversation_messages next
+                ON next.message_id = (
+                    SELECT next_inner.message_id
+                    FROM conversation_messages next_inner
+                    WHERE
+                        next_inner.conversation_id = cm.conversation_id
+                        AND next_inner.timestamp >= cm.timestamp
+                        AND next_inner.message_id != cm.message_id
+                    ORDER BY next_inner.timestamp asc
+                    LIMIT 1
+                )
+            WHERE cm.message_id = ?",
+            params![message_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
     }
 }

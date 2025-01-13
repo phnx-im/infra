@@ -4,14 +4,14 @@
 
 use std::fmt;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 pub use phnxcoreclient::ConversationId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
-    ConversationMessageId, ConversationMessageNeighbor, ConversationMessageNeighbors,
-    ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
-    Message, MessageId, MimiContent, NotificationType, SystemMessage, UserProfile,
+    ConversationMessageId, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
+    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
+    UserProfile,
 };
 use uuid::Uuid;
 
@@ -193,25 +193,31 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub is_read: bool,
-    pub neighbors: UiConversationMessageNeighbors,
+    pub position: UiFlightPosition,
+}
+
+impl UiConversationMessage {
+    fn timestamp(&self) -> Option<DateTime<Utc>> {
+        self.timestamp.parse().ok()
+    }
 }
 
 impl From<ConversationMessage> for UiConversationMessage {
-    fn from(mut conversation_message: ConversationMessage) -> Self {
+    fn from(conversation_message: ConversationMessage) -> Self {
         Self {
             conversation_id: conversation_message.conversation_id(),
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
             is_read: conversation_message.is_read(),
-            neighbors: conversation_message.take_neighbors().into(),
+            position: UiFlightPosition::Unique,
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiMessage {
-    ContentFlight(Vec<UiContentMessage>),
+    Content(Box<UiContentMessage>),
     Display(UiEventMessage),
     Unsent(Box<UiMimiContent>),
 }
@@ -220,7 +226,7 @@ impl From<Message> for UiMessage {
     fn from(message: Message) -> Self {
         match message {
             Message::Content(content_message) => {
-                UiMessage::ContentFlight(vec![UiContentMessage::from(content_message)])
+                UiMessage::Content(Box::new(UiContentMessage::from(content_message)))
             }
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
@@ -368,34 +374,66 @@ impl From<NotificationType> for UiNotificationType {
     }
 }
 
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
-pub struct UiConversationMessageNeighbors {
-    pub prev: Option<UiConversationMessageNeighbor>,
-    pub next: Option<UiConversationMessageNeighbor>,
+/// Position of a conversation message in a flight.
+///
+/// A flight is a sequence of messages that are grouped to be displayed together.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiFlightPosition {
+    /// The message is the only message in the flight.
+    Unique,
+    /// The message is the first message in the flight and the flight has more than one message.
+    Start,
+    /// The message is in the middle of the flight and the flight has more than one message.
+    Middle,
+    /// The message is the last message in the flight and the flight has more than one message.
+    End,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct UiConversationMessageNeighbor {
-    pub message_id: UiConversationMessageId,
-    pub sender: String,
-    pub timestamp: String,
-}
-
-impl From<ConversationMessageNeighbor> for UiConversationMessageNeighbor {
-    fn from(value: ConversationMessageNeighbor) -> Self {
-        Self {
-            message_id: value.message_id.into(),
-            sender: value.sender,
-            timestamp: value.timestamp.to_rfc3339(),
+impl UiFlightPosition {
+    /// Calculate the position of a `message` in a flight.
+    ///
+    /// The position is determined by the message and its previous and next messages in the
+    /// conversation timeline.
+    ///
+    /// The implementation of this function defines which messages are grouped together in a
+    /// flight.
+    pub(crate) fn calculate(
+        message: &UiConversationMessage,
+        prev_message: Option<&UiConversationMessage>,
+        next_message: Option<&UiConversationMessage>,
+    ) -> Self {
+        match (prev_message, next_message) {
+            (None, None) => Self::Unique,
+            (Some(_prev), None) => Self::End,
+            (None, Some(_next)) => Self::Start,
+            (Some(prev), Some(next)) => {
+                let at_flight_start = Self::flight_break_condition(prev, message);
+                let at_flight_end = Self::flight_break_condition(message, next);
+                match (at_flight_start, at_flight_end) {
+                    (true, true) => Self::Unique,
+                    (true, false) => Self::Start,
+                    (false, true) => Self::End,
+                    (false, false) => Self::Middle,
+                }
+            }
         }
     }
-}
 
-impl From<ConversationMessageNeighbors> for UiConversationMessageNeighbors {
-    fn from(value: ConversationMessageNeighbors) -> Self {
-        Self {
-            prev: value.prev.map(From::from),
-            next: value.next.map(From::from),
+    /// Returns true if there is a flight break between the messages `a` and `b`.
+    fn flight_break_condition(a: &UiConversationMessage, b: &UiConversationMessage) -> bool {
+        const TIME_THRESHOLD: Duration = Duration::minutes(1);
+        match (&a.message, &b.message) {
+            (UiMessage::Content(a_content), UiMessage::Content(b_content)) => {
+                a_content.sender != b_content.sender
+                    || a.timestamp()
+                        .zip(b.timestamp())
+                        .map(|(a_timestamp, b_timestamp)| {
+                            TIME_THRESHOLD <= b_timestamp.signed_duration_since(a_timestamp).abs()
+                        })
+                        .unwrap_or(true)
+            }
+            // all non-content messages are considered to be flight breaks
+            _ => true,
         }
     }
 }

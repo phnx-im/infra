@@ -106,6 +106,13 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
+    async fn message_neighbors(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
+        CoreUser::try_message_neighbors(self, message_id).await
+    }
+
     async fn last_message(
         &self,
         conversation_id: ConversationId,

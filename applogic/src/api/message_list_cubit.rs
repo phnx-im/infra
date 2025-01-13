@@ -20,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    types::{UiConversationMessage, UiConversationMessageId},
+    types::{UiConversationMessage, UiConversationMessageId, UiFlightPosition},
     user::user_cubit::UserCubitBase,
 };
 
@@ -46,16 +46,46 @@ struct MessageListStateInner {
 impl MessageListState {
     /// Rebuild the state from loaded messages
     ///
+    /// `include_first` indicates whether the first message should be included in the loaded
+    /// messages. In case it is *NOT* included, it is used only to calculate the flight position of
+    /// the second message, and is discarded.
+    ///
     /// The state is fully replaced. Note: This behavior will change when we will introduce loading
     /// of additional messages by paging.
-    fn rebuild_from_messages(&mut self, new_messages: Vec<ConversationMessage>) {
+    fn rebuild_from_messages(
+        &mut self,
+        mut new_messages: Vec<ConversationMessage>,
+        include_first: bool,
+    ) {
+        let capacity = new_messages.len().saturating_sub(1);
+        let mut messages = Vec::with_capacity(capacity);
+        let mut message_ids_index = HashMap::with_capacity(capacity);
+
+        let mut messages_iter = new_messages.drain(..);
+
+        let prev = if include_first {
+            None
+        } else {
+            messages_iter.next().map(UiConversationMessage::from)
+        };
+        let mut prev = prev.as_ref();
+        let mut cur = messages_iter.next().map(UiConversationMessage::from);
+
+        while let Some(mut message) = cur.take() {
+            let next = messages_iter.next().map(From::from);
+
+            message.position = UiFlightPosition::calculate(&message, prev, next.as_ref());
+
+            message_ids_index.insert(message.id, messages.len());
+            messages.push(message);
+
+            prev = messages.last();
+            cur = next;
+        }
+
         let inner = MessageListStateInner {
-            message_ids_index: new_messages
-                .iter()
-                .enumerate()
-                .map(|(index, message)| (message.id().into(), index))
-                .collect(),
-            messages: new_messages.into_iter().map(From::from).collect(),
+            message_ids_index,
+            messages,
         };
         self.inner = Arc::new(inner); // copy on write
     }
@@ -161,7 +191,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
     }
 
     async fn load_and_emit_state(&self) {
-        const MAX_MESSAGES: usize = 1000;
+        const MAX_MESSAGES: usize = 1001;
         let messages = match self
             .store
             .messages(self.conversation_id, MAX_MESSAGES)
@@ -178,8 +208,9 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
             }
         };
         debug!(?messages, "MessageListCubit::load_and_emit_state");
+        let include_first = messages.len() < MAX_MESSAGES;
         self.state_tx
-            .send_modify(|state| state.rebuild_from_messages(messages));
+            .send_modify(|state| state.rebuild_from_messages(messages, include_first));
     }
 
     async fn store_notifications_loop(

@@ -7,7 +7,7 @@ use std::{pin::pin, sync::Arc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
-    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
+    store::{Store, StoreNotification, StoreOperation, StoreResult},
     ConversationMessageId,
 };
 use tokio::sync::watch;
@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
 use crate::{
+    api::types::UiFlightPosition,
     util::{spawn_from_sync, Cubit, CubitCore},
     StreamSink,
 };
@@ -139,10 +140,16 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
 
     async fn load_and_emit_state(&self) {
         let conversation_message = self.store.message(self.message_id).await;
-        tracing::debug!(?conversation_message, "load_and_emit_state");
+
+        debug!(?conversation_message, "load_and_emit_state");
         match conversation_message {
-            Ok(Some(cm)) => {
-                self.state_tx.send_modify(|state| state.message = cm.into());
+            Ok(Some(message)) => {
+                let mut message = UiConversationMessage::from(message);
+                message.position = try_calculate_flight_position(&self.store, &message)
+                    .await
+                    .inspect_err(|error| error!(?error, "Failed to calculate flight position"))
+                    .unwrap_or(UiFlightPosition::Unique);
+                self.state_tx.send_modify(|state| state.message = message);
             }
             Ok(None) => {}
             Err(error) => {
@@ -174,29 +181,30 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     async fn process_store_notification(&self, notification: &StoreNotification) {
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
-            Some(StoreOperation::Remove) => {}
-            None => {
-                // reload on added message when there is no next neighbor
-                // TODO: We could better short-circuit this logic, if we knew the conversation id
-                // of the added message.
-                let has_next_neighbor = self.state_tx.borrow().message.neighbors.next.is_some();
-                if !has_next_neighbor {
-                    for item in notification.ops.iter() {
-                        // TODO: There is a bug, where Update of the message overrides the Add
-                        // operation. To mitigate this, we check also for the Update operation.
-                        //
-                        // Issue <https://github.com/phnx-im/infra/issues/286>
-                        if let (
-                            StoreEntityId::Message(_),
-                            StoreOperation::Add | StoreOperation::Update,
-                        ) = item
-                        {
-                            self.load_and_emit_state().await;
-                            return;
-                        }
-                    }
-                }
-            }
+            Some(StoreOperation::Remove) | None => {}
         }
     }
+}
+
+/// Calculate the flight position of a message by loading its neighbors.
+async fn try_calculate_flight_position(
+    store: &impl Store,
+    message: &UiConversationMessage,
+) -> StoreResult<UiFlightPosition> {
+    let (prev_id, next_id) = store.message_neighbors(message.id.into()).await?;
+    let prev_message = if let Some(id) = prev_id {
+        store.message(id).await?.map(From::from)
+    } else {
+        None
+    };
+    let next_message = if let Some(id) = next_id {
+        store.message(id).await?.map(From::from)
+    } else {
+        None
+    };
+    Ok(UiFlightPosition::calculate(
+        message,
+        prev_message.as_ref(),
+        next_message.as_ref(),
+    ))
 }
