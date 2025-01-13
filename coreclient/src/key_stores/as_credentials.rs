@@ -203,7 +203,7 @@ impl AsCredentials {
         }
     }
 
-    pub async fn verify_client_credential<'b>(
+    pub async fn verify_client_credential(
         connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
