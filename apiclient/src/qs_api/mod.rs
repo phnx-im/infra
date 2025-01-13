@@ -65,10 +65,10 @@ enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
 }
 
 impl ApiClient {
-    async fn prepare_and_send_qs_message<'a, T: SigningKeyBehaviour>(
+    async fn prepare_and_send_qs_message<T: SigningKeyBehaviour>(
         &self,
         request_params: QsRequestParamsOut,
-        token_or_signing_key: AuthenticationMethod<'a, T>,
+        token_or_signing_key: AuthenticationMethod<'_, T>,
     ) -> Result<QsProcessResponseIn, QsRequestError> {
         let tbs = ClientToQsMessageTbsOut::new(request_params);
         let message = match token_or_signing_key {
