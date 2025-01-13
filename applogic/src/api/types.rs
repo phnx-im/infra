@@ -197,7 +197,7 @@ pub struct UiConversationMessage {
 }
 
 impl UiConversationMessage {
-    fn timestamp(&self) -> Option<DateTime<Utc>> {
+    pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
     }
 }

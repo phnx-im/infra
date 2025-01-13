@@ -4,7 +4,7 @@
 
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
-    params,
+    named_params, params,
     types::{FromSql, FromSqlError, Type},
     Connection, OptionalExtension, ToSql,
 };
@@ -226,16 +226,6 @@ impl ConversationMessage {
         notifier.add(self.conversation_message_id);
         notifier.update(self.conversation_id);
 
-        // Notify previous and next message of the newly stored message about an update
-        let (prev_message_id, next_message_id) =
-            Self::neighbors(connection, self.conversation_message_id)?;
-        if let Some(message_id) = prev_message_id {
-            notifier.update(message_id);
-        }
-        if let Some(message_id) = next_message_id {
-            notifier.update(message_id);
-        }
-
         Ok(())
     }
 
@@ -280,42 +270,59 @@ impl ConversationMessage {
             .optional()
     }
 
-    pub(crate) fn neighbors(
+    pub(crate) fn prev_message(
         connection: &Connection,
         message_id: ConversationMessageId,
-    ) -> rusqlite::Result<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
-        connection.query_row(
-            "SELECT
-               prev.message_id,
-               next.message_id
-            FROM conversation_messages cm
-            LEFT JOIN
-                conversation_messages prev
-                ON prev.message_id = (
-                    SELECT prev_inner.message_id
-                    FROM conversation_messages prev_inner
-                    WHERE
-                        prev_inner.conversation_id = cm.conversation_id
-                        AND prev_inner.timestamp <= cm.timestamp
-                        AND prev_inner.message_id != cm.message_id
-                    ORDER BY prev_inner.timestamp desc
-                    LIMIT 1
-                )
-            LEFT JOIN
-                conversation_messages next
-                ON next.message_id = (
-                    SELECT next_inner.message_id
-                    FROM conversation_messages next_inner
-                    WHERE
-                        next_inner.conversation_id = cm.conversation_id
-                        AND next_inner.timestamp >= cm.timestamp
-                        AND next_inner.message_id != cm.message_id
-                    ORDER BY next_inner.timestamp asc
-                    LIMIT 1
-                )
-            WHERE cm.message_id = ?",
-            params![message_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
+    ) -> rusqlite::Result<Option<ConversationMessage>> {
+        connection
+            .query_row(
+                "SELECT
+                    cm.message_id,
+                    cm.conversation_id,
+                    cm.timestamp,
+                    cm.sender,
+                    cm.content,
+                    cm.sent,
+                    cm.timestamp <= c.last_read AS is_read
+                FROM conversation_messages cm
+                INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
+                WHERE cm.message_id != :message_id
+                    AND cm.timestamp <= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY cm.timestamp DESC
+                LIMIT 1",
+                named_params! {
+                    ":message_id": message_id.to_uuid(),
+                },
+                Self::from_row,
+            )
+            .optional()
+    }
+
+    pub(crate) fn next_message(
+        connection: &Connection,
+        message_id: ConversationMessageId,
+    ) -> rusqlite::Result<Option<ConversationMessage>> {
+        connection
+            .query_row(
+                "SELECT
+                    cm.message_id,
+                    cm.conversation_id,
+                    cm.timestamp,
+                    cm.sender,
+                    cm.content,
+                    cm.sent,
+                    cm.timestamp <= c.last_read AS is_read
+                FROM conversation_messages cm
+                INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
+                WHERE cm.message_id != :message_id
+                    AND cm.timestamp >= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY cm.timestamp ASC
+                LIMIT 1",
+                named_params! {
+                    ":message_id": message_id.to_uuid(),
+                },
+                Self::from_row,
+            )
+            .optional()
     }
 }

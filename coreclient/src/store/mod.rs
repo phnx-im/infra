@@ -99,10 +99,15 @@ pub trait LocalStore {
         message_id: ConversationMessageId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
-    async fn message_neighbors(
+    async fn prev_message(
         &self,
         message_id: ConversationMessageId,
-    ) -> StoreResult<(Option<ConversationMessageId>, Option<ConversationMessageId>)>;
+    ) -> StoreResult<Option<ConversationMessage>>;
+
+    async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>>;
 
     async fn last_message(
         &self,
@@ -124,6 +129,8 @@ pub trait LocalStore {
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
 
     // observability
+
+    fn notify(&self, notification: StoreNotification);
 
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
 }

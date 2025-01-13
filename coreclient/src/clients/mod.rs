@@ -259,6 +259,12 @@ impl CoreUser {
         Ok(Some(self_user))
     }
 
+    pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
+        if !notification.ops.is_empty() {
+            self.inner.store_notifications_tx.notify(notification);
+        }
+    }
+
     pub(crate) fn subscribe_to_store_notifications(
         &self,
     ) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {

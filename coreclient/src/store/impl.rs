@@ -106,11 +106,18 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
-    async fn message_neighbors(
+    async fn prev_message(
         &self,
         message_id: ConversationMessageId,
-    ) -> StoreResult<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
-        CoreUser::try_message_neighbors(self, message_id).await
+    ) -> StoreResult<Option<ConversationMessage>> {
+        self.prev_message(message_id).await
+    }
+
+    async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>> {
+        self.next_message(message_id).await
     }
 
     async fn last_message(
@@ -151,6 +158,10 @@ impl Store for CoreUser {
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {
         self.re_send_message(local_message_id).await
+    }
+
+    fn notify(&self, notification: StoreNotification) {
+        self.send_store_notification(notification);
     }
 
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {

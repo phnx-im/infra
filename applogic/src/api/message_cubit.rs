@@ -179,29 +179,32 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
+        if let Err(error) = self.try_process_store_notification(notification).await {
+            error!(%error, "Failed to process store notification");
+        }
+    }
+
+    async fn try_process_store_notification(
+        &self,
+        notification: &StoreNotification,
+    ) -> anyhow::Result<()> {
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
             Some(StoreOperation::Remove) | None => {}
         }
+
+        Ok(())
     }
 }
 
-/// Calculate the flight position of a message by loading its neighbors.
+/// Calculate the flight position of a message by loading its previous and next messages.
 async fn try_calculate_flight_position(
     store: &impl Store,
     message: &UiConversationMessage,
 ) -> StoreResult<UiFlightPosition> {
-    let (prev_id, next_id) = store.message_neighbors(message.id.into()).await?;
-    let prev_message = if let Some(id) = prev_id {
-        store.message(id).await?.map(From::from)
-    } else {
-        None
-    };
-    let next_message = if let Some(id) = next_id {
-        store.message(id).await?.map(From::from)
-    } else {
-        None
-    };
+    let id = message.id.into();
+    let prev_message = store.prev_message(id).await?.map(From::from);
+    let next_message = store.next_message(id).await?.map(From::from);
     Ok(UiFlightPosition::calculate(
         message,
         prev_message.as_ref(),

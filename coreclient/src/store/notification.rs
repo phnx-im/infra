@@ -138,16 +138,14 @@ impl Default for StoreNotificationsSender {
 ///
 /// Bundles all changes to the store, that is, all entities that have been added, updated or
 /// removed.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StoreNotification {
     pub ops: BTreeMap<StoreEntityId, StoreOperation>,
 }
 
 impl StoreNotification {
     fn empty() -> Self {
-        Self {
-            ops: Default::default(),
-        }
+        Self::default()
     }
 }
 

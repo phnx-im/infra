@@ -97,12 +97,20 @@ impl CoreUser {
         ConversationMessage::load(connection, &message_id.to_uuid())
     }
 
-    pub(crate) async fn try_message_neighbors(
+    pub(crate) async fn prev_message(
         &self,
         message_id: ConversationMessageId,
-    ) -> Result<(Option<ConversationMessageId>, Option<ConversationMessageId>)> {
+    ) -> Result<Option<ConversationMessage>> {
         let connection = &self.inner.connection.lock().await;
-        Ok(ConversationMessage::neighbors(connection, message_id)?)
+        Ok(ConversationMessage::prev_message(connection, message_id)?)
+    }
+
+    pub(crate) async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<Option<ConversationMessage>> {
+        let connection = &self.inner.connection.lock().await;
+        Ok(ConversationMessage::next_message(connection, message_id)?)
     }
 
     pub async fn last_message(

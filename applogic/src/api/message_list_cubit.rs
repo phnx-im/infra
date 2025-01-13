@@ -12,7 +12,7 @@ use phnxcoreclient::{
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::{
     util::{spawn_from_sync, Cubit, CubitCore},
@@ -247,12 +247,42 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
             if let (StoreEntityId::Message(message_id), StoreOperation::Add) = item {
                 if let Some(message) = self.store.message(*message_id).await? {
                     if message.conversation_id() == self.conversation_id {
+                        self.notify_neghbors_of_added_message(message).await;
                         self.load_and_emit_state().await;
-                        return Ok(());
                     }
+                    return Ok(());
                 };
             }
         }
         Ok(())
+    }
+
+    /// Send update notification to the neighbors of the added message
+    async fn notify_neghbors_of_added_message(&self, message: ConversationMessage) {
+        let state = self.state_tx.borrow();
+        let messages = &state.inner.messages;
+        match messages.binary_search_by_key(&Some(message.timestamp()), |m| m.timestamp()) {
+            Ok(_idx) => {
+                warn!("Added message is already in the list");
+            }
+            Err(idx) => {
+                let prev_message = idx.checked_sub(1).and_then(|idx| messages.get(idx));
+                let next_message = messages.get(idx);
+                let mut notification = StoreNotification::default();
+                if let Some(message) = prev_message {
+                    notification.ops.insert(
+                        StoreEntityId::Message(message.id.into()),
+                        StoreOperation::Update,
+                    );
+                }
+                if let Some(message) = next_message {
+                    notification.ops.insert(
+                        StoreEntityId::Message(message.id.into()),
+                        StoreOperation::Update,
+                    );
+                }
+                self.store.notify(notification);
+            }
+        }
     }
 }
