@@ -503,7 +503,7 @@ async fn retrieve_conversation_messages() {
     }
 
     // Let's see what Alice's messages for this conversation look like.
-    let mut messages_retrieved = setup
+    let messages_retrieved = setup
         .users
         .get(&SafeTryInto::try_into(ALICE).unwrap())
         .unwrap()
@@ -511,11 +511,6 @@ async fn retrieve_conversation_messages() {
         .get_messages(conversation_id, number_of_messages)
         .await
         .unwrap();
-
-    // remove neighbors because they are not included in sent messages
-    messages_retrieved.iter_mut().for_each(|m| {
-        m.take_neighbors();
-    });
 
     assert_eq!(messages_retrieved.len(), messages_sent.len());
     assert_eq!(messages_retrieved, messages_sent);
