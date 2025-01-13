@@ -5,7 +5,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -61,10 +60,11 @@ pub trait LocalStore {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<HashSet<QualifiedUserName>>>;
 
-    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
-    where
-        I: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send,
-        I::IntoIter: Send;
+    async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> StoreResult<bool>;
 
     async fn delete_conversation(
         &self,

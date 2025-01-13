@@ -64,7 +64,10 @@ class MessageListView extends StatelessWidget {
                           initialState: MessageState(message: message),
                         );
                       },
-                      child: _VisibilityConversationTile(messageId: message.id),
+                      child: _VisibilityConversationTile(
+                        messageId: message.id,
+                        timestamp: DateTime.parse(message.timestamp),
+                      ),
                     )
                   : const SizedBox.shrink();
             },
@@ -88,9 +91,11 @@ class MessageListView extends StatelessWidget {
 class _VisibilityConversationTile extends StatelessWidget {
   const _VisibilityConversationTile({
     required this.messageId,
+    required this.timestamp,
   });
 
   final UiConversationMessageId messageId;
+  final DateTime timestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +104,10 @@ class _VisibilityConversationTile extends StatelessWidget {
       child: const ConversationTile(),
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0) {
-          context.read<MessageCubit>().markAsRead();
+          context.read<ConversationDetailsCubit>().markAsRead(
+                untilMessageId: messageId,
+                untilTimestamp: timestamp,
+              );
         }
       },
     );

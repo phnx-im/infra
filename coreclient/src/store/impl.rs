@@ -4,7 +4,6 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -140,12 +139,14 @@ impl Store for CoreUser {
         Ok(usize::try_from(count).expect("usize overflow"))
     }
 
-    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
-    where
-        I: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send,
-        I::IntoIter: Send,
-    {
-        Ok(self.mark_as_read(until).await?)
+    async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> StoreResult<bool> {
+        Ok(self
+            .mark_conversation_as_read(conversation_id, until)
+            .await?)
     }
 
     async fn send_message(

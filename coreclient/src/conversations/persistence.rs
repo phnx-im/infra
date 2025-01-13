@@ -179,6 +179,33 @@ impl Conversation {
         Ok(())
     }
 
+    /// Mark all messages in the conversation as read until including the given message id.
+    pub(crate) fn mark_as_read_until_message_id(
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+        until_message_id: ConversationMessageId,
+    ) -> rusqlite::Result<bool> {
+        let timestamp: DateTime<Utc> = connection.query_row(
+            "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
+            params![until_message_id],
+            |row| row.get(0),
+        )?;
+        let updated = connection.execute(
+            "UPDATE conversations SET last_read = :timestamp
+            WHERE conversation_id = :conversation_id AND last_read != :timestamp",
+            named_params! {
+                ":conversation_id": conversation_id,
+                ":timestamp": timestamp,
+            },
+        )?;
+        let marked_as_read = updated == 1;
+        if marked_as_read {
+            notifier.update(conversation_id);
+        }
+        Ok(marked_as_read)
+    }
+
     pub(crate) fn global_unread_message_count(
         connection: &Connection,
     ) -> Result<u32, rusqlite::Error> {

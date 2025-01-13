@@ -67,6 +67,7 @@ use crate::{
         migration::run_migrations,
         persistence::{open_client_db, open_phnx_db},
     },
+    ConversationMessageId,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -1163,6 +1164,25 @@ impl CoreUser {
         transaction.commit()?;
         notifier.notify();
         Ok(())
+    }
+
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> Result<bool, rusqlite::Error> {
+        let connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
+        let marked_as_read = Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut notifier,
+            conversation_id,
+            until,
+        )?;
+        notifier.notify();
+        Ok(marked_as_read)
     }
 
     /// Returns how many messages are marked as unread across all conversations.

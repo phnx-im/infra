@@ -35,8 +35,4 @@ class MessageCubit extends StateStreamableSource<MessageState> {
 
   @override
   Stream<MessageState> get stream => _impl.stream();
-
-  // Cubit methods
-
-  Future<void> markAsRead() => _impl.markAsRead();
 }
