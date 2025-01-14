@@ -118,6 +118,19 @@ impl ConversationMessage {
         }
     }
 
+    pub fn new_for_test(
+        conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
+        timestamp: TimeStamp,
+        message: Message,
+    ) -> Self {
+        Self {
+            conversation_id,
+            conversation_message_id,
+            timestamped_message: TimestampedMessage { timestamp, message },
+        }
+    }
+
     pub(crate) fn new_unsent_message(
         sender: String,
         conversation_id: ConversationId,
@@ -184,6 +197,10 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn with_content(content: ContentMessage) -> Self {
+        Self::Content(Box::new(content))
+    }
+
     /// Returns a string representation of the message for use in UI
     /// notifications.
     pub fn string_representation(&self, conversation_type: &ConversationType) -> String {

@@ -289,3 +289,78 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use phnxcoreclient::{ContentMessage, ConversationMessageId, Message, MimiContent};
+    use phnxtypes::{identifiers::Fqdn, time::TimeStamp};
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn new_test_message(sender: &str, timestamp_secs: i64) -> ConversationMessage {
+        ConversationMessage::new_for_test(
+            ConversationId::from(Uuid::from_u128(1)),
+            ConversationMessageId::from_uuid(Uuid::from_u128(1)),
+            TimeStamp::from(timestamp_secs * 1_000_000_000),
+            Message::with_content(ContentMessage::new(
+                sender.into(),
+                true,
+                MimiContent::simple_markdown_message(
+                    Fqdn::try_from("localhost".to_owned()).unwrap(),
+                    "some content".into(),
+                ),
+            )),
+        )
+    }
+
+    #[test]
+    fn test_rebuild_from_messages_flight_positions() {
+        use UiFlightPosition::*;
+
+        let messages = vec![
+            new_test_message("alice", 0),
+            new_test_message("alice", 1),
+            new_test_message("alice", 2),
+            // -- break due to sender
+            new_test_message("bob", 3),
+            new_test_message("bob", 4),
+            new_test_message("bob", 5),
+            // -- break due to time
+            new_test_message("bob", 65),
+            // -- break due to sender and time
+            new_test_message("alice", 125),
+            new_test_message("alice", 126),
+        ];
+
+        let mut state = MessageListState::default();
+        let include_first = true;
+        state.rebuild_from_messages(messages.clone(), include_first);
+
+        let positions = state
+            .inner
+            .messages
+            .iter()
+            .map(|m| m.position)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            positions,
+            [Start, Middle, End, Start, Middle, End, Unique, Start, End]
+        );
+
+        let mut state = MessageListState::default();
+        let include_first = false;
+        state.rebuild_from_messages(messages.clone(), include_first);
+
+        let positions = state
+            .inner
+            .messages
+            .iter()
+            .map(|m| m.position)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            positions,
+            [Middle, End, Start, Middle, End, Unique, Start, End]
+        );
+    }
+}
