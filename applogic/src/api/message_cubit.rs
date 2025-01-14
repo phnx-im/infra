@@ -20,10 +20,7 @@ use crate::{
     StreamSink,
 };
 
-use super::{
-    types::{UiConversationMessage, UiConversationMessageId},
-    user::user_cubit::UserCubitBase,
-};
+use super::{types::UiConversationMessage, user::user_cubit::UserCubitBase};
 
 /// State of a single message in a conversation.
 #[frb(dart_metadata = ("freezed"))]
@@ -32,23 +29,23 @@ pub struct MessageState {
     pub message: UiConversationMessage,
 }
 
-/// Provides access to a message in a conversation.
+/// Provides access to a single message in a conversation.
 ///
-/// Listens to changes to the message and its neighbors (previous and next message in the
-/// conversation timeline).
+/// Listens to changes to the message and reloads it. On reload, also the previous and next
+/// messages in the conversation timeline are loaded to calculate the flight position of this
+/// message.
 #[frb(opaque)]
 pub struct MessageCubitBase {
     core: CubitCore<MessageState>,
 }
 
 impl MessageCubitBase {
+    /// Creates a new message cubit.
+    ///
+    /// Note that the loaded message is immediately provided via `initial_state`.
     #[frb(sync)]
-    pub fn new(
-        user_cubit: &UserCubitBase,
-        message_id: UiConversationMessageId,
-        initial_state: MessageState,
-    ) -> Self {
-        let message_id = message_id.into();
+    pub fn new(user_cubit: &UserCubitBase, initial_state: MessageState) -> Self {
+        let message_id = initial_state.message.id.into();
 
         let store = user_cubit.core_user.clone();
         let store_notifications = store.subscribe();
@@ -122,7 +119,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
         match conversation_message {
             Ok(Some(message)) => {
                 let mut message = UiConversationMessage::from(message);
-                message.position = try_calculate_flight_position(&self.store, &message)
+                message.position = calculate_flight_position(&self.store, &message)
                     .await
                     .inspect_err(|error| error!(?error, "Failed to calculate flight position"))
                     .unwrap_or(UiFlightPosition::Unique);
@@ -156,26 +153,15 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        if let Err(error) = self.try_process_store_notification(notification).await {
-            error!(%error, "Failed to process store notification");
-        }
-    }
-
-    async fn try_process_store_notification(
-        &self,
-        notification: &StoreNotification,
-    ) -> anyhow::Result<()> {
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
             Some(StoreOperation::Remove) | None => {}
         }
-
-        Ok(())
     }
 }
 
 /// Calculate the flight position of a message by loading its previous and next messages.
-async fn try_calculate_flight_position(
+async fn calculate_flight_position(
     store: &impl Store,
     message: &UiConversationMessage,
 ) -> StoreResult<UiFlightPosition> {

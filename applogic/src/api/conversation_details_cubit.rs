@@ -106,6 +106,10 @@ impl ConversationDetailsCubitBase {
         }
     }
 
+    /// Sends a message to the conversation.
+    ///
+    /// The not yet sent message is immediately stored in the local store and then the message is
+    /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
         let domain = self.context.store.user_name().domain();
         let content = MimiContent::simple_markdown_message(domain, message_text);
@@ -118,6 +122,8 @@ impl ConversationDetailsCubitBase {
     }
 
     /// Marks the conversation as read until the given message id (including).
+    ///
+    /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
         &mut self,
         until_message_id: UiConversationMessageId,

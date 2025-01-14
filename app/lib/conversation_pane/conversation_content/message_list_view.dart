@@ -60,7 +60,6 @@ class MessageListView extends StatelessWidget {
                       create: (context) {
                         return MessageCubit(
                           userCubit: context.read(),
-                          messageId: message.id,
                           initialState: MessageState(message: message),
                         );
                       },

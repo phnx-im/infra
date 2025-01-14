@@ -51,7 +51,7 @@ impl MessageListState {
     /// the second message, and is discarded.
     ///
     /// The state is fully replaced. Note: This behavior will change when we will introduce loading
-    /// of additional messages by paging.
+    /// of additional messages via batching <https://github.com/phnx-im/infra/issues/287>.
     fn rebuild_from_messages(
         &mut self,
         mut new_messages: Vec<ConversationMessage>,
@@ -92,7 +92,7 @@ impl MessageListState {
 
     /// The number of loaded messages in the list.
     ///
-    /// Note, this is not the number of all messages in the conversation.
+    /// Note that this is not the number of all messages in the conversation.
     #[frb(sync, getter, type_64bit_int)]
     pub fn loaded_messages_count(&self) -> usize {
         self.inner.messages.len()
@@ -247,7 +247,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
             if let (StoreEntityId::Message(message_id), StoreOperation::Add) = item {
                 if let Some(message) = self.store.message(*message_id).await? {
                     if message.conversation_id() == self.conversation_id {
-                        self.notify_neghbors_of_added_message(message).await;
+                        self.notify_neghbors_of_added_message(message);
                         self.load_and_emit_state().await;
                     }
                     return Ok(());
@@ -257,8 +257,11 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         Ok(())
     }
 
-    /// Send update notification to the neighbors of the added message
-    async fn notify_neghbors_of_added_message(&self, message: ConversationMessage) {
+    /// Send update notification to the neighbors of the added message.
+    ///
+    /// The neighbors are calculated from the list of loaded messages by looking up the position of
+    /// the `message` in list by timestamp.
+    fn notify_neghbors_of_added_message(&self, message: ConversationMessage) {
         let state = self.state_tx.borrow();
         let messages = &state.inner.messages;
         match messages.binary_search_by_key(&Some(message.timestamp()), |m| m.timestamp()) {

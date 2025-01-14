@@ -6,17 +6,14 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/api/message_cubit.dart';
-import 'package:prototype/core/api/types.dart';
 import 'package:prototype/user_cubit.dart';
 
 class MessageCubit extends StateStreamableSource<MessageState> {
   MessageCubit({
     required UserCubit userCubit,
-    required UiConversationMessageId messageId,
     required MessageState initialState,
   }) : _impl = MessageCubitBase(
           userCubit: userCubit.impl,
-          messageId: messageId,
           initialState: initialState,
         );
 
