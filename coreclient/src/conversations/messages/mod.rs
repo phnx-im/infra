@@ -16,7 +16,6 @@ pub(crate) mod persistence;
 pub(crate) struct TimestampedMessage {
     timestamp: TimeStamp,
     message: Message,
-    is_read: bool,
 }
 
 impl TimestampedMessage {
@@ -52,7 +51,6 @@ impl TimestampedMessage {
         Ok(Self {
             timestamp: ds_timestamp,
             message,
-            is_read: false,
         })
     }
 
@@ -61,7 +59,6 @@ impl TimestampedMessage {
         Self {
             message,
             timestamp: ds_timestamp,
-            is_read: false,
         }
     }
 }
@@ -130,7 +127,6 @@ impl ConversationMessage {
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
-            is_read: true,
         };
         ConversationMessage {
             conversation_id,
@@ -176,10 +172,6 @@ impl ConversationMessage {
 
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
-    }
-
-    pub fn is_read(&self) -> bool {
-        self.timestamped_message.is_read
     }
 }
 

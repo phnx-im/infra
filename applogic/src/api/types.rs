@@ -192,7 +192,6 @@ pub struct UiConversationMessage {
     pub id: UiConversationMessageId,
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
-    pub is_read: bool,
     pub position: UiFlightPosition,
 }
 
@@ -209,7 +208,6 @@ impl From<ConversationMessage> for UiConversationMessage {
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
-            is_read: conversation_message.is_read(),
             position: UiFlightPosition::Unique,
         }
     }

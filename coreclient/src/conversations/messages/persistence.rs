@@ -107,7 +107,6 @@ impl Storable for ConversationMessage {
         let sender_str: String = row.get(3)?;
         let versioned_message: VersionedMessage = row.get(4)?;
         let sent = row.get(5)?;
-        let is_read = row.get(6)?;
 
         let versioned_message_inputs = match versioned_message {
             VersionedMessage::CurrentVersion(bytes) => {
@@ -133,11 +132,7 @@ impl Storable for ConversationMessage {
             rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
         })?;
 
-        let timestamped_message = TimestampedMessage {
-            timestamp,
-            message,
-            is_read,
-        };
+        let timestamped_message = TimestampedMessage { timestamp, message };
 
         Ok(ConversationMessage {
             conversation_message_id,
@@ -154,16 +149,14 @@ impl ConversationMessage {
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT
-                cm.message_id,
-                cm.conversation_id,
-                cm.timestamp,
-                cm.sender,
-                cm.content,
-                cm.sent,
-                cm.timestamp <= c.last_read AS is_read
-            FROM conversation_messages cm
-            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-            WHERE cm.message_id = ?",
+                message_id,
+                conversation_id,
+                timestamp,
+                sender,
+                content,
+                sent
+            FROM conversation_messages
+            WHERE message_id = ?",
         )?;
         statement
             .query_row(params![local_message_id], Self::from_row)
@@ -177,17 +170,15 @@ impl ConversationMessage {
     ) -> Result<Vec<ConversationMessage>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT
-               cm.message_id,
-               cm.conversation_id,
-               cm.timestamp,
-               cm.sender,
-               cm.content,
-               cm.sent,
-               cm.timestamp <= c.last_read AS is_read
-            FROM conversation_messages cm
-            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-            WHERE cm.conversation_id = ?
-            ORDER BY cm.timestamp DESC
+               message_id,
+               conversation_id,
+               timestamp,
+               sender,
+               content,
+               sent
+            FROM conversation_messages
+            WHERE conversation_id = ?
+            ORDER BY timestamp DESC
             LIMIT ?",
         )?;
         let mut messages = statement
@@ -252,17 +243,15 @@ impl ConversationMessage {
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT
-                cm.message_id,
-                cm.conversation_id,
-                cm.timestamp,
-                cm.sender,
-                cm.content,
-                cm.sent,
-                cm.timestamp <= c.last_read AS is_read
-            FROM conversation_messages cm
-            INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-            WHERE cm.conversation_id = ? AND cm.sender != 'system'
-            ORDER BY cm.timestamp DESC
+                message_id,
+                conversation_id,
+                timestamp,
+                sender,
+                content,
+                sent
+            FROM conversation_messages
+            WHERE conversation_id = ? AND sender != 'system'
+            ORDER BY timestamp DESC
             LIMIT 1",
         )?;
         statement
@@ -277,18 +266,16 @@ impl ConversationMessage {
         connection
             .query_row(
                 "SELECT
-                    cm.message_id,
-                    cm.conversation_id,
-                    cm.timestamp,
-                    cm.sender,
-                    cm.content,
-                    cm.sent,
-                    cm.timestamp <= c.last_read AS is_read
-                FROM conversation_messages cm
-                INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-                WHERE cm.message_id != :message_id
-                    AND cm.timestamp <= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
-                ORDER BY cm.timestamp DESC
+                    message_id,
+                    conversation_id,
+                    timestamp,
+                    sender,
+                    content,
+                    sent
+                FROM conversation_messages
+                WHERE message_id != :message_id
+                    AND timestamp <= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY timestamp DESC
                 LIMIT 1",
                 named_params! {
                     ":message_id": message_id.to_uuid(),
@@ -305,18 +292,16 @@ impl ConversationMessage {
         connection
             .query_row(
                 "SELECT
-                    cm.message_id,
-                    cm.conversation_id,
-                    cm.timestamp,
-                    cm.sender,
-                    cm.content,
-                    cm.sent,
-                    cm.timestamp <= c.last_read AS is_read
-                FROM conversation_messages cm
-                INNER JOIN conversations c ON c.conversation_id = cm.conversation_id
-                WHERE cm.message_id != :message_id
-                    AND cm.timestamp >= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
-                ORDER BY cm.timestamp ASC
+                    message_id,
+                    conversation_id,
+                    timestamp,
+                    sender,
+                    content,
+                    sent
+                FROM conversation_messages
+                WHERE message_id != :message_id
+                    AND timestamp >= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY timestamp ASC
                 LIMIT 1",
                 named_params! {
                     ":message_id": message_id.to_uuid(),
