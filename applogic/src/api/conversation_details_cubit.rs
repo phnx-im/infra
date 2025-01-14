@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{ops::ControlFlow, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{clients::CoreUser, store::Store, MimiContent};
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use phnxtypes::identifiers::SafeTryInto;
-use tokio::sync::watch;
+use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
@@ -125,15 +125,16 @@ impl ConversationDetailsCubitBase {
     ///
     /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
-        &mut self,
+        &self,
         until_message_id: UiConversationMessageId,
         until_timestamp: DateTime<Utc>,
-    ) {
-        self.context
+    ) -> anyhow::Result<()> {
+        let scheduled = self
+            .context
             .mark_as_read_tx
             .send_if_modified(|state| match state {
                 MarkAsReadState::NotLoaded => {
-                    warn!("Marking as read while conversation is not loaded");
+                    error!("Marking as read while conversation is not loaded");
                     false
                 }
                 MarkAsReadState::Marked { at }
@@ -141,10 +142,7 @@ impl ConversationDetailsCubitBase {
                     until_timestamp: at,
                     ..
                 } if *at < until_timestamp => {
-                    *state = MarkAsReadState::Scheduled {
-                        until_message_id,
-                        until_timestamp,
-                    };
+                    *state = MarkAsReadState::Scheduled { until_timestamp };
                     true
                 }
                 MarkAsReadState::Marked { .. } => {
@@ -154,6 +152,23 @@ impl ConversationDetailsCubitBase {
                     false // already scheduled at a later timestamp
                 }
             });
+        if !scheduled {
+            return Ok(());
+        }
+
+        // debounce
+        const MARK_AS_READ_DEBOUNCE: Duration = Duration::from_secs(2);
+        let mut rx = self.context.mark_as_read_tx.subscribe();
+        tokio::select! {
+            _ = rx.changed() => return Ok(()),
+            _ = sleep(MARK_AS_READ_DEBOUNCE) => {},
+        };
+
+        self.context
+            .store
+            .mark_conversation_as_read(self.context.conversation_id, until_message_id.into())
+            .await?;
+        Ok(())
     }
 }
 
@@ -189,7 +204,6 @@ impl ConversationDetailsContext {
     ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.spawn_mark_as_read_debounce_loop();
             self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
@@ -264,92 +278,15 @@ impl ConversationDetailsContext {
             self.load_and_emit_state().await;
         }
     }
-
-    fn spawn_mark_as_read_debounce_loop(&self) {
-        tokio::spawn(Self::mark_as_read_debounce_loop(
-            self.mark_as_read_tx.subscribe(),
-            self.store.clone(),
-            self.conversation_id,
-        ));
-    }
-
-    async fn mark_as_read_debounce_loop(
-        mut mark_as_read_rx: watch::Receiver<MarkAsReadState>,
-        store: CoreUser,
-        conversation_id: ConversationId,
-    ) {
-        const MARK_AS_READ_DEBOUNCE_DURATION: Duration = Duration::from_secs(2);
-
-        while let Ok(message_id) = debounced_watch(
-            &mut mark_as_read_rx,
-            MARK_AS_READ_DEBOUNCE_DURATION,
-            MarkAsReadState::debounce_condition,
-        )
-        .await
-        {
-            info!(?message_id, "Marking as read (after debounce)");
-            if let Err(error) = store
-                .mark_conversation_as_read(conversation_id, message_id.into())
-                .await
-            {
-                error!(%error, ?conversation_id, "Failed to mark as read");
-            }
-        }
-    }
 }
 
 #[frb(ignore)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 enum MarkAsReadState {
     #[default]
     NotLoaded,
     /// Conversation is marked as read until the given timestamp
     Marked { at: DateTime<Utc> },
-    /// Conversation is scheduled to be marked as read until the given timestamp and message id
-    Scheduled {
-        until_message_id: UiConversationMessageId,
-        until_timestamp: DateTime<Utc>,
-    },
-}
-
-impl MarkAsReadState {
-    /// Condition when to emit a message id to mark it as read or continue debouncing.
-    fn debounce_condition(state: MarkAsReadState) -> ControlFlow<UiConversationMessageId, Self> {
-        match state {
-            MarkAsReadState::NotLoaded | MarkAsReadState::Marked { at: _ } => {
-                ControlFlow::Continue(state)
-            }
-            MarkAsReadState::Scheduled {
-                until_message_id,
-                until_timestamp: _,
-            } => ControlFlow::Break(until_message_id),
-        }
-    }
-}
-
-/// Debounces the value in `rx` until the `condition` is met (`Break`) and `duration` has passed.
-async fn debounced_watch<T: Default + Clone, R>(
-    rx: &mut watch::Receiver<T>,
-    duration: Duration,
-    condition: impl Fn(T) -> ControlFlow<R, T>,
-) -> Result<R, watch::error::RecvError> {
-    let mut latest = T::default();
-    loop {
-        tokio::select! {
-            res = rx.changed() => {
-                res?; // short-circuit closed channel
-                latest = rx.borrow_and_update().clone();
-            }
-            _ = tokio::time::sleep(duration) => {
-                match condition(latest) {
-                    ControlFlow::Continue(value) => {
-                        latest = value;
-                    }
-                    ControlFlow::Break(value) => {
-                        return Ok(value);
-                    }
-                }
-            }
-        }
-    }
+    /// Conversation is scheduled to be marked as read until the given timestamp
+    Scheduled { until_timestamp: DateTime<Utc> },
 }
