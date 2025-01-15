@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
+use sqlx::query;
 
 use crate::{
     store::StoreNotifier,
@@ -68,6 +71,43 @@ impl Conversation {
                 self.conversation_type(),
             ],
         )?;
+        notifier.add(self.id);
+        Ok(())
+    }
+
+    pub(crate) async fn store2(
+        &self,
+        db: &sqlx::sqlite::SqlitePool,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        log::info!("Storing conversation: {:?}", self.id);
+        log::info!("With title: {:?}", self.attributes().title());
+        let title = self.attributes().title();
+        let picture = self.attributes().conversation_picture_option();
+        let group_id = self.group_id.as_slice();
+        let conversation_status = self.status();
+        let conversation_type = self.conversation_type();
+        query!(
+            "INSERT INTO conversations (
+                conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)",
+            self.id,
+            title,
+            picture,
+            group_id,
+            self.last_read,
+            conversation_status,
+            conversation_type
+        )
+        .execute(db)
+        .await?;
         notifier.add(self.id);
         Ok(())
     }

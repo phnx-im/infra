@@ -16,6 +16,18 @@ init-db: generate-db-certs
 generate-db-certs:
     cd backend && TEST_CERT_DIR_NAME=test_certs scripts/generate_test_certs.sh
 
+# === Client ===
+
+[working-directory: 'coreclient']
+init-client-db:
+    sqlx database create --database-url sqlite://client.db
+    sqlx database setup --database-url sqlite://client.db
+
+[working-directory: 'coreclient']
+prepare-client-db-statements: init-client-db
+    cargo sqlx prepare --database-url sqlite://{{justfile_directory()}}/coreclient/client.db
+
+
 # === App ===
 
 app_lib_name := "applogic"

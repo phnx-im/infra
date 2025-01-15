@@ -39,7 +39,7 @@ pub struct Fqdn {
 #[cfg(feature = "sqlx")]
 impl sqlx::Type<sqlx::Postgres> for Fqdn {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        String::type_info()
+        <String as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 
@@ -48,8 +48,15 @@ impl sqlx::Encode<'_, sqlx::Postgres> for Fqdn {
     fn encode_by_ref(
         &self,
         buf: &mut sqlx::postgres::PgArgumentBuffer,
-    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Sync + Send>> {
-        self.to_string().encode_by_ref(buf)
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        <String as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&self.to_string(), buf)
+    }
+
+    fn encode(
+        self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        <String as sqlx::Encode<sqlx::Postgres>>::encode(self.to_string(), buf)
     }
 }
 
@@ -58,7 +65,7 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Fqdn {
     fn decode(
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let string = String::decode(value)?;
+        let string = <String as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
         let fqdn = Fqdn::try_from(string).map_err(|e| {
             tracing::error!("Error parsing Fqdn from DB: {}", e);
             sqlx::Error::Decode(Box::new(e))

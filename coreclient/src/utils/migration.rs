@@ -5,7 +5,7 @@
 use migrations::EmbeddedMigration;
 use refinery::Migration;
 
-refinery::embed_migrations!("migrations");
+refinery::embed_migrations!("migrations/refinery");
 
 pub(crate) fn run_migrations(
     client_db_connection: &mut rusqlite::Connection,

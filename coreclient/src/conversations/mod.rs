@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
@@ -22,6 +22,7 @@ use crate::store::StoreNotifier;
 
 pub(crate) mod messages;
 pub(crate) mod persistence;
+mod sqlx_support;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationId {
@@ -218,19 +219,10 @@ impl FromSql for ConversationStatus {
 
 impl ToSql for ConversationStatus {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        let status = match self {
-            Self::Active => "active".to_string(),
-            Self::Inactive(inactive_conversation) => {
-                let user_names = inactive_conversation
-                    .past_members()
-                    .iter()
-                    .map(|user_name| user_name.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("inactive:{}", user_names)
-            }
-        };
-        Ok(ToSqlOutput::Owned(Value::Text(status)))
+        match self.db_value() {
+            Cow::Borrowed(status) => Ok(ToSqlOutput::Borrowed(ValueRef::Text(status.as_bytes()))),
+            Cow::Owned(status) => Ok(ToSqlOutput::Owned(Value::Text(status))),
+        }
     }
 }
 
