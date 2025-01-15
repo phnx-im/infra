@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT state AS \"state: _\" FROM user_creation_state WHERE client_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "state: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e206b5c55ae505ecc1881acad35618088c355a96004d905d417fdf6fa7bed28b"
+}

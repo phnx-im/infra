@@ -153,7 +153,7 @@ impl Display for GroupIdRefWrapper<'_> {
     }
 }
 
-pub(crate) struct GroupIdWrapper(GroupId);
+pub(crate) struct GroupIdWrapper(pub(crate) GroupId);
 
 impl From<GroupIdWrapper> for GroupId {
     fn from(group_id: GroupIdWrapper) -> Self {

@@ -7,16 +7,15 @@ use std::{borrow::Cow, fmt::Display};
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName, SafeTryInto},
+    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName},
     time::TimeStamp,
 };
 use rusqlite::{
-    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
+    types::{FromSql, FromSqlResult, ToSqlOutput, Value, ValueRef},
     Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
-use tracing::error;
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
@@ -200,21 +199,7 @@ pub enum ConversationStatus {
 impl FromSql for ConversationStatus {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         let status = String::column_result(value)?;
-        if status.starts_with("active") {
-            return Ok(Self::Active);
-        }
-        let Some(user_names) = status.strip_prefix("inactive:") else {
-            return Err(FromSqlError::InvalidType);
-        };
-        let user_names = user_names
-            .split(',')
-            .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                error!(%error, "Failed to parse user names from database");
-                FromSqlError::Other(Box::new(error))
-            })?;
-        Ok(Self::Inactive(InactiveConversation::new(user_names)))
+        Ok(Self::from_db_value(&status)?)
     }
 }
 
@@ -254,28 +239,8 @@ pub enum ConversationType {
 
 impl FromSql for ConversationType {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let conversation_type = String::column_result(value)?;
-        if conversation_type.starts_with("group") {
-            return Ok(Self::Group);
-        }
-        let Some((conversation_type, user_name)) = conversation_type.split_once(':') else {
-            return Err(FromSqlError::InvalidType);
-        };
-        match conversation_type {
-            "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|error| {
-                    error!(%error, "Failed to parse user name from database");
-                    FromSqlError::Other(Box::new(error))
-                })?,
-            )),
-            "connection" => Ok(Self::Connection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|error| {
-                    error!(%error, "Failed to parse user name from database");
-                    FromSqlError::Other(Box::new(error))
-                })?,
-            )),
-            _ => Err(FromSqlError::InvalidType),
-        }
+        let value = String::column_result(value)?;
+        Ok(Self::from_db_value(&value)?)
     }
 }
 

@@ -1,9 +1,18 @@
 use std::borrow::Cow;
 
-use sqlx::{encode::IsNull, error::BoxDynError, Database, Encode, Sqlite, Type};
+use openmls::group::GroupId;
+use phnxtypes::identifiers::{QualifiedUserName, QualifiedUserNameError, SafeTryInto};
+use rusqlite::types::FromSqlError;
+use sqlx::{
+    encode::IsNull, error::BoxDynError, sqlite::SqliteValueRef, Database, Decode, Encode, Sqlite,
+    Type,
+};
+use tracing::error;
 use uuid::Uuid;
 
-use super::{ConversationId, ConversationStatus, ConversationType};
+use crate::utils::persistence::GroupIdWrapper;
+
+use super::{ConversationId, ConversationStatus, ConversationType, InactiveConversation};
 
 impl<DB> Type<DB> for ConversationId
 where
@@ -28,6 +37,17 @@ where
     }
 }
 
+impl<'r, DB> Decode<'r, DB> for ConversationId
+where
+    DB: Database,
+    Uuid: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <Uuid as Decode<DB>>::decode(value)?;
+        Ok(Self::from(value))
+    }
+}
+
 impl ConversationStatus {
     pub(super) fn db_value(&self) -> Cow<'static, str> {
         match self {
@@ -42,6 +62,42 @@ impl ConversationStatus {
                     .join(",");
                 format!("inactive:{user_names}").into()
             }
+        }
+    }
+
+    pub(super) fn from_db_value(
+        value: &str,
+    ) -> Result<ConversationStatus, ConversationStatusFromDbError> {
+        if value.starts_with("active") {
+            return Ok(Self::Active);
+        }
+        let Some(user_names) = value.strip_prefix("inactive:") else {
+            return Err(ConversationStatusFromDbError::InvalidType);
+        };
+        let user_names = user_names
+            .split(',')
+            .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
+            .collect::<Result<Vec<_>, _>>()
+            .inspect_err(|error| {
+                error!(%error, "Failed to parse user names from database");
+            })?;
+        Ok(Self::Inactive(InactiveConversation::new(user_names)))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ConversationStatusFromDbError {
+    #[error("Invalid type")]
+    InvalidType,
+    #[error(transparent)]
+    QualifiedUserName(#[from] QualifiedUserNameError),
+}
+
+impl From<ConversationStatusFromDbError> for FromSqlError {
+    fn from(e: ConversationStatusFromDbError) -> Self {
+        match e {
+            ConversationStatusFromDbError::InvalidType => Self::InvalidType,
+            ConversationStatusFromDbError::QualifiedUserName(e) => Self::Other(Box::new(e)),
         }
     }
 }
@@ -68,6 +124,13 @@ impl<'q> Encode<'q, Sqlite> for ConversationStatus {
     }
 }
 
+impl<'r> Decode<'r, Sqlite> for ConversationStatus {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <&str as Decode<Sqlite>>::decode(value)?;
+        Ok(Self::from_db_value(value)?)
+    }
+}
+
 impl ConversationType {
     pub(super) fn db_value(&self) -> Cow<'static, str> {
         match self {
@@ -76,6 +139,51 @@ impl ConversationType {
             }
             Self::Connection(user_name) => format!("connection:{user_name}").into(),
             Self::Group => "group".into(),
+        }
+    }
+
+    pub(super) fn from_db_value(
+        value: &str,
+    ) -> Result<ConversationType, ConversationTypeFromDbError> {
+        if value.starts_with("group") {
+            return Ok(Self::Group);
+        }
+        let Some((conversation_type, user_name)) = value.split_once(':') else {
+            return Err(ConversationTypeFromDbError::InvalidType);
+        };
+        match conversation_type {
+            "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).inspect_err(
+                    |error| {
+                        error!(%error, "Failed to parse user name from database");
+                    },
+                )?,
+            )),
+            "connection" => Ok(Self::Connection(
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).inspect_err(
+                    |error| {
+                        error!(%error, "Failed to parse user name from database");
+                    },
+                )?,
+            )),
+            _ => Err(ConversationTypeFromDbError::InvalidType),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ConversationTypeFromDbError {
+    #[error("Invalid type")]
+    InvalidType,
+    #[error(transparent)]
+    QualifiedUserName(#[from] QualifiedUserNameError),
+}
+
+impl From<ConversationTypeFromDbError> for FromSqlError {
+    fn from(e: ConversationTypeFromDbError) -> Self {
+        match e {
+            ConversationTypeFromDbError::InvalidType => Self::InvalidType,
+            ConversationTypeFromDbError::QualifiedUserName(e) => Self::Other(Box::new(e)),
         }
     }
 }
@@ -99,5 +207,25 @@ impl<'q> Encode<'q, Sqlite> for ConversationType {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         <Cow<str> as Encode<Sqlite>>::encode(self.db_value(), buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for ConversationType {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <&str as Decode<Sqlite>>::decode(value)?;
+        Ok(Self::from_db_value(value)?)
+    }
+}
+
+impl Type<Sqlite> for GroupIdWrapper {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for GroupIdWrapper {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        Ok(GroupIdWrapper(GroupId::from_slice(value)))
     }
 }

@@ -21,9 +21,18 @@ pub mod push_token;
 pub mod welcome_attribution_info;
 
 #[derive(
-    Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, Clone, Debug,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct FriendshipToken(Vec<u8>);
 
 #[cfg(feature = "sqlite")]

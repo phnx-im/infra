@@ -50,7 +50,7 @@ CREATE TABLE group_membership (
 );
 
 CREATE TABLE contacts (
-    user_name TEXT PRIMARY KEY,
+    user_name TEXT NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     clients TEXT NOT NULL,
     wai_ear_key BLOB NOT NULL,
@@ -62,14 +62,14 @@ CREATE TABLE contacts (
 );
 
 CREATE TABLE partial_contacts (
-    user_name TEXT PRIMARY KEY,
+    user_name TEXT NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     friendship_package_ear_key BLOB NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 
 CREATE TABLE conversations (
-    conversation_id BLOB PRIMARY KEY,
+    conversation_id BLOB NOT NULL PRIMARY KEY,
     conversation_title TEXT NOT NULL,
     conversation_picture BLOB,
     group_id BLOB NOT NULL,
