@@ -4,6 +4,7 @@
 
 use migrations::EmbeddedMigration;
 use refinery::Migration;
+use tracing::{error, info};
 
 refinery::embed_migrations!("migrations/refinery");
 
@@ -16,15 +17,13 @@ pub(crate) fn run_migrations(
 
     match migrations::runner().run(client_db_connection) {
         Ok(report) => {
-            log::info!(
-                "Applied migrations successfully. Migrations applied: {}",
-                report.applied_migrations().len()
-            );
+            let num_migrations = report.applied_migrations().len();
+            info!(num_migrations, "Applied migrations successfully",);
             Ok(())
         }
-        Err(e) => {
-            log::error!("Failed to apply migrations: {}", e);
-            Err(e)
+        Err(error) => {
+            error!(%error, "Failed to apply migrations");
+            Err(error)
         }
     }
 }

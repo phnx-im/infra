@@ -56,6 +56,7 @@ use phnxtypes::{
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
+use tracing::{debug, error, info};
 
 use crate::{
     clients::api_clients::ApiClients, contacts::ContactAddInfos,
@@ -564,7 +565,7 @@ impl Group {
                 bail!("Unsupported message type")
             }
             ProcessedMessageContent::ApplicationMessage(_) => {
-                log::info!("Message type: application.");
+                info!("Message type: application");
                 let sender_client_id = if let Sender::Member(index) = processed_message.sender() {
                     let connection = connection_mutex.lock().await;
                     let client_id = ClientAuthInfo::load(&connection, group_id, *index)?
@@ -1223,15 +1224,9 @@ impl Group {
                 .collect::<Vec<_>>();
             let infra_group_members = GroupMembership::group_members(connection, self.group_id())?;
             if mls_group_members.len() != infra_group_members.len() {
-                log::info!(
-                    "Group members according to OpenMLS: {:?}",
-                    mls_group_members
-                );
-                log::info!(
-                    "Group members according to Infra: {:?}",
-                    infra_group_members
-                );
-                panic!("Group members don't match up.");
+                info!(?mls_group_members, "Group members according to OpenMLS");
+                info!(?infra_group_members, "Group members according to Infra");
+                panic!("Group members don't match up");
             }
             let infra_indices =
                 GroupMembership::client_indices(connection, self.group_id(), &infra_group_members)?;
@@ -1287,8 +1282,8 @@ impl Group {
     ) -> Vec<AsClientId> {
         match GroupMembership::user_client_ids(connection, self.group_id(), user_name) {
             Ok(user_client_ids) => user_client_ids,
-            Err(e) => {
-                log::error!("Could not retrieve user client IDs: {}", e);
+            Err(error) => {
+                error!(%error, "Could not retrieve user client IDs");
                 Vec::new()
             }
         }
@@ -1316,7 +1311,7 @@ impl Group {
     /// Returns a set containing the [`UserName`] of the members of the group.
     pub(crate) fn members(&self, connection: &Connection) -> HashSet<QualifiedUserName> {
         let Ok(group_members) = GroupMembership::group_members(connection, self.group_id()) else {
-            log::error!("Could not retrieve group members.");
+            error!("Could not retrieve group members");
             return HashSet::new();
         };
         group_members
@@ -1560,10 +1555,9 @@ impl TimestampedMessage {
                     .client_credential()
                     .identity()
                     .user_name();
-                log::debug!(
-                    "{}'s client at index {} has updated their key material",
-                    user_name,
-                    sender_index
+                debug!(
+                    %user_name,
+                    %sender_index, "Client has updated their key material",
                 );
                 Ok(())
             })?;

@@ -27,6 +27,7 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, protocol::Message},
     MaybeTlsStream, WebSocketStream,
 };
+use tracing::{error, info};
 
 use crate::{ApiClient, Protocol};
 
@@ -54,8 +55,8 @@ impl ConnectionStatus {
 
     fn set_connected(&mut self, tx: &Sender<WsEvent>) -> Result<(), ConnectionStatusError> {
         if !self.connected {
-            if let Err(err) = tx.send(WsEvent::ConnectedEvent) {
-                log::error!("Error sending to channel: {}", err);
+            if let Err(error) = tx.send(WsEvent::ConnectedEvent) {
+                error!(%error, "Error sending to channel");
                 self.connected = false;
                 return Err(ConnectionStatusError::ChannelClosed);
             }
@@ -66,8 +67,8 @@ impl ConnectionStatus {
 
     fn set_disconnected(&mut self, tx: &Sender<WsEvent>) -> Result<(), ConnectionStatusError> {
         if self.connected {
-            if let Err(err) = tx.send(WsEvent::DisconnectedEvent) {
-                log::error!("Error sending to channel: {}", err);
+            if let Err(error) = tx.send(WsEvent::DisconnectedEvent) {
+                error!(%error, "Error sending to channel");
                 return Err(ConnectionStatusError::ChannelClosed);
             }
             self.connected = false;
@@ -91,8 +92,8 @@ impl QsWebSocket {
     pub async fn next(&mut self) -> Option<WsEvent> {
         match self.rx.recv().await {
             Ok(message) => Some(message),
-            Err(e) => {
-                log::error!("Error receiving from channel: {}", e);
+            Err(error) => {
+                error!(%error, "Error receiving from channel");
                 None
             }
         }
@@ -148,7 +149,7 @@ impl QsWebSocket {
                         let _ = ws_stream.close().await;
                         if connection_status.set_disconnected(tx).is_err() {
                             // Close the stream if all subscribers of the watch have been dropped
-                            log::info!("Closing the connection because all subscribers are dropped");
+                            info!("Closing the connection because all subscribers are dropped");
                             return;
                         }
                     }
@@ -164,7 +165,7 @@ impl QsWebSocket {
                                 // Change the status to Connected and send an event
                                 if connection_status.set_connected(tx).is_err() {
                                     // Close the stream if all subscribers of the watch have been dropped
-                                    log::info!("Closing the connection because all subscribers are dropped");
+                                    info!("Closing the connection because all subscribers are dropped");
                                     let _ = ws_stream.close().await;
                                     return;
                                 }
@@ -175,7 +176,7 @@ impl QsWebSocket {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel
                                     if tx.send(WsEvent::MessageEvent(QsWsMessage::QueueUpdate)).is_err() {
-                                        log::info!("Closing the connection because all subscribers are dropped");
+                                        info!("Closing the connection because all subscribers are dropped");
                                         // Close the stream if all subscribers of the watch have been dropped
                                         let _ = ws_stream.close().await;
                                         return;
@@ -188,7 +189,7 @@ impl QsWebSocket {
                                 last_ping = Instant::now();
                                 if connection_status.set_connected(tx).is_err() {
                                     // Close the stream if all subscribers of the watch have been dropped
-                                    log::info!("Closing the connection because all subscribers are dropped");
+                                    info!("Closing the connection because all subscribers are dropped");
                                     let _ = ws_stream.close().await;
                                     return;
                                 }
@@ -282,8 +283,8 @@ impl ApiClient {
             .uri(address.clone())
             .header("QsOpenWsParams", &encoded)
             .body(())
-            .map_err(|e| {
-                log::error!("Error: {:?}", e);
+            .map_err(|error| {
+                error!(%error, "Wrong URL");
                 SpawnWsError::WrongUrl
             })?;
 
@@ -293,7 +294,7 @@ impl ApiClient {
         // We clone the sender, so that we can subscribe to more receivers
         let tx_clone = tx.clone();
 
-        log::info!("Spawning the websocket connection...");
+        info!("Spawning the websocket connection...");
 
         // Spawn the connection task
         let handle = tokio::spawn(async move {
@@ -308,8 +309,8 @@ impl ApiClient {
                             .insert("QsOpenWsParams", HeaderValue::from_str(&encoded).unwrap());
                         req
                     }
-                    Err(e) => {
-                        log::error!("Error building request: {}", e);
+                    Err(error) => {
+                        error!(%error, "Error building request");
                         // We exit the loop, which in turn drops the channel's sender
                         break;
                     }
@@ -318,13 +319,13 @@ impl ApiClient {
                 match connect_async(req).await {
                     // The connection was established
                     Ok((ws_stream, _)) => {
-                        log::info!("Connected to QS WebSocket");
+                        info!("Connected to QS WebSocket");
                         // Hand over the connection to the handler
                         QsWebSocket::handle_connection(ws_stream, &tx, timeout).await;
                     }
                     // The connection was not established, wait and try again
                     Err(e) => {
-                        log::error!("Error connecting to QS WebSocket: {}", e);
+                        error!("Error connecting to QS WebSocket: {}", e);
                         #[cfg(test)]
                         {
                             counter += 1;
@@ -334,9 +335,9 @@ impl ApiClient {
                         }
                     }
                 }
-                log::info!(
-                    "The websocket was closed, trying to reconnect in {} seconds...",
-                    retry_interval
+                info!(
+                    retry_in_sec = retry_interval,
+                    "The websocket was closed, will reconnect...",
                 );
                 sleep(time::Duration::from_secs(retry_interval)).await;
             }

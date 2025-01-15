@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
 use sqlx::query;
+use tracing::info;
 
 use crate::{
     store::StoreNotifier,
@@ -56,8 +57,11 @@ impl Conversation {
         connection: &Connection,
         notifier: &mut StoreNotifier,
     ) -> Result<(), rusqlite::Error> {
-        log::info!("Storing conversation: {:?}", self.id);
-        log::info!("With title: {:?}", self.attributes().title());
+        info!(
+            id =% self.id,
+            title =% self.attributes().title(),
+            "Storing conversation"
+        );
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
             "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?)",

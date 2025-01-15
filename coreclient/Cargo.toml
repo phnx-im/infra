@@ -16,7 +16,7 @@ description = "Implements the protocol logic of the client component"
 thiserror = "1.0"
 openmls_traits = { workspace = true }
 openmls_rust_crypto = { workspace = true }
-log = "0.4"
+tracing = "0.1.41"
 url = "2.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
