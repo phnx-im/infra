@@ -15,6 +15,7 @@ use phnxtypes::{
     },
 };
 use tls_codec::DeserializeBytes;
+use tracing::error;
 
 use crate::{
     clients::connection_establishment::{
@@ -135,8 +136,8 @@ impl CoreUser {
         .await?;
         cep_in
             .verify(as_intermediate_credential.verifying_key())
-            .map_err(|e| {
-                log::error!("Error verifying connection establishment package: {}", e);
+            .map_err(|error| {
+                error!(%error, "Error verifying connection establishment package");
                 anyhow!("Error verifying connection establishment package")
             })
     }
