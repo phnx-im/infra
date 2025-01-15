@@ -15,6 +15,7 @@ use phnxtypes::{
     },
 };
 use rusqlite::params;
+use tracing::error;
 
 use crate::utils::persistence::Storable;
 
@@ -84,8 +85,8 @@ impl StorableQsQueueRatchet {
     ) -> Result<(), rusqlite::Error> {
         Self {
             queue_type: QueueType::Qs,
-            queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|e| {
-                log::error!("Error initializing QS queue ratchet: {}", e);
+            queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|error| {
+                error!(%error, "Error initializing QS queue ratchet");
                 // This is just a library error, so we hide it behind a rusqlite
                 // error.
                 rusqlite::Error::InvalidQuery
@@ -114,8 +115,8 @@ impl StorableAsQueueRatchet {
     ) -> Result<(), rusqlite::Error> {
         Self {
             queue_type: QueueType::As,
-            queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|e| {
-                log::error!("Error initializing AS queue ratchet: {}", e);
+            queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|error| {
+                error!(%error, "Error initializing AS queue ratchet");
                 // This is just a library error, so we hide it behind a rusqlite
                 // error.
                 rusqlite::Error::InvalidQuery

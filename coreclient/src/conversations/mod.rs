@@ -16,6 +16,7 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
@@ -208,9 +209,9 @@ impl FromSql for ConversationStatus {
             .split(',')
             .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                log::error!("Failed to parse user names from database: {:?}", e);
-                FromSqlError::Other(Box::new(e))
+            .map_err(|error| {
+                error!(%error, "Failed to parse user names from database");
+                FromSqlError::Other(Box::new(error))
             })?;
         Ok(Self::Inactive(InactiveConversation::new(user_names)))
     }
@@ -270,15 +271,15 @@ impl FromSql for ConversationType {
         };
         match conversation_type {
             "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
-                    log::error!("Failed to parse user name from database: {:?}", e);
-                    FromSqlError::Other(Box::new(e))
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|error| {
+                    error!(%error, "Failed to parse user name from database");
+                    FromSqlError::Other(Box::new(error))
                 })?,
             )),
             "connection" => Ok(Self::Connection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
-                    log::error!("Failed to parse user name from database: {:?}", e);
-                    FromSqlError::Other(Box::new(e))
+                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|error| {
+                    error!(%error, "Failed to parse user name from database");
+                    FromSqlError::Other(Box::new(error))
                 })?,
             )),
             _ => Err(FromSqlError::InvalidType),

@@ -22,10 +22,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 
 [dependencies]
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = [
-    "env-filter",
-    "parking_lot",
-] }
+tracing-subscriber = { workspace = true }
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }
@@ -44,4 +41,3 @@ jni = "0.21"
 openmls = { workspace = true }
 tokio-util = "0.7.13"
 tokio-stream = "0.1.17"
-
