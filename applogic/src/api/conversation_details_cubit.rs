@@ -12,7 +12,7 @@ use phnxtypes::identifiers::SafeTryInto;
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
