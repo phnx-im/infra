@@ -45,7 +45,7 @@ async fn ws_lifecycle() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Spawn the websocket connection task
     let mut ws = client

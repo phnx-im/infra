@@ -2,14 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::hash_map::Entry;
-use std::{collections::HashMap, sync::Mutex};
-
+use phnxapiclient::HttpClient;
 use phnxtypes::identifiers::Fqdn;
 
 use super::*;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub(crate) struct ApiClients {
     // We store our own domain such that we can manually map our own domain to
     // an API client that uses an IP address instead of the actual domain. This
@@ -17,8 +15,7 @@ pub(crate) struct ApiClients {
     // thought-out mechanism.
     own_domain: Fqdn,
     own_domain_or_address: String,
-    #[serde(skip)]
-    clients: Arc<Mutex<HashMap<String, ApiClient>>>,
+    http_client: HttpClient,
 }
 
 impl ApiClients {
@@ -27,28 +24,17 @@ impl ApiClients {
         Self {
             own_domain,
             own_domain_or_address,
-            clients: Arc::new(Mutex::new(HashMap::new())),
+            http_client: ApiClient::new_http_client().expect("failed to initialize HTTP client"),
         }
     }
 
     pub(crate) fn get(&self, domain: &Fqdn) -> Result<ApiClient, ApiClientsError> {
-        let lookup_domain = if domain == &self.own_domain {
+        let domain = if domain == &self.own_domain {
             self.own_domain_or_address.clone()
         } else {
-            domain.clone().to_string()
+            domain.to_string()
         };
-        let mut clients = self
-            .clients
-            .lock()
-            .map_err(|_| ApiClientsError::MutexPoisonError)?;
-        match clients.entry(lookup_domain.clone()) {
-            Entry::Occupied(entry) => Ok(entry.get().clone()),
-            Entry::Vacant(entry) => {
-                let client = ApiClient::initialize(lookup_domain.clone())?;
-                entry.insert(client.clone());
-                Ok(client)
-            }
-        }
+        Ok(ApiClient::initialize(self.http_client.clone(), domain)?)
     }
 
     pub(super) fn default_client(&self) -> Result<ApiClient, ApiClientsError> {
@@ -61,6 +47,4 @@ impl ApiClients {
 pub(crate) enum ApiClientsError {
     #[error(transparent)]
     ApiClientError(#[from] ApiClientInitError),
-    #[error("Mutex poisoned")]
-    MutexPoisonError,
 }
