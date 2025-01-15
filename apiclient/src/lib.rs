@@ -37,15 +37,30 @@ pub enum ApiClientInitError {
     TlsRequired,
 }
 
+pub type HttpClient = reqwest::Client;
+
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
 #[derive(Clone)]
 pub struct ApiClient {
-    client: Client,
+    client: HttpClient,
     url: Url,
 }
 
 impl ApiClient {
+    /// Creates a new HTTP client.
+    pub fn new_http_client() -> reqwest::Result<Client> {
+        ClientBuilder::new()
+            .pool_idle_timeout(Duration::from_secs(4))
+            .user_agent("PhnxClient/0.1")
+            .build()
+    }
+
+    pub fn with_default_http_client(domain: impl ToString) -> Result<Self, ApiClientInitError> {
+        let client = Self::new_http_client();
+        Self::initialize(client?, domain)
+    }
+
     /// Creates a new API client that connects to the given base URL.
     ///
     /// # Arguments
@@ -56,7 +71,10 @@ impl ApiClient {
     ///
     /// # Returns
     /// A new [`ApiClient`].
-    pub fn initialize(domain: impl ToString) -> Result<Self, ApiClientInitError> {
+    pub fn initialize(
+        client: HttpClient,
+        domain: impl ToString,
+    ) -> Result<Self, ApiClientInitError> {
         let mut domain_string = domain.to_string();
         // We first check if the domain is a valid URL.
         let url = match Url::parse(&domain_string) {
@@ -70,10 +88,6 @@ impl ApiClient {
             }
             Err(_) => return Err(ApiClientInitError::UrlParsingError(domain_string.clone())),
         };
-        let client = ClientBuilder::new()
-            .pool_idle_timeout(Duration::from_secs(4))
-            .user_agent("PhnxClient/0.1")
-            .build()?;
         Ok(Self { client, url })
     }
 

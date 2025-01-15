@@ -30,7 +30,7 @@ async fn ws_reconnect() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id, timeout, retry_interval)
@@ -68,7 +68,7 @@ async fn ws_sending() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id.clone(), timeout, retry_interval)
