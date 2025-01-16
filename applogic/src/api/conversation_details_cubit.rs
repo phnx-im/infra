@@ -140,9 +140,12 @@ impl ConversationDetailsCubitBase {
                 MarkAsReadState::Marked { at }
                 | MarkAsReadState::Scheduled {
                     until_timestamp: at,
-                    ..
+                    until_message_id: _,
                 } if *at < until_timestamp => {
-                    *state = MarkAsReadState::Scheduled { until_timestamp };
+                    *state = MarkAsReadState::Scheduled {
+                        until_timestamp,
+                        until_message_id,
+                    };
                     true
                 }
                 MarkAsReadState::Marked { .. } => {
@@ -163,6 +166,26 @@ impl ConversationDetailsCubitBase {
             _ = rx.changed() => return Ok(()),
             _ = sleep(MARK_AS_READ_DEBOUNCE) => {},
         };
+
+        // check if the scheduled state is still valid and if so, mark it as read
+        let scheduled = self
+            .context
+            .mark_as_read_tx
+            .send_if_modified(|state| match state {
+                MarkAsReadState::Scheduled {
+                    until_message_id: scheduled_message_id,
+                    until_timestamp,
+                } if *scheduled_message_id == until_message_id => {
+                    *state = MarkAsReadState::Marked {
+                        at: *until_timestamp,
+                    };
+                    true
+                }
+                _ => false,
+            });
+        if !scheduled {
+            return Ok(());
+        }
 
         self.context
             .store
@@ -287,6 +310,9 @@ enum MarkAsReadState {
     NotLoaded,
     /// Conversation is marked as read until the given timestamp
     Marked { at: DateTime<Utc> },
-    /// Conversation is scheduled to be marked as read until the given timestamp
-    Scheduled { until_timestamp: DateTime<Utc> },
+    /// Conversation is scheduled to be marked as read until the given timestamp and message id
+    Scheduled {
+        until_timestamp: DateTime<Utc>,
+        until_message_id: UiConversationMessageId,
+    },
 }
