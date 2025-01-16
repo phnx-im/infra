@@ -434,8 +434,8 @@ pub enum DsRequestParams {
     SelfRemoveClient(SelfRemoveClientParams),
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
-    DispatchEvent(DispatchEventParams),
     GroupOperation(GroupOperationParams),
+    DispatchEvent(DispatchEventParams),
 }
 
 impl DsRequestParams {
