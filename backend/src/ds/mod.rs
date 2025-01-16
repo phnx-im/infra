@@ -15,6 +15,7 @@ use crate::infra_service::{InfraService, ServiceCreationError};
 mod add_clients;
 mod add_users;
 mod delete_group;
+mod group_operation;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;

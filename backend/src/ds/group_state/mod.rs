@@ -161,7 +161,7 @@ impl DsGroupState {
     pub(super) fn process_referenced_remove_proposals(
         &mut self,
         remove_proposals: &[QueuedRemoveProposal],
-    ) -> Result<(), ValidationError> {
+    ) -> Result<(HashSet<LeafNodeIndex>, HashSet<UserKeyHash>), ValidationError> {
         // Verify that we're only committing correct proposals.
         // Remove proposals (typically not allowed in the context of this endpoint)
         // Rules:
@@ -169,56 +169,37 @@ impl DsGroupState {
         let mut marked_users: HashSet<UserKeyHash> = HashSet::new();
         for remove_proposal in remove_proposals {
             // For now, we only allow member proposals.
-            let sender = if let Sender::Member(sender_index) = remove_proposal.sender() {
-                *sender_index
-            } else {
+            let Sender::Member(sender) = remove_proposal.sender() else {
                 return Err(ValidationError::InvalidMessage);
             };
             let removed = remove_proposal.remove_proposal().removed();
-            if sender == removed {
-                // This is valid, but we should record the affected user if it's the
-                // user's only client s.t. we know to remove the user profile later.
-                if let Some(user_key_hash) =
-                    self.user_profiles
-                        .iter()
-                        .find_map(|(user_key_hash, user_profile)| {
-                            if let Some(_client_index) = user_profile.clients.first() {
-                                if user_profile.clients.len() == 1 {
-                                    Some(user_key_hash)
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                {
-                    marked_users.insert(user_key_hash.clone());
-                } else {
-                    return Err(ValidationError::InvalidMessage);
-                }
-            } else {
+            if *sender != removed {
                 // Non-self-referencing remove proposals are invalid for now.
                 return Err(ValidationError::InvalidMessage);
             }
+            // This is valid, but we should record the affected user if it's the
+            // user's only client s.t. we know to remove the user profile later.
+            let user_key_hash = self
+                .user_profiles
+                .iter()
+                .find_map(|(user_key_hash, user_profile)| {
+                    let Some(_client_index) = user_profile.clients.first() else {
+                        return None;
+                    };
+
+                    (user_profile.clients.len() == 1).then_some(user_key_hash)
+                })
+                .ok_or(ValidationError::InvalidMessage)?;
+            marked_users.insert(user_key_hash.clone());
         }
-        // We now know that all removes are clients removing
+        // We now know that all removes are users removing
         // themselves.
         let removed_clients: HashSet<LeafNodeIndex> = remove_proposals
             .iter()
             .map(|proposal| proposal.remove_proposal().removed())
             .collect();
-        for removed_client in removed_clients {
-            let removed_client_profile_option = self.client_profiles.remove(&removed_client);
-            debug_assert!(removed_client_profile_option.is_some())
-        }
 
-        // Finally, we remove the client and user profiles.
-        for marked_user in marked_users {
-            let removed_user_profile_option = self.user_profiles.remove(&marked_user);
-            debug_assert!(removed_user_profile_option.is_some())
-        }
-        Ok(())
+        Ok((removed_clients, marked_users))
     }
 
     /// Create vector of encrypted client credentials options from the current

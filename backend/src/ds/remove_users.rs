@@ -108,7 +108,6 @@ impl DsGroupState {
 
         // A few general checks.
 
-        // TODO: This should be de-duplicated with how by-reference remove proposals are processed.
         let mut client_profiles_to_be_removed = HashSet::new();
         let mut user_profiles_to_be_removed = Vec::<UserKeyHash>::new();
         for leaf_index in removed_clients.iter() {

@@ -44,6 +44,38 @@ pub enum UserRemovalError {
     MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
 }
 
+/// Potential errors when performing a group operation.
+#[derive(Debug, Error)]
+#[repr(u8)]
+pub enum GroupOperationError {
+    /// Unrecoverable implementation error
+    #[error("Library Error")]
+    LibraryError,
+    /// Invalid assisted message.
+    #[error("Invalid assisted message.")]
+    InvalidMessage,
+    /// Error processing message.
+    #[error("Error processing message.")]
+    ProcessingError,
+    /// Missing queue config in client key package.
+    #[error("Missing queue config in client key package.")]
+    MissingQueueConfig,
+    /// Failed to retrieve QS verifying key.
+    #[error("Failed to retrieve QS verifying key.")]
+    FailedToObtainVerifyingKey,
+    /// Invalid KeyPackageBatch.
+    #[error("Invalid KeyPackageBatch.")]
+    InvalidKeyPackageBatch,
+    /// User added twice.
+    #[error("User added twice.")]
+    DuplicatedUserAddition,
+    /// Incomplete Welcome message.
+    #[error("Incomplete Welcome message.")]
+    IncompleteWelcome,
+    #[error("Error merging commit: {0}")]
+    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
+}
+
 /// Potential errors when adding a user.
 #[derive(Debug, Error)]
 #[repr(u8)]
@@ -166,6 +198,9 @@ pub enum DsProcessingError {
     /// Error deleting group.
     #[error(transparent)]
     GroupDeletionError(#[from] GroupDeletionError),
+    /// Error performing group operation.
+    #[error(transparent)]
+    GroupOperationError(#[from] GroupOperationError),
 }
 
 /// Potential errors when joining a group.

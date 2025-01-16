@@ -169,6 +169,7 @@ impl InfraAadMessage {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum InfraAadPayload {
+    GroupOperation(GroupOperationParamsAad),
     AddUsers(AddUsersParamsAad),
     UpdateClient(UpdateClientParamsAad),
     JoinGroup(JoinGroupParamsAad),
@@ -271,6 +272,33 @@ pub struct ExternalCommitInfoParams {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ConnectionGroupInfoParams {
     pub group_id: GroupId,
+}
+
+#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+pub struct AddUsersInfo {
+    pub welcome: AssistedWelcome,
+    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
+    pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
+}
+
+#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+pub struct GroupOperationParams {
+    pub commit: AssistedMessageIn,
+    pub sender: UserKeyHash,
+    pub add_users_info_option: Option<AddUsersInfo>,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct CredentialUpdate {
+    pub encrypted_ear_key: EncryptedSignatureEarKey,
+    pub encrypted_client_credential_option: Option<EncryptedClientCredential>,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct GroupOperationParamsAad {
+    pub new_encrypted_credential_information:
+        Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub credential_update_option: Option<CredentialUpdate>,
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
@@ -407,6 +435,7 @@ pub enum DsRequestParams {
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
     DispatchEvent(DispatchEventParams),
+    GroupOperation(GroupOperationParams),
 }
 
 impl DsRequestParams {
@@ -455,6 +484,9 @@ impl DsRequestParams {
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 dispatch_event_params.event.group_id()
             }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                group_operation_params.commit.group_id()
+            }
         }
     }
 
@@ -490,6 +522,9 @@ impl DsRequestParams {
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 delete_group_params.commit.sender()
+            }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                group_operation_params.commit.sender()
             }
             DsRequestParams::DispatchEvent(_) => {
                 None
@@ -552,6 +587,9 @@ impl DsRequestParams {
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 DsSender::UserKeyHash(delete_group_params.sender.clone())
+            }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                DsSender::UserKeyHash(group_operation_params.sender.clone())
             }
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 DsSender::LeafIndex(dispatch_event_params.event.sender_index())

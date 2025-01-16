@@ -31,10 +31,10 @@ use phnxtypes::{
         client_ds_out::{
             AddClientsParamsOut, AddUsersParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
             CreateGroupParamsOut, DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn,
-            DsRequestParamsOut, ExternalCommitInfoIn, JoinConnectionGroupParamsOut,
-            JoinGroupParamsOut, RemoveClientsParamsOut, RemoveUsersParamsOut,
-            ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            DsRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
+            JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
+            RemoveUsersParamsOut, ResyncClientParamsOut, SelfRemoveClientParamsOut,
+            SendMessageParamsOut, UpdateClientParamsOut,
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
@@ -160,6 +160,29 @@ impl ApiClient {
         .and_then(|response| {
             if matches!(response, DsProcessResponseIn::Ok) {
                 Ok(())
+            } else {
+                Err(DsRequestError::UnexpectedResponse)
+            }
+        })
+    }
+
+    /// Performs a group operation.
+    pub async fn ds_group_operation(
+        &self,
+        payload: GroupOperationParamsOut,
+        group_state_ear_key: &GroupStateEarKey,
+        signing_key: &UserAuthSigningKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        self.prepare_and_send_ds_group_message(
+            DsRequestParamsOut::GroupOperation(payload),
+            signing_key,
+            group_state_ear_key,
+        )
+        .await
+        // Check if the response is what we expected it to be.
+        .and_then(|response| {
+            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+                Ok(ts)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }

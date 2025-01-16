@@ -7,6 +7,7 @@ pub(crate) mod diff;
 pub(crate) mod error;
 pub(crate) mod openmls_provider;
 pub(crate) mod persistence;
+pub(crate) mod process;
 
 pub(crate) use error::*;
 
@@ -39,13 +40,13 @@ use phnxtypes::{
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
-            AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            UpdateClientParamsAad, WelcomeBundle,
+            AddUsersParamsAad, CredentialUpdate, DsJoinerInformationIn, InfraAadMessage,
+            InfraAadPayload, UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            RemoveUsersParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, RemoveUsersParamsOut, SelfRemoveClientParamsOut,
+            SendMessageParamsOut, UpdateClientParamsOut,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -617,6 +618,50 @@ impl Group {
                     }
                 };
                 match aad_payload {
+                    InfraAadPayload::GroupOperation(group_operation_payload) => {
+                        // Process adds if there are any.
+                        if !group_operation_payload
+                            .new_encrypted_credential_information
+                            .is_empty()
+                        {
+                            self.process_adds(
+                                staged_commit,
+                                api_clients,
+                                &connection_mutex,
+                                group_operation_payload.new_encrypted_credential_information,
+                            )
+                            .await?;
+                        }
+
+                        // Process updates if there are any.
+                        // Check if the client has updated its leaf credential.
+                        let new_sender_credential = staged_commit
+                            .update_path_leaf_node()
+                            .ok_or(anyhow!("Could not find sender leaf node"))?
+                            .credential();
+
+                        if new_sender_credential != processed_message.credential() {
+                            self.process_update(
+                                api_clients,
+                                &connection_mutex,
+                                new_sender_credential,
+                                group_operation_payload.credential_update_option,
+                                sender_index,
+                            )
+                            .await?;
+                        }
+
+                        // Process a resync if this is one
+                        if matches!(processed_message.sender(), Sender::NewMemberCommit) {
+                            self.process_resync(
+                                &processed_message,
+                                staged_commit,
+                                &connection_mutex,
+                                sender_index,
+                            )
+                            .await?;
+                        }
+                    }
                     InfraAadPayload::AddUsers(add_users_payload) => {
                         // AddUsers Phase 1: Compute the free indices
                         let connection = connection_mutex.lock().await;
@@ -675,17 +720,11 @@ impl Group {
                         drop(connection);
                     }
                     InfraAadPayload::UpdateClient(update_client_payload) => {
-                        let sender_index = if let Sender::Member(index) = processed_message.sender()
-                        {
-                            index
-                        } else {
-                            bail!("Unsupported sender type.")
-                        };
                         // Check if the client has updated its leaf credential.
                         let sender = self
                             .mls_group
                             .members()
-                            .find(|m| &m.index == sender_index)
+                            .find(|m| m.index == sender_index)
                             .ok_or(anyhow!("Could not find sender in group members"))?;
                         let new_sender_credential = staged_commit
                             .update_path_leaf_node()
@@ -710,7 +749,7 @@ impl Group {
                                     &self.credential_ear_key,
                                     &self.signature_ear_key_wrapper_key,
                                     (ecc, encrypted_signature_ear_key),
-                                    *sender_index,
+                                    sender_index,
                                 )
                                 .await?
                             } else {
@@ -722,7 +761,7 @@ impl Group {
                                 )?;
                                 let connection = connection_mutex.lock().await;
                                 let mut group_membership =
-                                    GroupMembership::load(&connection, group_id, *sender_index)?
+                                    GroupMembership::load(&connection, group_id, sender_index)?
                                         .ok_or(anyhow!(
                                             "Could not find group membership of sender in database"
                                         ))?;
@@ -930,6 +969,162 @@ impl Group {
         Ok((processed_message, we_were_removed, sender_client_id))
     }
 
+    async fn process_adds(
+        &self,
+        staged_commit: &StagedCommit,
+        api_clients: &ApiClients,
+        connection_mutex: &SqliteConnection,
+        new_encrypted_credential_information: Vec<(
+            EncryptedClientCredential,
+            EncryptedSignatureEarKey,
+        )>,
+    ) -> Result<()> {
+        // AddUsers Phase 1: Compute the free indices
+        let connection = connection_mutex.lock().await;
+        let encrypted_client_information =
+            GroupMembership::free_indices(&connection, &self.group_id)?
+                .zip(new_encrypted_credential_information.into_iter());
+        drop(connection);
+
+        // AddUsers Phase 2: Decrypt and verify the client credentials.
+        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+            connection_mutex.clone(),
+            api_clients,
+            &self.group_id,
+            &self.credential_ear_key,
+            self.signature_ear_key_wrapper_key(),
+            encrypted_client_information,
+        )
+        .await?;
+
+        // TODO: Validation:
+        // * Check that this commit only contains (inline) add proposals
+        // * User names MUST be unique within the group (check both new
+        //   and existing credentials for duplicates).
+        // * Client IDs MUST be unique within the group (only need to
+        //   check new credentials, as client IDs are scoped to user
+        //   names).
+
+        // AddUsers Phase 3: Verify and store the client auth infos.
+        let connection = connection_mutex.lock().await;
+        if staged_commit.add_proposals().count() != client_auth_infos.len() {
+            bail!("Number of add proposals and client credentials don't match.")
+        }
+        // We assume that leaf credentials are in the same order
+        // as client credentials.
+        for (proposal, client_auth_info) in
+            staged_commit.add_proposals().zip(client_auth_infos.iter())
+        {
+            client_auth_info.verify_infra_credential(
+                proposal
+                    .add_proposal()
+                    .key_package()
+                    .leaf_node()
+                    .credential(),
+            )?;
+            // Persist the client auth info.
+            client_auth_info.stage_add(&connection)?;
+        }
+        drop(connection);
+
+        Ok(())
+    }
+
+    async fn process_update(
+        &self,
+        api_clients: &ApiClients,
+        connection_mutex: &SqliteConnection,
+        new_sender_credential: &Credential,
+        credential_update_option: Option<CredentialUpdate>,
+        sender_index: LeafNodeIndex,
+    ) -> Result<()> {
+        // If so, then there has to be a new signature ear key.
+        let Some(credential_update) = credential_update_option else {
+            bail!("Invalid update client payload.")
+        };
+        // Optionally, the client could have updated its
+        // client credential.
+        let client_auth_info =
+            if let Some(ecc) = credential_update.encrypted_client_credential_option {
+                ClientAuthInfo::decrypt_and_verify(
+                    connection_mutex.clone(),
+                    api_clients,
+                    &self.group_id,
+                    &self.credential_ear_key,
+                    &self.signature_ear_key_wrapper_key,
+                    (ecc, credential_update.encrypted_ear_key),
+                    sender_index,
+                )
+                .await?
+            } else {
+                // If not, we decrypt the new EAR key and use
+                // the existing client credential.
+                let signature_ear_key = SignatureEarKey::decrypt(
+                    &self.signature_ear_key_wrapper_key,
+                    &credential_update.encrypted_ear_key,
+                )?;
+                let connection = connection_mutex.lock().await;
+                let mut group_membership =
+                    GroupMembership::load(&connection, &self.group_id, sender_index)?.ok_or(
+                        anyhow!("Could not find group membership of sender in database"),
+                    )?;
+                group_membership.set_signature_ear_key(signature_ear_key);
+                let client_credential = StorableClientCredential::load(
+                    &connection,
+                    group_membership.client_credential_fingerprint(),
+                )?
+                .ok_or(anyhow!(
+                    "Could not find client credential of sender in database"
+                ))?;
+                drop(connection);
+
+                ClientAuthInfo::new(client_credential, group_membership)
+            };
+        // Persist the updated client auth info.
+        let connection = connection_mutex.lock().await;
+        client_auth_info.stage_update(&connection)?;
+        drop(connection);
+        // Verify the leaf credential
+        client_auth_info.verify_infra_credential(new_sender_credential)?;
+
+        // TODO: Validation:
+        // * Check that the client id is the same as before.
+
+        // Verify a potential new leaf credential.
+        Ok(())
+    }
+
+    async fn process_resync(
+        &self,
+        processed_message: &ProcessedMessage,
+        staged_commit: &StagedCommit,
+        connection_mutex: &SqliteConnection,
+        sender_index: LeafNodeIndex,
+    ) -> Result<()> {
+        let removed_index = staged_commit
+            .remove_proposals()
+            .next()
+            .ok_or(anyhow!(
+                "Resync operation did not contain a remove proposal"
+            ))?
+            .remove_proposal()
+            .removed();
+        let connection = connection_mutex.lock().await;
+        let mut client_auth_info =
+            ClientAuthInfo::load(&connection, &self.group_id, removed_index)?
+                .ok_or(anyhow!("Could not find client credential of resync sender"))?;
+        // Let's verify the new leaf credential.
+        client_auth_info.verify_infra_credential(processed_message.credential())?;
+
+        // Set the client's new leaf index.
+        client_auth_info
+            .group_membership_mut()
+            .set_leaf_index(sender_index);
+        client_auth_info.stage_update(&connection)?;
+        drop(connection);
+        Ok(())
+    }
+
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
@@ -942,7 +1137,7 @@ impl Group {
         add_infos: Vec<ContactAddInfos>,
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<Vec<ClientCredential>>,
-    ) -> Result<AddUsersParamsOut> {
+    ) -> Result<GroupOperationParamsOut> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key");
         };
@@ -1040,13 +1235,18 @@ impl Group {
             client_auth_info.stage_add(connection)?;
         }
 
-        let params = AddUsersParamsOut {
-            commit,
-            sender: user_auth_key.verifying_key().hash(),
-            welcome,
+        let add_users_info = AddUsersInfoOut {
+            welcome: welcome,
             encrypted_welcome_attribution_infos,
             key_package_batches,
         };
+
+        let params = GroupOperationParamsOut {
+            commit,
+            sender: user_auth_key.verifying_key().hash(),
+            add_users_info_option: Some(add_users_info),
+        };
+
         Ok(params)
     }
 

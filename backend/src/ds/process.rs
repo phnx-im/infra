@@ -442,6 +442,12 @@ impl Ds {
                 let group_message = group_state.remove_clients(remove_clients_params)?;
                 prepare_result(group_message, vec![])
             }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                let (group_message, welcome_bundles) = group_state
+                    .group_operation(group_operation_params, &ear_key, qs_connector)
+                    .await?;
+                prepare_result(group_message, welcome_bundles)
+            }
             // ======= Externally Committing Endpoints =======
             DsRequestParams::JoinGroup(join_group_params) => {
                 let group_message = group_state.join_group(join_group_params)?;
