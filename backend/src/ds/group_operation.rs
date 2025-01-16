@@ -38,6 +38,7 @@ use phnxtypes::{
     time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
+use tracing::warn;
 
 use crate::{
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
@@ -77,7 +78,7 @@ impl DsGroupState {
             .group()
             .process_assisted_message(self.provider.crypto(), params.commit)
             .map_err(|e| {
-                tracing::warn!("Error processing assisted message: {:?}", e);
+                warn!(%e, "Error processing assisted message");
                 GroupOperationError::ProcessingError
             })?;
 
@@ -87,14 +88,19 @@ impl DsGroupState {
             &processed_assisted_message_plus.processed_assisted_message
         else {
             // This should be a commit.
+            warn!("Group operation is not a commit");
             return Err(GroupOperationError::InvalidMessage);
         };
 
         // Validate that the AAD includes enough encrypted credential chains
         let aad_message = InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())
-            .map_err(|_| GroupOperationError::InvalidMessage)?;
+            .map_err(|e| {
+                warn!(%e, "Error deserializing AAD message");
+                GroupOperationError::InvalidMessage
+            })?;
         // TODO: Check version of Aad Message
         let InfraAadPayload::GroupOperation(aad_payload) = aad_message.into_payload() else {
+            warn!("AAD payload is not a group operation");
             return Err(GroupOperationError::InvalidMessage);
         };
 
@@ -102,6 +108,7 @@ impl DsGroupState {
         let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
             processed_message.content()
         else {
+            warn!("Processed message content is not a staged commit");
             return Err(GroupOperationError::InvalidMessage);
         };
 
@@ -114,6 +121,7 @@ impl DsGroupState {
                 // original client. That client MUST be removed in the commit
                 // and that client MUST have a user profile associated with it.
                 let Some(remove_proposal) = staged_commit.remove_proposals().next() else {
+                    warn!("External commit is not a resync operation");
                     return Err(GroupOperationError::InvalidMessage);
                 };
                 SenderIndex::External(remove_proposal.remove_proposal().removed())
@@ -131,6 +139,7 @@ impl DsGroupState {
             .clients
             .contains(&sender_index.leaf_index())
         {
+            warn!("External commit is not a resync operation");
             return Err(GroupOperationError::InvalidMessage);
         };
 
@@ -147,6 +156,7 @@ impl DsGroupState {
             None
         } else {
             let Some(add_users_info) = params.add_users_info_option else {
+                warn!("Group operation adds users but no add users info is provided");
                 return Err(GroupOperationError::InvalidMessage);
             };
 
@@ -177,6 +187,7 @@ impl DsGroupState {
             SenderIndex::External(original_index) => {
                 // Make sure there is a remove proposal for the original client.
                 if staged_commit.remove_proposals().count() == 0 {
+                    warn!("External commit is not a resync operation");
                     return Err(GroupOperationError::InvalidMessage);
                 }
                 // Collect the encrypted client information and the client queue
@@ -196,9 +207,13 @@ impl DsGroupState {
                     .iter()
                     .find_map(|e| match e {
                         Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
-                            let extension =
-                                QsClientReference::tls_deserialize_exact_bytes(&bytes.0)
-                                    .map_err(|_| GroupOperationError::InvalidMessage);
+                            let extension = QsClientReference::tls_deserialize_exact_bytes(
+                                &bytes.0,
+                            )
+                            .map_err(|e| {
+                                warn!(%e, "Error deserializing client reference");
+                                GroupOperationError::InvalidMessage
+                            });
                             Some(extension)
                         }
                         _ => None,
@@ -492,7 +507,7 @@ fn validate_added_users(
 
         let key_package_batch: KeyPackageBatch<VERIFIED> =
             key_package_batch.verify(verifying_key).map_err(|e| {
-                tracing::warn!(
+                warn!(
                     "Error verifying key package batch with pre-fetched key: {:?}",
                     e
                 );
@@ -501,7 +516,7 @@ fn validate_added_users(
 
         // Validate freshness of the batch.
         if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION) {
-            tracing::warn!("Key package batch has expired");
+            warn!("Key package batch has expired");
             return Err(GroupOperationError::InvalidKeyPackageBatch);
         }
 
@@ -509,7 +524,7 @@ fn validate_added_users(
         // Check if the KeyPackages in each batch are all present in the commit.
         for key_package_ref in key_package_batch.key_package_refs() {
             let Some(added_client) = added_clients.remove(key_package_ref) else {
-                tracing::warn!("Incomplete KeyPackageBatch");
+                warn!("Incomplete KeyPackageBatch");
                 return Err(GroupOperationError::InvalidKeyPackageBatch);
             };
             // Also, let's store the signature keys s.t. we can later find the
