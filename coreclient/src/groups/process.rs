@@ -31,13 +31,12 @@ use phnxtypes::{
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
-            AddUsersParamsAad, DsJoinerInformationIn, InfraAadMessage, InfraAadPayload,
-            UpdateClientParamsAad, WelcomeBundle,
+            DsJoinerInformationIn, InfraAadMessage, InfraAadPayload, UpdateClientParamsAad,
+            WelcomeBundle,
         },
         client_ds_out::{
-            AddUsersParamsOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            RemoveUsersParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            SelfRemoveClientParamsOut, SendMessageParamsOut, UpdateClientParamsOut,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,

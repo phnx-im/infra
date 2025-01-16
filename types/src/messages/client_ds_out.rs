@@ -85,21 +85,6 @@ pub struct GroupOperationParamsOut {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AddUsersParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
-    pub welcome: MlsMessageOut,
-    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-    pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct RemoveUsersParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct UpdateClientParamsOut {
     pub commit: AssistedMessageOut,
     pub sender: LeafNodeIndex,
@@ -165,9 +150,7 @@ pub struct DeleteGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
-    AddUsers(AddUsersParamsOut),
     CreateGroupParams(CreateGroupParamsOut),
-    RemoveUsers(RemoveUsersParamsOut),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),

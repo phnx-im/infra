@@ -29,12 +29,12 @@ use phnxtypes::{
             WelcomeInfoParams,
         },
         client_ds_out::{
-            AddClientsParamsOut, AddUsersParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
+            AddClientsParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
             CreateGroupParamsOut, DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn,
             DsRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
             JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
-            RemoveUsersParamsOut, ResyncClientParamsOut, SelfRemoveClientParamsOut,
-            SendMessageParamsOut, UpdateClientParamsOut,
+            ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
+            UpdateClientParamsOut,
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
@@ -176,52 +176,6 @@ impl ApiClient {
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::GroupOperation(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Add one or more users to a group.
-    pub async fn ds_add_users(
-        &self,
-        payload: AddUsersParamsOut,
-        group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::AddUsers(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Remove one or more users from a group.
-    pub async fn ds_remove_users(
-        &self,
-        params: RemoveUsersParamsOut,
-        group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::RemoveUsers(params),
             signing_key,
             group_state_ear_key,
         )

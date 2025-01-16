@@ -45,8 +45,8 @@ use phnxtypes::{
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, RemoveUsersParamsOut, SelfRemoveClientParamsOut,
-            SendMessageParamsOut, UpdateClientParamsOut,
+            GroupOperationParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
+            UpdateClientParamsOut,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -663,63 +663,6 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::AddUsers(add_users_payload) => {
-                        // AddUsers Phase 1: Compute the free indices
-                        let connection = connection_mutex.lock().await;
-                        let encrypted_client_information =
-                            GroupMembership::free_indices(&connection, group_id)?.zip(
-                                add_users_payload
-                                    .encrypted_credential_information
-                                    .into_iter(),
-                            );
-                        drop(connection);
-
-                        // AddUsers Phase 2: Decrypt and verify the client credentials.
-                        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
-                            connection_mutex.clone(),
-                            api_clients,
-                            group_id,
-                            &self.credential_ear_key,
-                            self.signature_ear_key_wrapper_key(),
-                            encrypted_client_information,
-                        )
-                        .await?;
-
-                        // TODO: Validation:
-                        // * Check that this commit only contains (inline) add proposals
-                        // * Check that the leaf credential is not changed in the path
-                        //   (or maybe if it is, check that it's valid).
-                        // * User names MUST be unique within the group (check both new
-                        //   and existing credentials for duplicates).
-                        // * Client IDs MUST be unique within the group (only need to
-                        //   check new credentials, as client IDs are scoped to user
-                        //   names).
-                        // * Once we do RBAC, check that the adder has sufficient
-                        //   permissions.
-                        // * Maybe check sender type (only Members can add users).
-
-                        // AddUsers Phase 3: Verify and store the client auth infos.
-                        let connection = connection_mutex.lock().await;
-                        if staged_commit.add_proposals().count() != client_auth_infos.len() {
-                            bail!("Number of add proposals and client credentials don't match.")
-                        }
-                        // We assume that leaf credentials are in the same order
-                        // as client credentials.
-                        for (proposal, client_auth_info) in
-                            staged_commit.add_proposals().zip(client_auth_infos.iter())
-                        {
-                            client_auth_info.verify_infra_credential(
-                                proposal
-                                    .add_proposal()
-                                    .key_package()
-                                    .leaf_node()
-                                    .credential(),
-                            )?;
-                            // Persist the client auth info.
-                            client_auth_info.stage_add(&connection)?;
-                        }
-                        drop(connection);
-                    }
                     InfraAadPayload::UpdateClient(update_client_payload) => {
                         // Check if the client has updated its leaf credential.
                         let sender = self
@@ -905,7 +848,7 @@ impl Group {
                         }
                         drop(connection);
                     }
-                    InfraAadPayload::RemoveUsers | InfraAadPayload::RemoveClients => {
+                    InfraAadPayload::RemoveClients => {
                         // We already processed remove proposals above, so there is nothing to do here.
                         // TODO: Validation:
                         // * Check that this commit only contains (inline) remove proposals
@@ -1257,14 +1200,17 @@ impl Group {
         &mut self,
         connection: &Connection,
         members: Vec<AsClientId>,
-    ) -> Result<RemoveUsersParamsOut> {
+    ) -> Result<GroupOperationParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key")
         };
         let remove_indices =
             GroupMembership::client_indices(connection, self.group_id(), &members)?;
-        let aad_payload = InfraAadPayload::RemoveUsers;
+        let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_credential_information: vec![],
+            credential_update_option: None,
+        });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
@@ -1290,9 +1236,10 @@ impl Group {
             )?;
         }
 
-        let params = RemoveUsersParamsOut {
+        let params = GroupOperationParamsOut {
             commit,
             sender: user_auth_key.verifying_key().hash(),
+            add_users_info_option: None,
         };
         Ok(params)
     }

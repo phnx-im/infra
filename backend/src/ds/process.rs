@@ -416,19 +416,6 @@ impl Ds {
                 )
             }
             // ======= Committing Endpoints =======
-            DsRequestParams::AddUsers(add_users_params) => {
-                // This function is async and needs the qs provider, because it
-                // needs to fetch the verifying keys from the QS of all added
-                // users.
-                let (group_message, welcome_bundles) = group_state
-                    .add_users(add_users_params, &ear_key, qs_connector)
-                    .await?;
-                prepare_result(group_message, welcome_bundles)
-            }
-            DsRequestParams::RemoveUsers(remove_users_params) => {
-                let group_message = group_state.remove_users(remove_users_params)?;
-                prepare_result(group_message, vec![])
-            }
             DsRequestParams::UpdateClient(update_client_params) => {
                 let group_message = group_state.update_client(update_client_params)?;
                 prepare_result(group_message, vec![])
