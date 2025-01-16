@@ -9,6 +9,7 @@ use rusqlite::{
     Connection, OptionalExtension, ToSql,
 };
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -127,10 +128,11 @@ impl Storable for ConversationMessage {
                 VersionedMessageInputs::CurrentVersion(bytes, inputs)
             }
         };
-        let message = Message::from_versioned_message(versioned_message_inputs).map_err(|e| {
-            log::error!("Failed to deserialize content message: {}", e);
-            rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(e))
-        })?;
+        let message =
+            Message::from_versioned_message(versioned_message_inputs).map_err(|error| {
+                error!(%error, "Failed to deserialize content message");
+                rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(error))
+            })?;
 
         let timestamped_message = TimestampedMessage { timestamp, message };
 

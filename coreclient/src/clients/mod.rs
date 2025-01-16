@@ -51,6 +51,7 @@ use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -332,10 +333,10 @@ impl CoreUser {
         let mut cursor = std::io::Cursor::new(&mut buf);
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 90);
         encoder.encode_image(&image)?;
-        log::info!(
-            "Resized profile picture from {} to {} bytes",
-            image_bytes.len(),
-            buf.len()
+        info!(
+            from_bytes = image_bytes.len(),
+            to_bytes = buf.len(),
+            "Resized profile picture",
         );
         Ok(buf)
     }
@@ -640,7 +641,7 @@ impl CoreUser {
         };
         // Phase 1: Fetch connection key packages from the AS
         let user_domain = user_name.domain();
-        log::info!("Adding contact {}", user_name);
+        info!(%user_name, "Adding contact");
         let user_key_packages = self
             .inner
             .api_clients
@@ -654,7 +655,7 @@ impl CoreUser {
             return Err(anyhow!("User {} does not exist", user_name));
         }
         // Phase 2: Verify the connection key packages
-        log::info!("Verifying connection packages");
+        info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in user_key_packages.connection_packages.into_iter() {
             let as_intermediate_credential = AsCredentials::get(
@@ -673,7 +674,7 @@ impl CoreUser {
         // * Lifetime
 
         // Phase 3: Request a group id from the DS
-        log::info!("Requesting group id");
+        info!("Requesting group id");
         let group_id = self
             .inner
             .api_clients
@@ -682,7 +683,7 @@ impl CoreUser {
             .await?;
 
         // Phase 4: Prepare the connection locally
-        log::info!("Creating local connection group");
+        info!("Creating local connection group");
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
@@ -765,7 +766,7 @@ impl CoreUser {
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
-        log::info!("Creating connection group on DS");
+        info!("Creating connection group on DS");
         self.inner
             .api_clients
             .default_client()?
@@ -1196,8 +1197,8 @@ impl CoreUser {
     /// marked as unread.
     pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
         let connection = &self.inner.connection.lock().await;
-        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|e| {
-            log::error!("Error while fetching unread messages count: {:?}", e);
+        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
+            error!(%error, "Error while fetching unread messages count");
             0
         })
     }

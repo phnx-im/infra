@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use phnxtypes::{codec::PhnxCodec, crypto::ear::EarEncryptable};
+use tracing::error;
 
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
@@ -118,10 +119,12 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Option<ConversationMessage> {
         let connection = &self.inner.connection.lock().await;
-        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(|e| {
-            log::error!("Error while fetching last message: {:?}", e);
-            None
-        })
+        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(
+            |error| {
+                error!(%error, "Error while fetching last message");
+                None
+            },
+        )
     }
 
     pub(crate) async fn try_last_message(
