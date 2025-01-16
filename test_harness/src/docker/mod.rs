@@ -220,13 +220,14 @@ fn create_and_start_server_container(
 /// This function has to be called from the container that runs the tests.
 pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> bool {
     let mut domains = domains.into();
+    let http_client = ApiClient::new_http_client().unwrap();
     let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
         .map(|domain| {
             let domain_and_port = format!("http://{}:{}", domain, DEFAULT_PORT_HTTP);
             (
                 domain.clone(),
-                ApiClient::initialize(domain_and_port).unwrap(),
+                ApiClient::initialize(http_client.clone(), domain_and_port).unwrap(),
             )
         })
         .collect();

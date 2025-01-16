@@ -42,6 +42,7 @@ use phnxtypes::{
 };
 
 use tls_codec::DeserializeBytes;
+use tracing::warn;
 
 #[derive(Error, Debug)]
 pub enum DsRequestError {
@@ -92,8 +93,8 @@ impl ApiClient {
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =
                             DsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
-                                .map_err(|e| {
-                                    log::warn!("Couldn't deserialize OK response body: {:?}", e);
+                                .map_err(|error| {
+                                    warn!(%error, "Couldn't deserialize OK response body");
                                     DsRequestError::BadResponse
                                 })?;
                         Ok(ds_proc_res)
@@ -101,12 +102,12 @@ impl ApiClient {
                     // DS Specific Error
                     418 => {
                         let ds_proc_err_bytes = res.bytes().await.map_err(|_| {
-                            log::warn!("No body in DS-error response.");
+                            warn!("No body in DS-error response");
                             DsRequestError::BadResponse
                         })?;
                         let ds_proc_err =
                             String::from_utf8(ds_proc_err_bytes.to_vec()).map_err(|_| {
-                                log::warn!("Couldn't deserialize DS-error response body.");
+                                warn!("Couldn't deserialize DS-error response body");
                                 DsRequestError::BadResponse
                             })?;
                         Err(DsRequestError::DsError(ds_proc_err))
@@ -114,7 +115,7 @@ impl ApiClient {
                     // All other errors
                     _ => {
                         let error_text = res.text().await.map_err(|_| {
-                            log::warn!("Other network error without body");
+                            warn!("Other network error without body");
                             DsRequestError::BadResponse
                         })?;
                         Err(DsRequestError::NetworkError(error_text))

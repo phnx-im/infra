@@ -36,6 +36,7 @@ reqwest = { version = "^0.12", features = [
     "brotli",
     "http2",
     "charset",
+    "hickory-dns",
 ], default-features = false }
 chrono = { version = "0.4.38", features = ["serde"] }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
@@ -46,6 +47,12 @@ openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
 openmls_traits = { git = "https://github.com/openmls/openmls" }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
 phnxtypes = { path = "./types" }
+
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "tracing-log",
+    "parking_lot",
+] }
 
 [patch.crates-io]
 #opaque-ke = { git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0" }

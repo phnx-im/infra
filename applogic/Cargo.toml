@@ -13,12 +13,16 @@ description = "Multi-platform client application logic"
 [lib]
 crate-type = ["cdylib", "staticlib", "lib"]
 
+# Silence warnings caused by the `frb` macro (since Rust 1.84.0).
+#
+# <https://github.com/fzyzcjy/flutter_rust_bridge/issues/2425>
+# <https://github.com/fzyzcjy/flutter_rust_bridge/issues/2493>
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
 [dependencies]
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = [
-    "env-filter",
-    "parking_lot",
-] }
+tracing-subscriber = { workspace = true }
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
 phnxcoreclient = { path = "../coreclient" }

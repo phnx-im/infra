@@ -89,8 +89,8 @@ pub fn delete_databases(client_db_path: &str) -> Result<()> {
                 client_db_path,
                 client_db_name(&client_record.as_client_id)
             );
-            if let Err(e) = fs::remove_file(full_client_db_path) {
-                log::error!("Failed to delete client DB: {}", e)
+            if let Err(error) = fs::remove_file(full_client_db_path) {
+                tracing::error!(%error, "Failed to delete client DB")
             }
         }
     }

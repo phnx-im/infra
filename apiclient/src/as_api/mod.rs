@@ -39,6 +39,7 @@ use phnxtypes::{
 use privacypass::batched_tokens_ristretto255::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
+use tracing::error;
 
 use crate::{ApiClient, Protocol};
 
@@ -102,13 +103,12 @@ impl ApiClient {
                 }
             }
             // A network error occurred.
-            Err(err) => {
-                let error_message = format!(
-                    "Got a POST message error while contacting the URL {}: {:?}",
-                    url, err
+            Err(error) => {
+                error!(
+                    %url,
+                    %error, "Got a POST message error while contacting the URL"
                 );
-                log::error!("{}", error_message);
-                Err(AsRequestError::NetworkError(err.to_string()))
+                Err(AsRequestError::NetworkError(error.to_string()))
             }
         }
     }

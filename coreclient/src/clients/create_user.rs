@@ -29,6 +29,7 @@ use phnxtypes::{
     time::ExpirationData,
 };
 use rand_chacha::rand_core::OsRng;
+use tracing::debug;
 
 use super::*;
 
@@ -59,7 +60,7 @@ impl BasicUserData {
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
-        log::debug!("Creating new client {}", self.as_client_id);
+        debug!(client_id =% self.as_client_id, "Creating new client");
         // Let's turn TLS off for now.
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS

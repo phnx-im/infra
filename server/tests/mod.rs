@@ -30,7 +30,7 @@ async fn health_check_works() {
     let address = format!("http://{}", address);
 
     // Initialize the client
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Do the health check
     assert!(client.health_check().await);
@@ -212,7 +212,7 @@ async fn inexistant_endpoint() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);

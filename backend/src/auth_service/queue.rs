@@ -13,7 +13,7 @@ pub(super) struct Queue {
 }
 
 impl Queue {
-    pub(super) async fn new_and_store<'a>(
+    pub(super) async fn new_and_store(
         queue_id: AsClientId,
         connection: &mut PgConnection,
     ) -> Result<Self, StorageError> {
@@ -129,7 +129,7 @@ mod persistence {
 
             // This query is idempotent, so there's no need to lock anything.
             let query = "WITH deleted AS (
-                DELETE FROM as_queues 
+                DELETE FROM as_queues
                 WHERE queue_id = $1 AND sequence_number < $2
             ),
             fetched AS (
@@ -139,11 +139,11 @@ mod persistence {
                 LIMIT $3
             ),
             remaining AS (
-                SELECT COUNT(*) AS count 
+                SELECT COUNT(*) AS count
                 FROM as_queues
                 WHERE queue_id = $1 AND sequence_number >= $2
             )
-            SELECT 
+            SELECT
                 fetched.message_bytes,
                 remaining.count
             FROM fetched, remaining";
