@@ -40,7 +40,7 @@ use phnxtypes::{
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
-            AddUsersParamsAad, CredentialUpdate, DsJoinerInformationIn, InfraAadMessage,
+            CredentialUpdate, DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage,
             InfraAadPayload, UpdateClientParamsAad, WelcomeBundle,
         },
         client_ds_out::{
@@ -1165,10 +1165,12 @@ impl Group {
                 Ok((ecc, esek))
             })
             .collect::<Result<Vec<_>>>()?;
-        let aad_message: InfraAadMessage = InfraAadPayload::AddUsers(AddUsersParamsAad {
-            encrypted_credential_information: ecc,
-        })
-        .into();
+        let aad_message: InfraAadMessage =
+            InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+                new_encrypted_credential_information: ecc,
+                credential_update_option: None,
+            })
+            .into();
 
         // Set Aad to contain the encrypted client credentials.
         let provider = PhnxOpenMlsProvider::new(connection);
