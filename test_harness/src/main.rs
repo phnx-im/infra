@@ -42,7 +42,7 @@ async fn main() -> ExitCode {
     let mut counter = 0;
     let mut domains = HashSet::new();
     while let Ok(domain_name) = std::env::var(format!("PHNX_SERVER_{}", counter)) {
-        domains.insert(domain_name.try_into().expect("Invalid domain name"));
+        domains.insert(domain_name.parse().expect("Invalid domain name"));
         counter += 1;
     }
     if !wait_until_servers_are_up(domains.clone()).await {

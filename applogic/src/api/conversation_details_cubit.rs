@@ -10,7 +10,6 @@ use phnxcoreclient::{
     store::{Store, StoreEntityId, StoreOperation},
 };
 use phnxcoreclient::{store::StoreNotification, ConversationId};
-use phnxtypes::identifiers::SafeTryInto;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -91,10 +90,10 @@ impl ConversationDetailsCubitBase {
             .map(|c| c.conversation_type.clone());
         match conversation_type {
             Some(
-                UiConversationType::UnconfirmedConnection(username)
-                | UiConversationType::Connection(username),
+                UiConversationType::UnconfirmedConnection(user_name)
+                | UiConversationType::Connection(user_name),
             ) => {
-                let qualified_username = SafeTryInto::try_into(username)?;
+                let qualified_username = user_name.parse()?;
                 let profile = self.store.user_profile(&qualified_username).await?;
                 Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
             }

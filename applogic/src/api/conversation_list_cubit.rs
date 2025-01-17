@@ -72,7 +72,7 @@ impl ConversationListCubitBase {
     // Cubit methods
 
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_name).await?;
+        let id = self.context.store.add_contact(user_name.parse()?).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }

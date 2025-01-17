@@ -51,16 +51,16 @@ impl DockerTestBed {
         let network_name = format!("{scenario}_network");
         // Create docker network
         create_network(&network_name);
-        let servers = (0..scenario.number_of_servers())
+        let servers: HashMap<_, _> = (0..scenario.number_of_servers())
             .map(|index| {
-                let domain = format!("{}{}.com", scenario, index)
-                    .try_into()
+                let domain = format!("{scenario}{index}.com")
+                    .parse()
                     .expect("Invalid domain");
                 tracing::info!("Starting server {domain}");
                 let server = create_and_start_server_container(&domain, Some(&network_name));
                 (domain.clone(), server)
             })
-            .collect::<HashMap<_, _>>();
+            .collect();
 
         Self {
             servers,
