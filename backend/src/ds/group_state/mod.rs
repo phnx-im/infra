@@ -183,9 +183,7 @@ impl DsGroupState {
                 .user_profiles
                 .iter()
                 .find_map(|(user_key_hash, user_profile)| {
-                    let Some(_client_index) = user_profile.clients.first() else {
-                        return None;
-                    };
+                    let _client_index = user_profile.clients.first()?;
 
                     (user_profile.clients.len() == 1).then_some(user_key_hash)
                 })

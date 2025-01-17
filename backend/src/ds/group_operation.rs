@@ -288,13 +288,7 @@ impl DsGroupState {
     /// Updates client and user profiles based on the added users.
     fn update_membership_profiles(
         &mut self,
-        added_users: &[(
-            Vec<(
-                KeyPackage,
-                (EncryptedClientCredential, EncryptedSignatureEarKey),
-            )>,
-            EncryptedWelcomeAttributionInfo,
-        )],
+        added_users: &[(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)],
     ) -> Result<(), GroupOperationError> {
         for (add_packages, _) in added_users.iter() {
             let mut client_profiles = vec![];
@@ -342,13 +336,7 @@ impl DsGroupState {
 
     fn generate_fan_out_messages(
         &self,
-        added_users: Vec<(
-            Vec<(
-                KeyPackage,
-                (EncryptedClientCredential, EncryptedSignatureEarKey),
-            )>,
-            EncryptedWelcomeAttributionInfo,
-        )>,
+        added_users: Vec<(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)>,
         group_state_ear_key: &GroupStateEarKey,
         welcome: &AssistedWelcome,
     ) -> Result<Vec<DsFanOutMessage>, GroupOperationError> {
@@ -432,14 +420,13 @@ impl DsGroupState {
     }
 }
 
+type AddedClientInfo = (
+    KeyPackage,
+    (EncryptedClientCredential, EncryptedSignatureEarKey),
+);
+
 struct AddUsersState {
-    added_users: Vec<(
-        Vec<(
-            KeyPackage,
-            (EncryptedClientCredential, EncryptedSignatureEarKey),
-        )>,
-        EncryptedWelcomeAttributionInfo,
-    )>,
+    added_users: Vec<(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)>,
     welcome: AssistedWelcome,
 }
 
@@ -460,13 +447,7 @@ fn validate_added_users(
 
     // Collect all added clients in a map s.t. we can later check if all
     // added clients are present in the Welcome.
-    let mut added_clients: HashMap<
-        KeyPackageRef,
-        (
-            KeyPackage,
-            (EncryptedClientCredential, EncryptedSignatureEarKey),
-        ),
-    > = staged_commit
+    let mut added_clients: HashMap<KeyPackageRef, AddedClientInfo> = staged_commit
         .add_proposals()
         .zip(aad_payload.new_encrypted_credential_information.iter())
         .map(|(add_proposal, (ecc, esek))| {
