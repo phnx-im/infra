@@ -57,6 +57,7 @@ pub struct UiConversation {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(type_64bit_int)]
 pub struct UiConversationDetails {
     pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
@@ -65,8 +66,8 @@ pub struct UiConversationDetails {
     pub conversation_type: UiConversationType,
     pub last_used: String,
     pub attributes: UiConversationAttributes,
-    pub messages_count: u32,
-    pub unread_messages: u32,
+    pub messages_count: usize,
+    pub unread_messages: usize,
     pub last_message: Option<UiConversationMessage>,
 }
 
@@ -208,7 +209,7 @@ impl From<ConversationMessage> for UiConversationMessage {
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
-            position: UiFlightPosition::Unique,
+            position: UiFlightPosition::Single,
         }
     }
 }
@@ -378,7 +379,7 @@ impl From<NotificationType> for UiNotificationType {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum UiFlightPosition {
     /// The message is the only message in the flight.
-    Unique,
+    Single,
     /// The message is the first message in the flight and the flight has more than one message.
     Start,
     /// The message is in the middle of the flight and the flight has more than one message.
@@ -401,14 +402,14 @@ impl UiFlightPosition {
         next_message: Option<&UiConversationMessage>,
     ) -> Self {
         match (prev_message, next_message) {
-            (None, None) => Self::Unique,
+            (None, None) => Self::Single,
             (Some(_prev), None) => Self::End,
             (None, Some(_next)) => Self::Start,
             (Some(prev), Some(next)) => {
                 let at_flight_start = Self::flight_break_condition(prev, message);
                 let at_flight_end = Self::flight_break_condition(message, next);
                 match (at_flight_start, at_flight_end) {
-                    (true, true) => Self::Unique,
+                    (true, true) => Self::Single,
                     (true, false) => Self::Start,
                     (false, true) => Self::End,
                     (false, false) => Self::Middle,

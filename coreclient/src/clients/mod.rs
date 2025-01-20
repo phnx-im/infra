@@ -1181,15 +1181,14 @@ impl CoreUser {
     }
 
     /// Returns how many messages are marked as unread across all conversations.
-    pub async fn global_unread_messages_count(&self) -> Result<u32, rusqlite::Error> {
+    pub async fn global_unread_messages_count(&self) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::global_unread_message_count(connection)?;
-        Ok(count)
+        Conversation::global_unread_message_count(connection)
     }
 
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
+    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> usize {
         let connection = &self.inner.connection.lock().await;
         Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
             error!(%error, "Error while fetching unread messages count");
@@ -1202,8 +1201,7 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::messages_count(connection, conversation_id)?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Conversation::messages_count(connection, conversation_id)
     }
 
     pub(crate) async fn try_unread_messages_count(
@@ -1211,8 +1209,7 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::unread_messages_count(connection, conversation_id)?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Conversation::unread_messages_count(connection, conversation_id)
     }
 
     /// Updates the client's push token on the QS.

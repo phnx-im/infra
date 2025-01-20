@@ -345,7 +345,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             positions,
-            [Start, Middle, End, Start, Middle, End, Unique, Start, End]
+            [Start, Middle, End, Start, Middle, End, Single, Start, End]
         );
 
         let mut state = MessageListState::default();
@@ -360,7 +360,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             positions,
-            [Middle, End, Start, Middle, End, Unique, Start, End]
+            [Middle, End, Start, Middle, End, Single, Start, End]
         );
     }
 }

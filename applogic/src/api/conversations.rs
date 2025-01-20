@@ -151,8 +151,8 @@ pub(crate) async fn converation_into_ui_details(
         conversation_type: conversation.conversation_type,
         last_used,
         attributes: conversation.attributes,
-        messages_count: TryInto::try_into(messages_count).expect("usize overflow"),
-        unread_messages: TryInto::try_into(unread_messages).expect("usize overflow"),
+        messages_count,
+        unread_messages,
         last_message,
     }
 }

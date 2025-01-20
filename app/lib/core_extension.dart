@@ -35,12 +35,12 @@ extension UiConversationTypeExtension on UiConversationType {
 
 extension UiFlightPositionExtension on UiFlightPosition {
   bool get isFirst => switch (this) {
-        UiFlightPosition.unique || UiFlightPosition.start => true,
+        UiFlightPosition.single || UiFlightPosition.start => true,
         UiFlightPosition.middle || UiFlightPosition.end => false,
       };
 
   bool get isLast => switch (this) {
         UiFlightPosition.start || UiFlightPosition.middle => false,
-        UiFlightPosition.unique || UiFlightPosition.end => true,
+        UiFlightPosition.single || UiFlightPosition.end => true,
       };
 }

@@ -212,7 +212,7 @@ impl Conversation {
 
     pub(crate) fn global_unread_message_count(
         connection: &Connection,
-    ) -> Result<u32, rusqlite::Error> {
+    ) -> Result<usize, rusqlite::Error> {
         connection.query_row(
             "SELECT
                 COUNT(cm.conversation_id) AS total_unread_messages
@@ -232,7 +232,7 @@ impl Conversation {
     pub(crate) fn messages_count(
         connection: &Connection,
         conversation_id: ConversationId,
-    ) -> Result<u32, rusqlite::Error> {
+    ) -> Result<usize, rusqlite::Error> {
         connection.query_row(
             "SELECT
                 COUNT(*)
@@ -249,7 +249,7 @@ impl Conversation {
     pub(crate) fn unread_messages_count(
         connection: &Connection,
         conversation_id: ConversationId,
-    ) -> Result<u32, rusqlite::Error> {
+    ) -> Result<usize, rusqlite::Error> {
         connection.query_row(
             "SELECT
                     COUNT(*)

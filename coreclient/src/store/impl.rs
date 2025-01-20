@@ -135,8 +135,7 @@ impl Store for CoreUser {
     }
 
     async fn global_unread_messages_count(&self) -> StoreResult<usize> {
-        let count = self.global_unread_messages_count().await?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Ok(self.global_unread_messages_count().await?)
     }
 
     async fn mark_conversation_as_read(

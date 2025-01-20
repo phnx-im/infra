@@ -122,7 +122,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
                 message.position = calculate_flight_position(&self.store, &message)
                     .await
                     .inspect_err(|error| error!(?error, "Failed to calculate flight position"))
-                    .unwrap_or(UiFlightPosition::Unique);
+                    .unwrap_or(UiFlightPosition::Single);
                 self.state_tx.send_modify(|state| state.message = message);
             }
             Ok(None) => {}
