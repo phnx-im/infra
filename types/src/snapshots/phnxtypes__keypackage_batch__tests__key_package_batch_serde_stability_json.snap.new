@@ -1,0 +1,21 @@
+---
+source: types/src/keypackage_batch.rs
+assertion_line: 224
+expression: "&*KEY_PACKAGE_BATCH"
+---
+{
+  "payload": {
+    "homeserver_domain": {
+      "domain": {
+        "Domain": "localhost"
+      }
+    },
+    "key_package_refs": [],
+    "time_of_signature": "1985-11-16T00:00:00Z"
+  },
+  "signature": [
+    1,
+    2,
+    3
+  ]
+}
