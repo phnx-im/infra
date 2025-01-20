@@ -7,10 +7,7 @@ use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;
-use phnxtypes::{
-    identifiers::{Fqdn, QsClientId},
-    messages::client_ds::QsWsMessage,
-};
+use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
 
 /// Test the websocket reconnect.
 #[actix_rt::test]
@@ -18,7 +15,7 @@ use phnxtypes::{
 async fn ws_reconnect() {
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) =
-        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
+        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
 
@@ -56,7 +53,7 @@ async fn ws_reconnect() {
 async fn ws_sending() {
     let network_provider = MockNetworkProvider::new();
     let (address, ws_dispatch) =
-        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
+        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
 

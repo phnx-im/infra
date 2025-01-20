@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    fmt::{Display, Formatter},
-    hash::Hash,
-    str::FromStr,
-};
+use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
@@ -16,6 +12,7 @@ use rusqlite::{
     ToSql,
 };
 use tls_codec_impls::{TlsString, TlsUuid};
+use tracing::{debug, error};
 use url::Host;
 use uuid::Uuid;
 
@@ -58,10 +55,9 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Fqdn {
     fn decode(
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let string = String::decode(value)?;
-        let fqdn = Fqdn::try_from(string).map_err(|e| {
-            tracing::error!("Error parsing Fqdn from DB: {}", e);
-            sqlx::Error::Decode(Box::new(e))
+        let s: &str = sqlx::Decode::decode(value)?;
+        let fqdn = s.parse().inspect_err(|error| {
+            error!(%error, "Error parsing Fqdn from DB");
         })?;
         Ok(fqdn)
     }
@@ -78,17 +74,17 @@ impl ToSql for Fqdn {
 #[cfg(feature = "sqlite")]
 impl FromSql for Fqdn {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let string = value.as_str()?.to_owned();
-        let fqdn = Fqdn::try_from(string).map_err(|e| {
-            tracing::error!("Error parsing Fqdn from DB: {}", e);
+        let s = value.as_str()?;
+        let fqdn = s.parse().map_err(|error| {
+            error!(%error, "Error parsing Fqdn from DB");
             FromSqlError::InvalidType
         })?;
         Ok(fqdn)
     }
 }
 
-impl Display for Fqdn {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Fqdn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &self.domain)
     }
 }
@@ -101,28 +97,21 @@ pub enum FqdnError {
     UrlError(#[from] url::ParseError),
 }
 
-impl TryFrom<String> for Fqdn {
-    type Error = FqdnError;
+impl FromStr for Fqdn {
+    type Err = FqdnError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&str> for Fqdn {
-    type Error = FqdnError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Arbitrary upper limit of 100 characters so we know it will cleanly tls-serialize.
-        if value.len() > 100 {
+        if s.len() > 100 {
             return Err(FqdnError::NotADomainName);
         }
-        let domain = Host::<String>::parse(value)?;
-        // Fqdns can't be IP addresses.
-        if !matches!(domain, Host::Domain(_)) {
-            return Err(FqdnError::NotADomainName);
+        match Host::parse(s)? {
+            Host::Domain(_) => Ok(Self {
+                domain: Host::<String>::parse(s)?,
+            }),
+            // Fqdns can't be IP addresses.
+            Host::Ipv4(_) | Host::Ipv6(_) => Err(FqdnError::NotADomainName),
         }
-        Ok(Self { domain })
     }
 }
 
@@ -167,8 +156,8 @@ impl From<QualifiedGroupId> for GroupId {
     }
 }
 
-impl std::fmt::Display for QualifiedGroupId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for QualifiedGroupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let uuid = Uuid::from_bytes(self.group_uuid);
         write!(f, "{}@{}", uuid, self.owning_domain)
     }
@@ -182,37 +171,29 @@ pub enum QualifiedGroupIdError {
     InvalidQualifiedGroupId,
 }
 
-impl TryFrom<String> for QualifiedGroupId {
-    type Error = QualifiedGroupIdError;
+impl FromStr for QualifiedGroupId {
+    type Err = QualifiedGroupIdError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&str> for QualifiedGroupId {
-    type Error = QualifiedGroupIdError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let mut split_string = value.split('@');
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut split_string = s.split('@');
         let group_id = split_string.next().ok_or_else(|| {
-            tracing::debug!("The given string is empty.");
+            debug!("The given string is empty");
             QualifiedGroupIdError::InvalidQualifiedGroupId
         })?;
 
-        let group_id_uuid = Uuid::from_str(group_id).map_err(|_| {
-            tracing::debug!("The given group id is not a valid UUID.");
+        let group_id_uuid: Uuid = group_id.parse().map_err(|_| {
+            debug!("The given group id is not a valid UUID");
             QualifiedGroupIdError::InvalidQualifiedGroupId
         })?;
         let group_id = group_id_uuid.into_bytes();
         // GroupIds MUST be qualified
         let domain = split_string.next().ok_or_else(|| {
-            tracing::debug!("The given group id is not qualified.");
+            debug!("The given group id is not qualified");
             QualifiedGroupIdError::InvalidQualifiedGroupId
         })?;
-        let owning_domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
+        let owning_domain = domain.parse()?;
         if split_string.next().is_some() {
-            tracing::debug!("The domain name may not contain a '@'.");
+            debug!("The domain name may not contain a '@'");
             return Err(QualifiedGroupIdError::InvalidQualifiedGroupId);
         }
 
@@ -239,15 +220,15 @@ impl TryFrom<&str> for QualifiedGroupId {
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct UserName(TlsString);
 
-impl std::fmt::Display for UserName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for UserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 #[derive(Debug, Clone, Error)]
 pub enum UserNameError {
-    #[error("The given string does not represent a valid user name.")]
+    #[error("The given string does not represent a valid user name")]
     InvalidUserName,
 }
 
@@ -255,13 +236,10 @@ impl TryFrom<String> for UserName {
     type Error = UserNameError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        fn contains_any_of(value: &str, chars: &[char]) -> bool {
-            value.chars().any(|c| chars.contains(&c))
-        }
-        if contains_any_of(&value, &['@', '.']) {
+        if value.contains(['@', '.']) {
             Err(UserNameError::InvalidUserName)
         } else {
-            Ok(Self(TlsString(value.to_string())))
+            Ok(Self(TlsString(value)))
         }
     }
 }
@@ -301,11 +279,11 @@ impl ToSql for QualifiedUserName {
 #[cfg(feature = "sqlite")]
 impl FromSql for QualifiedUserName {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(value.as_str()?)
-            .map_err(|e| {
-                tracing::error!("Error parsing UserName: {}", e);
-                FromSqlError::InvalidType
-            })?;
+        let s = value.as_str()?;
+        let user_name: QualifiedUserName = s.parse().map_err(|error| {
+            error!(%error, "Error parsing UserName");
+            FromSqlError::InvalidType
+        })?;
         Ok(user_name)
     }
 }
@@ -320,26 +298,11 @@ pub enum QualifiedUserNameError {
     InvalidFqdn(#[from] FqdnError),
 }
 
-impl<T> SafeTryInto<T> for T {
-    type Error = std::convert::Infallible;
+impl FromStr for QualifiedUserName {
+    type Err = QualifiedUserNameError;
 
-    fn try_into(self) -> Result<T, Self::Error> {
-        Ok(self)
-    }
-}
-
-// Convenience trait to allow `impl TryInto<UserName>` as function input.
-pub trait SafeTryInto<T>: Sized {
-    type Error: std::error::Error + Send + Sync + 'static;
-    fn try_into(self) -> Result<T, Self::Error>;
-}
-
-// TODO: This string processing is way too simplistic, but it should do for now.
-impl SafeTryInto<QualifiedUserName> for &str {
-    type Error = QualifiedUserNameError;
-
-    fn try_into(self) -> Result<QualifiedUserName, Self::Error> {
-        let mut split_name = self.split('@');
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut split_name = s.split('@');
         let user_name_str = split_name
             .next()
             .ok_or(QualifiedUserNameError::InvalidString)?;
@@ -351,24 +314,8 @@ impl SafeTryInto<QualifiedUserName> for &str {
         if split_name.next().is_some() {
             return Err(QualifiedUserNameError::InvalidString);
         }
-        let domain = <Fqdn as TryFrom<&str>>::try_from(domain)?;
+        let domain = domain.parse()?;
         Ok(QualifiedUserName { user_name, domain })
-    }
-}
-
-impl SafeTryInto<QualifiedUserName> for String {
-    type Error = QualifiedUserNameError;
-
-    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
-        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
-    }
-}
-
-impl SafeTryInto<QualifiedUserName> for &String {
-    type Error = QualifiedUserNameError;
-
-    fn try_into(self) -> Result<QualifiedUserName, QualifiedUserNameError> {
-        <&str as SafeTryInto<QualifiedUserName>>::try_into(self.as_str())
     }
 }
 
@@ -382,8 +329,8 @@ impl QualifiedUserName {
     }
 }
 
-impl std::fmt::Display for QualifiedUserName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for QualifiedUserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{}", self.user_name, self.domain)
     }
 }
@@ -406,8 +353,8 @@ pub struct AsClientId {
     client_id: TlsUuid,
 }
 
-impl std::fmt::Display for AsClientId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for AsClientId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let client_id_str = self.client_id.to_string();
         write!(f, "{}.{}", client_id_str, self.user_name)
     }
@@ -452,7 +399,7 @@ impl TryFrom<String> for AsClientId {
             return Err(AsClientIdError::InvalidClientId);
         };
         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name = <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name_str)?;
+        let user_name: QualifiedUserName = user_name_str.parse()?;
         Ok(Self {
             user_name,
             client_id,
@@ -473,7 +420,7 @@ impl FromSql for AsClientId {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let string = value.as_str()?.to_owned();
         let as_client_id = AsClientId::try_from(string).map_err(|e| {
-            tracing::error!("Error parsing AsClientId: {}", e);
+            error!("Error parsing AsClientId: {}", e);
             FromSqlError::InvalidType
         })?;
         Ok(as_client_id)
@@ -632,26 +579,41 @@ mod tests {
     #[test]
     fn valid_fqdn() {
         let fqdn_str = "example.com";
-        let fqdn = Fqdn::try_from(fqdn_str).unwrap();
+        let fqdn = Fqdn::from_str(fqdn_str).unwrap();
         assert_eq!(fqdn.domain, Host::Domain(fqdn_str.to_string()));
 
         let fqdn_subdomain_str = "sub.example.com";
-        let fqdn = Fqdn::try_from(fqdn_subdomain_str).unwrap();
+        let fqdn = Fqdn::from_str(fqdn_subdomain_str).unwrap();
         assert_eq!(fqdn.domain, Host::Domain(fqdn_subdomain_str.to_string()));
     }
 
     #[test]
     fn invalid_fqdn() {
         let fqdn_str = "invalid#domain#character";
-        let result = Fqdn::try_from(fqdn_str);
+        let result = Fqdn::from_str(fqdn_str);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), FqdnError::UrlError(_)));
+        assert!(matches!(result, Err(FqdnError::UrlError(_))));
     }
 
     #[test]
     fn ip_address_fqdn() {
         let fqdn_str = "192.168.0.1";
-        let result = Fqdn::try_from(fqdn_str);
-        assert!(matches!(result.unwrap_err(), FqdnError::NotADomainName));
+        let result = Fqdn::from_str(fqdn_str);
+        assert!(matches!(result, Err(FqdnError::NotADomainName)));
+    }
+
+    #[test]
+    fn valid_user_name() {
+        let user_name = UserName::try_from("alice".to_string());
+        assert_eq!(user_name.unwrap().0 .0, "alice");
+    }
+
+    #[test]
+    fn invalid_user_name() {
+        let user_name = UserName::try_from("alice@host".to_string());
+        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
+
+        let user_name = UserName::try_from("alice.bob".to_string());
+        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
     }
 }

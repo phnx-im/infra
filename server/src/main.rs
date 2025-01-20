@@ -17,6 +17,7 @@ use phnxserver::{
     telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
+use tracing::info;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -40,24 +41,24 @@ async fn main() -> std::io::Result<()> {
     let domain: Fqdn = configuration
         .application
         .domain
-        .try_into()
-        .expect("Invalid domain.");
-    tracing::info!("Starting server with domain {}.", domain);
+        .parse()
+        .expect("Invalid domain");
+    info!(%domain, "Starting server");
     let network_provider = MockNetworkProvider::new();
 
     let base_db_name = configuration.database.name.clone();
     // DS storage provider
-    configuration.database.name = format!("{}_ds", base_db_name);
-    tracing::info!(
-        "Connecting to postgres server at {}.",
-        configuration.database.host
+    configuration.database.name = format!("{base_db_name}_ds");
+    info!(
+        host = configuration.database.host,
+        "Connecting to postgres server",
     );
     let mut counter = 0;
     let mut ds_result = Ds::new(&configuration.database, domain.clone()).await;
 
     // Try again for 10 times each second in case the postgres server is coming up.
     while let Err(e) = ds_result {
-        tracing::info!("Failed to connect to postgres server: {}", e);
+        info!("Failed to connect to postgres server: {}", e);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         counter += 1;
         if counter > 10 {
