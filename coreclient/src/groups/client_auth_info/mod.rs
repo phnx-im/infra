@@ -243,7 +243,7 @@ impl ClientAuthInfo {
         Ok(())
     }
 
-    pub(super) fn store(&self, connection: &Connection) -> Result<()> {
+    pub(crate) fn store(&self, connection: &Connection) -> Result<()> {
         self.client_credential.store(connection)?;
         self.group_membership.store(connection)?;
         Ok(())

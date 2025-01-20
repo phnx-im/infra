@@ -558,7 +558,7 @@ impl TestBackend {
         let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
         let group_picture_bytes_option = Some(OsRng.gen::<[u8; 32]>().to_vec());
         let conversation_id = user
-            .create_conversation(&group_name, group_picture_bytes_option.clone())
+            .create_conversation(group_name.clone(), group_picture_bytes_option.clone())
             .await
             .unwrap();
         let mut user_conversations_after = user.conversations().await.unwrap();

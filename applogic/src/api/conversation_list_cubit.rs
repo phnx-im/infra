@@ -81,7 +81,7 @@ impl ConversationListCubitBase {
         let id = self
             .context
             .store
-            .create_conversation(&group_name, None)
+            .create_conversation(group_name, None)
             .await?;
         self.context.load_and_emit_state().await;
         Ok(id)

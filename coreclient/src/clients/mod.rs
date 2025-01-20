@@ -60,6 +60,7 @@ use crate::{
         messages::{ConversationMessage, TimestampedMessage},
         Conversation, ConversationAttributes,
     },
+    groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
@@ -670,13 +671,20 @@ impl CoreUser {
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let mut connection = self.inner.connection.lock().await;
-        let (connection_group, partial_params) = Group::create_group(
-            &mut connection,
-            &self.inner.key_store.signing_key,
-            group_id.clone(),
-            group_data,
-        )?;
-        connection_group.store(&connection)?;
+        let (connection_group, partial_params) = {
+            let transaction = connection.transaction()?;
+            let provider = PhnxOpenMlsProvider::new(&transaction);
+            let (group, group_membership, partial_params) = Group::create_group(
+                &provider,
+                &self.inner.key_store.signing_key,
+                group_id.clone(),
+                group_data,
+            )?;
+            group_membership.store(&transaction)?;
+            group.store(&transaction)?;
+            transaction.commit()?;
+            (group, partial_params)
+        };
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
