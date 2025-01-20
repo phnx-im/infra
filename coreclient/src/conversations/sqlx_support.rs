@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use openmls::group::GroupId;
-use phnxtypes::identifiers::{QualifiedUserName, QualifiedUserNameError, SafeTryInto};
+use phnxtypes::identifiers::QualifiedUserNameError;
 use rusqlite::types::FromSqlError;
 use sqlx::{
     encode::IsNull, error::BoxDynError, sqlite::SqliteValueRef, Database, Decode, Encode, Sqlite,
@@ -76,7 +76,7 @@ impl ConversationStatus {
         };
         let user_names = user_names
             .split(',')
-            .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
+            .map(|s| s.parse())
             .collect::<Result<Vec<_>, _>>()
             .inspect_err(|error| {
                 error!(%error, "Failed to parse user names from database");
@@ -153,19 +153,15 @@ impl ConversationType {
         };
         match conversation_type {
             "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).inspect_err(
-                    |error| {
-                        error!(%error, "Failed to parse user name from database");
-                    },
-                )?,
+                user_name.parse().inspect_err(|error| {
+                    error!(%error, "Failed to parse user name from database");
+                })?,
             )),
-            "connection" => Ok(Self::Connection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).inspect_err(
-                    |error| {
-                        error!(%error, "Failed to parse user name from database");
-                    },
-                )?,
-            )),
+            "connection" => Ok(Self::Connection(user_name.parse().inspect_err(
+                |error| {
+                    error!(%error, "Failed to parse user name from database");
+                },
+            )?)),
             _ => Err(ConversationTypeFromDbError::InvalidType),
         }
     }

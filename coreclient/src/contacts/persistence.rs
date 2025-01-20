@@ -108,7 +108,7 @@ impl<'r> Decode<'r, Sqlite> for SqlAsClientIds {
         let clients_str = <&str as Decode<Sqlite>>::decode(value)?;
         let clients = clients_str
             .split(',')
-            .map(|s| AsClientId::try_from(s))
+            .map(AsClientId::try_from)
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self(clients))
     }
