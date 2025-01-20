@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO own_client_info\n                (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid)\n                VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "4f01be6408199eef18ba0006c6c0a3c13a89ddf36fb334e231c11c6cda753143"
+}

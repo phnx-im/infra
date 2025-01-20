@@ -56,8 +56,9 @@ use self::keys::ClientVerifyingKey;
     Hash,
     Serialize,
     Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct CredentialFingerprint(Vec<u8>);
 
 impl std::fmt::Display for CredentialFingerprint {
@@ -638,7 +639,6 @@ impl AsRef<Ciphertext> for EncryptedClientCredential {
     }
 }
 
-#[cfg(feature = "sqlx")]
 pub mod persistence {
     use crate::{
         codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,

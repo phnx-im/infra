@@ -165,9 +165,18 @@ impl ClientSigningKey {
 }
 
 #[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
+    Clone,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct ClientVerifyingKey(pub(super) VerifyingKey);
 
 impl VerifyingKeyBehaviour for ClientVerifyingKey {}

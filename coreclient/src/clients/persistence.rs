@@ -5,6 +5,10 @@
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use rusqlite::{params, types::FromSql, OptionalExtension, ToSql};
 use serde::{Deserialize, Serialize};
+use sqlx::{
+    encode::IsNull, error::BoxDynError, query, query_scalar, sqlite::SqliteTypeInfo, Database,
+    Decode, Encode, Sqlite, SqlitePool, Type,
+};
 
 use crate::utils::persistence::{open_phnx_db, Storable};
 
@@ -23,6 +27,33 @@ enum StorableUserCreationState {
 #[derive(Serialize)]
 enum StorableUserCreationStateRef<'a> {
     CurrentVersion(&'a UserCreationState),
+}
+
+impl Type<Sqlite> for UserCreationState {
+    fn type_info() -> SqliteTypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for UserCreationState {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let state = StorableUserCreationStateRef::CurrentVersion(self);
+        let bytes = PhnxCodec::to_vec(&state)?;
+        <Vec<u8> as Encode<Sqlite>>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for UserCreationState {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes = <&[u8] as Decode<'r, Sqlite>>::decode(value)?;
+        let state = PhnxCodec::from_slice(bytes)?;
+        match state {
+            StorableUserCreationState::CurrentVersion(state) => Ok(state),
+        }
+    }
 }
 
 impl FromSql for UserCreationState {
@@ -69,6 +100,18 @@ impl UserCreationState {
             .optional()
     }
 
+    pub(super) async fn load_2(
+        db: &SqlitePool,
+        client_id: &AsClientId,
+    ) -> sqlx::Result<Option<Self>> {
+        query_scalar!(
+            r#"SELECT state AS "state: _" FROM user_creation_state WHERE client_id = ?"#,
+            client_id
+        )
+        .fetch_optional(db)
+        .await
+    }
+
     pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?1, ?2)",
@@ -76,8 +119,21 @@ impl UserCreationState {
         )?;
         Ok(())
     }
+
+    pub(super) async fn store_2(&self, db: &SqlitePool) -> sqlx::Result<()> {
+        let client_id = self.client_id();
+        query!(
+            "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?, ?)",
+            client_id,
+            self
+        )
+        .execute(db)
+        .await?;
+        Ok(())
+    }
 }
 
+// TODO: This is stored in a different db
 impl Storable for ClientRecord {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS client_record (

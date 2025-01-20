@@ -125,9 +125,17 @@ impl UserKeyHash {
 }
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsClientVerifyingKey(VerifyingKey);
 
 impl AsRef<VerifyingKey> for QsClientVerifyingKey {
@@ -162,9 +170,17 @@ impl AsRef<SigningKey> for QsClientSigningKey {
 impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsUserVerifyingKey(VerifyingKey);
 
 impl AsRef<VerifyingKey> for QsUserVerifyingKey {
@@ -197,8 +213,8 @@ impl AsRef<SigningKey> for QsUserSigningKey {
 
 impl SigningKeyBehaviour for QsUserSigningKey {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct QsSigningKey(SigningKey);
 
 impl QsSigningKey {
@@ -220,8 +236,10 @@ impl AsRef<SigningKey> for QsSigningKey {
 
 impl SigningKeyBehaviour for QsSigningKey {}
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(
+    Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize, sqlx::Type,
+)]
+#[sqlx(transparent)]
 pub struct QsVerifyingKey(VerifyingKey);
 
 #[cfg(feature = "sqlite")]

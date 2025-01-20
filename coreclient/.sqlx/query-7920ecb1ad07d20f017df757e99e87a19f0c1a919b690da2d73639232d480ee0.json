@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO contacts\n                (user_name, conversation_id, clients, wai_ear_key, friendship_token,\n                add_package_ear_key, client_credential_ear_key, signature_ear_key_wrapper_key)\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "7920ecb1ad07d20f017df757e99e87a19f0c1a919b690da2d73639232d480ee0"
+}
