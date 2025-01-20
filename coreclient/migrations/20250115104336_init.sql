@@ -89,7 +89,7 @@ CREATE TABLE conversations (
 );
 
 CREATE TABLE conversation_messages (
-    message_id BLOB PRIMARY KEY,
+    message_id BLOB NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     timestamp TEXT NOT NULL,
     sender TEXT NOT NULL,

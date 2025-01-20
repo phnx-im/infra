@@ -2,13 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
+use phnxtypes::{
+    codec::{self, PhnxCodec},
+    time::TimeStamp,
+};
 use rusqlite::{
     params,
-    types::{FromSql, FromSqlError, Type},
+    types::{FromSql, FromSqlError, Type, ValueRef},
     Connection, OptionalExtension, ToSql,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::{
+    encode::IsNull, error::BoxDynError, query, query_as, Database, Decode, Encode, Sqlite,
+    SqlitePool,
+};
 use tracing::error;
 use uuid::Uuid;
 
@@ -28,8 +35,32 @@ enum VersionedMessage {
     CurrentVersion(Vec<u8>),
 }
 
+impl sqlx::Type<Sqlite> for VersionedMessage {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as sqlx::Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for VersionedMessage {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        <Vec<u8> as Encode<Sqlite>>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for VersionedMessage {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        let versioned_message = PhnxCodec::from_slice(bytes)?;
+        Ok(versioned_message)
+    }
+}
+
 impl FromSql for VersionedMessage {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+    fn column_result(value: ValueRef) -> rusqlite::types::FromSqlResult<Self> {
         let bytes = value.as_blob()?;
         let versioned_message = PhnxCodec::from_slice(bytes)?;
         Ok(versioned_message)
@@ -86,7 +117,7 @@ impl Message {
     }
 }
 
-use super::TimestampedMessage;
+use super::{ConversationMessageId, TimestampedMessage};
 
 impl Storable for ConversationMessage {
     const CREATE_TABLE_STATEMENT: &'static str = "
@@ -144,6 +175,67 @@ impl Storable for ConversationMessage {
     }
 }
 
+struct SqlConversationMessage {
+    message_id: ConversationMessageId,
+    conversation_id: ConversationId,
+    timestamp: TimeStamp,
+    sender: String,
+    content: VersionedMessage,
+    sent: bool,
+}
+
+#[derive(thiserror::Error, Debug)]
+enum VersionedMessageError {
+    #[error("Invalid user prefix")]
+    InvalidUserPrefix,
+    #[error(transparent)]
+    Codec(#[from] codec::Error),
+}
+
+impl From<VersionedMessageError> for sqlx::Error {
+    fn from(value: VersionedMessageError) -> Self {
+        sqlx::Error::Decode(Box::new(value))
+    }
+}
+
+impl TryFrom<SqlConversationMessage> for ConversationMessage {
+    type Error = VersionedMessageError;
+
+    fn try_from(
+        SqlConversationMessage {
+            message_id,
+            conversation_id,
+            timestamp,
+            sender,
+            content,
+            sent,
+        }: SqlConversationMessage,
+    ) -> Result<Self, Self::Error> {
+        let versioned_message_inputs = match content {
+            VersionedMessage::CurrentVersion(bytes) => {
+                let inputs = match sender.as_str() {
+                    "system" => MessageInputs::System,
+                    user_str => {
+                        let sender = user_str
+                            .strip_prefix("user:")
+                            .ok_or(VersionedMessageError::InvalidUserPrefix)?
+                            .to_string();
+                        MessageInputs::User(sender, sent)
+                    }
+                };
+                VersionedMessageInputs::CurrentVersion(bytes, inputs)
+            }
+        };
+        let message = Message::from_versioned_message(versioned_message_inputs)?;
+        let timestamped_message = TimestampedMessage { timestamp, message };
+        Ok(ConversationMessage {
+            conversation_message_id: message_id,
+            conversation_id,
+            timestamped_message,
+        })
+    }
+}
+
 impl ConversationMessage {
     pub(crate) fn load(
         connection: &Connection,
@@ -155,6 +247,32 @@ impl ConversationMessage {
         statement
             .query_row(params![local_message_id], Self::from_row)
             .optional()
+    }
+
+    pub(crate) async fn load_2(
+        db: &SqlitePool,
+        message_id: ConversationMessageId,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender,
+                content As "content: _",
+                sent
+            FROM conversation_messages WHERE message_id = ?"#,
+            message_id,
+        )
+        .fetch_optional(db)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
     }
 
     pub(crate) fn load_multiple(
@@ -183,6 +301,37 @@ impl ConversationMessage {
             .query_map(params![conversation_id, number_of_messages], Self::from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(messages)
+    }
+
+    pub(crate) async fn load_multiple_2(
+        db: &SqlitePool,
+        conversation_id: ConversationId,
+        number_of_messages: u32,
+    ) -> sqlx::Result<Vec<ConversationMessage>> {
+        let records = query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender,
+                content AS "content: _",
+                sent
+            FROM conversation_messages
+            WHERE conversation_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?"#,
+            conversation_id,
+            number_of_messages,
+        )
+        .fetch_all(db)
+        .await?;
+
+        records
+            .into_iter()
+            .rev()
+            .map(|record| Ok(record.try_into()?))
+            .collect()
     }
 
     pub(crate) fn store(
@@ -215,6 +364,47 @@ impl ConversationMessage {
         Ok(())
     }
 
+    pub(crate) async fn store_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        let sender = match &self.timestamped_message.message {
+            Message::Content(content_message) => {
+                format!("user:{}", content_message.sender)
+            }
+            Message::Event(_) => "system".to_string(),
+        };
+        let sent = match &self.timestamped_message.message {
+            Message::Content(content_message) => content_message.sent,
+            Message::Event(_) => true,
+        };
+        let content = self
+            .timestamped_message
+            .message
+            .to_versioned_message()
+            .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
+
+        query!(
+            "INSERT INTO conversation_messages
+            (message_id, conversation_id, timestamp, sender, content, sent)
+            VALUES (?, ?, ?, ?, ?, ?)",
+            self.conversation_message_id,
+            self.conversation_id,
+            self.timestamped_message.timestamp,
+            sender,
+            content,
+            sent,
+        )
+        .execute(db)
+        .await?;
+
+        notifier
+            .add(self.conversation_message_id)
+            .add(self.conversation_id);
+        Ok(())
+    }
+
     /// Set the message's sent status in the database and update the message's timestamp.
     pub(super) fn update_sent_status(
         &self,
@@ -227,6 +417,25 @@ impl ConversationMessage {
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
             params![timestamp, sent, self.conversation_message_id],
         )?;
+        notifier.update(self.conversation_message_id);
+        Ok(())
+    }
+
+    pub(super) async fn update_sent_status_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        timestamp: TimeStamp,
+        sent: bool,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
+            timestamp,
+            sent,
+            self.conversation_message_id,
+        )
+        .execute(db)
+        .await?;
         notifier.update(self.conversation_message_id);
         Ok(())
     }
@@ -245,5 +454,33 @@ impl ConversationMessage {
         statement
             .query_row(params![conversation_id], Self::from_row)
             .optional()
+    }
+
+    pub(crate) async fn last_content_message_2(
+        db: &SqlitePool,
+        conversation_id: ConversationId,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender,
+                content AS "content: _",
+                sent
+            FROM conversation_messages
+            WHERE conversation_id = ? AND sender != 'system'
+            ORDER BY timestamp DESC LIMIT 1"#,
+            conversation_id,
+        )
+        .fetch_optional(db)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
     }
 }

@@ -14,7 +14,7 @@ use sqlx::{
 use tracing::error;
 use uuid::Uuid;
 
-use crate::utils::persistence::GroupIdWrapper;
+use crate::{utils::persistence::GroupIdWrapper, ConversationMessageId};
 
 use super::{ConversationId, ConversationStatus, ConversationType, InactiveConversation};
 
@@ -49,6 +49,40 @@ where
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let value = <Uuid as Decode<DB>>::decode(value)?;
         Ok(Self::from(value))
+    }
+}
+
+impl<DB> Type<DB> for ConversationMessageId
+where
+    DB: Database,
+    Uuid: Type<DB>,
+{
+    fn type_info() -> DB::TypeInfo {
+        <Uuid as Type<DB>>::type_info()
+    }
+}
+
+impl<'q, DB> Encode<'q, DB> for ConversationMessageId
+where
+    DB: Database,
+    Uuid: Encode<'q, DB>,
+{
+    fn encode_by_ref(
+        &self,
+        buf: &mut <DB as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <Uuid as Encode<DB>>::encode(self.to_uuid(), buf)
+    }
+}
+
+impl<'r, DB> Decode<'r, DB> for ConversationMessageId
+where
+    DB: Database,
+    Uuid: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <Uuid as Decode<DB>>::decode(value)?;
+        Ok(Self::from_uuid(value))
     }
 }
 
