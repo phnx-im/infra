@@ -1,7 +1,7 @@
 ---
 source: types/src/keypackage_batch.rs
-assertion_line: 224
 expression: "&*KEY_PACKAGE_BATCH"
+snapshot_kind: text
 ---
 {
   "payload": {

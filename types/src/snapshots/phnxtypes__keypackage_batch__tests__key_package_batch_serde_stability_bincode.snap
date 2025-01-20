@@ -1,6 +1,5 @@
 ---
 source: types/src/keypackage_batch.rs
-assertion_line: 230
 expression: bytes
 extension: cbor
 snapshot_kind: binary
