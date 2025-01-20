@@ -38,7 +38,6 @@ use phnxtypes::{
     },
     identifiers::{
         AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
-        SafeTryInto,
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
@@ -118,13 +117,12 @@ impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: impl SafeTryInto<QualifiedUserName>,
+        user_name: QualifiedUserName,
         password: &str,
         server_url: impl ToString,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
         let phnx_db_connection = open_phnx_db(db_path)?;
@@ -619,11 +617,7 @@ impl CoreUser {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    pub async fn add_contact(
-        &self,
-        user_name: impl SafeTryInto<QualifiedUserName>,
-    ) -> Result<ConversationId> {
-        let user_name = user_name.try_into()?;
+    pub async fn add_contact(&self, user_name: QualifiedUserName) -> Result<ConversationId> {
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };

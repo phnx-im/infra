@@ -6,7 +6,7 @@ use std::future::Future;
 
 use anyhow::{anyhow, Result};
 use phnxcoreclient::{store::Store, Conversation, ConversationId};
-use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
+use phnxtypes::identifiers::QualifiedUserName;
 
 use crate::notifier::dispatch_message_notifications;
 
@@ -62,7 +62,7 @@ impl User {
                 conversation_id,
                 &user_names
                     .into_iter()
-                    .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
+                    .map(|s| s.parse())
                     .collect::<Result<Vec<QualifiedUserName>, _>>()?,
             )
             .await?;
@@ -81,7 +81,7 @@ impl User {
                 conversation_id,
                 &user_names
                     .into_iter()
-                    .map(<String as SafeTryInto<QualifiedUserName>>::try_into)
+                    .map(|s| s.parse())
                     .collect::<Result<Vec<QualifiedUserName>, _>>()?,
             )
             .await?;

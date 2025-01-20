@@ -11,10 +11,7 @@ use crate::{
     },
 };
 use phnxserver_test_harness::utils::setup::TestBackend;
-use phnxtypes::{
-    codec::PhnxCodec,
-    identifiers::{AsClientId, SafeTryInto},
-};
+use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use rusqlite::Connection;
 
 #[actix_rt::test]
@@ -23,7 +20,7 @@ async fn user_stages() {
     let setup = TestBackend::single().await;
 
     let user_name = "alice@example.com";
-    let as_client_id = AsClientId::random(SafeTryInto::try_into(user_name).unwrap()).unwrap();
+    let as_client_id = AsClientId::random(user_name.parse().unwrap()).unwrap();
 
     let phnx_db_connection = Connection::open_in_memory().unwrap();
     let mut client_db_connection = Connection::open_in_memory().unwrap();

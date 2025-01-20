@@ -16,10 +16,10 @@ use super::StorableDsGroupData;
 impl StorableDsGroupData {
     pub(super) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
         sqlx::query!(
-            "INSERT INTO 
-                encrypted_groups 
+            "INSERT INTO
+                encrypted_groups
                 (group_id, ciphertext, last_used, deleted_queues)
-            VALUES 
+            VALUES
                 ($1, $2, $3, $4)
             ON CONFLICT (group_id) DO NOTHING",
             self.group_id,
@@ -37,11 +37,11 @@ impl StorableDsGroupData {
         qgid: &QualifiedGroupId,
     ) -> Result<Option<StorableDsGroupData>, StorageError> {
         let Some(group_data_record) = sqlx::query!(
-            "SELECT 
+            "SELECT
                 group_id, ciphertext, last_used, deleted_queues
-            FROM 
+            FROM
                 encrypted_groups
-            WHERE 
+            WHERE
                 group_id = $1",
             qgid.group_uuid()
         )
@@ -61,11 +61,11 @@ impl StorableDsGroupData {
 
     pub(crate) async fn update(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
         sqlx::query!(
-            "UPDATE 
+            "UPDATE
                 encrypted_groups
-            SET 
+            SET
                 ciphertext = $2, last_used = $3, deleted_queues = $4
-            WHERE 
+            WHERE
                 group_id = $1",
             self.group_id,
             PhnxCodec::to_vec(&self.encrypted_group_state)?,
@@ -82,9 +82,9 @@ impl StorableDsGroupData {
         qgid: &QualifiedGroupId,
     ) -> Result<(), StorageError> {
         sqlx::query!(
-            "DELETE FROM 
+            "DELETE FROM
                 encrypted_groups
-            WHERE 
+            WHERE
                 group_id = $1",
             qgid.group_uuid()
         )
@@ -96,10 +96,7 @@ impl StorableDsGroupData {
 
 #[cfg(test)]
 mod test {
-    use phnxtypes::{
-        crypto::ear::Ciphertext,
-        identifiers::{Fqdn, QualifiedGroupId},
-    };
+    use phnxtypes::{crypto::ear::Ciphertext, identifiers::QualifiedGroupId};
     use sqlx::PgPool;
     use uuid::Uuid;
 
@@ -113,7 +110,7 @@ mod test {
 
     #[sqlx::test]
     async fn reserve_group_id(pool: PgPool) {
-        let ds = Ds::new_from_pool(pool, Fqdn::try_from("example.com").unwrap())
+        let ds = Ds::new_from_pool(pool, "example.com".parse().unwrap())
             .await
             .expect("Error creating ephemeral Ds instance.");
 
@@ -132,7 +129,7 @@ mod test {
 
     #[sqlx::test]
     async fn group_state_lifecycle(pool: PgPool) {
-        let ds = Ds::new_from_pool(pool, Fqdn::try_from("example.com").unwrap())
+        let ds = Ds::new_from_pool(pool, "example.com".parse().unwrap())
             .await
             .expect("Error creating ephemeral Ds instance.");
 
