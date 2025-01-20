@@ -185,3 +185,26 @@ impl ExpirationData {
         self.not_after
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use codec::PhnxCodec;
+
+    use super::*;
+
+    #[test]
+    fn expiration_data_serde_stability_json() {
+        insta::assert_json_snapshot!(&ExpirationData::new_from(
+            "1985-11-16T00:00:00Z".parse().unwrap(),
+            Duration::days(1)
+        ));
+    }
+
+    #[test]
+    fn expiration_data_serde_stability_cbor() {
+        let expiration_data =
+            ExpirationData::new_from("1985-11-16T00:00:00Z".parse().unwrap(), Duration::days(1));
+        let bytes = PhnxCodec::to_vec(&expiration_data).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
+    }
+}

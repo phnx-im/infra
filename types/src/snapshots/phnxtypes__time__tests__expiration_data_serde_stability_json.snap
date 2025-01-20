@@ -1,0 +1,9 @@
+---
+source: types/src/time.rs
+expression: "&ExpirationData::new_from(\"1985-11-16T00:00:00Z\".parse().unwrap(),\nDuration::days(1))"
+snapshot_kind: text
+---
+{
+  "not_before": "1985-11-15T23:45:00Z",
+  "not_after": "1985-11-16T23:45:00Z"
+}

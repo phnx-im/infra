@@ -23,7 +23,7 @@ opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 argon2 = { version = "0.5.0" }
 uuid = { version = "1", features = ["v4", "serde"] }
 url = { version = "2", features = ["serde"] }
-rusqlite = { version = "0.32", features = ["uuid"], optional = true }
+rusqlite = { version = "0.32", features = ["uuid", "chrono"], optional = true }
 
 serde = { version = "1", features = ["derive"] }
 ciborium = "0.2"

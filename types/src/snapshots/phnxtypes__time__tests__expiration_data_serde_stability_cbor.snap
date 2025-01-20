@@ -1,0 +1,6 @@
+---
+source: types/src/time.rs
+expression: bytes
+extension: cbor
+snapshot_kind: binary
+---
