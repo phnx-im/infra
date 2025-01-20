@@ -8,6 +8,7 @@
 //! trait.
 
 use mls_assist::openmls::prelude::GroupEpoch;
+use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -119,6 +120,11 @@ pub struct RatchetSecret {
 impl RatchetSecret {
     pub fn random() -> Result<Self, RandomnessError> {
         let key = Secret::random()?;
+        Ok(Self { key })
+    }
+
+    pub fn random_with_rng(rng: &mut (impl RngCore + CryptoRng)) -> Result<Self, RandomnessError> {
+        let key = Secret::random_with_rng(rng)?;
         Ok(Self { key })
     }
 }

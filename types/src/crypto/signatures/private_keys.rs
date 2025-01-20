@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::SignaturePublicKey,
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{crypto::OpenMlsCrypto, OpenMlsProvider},
+    openmls::prelude::SignaturePublicKey, openmls_rust_crypto::RustCrypto,
+    openmls_traits::crypto::OpenMlsCrypto,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -19,6 +18,13 @@ use super::DEFAULT_SIGNATURE_SCHEME;
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct VerifyingKey(Vec<u8>);
+
+impl VerifyingKey {
+    #[cfg(test)]
+    pub(crate) fn for_testing(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+}
 
 // We need these traits to interop the MLS leaf keys.
 impl From<SignaturePublicKey> for VerifyingKey {
@@ -52,8 +58,14 @@ pub struct SigningKey {
 
 impl SigningKey {
     pub fn generate() -> Result<SigningKey, KeyGenerationError> {
-        let (private_key, public_key) = OpenMlsRustCrypto::default()
-            .crypto()
+        let crypto = RustCrypto::default();
+        Self::generate_with_crypto(&crypto)
+    }
+
+    pub(crate) fn generate_with_crypto(
+        crypto: &impl OpenMlsCrypto,
+    ) -> Result<SigningKey, KeyGenerationError> {
+        let (private_key, public_key) = crypto
             .signature_key_gen(DEFAULT_SIGNATURE_SCHEME)
             .map_err(|_| KeyGenerationError::KeypairGeneration)?;
         Ok(Self {

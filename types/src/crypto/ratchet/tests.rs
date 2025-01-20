@@ -2,8 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::LazyLock;
+
+use rand::SeedableRng;
+
 use crate::{
-    messages::client_ds::{QsQueueMessagePayload, QsQueueMessageType},
+    codec::PhnxCodec,
+    messages::{
+        client_ds::{QsQueueMessagePayload, QsQueueMessageType},
+        EncryptedQsQueueMessage,
+    },
     time::TimeStamp,
 };
 
@@ -23,4 +31,22 @@ fn test_ratchet() {
     let encrypted_message = sender_ratchet.encrypt(message.clone()).unwrap();
     let plaintext: QsQueueMessagePayload = receiver_ratchtet.decrypt(encrypted_message).unwrap();
     assert_eq!(plaintext, message);
+}
+
+static RATCHET: LazyLock<QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>> =
+    LazyLock::new(|| {
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed([42; 32]);
+        let secret = RatchetSecret::random_with_rng(&mut rng).unwrap();
+        secret.try_into().unwrap()
+    });
+
+#[test]
+fn ratchet_secret_serde_stability_json() {
+    insta::assert_json_snapshot!(&*RATCHET);
+}
+
+#[test]
+fn ratchet_secret_serde_stability_cbor() {
+    let bytes = PhnxCodec::to_vec(&*RATCHET).unwrap();
+    insta::assert_binary_snapshot!(".cbor", bytes);
 }
