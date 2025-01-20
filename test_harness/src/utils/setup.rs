@@ -7,11 +7,12 @@ use std::collections::{HashMap, HashSet};
 use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedUserName, SafeTryInto},
+    identifiers::{Fqdn, QualifiedUserName},
     DEFAULT_PORT_HTTP,
 };
 use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng, RngCore};
 use rand_chacha::rand_core::OsRng;
+use tracing::info;
 
 use super::spawn_app;
 
@@ -94,7 +95,7 @@ impl TestBackend {
     }
     pub async fn single() -> Self {
         let network_provider = MockNetworkProvider::new();
-        let domain = Fqdn::try_from("example.com").unwrap();
+        let domain: Fqdn = "example.com".parse().unwrap();
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
         Self {
             users: HashMap::new(),
@@ -111,23 +112,20 @@ impl TestBackend {
         }
     }
 
-    pub async fn add_persisted_user(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) {
-        let user_name = user_name.try_into().unwrap();
-        tracing::info!("Creating {user_name}");
-        let user = TestUser::new_persisted(&user_name, self.url(), "./").await;
-        self.users.insert(user_name, user);
+    pub async fn add_persisted_user(&mut self, user_name: &QualifiedUserName) {
+        info!("Creating {user_name}");
+        let user = TestUser::new_persisted(user_name, self.url(), "./").await;
+        self.users.insert(user_name.clone(), user);
     }
 
-    pub async fn add_user(&mut self, user_name: impl SafeTryInto<QualifiedUserName>) {
-        let user_name = user_name.try_into().unwrap();
-        tracing::info!("Creating {user_name}");
-        let user = TestUser::new(&user_name, self.url()).await;
-        self.users.insert(user_name, user);
+    pub async fn add_user(&mut self, user_name: &QualifiedUserName) {
+        info!("Creating {user_name}");
+        let user = TestUser::new(user_name, self.url()).await;
+        self.users.insert(user_name.clone(), user);
     }
 
-    pub fn get_user(&self, user_name: impl SafeTryInto<QualifiedUserName>) -> &TestUser {
-        let user_name = user_name.try_into().unwrap();
-        self.users.get(&user_name).unwrap()
+    pub fn get_user(&self, user_name: &QualifiedUserName) -> &TestUser {
+        self.users.get(user_name).unwrap()
     }
 
     /// This has the updater commit an update, but without the checks ensuring
@@ -135,16 +133,15 @@ impl TestBackend {
     pub async fn commit_to_proposals(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl SafeTryInto<QualifiedUserName>,
+        updater_name: QualifiedUserName,
     ) {
-        let updater_name = &updater_name.try_into().unwrap();
-        tracing::info!(
+        info!(
             "{} performs an update in group {}",
             updater_name,
             conversation_id.as_uuid()
         );
 
-        let test_updater = self.users.get_mut(updater_name).unwrap();
+        let test_updater = self.users.get_mut(&updater_name).unwrap();
         let updater = &mut test_updater.user;
 
         let pending_removes = HashSet::<QualifiedUserName>::from_iter(
@@ -171,7 +168,7 @@ impl TestBackend {
         // Have all group members fetch and process messages.
         for group_member_name in group_members.iter() {
             // skip the sender
-            if group_member_name == updater_name {
+            if group_member_name == &updater_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -218,10 +215,9 @@ impl TestBackend {
     pub async fn update_group(
         &mut self,
         conversation_id: ConversationId,
-        updater_name: impl SafeTryInto<QualifiedUserName>,
+        updater_name: &QualifiedUserName,
     ) {
-        let updater_name = &updater_name.try_into().unwrap();
-        tracing::info!(
+        info!(
             "{} performs an update in group {}",
             updater_name,
             conversation_id.as_uuid()
@@ -263,13 +259,11 @@ impl TestBackend {
 
     pub async fn connect_users(
         &mut self,
-        user1_name: impl SafeTryInto<QualifiedUserName>,
-        user2_name: impl SafeTryInto<QualifiedUserName>,
+        user1_name: &QualifiedUserName,
+        user2_name: &QualifiedUserName,
     ) -> ConversationId {
-        let user1_name = user1_name.try_into().unwrap();
-        let user2_name = user2_name.try_into().unwrap();
-        tracing::info!("Connecting users {} and {}", user1_name, user2_name);
-        let test_user1 = self.users.get_mut(&user1_name).unwrap();
+        info!("Connecting users {} and {}", user1_name, user2_name);
+        let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
@@ -281,7 +275,7 @@ impl TestBackend {
         );
         let new_user_position = user1_partial_contacts_after
             .iter()
-            .position(|c| c.user_name == user2_name)
+            .position(|c| &c.user_name == user2_name)
             .expect(&error_msg);
         // If we remove the new user, the partial contact lists should be the same.
         user1_partial_contacts_after.remove(new_user_position);
@@ -311,25 +305,25 @@ impl TestBackend {
             });
         let user1_conversation_id = conversation.id();
 
-        let test_user2 = self.users.get_mut(&user2_name).unwrap();
+        let test_user2 = self.users.get_mut(user2_name).unwrap();
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
-        tracing::info!("{} fetches AS messages", user2_name);
+        info!("{} fetches AS messages", user2_name);
         let as_messages = user2.as_fetch_messages().await.unwrap();
-        tracing::info!("{} processes AS messages", user2_name);
+        info!("{} processes AS messages", user2_name);
         user2.fully_process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().await.unwrap();
-        tracing::info!("User 2 contacts after: {:?}", user2_contacts_after);
+        info!("User 2 contacts after: {:?}", user2_contacts_after);
         let user2_partial_contacts_before = user2.partial_contacts().await.unwrap();
-        tracing::info!(
+        info!(
             "User 2 partial contacts after: {:?}",
             user2_partial_contacts_before
         );
         let new_contact_position = user2_contacts_after
             .iter()
-            .position(|c| c.user_name == user1_name)
+            .position(|c| &c.user_name == user1_name)
             .expect("User 1 should be in the partial contacts list of user 2");
         // If we remove the new user, the partial contact lists should be the same.
         user2_contacts_after.remove(new_contact_position);
@@ -341,7 +335,7 @@ impl TestBackend {
             });
         // User 2 should have created a connection group.
         let mut user2_conversations_after = user2.conversations().await.unwrap();
-        tracing::info!(
+        info!(
             "User 2 conversations after: {:?}",
             user2_conversations_after
         );
@@ -363,7 +357,7 @@ impl TestBackend {
         let user2_conversation_id = conversation.id();
 
         let user2_user_name = user2.user_name().clone();
-        let test_user1 = self.users.get_mut(&user1_name).unwrap();
+        let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_contacts_before: HashSet<_> = user1
             .contacts()
@@ -373,9 +367,9 @@ impl TestBackend {
             .map(|contact| contact.user_name.clone())
             .collect();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        tracing::info!("{} fetches QS messages", user1_name);
+        info!("{} fetches QS messages", user1_name);
         let qs_messages = user1.qs_fetch_messages().await.unwrap();
-        tracing::info!("{} processes QS messages", user1_name);
+        info!("{} processes QS messages", user1_name);
         user1.fully_process_qs_messages(qs_messages).await.unwrap();
 
         // User 1 should have added user 2 to its contacts now and a connection
@@ -409,7 +403,7 @@ impl TestBackend {
 
         let user1_unread_messages = self
             .users
-            .get_mut(&user1_name)
+            .get_mut(user1_name)
             .unwrap()
             .user
             .unread_messages_count(user1_conversation_id)
@@ -417,32 +411,24 @@ impl TestBackend {
         assert_eq!(user1_unread_messages, 0);
 
         // Send messages both ways to ensure it works.
-        self.send_message(
-            user1_conversation_id,
-            user1_name.clone(),
-            vec![user2_name.clone()],
-        )
-        .await;
+        self.send_message(user1_conversation_id, user1_name, vec![user2_name])
+            .await;
 
         let user1_unread_messages = self
             .users
-            .get_mut(&user1_name)
+            .get_mut(user1_name)
             .unwrap()
             .user
             .unread_messages_count(user1_conversation_id)
             .await;
         assert_eq!(user1_unread_messages, 0);
 
-        self.send_message(
-            user1_conversation_id,
-            user2_name.clone(),
-            vec![user1_name.clone()],
-        )
-        .await;
+        self.send_message(user1_conversation_id, user2_name, vec![user1_name])
+            .await;
 
         let user1_unread_messages = self
             .users
-            .get_mut(&user1_name)
+            .get_mut(user1_name)
             .unwrap()
             .user
             .unread_messages_count(user1_conversation_id)
@@ -450,7 +436,7 @@ impl TestBackend {
         assert_eq!(user1_unread_messages, 1);
 
         // Fetch the last message and mark it as read.
-        let test_user1 = self.users.get_mut(&user1_name).unwrap();
+        let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
         let user1_messages = user1.get_messages(user1_conversation_id, 1).await.unwrap();
 
@@ -468,7 +454,7 @@ impl TestBackend {
         let user1_unread_messages = user1.unread_messages_count(user1_conversation_id).await;
         assert_eq!(user1_unread_messages, 0);
 
-        let test_user2 = self.users.get_mut(&user2_name).unwrap();
+        let test_user2 = self.users.get_mut(user2_name).unwrap();
         let user2 = &mut test_user2.user;
         let user2_messages = user2.get_messages(user2_conversation_id, 1).await.unwrap();
 
@@ -482,7 +468,8 @@ impl TestBackend {
         let user2_unread_messages = user2.unread_messages_count(user2_conversation_id).await;
         assert_eq!(user2_unread_messages, 0);
 
-        let member_set: HashSet<QualifiedUserName> = [user1_name, user2_name].into();
+        let member_set: HashSet<QualifiedUserName> =
+            [user1_name.clone(), user2_name.clone()].into();
         assert_eq!(member_set.len(), 2);
         self.groups.insert(user1_conversation_id, member_set);
         user1_conversation_id
@@ -494,19 +481,14 @@ impl TestBackend {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        sender_name: impl SafeTryInto<QualifiedUserName>,
-        recipient_names: Vec<impl SafeTryInto<QualifiedUserName>>,
+        sender_name: &QualifiedUserName,
+        recipient_names: Vec<&QualifiedUserName>,
     ) -> ConversationMessageId {
-        let sender_name = sender_name.try_into().unwrap();
-        let recipient_names: Vec<QualifiedUserName> = recipient_names
-            .into_iter()
-            .map(|name| name.try_into().unwrap())
-            .collect::<Vec<_>>();
         let recipient_strings = recipient_names
             .iter()
             .map(|n| n.to_string())
             .collect::<Vec<_>>();
-        tracing::info!(
+        info!(
             "{} sends a message to {}",
             sender_name,
             recipient_strings.join(", ")
@@ -517,7 +499,7 @@ impl TestBackend {
             .map(char::from)
             .collect();
         let orig_message = MimiContent::simple_markdown_message(sender_name.domain(), message);
-        let test_sender = self.users.get_mut(&sender_name).unwrap();
+        let test_sender = self.users.get_mut(sender_name).unwrap();
         let sender = &mut test_sender.user;
 
         // Before sending a message, the sender must first fetch and process its QS messages.
@@ -568,12 +550,8 @@ impl TestBackend {
         message.id()
     }
 
-    pub async fn create_group(
-        &mut self,
-        user_name: impl SafeTryInto<QualifiedUserName>,
-    ) -> ConversationId {
-        let user_name = user_name.try_into().unwrap();
-        let test_user = self.users.get_mut(&user_name).unwrap();
+    pub async fn create_group(&mut self, user_name: &QualifiedUserName) -> ConversationId {
+        let test_user = self.users.get_mut(user_name).unwrap();
         let user = &mut test_user.user;
         let user_conversations_before = user.conversations().await.unwrap();
 
@@ -603,7 +581,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let member_set: HashSet<QualifiedUserName> = [user_name].into();
+        let member_set: HashSet<QualifiedUserName> = [user_name.clone()].into();
         assert_eq!(member_set.len(), 1);
         self.groups.insert(conversation_id, member_set);
 
@@ -615,19 +593,14 @@ impl TestBackend {
     pub async fn invite_to_group(
         &mut self,
         conversation_id: ConversationId,
-        inviter_name: impl SafeTryInto<QualifiedUserName>,
-        invitee_names: Vec<impl SafeTryInto<QualifiedUserName>>,
+        inviter_name: &QualifiedUserName,
+        invitee_names: Vec<&QualifiedUserName>,
     ) {
-        let inviter_name = inviter_name.try_into().unwrap();
-        let invitee_names: Vec<QualifiedUserName> = invitee_names
-            .into_iter()
-            .map(|name| name.try_into().unwrap())
-            .collect::<Vec<_>>();
         let invitee_strings = invitee_names
             .iter()
             .map(|n| n.to_string())
             .collect::<Vec<_>>();
-        let test_inviter = self.users.get_mut(&inviter_name).unwrap();
+        let test_inviter = self.users.get_mut(inviter_name).unwrap();
         let inviter = &mut test_inviter.user;
 
         // Before inviting anyone to a group, the inviter must first fetch and
@@ -640,7 +613,7 @@ impl TestBackend {
             .expect("Error processing qs messages.");
         let inviter_conversation = inviter.conversation(&conversation_id).await.unwrap();
 
-        tracing::info!(
+        info!(
             "{} invites {} to the group with id {}",
             inviter_name,
             invitee_strings.join(", "),
@@ -654,7 +627,10 @@ impl TestBackend {
             .expect("Error getting group members.");
 
         let invite_messages = inviter
-            .invite_users(conversation_id, &invitee_names)
+            .invite_users(
+                conversation_id,
+                &invitee_names.iter().cloned().cloned().collect::<Vec<_>>(),
+            )
             .await
             .expect("Error inviting users.");
 
@@ -678,7 +654,7 @@ impl TestBackend {
         let new_members = inviter_group_members_after
             .difference(&inviter_group_members_before)
             .collect::<HashSet<_>>();
-        let invitee_set = invitee_names.iter().collect::<HashSet<_>>();
+        let invitee_set = invitee_names.iter().copied().collect::<HashSet<_>>();
         assert_eq!(new_members, invitee_set);
 
         // Now that the invitation is out, have the invitees and all other group
@@ -723,8 +699,8 @@ impl TestBackend {
                 invitee_conversations_before.remove(inactive_conversation_position);
             }
             // Now that we've removed the new conversation, it should be the same set of conversations
-            tracing::info!("Conversations_before: {:?}", invitee_conversations_before);
-            tracing::info!("Conversations_after: {:?}", invitee_conversations_after);
+            info!("Conversations_before: {:?}", invitee_conversations_before);
+            info!("Conversations_after: {:?}", invitee_conversations_after);
             let different_conversations = invitee_conversations_before
                 .into_iter()
                 .collect::<HashSet<_>>()
@@ -739,7 +715,7 @@ impl TestBackend {
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         for group_member_name in group_members.iter() {
             // Skip the sender
-            if group_member_name == &inviter_name {
+            if group_member_name == inviter_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -766,19 +742,19 @@ impl TestBackend {
             let new_members = group_members_after
                 .difference(&group_members_before)
                 .collect::<HashSet<_>>();
-            let invitee_set = invitee_names.iter().collect::<HashSet<_>>();
+            let invitee_set = invitee_names.iter().copied().collect::<HashSet<_>>();
             assert_eq!(new_members, invitee_set)
         }
 
         for invitee_name in &invitee_names {
-            let unique_member = group_members.insert(invitee_name.clone());
+            let unique_member = group_members.insert((*invitee_name).clone());
             assert!(unique_member);
         }
 
         // Now send messages to check that the group works properly. This also
         // ensures that everyone involved has picked up their messages from the
         // QS and that notifications are flushed.
-        self.send_message(conversation_id, inviter_name.clone(), invitee_names.clone())
+        self.send_message(conversation_id, inviter_name, invitee_names.clone())
             .await;
         for invitee_name in &invitee_names {
             let recipients: Vec<_> = invitee_names
@@ -787,7 +763,7 @@ impl TestBackend {
                 .chain([&inviter_name].into_iter())
                 .map(|name| name.to_owned())
                 .collect();
-            self.send_message(conversation_id, invitee_name.clone(), recipients)
+            self.send_message(conversation_id, invitee_name, recipients)
                 .await;
         }
     }
@@ -797,19 +773,14 @@ impl TestBackend {
     pub async fn remove_from_group(
         &mut self,
         conversation_id: ConversationId,
-        remover_name: impl SafeTryInto<QualifiedUserName>,
-        removed_names: Vec<impl SafeTryInto<QualifiedUserName>>,
+        remover_name: &QualifiedUserName,
+        removed_names: Vec<&QualifiedUserName>,
     ) {
-        let remover_name = remover_name.try_into().unwrap();
-        let removed_names: Vec<QualifiedUserName> = removed_names
-            .into_iter()
-            .map(|name| name.try_into().unwrap())
-            .collect::<Vec<_>>();
         let removed_strings = removed_names
             .iter()
             .map(|n| n.to_string())
             .collect::<Vec<_>>();
-        let test_remover = self.users.get_mut(&remover_name).unwrap();
+        let test_remover = self.users.get_mut(remover_name).unwrap();
         let remover = &mut test_remover.user;
 
         // Before removing anyone from a group, the remover must first fetch and
@@ -821,7 +792,7 @@ impl TestBackend {
             .await
             .expect("Error processing qs messages.");
 
-        tracing::info!(
+        info!(
             "{} removes {} from the group with id {}",
             remover_name,
             removed_strings.join(", "),
@@ -836,7 +807,10 @@ impl TestBackend {
             .expect("Error getting group members.");
 
         let remove_messages = remover
-            .remove_users(conversation_id, &removed_names)
+            .remove_users(
+                conversation_id,
+                &removed_names.iter().copied().cloned().collect::<Vec<_>>(),
+            )
             .await
             .expect("Error removing users.");
 
@@ -863,7 +837,7 @@ impl TestBackend {
             .collect::<HashSet<_>>();
         let removed_set = removed_names
             .iter()
-            .map(|name| name.to_owned())
+            .map(|name| (*name).clone())
             .collect::<HashSet<_>>();
         assert_eq!(removed_members, removed_set);
 
@@ -927,7 +901,7 @@ impl TestBackend {
         // Now have the rest of the group pick up and process their messages.
         for group_member_name in group_members.iter() {
             // Skip the remover
-            if group_member_name == &remover_name {
+            if group_member_name == remover_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -956,7 +930,7 @@ impl TestBackend {
                 .collect::<HashSet<_>>();
             let removed_set = removed_names
                 .iter()
-                .map(|name| name.to_owned())
+                .map(|name| (*name).clone())
                 .collect::<HashSet<_>>();
             assert_eq!(removed_members, removed_set)
         }
@@ -966,15 +940,14 @@ impl TestBackend {
     pub async fn leave_group(
         &mut self,
         conversation_id: ConversationId,
-        leaver_name: impl SafeTryInto<QualifiedUserName>,
+        leaver_name: &QualifiedUserName,
     ) {
-        let leaver_name = leaver_name.try_into().unwrap();
-        tracing::info!(
+        info!(
             "{} leaves the group with id {}",
             leaver_name,
             conversation_id.as_uuid()
         );
-        let test_leaver = self.users.get_mut(&leaver_name).unwrap();
+        let test_leaver = self.users.get_mut(leaver_name).unwrap();
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
@@ -988,7 +961,7 @@ impl TestBackend {
         let mut random_member_iter = group_members.iter();
         let mut random_member_name = random_member_iter.next().unwrap();
         // Ensure that the random member isn't the leaver.
-        if random_member_name == &leaver_name {
+        if random_member_name == leaver_name {
             random_member_name = random_member_iter.next().unwrap()
         }
         let test_random_member = self.users.get_mut(random_member_name).unwrap();
@@ -1010,21 +983,20 @@ impl TestBackend {
             .await;
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
-        group_members.remove(&leaver_name);
+        group_members.remove(leaver_name);
     }
 
     pub async fn delete_group(
         &mut self,
         conversation_id: ConversationId,
-        deleter_name: impl SafeTryInto<QualifiedUserName>,
+        deleter_name: &QualifiedUserName,
     ) {
-        let deleter_name = deleter_name.try_into().unwrap();
-        tracing::info!(
+        info!(
             "{} deletes the group with id {}",
             deleter_name,
             conversation_id.as_uuid()
         );
-        let test_deleter = self.users.get_mut(&deleter_name).unwrap();
+        let test_deleter = self.users.get_mut(deleter_name).unwrap();
         let deleter = &mut test_deleter.user;
 
         // Before removing anyone from a group, the remover must first fetch and
@@ -1066,7 +1038,7 @@ impl TestBackend {
 
         for group_member_name in self.groups.get(&conversation_id).unwrap().iter() {
             // Skip the deleter
-            if group_member_name == &deleter_name {
+            if group_member_name == deleter_name {
                 continue;
             }
             let test_group_member = self.users.get_mut(group_member_name).unwrap();
@@ -1143,22 +1115,20 @@ impl TestBackend {
                         .into_iter()
                         .any(|contact| contact.user_name == random_user);
                     if user != &random_user && !is_contact {
-                        other_users.push(user);
+                        other_users.push(user.clone());
                     }
                 }
                 if let Some(other_user) = other_users.into_iter().choose(rng) {
-                    tracing::info!(
+                    info!(
                         random_operation = true,
-                        "Random operation: Connecting {} and {}",
-                        random_user,
-                        other_user
+                        "Random operation: Connecting {} and {}", random_user, other_user
                     );
-                    self.connect_users(random_user, other_user.clone()).await;
+                    self.connect_users(&random_user, &other_user).await;
                 }
             }
             1 => {
-                let conversation_id = self.create_group(random_user).await;
-                tracing::info!(
+                let conversation_id = self.create_group(&random_user).await;
+                info!(
                     random_operation = true,
                     "Random operation: Created group {}",
                     conversation_id.as_uuid()
@@ -1210,15 +1180,19 @@ impl TestBackend {
                             .iter()
                             .map(|invitee| invitee.to_string())
                             .collect::<Vec<_>>();
-                        tracing::info!(
+                        info!(
                             random_operation = true,
                             "Random operation: {} invites {} to group {}",
                             random_user,
                             invitee_strings.join(", "),
                             conversation.id().as_uuid()
                         );
-                        self.invite_to_group(conversation.id(), random_user, invitee_names)
-                            .await;
+                        self.invite_to_group(
+                            conversation.id(),
+                            &random_user,
+                            invitee_names.iter().collect(),
+                        )
+                        .await;
                     }
                 }
             }
@@ -1250,14 +1224,15 @@ impl TestBackend {
                             .iter()
                             .map(|removed| removed.to_string())
                             .collect::<Vec<_>>();
-                        tracing::info!(
+                        info!(
                             random_operation = true,
                             "Random operation: {} removes {} from group {}",
                             random_user,
                             removed_strings.join(", "),
                             conversation.id().as_uuid()
                         );
-                        self.remove_from_group(conversation.id(), random_user, members_to_remove)
+                        let members_to_remove = members_to_remove.iter().collect();
+                        self.remove_from_group(conversation.id(), &random_user, members_to_remove)
                             .await;
                     }
                 }
@@ -1276,13 +1251,13 @@ impl TestBackend {
                     })
                     .choose(rng)
                 {
-                    tracing::info!(
+                    info!(
                         random_operation = true,
                         "Random operation: {} leaves group {}",
                         random_user,
                         conversation.id().as_uuid()
                     );
-                    self.leave_group(conversation.id(), random_user).await;
+                    self.leave_group(conversation.id(), &random_user).await;
                 }
             }
             _ => panic!("Invalid action"),
