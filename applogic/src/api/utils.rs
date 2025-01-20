@@ -4,8 +4,6 @@
 
 //! Misc. functions
 
-use anyhow::Result;
-
-pub fn delete_databases(client_db_path: String) -> Result<()> {
+pub fn delete_databases(client_db_path: String) -> anyhow::Result<()> {
     phnxcoreclient::delete_databases(client_db_path.as_str())
 }

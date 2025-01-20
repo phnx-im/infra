@@ -93,17 +93,11 @@ class AddMembersView extends StatelessWidget {
                 OutlinedButton(
                   onPressed: selectedContacts.isNotEmpty
                       ? () async {
-                          final navigation = context.read<NavigationCubit>();
-                          final conversationId =
-                              navigation.state.conversationId;
-                          if (conversationId == null) {
-                            throw StateError(
-                                "an active conversation is obligatory");
-                          }
-                          await context
-                              .read<AddMembersCubit>()
-                              .addContacts(conversationId);
-                          navigation.pop();
+                          _addSelectedContacts(
+                            context.read<NavigationCubit>(),
+                            context.read<UserCubit>(),
+                            selectedContacts,
+                          );
                         }
                       : null,
                   style: buttonStyle(context, selectedContacts.isNotEmpty),
@@ -115,5 +109,23 @@ class AddMembersView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _addSelectedContacts(
+    NavigationCubit navigation,
+    UserCubit userCubit,
+    Set<String> selectedContacts,
+  ) async {
+    final conversationId = navigation.state.conversationId;
+    if (conversationId == null) {
+      throw StateError("an active conversation is obligatory");
+    }
+    for (final userName in selectedContacts) {
+      await userCubit.addUserToConversation(
+        conversationId,
+        userName,
+      );
+    }
+    navigation.pop();
   }
 }

@@ -85,9 +85,8 @@ class TextMessageTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           FutureUserAvatar(
-            profile: () => context
-                .read<UserCubit>()
-                .userProfile(contentFlight.last.sender),
+            profile: () =>
+                context.read<UserCubit>().userProfile(contentMessage.sender),
           ),
           const SizedBox(width: 10),
           _username(isSender),
