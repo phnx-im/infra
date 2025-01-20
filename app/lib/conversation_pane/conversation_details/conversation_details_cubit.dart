@@ -45,4 +45,13 @@ class ConversationDetailsCubit
 
   void sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
+
+  Future<void> markAsRead({
+    required UiConversationMessageId untilMessageId,
+    required DateTime untilTimestamp,
+  }) =>
+      _impl.markAsRead(
+        untilMessageId: untilMessageId,
+        untilTimestamp: untilTimestamp,
+      );
 }

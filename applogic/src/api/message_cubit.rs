@@ -6,8 +6,7 @@ use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    clients::CoreUser,
-    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
+    store::{Store, StoreNotification, StoreOperation, StoreResult},
     ConversationMessageId,
 };
 use tokio::sync::watch;
@@ -16,45 +15,47 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
 use crate::{
+    api::types::UiFlightPosition,
     util::{spawn_from_sync, Cubit, CubitCore},
     StreamSink,
 };
 
-use super::{
-    types::{UiConversationMessage, UiConversationMessageId},
-    user_cubit::UserCubitBase,
-};
+use super::{types::UiConversationMessage, user_cubit::UserCubitBase};
 
+/// State of a single message in a conversation.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {
     pub message: UiConversationMessage,
 }
 
+/// Provides access to a single message in a conversation.
+///
+/// Listens to changes to the message and reloads it. On reload, also the previous and next
+/// messages in the conversation timeline are loaded to calculate the flight position of this
+/// message.
 #[frb(opaque)]
 pub struct MessageCubitBase {
     core: CubitCore<MessageState>,
-    store: CoreUser,
 }
 
 impl MessageCubitBase {
+    /// Creates a new message cubit.
+    ///
+    /// Note that the loaded message is immediately provided via `initial_state`.
     #[frb(sync)]
-    pub fn new(
-        user_cubit: &UserCubitBase,
-        message_id: UiConversationMessageId,
-        initial_state: MessageState,
-    ) -> Self {
-        let message_id = message_id.into();
+    pub fn new(user_cubit: &UserCubitBase, initial_state: MessageState) -> Self {
+        let message_id = initial_state.message.id.into();
 
         let store = user_cubit.core_user.clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::with_initial_state(initial_state);
 
-        MessageContext::new(store.clone(), core.state_tx().clone(), message_id)
+        MessageContext::new(store, core.state_tx().clone(), message_id)
             .spawn(store_notifications, core.cancellation_token().clone());
 
-        Self { core, store }
+        Self { core }
     }
 
     // Cubit interface
@@ -75,27 +76,6 @@ impl MessageCubitBase {
 
     pub async fn stream(&mut self, sink: StreamSink<MessageState>) {
         self.core.stream(sink).await;
-    }
-
-    // Cubit methods
-
-    pub async fn mark_as_read(&self) -> anyhow::Result<()> {
-        let (conversation_id, timestamp) = {
-            let state = self.core.state_tx().borrow();
-            let message = &state.message;
-            if message.is_read {
-                return Ok(());
-            }
-            let Some(timestamp) = message.timestamp.parse().ok() else {
-                return Ok(());
-            };
-            (message.conversation_id, timestamp)
-        };
-        debug!(%conversation_id, %timestamp, "Marking conversation as read");
-        self.store
-            .mark_conversation_as_read([(conversation_id, timestamp)])
-            .await?;
-        Ok(())
     }
 }
 
@@ -134,10 +114,16 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
 
     async fn load_and_emit_state(&self) {
         let conversation_message = self.store.message(self.message_id).await;
-        tracing::debug!(?conversation_message, "load_and_emit_state");
+
+        debug!(?conversation_message, "load_and_emit_state");
         match conversation_message {
-            Ok(Some(cm)) => {
-                self.state_tx.send_modify(|state| state.message = cm.into());
+            Ok(Some(message)) => {
+                let mut message = UiConversationMessage::from(message);
+                message.position = calculate_flight_position(&self.store, &message)
+                    .await
+                    .inspect_err(|error| error!(?error, "Failed to calculate flight position"))
+                    .unwrap_or(UiFlightPosition::Unique);
+                self.state_tx.send_modify(|state| state.message = message);
             }
             Ok(None) => {}
             Err(error) => {
@@ -169,27 +155,22 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     async fn process_store_notification(&self, notification: &StoreNotification) {
         match notification.ops.get(&self.message_id.into()) {
             Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
-            Some(StoreOperation::Remove) => {}
-            None => {
-                // reload on added message when there is no next neighbor
-                // TODO: We could better short-circuit this logic, if we knew the conversation id
-                // of the added message.
-                let has_next_neighbor = self.state_tx.borrow().message.neighbors.next.is_some();
-                if !has_next_neighbor {
-                    for item in notification.ops.iter() {
-                        // TODO: There is a bug, where Update of the message overrides the Add
-                        // operation. To mitigate this, we check also for the Update operation.
-                        if let (
-                            StoreEntityId::Message(_),
-                            StoreOperation::Add | StoreOperation::Update,
-                        ) = item
-                        {
-                            self.load_and_emit_state().await;
-                            return;
-                        }
-                    }
-                }
-            }
+            Some(StoreOperation::Remove) | None => {}
         }
     }
+}
+
+/// Calculate the flight position of a message by loading its previous and next messages.
+async fn calculate_flight_position(
+    store: &impl Store,
+    message: &UiConversationMessage,
+) -> StoreResult<UiFlightPosition> {
+    let id = message.id.into();
+    let prev_message = store.prev_message(id).await?.map(From::from);
+    let next_message = store.next_message(id).await?.map(From::from);
+    Ok(UiFlightPosition::calculate(
+        message,
+        prev_message.as_ref(),
+        next_message.as_ref(),
+    ))
 }

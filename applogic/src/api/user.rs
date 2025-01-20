@@ -8,10 +8,7 @@ use phnxcoreclient::{
     clients::{store::ClientRecord, CoreUser},
     Asset, UserProfile,
 };
-use phnxtypes::{
-    identifiers::{QualifiedUserName, SafeTryInto},
-    messages::push_token::PushTokenOperator,
-};
+use phnxtypes::{identifiers::QualifiedUserName, messages::push_token::PushTokenOperator};
 use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
@@ -48,7 +45,7 @@ impl User {
         display_name: Option<String>,
         profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
-        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        let user_name: QualifiedUserName = user_name.parse()?;
         let user_profile = UserProfile::new(
             user_name.clone(),
             display_name.map(TryFrom::try_from).transpose()?,

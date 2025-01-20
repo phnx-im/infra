@@ -36,10 +36,7 @@ impl Serialize for TlsUuid {
 }
 
 impl DeserializeBytes for TlsUuid {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
-    where
-        Self: Sized,
-    {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (uuid_bytes, rest) = <[u8; 16]>::tls_deserialize_bytes(bytes)?;
         let uuid = Uuid::from_bytes(uuid_bytes);
         Ok((Self(uuid), rest))
@@ -82,10 +79,7 @@ impl Size for TlsString {
 }
 
 impl DeserializeBytes for TlsString {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
-    where
-        Self: Sized,
-    {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (string, rest) = <Vec<u8>>::tls_deserialize_bytes(bytes)?;
         let string = String::from_utf8(string)
             .map_err(|_| Error::DecodingError("Couldn't decode string.".to_owned()))?;
@@ -110,14 +104,10 @@ impl Size for Fqdn {
 }
 
 impl DeserializeBytes for Fqdn {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
-    where
-        Self: Sized,
-    {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (TlsString(domain_string), rest) = TlsString::tls_deserialize_bytes(bytes)?;
-        let domain = Fqdn::try_from(domain_string).map_err(|e| {
-            let e = format!("Couldn't decode domain string: {}.", e);
-            Error::DecodingError(e)
+        let domain = domain_string.parse().map_err(|error| {
+            Error::DecodingError(format!("Couldn't decode domain string: {error}"))
         })?;
         Ok((domain, rest))
     }
@@ -134,10 +124,7 @@ impl Serialize for Fqdn {
 }
 
 impl DeserializeBytes for UserName {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>
-    where
-        Self: Sized,
-    {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (TlsString(user_name_string), rest) = TlsString::tls_deserialize_bytes(bytes)?;
         let user_name = UserName::try_from(user_name_string).map_err(|e| {
             let e = format!("Couldn't decode user name string: {}.", e);

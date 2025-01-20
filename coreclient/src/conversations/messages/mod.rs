@@ -16,7 +16,6 @@ pub(crate) mod persistence;
 pub(crate) struct TimestampedMessage {
     timestamp: TimeStamp,
     message: Message,
-    is_read: bool,
 }
 
 impl TimestampedMessage {
@@ -52,7 +51,6 @@ impl TimestampedMessage {
         Ok(Self {
             timestamp: ds_timestamp,
             message,
-            is_read: false,
         })
     }
 
@@ -61,7 +59,6 @@ impl TimestampedMessage {
         Self {
             message,
             timestamp: ds_timestamp,
-            is_read: false,
         }
     }
 }
@@ -105,20 +102,6 @@ pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
-    pub(super) neighbors: ConversationMessageNeighbors,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ConversationMessageNeighbors {
-    pub prev: Option<ConversationMessageNeighbor>,
-    pub next: Option<ConversationMessageNeighbor>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ConversationMessageNeighbor {
-    pub message_id: ConversationMessageId,
-    pub sender: String,
-    pub timestamp: TimeStamp,
 }
 
 impl ConversationMessage {
@@ -127,12 +110,24 @@ impl ConversationMessage {
     pub(crate) fn from_timestamped_message(
         conversation_id: ConversationId,
         timestamped_message: TimestampedMessage,
-    ) -> ConversationMessage {
-        ConversationMessage {
+    ) -> Self {
+        Self {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
-            neighbors: Default::default(),
+        }
+    }
+
+    pub fn new_for_test(
+        conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
+        timestamp: TimeStamp,
+        message: Message,
+    ) -> Self {
+        Self {
+            conversation_id,
+            conversation_message_id,
+            timestamped_message: TimestampedMessage { timestamp, message },
         }
     }
 
@@ -145,13 +140,11 @@ impl ConversationMessage {
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
-            is_read: true,
         };
         ConversationMessage {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
-            neighbors: Default::default(),
         }
     }
 
@@ -193,14 +186,6 @@ impl ConversationMessage {
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
     }
-
-    pub fn is_read(&self) -> bool {
-        self.timestamped_message.is_read
-    }
-
-    pub fn take_neighbors(&mut self) -> ConversationMessageNeighbors {
-        std::mem::take(&mut self.neighbors)
-    }
 }
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
@@ -212,6 +197,10 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn with_content(content: ContentMessage) -> Self {
+        Self::Content(Box::new(content))
+    }
+
     /// Returns a string representation of the message for use in UI
     /// notifications.
     pub fn string_representation(&self, conversation_type: &ConversationType) -> String {

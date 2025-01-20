@@ -51,16 +51,16 @@ impl DockerTestBed {
         let network_name = format!("{scenario}_network");
         // Create docker network
         create_network(&network_name);
-        let servers = (0..scenario.number_of_servers())
+        let servers: HashMap<_, _> = (0..scenario.number_of_servers())
             .map(|index| {
-                let domain = format!("{}{}.com", scenario, index)
-                    .try_into()
+                let domain = format!("{scenario}{index}.com")
+                    .parse()
                     .expect("Invalid domain");
                 tracing::info!("Starting server {domain}");
                 let server = create_and_start_server_container(&domain, Some(&network_name));
                 (domain.clone(), server)
             })
-            .collect::<HashMap<_, _>>();
+            .collect();
 
         Self {
             servers,
@@ -220,13 +220,14 @@ fn create_and_start_server_container(
 /// This function has to be called from the container that runs the tests.
 pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> bool {
     let mut domains = domains.into();
+    let http_client = ApiClient::new_http_client().unwrap();
     let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
         .map(|domain| {
             let domain_and_port = format!("http://{}:{}", domain, DEFAULT_PORT_HTTP);
             (
                 domain.clone(),
-                ApiClient::initialize(domain_and_port).unwrap(),
+                ApiClient::initialize(http_client.clone(), domain_and_port).unwrap(),
             )
         })
         .collect();

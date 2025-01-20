@@ -15,6 +15,7 @@ use phnxtypes::{
 };
 use rusqlite::{params, OptionalExtension, ToSql};
 use thiserror::Error;
+use tracing::info;
 
 use crate::{
     clients::api_clients::ApiClientsError,
@@ -149,7 +150,7 @@ impl AsCredentials {
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
-        log::info!("Loading AS credential from db.");
+        info!("Loading AS credential from db");
         // Phase 1: Check if there is a credential in the database.
         let connection = connection_mutex.lock().await;
         let credential_option =
@@ -203,7 +204,7 @@ impl AsCredentials {
         }
     }
 
-    pub async fn verify_client_credential<'b>(
+    pub async fn verify_client_credential(
         connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,

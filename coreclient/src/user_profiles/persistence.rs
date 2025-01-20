@@ -4,6 +4,7 @@
 
 use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{params, Connection, OptionalExtension};
+use tracing::error;
 
 use crate::{store::StoreNotifier, utils::persistence::Storable, Asset, DisplayName, UserProfile};
 
@@ -41,10 +42,10 @@ impl UserProfile {
         if let Some(user_profile) = &user {
             if user_name != user_profile.user_name() {
                 // This should never happen, but if it does, we want to know about it.
-                log::error!(
-                    "User name mismatch: Expected {}, got {}",
-                    user_name,
-                    user_profile.user_name()
+                error!(
+                    expected =% user_name,
+                    actual =% user_profile.user_name(),
+                    "User name mismatch",
                 );
             }
         }

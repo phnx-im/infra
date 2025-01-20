@@ -247,9 +247,9 @@ class _LastMessage extends StatelessWidget {
     final senderStyle = style.copyWith(fontVariations: variationSemiBold);
 
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
-      UiMessage_ContentFlight(field0: final contentFlight) => (
-          contentFlight.last.sender == userName ? 'You: ' : null,
-          contentFlight.last.content.body
+      UiMessage_Content(field0: final content) => (
+          content.sender == userName ? 'You: ' : null,
+          content.content.body
         ),
       UiMessage_Display() => (null, null),
       UiMessage_Unsent(field0: final unsent) => (

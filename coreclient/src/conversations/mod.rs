@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName, SafeTryInto},
+    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName},
     time::TimeStamp,
 };
 use rusqlite::{
@@ -16,6 +16,7 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
@@ -144,6 +145,10 @@ impl Conversation {
         &self.attributes
     }
 
+    pub fn last_read(&self) -> DateTime<Utc> {
+        self.last_read
+    }
+
     pub(crate) fn owner_domain(&self) -> Fqdn {
         let qgid = QualifiedGroupId::try_from(self.group_id.clone()).unwrap();
         qgid.owning_domain().clone()
@@ -204,14 +209,12 @@ impl FromSql for ConversationStatus {
         let Some(user_names) = status.strip_prefix("inactive:") else {
             return Err(FromSqlError::InvalidType);
         };
-        let user_names = user_names
-            .split(',')
-            .map(<&str as SafeTryInto<QualifiedUserName>>::try_into)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                log::error!("Failed to parse user names from database: {:?}", e);
-                FromSqlError::Other(Box::new(e))
-            })?;
+        let user_names: Result<Vec<QualifiedUserName>, _> =
+            user_names.split(',').map(|s| s.parse()).collect();
+        let user_names = user_names.map_err(|error| {
+            error!(%error, "Failed to parse user names from database");
+            FromSqlError::Other(Box::new(error))
+        })?;
         Ok(Self::Inactive(InactiveConversation::new(user_names)))
     }
 }
@@ -270,17 +273,15 @@ impl FromSql for ConversationType {
         };
         match conversation_type {
             "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
-                    log::error!("Failed to parse user name from database: {:?}", e);
-                    FromSqlError::Other(Box::new(e))
+                user_name.parse().map_err(|error| {
+                    error!(%error, "Failed to parse user name from database");
+                    FromSqlError::Other(Box::new(error))
                 })?,
             )),
-            "connection" => Ok(Self::Connection(
-                <&str as SafeTryInto<QualifiedUserName>>::try_into(user_name).map_err(|e| {
-                    log::error!("Failed to parse user name from database: {:?}", e);
-                    FromSqlError::Other(Box::new(e))
-                })?,
-            )),
+            "connection" => Ok(Self::Connection(user_name.parse().map_err(|error| {
+                error!(%error, "Failed to parse user name from database");
+                FromSqlError::Other(Box::new(error))
+            })?)),
             _ => Err(FromSqlError::InvalidType),
         }
     }

@@ -20,6 +20,7 @@ use phnxtypes::{
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
 use tls_codec::Serialize;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{qs_api::ws::WsEvent, ApiClient};
@@ -28,7 +29,7 @@ static QUEUE_ID_VALUE: Uuid = Uuid::nil();
 
 #[tokio::test]
 async fn ws_lifecycle() {
-    let _ = env_logger::try_init();
+    let _ = tracing_subscriber::fmt::try_init();
     // Ask for a random port and create a listener
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port.");
     let address = listener.local_addr().expect("Failed to get local address.");
@@ -45,7 +46,7 @@ async fn ws_lifecycle() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Spawn the websocket connection task
     let mut ws = client
@@ -77,10 +78,8 @@ async fn ws_lifecycle() {
 // === Websocket server ===
 
 fn run_server(listener: TcpListener) -> Result<Server, std::io::Error> {
-    log::info!(
-        "Starting server at address: {}",
-        listener.local_addr().unwrap()
-    );
+    let addr = listener.local_addr().unwrap();
+    info!(%addr, "Starting server at address",);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
@@ -96,7 +95,7 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     let header_value = match req.headers().get("QsOpenWsParams") {
         Some(value) => value,
         None => {
-            log::error!("No QsOpenWsParams header found");
+            error!("No QsOpenWsParams header found");
             return HttpResponse::BadRequest().body("No QsOpenWsParams header");
         }
     };
@@ -104,11 +103,10 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     // Decode the header value using base64
     let qs_open_ws_params_bytes = match general_purpose::STANDARD.decode(header_value.as_bytes()) {
         Ok(bytes) => bytes,
-        Err(e) => {
-            log::error!("Could not base64-decode QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not base64-decode QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not decode base64 QsOpenWsParams header: {}",
-                e
+                "Could not decode base64 QsOpenWsParams header: {error}",
             ));
         }
     };
@@ -116,11 +114,10 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     // Deserialize the header value
     let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&qs_open_ws_params_bytes) {
         Ok(value) => value,
-        Err(e) => {
-            log::error!("Could not deserialize QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not deserialize QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not deserialize QsOpenWsParams header: {}",
-                e
+                "Could not deserialize QsOpenWsParams header: {error}",
             ));
         }
     };
@@ -132,12 +129,12 @@ pub(crate) async fn upgrade_connection(req: HttpRequest, stream: web::Payload) -
     let qs_ws_connection = QsWsConnection::new();
 
     // Upgrade the connection to a websocket connection
-    log::info!("Upgrading HTTP connection to websocket connection...");
+    info!("Upgrading HTTP connection to websocket connection...");
     match ws::start(qs_ws_connection, &req, stream) {
         Ok(res) => res,
-        Err(e) => {
-            log::error!("Error upgrading connection: {}", e);
-            HttpResponse::InternalServerError().body(format!("{}", e))
+        Err(error) => {
+            error!(%error, "Error upgrading connection");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
@@ -160,13 +157,13 @@ impl Actor for QsWsConnection {
     fn started(&mut self, ctx: &mut Self::Context) {
         ctx.run_later(Duration::from_secs(0), |_act, ctx| {
             // We send a ping
-            log::info!("Sending ping 1");
+            info!("Sending ping 1");
             ctx.ping(b"Ping 1");
             // We wait for 2 second before we send the next message.
             // This way we make sure to trigger the timeout logic.
             ctx.run_later(Duration::from_secs(2), |_act, ctx| {
                 // Then we send a ping again
-                log::info!("Sending ping 2");
+                info!("Sending ping 2");
                 ctx.ping(b"Ping 2");
                 // We wait for another 2 second to trigger the timeout logic
                 // again
@@ -177,14 +174,14 @@ impl Actor for QsWsConnection {
                         .tls_serialize_detached()
                         .expect("Failed to serialize message");
                     // Send the message to the client
-                    log::info!("Sending binary message");
+                    info!("Sending binary message");
                     ctx.binary(serialized);
                     // Wait for less than a second, so as to not trigger the
                     // timeout logic but still make sure the binary messages
                     // gets delivered
                     ctx.run_later(Duration::from_millis(100), |_act, ctx| {
                         // Finally, we close the websocket from the server side
-                        log::info!("Stopping the context");
+                        info!("Stopping the context");
                         ctx.stop();
                     });
                 });
@@ -200,18 +197,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for QsWsConnection {
         if let Ok(ws_msg) = msg {
             match ws_msg {
                 ws::Message::Continuation(_) => {
-                    log::info!("Continuation message received");
+                    info!("Continuation message received");
                     ctx.stop();
                 }
                 ws::Message::Ping(_) => todo!(),
                 ws::Message::Pong(bytes) => {
-                    log::info!("Received a pong: {:?}", bytes);
+                    info!(?bytes, "Received a pong");
                 }
                 ws::Message::Close(close_reason) => {
-                    log::info!("Received a close: {:?}", close_reason);
+                    info!(?close_reason, "Received a close");
                 }
                 _ => {
-                    log::info!("Unknown message received");
+                    info!("Unknown message received");
                 }
             };
         }

@@ -4,7 +4,7 @@
 
 mod qs;
 
-use std::{fs, io::Cursor};
+use std::{fs, io::Cursor, sync::LazyLock};
 
 use image::{ImageBuffer, Rgba};
 use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
@@ -16,7 +16,7 @@ use phnxcoreclient::{
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
-use phnxtypes::identifiers::{Fqdn, QualifiedUserName, SafeTryInto};
+use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 
 #[actix_rt::test]
@@ -25,29 +25,30 @@ async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) =
-        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
+        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let address = format!("http://{}", address);
 
     // Initialize the client
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Do the health check
     assert!(client.health_check().await);
 }
 
-const ALICE: &str = "alice@example.com";
-const BOB: &str = "bob@example.com";
-const CHARLIE: &str = "charlie@example.com";
-const DAVE: &str = "dave@example.com";
+static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
+static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
+static CHARLIE: LazyLock<QualifiedUserName> =
+    LazyLock::new(|| "charlie@example.com".parse().unwrap());
+static DAVE: LazyLock<QualifiedUserName> = LazyLock::new(|| "dave@example.com".parse().unwrap());
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Connect users test", skip_all)]
 async fn connect_users() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.connect_users(ALICE, BOB).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.connect_users(&ALICE, &BOB).await;
 }
 
 #[actix_rt::test]
@@ -56,34 +57,38 @@ async fn send_message() {
     tracing::info!("Setting up setup");
     let mut setup = TestBackend::single().await;
     tracing::info!("Creating users");
-    setup.add_user(ALICE).await;
+    setup.add_user(&ALICE).await;
     tracing::info!("Created alice");
-    setup.add_user(BOB).await;
-    let conversation_id = setup.connect_users(ALICE, BOB).await;
-    setup.send_message(conversation_id, ALICE, vec![BOB]).await;
-    setup.send_message(conversation_id, BOB, vec![ALICE]).await;
+    setup.add_user(&BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+    setup
+        .send_message(conversation_id, &ALICE, vec![&BOB])
+        .await;
+    setup
+        .send_message(conversation_id, &BOB, vec![&ALICE])
+        .await;
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Create group test", skip_all)]
 async fn create_group() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.create_group(&ALICE).await;
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn invite_to_group() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.add_user(CHARLIE).await;
-    setup.connect_users(ALICE, BOB).await;
-    setup.connect_users(ALICE, CHARLIE).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB, CHARLIE])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
 }
 
@@ -92,56 +97,50 @@ async fn invite_to_group() {
 async fn update_group() {
     let mut setup = TestBackend::single().await;
     tracing::info!("Adding users");
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.add_user(CHARLIE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
     tracing::info!("Connecting users");
-    setup.connect_users(ALICE, BOB).await;
-    setup.connect_users(ALICE, CHARLIE).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     tracing::info!("Inviting to group");
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB, CHARLIE])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
     tracing::info!("Updating group");
-    setup.update_group(conversation_id, BOB).await
+    setup.update_group(conversation_id, &BOB).await
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Remove from group test", skip_all)]
 async fn remove_from_group() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.add_user(CHARLIE).await;
-    setup.add_user(DAVE).await;
-    setup.connect_users(ALICE, BOB).await;
-    setup.connect_users(ALICE, CHARLIE).await;
-    setup.connect_users(ALICE, DAVE).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+    setup.add_user(&DAVE).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
+    setup.connect_users(&ALICE, &DAVE).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB, CHARLIE, DAVE])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE, &DAVE])
         .await;
     // Check that Charlie has a user profile stored for BOB, even though
     // he hasn't connected with them.
-    let charlie = setup.get_user(CHARLIE);
-    let bob_user_name = SafeTryInto::try_into(BOB).unwrap();
-    let charlie_user_profile_bob = charlie
-        .user
-        .user_profile(&bob_user_name)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(charlie_user_profile_bob.user_name() == &bob_user_name);
+    let charlie = setup.get_user(&CHARLIE);
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
+    assert!(charlie_user_profile_bob.user_name() == &*BOB);
 
     setup
-        .remove_from_group(conversation_id, CHARLIE, vec![ALICE, BOB])
+        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
         .await;
 
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be removed.
-    let charlie = setup.get_user(CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&bob_user_name).await.unwrap();
+    let charlie = setup.get_user(&CHARLIE);
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap();
     assert!(charlie_user_profile_bob.is_none());
 }
 
@@ -149,58 +148,64 @@ async fn remove_from_group() {
 #[tracing::instrument(name = "Re-add to group test", skip_all)]
 async fn re_add_client() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.connect_users(ALICE, BOB).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
     for _ in 0..10 {
         setup
-            .remove_from_group(conversation_id, ALICE, vec![BOB])
+            .remove_from_group(conversation_id, &ALICE, vec![&BOB])
             .await;
         setup
-            .invite_to_group(conversation_id, ALICE, vec![BOB])
+            .invite_to_group(conversation_id, &ALICE, vec![&BOB])
             .await;
     }
-    setup.send_message(conversation_id, ALICE, vec![BOB]).await;
-    setup.send_message(conversation_id, BOB, vec![ALICE]).await;
+    setup
+        .send_message(conversation_id, &ALICE, vec![&BOB])
+        .await;
+    setup
+        .send_message(conversation_id, &BOB, vec![&ALICE])
+        .await;
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn leave_group() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.connect_users(ALICE, BOB).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.leave_group(conversation_id, ALICE).await;
+    setup.leave_group(conversation_id, &ALICE).await;
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn delete_group() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.connect_users(ALICE, BOB).await;
-    let conversation_id = setup.create_group(ALICE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.connect_users(&ALICE, &BOB).await;
+    let conversation_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.delete_group(conversation_id, BOB).await;
+    let bob = &BOB;
+    let delete_group = setup.delete_group(conversation_id, bob);
+    delete_group.await;
 }
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Create user", skip_all)]
 async fn create_user() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
+    setup.add_user(&ALICE).await;
 }
 
 #[actix_rt::test]
@@ -208,11 +213,11 @@ async fn create_user() {
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) =
-        spawn_app(Fqdn::try_from("localhost").unwrap(), network_provider).await;
+        spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);
@@ -223,54 +228,54 @@ async fn inexistant_endpoint() {
 async fn full_cycle() {
     let mut setup = TestBackend::single().await;
     // Create alice and bob
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
 
     // Connect them
-    let conversation_alice_bob = setup.connect_users(ALICE, BOB).await;
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
 
     // Test the connection conversation by sending messages back and forth.
     setup
-        .send_message(conversation_alice_bob, ALICE, vec![BOB])
+        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
         .await;
     setup
-        .send_message(conversation_alice_bob, BOB, vec![ALICE])
+        .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
 
     // Create an independent group and invite bob.
-    let conversation_id = setup.create_group(ALICE).await;
+    let conversation_id = setup.create_group(&ALICE).await;
 
     setup
-        .invite_to_group(conversation_id, ALICE, vec![BOB])
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
     // Create chalie, connect him with alice and invite him to the group.
-    setup.add_user(CHARLIE).await;
-    setup.connect_users(ALICE, CHARLIE).await;
+    setup.add_user(&CHARLIE).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
 
     setup
-        .invite_to_group(conversation_id, ALICE, vec![CHARLIE])
+        .invite_to_group(conversation_id, &ALICE, vec![&CHARLIE])
         .await;
 
     // Add dave, connect him with charlie and invite him to the group. Then have dave remove alice and bob.
-    setup.add_user(DAVE).await;
-    setup.connect_users(CHARLIE, DAVE).await;
+    setup.add_user(&DAVE).await;
+    setup.connect_users(&CHARLIE, &DAVE).await;
 
     setup
-        .invite_to_group(conversation_id, CHARLIE, vec![DAVE])
+        .invite_to_group(conversation_id, &CHARLIE, vec![&DAVE])
         .await;
 
     setup
-        .send_message(conversation_id, ALICE, vec![CHARLIE, BOB, DAVE])
+        .send_message(conversation_id, &ALICE, vec![&CHARLIE, &BOB, &DAVE])
         .await;
 
     setup
-        .remove_from_group(conversation_id, DAVE, vec![ALICE, BOB])
+        .remove_from_group(conversation_id, &DAVE, vec![&ALICE, &BOB])
         .await;
 
-    setup.leave_group(conversation_id, CHARLIE).await;
+    setup.leave_group(conversation_id, &CHARLIE).await;
 
-    setup.delete_group(conversation_id, DAVE).await
+    setup.delete_group(conversation_id, &DAVE).await
 }
 
 #[actix_rt::test]
@@ -281,20 +286,20 @@ async fn benchmarks() {
     const NUM_MESSAGES: usize = 10;
 
     // Create alice
-    setup.add_user(ALICE).await;
+    setup.add_user(&ALICE).await;
 
     // Create bob
-    setup.add_user(BOB).await;
+    setup.add_user(&BOB).await;
 
     // Create many different bobs
-    let bobs: Vec<String> = (0..NUM_USERS)
-        .map(|i| format!("bob{}@example.com", i))
-        .collect::<Vec<String>>();
+    let bobs: Vec<QualifiedUserName> = (0..NUM_USERS)
+        .map(|i| format!("bob{i}@example.com").parse().unwrap())
+        .collect();
 
     // Measure the time it takes to create all the users
     let start = std::time::Instant::now();
     for bob in bobs.clone() {
-        setup.add_user(bob).await;
+        setup.add_user(&bob).await;
     }
     let elapsed = start.elapsed();
     println!(
@@ -306,7 +311,7 @@ async fn benchmarks() {
     // Measure the time it takes to connect all bobs with alice
     let start = std::time::Instant::now();
     for bob in bobs.clone() {
-        setup.connect_users(ALICE, bob).await;
+        setup.connect_users(&ALICE, &bob).await;
     }
     let elapsed = start.elapsed();
     println!(
@@ -316,13 +321,13 @@ async fn benchmarks() {
     );
 
     // Connect them
-    let conversation_alice_bob = setup.connect_users(ALICE, BOB).await;
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
 
     // Measure the time it takes to send a message
     let start = std::time::Instant::now();
     for _ in 0..NUM_MESSAGES {
         setup
-            .send_message(conversation_alice_bob, ALICE, vec![BOB])
+            .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
             .await;
     }
     let elapsed = start.elapsed();
@@ -333,13 +338,13 @@ async fn benchmarks() {
     );
 
     // Create an independent group
-    let conversation_id = setup.create_group(ALICE).await;
+    let conversation_id = setup.create_group(&ALICE).await;
 
     // Measure the time it takes to invite a user
     let start = std::time::Instant::now();
     for bob in bobs.clone() {
         setup
-            .invite_to_group(conversation_id, ALICE, vec![bob])
+            .invite_to_group(conversation_id, &ALICE, vec![&bob])
             .await;
     }
     let elapsed = start.elapsed();
@@ -353,7 +358,7 @@ async fn benchmarks() {
     let start = std::time::Instant::now();
     for _ in 0..NUM_MESSAGES {
         setup
-            .send_message(conversation_id, ALICE, bobs.clone())
+            .send_message(conversation_id, &ALICE, bobs.iter().collect())
             .await;
     }
     let elapsed = start.elapsed();
@@ -368,10 +373,9 @@ async fn benchmarks() {
 #[tracing::instrument(name = "User profile exchange test", skip_all)]
 async fn exchange_user_profiles() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
+    setup.add_user(&ALICE).await;
 
     // Set a user profile for alice
-    let alice_user_name: QualifiedUserName = SafeTryInto::try_into(ALICE).unwrap();
     let alice_display_name = DisplayName::try_from("4l1c3".to_string()).unwrap();
 
     // Create a new ImgBuf with width: 1px and height: 1px
@@ -400,44 +404,43 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
     let alice_profile = UserProfile::new(
-        alice_user_name.clone(),
+        (*ALICE).clone(),
         Some(alice_display_name.clone()),
         Some(alice_profile_picture.clone()),
     );
     setup
         .users
-        .get(&alice_user_name)
+        .get(&ALICE)
         .unwrap()
         .user
         .set_own_user_profile(alice_profile)
         .await
         .unwrap();
 
-    setup.add_user(BOB).await;
+    setup.add_user(&BOB).await;
 
     // Set a user profile for
-    let bob_user_name: QualifiedUserName = SafeTryInto::try_into(BOB).unwrap();
     let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile::new(
-        bob_user_name.clone(),
+        (*BOB).clone(),
         Some(bob_display_name.clone()),
         Some(bob_profile_picture.clone()),
     );
 
-    let user = &setup.users.get(&bob_user_name).unwrap().user;
+    let user = &setup.users.get(&BOB).unwrap().user;
     user.set_own_user_profile(bob_user_profile).await.unwrap();
     let new_profile = user.own_user_profile().await.unwrap();
     let Asset::Value(compressed_profile_picture) = new_profile.profile_picture().unwrap().clone();
 
-    setup.connect_users(ALICE, BOB).await;
+    setup.connect_users(&ALICE, &BOB).await;
 
     let bob_user_profile = setup
         .users
-        .get(&alice_user_name)
+        .get(&ALICE)
         .unwrap()
         .user
-        .user_profile(&bob_user_name)
+        .user_profile(&BOB)
         .await
         .unwrap()
         .unwrap();
@@ -456,10 +459,10 @@ async fn exchange_user_profiles() {
 
     let alice_user_profile = setup
         .users
-        .get(&bob_user_name)
+        .get(&BOB)
         .unwrap()
         .user
-        .user_profile(&alice_user_name)
+        .user_profile(&ALICE)
         .await
         .unwrap()
         .unwrap();
@@ -474,15 +477,12 @@ async fn exchange_user_profiles() {
 #[tracing::instrument(name = "Message retrieval test", skip_all)]
 async fn retrieve_conversation_messages() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
 
-    let conversation_id = setup.connect_users(ALICE, BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
 
-    let alice_test_user = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
-        .unwrap();
+    let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test_user.user;
 
     let number_of_messages = 10;
@@ -503,19 +503,14 @@ async fn retrieve_conversation_messages() {
     }
 
     // Let's see what Alice's messages for this conversation look like.
-    let mut messages_retrieved = setup
+    let messages_retrieved = setup
         .users
-        .get(&SafeTryInto::try_into(ALICE).unwrap())
+        .get(&ALICE)
         .unwrap()
         .user
         .get_messages(conversation_id, number_of_messages)
         .await
         .unwrap();
-
-    // remove neighbors because they are not included in sent messages
-    messages_retrieved.iter_mut().for_each(|m| {
-        m.take_neighbors();
-    });
 
     assert_eq!(messages_retrieved.len(), messages_sent.len());
     assert_eq!(messages_retrieved, messages_sent);
@@ -525,17 +520,14 @@ async fn retrieve_conversation_messages() {
 #[tracing::instrument(name = "Marking messages as read test", skip_all)]
 async fn mark_as_read() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    setup.add_user(BOB).await;
-    setup.add_user(CHARLIE).await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
 
-    let alice_bob_conversation = setup.connect_users(ALICE, BOB).await;
-    let bob_charlie_conversation = setup.connect_users(BOB, CHARLIE).await;
+    let alice_bob_conversation = setup.connect_users(&ALICE, &BOB).await;
+    let bob_charlie_conversation = setup.connect_users(&BOB, &CHARLIE).await;
 
-    let charlie_test_user = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
-        .unwrap();
+    let charlie_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut charlie_test_user.user;
 
     // Send a few messages
@@ -565,10 +557,7 @@ async fn mark_as_read() {
     let number_of_messages = 10;
     send_messages(alice, alice_bob_conversation, number_of_messages).await;
 
-    let bob_test_user = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(BOB).unwrap())
-        .unwrap();
+    let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
 
     // All messages should be unread
@@ -586,17 +575,11 @@ async fn mark_as_read() {
 
     // Let's send some messages between bob and charlie s.t. we can test the
     // global unread messages count.
-    let charlie_test_user = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(CHARLIE).unwrap())
-        .unwrap();
+    let charlie_test_user = setup.users.get_mut(&CHARLIE).unwrap();
     let charlie = &mut charlie_test_user.user;
     let messages_sent = send_messages(charlie, bob_charlie_conversation, number_of_messages).await;
 
-    let bob_test_user = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(BOB).unwrap())
-        .unwrap();
+    let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
 
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
@@ -632,13 +615,8 @@ async fn mark_as_read() {
 async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
-    setup.add_persisted_user(ALICE).await;
-    let client_id = setup
-        .users
-        .get(&SafeTryInto::try_into(ALICE).unwrap())
-        .unwrap()
-        .user
-        .as_client_id();
+    setup.add_persisted_user(&ALICE).await;
+    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
 
     // Try to load the user from the database.
     let user_result = CoreUser::load(client_id.clone(), "./").await.unwrap();
@@ -654,14 +632,12 @@ async fn client_persistence() {
 #[tracing::instrument(name = "Test server error if unknown user", skip_all)]
 async fn error_if_user_doesnt_exist() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(ALICE).await;
-    let alice_test = setup
-        .users
-        .get_mut(&SafeTryInto::try_into(ALICE).unwrap())
-        .unwrap();
+
+    setup.add_user(&ALICE).await;
+    let alice_test = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test.user;
 
-    let res = alice.add_contact(BOB).await;
+    let res = alice.add_contact((*BOB).clone()).await;
 
     assert!(res.is_err());
 }

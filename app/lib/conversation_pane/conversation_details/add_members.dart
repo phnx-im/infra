@@ -100,14 +100,9 @@ class AddMembersView extends StatelessWidget {
                             throw StateError(
                                 "an active conversation is obligatory");
                           }
-                          for (final userName in selectedContacts) {
-                            await context
-                                .read<UserCubit>()
-                                .addUserToConversation(
-                                  conversationId,
-                                  userName,
-                                );
-                          }
+                          await context
+                              .read<AddMembersCubit>()
+                              .addContacts(conversationId);
                           navigation.pop();
                         }
                       : null,

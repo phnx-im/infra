@@ -24,12 +24,14 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
+/// Represents the state of the list of conversations.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationListState {
     pub conversations: Vec<UiConversationDetails>,
 }
 
+/// Provides access to the list of conversations.
 #[frb(opaque)]
 pub struct ConversationListCubitBase {
     core: CubitCore<ConversationListState>,
@@ -74,12 +76,18 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
+    /// Creates a new 1:1 conenction with the given user.
+    ///
+    /// `user_name` is the fully qualified user name of the contact.
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_name).await?;
+        let id = self.context.store.add_contact(user_name.parse()?).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
 
+    /// Creates a new group conversation with the given name.
+    ///
+    /// After the conversation is created, the current user is the only member of the group.
     pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ConversationId> {
         let id = self
             .context

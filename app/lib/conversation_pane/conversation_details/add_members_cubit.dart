@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:collection';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:prototype/core/core.dart';
+import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core_client.dart';
 
 part 'add_members_cubit.freezed.dart';
 
@@ -17,20 +20,32 @@ class AddMembersState with _$AddMembersState {
 }
 
 class AddMembersCubit extends Cubit<AddMembersState> {
-  AddMembersCubit()
-      : super(
+  AddMembersCubit({
+    required CoreClient coreClient,
+  })  : _coreClient = coreClient,
+        super(
           const AddMembersState(
             contacts: [],
             selectedContacts: {},
           ),
         );
 
-  void loadContacts(Future<List<UiContact>> contacts) async {
-    emit(state.copyWith(contacts: await contacts));
+  final CoreClient _coreClient;
+
+  void loadContacts() async {
+    final contacts = await _coreClient.getContacts();
+    emit(state.copyWith(contacts: contacts));
+  }
+
+  Future<void> addContacts(ConversationId conversationId) async {
+    for (final userName in state.selectedContacts) {
+      await _coreClient.addUserToConversation(conversationId, userName);
+    }
+    emit(state.copyWith(selectedContacts: {}));
   }
 
   void toggleContact(UiContact contact) {
-    final selectedContacts = Set<String>.from(state.selectedContacts);
+    final selectedContacts = HashSet<String>.from(state.selectedContacts);
     if (selectedContacts.contains(contact.userName)) {
       selectedContacts.remove(contact.userName);
     } else {

@@ -7,10 +7,7 @@ use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;
-use phnxtypes::{
-    identifiers::{Fqdn, QsClientId},
-    messages::client_ds::QsWsMessage,
-};
+use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
 
 /// Test the websocket reconnect.
 #[actix_rt::test]
@@ -18,7 +15,7 @@ use phnxtypes::{
 async fn ws_reconnect() {
     let network_provider = MockNetworkProvider::new();
     let (address, _ws_dispatch) =
-        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
+        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
 
@@ -30,7 +27,7 @@ async fn ws_reconnect() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id, timeout, retry_interval)
@@ -56,7 +53,7 @@ async fn ws_reconnect() {
 async fn ws_sending() {
     let network_provider = MockNetworkProvider::new();
     let (address, ws_dispatch) =
-        spawn_app(Fqdn::try_from("example.com").unwrap(), network_provider).await;
+        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
 
@@ -68,7 +65,7 @@ async fn ws_sending() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::initialize(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let mut ws = client
         .spawn_websocket(client_id.clone(), timeout, retry_interval)

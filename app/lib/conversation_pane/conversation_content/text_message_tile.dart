@@ -9,43 +9,33 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
+import 'package:prototype/core_extension.dart';
 
 class TextMessageTile extends StatelessWidget {
-  const TextMessageTile(
-    this.contentFlight,
-    this.timestamp, {
+  const TextMessageTile({
+    required this.contentMessage,
+    required this.timestamp,
+    required this.flightPosition,
     super.key,
-    this.neighbors,
   });
 
-  final List<UiContentMessage> contentFlight;
+  final UiContentMessage contentMessage;
   final String timestamp;
-  final UiConversationMessageNeighbors? neighbors;
+  final UiFlightPosition flightPosition;
 
   @override
   Widget build(BuildContext context) {
     final userName = context.select((UserCubit cubit) => cubit.state.userName);
 
-    final isSender = contentFlight.last.sender == userName;
-    final isFirstFlightMessage = _isFlightBreakMessage(
-      neighbors?.prev,
-      contentFlight.first.sender,
-      timestamp,
-    );
-    final isLastFlightMessage = _isFlightBreakMessage(
-      neighbors?.next,
-      contentFlight.last.sender,
-      timestamp,
-    );
+    final isSender = contentMessage.sender == userName;
 
     return Column(
       children: [
-        if (!isSender && isFirstFlightMessage) _sender(context, false),
+        if (!isSender && flightPosition.isFirst) _sender(context, false),
         _messageSpace(
           context,
           isSender: isSender,
-          isFirstFlightMessage: isFirstFlightMessage,
-          isLastFlightMessage: isLastFlightMessage,
+          flightPosition: flightPosition,
         ),
       ],
     );
@@ -54,8 +44,7 @@ class TextMessageTile extends StatelessWidget {
   Widget _messageSpace(
     BuildContext context, {
     required bool isSender,
-    required bool isFirstFlightMessage,
-    required bool isLastFlightMessage,
+    required UiFlightPosition flightPosition,
   }) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
@@ -69,14 +58,14 @@ class TextMessageTile extends StatelessWidget {
           flex: 5,
           child: Container(
             padding: EdgeInsets.only(
-                top: isFirstFlightMessage ? 5 : 0,
-                bottom: isLastFlightMessage ? 5 : 0),
+                top: flightPosition.isFirst ? 5 : 0,
+                bottom: flightPosition.isLast ? 5 : 0),
             child: Column(
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _textContent(context, isSender),
-                if (isLastFlightMessage) ...[
+                _textMessage(context, contentMessage.content.body, isSender),
+                if (flightPosition.isLast) ...[
                   const SizedBox(height: 3),
                   _timestamp(context),
                 ],
@@ -138,15 +127,6 @@ class TextMessageTile extends StatelessWidget {
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _textContent(BuildContext context, bool isSender) {
-    final textMessages = contentFlight
-        .map((c) => _textMessage(context, c.content.body, isSender))
-        .toList();
-    return Column(
-      children: textMessages,
-    );
-  }
-
   Widget _textMessage(BuildContext context, String text, bool isSender) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.0),
@@ -183,9 +163,7 @@ class TextMessageTile extends StatelessWidget {
   Widget _username(bool isSender) {
     return SelectionContainer.disabled(
       child: Text(
-        isSender
-            ? "You"
-            : contentFlight.last.sender.split("@").firstOrNull ?? "",
+        isSender ? "You" : contentMessage.sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
           fontVariations: variationSemiBold,
@@ -196,27 +174,4 @@ class TextMessageTile extends StatelessWidget {
       ),
     );
   }
-}
-
-const _flightDurationThreshold = Duration(minutes: 1);
-
-bool _isFlightBreakMessage(
-  UiConversationMessageNeighbor? neighbor,
-  String sender,
-  String timestamp,
-) {
-  final senderUser = "user:$sender";
-  if (neighbor?.sender != senderUser) {
-    return true;
-  }
-
-  final prevTimestamp = neighbor?.timestamp;
-  if (prevTimestamp == null) {
-    return true;
-  }
-
-  final prevDateTime = DateTime.parse(prevTimestamp);
-  final curDateTime = DateTime.parse(timestamp);
-  final diff = curDateTime.difference(prevDateTime).abs();
-  return _flightDurationThreshold < diff;
 }

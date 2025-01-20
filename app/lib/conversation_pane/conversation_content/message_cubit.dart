@@ -11,11 +11,9 @@ import 'package:prototype/user_cubit.dart';
 class MessageCubit extends StateStreamableSource<MessageState> {
   MessageCubit({
     required UserCubit userCubit,
-    required UiConversationMessageId messageId,
     required MessageState initialState,
   }) : _impl = MessageCubitBase(
           userCubit: userCubit.impl,
-          messageId: messageId,
           initialState: initialState,
         );
 
@@ -34,8 +32,4 @@ class MessageCubit extends StateStreamableSource<MessageState> {
 
   @override
   Stream<MessageState> get stream => _impl.stream();
-
-  // Cubit methods
-
-  Future<void> markAsRead() => _impl.markAsRead();
 }

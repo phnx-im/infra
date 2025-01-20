@@ -4,11 +4,11 @@
 
 use std::{collections::BTreeMap, mem, sync::Arc};
 
-use log::{error, warn};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tokio_stream::{Stream, StreamExt};
+use tracing::{debug, error, warn};
 
 use crate::{ConversationId, ConversationMessageId};
 
@@ -117,11 +117,11 @@ impl StoreNotificationsSender {
     pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> {
         BroadcastStream::new(self.tx.subscribe()).filter_map(|res| match res {
             Ok(notification) => {
-                log::debug!("Received store notification: {:?}", notification);
+                debug!(?notification, "Received store notification");
                 Some(notification)
             }
             Err(BroadcastStreamRecvError::Lagged(n)) => {
-                error!("store notifications lagged by {} messages", n);
+                error!(n, "store notifications lagged");
                 None
             }
         })
@@ -138,16 +138,14 @@ impl Default for StoreNotificationsSender {
 ///
 /// Bundles all changes to the store, that is, all entities that have been added, updated or
 /// removed.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StoreNotification {
     pub ops: BTreeMap<StoreEntityId, StoreOperation>,
 }
 
 impl StoreNotification {
     fn empty() -> Self {
-        Self {
-            ops: Default::default(),
-        }
+        Self::default()
     }
 }
 

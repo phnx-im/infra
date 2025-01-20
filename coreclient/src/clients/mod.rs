@@ -38,7 +38,6 @@ use phnxtypes::{
     },
     identifiers::{
         AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
-        SafeTryInto,
     },
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
@@ -51,6 +50,7 @@ use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -67,6 +67,7 @@ use crate::{
         migration::run_migrations,
         persistence::{open_client_db, open_phnx_db},
     },
+    ConversationMessageId,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -117,13 +118,12 @@ impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: impl SafeTryInto<QualifiedUserName>,
+        user_name: QualifiedUserName,
         password: &str,
         server_url: impl ToString,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let user_name = user_name.try_into()?;
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
         let phnx_db_connection = open_phnx_db(db_path)?;
@@ -259,6 +259,12 @@ impl CoreUser {
         Ok(Some(self_user))
     }
 
+    pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
+        if !notification.ops.is_empty() {
+            self.inner.store_notifications_tx.notify(notification);
+        }
+    }
+
     pub(crate) fn subscribe_to_store_notifications(
         &self,
     ) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {
@@ -325,10 +331,10 @@ impl CoreUser {
         let mut cursor = std::io::Cursor::new(&mut buf);
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 90);
         encoder.encode_image(&image)?;
-        log::info!(
-            "Resized profile picture from {} to {} bytes",
-            image_bytes.len(),
-            buf.len()
+        info!(
+            from_bytes = image_bytes.len(),
+            to_bytes = buf.len(),
+            "Resized profile picture",
         );
         Ok(buf)
     }
@@ -623,17 +629,13 @@ impl CoreUser {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    pub async fn add_contact(
-        &self,
-        user_name: impl SafeTryInto<QualifiedUserName>,
-    ) -> Result<ConversationId> {
-        let user_name = user_name.try_into()?;
+    pub async fn add_contact(&self, user_name: QualifiedUserName) -> Result<ConversationId> {
         let params = UserConnectionPackagesParams {
             user_name: user_name.clone(),
         };
         // Phase 1: Fetch connection key packages from the AS
         let user_domain = user_name.domain();
-        log::info!("Adding contact {}", user_name);
+        info!(%user_name, "Adding contact");
         let user_key_packages = self
             .inner
             .api_clients
@@ -647,7 +649,7 @@ impl CoreUser {
             return Err(anyhow!("User {} does not exist", user_name));
         }
         // Phase 2: Verify the connection key packages
-        log::info!("Verifying connection packages");
+        info!("Verifying connection packages");
         let mut verified_connection_packages = vec![];
         for connection_package in user_key_packages.connection_packages.into_iter() {
             let as_intermediate_credential = AsCredentials::get(
@@ -666,7 +668,7 @@ impl CoreUser {
         // * Lifetime
 
         // Phase 3: Request a group id from the DS
-        log::info!("Requesting group id");
+        info!("Requesting group id");
         let group_id = self
             .inner
             .api_clients
@@ -675,7 +677,7 @@ impl CoreUser {
             .await?;
 
         // Phase 4: Prepare the connection locally
-        log::info!("Creating local connection group");
+        info!("Creating local connection group");
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
@@ -758,7 +760,7 @@ impl CoreUser {
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
-        log::info!("Creating connection group on DS");
+        info!("Creating connection group on DS");
         self.inner
             .api_clients
             .default_client()?
@@ -1159,6 +1161,25 @@ impl CoreUser {
         Ok(())
     }
 
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> Result<bool, rusqlite::Error> {
+        let connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
+        let marked_as_read = Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut notifier,
+            conversation_id,
+            until,
+        )?;
+        notifier.notify();
+        Ok(marked_as_read)
+    }
+
     /// Returns how many messages are marked as unread across all conversations.
     pub async fn global_unread_messages_count(&self) -> Result<u32, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
@@ -1170,8 +1191,8 @@ impl CoreUser {
     /// marked as unread.
     pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
         let connection = &self.inner.connection.lock().await;
-        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|e| {
-            log::error!("Error while fetching unread messages count: {:?}", e);
+        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
+            error!(%error, "Error while fetching unread messages count");
             0
         })
     }

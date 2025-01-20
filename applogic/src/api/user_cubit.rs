@@ -10,7 +10,7 @@ use flutter_rust_bridge::frb;
 use phnxapiclient::qs_api::ws::WsEvent;
 use phnxcoreclient::{clients::CoreUser, ConversationId};
 use phnxcoreclient::{Asset, UserProfile};
-use phnxtypes::identifiers::{QualifiedUserName, SafeTryInto};
+use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -200,7 +200,7 @@ impl UserCubitBase {
     /// Get the user profile of the user with the given [`QualifiedUserName`].
     #[frb(positional)]
     pub async fn user_profile(&self, user_name: String) -> anyhow::Result<Option<UiUserProfile>> {
-        let user_name = SafeTryInto::try_into(user_name)?;
+        let user_name = user_name.parse()?;
         let user_profile = self
             .core_user
             .user_profile(&user_name)
@@ -215,7 +215,7 @@ impl UserCubitBase {
         conversation_id: ConversationId,
         user_name: String,
     ) -> anyhow::Result<()> {
-        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        let user_name: QualifiedUserName = user_name.parse()?;
         self.core_user
             .invite_users(conversation_id, &[user_name])
             .await?;
@@ -228,7 +228,7 @@ impl UserCubitBase {
         conversation_id: ConversationId,
         user_name: String,
     ) -> anyhow::Result<()> {
-        let user_name: QualifiedUserName = SafeTryInto::try_into(user_name)?;
+        let user_name: QualifiedUserName = user_name.parse()?;
         self.core_user
             .remove_users(conversation_id, &[user_name])
             .await?;

@@ -5,6 +5,7 @@
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
+use tracing::info;
 
 use crate::{
     store::StoreNotifier,
@@ -54,8 +55,11 @@ impl Conversation {
         connection: &Connection,
         notifier: &mut StoreNotifier,
     ) -> Result<(), rusqlite::Error> {
-        log::info!("Storing conversation: {:?}", self.id);
-        log::info!("With title: {:?}", self.attributes().title());
+        info!(
+            id =% self.id,
+            title =% self.attributes().title(),
+            "Storing conversation"
+        );
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
             "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -177,6 +181,33 @@ impl Conversation {
             }
         }
         Ok(())
+    }
+
+    /// Mark all messages in the conversation as read until including the given message id.
+    pub(crate) fn mark_as_read_until_message_id(
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+        until_message_id: ConversationMessageId,
+    ) -> rusqlite::Result<bool> {
+        let timestamp: DateTime<Utc> = connection.query_row(
+            "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
+            params![until_message_id],
+            |row| row.get(0),
+        )?;
+        let updated = connection.execute(
+            "UPDATE conversations SET last_read = :timestamp
+            WHERE conversation_id = :conversation_id AND last_read != :timestamp",
+            named_params! {
+                ":conversation_id": conversation_id,
+                ":timestamp": timestamp,
+            },
+        )?;
+        let marked_as_read = updated == 1;
+        if marked_as_read {
+            notifier.update(conversation_id);
+        }
+        Ok(marked_as_read)
     }
 
     pub(crate) fn global_unread_message_count(

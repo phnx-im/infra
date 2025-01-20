@@ -16,11 +16,11 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (message, neighbors, timestamp) = context.select(
+    final (message, timestamp, position) = context.select(
       (MessageCubit cubit) => (
         cubit.state.message.message,
-        cubit.state.message.neighbors,
         cubit.state.message.timestamp,
+        cubit.state.message.position,
       ),
     );
 
@@ -32,8 +32,11 @@ class ConversationTile extends StatelessWidget {
       title: Container(
         alignment: AlignmentDirectional.centerStart,
         child: switch (message) {
-          UiMessage_ContentFlight(field0: final contentFlight) =>
-            TextMessageTile(contentFlight, timestamp, neighbors: neighbors),
+          UiMessage_Content(field0: final content) => TextMessageTile(
+              contentMessage: content,
+              timestamp: timestamp,
+              flightPosition: position,
+            ),
           UiMessage_Display(field0: final display) =>
             DisplayMessageTile(display, timestamp),
           UiMessage_Unsent(field0: final unsent) => Text(
