@@ -719,7 +719,7 @@ impl CoreUser {
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None).store(&connection, &mut notifier)?;
+        UserProfile::new(user_name, None, None).store_or_ignore(&connection, &mut notifier)?;
 
         drop(connection);
 

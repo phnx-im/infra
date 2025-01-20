@@ -12,7 +12,7 @@ CREATE TABLE own_client_info (
 );
 
 CREATE TABLE users (
-    user_name TEXT PRIMARY KEY,
+    user_name TEXT NOT NULL PRIMARY KEY,
     display_name TEXT,
     profile_picture BLOB
 );

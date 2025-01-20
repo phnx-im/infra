@@ -284,7 +284,7 @@ impl CoreUser {
         cep_tbs
             .friendship_package
             .user_profile
-            .store(&connection, notifier)?;
+            .store_or_ignore(&connection, notifier)?;
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&connection, notifier)?;
         // TODO: Here, we want to store a contact

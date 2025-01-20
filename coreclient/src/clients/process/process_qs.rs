@@ -130,7 +130,7 @@ impl CoreUser {
             .members(&transaction)
             .into_iter()
             .try_for_each(|user_name| {
-                UserProfile::new(user_name, None, None).store(&transaction, &mut notifier)
+                UserProfile::new(user_name, None, None).store_or_ignore(&transaction, &mut notifier)
             })?;
 
         // Set the conversation attributes according to the group's

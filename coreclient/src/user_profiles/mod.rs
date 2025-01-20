@@ -10,6 +10,7 @@ use std::fmt::Display;
 use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
+use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -62,6 +63,28 @@ impl UserProfile {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct DisplayName {
     display_name: String,
+}
+
+impl sqlx::Type<Sqlite> for DisplayName {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <String as sqlx::Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for DisplayName {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <String as Encode<Sqlite>>::encode_by_ref(&self.display_name, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for DisplayName {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let display_name = <String as Decode<Sqlite>>::decode(value)?;
+        Ok(Self { display_name })
+    }
 }
 
 impl FromSql for DisplayName {
@@ -137,6 +160,29 @@ impl tls_codec::DeserializeBytes for DisplayName {
 pub enum Asset {
     Value(Vec<u8>),
     // TODO: Assets by Reference
+}
+
+impl sqlx::Type<Sqlite> for Asset {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as sqlx::Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for Asset {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        match self {
+            Asset::Value(value) => <Vec<u8> as Encode<Sqlite>>::encode_by_ref(value, buf),
+        }
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for Asset {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        <Vec<u8> as Decode<Sqlite>>::decode(value).map(Asset::Value)
+    }
 }
 
 impl ToSql for Asset {
