@@ -39,7 +39,7 @@ class GroupDetails extends StatelessWidget {
           children: [
             UserAvatar(
                 size: 64,
-                image: conversation.attributes.conversationPictureOption,
+                image: conversation.attributes.picture,
                 username: conversation.username,
                 cacheTag: conversation.avatarCacheTag,
                 onPressed: () async {

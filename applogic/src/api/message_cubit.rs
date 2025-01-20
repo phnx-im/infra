@@ -165,9 +165,8 @@ async fn calculate_flight_position(
     store: &impl Store,
     message: &UiConversationMessage,
 ) -> StoreResult<UiFlightPosition> {
-    let id = message.id.into();
-    let prev_message = store.prev_message(id).await?.map(From::from);
-    let next_message = store.next_message(id).await?.map(From::from);
+    let prev_message = store.prev_message(message.id).await?.map(From::from);
+    let next_message = store.next_message(message.id).await?.map(From::from);
     Ok(UiFlightPosition::calculate(
         message,
         prev_message.as_ref(),

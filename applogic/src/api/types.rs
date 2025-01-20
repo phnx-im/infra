@@ -6,13 +6,12 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-pub use phnxcoreclient::ConversationId;
 use phnxcoreclient::{
     Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
-    ConversationMessageId, ConversationStatus, ConversationType, ErrorMessage, EventMessage,
-    InactiveConversation, Message, MessageId, MimiContent, NotificationType, SystemMessage,
-    UserProfile,
+    ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
+    Message, MessageId, MimiContent, NotificationType, SystemMessage, UserProfile,
 };
+pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -131,17 +130,14 @@ impl From<ConversationType> for UiConversationType {
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
     pub title: String,
-    pub conversation_picture_option: Option<Vec<u8>>,
+    pub picture: Option<Vec<u8>>,
 }
 
 impl fmt::Debug for UiConversationAttributes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UiConversationAttributes")
             .field("title", &self.title)
-            .field(
-                "conversation_picture_option",
-                &self.conversation_picture_option.as_ref().map(|b| b.len()),
-            )
+            .field("picture", &self.picture.as_ref().map(|b| b.len()))
             .finish()
     }
 }
@@ -150,9 +146,7 @@ impl From<ConversationAttributes> for UiConversationAttributes {
     fn from(attributes: ConversationAttributes) -> Self {
         Self {
             title: attributes.title().to_string(),
-            conversation_picture_option: attributes
-                .conversation_picture_option()
-                .map(|a| a.to_vec()),
+            picture: attributes.picture().map(|a| a.to_vec()),
         }
     }
 }
@@ -169,27 +163,19 @@ impl From<Conversation> for UiConversation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct UiConversationMessageId {
+#[frb(mirror(ConversationMessageId))]
+#[frb(dart_code = "
+    @override
+    String toString() => 'ConversationMessageId($uuid)';
+")]
+pub struct _ConversationMessageId {
     pub uuid: Uuid,
-}
-
-impl From<ConversationMessageId> for UiConversationMessageId {
-    fn from(id: ConversationMessageId) -> Self {
-        Self { uuid: id.to_uuid() }
-    }
-}
-
-impl From<UiConversationMessageId> for ConversationMessageId {
-    fn from(id: UiConversationMessageId) -> Self {
-        Self::from_uuid(id.uuid)
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationId,
-    pub id: UiConversationMessageId,
+    pub id: ConversationMessageId,
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
@@ -205,7 +191,7 @@ impl From<ConversationMessage> for UiConversationMessage {
     fn from(conversation_message: ConversationMessage) -> Self {
         Self {
             conversation_id: conversation_message.conversation_id(),
-            id: UiConversationMessageId::from(conversation_message.id()),
+            id: conversation_message.id(),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
             position: UiFlightPosition::Unique,
@@ -217,7 +203,6 @@ impl From<ConversationMessage> for UiConversationMessage {
 pub enum UiMessage {
     Content(Box<UiContentMessage>),
     Display(UiEventMessage),
-    Unsent(Box<UiMimiContent>),
 }
 
 impl From<Message> for UiMessage {
@@ -349,25 +334,7 @@ pub struct UiErrorMessage {
 impl From<ErrorMessage> for UiErrorMessage {
     fn from(error_message: ErrorMessage) -> Self {
         Self {
-            message: error_message.message().to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
-pub enum UiNotificationType {
-    ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(UiConversationMessage),
-}
-
-impl From<NotificationType> for UiNotificationType {
-    fn from(value: NotificationType) -> Self {
-        match value {
-            NotificationType::ConversationChange(conversation_id) => {
-                UiNotificationType::ConversationChange(conversation_id)
-            }
-            NotificationType::Message(message) => UiNotificationType::Message((*message).into()),
+            message: error_message.into(),
         }
     }
 }
@@ -452,7 +419,7 @@ impl From<Contact> for UiContact {
 pub struct UiUserProfile {
     pub user_name: String,
     pub display_name: Option<String>,
-    pub profile_picture_option: Option<Vec<u8>>,
+    pub profile_picture: Option<Vec<u8>>,
 }
 
 impl UiUserProfile {
@@ -460,7 +427,7 @@ impl UiUserProfile {
         Self {
             user_name: user_profile.user_name().to_string(),
             display_name: user_profile.display_name().map(|name| name.to_string()),
-            profile_picture_option: user_profile
+            profile_picture: user_profile
                 .profile_picture()
                 .and_then(|asset| asset.value())
                 .map(|bytes| bytes.to_vec()),

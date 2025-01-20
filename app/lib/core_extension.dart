@@ -19,8 +19,7 @@ extension UiConversationDetailsExtension on UiConversationDetails {
         UiConversationType_Group() => attributes.title,
       };
 
-  String get avatarCacheTag =>
-      'conv:$id:${attributes.conversationPictureOption?.hashCode}';
+  String get avatarCacheTag => 'conv:$id:${attributes.picture?.hashCode}';
 }
 
 extension UiConversationTypeExtension on UiConversationType {

@@ -39,9 +39,6 @@ class ConversationTile extends StatelessWidget {
             ),
           UiMessage_Display(field0: final display) =>
             DisplayMessageTile(display, timestamp),
-          UiMessage_Unsent(field0: final unsent) => Text(
-              "⚠️ UNSENT MESSAGE ⚠️ $unsent",
-              style: const TextStyle(color: Colors.red)),
         },
       ),
       selected: false,

@@ -65,7 +65,7 @@ impl TimestampedMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
-    uuid: Uuid,
+    pub uuid: Uuid,
 }
 
 impl ConversationMessageId {
@@ -309,6 +309,12 @@ impl ErrorMessage {
 
     pub fn message(&self) -> &str {
         self.message.as_ref()
+    }
+}
+
+impl From<ErrorMessage> for String {
+    fn from(ErrorMessage { message }: ErrorMessage) -> String {
+        message
     }
 }
 

@@ -94,7 +94,7 @@ class _ListTile extends StatelessWidget {
             UserAvatar(
               size: 48,
               cacheTag: conversation.avatarCacheTag,
-              image: conversation.attributes.conversationPictureOption,
+              image: conversation.attributes.picture,
               username: conversation.username,
             ),
             const SizedBox(width: Spacings.s),
@@ -252,10 +252,6 @@ class _LastMessage extends StatelessWidget {
           content.content.body
         ),
       UiMessage_Display() => (null, null),
-      UiMessage_Unsent(field0: final unsent) => (
-          null,
-          '⚠️ Unsent message: ${unsent.body}'
-        ),
       null => (null, null),
     };
 

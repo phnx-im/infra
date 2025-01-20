@@ -70,7 +70,7 @@ class MessageListView extends StatelessWidget {
                   : const SizedBox.shrink();
             },
             findChildIndexCallback: (key) {
-              final messageKey = key as ValueKey<UiConversationMessageId>;
+              final messageKey = key as ValueKey<ConversationMessageId>;
               final messageId = messageKey.value;
               final index = state.messageIdIndex(messageId);
               // reverse index
@@ -92,7 +92,7 @@ class _VisibilityConversationTile extends StatelessWidget {
     required this.timestamp,
   });
 
-  final UiConversationMessageId messageId;
+  final ConversationMessageId messageId;
   final DateTime timestamp;
 
   @override
@@ -114,7 +114,7 @@ class _VisibilityConversationTile extends StatelessWidget {
 
 class _VisibilityKeyValue {
   const _VisibilityKeyValue(this.id);
-  final UiConversationMessageId id;
+  final ConversationMessageId id;
 }
 
 final ScrollPhysics _scrollPhysics =
