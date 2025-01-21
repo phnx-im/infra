@@ -24,6 +24,7 @@ use crate::store::StoreNotifier;
 pub(crate) mod messages;
 pub(crate) mod persistence;
 
+/// Id of a conversation
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationId {
     pub uuid: Uuid,

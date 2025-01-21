@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Logged-in user feature
+
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,7 +29,7 @@ use crate::{
 
 use super::user::User;
 
-/// Logged in user
+/// State of the [`UserCubit`] which is the logged in user
 ///
 /// Opaque, cheaply clonable, copy-on-write type
 ///
@@ -100,9 +102,6 @@ impl UiUser {
 ///
 /// Allows other cubits to listen to the messages fetched from the server. In this regard, it is
 /// special because it is a constuction entry point of other cubits.
-///
-/// Note: this has a suffix `Base` because the corresponding Dart class does not implement
-/// `StateStreamableSource`, and therefore to impemlement it we need to wrap it Dart.
 #[frb(opaque)]
 pub struct UserCubitBase {
     state: Arc<RwLock<UiUser>>,

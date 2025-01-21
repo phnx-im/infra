@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Background execution on mobile platforms
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "android")]

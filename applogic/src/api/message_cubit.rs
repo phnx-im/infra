@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! A single message feature
+
 use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
@@ -22,7 +24,7 @@ use crate::{
 
 use super::{types::UiConversationMessage, user_cubit::UserCubitBase};
 
-/// State of a single message in a conversation.
+/// State of a single message in a conversation
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {

@@ -54,7 +54,7 @@ class _FutureUserAvatarState extends State<FutureUserAvatar> {
       future: _profileFuture,
       builder: (context, snapshot) => UserAvatar(
         username: snapshot.data?.userName ?? " ",
-        image: snapshot.data?.profilePictureOption,
+        image: snapshot.data?.profilePicture,
         size: widget.size,
         onPressed: widget.onPressed,
         cacheTag: widget.cacheTag,

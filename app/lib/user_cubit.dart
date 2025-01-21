@@ -31,8 +31,6 @@ class UserCubit implements StateStreamableSource<UiUser> {
   @override
   UiUser get state => _impl.state;
 
-  void setInt(int x) {}
-
   @override
   Stream<UiUser> get stream => _impl.stream();
 

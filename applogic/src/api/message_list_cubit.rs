@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! A list of messages feature
+
 use std::{collections::HashMap, pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
@@ -24,7 +26,7 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
-/// The state reprensenting a list of messages in a conversation.
+/// The state reprensenting a list of messages in a conversation
 ///
 /// The state is cheaply clonable (internally reference counted).
 #[frb(opaque)]
@@ -90,7 +92,7 @@ impl MessageListState {
         self.inner = Arc::new(inner); // copy on write
     }
 
-    /// The number of loaded messages in the list.
+    /// The number of loaded messages in the list
     ///
     /// Note that this is not the number of all messages in the conversation.
     #[frb(sync, getter, type_64bit_int)]

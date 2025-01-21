@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Types exposed to the Flutter app
+//!
+//! Some types are mirrored, especially identifiers. All types that are not mirrored are prefixed
+//! with `Ui`.
+
 use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
@@ -14,11 +19,8 @@ use phnxcoreclient::{
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct _GroupId {
-    pub uuid: Uuid,
-}
-
+/// Mirror of the [`ConversationId`] types
+#[doc(hidden)]
 #[frb(mirror(ConversationId))]
 #[frb(dart_code = "
     @override
@@ -28,39 +30,20 @@ pub struct _ConversationId {
     pub uuid: Uuid,
 }
 
-#[frb(dart_code = "
-    @override
-    String toString() => 'GroupId(${hex.encode(bytes)})';
-")]
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct GroupId {
-    pub bytes: Vec<u8>,
-}
-
-impl From<openmls::group::GroupId> for GroupId {
-    fn from(group_id: openmls::group::GroupId) -> Self {
-        Self {
-            bytes: group_id.as_slice().to_vec(),
-        }
-    }
-}
-
+/// A conversation which is a 1:1 connection or a group conversation
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversation {
     pub id: ConversationId,
-    // Id of the (active) MLS group representing this conversation.
-    pub group_id: GroupId,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
     pub attributes: UiConversationAttributes,
 }
 
+/// Details of a conversation
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(type_64bit_int)]
 pub struct UiConversationDetails {
     pub id: ConversationId,
-    // Id of the (active) MLS group representing this conversation.
-    pub group_id: GroupId,
     pub status: UiConversationStatus,
     pub conversation_type: UiConversationType,
     pub last_used: String,
@@ -70,6 +53,9 @@ pub struct UiConversationDetails {
     pub last_message: Option<UiConversationMessage>,
 }
 
+/// Status of a conversation
+///
+/// A conversation can be inactive or active.
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum UiConversationStatus {
     Inactive(UiInactiveConversation),
@@ -87,6 +73,7 @@ impl From<ConversationStatus> for UiConversationStatus {
     }
 }
 
+/// Inactive conversation with past members
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UiInactiveConversation {
     pub past_members: Vec<String>,
@@ -104,13 +91,15 @@ impl From<InactiveConversation> for UiInactiveConversation {
     }
 }
 
+/// Type of a conversation
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum UiConversationType {
-    // A connection conversation that is not yet confirmed by the other party.
+    /// A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(String),
-    // A connection conversation that is confirmed by the other party and for
-    // which we have received the necessary secrets.
+    /// A connection conversation that is confirmed by the other party and for which we have
+    /// received the necessary secrets.
     Connection(String),
+    /// A group conversation, that is, it can contains multiple participants.
     Group,
 }
 
@@ -128,9 +117,12 @@ impl From<ConversationType> for UiConversationType {
     }
 }
 
+/// Attributes of a conversation
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
+    /// Title of the conversation
     pub title: String,
+    /// Optional picture of the conversation
     pub picture: Option<Vec<u8>>,
 }
 
@@ -156,7 +148,6 @@ impl From<Conversation> for UiConversation {
     fn from(conversation: Conversation) -> Self {
         Self {
             id: conversation.id(),
-            group_id: GroupId::from(conversation.group_id().clone()),
             status: UiConversationStatus::from(conversation.status().clone()),
             conversation_type: UiConversationType::from(conversation.conversation_type().clone()),
             attributes: UiConversationAttributes::from(conversation.attributes().clone()),
@@ -164,6 +155,8 @@ impl From<Conversation> for UiConversation {
     }
 }
 
+/// Mirror of the [`ConversationMessageId`] type
+#[doc(hidden)]
 #[frb(mirror(ConversationMessageId))]
 #[frb(dart_code = "
     @override
@@ -173,6 +166,7 @@ pub struct _ConversationMessageId {
     pub uuid: Uuid,
 }
 
+/// A message in a conversation
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiConversationMessage {
     pub conversation_id: ConversationId,
@@ -200,6 +194,9 @@ impl From<ConversationMessage> for UiConversationMessage {
     }
 }
 
+/// The actual message in a conversation
+///
+/// Can be either a message to display (e.g. a system message) or a message from a user.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiMessage {
     Content(Box<UiContentMessage>),
@@ -219,6 +216,7 @@ impl From<Message> for UiMessage {
     }
 }
 
+/// Id of a message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiMessageId {
     pub id: Uuid,
@@ -234,12 +232,14 @@ impl From<MessageId> for UiMessageId {
     }
 }
 
+/// Information about a reply to another message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiReplyToInfo {
     pub message_id: UiMessageId,
     pub hash: Vec<u8>,
 }
 
+/// The actual content of a message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiMimiContent {
     pub id: UiMessageId,
@@ -276,6 +276,7 @@ impl From<MimiContent> for UiMimiContent {
     }
 }
 
+/// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
     pub sender: String,
@@ -299,6 +300,7 @@ impl From<Box<ContentMessage>> for UiContentMessage {
     }
 }
 
+/// Event message (e.g. a message from the system)
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiEventMessage {
     System(UiSystemMessage),
@@ -314,6 +316,7 @@ impl From<EventMessage> for UiEventMessage {
     }
 }
 
+/// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiSystemMessage {
     pub message: String,
@@ -327,6 +330,7 @@ impl From<SystemMessage> for UiSystemMessage {
     }
 }
 
+/// Error message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiErrorMessage {
     pub message: String,
@@ -340,7 +344,7 @@ impl From<ErrorMessage> for UiErrorMessage {
     }
 }
 
-/// Position of a conversation message in a flight.
+/// Position of a conversation message in a flight
 ///
 /// A flight is a sequence of messages that are grouped to be displayed together.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -404,8 +408,10 @@ impl UiFlightPosition {
     }
 }
 
+/// Contact of the logged-in user
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UiContact {
+    /// Fully qualified user name
     pub user_name: String,
 }
 
@@ -417,9 +423,13 @@ impl From<Contact> for UiContact {
     }
 }
 
+/// Profile of a user
 pub struct UiUserProfile {
+    /// Fully qualified user name
     pub user_name: String,
+    /// Optional display name
     pub display_name: Option<String>,
+    /// Optional profile picture
     pub profile_picture: Option<Vec<u8>>,
 }
 

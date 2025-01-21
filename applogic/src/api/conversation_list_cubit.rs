@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! List of conversations feature
+
 use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
@@ -39,6 +41,10 @@ pub struct ConversationListCubitBase {
 }
 
 impl ConversationListCubitBase {
+    /// Creates a new conversation list cubit.
+    ///
+    /// Loads the list of conversations in the background and listens to the changes in the
+    /// conversations.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user.clone();
@@ -76,7 +82,7 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
-    /// Creates a new 1:1 conenction with the given user.
+    /// Creates a new 1:1 connection with the given user.
     ///
     /// `user_name` is the fully qualified user name of the contact.
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
@@ -212,13 +218,12 @@ pub(super) async fn converation_into_ui_details(
     let conversation = UiConversation::from(conversation);
     UiConversationDetails {
         id: conversation.id,
-        group_id: conversation.group_id,
         status: conversation.status,
         conversation_type: conversation.conversation_type,
         last_used,
         attributes: conversation.attributes,
-        messages_count: TryInto::try_into(messages_count).expect("usize overflow"),
-        unread_messages: TryInto::try_into(unread_messages).expect("usize overflow"),
+        messages_count,
+        unread_messages,
         last_message,
     }
 }

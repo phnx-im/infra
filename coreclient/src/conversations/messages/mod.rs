@@ -63,6 +63,7 @@ impl TimestampedMessage {
     }
 }
 
+/// Identifier of a message in a conversation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
     pub uuid: Uuid,

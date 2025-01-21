@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{anyhow, Result};
+//! User features
+
+use anyhow::{anyhow, Context, Result};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::{store::ClientRecord, CoreUser},
@@ -13,6 +15,7 @@ use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
 
+/// Platform specific push token
 pub enum PlatformPushToken {
     Apple(String),
     Google(String),
@@ -27,6 +30,11 @@ impl From<PlatformPushToken> for PushToken {
     }
 }
 
+/// The user of the app
+///
+/// Reponsible for loading or creating/registering the user.
+// TODO: Most likely, it makes sense to move this to the `user_cubit` module. The loading and
+// creation can be free functions there. The other functionality can be attach to the `UserCubit`.
 pub struct User {
     pub(crate) user: CoreUser,
 }
@@ -36,6 +44,9 @@ impl User {
         Self { user: core_user }
     }
 
+    /// Creates a new user with the given `user_name`.
+    ///
+    /// If a user with this name already exists, this will overwrite that user.
     pub async fn new(
         user_name: String,
         password: String,
@@ -65,17 +76,14 @@ impl User {
             error!(%error, "Could not set own user profile");
         }
 
-        Ok(Self {
-            user: user.clone(),
-            // app_state: AppState::new(user),
-            // notification_hub: NotificationHub::<DartNotifier>::default(),
-        })
+        Ok(Self { user })
     }
 
+    /// Loads the user from the given database path.
     pub async fn load_default(path: String) -> Result<User> {
         let client_record = ClientRecord::load_all_from_phnx_db(&path)?
             .pop()
-            .ok_or_else(|| anyhow!("No user found."))?;
+            .context("No user found")?;
         let as_client_id = client_record.as_client_id;
         let user = CoreUser::load(as_client_id.clone(), &path)
             .await?
@@ -98,7 +106,8 @@ impl User {
         Ok(())
     }
 
-    #[frb(getter)]
+    /// Total number of unread messages across all conversations
+    #[frb(getter, type_64bit_int)]
     pub async fn global_unread_messages_count(&self) -> usize {
         self.user
             .global_unread_messages_count()
@@ -106,6 +115,7 @@ impl User {
             .unwrap_or_default()
     }
 
+    /// The user name of the logged in user
     #[frb(getter)]
     pub async fn user_name(&self) -> String {
         self.user.user_name().to_string()
