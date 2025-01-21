@@ -43,7 +43,7 @@ pub trait LocalStore {
 
     async fn create_conversation(
         &self,
-        title: &str,
+        title: String,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<ConversationId>;
 

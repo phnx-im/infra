@@ -117,7 +117,7 @@ impl GroupMembership {
         Ok(())
     }
 
-    pub(in crate::groups) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT OR IGNORE INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
             params![
