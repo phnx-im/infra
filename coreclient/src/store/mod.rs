@@ -5,7 +5,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -61,10 +60,11 @@ pub trait LocalStore {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<HashSet<QualifiedUserName>>>;
 
-    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
-    where
-        I: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send,
-        I::IntoIter: Send;
+    async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> StoreResult<bool>;
 
     async fn delete_conversation(
         &self,
@@ -99,10 +99,22 @@ pub trait LocalStore {
         message_id: ConversationMessageId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn prev_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>>;
+
+    async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>>;
+
     async fn last_message(
         &self,
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>>;
+
+    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
 
     async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
 
@@ -117,6 +129,8 @@ pub trait LocalStore {
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
 
     // observability
+
+    fn notify(&self, notification: StoreNotification);
 
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
 }

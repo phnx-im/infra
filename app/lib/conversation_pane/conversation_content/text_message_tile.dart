@@ -10,28 +10,46 @@ import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
+import 'package:prototype/core_extension.dart';
 
 class TextMessageTile extends StatelessWidget {
-  final List<UiContentMessage> contentFlight;
+  const TextMessageTile({
+    required this.contentMessage,
+    required this.timestamp,
+    required this.flightPosition,
+    super.key,
+  });
+
+  final UiContentMessage contentMessage;
   final String timestamp;
-  const TextMessageTile(this.contentFlight, this.timestamp, {super.key});
+  final UiFlightPosition flightPosition;
 
   @override
   Widget build(BuildContext context) {
     final userName = context.select((UserCubit cubit) => cubit.state.userName);
-    final isSender = contentFlight.last.sender == userName;
+
+    final isSender = contentMessage.sender == userName;
 
     return Column(
       children: [
-        if (!isSender) _sender(context, false),
-        _messageSpace(context, isSender),
+        if (!isSender && flightPosition.isFirst) _sender(context, false),
+        _messageSpace(
+          context,
+          isSender: isSender,
+          flightPosition: flightPosition,
+        ),
       ],
     );
   }
 
-  Widget _messageSpace(BuildContext context, bool isSender) {
+  Widget _messageSpace(
+    BuildContext context, {
+    required bool isSender,
+    required UiFlightPosition flightPosition,
+  }) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
+
     return Row(
       mainAxisAlignment:
           isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -40,15 +58,18 @@ class TextMessageTile extends StatelessWidget {
         Flexible(
           flex: 5,
           child: Container(
-            padding:
-                const EdgeInsets.only(left: 0, right: 0, top: 5, bottom: 5),
+            padding: EdgeInsets.only(
+                top: flightPosition.isFirst ? 5 : 0,
+                bottom: flightPosition.isLast ? 5 : 0),
             child: Column(
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _textContent(context, isSender),
-                const SizedBox(height: 3),
-                _timestamp(context),
+                _textMessage(context, contentMessage.content.body, isSender),
+                if (flightPosition.isLast) ...[
+                  const SizedBox(height: 3),
+                  _timestamp(context),
+                ],
               ],
             ),
           ),
@@ -74,8 +95,8 @@ class TextMessageTile extends StatelessWidget {
 
   Widget _avatar(BuildContext context) {
     return FutureUserAvatar(
-      profile: () => context.coreClient.user
-          .userProfile(userName: contentFlight.last.sender),
+      profile: () =>
+          context.coreClient.user.userProfile(userName: contentMessage.sender),
     );
   }
 
@@ -108,15 +129,6 @@ class TextMessageTile extends StatelessWidget {
     }
     // Otherwise show the time
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
-  }
-
-  Widget _textContent(BuildContext context, bool isSender) {
-    final textMessages = contentFlight
-        .map((c) => _textMessage(context, c.content.body, isSender))
-        .toList();
-    return Column(
-      children: textMessages,
-    );
   }
 
   Widget _textMessage(BuildContext context, String text, bool isSender) {
@@ -155,9 +167,7 @@ class TextMessageTile extends StatelessWidget {
   Widget _username(bool isSender) {
     return SelectionContainer.disabled(
       child: Text(
-        isSender
-            ? "You"
-            : contentFlight.last.sender.split("@").firstOrNull ?? "",
+        isSender ? "You" : contentMessage.sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
           fontVariations: variationSemiBold,

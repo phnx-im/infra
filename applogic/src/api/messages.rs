@@ -7,16 +7,11 @@ use chrono::{DateTime, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::process::process_qs::ProcessedQsMessages, ConversationId, ConversationMessage,
-    Message, MimiContent,
 };
 
 use crate::notifier::{dispatch_conversation_notifications, dispatch_message_notifications};
 
-use super::{
-    notifications::LocalNotificationContent,
-    types::{UiConversationMessage, UiMessage},
-    user::User,
-};
+use super::{notifications::LocalNotificationContent, types::UiConversationMessage, user::User};
 
 #[frb(ignore)]
 #[derive(Debug, Default)]
@@ -106,18 +101,6 @@ impl User {
         Ok(())
     }
 
-    pub async fn send_message(
-        &self,
-        conversation_id: ConversationId,
-        message: String,
-    ) -> Result<UiConversationMessage> {
-        let content = MimiContent::simple_markdown_message(self.user.user_name().domain(), message);
-        self.user
-            .send_message(conversation_id, content)
-            .await
-            .map(|m| m.into())
-    }
-
     pub async fn get_messages(
         &self,
         conversation_id: ConversationId,
@@ -128,8 +111,10 @@ impl User {
             .get_messages(conversation_id, last_n as usize)
             .await
             .unwrap_or_default();
-
-        group_messages(messages)
+        messages
+            .into_iter()
+            .map(UiConversationMessage::from)
+            .collect()
     }
 
     /// This function is called from the flutter side to mark messages as read.
@@ -156,52 +141,11 @@ impl User {
     }
 
     /// Get the unread messages count across all conversations.
-    pub async fn global_unread_messages_count(&self) -> u32 {
+    #[frb(type_64bit_int)]
+    pub async fn global_unread_messages_count(&self) -> usize {
         self.user
             .global_unread_messages_count()
             .await
             .unwrap_or_default()
     }
-}
-
-pub(crate) fn group_messages(messages: Vec<ConversationMessage>) -> Vec<UiConversationMessage> {
-    let mut grouped_messages = Vec::new();
-    let mut iter = messages.into_iter().peekable();
-
-    while let Some(conversation_message) = iter.next() {
-        let mut timestamp = conversation_message.timestamp();
-        let Message::Content(content_message) = conversation_message.message() else {
-            // Directly add non-content messages
-            grouped_messages.push(conversation_message.into());
-            continue;
-        };
-
-        let mut current_flight = vec![content_message.clone().into()];
-        let current_sender = content_message.sender().to_string();
-
-        // Keep collecting messages from the same sender
-        while let Some(next_message) = iter.peek() {
-            let temp_timestamp = next_message.timestamp();
-            let Message::Content(next_content_message) = next_message.message() else {
-                break;
-            };
-            if next_content_message.sender() != current_sender {
-                break;
-            }
-            let next_content_message = next_content_message.clone();
-            // Consume the next message and add it to the current flight
-            let _ = iter.next();
-            timestamp = temp_timestamp;
-            current_flight.push(next_content_message.into());
-        }
-
-        // Add the grouped messages to the result
-        grouped_messages.push(UiConversationMessage {
-            message: UiMessage::ContentFlight(current_flight),
-            timestamp: timestamp.to_rfc3339(),
-            ..conversation_message.into()
-        });
-    }
-
-    grouped_messages
 }

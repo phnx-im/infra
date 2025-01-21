@@ -10,6 +10,7 @@ use phnxtypes::{
     identifiers::QsClientReference,
 };
 use rusqlite::Connection;
+use tracing::error;
 
 use crate::{
     conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
@@ -85,6 +86,35 @@ impl CoreUser {
     ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
         ConversationMessage::load(connection, &message_id.to_uuid())
+    }
+
+    pub(crate) async fn prev_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<Option<ConversationMessage>> {
+        let connection = &self.inner.connection.lock().await;
+        Ok(ConversationMessage::prev_message(connection, message_id)?)
+    }
+
+    pub(crate) async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> Result<Option<ConversationMessage>> {
+        let connection = &self.inner.connection.lock().await;
+        Ok(ConversationMessage::next_message(connection, message_id)?)
+    }
+
+    pub async fn last_message(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<ConversationMessage> {
+        let connection = &self.inner.connection.lock().await;
+        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(
+            |error| {
+                error!(%error, "Error while fetching last message");
+                None
+            },
+        )
     }
 
     pub(crate) async fn try_last_message(

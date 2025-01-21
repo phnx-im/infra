@@ -23,7 +23,7 @@ pub(crate) struct IncomingNotificationContent {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct NotificationBatch {
-    badge_count: u32,
+    badge_count: usize,
     removals: Vec<String>,
     additions: Vec<NotificationContent>,
 }

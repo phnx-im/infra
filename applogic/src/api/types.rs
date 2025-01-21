@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 pub use phnxcoreclient::ConversationId;
 use phnxcoreclient::{
@@ -57,6 +57,7 @@ pub struct UiConversation {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(type_64bit_int)]
 pub struct UiConversationDetails {
     pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
@@ -65,7 +66,8 @@ pub struct UiConversationDetails {
     pub conversation_type: UiConversationType,
     pub last_used: String,
     pub attributes: UiConversationAttributes,
-    pub unread_messages: u32,
+    pub messages_count: usize,
+    pub unread_messages: usize,
     pub last_message: Option<UiConversationMessage>,
 }
 
@@ -191,6 +193,13 @@ pub struct UiConversationMessage {
     pub id: UiConversationMessageId,
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
+    pub position: UiFlightPosition,
+}
+
+impl UiConversationMessage {
+    pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
+        self.timestamp.parse().ok()
+    }
 }
 
 impl From<ConversationMessage> for UiConversationMessage {
@@ -200,13 +209,14 @@ impl From<ConversationMessage> for UiConversationMessage {
             id: UiConversationMessageId::from(conversation_message.id()),
             timestamp: conversation_message.timestamp().to_rfc3339(),
             message: UiMessage::from(conversation_message.message().clone()),
+            position: UiFlightPosition::Single,
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiMessage {
-    ContentFlight(Vec<UiContentMessage>),
+    Content(Box<UiContentMessage>),
     Display(UiEventMessage),
     Unsent(Box<UiMimiContent>),
 }
@@ -215,7 +225,7 @@ impl From<Message> for UiMessage {
     fn from(message: Message) -> Self {
         match message {
             Message::Content(content_message) => {
-                UiMessage::ContentFlight(vec![UiContentMessage::from(content_message)])
+                UiMessage::Content(Box::new(UiContentMessage::from(content_message)))
             }
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
@@ -358,12 +368,76 @@ impl From<NotificationType> for UiNotificationType {
             NotificationType::ConversationChange(conversation_id) => {
                 UiNotificationType::ConversationChange(conversation_id)
             }
-            NotificationType::Message(message) => UiNotificationType::Message(message.into()),
+            NotificationType::Message(message) => UiNotificationType::Message((*message).into()),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+/// Position of a conversation message in a flight.
+///
+/// A flight is a sequence of messages that are grouped to be displayed together.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiFlightPosition {
+    /// The message is the only message in the flight.
+    Single,
+    /// The message is the first message in the flight and the flight has more than one message.
+    Start,
+    /// The message is in the middle of the flight and the flight has more than one message.
+    Middle,
+    /// The message is the last message in the flight and the flight has more than one message.
+    End,
+}
+
+impl UiFlightPosition {
+    /// Calculate the position of a `message` in a flight.
+    ///
+    /// The position is determined by the message and its previous and next messages in the
+    /// conversation timeline.
+    ///
+    /// The implementation of this function defines which messages are grouped together in a
+    /// flight.
+    pub(crate) fn calculate(
+        message: &UiConversationMessage,
+        prev_message: Option<&UiConversationMessage>,
+        next_message: Option<&UiConversationMessage>,
+    ) -> Self {
+        match (prev_message, next_message) {
+            (None, None) => Self::Single,
+            (Some(_prev), None) => Self::End,
+            (None, Some(_next)) => Self::Start,
+            (Some(prev), Some(next)) => {
+                let at_flight_start = Self::flight_break_condition(prev, message);
+                let at_flight_end = Self::flight_break_condition(message, next);
+                match (at_flight_start, at_flight_end) {
+                    (true, true) => Self::Single,
+                    (true, false) => Self::Start,
+                    (false, true) => Self::End,
+                    (false, false) => Self::Middle,
+                }
+            }
+        }
+    }
+
+    /// Returns true if there is a flight break between the messages `a` and `b`.
+    fn flight_break_condition(a: &UiConversationMessage, b: &UiConversationMessage) -> bool {
+        const TIME_THRESHOLD: Duration = Duration::minutes(1);
+        match (&a.message, &b.message) {
+            (UiMessage::Content(a_content), UiMessage::Content(b_content)) => {
+                a_content.sender != b_content.sender
+                    || a.timestamp()
+                        .zip(b.timestamp())
+                        .map(|(a_timestamp, b_timestamp)| {
+                            TIME_THRESHOLD <= b_timestamp.signed_duration_since(a_timestamp).abs()
+                        })
+                        .unwrap_or(true)
+            }
+            // all non-content messages are considered to be flight breaks
+            _ => true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UiContact {
     pub user_name: String,
 }

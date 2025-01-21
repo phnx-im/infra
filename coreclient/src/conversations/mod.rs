@@ -145,6 +145,10 @@ impl Conversation {
         &self.attributes
     }
 
+    pub fn last_read(&self) -> DateTime<Utc> {
+        self.last_read
+    }
+
     pub(crate) fn owner_domain(&self) -> Fqdn {
         let qgid = QualifiedGroupId::try_from(self.group_id.clone()).unwrap();
         qgid.owning_domain().clone()

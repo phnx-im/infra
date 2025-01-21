@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
-use notify_rust::Notification;
 use tokio::sync::Mutex;
 
 pub(crate) use phnxcoreclient::{ConversationId, ConversationMessage, NotificationType};
@@ -88,14 +86,14 @@ pub(crate) async fn dispatch_message_notifications<T: Notifiable>(
         .dispatch_notifications(
             conversation_messages
                 .into_iter()
-                .map(NotificationType::Message)
+                .map(NotificationType::message)
                 .collect(),
         )
         .await;
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-pub(crate) fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
+pub(crate) fn init_desktop_os_notifications() -> anyhow::Result<(), notify_rust::error::Error> {
     #[cfg(target_os = "macos")]
     {
         let res = notify_rust::set_application("im.phnx.prototype");
@@ -112,7 +110,7 @@ pub(crate) fn show_desktop_notifications(
     notifications: &[crate::api::notifications::LocalNotificationContent],
 ) {
     for notification in notifications {
-        if let Err(error) = Notification::new()
+        if let Err(error) = notify_rust::Notification::new()
             .summary(notification.title.as_str())
             .body(notification.body.as_str())
             .show()
