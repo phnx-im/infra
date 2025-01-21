@@ -126,7 +126,7 @@ pub fn default_capabilities() -> Capabilities {
 }
 
 pub(crate) struct PartialCreateGroupParams {
-    group_id: GroupId,
+    pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
     user_auth_key: UserAuthVerifyingKey,
@@ -197,11 +197,11 @@ impl Group {
 
     /// Create a group.
     pub(super) fn create_group(
-        connection: &mut Connection,
+        provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
         group_id: GroupId,
         group_data: GroupData,
-    ) -> Result<(Self, PartialCreateGroupParams)> {
+    ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
         let credential_ear_key = ClientCredentialEarKey::random()?;
         let user_auth_key = UserAuthSigningKey::generate()?;
         let group_state_ear_key = GroupStateEarKey::random()?;
@@ -225,8 +225,6 @@ impl Group {
         let gc_extensions =
             Extensions::from_vec(vec![group_data_extension, required_capabilities])?;
 
-        let transaction = connection.transaction()?;
-        let provider = &PhnxOpenMlsProvider::new(&transaction);
         let mls_group = MlsGroup::builder()
             .with_group_id(group_id.clone())
             // This is turned on for now, as it makes OpenMLS return GroupInfos
@@ -244,25 +242,18 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info::<PhnxOpenMlsProvider>(
-                provider,
-                &leaf_signer,
-                true,
-            )?,
+            group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
             user_auth_key: user_auth_key.verifying_key().clone(),
             encrypted_signature_ear_key,
         };
 
-        GroupMembership::new(
+        let group_membership = GroupMembership::new(
             signer.credential().identity(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
             signature_ear_key,
             signer.credential().fingerprint(),
-        )
-        .store(&transaction)?;
-
-        transaction.commit()?;
+        );
 
         let group = Self {
             group_id,
@@ -275,7 +266,7 @@ impl Group {
             pending_diff: None,
         };
 
-        Ok((group, params))
+        Ok((group, group_membership, params))
     }
 
     /// Join a group with the provided welcome message. If there exists a group
