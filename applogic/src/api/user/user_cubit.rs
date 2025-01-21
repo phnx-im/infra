@@ -280,11 +280,11 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) -> anyho
     Ok(())
 }
 
-async fn process_fetched_messages(fetched_messages: FetchedMessages) {
+async fn process_fetched_messages(_fetched_messages: FetchedMessages) {
     // Send a notification to the OS (desktop only)
     //
     // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
     // we delegate it to a different place.
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    crate::notifier::show_desktop_notifications(&fetched_messages.notifications_content);
+    crate::notifier::show_desktop_notifications(&_fetched_messages.notifications_content);
 }

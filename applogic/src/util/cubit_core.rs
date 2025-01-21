@@ -83,9 +83,19 @@ impl<S> CubitCore<S>
 where
     S: SseEncode + Default + Clone + Send + Sync + fmt::Debug + 'static,
 {
-    /// Creates a new [`CubitCore`] and spawns the emitter task
+    /// Creates a new [`CubitCore`] with default initial state and spawns the emitter task
     pub(crate) fn new() -> Self {
-        let (state_tx, state_rx) = watch::channel(S::default());
+        Self::with_initial_state(S::default())
+    }
+}
+
+impl<S> CubitCore<S>
+where
+    S: SseEncode + Clone + Send + Sync + fmt::Debug + 'static,
+{
+    /// Creates a new [`CubitCore`] with provided initial state and spawns the emitter task
+    pub(crate) fn with_initial_state(state: S) -> Self {
+        let (state_tx, state_rx) = watch::channel(state);
         let (sinks_tx, sinks_rx) = mpsc::channel(16);
         let cancel = CancellationToken::new();
 

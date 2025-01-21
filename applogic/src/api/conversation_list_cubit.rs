@@ -21,12 +21,14 @@ use crate::StreamSink;
 use super::user::user_cubit::UserCubitBase;
 use super::{conversations::ConversationsExt, types::UiConversationDetails};
 
+/// Represents the state of the list of conversations.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationListState {
     pub conversations: Vec<UiConversationDetails>,
 }
 
+/// Provides access to the list of conversations.
 #[frb(opaque)]
 pub struct ConversationListCubitBase {
     core: CubitCore<ConversationListState>,
@@ -71,12 +73,18 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
+    /// Creates a new 1:1 conenction with the given user.
+    ///
+    /// `user_name` is the fully qualified user name of the contact.
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
         let id = self.context.store.add_contact(user_name.parse()?).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
 
+    /// Creates a new group conversation with the given name.
+    ///
+    /// After the conversation is created, the current user is the only member of the group.
     pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ConversationId> {
         let id = self
             .context
@@ -111,24 +119,24 @@ where
     ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(store_notifications, stop)
+            self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
 
     async fn load_and_emit_state(&self) {
         let conversations = self.store.conversation_details().await;
-        debug!("load_and_emit_state {conversations:?}");
+        debug!(?conversations, "load_and_emit_state");
         self.state_tx
             .send_modify(|state| state.conversations = conversations);
     }
 
-    async fn fetched_messages_listen_loop(
+    async fn store_notifications_loop(
         self,
         store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications.fuse());
+        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,

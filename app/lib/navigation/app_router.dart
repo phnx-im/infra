@@ -173,7 +173,7 @@ extension on HomeNavigation {
       if (conversationId != null && screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
-          child: ConversationPane(),
+          child: ConversationPaneContainer(),
         ),
       if (conversationId != null && conversationDetailsOpen)
         const MaterialPage(

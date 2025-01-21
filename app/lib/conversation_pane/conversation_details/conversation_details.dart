@@ -27,6 +27,7 @@ class ConversationDetailsContainer extends StatelessWidget {
     }
 
     return BlocProvider(
+      key: ValueKey(conversationId),
       create: (context) => ConversationDetailsCubit(
         userCubit: context.read(),
         conversationId: conversationId,

@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
-import 'package:prototype/core_extension.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
+
+import 'conversation_details/conversation_details_cubit.dart';
 
 enum Direction { right, left }
 
@@ -56,18 +55,17 @@ class _MessageComposerState extends State<MessageComposer> {
     "@Eve",
   ];
 
-  UiConversationDetails? _currentConversation;
-  late StreamSubscription<UiConversationDetails> _listener;
-
-  HashMap<ConversationId, String> drafts = HashMap();
-
   // Override constructor
   _MessageComposerState() {
     (_controller as CustomTextEditingController).keywords = _keywords;
   }
 
   // Key events
-  KeyEventResult onKeyEvent(FocusNode node, KeyEvent evt) {
+  KeyEventResult _onKeyEvent(
+    ConversationDetailsCubit conversationDetailCubit,
+    FocusNode node,
+    KeyEvent evt,
+  ) {
     final keyId = evt.logicalKey.keyId;
     if (!HardwareKeyboard.instance.isShiftPressed &&
         !HardwareKeyboard.instance.isAltPressed &&
@@ -75,7 +73,7 @@ class _MessageComposerState extends State<MessageComposer> {
         !HardwareKeyboard.instance.isControlPressed &&
         (evt.logicalKey.keyLabel == "Enter") &&
         (evt is KeyDownEvent)) {
-      submitMessage();
+      _submitMessage(conversationDetailCubit);
       return KeyEventResult.handled;
       // Arrow keys
     } else if (keyId == LogicalKeyboardKey.arrowLeft.keyId ||
@@ -117,61 +115,34 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void initState() {
     super.initState();
-    final coreClient = context.coreClient;
-    _listener = coreClient.onConversationSwitch.listen(conversationListener);
-    _currentConversation = coreClient.currentConversation;
-    _focusNode.onKeyEvent = onKeyEvent;
+    _focusNode.onKeyEvent =
+        (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
   }
 
-  @override
-  void dispose() {
-    _listener.cancel();
-    super.dispose();
-  }
-
-  void conversationListener(UiConversationDetails cc) {
-    // Store draft for the current conversation
-    if (_currentConversation != null) {
-      drafts.addEntries([MapEntry(_currentConversation!.id, _controller.text)]);
-    }
-    setState(() {
-      _currentConversation = cc;
-      _controller.clear();
-      // Look up previous drafts
-      String? draft = drafts.remove(_currentConversation!.id);
-      if (draft != null) {
-        _controller.text = draft;
-      }
-    });
-  }
-
-  void submitMessage() async {
-    var message = utf8.encode(_controller.text.trim());
-    if (message.isEmpty) {
+  void _submitMessage(ConversationDetailsCubit conversationDetailsCubit) async {
+    final messageText = _controller.text.trim();
+    if (messageText.isEmpty) {
       return;
     }
 
-    final messageText = _controller.text.trim();
+    // FIXME: Handle errors
+    conversationDetailsCubit.sendMessage(messageText);
 
     setState(() {
       _controller.clear();
       _focusNode.requestFocus();
     });
-
-    final coreClient = context.coreClient;
-    await coreClient.sendMessage(
-        coreClient.currentConversation!.id, messageText);
-  }
-
-  String? hintText() {
-    if (_currentConversation case final conversation?) {
-      return "Message ${conversation.title}";
-    }
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final conversationTitle = context.select((ConversationDetailsCubit cubit) =>
+        cubit.state.conversation?.attributes.title);
+
+    if (conversationTitle == null) {
+      return const SizedBox.shrink();
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
       padding: const EdgeInsets.only(
@@ -182,26 +153,24 @@ class _MessageComposerState extends State<MessageComposer> {
       ),
       child: Column(
         children: [
-          if (_currentConversation != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                height: 1.5,
-                color: colorGreyLight,
-              ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              height: 1.5,
+              color: colorGreyLight,
             ),
+          ),
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  enabled: _currentConversation != null,
                   focusNode: _focusNode,
                   style: messageTextStyle(context, false),
                   controller: _controller,
                   minLines: 1,
                   maxLines: 10,
                   decoration: messageComposerInputDecoration(context)
-                      .copyWith(hintText: hintText()),
+                      .copyWith(hintText: "Message $conversationTitle"),
                   textInputAction: isSmallScreen(context)
                       ? TextInputAction.send
                       : TextInputAction.newline,
@@ -219,7 +188,7 @@ class _MessageComposerState extends State<MessageComposer> {
                         color: colorDMB,
                         hoverColor: const Color(0x00FFFFFF),
                         onPressed: () {
-                          submitMessage();
+                          _submitMessage(context.read());
                         },
                       ),
                     )

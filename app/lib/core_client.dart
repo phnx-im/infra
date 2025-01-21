@@ -234,21 +234,6 @@ class CoreClient {
     return _conversations;
   }
 
-  Future<void> sendMessage(
-      ConversationId conversationId, String message) async {
-    UiConversationMessage conversationMessage;
-    try {
-      conversationMessage = await user.sendMessage(
-          conversationId: conversationId, message: message);
-    } catch (e) {
-      print("Error when sending message: $e");
-      return;
-    }
-
-    messageUpdates.add(conversationMessage);
-    conversationListUpdates.add(conversationId);
-  }
-
   Future<void> addUserToConversation(
       ConversationId conversationId, String userName) async {
     await user.addUsersToConversation(
