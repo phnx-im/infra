@@ -88,15 +88,7 @@ impl UiUser {
         let profile = self.inner.profile.as_ref()?;
         Some(profile.profile_picture()?.value()?.to_vec())
     }
-
-    pub fn set_int(_x: NewType) -> u32 {
-        let vs = vec![1, 2, 3];
-        // usize::max_value()
-        vs.len().try_into().expect("overflow")
-    }
 }
-
-struct NewType(usize);
 
 /// Provides access to the logged in user and their profile.
 ///
