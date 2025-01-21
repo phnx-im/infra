@@ -303,7 +303,6 @@ impl ToSql for ConversationType {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ConversationAttributes {
     title: String,
-    #[serde(rename = "conversation_picture_option")]
     picture: Option<Vec<u8>>,
 }
 
