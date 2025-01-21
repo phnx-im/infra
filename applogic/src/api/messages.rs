@@ -141,7 +141,8 @@ impl User {
     }
 
     /// Get the unread messages count across all conversations.
-    pub async fn global_unread_messages_count(&self) -> u32 {
+    #[frb(type_64bit_int)]
+    pub async fn global_unread_messages_count(&self) -> usize {
         self.user
             .global_unread_messages_count()
             .await

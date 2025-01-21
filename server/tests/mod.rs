@@ -534,7 +534,7 @@ async fn mark_as_read() {
     async fn send_messages(
         user: &mut CoreUser,
         conversation_id: ConversationId,
-        number_of_messages: u32,
+        number_of_messages: usize,
     ) -> Vec<ConversationMessage> {
         let mut messages_sent = vec![];
         for _ in 0..number_of_messages {
