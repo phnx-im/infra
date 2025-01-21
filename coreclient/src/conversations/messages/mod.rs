@@ -65,7 +65,7 @@ impl TimestampedMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
-    uuid: Uuid,
+    pub uuid: Uuid,
 }
 
 impl ConversationMessageId {
@@ -312,14 +312,14 @@ impl ErrorMessage {
     }
 }
 
+impl From<ErrorMessage> for String {
+    fn from(ErrorMessage { message }: ErrorMessage) -> String {
+        message
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
     Message(Box<ConversationMessage>),
-}
-
-impl NotificationType {
-    pub fn message(message: ConversationMessage) -> Self {
-        NotificationType::Message(Box::new(message))
-    }
 }

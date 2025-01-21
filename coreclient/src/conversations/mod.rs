@@ -161,8 +161,7 @@ impl Conversation {
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<(), rusqlite::Error> {
         self.update_conversation_picture(connection, notifier, conversation_picture.as_deref())?;
-        self.attributes
-            .set_conversation_picture_option(conversation_picture);
+        self.attributes.set_picture(conversation_picture);
         Ok(())
     }
 
@@ -303,33 +302,28 @@ impl ToSql for ConversationType {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ConversationAttributes {
     title: String,
-    conversation_picture_option: Option<Vec<u8>>,
+    #[serde(rename = "conversation_picture_option")]
+    picture: Option<Vec<u8>>,
 }
 
 impl ConversationAttributes {
-    pub fn new(title: String, conversation_picture_option: Option<Vec<u8>>) -> Self {
-        Self {
-            title,
-            conversation_picture_option,
-        }
+    pub fn new(title: String, picture: Option<Vec<u8>>) -> Self {
+        Self { title, picture }
     }
 
     pub fn title(&self) -> &str {
         self.title.as_ref()
     }
 
-    pub fn conversation_picture_option(&self) -> Option<&[u8]> {
-        self.conversation_picture_option.as_deref()
-    }
-
-    pub fn set_conversation_picture_option(
-        &mut self,
-        conversation_picture_option: Option<Vec<u8>>,
-    ) {
-        self.conversation_picture_option = conversation_picture_option;
-    }
-
     pub fn set_title(&mut self, title: String) {
         self.title = title;
+    }
+
+    pub fn picture(&self) -> Option<&[u8]> {
+        self.picture.as_deref()
+    }
+
+    pub fn set_picture(&mut self, picture: Option<Vec<u8>>) {
+        self.picture = picture;
     }
 }

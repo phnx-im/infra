@@ -7,8 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/conversation_pane/conversation_details/conversation_details_cubit.dart';
-import 'package:prototype/core/api/message_cubit.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';
@@ -71,7 +70,7 @@ class MessageListView extends StatelessWidget {
                   : const SizedBox.shrink();
             },
             findChildIndexCallback: (key) {
-              final messageKey = key as ValueKey<UiConversationMessageId>;
+              final messageKey = key as ValueKey<ConversationMessageId>;
               final messageId = messageKey.value;
               final index = state.messageIdIndex(messageId);
               // reverse index
@@ -93,7 +92,7 @@ class _VisibilityConversationTile extends StatelessWidget {
     required this.timestamp,
   });
 
-  final UiConversationMessageId messageId;
+  final ConversationMessageId messageId;
   final DateTime timestamp;
 
   @override
@@ -115,7 +114,7 @@ class _VisibilityConversationTile extends StatelessWidget {
 
 class _VisibilityKeyValue {
   const _VisibilityKeyValue(this.id);
-  final UiConversationMessageId id;
+  final ConversationMessageId id;
 }
 
 final ScrollPhysics _scrollPhysics =

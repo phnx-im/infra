@@ -8,14 +8,12 @@ use crate::logging::init_logger;
 
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
-pub mod conversations;
 pub mod logging;
 pub mod message_cubit;
 pub mod message_list_cubit;
-pub mod messages;
-pub mod notifications;
 pub mod types;
 pub mod user;
+pub mod user_cubit;
 pub mod utils;
 
 #[frb(init)]
@@ -24,7 +22,7 @@ pub fn init() {
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
-        if let Err(error) = crate::notifier::init_desktop_os_notifications() {
+        if let Err(error) = crate::notifications::init_desktop_os_notifications() {
             tracing::error!(%error, "Failed to initialize desktop notifications");
         }
     }

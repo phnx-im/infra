@@ -4,10 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/user_cubit.dart';
 
 import 'add_members_cubit.dart';
 
@@ -17,8 +17,10 @@ class AddMembers extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          AddMembersCubit(coreClient: context.read())..loadContacts(),
+      create: (context) {
+        final userCubit = context.read<UserCubit>();
+        return AddMembersCubit()..loadContacts(userCubit.contacts);
+      },
       child: const AddMembersView(),
     );
   }
@@ -58,8 +60,9 @@ class AddMembersView extends StatelessWidget {
                       final contact = contacts[index];
                       return ListTile(
                         leading: FutureUserAvatar(
-                          profile: () => context.coreClient.user
-                              .userProfile(userName: contact.userName),
+                          profile: () => context
+                              .read<UserCubit>()
+                              .userProfile(contact.userName),
                         ),
                         title: Text(
                           contact.userName,
@@ -90,17 +93,11 @@ class AddMembersView extends StatelessWidget {
                 OutlinedButton(
                   onPressed: selectedContacts.isNotEmpty
                       ? () async {
-                          final navigation = context.read<NavigationCubit>();
-                          final conversationId =
-                              navigation.state.conversationId;
-                          if (conversationId == null) {
-                            throw StateError(
-                                "an active conversation is obligatory");
-                          }
-                          await context
-                              .read<AddMembersCubit>()
-                              .addContacts(conversationId);
-                          navigation.pop();
+                          _addSelectedContacts(
+                            context.read<NavigationCubit>(),
+                            context.read<UserCubit>(),
+                            selectedContacts,
+                          );
                         }
                       : null,
                   style: buttonStyle(context, selectedContacts.isNotEmpty),
@@ -112,5 +109,23 @@ class AddMembersView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _addSelectedContacts(
+    NavigationCubit navigation,
+    UserCubit userCubit,
+    Set<String> selectedContacts,
+  ) async {
+    final conversationId = navigation.state.conversationId;
+    if (conversationId == null) {
+      throw StateError("an active conversation is obligatory");
+    }
+    for (final userName in selectedContacts) {
+      await userCubit.addUserToConversation(
+        conversationId,
+        userName,
+      );
+    }
+    navigation.pop();
   }
 }

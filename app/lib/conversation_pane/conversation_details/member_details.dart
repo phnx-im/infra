@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
@@ -55,8 +54,8 @@ class MemberDetails extends StatelessWidget {
                 const SizedBox(height: _padding),
                 FutureUserAvatar(
                   size: 64,
-                  profile: () => context.coreClient.user
-                      .userProfile(userName: memberUsername),
+                  profile: () =>
+                      context.read<UserCubit>().userProfile(memberUsername),
                 ),
                 const SizedBox(height: _padding),
                 Text(
@@ -88,9 +87,12 @@ class MemberDetails extends StatelessWidget {
                                       child: const Text("Cancel")),
                                   TextButton(
                                     onPressed: () async {
-                                      await context.coreClient
+                                      await context
+                                          .read<UserCubit>()
                                           .removeUserFromConversation(
-                                              conversationId, memberUsername);
+                                            conversationId,
+                                            memberUsername,
+                                          );
                                       if (context.mounted) {
                                         Navigator.of(context).pop(true);
                                       }

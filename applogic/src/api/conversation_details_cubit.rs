@@ -6,7 +6,7 @@ use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::{clients::CoreUser, store::Store, MimiContent};
+use phnxcoreclient::{clients::CoreUser, store::Store, ConversationMessageId, MimiContent};
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
@@ -16,9 +16,11 @@ use tracing::error;
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
-use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
-use super::user::user_cubit::UserCubitBase;
-use super::{conversations::converation_into_ui_details, types::UiConversationMessageId};
+use super::{
+    conversation_list_cubit::converation_into_ui_details,
+    types::{UiConversationDetails, UiConversationType, UiUserProfile},
+    user_cubit::UserCubitBase,
+};
 
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
@@ -125,7 +127,7 @@ impl ConversationDetailsCubitBase {
     /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
         &self,
-        until_message_id: UiConversationMessageId,
+        until_message_id: ConversationMessageId,
         until_timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let scheduled = self
@@ -188,7 +190,7 @@ impl ConversationDetailsCubitBase {
 
         self.context
             .store
-            .mark_conversation_as_read(self.context.conversation_id, until_message_id.into())
+            .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
         Ok(())
     }
@@ -312,6 +314,6 @@ enum MarkAsReadState {
     /// Conversation is scheduled to be marked as read until the given timestamp and message id
     Scheduled {
         until_timestamp: DateTime<Utc>,
-        until_message_id: UiConversationMessageId,
+        until_message_id: ConversationMessageId,
     },
 }

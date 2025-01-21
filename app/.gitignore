@@ -60,7 +60,9 @@ target
 **/*.so
 
 # FRB related
-lib/core/*
+lib/core/frb_*.dart
+lib/core/lib.dart
+lib/core/api
 rust_builder/
 flutter_rust_bridge.yaml.generated
 

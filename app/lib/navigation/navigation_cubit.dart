@@ -4,7 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 
 part 'navigation_cubit.freezed.dart';
 

@@ -59,7 +59,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       if (Platform.isIOS) {
         // only set the badge count if the user is logged in
         if (_coreClient.maybeUser case final user?) {
-          final count = await user.globalUnreadMessagesCount();
+          final count = await user.globalUnreadMessagesCount;
           await setBadgeCount(count);
         }
       }
@@ -107,8 +107,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               // Logged in user is accessible everywhere inside the app after
               // the user is loaded
               ? BlocProvider<UserCubit>(
-                  create: (context) =>
-                      UserCubit(coreClient: context.coreClient),
+                  create: (context) => UserCubit(coreClient: context.read()),
                   child: router!,
                 )
               : router!,
