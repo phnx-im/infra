@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/app.dart';
 import 'package:prototype/core/frb_generated.dart';
-import 'package:prototype/logging.dart';
+import 'package:prototype/util/logging.dart';
 
 void main() async {
   await RustLib.init();
