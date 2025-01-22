@@ -9,7 +9,7 @@ import 'package:prototype/styles.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';
-import 'create_view.dart';
+import 'create_conversation_view.dart';
 
 final _log = Logger("ConversationListFooter");
 
@@ -38,7 +38,7 @@ class ConversationListFooter extends StatelessWidget {
                   context.read<ConversationListCubit>();
               String connectionUsername = await showDialog(
                 context: context,
-                builder: (BuildContext context) => CreateView(
+                builder: (BuildContext context) => CreateConversationView(
                     context,
                     "New connection",
                     "Enter the username to which you want to connect",
@@ -73,7 +73,7 @@ class ConversationListFooter extends StatelessWidget {
                   context.read<ConversationListCubit>();
               String newGroup = await showDialog(
                   context: context,
-                  builder: (BuildContext context) => CreateView(
+                  builder: (BuildContext context) => CreateConversationView(
                       context,
                       "New conversation",
                       "Choose a name for the new conversation",

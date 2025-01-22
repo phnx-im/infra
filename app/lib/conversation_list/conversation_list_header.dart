@@ -9,8 +9,8 @@ import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
-class ConversationListTop extends StatelessWidget {
-  const ConversationListTop({
+class ConversationListHeader extends StatelessWidget {
+  const ConversationListHeader({
     super.key,
   });
 

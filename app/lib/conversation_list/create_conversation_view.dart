@@ -5,22 +5,22 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/styles.dart';
 
-class CreateView extends StatefulWidget {
+class CreateConversationView extends StatefulWidget {
   final String title;
   final String prompt;
   final String hint;
   final String action;
 
   @override
-  const CreateView(
+  const CreateConversationView(
       BuildContext context, this.title, this.prompt, this.hint, this.action,
       {super.key});
 
   @override
-  State<CreateView> createState() => _CreateViewState();
+  State<CreateConversationView> createState() => _CreateConversationViewState();
 }
 
-class _CreateViewState extends State<CreateView> {
+class _CreateConversationViewState extends State<CreateConversationView> {
   bool _isInputValid = false;
 
   final TextEditingController _controller = TextEditingController();

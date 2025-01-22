@@ -8,13 +8,13 @@ import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
-import 'conversation_list.dart';
+import 'conversation_list_content.dart';
 import 'conversation_list_cubit.dart';
-import 'footer.dart';
-import 'top.dart';
+import 'conversation_list_footer.dart';
+import 'conversation_list_header.dart';
 
-class ConversationViewContainer extends StatelessWidget {
-  const ConversationViewContainer({super.key});
+class ConversationListContainer extends StatelessWidget {
+  const ConversationListContainer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +23,13 @@ class ConversationViewContainer extends StatelessWidget {
       create: (context) {
         return ConversationListCubit(userCubit: userCubit);
       },
-      child: const ConversationView(),
+      child: const ConversationListView(),
     );
   }
 }
 
-class ConversationView extends StatelessWidget {
-  const ConversationView({super.key});
+class ConversationListView extends StatelessWidget {
+  const ConversationListView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +48,9 @@ class ConversationView extends StatelessWidget {
         body: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            ConversationListTop(),
+            ConversationListHeader(),
             SizedBox(height: Spacings.s),
-            Expanded(child: ConversationList()),
+            Expanded(child: ConversationListContent()),
             ConversationListFooter(),
           ],
         ),

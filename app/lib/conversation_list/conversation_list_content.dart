@@ -15,8 +15,8 @@ import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';
 
-class ConversationList extends StatelessWidget {
-  const ConversationList({super.key});
+class ConversationListContent extends StatelessWidget {
+  const ConversationListContent({super.key});
 
   @override
   Widget build(BuildContext context) {
