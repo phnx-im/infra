@@ -8,11 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/core_client.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/loadable_user_cubit.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class DeveloperSettingsScreen extends StatefulWidget {
@@ -156,7 +156,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
       appBar: AppBar(
         title: const Text('Developer Settings'),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
       body: SingleChildScrollView(
         child: Padding(

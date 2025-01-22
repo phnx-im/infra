@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class ConversationListTop extends StatelessWidget {
@@ -29,7 +29,9 @@ class ConversationListTop extends StatelessWidget {
         SizedBox(
           height: _topHeight(),
           child: FrostedGlass(
-              color: convPaneBackgroundColor, height: _topHeight()),
+            color: convPaneBackgroundColor,
+            height: _topHeight(),
+          ),
         ),
         Padding(
           padding: EdgeInsets.only(left: 8, right: 8, top: _topOffset()),

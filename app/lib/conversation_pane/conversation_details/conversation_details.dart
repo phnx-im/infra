@@ -5,8 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/widgets/widgets.dart';
 
 import 'connection_details.dart';
 import 'conversation_details_cubit.dart';
@@ -51,7 +51,7 @@ class ConversationDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
         title: const Text("Details"),
       ),
       body: switch (conversationType) {

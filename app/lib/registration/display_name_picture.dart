@@ -4,10 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';
@@ -22,7 +22,7 @@ class DisplayNameAvatarChoice extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sign up'),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),

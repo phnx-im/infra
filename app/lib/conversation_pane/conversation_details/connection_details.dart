@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core_extension.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';

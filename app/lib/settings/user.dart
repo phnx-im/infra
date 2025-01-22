@@ -6,10 +6,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class UserSettingsScreen extends StatefulWidget {
@@ -54,7 +54,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
       appBar: AppBar(
         title: const Text('User Settings'),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
       body: Center(
         child: Column(

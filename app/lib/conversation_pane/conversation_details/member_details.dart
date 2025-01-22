@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 // Constant for padding between the elements
@@ -41,7 +41,7 @@ class MemberDetails extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
         title: const Text("Member details"),
       ),
       body: Center(

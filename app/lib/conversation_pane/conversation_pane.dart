@@ -5,10 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core_extension.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'conversation_content/message_list_view.dart';
 import 'conversation_details/conversation_details_cubit.dart';
 import 'message_composer.dart';
@@ -89,8 +89,9 @@ class ConversationPane extends StatelessWidget {
             elevation: 0,
             // Applying blur effect
             flexibleSpace: FrostedGlass(
-                color: Colors.white,
-                height: kToolbarHeight + MediaQuery.of(context).padding.top),
+              color: Colors.white,
+              height: kToolbarHeight + MediaQuery.of(context).padding.top,
+            ),
           ),
         ),
       ]),
