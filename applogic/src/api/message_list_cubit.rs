@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! A list of messages feature
+
 use std::{collections::HashMap, pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
-    ConversationId, ConversationMessage,
+    ConversationId, ConversationMessage, ConversationMessageId,
 };
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
@@ -20,11 +22,11 @@ use crate::{
 };
 
 use super::{
-    types::{UiConversationMessage, UiConversationMessageId, UiFlightPosition},
-    user::user_cubit::UserCubitBase,
+    types::{UiConversationMessage, UiFlightPosition},
+    user_cubit::UserCubitBase,
 };
 
-/// The state reprensenting a list of messages in a conversation.
+/// The state reprensenting a list of messages in a conversation
 ///
 /// The state is cheaply clonable (internally reference counted).
 #[frb(opaque)]
@@ -40,7 +42,7 @@ struct MessageListStateInner {
     /// Loaded messages (not all messages in the conversation)
     messages: Vec<UiConversationMessage>,
     /// Lookup index mapping a message id to the index in `messages`
-    message_ids_index: HashMap<UiConversationMessageId, usize>,
+    message_ids_index: HashMap<ConversationMessageId, usize>,
 }
 
 impl MessageListState {
@@ -90,7 +92,7 @@ impl MessageListState {
         self.inner = Arc::new(inner); // copy on write
     }
 
-    /// The number of loaded messages in the list.
+    /// The number of loaded messages in the list
     ///
     /// Note that this is not the number of all messages in the conversation.
     #[frb(sync, getter, type_64bit_int)]
@@ -106,7 +108,7 @@ impl MessageListState {
 
     /// Returns the lookup table mapping a message id to the index in the list.
     #[frb(sync, type_64bit_int, positional)]
-    pub fn message_id_index(&self, message_id: UiConversationMessageId) -> Option<usize> {
+    pub fn message_id_index(&self, message_id: ConversationMessageId) -> Option<usize> {
         self.inner.message_ids_index.get(&message_id).copied()
     }
 }
@@ -273,16 +275,14 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
                 let next_message = messages.get(idx);
                 let mut notification = StoreNotification::default();
                 if let Some(message) = prev_message {
-                    notification.ops.insert(
-                        StoreEntityId::Message(message.id.into()),
-                        StoreOperation::Update,
-                    );
+                    notification
+                        .ops
+                        .insert(StoreEntityId::Message(message.id), StoreOperation::Update);
                 }
                 if let Some(message) = next_message {
-                    notification.ops.insert(
-                        StoreEntityId::Message(message.id.into()),
-                        StoreOperation::Update,
-                    );
+                    notification
+                        .ops
+                        .insert(StoreEntityId::Message(message.id), StoreOperation::Update);
                 }
                 self.store.notify(notification);
             }

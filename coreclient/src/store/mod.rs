@@ -27,7 +27,7 @@ pub type StoreResult<T> = anyhow::Result<T>;
 ///
 /// This trait is used to access the client data, e.g. the user profile, the conversations or
 /// the messages. Additionaly, it is used to listen to changes in the client data via the
-/// [`Store::subcribe`] method and the [`StoreNotification`] type.
+/// [`Self::subscribe`] method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
 #[trait_variant::make(Store: Send)]
 pub trait LocalStore {

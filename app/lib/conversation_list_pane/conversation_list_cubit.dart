@@ -5,8 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/conversation_list_cubit.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/user_cubit.dart';
 
 class ConversationListCubit

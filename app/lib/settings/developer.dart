@@ -6,12 +6,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:prototype/core/api/user.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/elements.dart';
+import 'package:prototype/loadable_user_cubit.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/platform.dart';
 import 'package:prototype/styles.dart';
+import 'package:provider/provider.dart';
 
 class DeveloperSettingsScreen extends StatefulWidget {
   const DeveloperSettingsScreen({super.key});
@@ -34,20 +36,19 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     });
   }
 
-  bool canReRegisterPushToken() {
-    return isTouch() && context.coreClient.maybeUser != null;
-  }
+  bool _canReRegisterPushToken() =>
+      isTouch() && context.read<LoadableUserCubit>().state.user != null;
 
   void _reRegisterPushToken(CoreClient coreClient) async {
-    if (canReRegisterPushToken()) {
+    if (_canReRegisterPushToken()) {
       final deviceToken = await getDeviceToken();
       if (deviceToken != null) {
         if (Platform.isAndroid) {
           final pushToken = PlatformPushToken.google(deviceToken);
-          coreClient.user.updatePushToken(pushToken: pushToken);
+          coreClient.user.updatePushToken(pushToken);
         } else if (Platform.isIOS) {
           final pushToken = PlatformPushToken.apple(deviceToken);
-          coreClient.user.updatePushToken(pushToken: pushToken);
+          coreClient.user.updatePushToken(pushToken);
         }
       }
     }
@@ -83,7 +84,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     // Perform database erase operation
     final messengerState = ScaffoldMessenger.of(context);
     try {
-      await context.coreClient.deleteDatabase();
+      await context.read<CoreClient>().deleteDatabase();
     } catch (e) {
       showErrorBanner(messengerState, "Could not delete databases: $e");
       print(e);
@@ -122,12 +123,12 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
             child: const Text('Copy to clipboard'),
           ),
         const SizedBox(height: 10),
-        if (canReRegisterPushToken())
+        if (_canReRegisterPushToken())
           OutlinedButton(
-            style: buttonStyle(context, canReRegisterPushToken()),
+            style: buttonStyle(context, _canReRegisterPushToken()),
             onPressed: () async {
-              if (canReRegisterPushToken()) {
-                _reRegisterPushToken(context.coreClient);
+              if (_canReRegisterPushToken()) {
+                _reRegisterPushToken(context.read<CoreClient>());
               }
             },
             child: const Text('Re-register push token'),

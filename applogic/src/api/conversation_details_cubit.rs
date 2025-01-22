@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! A single conversation details feature
+
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::{clients::CoreUser, store::Store, MimiContent};
+use phnxcoreclient::{clients::CoreUser, store::Store, ConversationMessageId, MimiContent};
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
@@ -16,10 +18,17 @@ use tracing::error;
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
-use super::types::{UiConversationDetails, UiConversationType, UiUserProfile};
-use super::user::user_cubit::UserCubitBase;
-use super::{conversations::converation_into_ui_details, types::UiConversationMessageId};
+use super::{
+    conversation_list_cubit::converation_into_ui_details,
+    types::{UiConversationDetails, UiConversationType, UiUserProfile},
+    user_cubit::UserCubitBase,
+};
 
+/// The state of a single conversation
+///
+/// Contains the conversation details and the list of members.
+///
+/// Also see [`ConversationDetailsCubitBase`].
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationDetailsState {
@@ -27,6 +36,10 @@ pub struct ConversationDetailsState {
     pub members: Vec<String>,
 }
 
+/// The cubit responsible for a single conversation
+///
+/// Fetches the conversation details and the list of members. Allows to modify the conversation
+/// details, send messages and mark the conversation as read up to a given message.
 #[frb(opaque)]
 pub struct ConversationDetailsCubitBase {
     context: ConversationDetailsContext,
@@ -34,6 +47,10 @@ pub struct ConversationDetailsCubitBase {
 }
 
 impl ConversationDetailsCubitBase {
+    /// Creates a new cubit for the given conversation.
+    ///
+    /// The cubit will fetch the conversation details and the list of members. It will also listen
+    /// to the changes in the conversation and update the state accordingly.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
         let store = user_cubit.core_user.clone();
@@ -75,6 +92,9 @@ impl ConversationDetailsCubitBase {
 
     // Cubit methods
 
+    /// Sets the conversation picture.
+    ///
+    /// When `bytes` is `None`, the conversation picture is removed.
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
         Store::set_conversation_picture(
             &self.context.store,
@@ -125,7 +145,7 @@ impl ConversationDetailsCubitBase {
     /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
         &self,
-        until_message_id: UiConversationMessageId,
+        until_message_id: ConversationMessageId,
         until_timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let scheduled = self
@@ -188,7 +208,7 @@ impl ConversationDetailsCubitBase {
 
         self.context
             .store
-            .mark_conversation_as_read(self.context.conversation_id, until_message_id.into())
+            .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
         Ok(())
     }
@@ -312,6 +332,6 @@ enum MarkAsReadState {
     /// Conversation is scheduled to be marked as read until the given timestamp and message id
     Scheduled {
         until_timestamp: DateTime<Utc>,
-        until_message_id: UiConversationMessageId,
+        until_message_id: ConversationMessageId,
     },
 }

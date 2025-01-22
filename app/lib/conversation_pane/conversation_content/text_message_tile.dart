@@ -4,8 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
-import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/user_cubit.dart';
@@ -85,18 +84,14 @@ class TextMessageTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _avatar(context),
+          FutureUserAvatar(
+            profile: () =>
+                context.read<UserCubit>().userProfile(contentMessage.sender),
+          ),
           const SizedBox(width: 10),
           _username(isSender),
         ],
       ),
-    );
-  }
-
-  Widget _avatar(BuildContext context) {
-    return FutureUserAvatar(
-      profile: () =>
-          context.coreClient.user.userProfile(userName: contentMessage.sender),
     );
   }
 

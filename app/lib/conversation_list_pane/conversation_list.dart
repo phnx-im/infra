@@ -4,9 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:logging/logging.dart';
-import 'package:prototype/core/api/types.dart';
-import 'package:prototype/core_client.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/core_extension.dart';
 import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
@@ -16,8 +14,6 @@ import 'package:prototype/user_cubit.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';
-
-final _log = Logger("ConversationList");
 
 class ConversationList extends StatelessWidget {
   const ConversationList({super.key});
@@ -98,7 +94,7 @@ class _ListTile extends StatelessWidget {
             UserAvatar(
               size: 48,
               cacheTag: conversation.avatarCacheTag,
-              image: conversation.attributes.conversationPictureOption,
+              image: conversation.attributes.picture,
               username: conversation.username,
             ),
             const SizedBox(width: Spacings.s),
@@ -130,8 +126,6 @@ class _ListTile extends StatelessWidget {
     BuildContext context,
     ConversationId conversationId,
   ) {
-    _log.info("Tapped on conversation $conversationId");
-    context.read<CoreClient>().selectConversation(conversationId);
     context.read<NavigationCubit>().openConversation(conversationId);
   }
 
@@ -258,10 +252,6 @@ class _LastMessage extends StatelessWidget {
           content.content.body
         ),
       UiMessage_Display() => (null, null),
-      UiMessage_Unsent(field0: final unsent) => (
-          null,
-          '⚠️ Unsent message: ${unsent.body}'
-        ),
       null => (null, null),
     };
 

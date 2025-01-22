@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
@@ -19,8 +19,7 @@ extension UiConversationDetailsExtension on UiConversationDetails {
         UiConversationType_Group() => attributes.title,
       };
 
-  String get avatarCacheTag =>
-      'conv:$id:${attributes.conversationPictureOption?.hashCode}';
+  String get avatarCacheTag => 'conv:$id:${attributes.picture?.hashCode}';
 }
 
 extension UiConversationTypeExtension on UiConversationType {

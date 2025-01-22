@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! A single message feature
+
 use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
@@ -20,9 +22,9 @@ use crate::{
     StreamSink,
 };
 
-use super::{types::UiConversationMessage, user::user_cubit::UserCubitBase};
+use super::{types::UiConversationMessage, user_cubit::UserCubitBase};
 
-/// State of a single message in a conversation.
+/// State of a single message in a conversation
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {
@@ -165,9 +167,8 @@ async fn calculate_flight_position(
     store: &impl Store,
     message: &UiConversationMessage,
 ) -> StoreResult<UiFlightPosition> {
-    let id = message.id.into();
-    let prev_message = store.prev_message(id).await?.map(From::from);
-    let next_message = store.next_message(id).await?.map(From::from);
+    let prev_message = store.prev_message(message.id).await?.map(From::from);
+    let next_message = store.next_message(message.id).await?.map(From::from);
     Ok(UiFlightPosition::calculate(
         message,
         prev_message.as_ref(),

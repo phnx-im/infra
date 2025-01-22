@@ -6,8 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/conversation_details_cubit.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/user_cubit.dart';
 
 class ConversationDetailsCubit
@@ -48,7 +47,7 @@ class ConversationDetailsCubit
       _impl.sendMessage(messageText: messageText);
 
   Future<void> markAsRead({
-    required UiConversationMessageId untilMessageId,
+    required ConversationMessageId untilMessageId,
     required DateTime untilTimestamp,
   }) =>
       _impl.markAsRead(

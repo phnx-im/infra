@@ -6,7 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/user/user_cubit.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/core_client.dart';
 
 /// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
@@ -41,4 +41,21 @@ class UserCubit implements StateStreamableSource<UiUser> {
         displayName: displayName,
         profilePicture: profilePicture,
       );
+
+  Future<UiUserProfile?> userProfile(String userName) =>
+      _impl.userProfile(userName);
+
+  Future<void> addUserToConversation(
+    ConversationId conversationId,
+    String userName,
+  ) =>
+      _impl.addUserToConversation(conversationId, userName);
+
+  Future<void> removeUserFromConversation(
+    ConversationId conversationId,
+    String userName,
+  ) =>
+      _impl.removeUserFromConversation(conversationId, userName);
+
+  Future<List<UiContact>> get contacts => _impl.contacts;
 }

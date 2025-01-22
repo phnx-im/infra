@@ -28,8 +28,8 @@ impl Storable for Conversation {
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let id = row.get(0)?;
-        let conversation_title = row.get(1)?;
-        let conversation_picture_option = row.get(2)?;
+        let title = row.get(1)?;
+        let picture = row.get(2)?;
         let group_id: GroupIdWrapper = row.get(3)?;
         let last_read = row.get(4)?;
         let status = row.get(5)?;
@@ -41,10 +41,7 @@ impl Storable for Conversation {
             last_read,
             status,
             conversation_type,
-            attributes: ConversationAttributes {
-                title: conversation_title,
-                conversation_picture_option,
-            },
+            attributes: ConversationAttributes { title, picture },
         })
     }
 }
@@ -66,7 +63,7 @@ impl Conversation {
             params![
                 self.id,
                 self.attributes().title(),
-                self.attributes().conversation_picture_option(),
+                self.attributes().picture(),
                 group_id,
                 self.last_read,
                 self.status(),

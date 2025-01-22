@@ -2,9 +2,35 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pub(crate) use phnxcoreclient::{ConversationId, ConversationMessage};
+use phnxcoreclient::{ConversationId, ConversationMessage};
 
 use crate::api::user::User;
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+pub(crate) fn init_desktop_os_notifications() -> Result<(), notify_rust::error::Error> {
+    #[cfg(target_os = "macos")]
+    {
+        let res = notify_rust::set_application("im.phnx.prototype");
+        if res.is_err() {
+            tracing::warn!("Could not set application for desktop notifications");
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+pub(crate) fn show_desktop_notifications(notifications: &[LocalNotificationContent]) {
+    for notification in notifications {
+        if let Err(error) = notify_rust::Notification::new()
+            .summary(notification.title.as_str())
+            .body(notification.body.as_str())
+            .show()
+        {
+            tracing::error!(%error, "Failed to send desktop notification");
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct LocalNotificationContent {

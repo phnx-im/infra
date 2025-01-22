@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
@@ -39,9 +39,6 @@ class ConversationTile extends StatelessWidget {
             ),
           UiMessage_Display(field0: final display) =>
             DisplayMessageTile(display, timestamp),
-          UiMessage_Unsent(field0: final unsent) => Text(
-              "⚠️ UNSENT MESSAGE ⚠️ $unsent",
-              style: const TextStyle(color: Colors.red)),
         },
       ),
       selected: false,
