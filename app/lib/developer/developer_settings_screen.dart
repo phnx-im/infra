@@ -7,7 +7,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/core_client.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/platform.dart';

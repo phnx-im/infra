@@ -7,7 +7,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/core_client.dart';
 
 /// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
 ///
