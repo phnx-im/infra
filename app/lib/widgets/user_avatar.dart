@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 // SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
