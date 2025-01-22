@@ -20,7 +20,7 @@ class HomeScreen extends StatelessWidget {
           child: ConversationListContainer(),
         ),
         Expanded(
-          child: ConversationScreenContainer(),
+          child: ConversationScreen(),
         ),
       ],
     );

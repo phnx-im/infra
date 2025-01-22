@@ -12,8 +12,8 @@ import 'package:prototype/widgets/widgets.dart';
 
 import 'conversation_details_cubit.dart';
 
-class ConversationScreenContainer extends StatelessWidget {
-  const ConversationScreenContainer({super.key});
+class ConversationScreen extends StatelessWidget {
+  const ConversationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ class ConversationScreenContainer extends StatelessWidget {
         userCubit: context.read(),
         conversationId: conversationId,
       ),
-      child: const ConversationScreen(),
+      child: const ConversationScreenView(),
     );
   }
 }
@@ -52,8 +52,8 @@ class _EmptyConversationPane extends StatelessWidget {
   }
 }
 
-class ConversationScreen extends StatelessWidget {
-  const ConversationScreen({super.key});
+class ConversationScreenView extends StatelessWidget {
+  const ConversationScreenView({super.key});
 
   @override
   Widget build(BuildContext context) {

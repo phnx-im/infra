@@ -170,12 +170,12 @@ extension on HomeNavigation {
       if (conversationId != null && screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
-          child: ConversationScreenContainer(),
+          child: ConversationScreen(),
         ),
       if (conversationId != null && conversationDetailsOpen)
         const MaterialPage(
           key: ValueKey("conversation-details-screen"),
-          child: ConversationDetailsContainer(),
+          child: ConversationDetailsScreen(),
         ),
       if (conversationId != null &&
           conversationDetailsOpen &&
@@ -187,7 +187,7 @@ extension on HomeNavigation {
       if (conversationId != null && conversationDetailsOpen && addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
-          child: AddMembersContainer(),
+          child: AddMembersScreen(),
         ),
       if (developerSettingsOpen)
         const MaterialPage(

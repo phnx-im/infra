@@ -12,11 +12,11 @@ import 'connection_details.dart';
 import 'conversation_details_cubit.dart';
 import 'group_details.dart';
 
-/// Container for [ConversationDetailsScreen]
+/// Container for [ConversationDetailsScreenView]
 ///
 /// Wraps the screen with required providers.
-class ConversationDetailsContainer extends StatelessWidget {
-  const ConversationDetailsContainer({super.key});
+class ConversationDetailsScreen extends StatelessWidget {
+  const ConversationDetailsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +32,14 @@ class ConversationDetailsContainer extends StatelessWidget {
         userCubit: context.read(),
         conversationId: conversationId,
       ),
-      child: ConversationDetailsScreen(),
+      child: ConversationDetailsScreenView(),
     );
   }
 }
 
 /// Screen that shows details of a conversation
-class ConversationDetailsScreen extends StatelessWidget {
-  const ConversationDetailsScreen({super.key});
+class ConversationDetailsScreenView extends StatelessWidget {
+  const ConversationDetailsScreenView({super.key});
 
   @override
   Widget build(BuildContext context) {
