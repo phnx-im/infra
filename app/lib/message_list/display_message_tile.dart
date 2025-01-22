@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 import 'tile_timestamp.dart';
 
 class DisplayMessageTile extends StatefulWidget {

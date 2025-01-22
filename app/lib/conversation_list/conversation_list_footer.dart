@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:prototype/main.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';

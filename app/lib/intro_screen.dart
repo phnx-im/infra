@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/user/user.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 
 import 'navigation/navigation.dart';
 

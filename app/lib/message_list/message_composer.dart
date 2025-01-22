@@ -7,7 +7,7 @@ import 'dart:collection';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';

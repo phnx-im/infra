@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
 import 'package:prototype/widgets/widgets.dart';
 
 import 'registration_cubit.dart';

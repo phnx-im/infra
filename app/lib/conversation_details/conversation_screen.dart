@@ -7,7 +7,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/widgets/widgets.dart';
 
