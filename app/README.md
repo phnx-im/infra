@@ -26,3 +26,5 @@ same name as the module. Other modules should import this dart file.
 - `ScreenView` is a root widget in the navigation without any providers.
 - `Screen` wraps a `ScreenView` and creates all required providers. This is the
   actual class used in the navigation stack.
+- `Pane` is a widget that is used in large screen layout and divide the screen into
+  smaller sections.
