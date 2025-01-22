@@ -10,12 +10,12 @@ import 'package:prototype/conversation_pane/conversation_details/add_members.dar
 import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
 import 'package:prototype/conversation_pane/conversation_details/member_details.dart';
 import 'package:prototype/conversation_pane/conversation_pane.dart';
-import 'package:prototype/homescreen.dart';
+import 'package:prototype/developer/developer.dart';
+import 'package:prototype/home_screen.dart';
 import 'package:prototype/intro_screen.dart';
 import 'package:prototype/registration/registration.dart';
-import 'package:prototype/settings/developer.dart';
-import 'package:prototype/settings/user.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/user/user.dart';
 
 import 'navigation_cubit.dart';
 
