@@ -12,8 +12,8 @@ import 'package:provider/provider.dart';
 // Constant for padding between the elements
 const double _padding = 32;
 
-class MemberDetails extends StatelessWidget {
-  const MemberDetails({super.key});
+class MemberDetailsScreen extends StatelessWidget {
+  const MemberDetailsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

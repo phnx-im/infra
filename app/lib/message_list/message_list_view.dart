@@ -6,8 +6,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/conversation_pane/conversation_details/conversation_details_cubit.dart';
+import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';
@@ -15,16 +16,17 @@ import 'message_cubit.dart';
 import 'message_list_cubit.dart';
 
 class MessageListContainer extends StatelessWidget {
-  const MessageListContainer({super.key});
+  const MessageListContainer({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final conversationId = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation?.id,
-    );
+    final conversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
 
     if (conversationId == null) {
-      return const SizedBox.shrink();
+      throw StateError("an active conversation is obligatory");
     }
 
     return BlocProvider<MessageListCubit>(
@@ -32,13 +34,15 @@ class MessageListContainer extends StatelessWidget {
         userCubit: context.read(),
         conversationId: conversationId,
       ),
-      child: MessageListView(),
+      child: const MessageListView(),
     );
   }
 }
 
 class MessageListView extends StatelessWidget {
-  const MessageListView({super.key});
+  const MessageListView({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

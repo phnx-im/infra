@@ -5,16 +5,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/widgets/widgets.dart';
-import 'conversation_content/message_list_view.dart';
-import 'conversation_details/conversation_details_cubit.dart';
-import 'message_composer.dart';
 
-class ConversationPaneContainer extends StatelessWidget {
-  const ConversationPaneContainer({super.key});
+import 'conversation_details_cubit.dart';
+
+class ConversationScreenContainer extends StatelessWidget {
+  const ConversationScreenContainer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class ConversationPaneContainer extends StatelessWidget {
         userCubit: context.read(),
         conversationId: conversationId,
       ),
-      child: const ConversationPane(),
+      child: const ConversationScreen(),
     );
   }
 }
@@ -53,8 +53,8 @@ class _EmptyConversationPane extends StatelessWidget {
   }
 }
 
-class ConversationPane extends StatelessWidget {
-  const ConversationPane({super.key});
+class ConversationScreen extends StatelessWidget {
+  const ConversationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

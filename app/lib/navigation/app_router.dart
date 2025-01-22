@@ -6,10 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_pane/conversation_details/add_members.dart';
-import 'package:prototype/conversation_pane/conversation_details/conversation_details.dart';
-import 'package:prototype/conversation_pane/conversation_details/member_details.dart';
-import 'package:prototype/conversation_pane/conversation_pane.dart';
+import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/developer/developer.dart';
 import 'package:prototype/home_screen.dart';
 import 'package:prototype/intro_screen.dart';
@@ -173,7 +170,7 @@ extension on HomeNavigation {
       if (conversationId != null && screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
-          child: ConversationPaneContainer(),
+          child: ConversationScreenContainer(),
         ),
       if (conversationId != null && conversationDetailsOpen)
         const MaterialPage(
@@ -185,12 +182,12 @@ extension on HomeNavigation {
           memberDetails != null)
         const MaterialPage(
           key: ValueKey("conversation-member-details-screen"),
-          child: MemberDetails(),
+          child: MemberDetailsScreen(),
         ),
       if (conversationId != null && conversationDetailsOpen && addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
-          child: AddMembers(),
+          child: AddMembersContainer(),
         ),
       if (developerSettingsOpen)
         const MaterialPage(

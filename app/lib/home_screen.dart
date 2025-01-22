@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_list/conversation_list.dart';
-import 'package:prototype/conversation_pane/conversation_pane.dart';
+import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/theme/theme.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -20,7 +20,7 @@ class HomeScreen extends StatelessWidget {
           child: ConversationListContainer(),
         ),
         Expanded(
-          child: ConversationPaneContainer(),
+          child: ConversationScreenContainer(),
         ),
       ],
     );

@@ -6,36 +6,11 @@ import 'dart:collection';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_pane/message_renderer.dart';
+import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/styles.dart';
 import 'package:provider/provider.dart';
 
-import 'conversation_details/conversation_details_cubit.dart';
-
-enum Direction { right, left }
-
-class CustomTextEditingController extends TextEditingController {
-  CustomTextEditingController({super.text});
-
-  List<String> _keywords = [];
-
-  // Setter for keywords
-  set keywords(List<String> keywords) {
-    _keywords = keywords;
-    notifyListeners();
-  }
-
-  // Getter for keywords
-  List<String> get keywords => _keywords;
-
-  @override
-  TextSpan buildTextSpan(
-      {required BuildContext context,
-      TextStyle? style,
-      required bool withComposing}) {
-    return buildTextSpanFromText(_keywords, text, style, HostWidget.textField);
-  }
-}
+import 'message_renderer.dart';
 
 class MessageComposer extends StatefulWidget {
   const MessageComposer({super.key});
@@ -45,7 +20,7 @@ class MessageComposer extends StatefulWidget {
 }
 
 class _MessageComposerState extends State<MessageComposer> {
-  final TextEditingController _controller = CustomTextEditingController();
+  final TextEditingController _controller = _CustomTextEditingController();
   final _focusNode = FocusNode();
   final _keywords = [
     "@Alice",
@@ -57,7 +32,7 @@ class _MessageComposerState extends State<MessageComposer> {
 
   // Override constructor
   _MessageComposerState() {
-    (_controller as CustomTextEditingController).keywords = _keywords;
+    (_controller as _CustomTextEditingController).keywords = _keywords;
   }
 
   // Key events
@@ -198,5 +173,30 @@ class _MessageComposerState extends State<MessageComposer> {
         ],
       ),
     );
+  }
+}
+
+enum Direction { right, left }
+
+class _CustomTextEditingController extends TextEditingController {
+  _CustomTextEditingController();
+
+  List<String> _keywords = [];
+
+  // Setter for keywords
+  set keywords(List<String> keywords) {
+    _keywords = keywords;
+    notifyListeners();
+  }
+
+  // Getter for keywords
+  List<String> get keywords => _keywords;
+
+  @override
+  TextSpan buildTextSpan(
+      {required BuildContext context,
+      TextStyle? style,
+      required bool withComposing}) {
+    return buildTextSpanFromText(_keywords, text, style, HostWidget.textField);
   }
 }

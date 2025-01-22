@@ -11,8 +11,8 @@ import 'package:prototype/widgets/widgets.dart';
 
 import 'add_members_cubit.dart';
 
-class AddMembers extends StatelessWidget {
-  const AddMembers({super.key});
+class AddMembersContainer extends StatelessWidget {
+  const AddMembersContainer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -21,13 +21,13 @@ class AddMembers extends StatelessWidget {
         final userCubit = context.read<UserCubit>();
         return AddMembersCubit()..loadContacts(userCubit.contacts);
       },
-      child: const AddMembersView(),
+      child: const AddMembersScreen(),
     );
   }
 }
 
-class AddMembersView extends StatelessWidget {
-  const AddMembersView({super.key});
+class AddMembersScreen extends StatelessWidget {
+  const AddMembersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
