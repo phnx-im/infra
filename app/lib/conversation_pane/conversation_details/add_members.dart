@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/styles.dart';
-import 'package:prototype/user_cubit.dart';
+import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 
 import 'add_members_cubit.dart';

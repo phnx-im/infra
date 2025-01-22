@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:prototype/conversation_pane/message_renderer.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/styles.dart';
-import 'package:prototype/user_cubit.dart';
+import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:prototype/core_extension.dart';

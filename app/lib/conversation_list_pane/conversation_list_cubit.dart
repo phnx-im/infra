@@ -6,7 +6,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/user_cubit.dart';
+import 'package:prototype/user/user.dart';
 
 class ConversationListCubit
     implements StateStreamableSource<ConversationListState> {

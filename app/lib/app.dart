@@ -11,8 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core_client.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/platform.dart';
-import 'package:prototype/loadable_user_cubit.dart';
-import 'package:prototype/user_cubit.dart';
+import 'package:prototype/user/user.dart';
 import 'package:provider/provider.dart';
 
 import 'registration/registration.dart';
