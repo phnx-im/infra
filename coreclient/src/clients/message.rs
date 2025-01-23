@@ -15,8 +15,8 @@ use super::{ApiClients, CoreUser, Group, StoreNotifier};
 impl CoreUser {
     /// Send a message and return it.
     ///
-    /// Note that the message has already been sent to the DS and has internally been stored in the
-    /// conversation store.
+    /// The message unsent messages is stored, then sent to the DS and finally returned. The
+    /// converstion is marked as read until this message.
     pub(crate) async fn send_message(
         &self,
         conversation_id: ConversationId,
