@@ -11,8 +11,8 @@ use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{
-    clients::CoreUser, Asset, ConversationId, ConversationMessage, DisplayName, MimiContent,
-    UserProfile,
+    clients::CoreUser, store::Store, Asset, ConversationId, ConversationMessage, DisplayName,
+    MimiContent, UserProfile,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
