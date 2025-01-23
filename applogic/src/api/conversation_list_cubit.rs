@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! List of conversations feature
+
 use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
+    Conversation,
 };
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use tokio::sync::watch;
@@ -18,15 +21,19 @@ use tracing::debug;
 use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
 
-use super::user::user_cubit::UserCubitBase;
-use super::{conversations::ConversationsExt, types::UiConversationDetails};
+use super::{
+    types::{UiConversation, UiConversationDetails, UiConversationMessage},
+    user_cubit::UserCubitBase,
+};
 
+/// Represents the state of the list of conversations.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationListState {
     pub conversations: Vec<UiConversationDetails>,
 }
 
+/// Provides access to the list of conversations.
 #[frb(opaque)]
 pub struct ConversationListCubitBase {
     core: CubitCore<ConversationListState>,
@@ -34,6 +41,10 @@ pub struct ConversationListCubitBase {
 }
 
 impl ConversationListCubitBase {
+    /// Creates a new conversation list cubit.
+    ///
+    /// Loads the list of conversations in the background and listens to the changes in the
+    /// conversations.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user.clone();
@@ -71,17 +82,23 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
+    /// Creates a new 1:1 connection with the given user.
+    ///
+    /// `user_name` is the fully qualified user name of the contact.
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
         let id = self.context.store.add_contact(user_name.parse()?).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
 
+    /// Creates a new group conversation with the given name.
+    ///
+    /// After the conversation is created, the current user is the only member of the group.
     pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ConversationId> {
         let id = self
             .context
             .store
-            .create_conversation(&group_name, None)
+            .create_conversation(group_name, None)
             .await?;
         self.context.load_and_emit_state().await;
         Ok(id)
@@ -111,24 +128,24 @@ where
     ) {
         spawn_from_sync(async move {
             self.load_and_emit_state().await;
-            self.fetched_messages_listen_loop(store_notifications, stop)
+            self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
 
     async fn load_and_emit_state(&self) {
-        let conversations = self.store.conversation_details().await;
-        debug!("load_and_emit_state {conversations:?}");
+        let conversations = conversation_details(&self.store).await;
+        debug!(?conversations, "load_and_emit_state");
         self.state_tx
             .send_modify(|state| state.conversations = conversations);
     }
 
-    async fn fetched_messages_listen_loop(
+    async fn store_notifications_loop(
         self,
         store_notifications: impl Stream<Item = Arc<StoreNotification>>,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications.fuse());
+        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,
@@ -157,5 +174,56 @@ where
             // changed and new conversations, and replace them individually in the `state`.
             self.load_and_emit_state().await;
         }
+    }
+}
+
+async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> {
+    let conversations = store.conversations().await.unwrap_or_default();
+    let mut conversation_details = Vec::with_capacity(conversations.len());
+    for conversation in conversations {
+        let details = converation_into_ui_details(store, conversation).await;
+        conversation_details.push(details);
+    }
+    // Sort the conversations by last used timestamp in descending order
+    conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
+    conversation_details
+}
+
+/// Loads additional details for a conversation and converts it into a
+/// [`UiConversationDetails`]
+pub(super) async fn converation_into_ui_details(
+    store: &impl Store,
+    conversation: Conversation,
+) -> UiConversationDetails {
+    let messages_count = store
+        .messages_count(conversation.id())
+        .await
+        .unwrap_or_default();
+    let unread_messages = store
+        .unread_messages_count(conversation.id())
+        .await
+        .unwrap_or_default();
+    let last_message = store
+        .last_message(conversation.id())
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.into());
+    let last_used = last_message
+        .as_ref()
+        .map(|m: &UiConversationMessage| m.timestamp.clone())
+        .unwrap_or_default();
+    // default is UNIX_EPOCH
+
+    let conversation = UiConversation::from(conversation);
+    UiConversationDetails {
+        id: conversation.id,
+        status: conversation.status,
+        conversation_type: conversation.conversation_type,
+        last_used,
+        attributes: conversation.attributes,
+        messages_count,
+        unread_messages,
+        last_message,
     }
 }

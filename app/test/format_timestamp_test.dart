@@ -4,7 +4,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
-import 'package:prototype/conversation_list_pane/conversation_list.dart';
+import 'package:prototype/conversation_list/conversation_list_content.dart';
 
 void main() {
   group('formatTimestamp', () {

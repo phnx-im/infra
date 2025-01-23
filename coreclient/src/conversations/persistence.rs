@@ -10,7 +10,8 @@ use tracing::info;
 use crate::{
     store::StoreNotifier,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
-    Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+    Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
+    ConversationStatus, ConversationType,
 };
 
 impl Storable for Conversation {
@@ -27,8 +28,8 @@ impl Storable for Conversation {
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let id = row.get(0)?;
-        let conversation_title = row.get(1)?;
-        let conversation_picture_option = row.get(2)?;
+        let title = row.get(1)?;
+        let picture = row.get(2)?;
         let group_id: GroupIdWrapper = row.get(3)?;
         let last_read = row.get(4)?;
         let status = row.get(5)?;
@@ -40,10 +41,7 @@ impl Storable for Conversation {
             last_read,
             status,
             conversation_type,
-            attributes: ConversationAttributes {
-                title: conversation_title,
-                conversation_picture_option,
-            },
+            attributes: ConversationAttributes { title, picture },
         })
     }
 }
@@ -65,7 +63,7 @@ impl Conversation {
             params![
                 self.id,
                 self.attributes().title(),
-                self.attributes().conversation_picture_option(),
+                self.attributes().picture(),
                 group_id,
                 self.last_read,
                 self.status(),
@@ -149,13 +147,29 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
     ) -> Result<(), rusqlite::Error> {
-        let mut stmt = transaction.prepare(
+        let mut unread_messages_stmt = transaction.prepare(
+            "SELECT message_id from conversation_messages
+            INNER JOIN conversations c ON c.conversation_id = :conversation_id
+            WHERE c.conversation_id = :conversation_id AND timestamp > c.last_read",
+        )?;
+        let mut update_stmt = transaction.prepare(
             "UPDATE conversations
                 SET last_read = :timestamp
                 WHERE conversation_id = :conversation_id AND last_read < :timestamp",
         )?;
         for (conversation_id, timestamp) in mark_as_read_data {
-            let updated = stmt.execute(named_params! {
+            let unread_messages: Result<Vec<ConversationMessageId>, _> = unread_messages_stmt
+                .query_map(
+                    named_params! {
+                        ":conversation_id": conversation_id,
+                    },
+                    |row| row.get(0),
+                )?
+                .collect();
+            for message_id in unread_messages? {
+                notifier.update(message_id);
+            }
+            let updated = update_stmt.execute(named_params! {
                 ":timestamp": timestamp,
                 ":conversation_id": conversation_id,
             })?;
@@ -166,9 +180,36 @@ impl Conversation {
         Ok(())
     }
 
+    /// Mark all messages in the conversation as read until including the given message id.
+    pub(crate) fn mark_as_read_until_message_id(
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+        until_message_id: ConversationMessageId,
+    ) -> rusqlite::Result<bool> {
+        let timestamp: DateTime<Utc> = connection.query_row(
+            "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
+            params![until_message_id],
+            |row| row.get(0),
+        )?;
+        let updated = connection.execute(
+            "UPDATE conversations SET last_read = :timestamp
+            WHERE conversation_id = :conversation_id AND last_read != :timestamp",
+            named_params! {
+                ":conversation_id": conversation_id,
+                ":timestamp": timestamp,
+            },
+        )?;
+        let marked_as_read = updated == 1;
+        if marked_as_read {
+            notifier.update(conversation_id);
+        }
+        Ok(marked_as_read)
+    }
+
     pub(crate) fn global_unread_message_count(
         connection: &Connection,
-    ) -> Result<u32, rusqlite::Error> {
+    ) -> Result<usize, rusqlite::Error> {
         connection.query_row(
             "SELECT
                 COUNT(cm.conversation_id) AS total_unread_messages
@@ -185,10 +226,27 @@ impl Conversation {
         )
     }
 
+    pub(crate) fn messages_count(
+        connection: &Connection,
+        conversation_id: ConversationId,
+    ) -> Result<usize, rusqlite::Error> {
+        connection.query_row(
+            "SELECT
+                COUNT(*)
+            FROM
+                conversation_messages cm
+            WHERE
+                cm.conversation_id = :conversation_id
+                AND cm.sender != 'system';",
+            named_params! {":conversation_id": conversation_id},
+            |row| row.get(0),
+        )
+    }
+
     pub(crate) fn unread_messages_count(
         connection: &Connection,
         conversation_id: ConversationId,
-    ) -> Result<u32, rusqlite::Error> {
+    ) -> Result<usize, rusqlite::Error> {
         connection.query_row(
             "SELECT
                     COUNT(*)

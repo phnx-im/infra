@@ -373,6 +373,7 @@ impl AsClientId {
     }
 
     pub fn user_name(&self) -> QualifiedUserName {
+        // TODO: avoid this clone
         self.user_name.clone()
     }
 

@@ -3393,7 +3393,6 @@ dependencies = [
  "flutter_rust_bridge",
  "jni",
  "notify-rust",
- "openmls",
  "parking_lot",
  "phnxapiclient",
  "phnxcoreclient",

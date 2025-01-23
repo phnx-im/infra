@@ -54,13 +54,6 @@ impl TimestampedMessage {
         })
     }
 
-    pub(crate) fn from_message_and_timestamp(message: Message, ds_timestamp: TimeStamp) -> Self {
-        Self {
-            message,
-            timestamp: ds_timestamp,
-        }
-    }
-
     pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
         let message = Message::Event(EventMessage::System(system_message));
         Self {
@@ -70,9 +63,10 @@ impl TimestampedMessage {
     }
 }
 
+/// Identifier of a message in a conversation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConversationMessageId {
-    uuid: Uuid,
+    pub uuid: Uuid,
 }
 
 impl ConversationMessageId {
@@ -117,11 +111,24 @@ impl ConversationMessage {
     pub(crate) fn from_timestamped_message(
         conversation_id: ConversationId,
         timestamped_message: TimestampedMessage,
-    ) -> ConversationMessage {
-        ConversationMessage {
+    ) -> Self {
+        Self {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
             timestamped_message,
+        }
+    }
+
+    pub fn new_for_test(
+        conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
+        timestamp: TimeStamp,
+        message: Message,
+    ) -> Self {
+        Self {
+            conversation_id,
+            conversation_message_id,
+            timestamped_message: TimestampedMessage { timestamp, message },
         }
     }
 
@@ -131,8 +138,10 @@ impl ConversationMessage {
         content: MimiContent,
     ) -> ConversationMessage {
         let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
-        let timestamped_message =
-            TimestampedMessage::from_message_and_timestamp(message, TimeStamp::now());
+        let timestamped_message = TimestampedMessage {
+            message,
+            timestamp: TimeStamp::now(),
+        };
         ConversationMessage {
             conversation_id,
             conversation_message_id: ConversationMessageId::new(),
@@ -189,6 +198,10 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn with_content(content: ContentMessage) -> Self {
+        Self::Content(Box::new(content))
+    }
+
     /// Returns a string representation of the message for use in UI
     /// notifications.
     pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
@@ -300,8 +313,14 @@ impl ErrorMessage {
     }
 }
 
+impl From<ErrorMessage> for String {
+    fn from(ErrorMessage { message }: ErrorMessage) -> String {
+        message
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(ConversationMessage),
+    Message(Box<ConversationMessage>),
 }

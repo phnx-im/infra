@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+/// Registration features
+library;
+
 export 'server_choice.dart';
 export 'username_password.dart';
 export 'display_name_picture.dart';

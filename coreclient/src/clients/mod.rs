@@ -60,6 +60,7 @@ use crate::{
         messages::{ConversationMessage, TimestampedMessage},
         Conversation, ConversationAttributes,
     },
+    groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
@@ -67,6 +68,7 @@ use crate::{
         migration::run_migrations,
         persistence::{open_client_db, open_phnx_db},
     },
+    ConversationMessageId,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -256,6 +258,12 @@ impl CoreUser {
         let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
 
         Ok(Some(self_user))
+    }
+
+    pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
+        if !notification.ops.is_empty() {
+            self.inner.store_notifications_tx.notify(notification);
+        }
     }
 
     pub(crate) fn subscribe_to_store_notifications(
@@ -522,6 +530,10 @@ impl CoreUser {
                 content.clone(),
             );
             conversation_message.store(&transaction, &mut notifier)?;
+
+            // Notify as early as possible to react to the not yet sent message
+            notifier.notify();
+
             let mut group = Group::load(&transaction, group_id)?
                 .ok_or(anyhow!("Can't find group with id {group_id:?}"))?;
             let params = group.create_message(&transaction, content)?;
@@ -529,6 +541,7 @@ impl CoreUser {
             // confirm as this is just an application message.
             group.store_update(&transaction)?;
             // Also, mark the message (and all messages preceeding it) as read.
+            let mut notifier = self.store_notifier();
             Conversation::mark_as_read(
                 &mut transaction,
                 &mut notifier,
@@ -670,13 +683,20 @@ impl CoreUser {
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let mut connection = self.inner.connection.lock().await;
-        let (connection_group, partial_params) = Group::create_group(
-            &mut connection,
-            &self.inner.key_store.signing_key,
-            group_id.clone(),
-            group_data,
-        )?;
-        connection_group.store(&connection)?;
+        let (connection_group, partial_params) = {
+            let transaction = connection.transaction()?;
+            let provider = PhnxOpenMlsProvider::new(&transaction);
+            let (group, group_membership, partial_params) = Group::create_group(
+                &provider,
+                &self.inner.key_store.signing_key,
+                group_id.clone(),
+                group_data,
+            )?;
+            group_membership.store(&transaction)?;
+            group.store(&transaction)?;
+            transaction.commit()?;
+            (group, partial_params)
+        };
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -1149,16 +1169,34 @@ impl CoreUser {
         Ok(())
     }
 
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> Result<bool, rusqlite::Error> {
+        let connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
+        let marked_as_read = Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut notifier,
+            conversation_id,
+            until,
+        )?;
+        notifier.notify();
+        Ok(marked_as_read)
+    }
+
     /// Returns how many messages are marked as unread across all conversations.
-    pub async fn global_unread_messages_count(&self) -> Result<u32, rusqlite::Error> {
+    pub async fn global_unread_messages_count(&self) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::global_unread_message_count(connection)?;
-        Ok(count)
+        Conversation::global_unread_message_count(connection)
     }
 
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
+    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> usize {
         let connection = &self.inner.connection.lock().await;
         Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
             error!(%error, "Error while fetching unread messages count");
@@ -1166,13 +1204,20 @@ impl CoreUser {
         })
     }
 
+    pub(crate) async fn try_messages_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<usize, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        Conversation::messages_count(connection, conversation_id)
+    }
+
     pub(crate) async fn try_unread_messages_count(
         &self,
         conversation_id: ConversationId,
     ) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::unread_messages_count(connection, conversation_id)?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Conversation::unread_messages_count(connection, conversation_id)
     }
 
     /// Updates the client's push token on the QS.

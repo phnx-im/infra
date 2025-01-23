@@ -8,11 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:prototype/core_client.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/platform.dart';
-import 'package:prototype/loadable_user_cubit.dart';
-import 'package:prototype/user_cubit.dart';
+import 'package:prototype/util/platform.dart';
+import 'package:prototype/user/user.dart';
 import 'package:provider/provider.dart';
 
 import 'registration/registration.dart';
@@ -59,7 +58,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       if (Platform.isIOS) {
         // only set the badge count if the user is logged in
         if (_coreClient.maybeUser case final user?) {
-          final count = await user.globalUnreadMessagesCount();
+          final count = await user.globalUnreadMessagesCount;
           await setBadgeCount(count);
         }
       }
@@ -107,8 +106,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               // Logged in user is accessible everywhere inside the app after
               // the user is loaded
               ? BlocProvider<UserCubit>(
-                  create: (context) =>
-                      UserCubit(coreClient: context.coreClient),
+                  create: (context) => UserCubit(coreClient: context.read()),
                   child: router!,
                 )
               : router!,
