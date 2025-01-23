@@ -29,10 +29,10 @@ use phnxtypes::{
             WelcomeInfoParams,
         },
         client_ds_out::{
-            AddClientsParamsOut, AddUsersParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
+            AddClientsParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
             CreateGroupParamsOut, DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn,
-            DsRequestParamsOut, ExternalCommitInfoIn, JoinConnectionGroupParamsOut,
-            JoinGroupParamsOut, RemoveClientsParamsOut, RemoveUsersParamsOut,
+            DsRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
+            JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
             ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
             UpdateClientParamsOut,
         },
@@ -167,38 +167,15 @@ impl ApiClient {
         })
     }
 
-    /// Add one or more users to a group.
-    pub async fn ds_add_users(
+    /// Performs a group operation.
+    pub async fn ds_group_operation(
         &self,
-        payload: AddUsersParamsOut,
+        payload: GroupOperationParamsOut,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &UserAuthSigningKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::AddUsers(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Remove one or more users from a group.
-    pub async fn ds_remove_users(
-        &self,
-        params: RemoveUsersParamsOut,
-        group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::RemoveUsers(params),
+            DsRequestParamsOut::GroupOperation(payload),
             signing_key,
             group_state_ear_key,
         )

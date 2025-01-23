@@ -24,30 +24,10 @@ pub enum UpdateQueueConfigError {
     UnknownSender,
 }
 
-/// Potential errors when removing users.
+/// Potential errors when performing a group operation.
 #[derive(Debug, Error)]
 #[repr(u8)]
-pub enum UserRemovalError {
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError,
-    /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
-    InvalidMessage,
-    /// Error processing message.
-    #[error("Error processing message.")]
-    ProcessingError,
-    /// Commit didn't cover all clients of a user.
-    #[error("Commit didn't cover all clients of a user.")]
-    IncompleteRemoval,
-    #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<StorageError<CborMlsAssistStorage>>),
-}
-
-/// Potential errors when adding a user.
-#[derive(Debug, Error)]
-#[repr(u8)]
-pub enum AddUsersError {
+pub enum GroupOperationError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
@@ -130,15 +110,9 @@ pub enum DsProcessingError {
     /// Error storing encrypted group state.
     #[error("Error storing encrypted group state.")]
     StorageError,
-    /// Error adding users.
-    #[error(transparent)]
-    AddUsersError(#[from] AddUsersError),
     /// Error creating group.
     #[error("Failed to create group: Group ID not reserved")]
     UnreservedGroupId,
-    /// Error removing users.
-    #[error(transparent)]
-    RemoveUsersError(#[from] UserRemovalError),
     /// Error updating client.
     #[error(transparent)]
     ClientUpdateError(#[from] ClientUpdateError),
@@ -166,6 +140,9 @@ pub enum DsProcessingError {
     /// Error deleting group.
     #[error(transparent)]
     GroupDeletionError(#[from] GroupDeletionError),
+    /// Error performing group operation.
+    #[error(transparent)]
+    GroupOperationError(#[from] GroupOperationError),
 }
 
 /// Potential errors when joining a group.

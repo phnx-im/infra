@@ -13,14 +13,13 @@ use uuid::Uuid;
 use crate::infra_service::{InfraService, ServiceCreationError};
 
 mod add_clients;
-mod add_users;
 mod delete_group;
+mod group_operation;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;
 pub mod process;
 mod remove_clients;
-mod remove_users;
 mod resync_client;
 mod self_remove_client;
 mod update_client;
