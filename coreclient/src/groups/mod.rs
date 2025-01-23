@@ -1232,10 +1232,9 @@ impl Group {
     /// Send an application message to the group.
     pub(super) fn create_message(
         &mut self,
-        connection: &Connection,
+        provider: &impl OpenMlsProvider,
         content: MimiContent,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
         let mls_message = self.mls_group.create_message(
             provider,
             &self.leaf_signer,

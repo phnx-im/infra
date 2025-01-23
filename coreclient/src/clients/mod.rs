@@ -540,7 +540,9 @@ impl CoreUser {
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.create_message(&connection, content)?;
+        let provider = PhnxOpenMlsProvider::new(&connection);
+        let params = group.create_message(&provider, content)?;
+        drop(provider);
         drop(connection);
 
         // Phase 2: Send message to DS
