@@ -105,7 +105,6 @@ impl UnsentMessage {
         let mut group = Group::load(transaction, group_id)?
             .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
-        // TODO: Can we avoid this clone?
         let params = group.create_message(transaction, content)?;
         // Immediately write the group back. No need to wait for the DS to
         // confirm as this is just an application message.
