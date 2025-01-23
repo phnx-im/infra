@@ -261,7 +261,7 @@ impl CoreUser {
         Ok(Some(self_user))
     }
 
-    /// Executes a failbale closure `f` with a transaction.
+    /// Executes a fallible closure `f` with a transaction.
     ///
     /// Transaction is committed on success and rolled back on failure of the closure `f`.
     pub(crate) async fn with_transaction<T>(
