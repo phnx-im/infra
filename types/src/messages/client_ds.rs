@@ -250,7 +250,7 @@ impl UpdateQsClientReferenceParams {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    // The Public key from the sender's InfraCredential
+    // The Public key from the sender's PseudonymousCredential
     pub sender: SignaturePublicKey,
     pub epoch: GroupEpoch,
 }

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::keys::InfraCredentialSigningKey,
+    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::SignatureEarKey, errors::RandomnessError},
 };
 use rusqlite::{params, OptionalExtension};
@@ -34,14 +34,15 @@ impl Storable for LeafKeys {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeafKeys {
     verifying_key: SignaturePublicKey,
-    leaf_signing_key: InfraCredentialSigningKey,
+    leaf_signing_key: PseudonymousCredentialSigningKey,
     signature_ear_key: SignatureEarKey,
 }
 
 impl LeafKeys {
     pub(crate) fn generate(signing_key: &ClientSigningKey) -> Result<Self, RandomnessError> {
         let signature_ear_key = SignatureEarKey::random()?;
-        let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+        let leaf_signing_key =
+            PseudonymousCredentialSigningKey::generate(signing_key, &signature_ear_key);
         let keys = Self {
             verifying_key: leaf_signing_key.credential().verifying_key().clone(),
             leaf_signing_key,
@@ -58,7 +59,7 @@ impl LeafKeys {
         Ok(credential)
     }
 
-    pub(crate) fn into_leaf_signer(self) -> InfraCredentialSigningKey {
+    pub(crate) fn into_leaf_signer(self) -> PseudonymousCredentialSigningKey {
         self.leaf_signing_key
     }
 

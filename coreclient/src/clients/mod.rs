@@ -17,7 +17,7 @@ use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
-        keys::{ClientSigningKey, InfraCredentialSigningKey},
+        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     },
     crypto::{

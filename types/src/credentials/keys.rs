@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::{
-    infra_credentials::{InfraCredential, InfraCredentialTbs},
+    infra_credentials::{PseudonymousCredential, PseudonymousCredentialTbs},
     AsCredential, AsIntermediateCredential,
 };
 
@@ -179,13 +179,13 @@ impl AsRef<VerifyingKey> for ClientVerifyingKey {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InfraCredentialSigningKey {
+pub struct PseudonymousCredentialSigningKey {
     signing_key: SigningKey,
-    credential: InfraCredential,
+    credential: PseudonymousCredential,
 }
 
 #[cfg(feature = "sqlite")]
-impl ToSql for InfraCredentialSigningKey {
+impl ToSql for PseudonymousCredentialSigningKey {
     fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
         let bytes = PhnxCodec::to_vec(self)?;
         Ok(ToSqlOutput::from(bytes))
@@ -193,7 +193,7 @@ impl ToSql for InfraCredentialSigningKey {
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for InfraCredentialSigningKey {
+impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let key = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(key)
@@ -203,11 +203,11 @@ impl rusqlite::types::FromSql for InfraCredentialSigningKey {
 // 30 days lifetime in seconds
 pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
-impl InfraCredentialSigningKey {
+impl PseudonymousCredentialSigningKey {
     pub fn generate(client_signer: &ClientSigningKey, ear_key: &SignatureEarKey) -> Self {
         let signing_key = SigningKey::generate().unwrap();
         let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
-        let tbs = InfraCredentialTbs {
+        let tbs = PseudonymousCredentialTbs {
             identity,
             expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
             signature_scheme: DEFAULT_SIGNATURE_SCHEME,
@@ -215,7 +215,7 @@ impl InfraCredentialSigningKey {
         };
         let plaintext_credential = tbs.sign(client_signer).unwrap();
         let encrypted_signature = plaintext_credential.signature.encrypt(ear_key).unwrap();
-        let credential = InfraCredential::new(
+        let credential = PseudonymousCredential::new(
             plaintext_credential.payload.identity,
             plaintext_credential.payload.expiration_data,
             plaintext_credential.payload.signature_scheme,
@@ -228,21 +228,21 @@ impl InfraCredentialSigningKey {
         }
     }
 
-    pub fn credential(&self) -> &InfraCredential {
+    pub fn credential(&self) -> &PseudonymousCredential {
         &self.credential
     }
 }
 
-impl SigningKeyBehaviour for InfraCredentialSigningKey {}
-impl SigningKeyBehaviour for &InfraCredentialSigningKey {}
+impl SigningKeyBehaviour for PseudonymousCredentialSigningKey {}
+impl SigningKeyBehaviour for &PseudonymousCredentialSigningKey {}
 
-impl AsRef<SigningKey> for InfraCredentialSigningKey {
+impl AsRef<SigningKey> for PseudonymousCredentialSigningKey {
     fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
-impl Signer for InfraCredentialSigningKey {
+impl Signer for PseudonymousCredentialSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
         <Self as SigningKeyBehaviour>::sign(self, payload)
             .map_err(|_| SignerError::SigningError)

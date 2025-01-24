@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, credentials::keys::InfraCredentialSigningKey};
+use phnxtypes::{codec::PhnxCodec, credentials::keys::PseudonymousCredentialSigningKey};
 use rusqlite::{types::FromSql, ToSql};
 
 use super::*;
@@ -11,7 +11,7 @@ use super::*;
 /// The diff of a group should be merged when the pending commit of the
 /// underlying MLS group is merged.
 pub(crate) struct GroupDiff {
-    pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
+    pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
     pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
     pub(crate) credential_ear_key: Option<ClientCredentialEarKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
@@ -42,7 +42,7 @@ impl GroupDiff {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct StagedGroupDiff {
-    pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
+    pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
     pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
     pub(crate) credential_ear_key: Option<ClientCredentialEarKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,

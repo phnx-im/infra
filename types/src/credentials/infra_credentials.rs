@@ -38,14 +38,14 @@ use super::private_mod;
     TlsDeserialize,
     TlsDeserializeBytes,
 )]
-pub struct InfraCredential {
+pub struct PseudonymousCredential {
     // (Pseudonymous) identity
-    tbs: InfraCredentialTbs,
+    tbs: PseudonymousCredentialTbs,
     encrypted_signature: VLBytes,
 }
 
-impl InfraCredential {
-    /// Create a new [`InfraCredential`].
+impl PseudonymousCredential {
+    /// Create a new [`PseudonymousCredential`].
     pub fn new(
         identity: Vec<u8>,
         expiration_data: Lifetime,
@@ -53,7 +53,7 @@ impl InfraCredential {
         verifying_key: SignaturePublicKey,
         encrypted_signature: VLBytes,
     ) -> Self {
-        let tbs = InfraCredentialTbs {
+        let tbs = PseudonymousCredentialTbs {
             identity,
             expiration_data,
             signature_scheme: credential_ciphersuite,
@@ -91,43 +91,43 @@ impl InfraCredential {
     }
 }
 
-impl TryFrom<&InfraCredential> for Credential {
+impl TryFrom<&PseudonymousCredential> for Credential {
     type Error = tls_codec::Error;
 
-    fn try_from(value: &InfraCredential) -> Result<Self, Self::Error> {
+    fn try_from(value: &PseudonymousCredential) -> Result<Self, Self::Error> {
         let basic_credential = BasicCredential::new(value.tls_serialize_detached()?);
         Ok(basic_credential.into())
     }
 }
 
-impl TryFrom<Credential> for InfraCredential {
+impl TryFrom<Credential> for PseudonymousCredential {
     type Error = BasicCredentialError;
 
     fn try_from(value: Credential) -> Result<Self, Self::Error> {
         let basic_credential = BasicCredential::try_from(value)?;
-        let infra_credential =
-            InfraCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
-        Ok(infra_credential)
+        let pseudonymous_credential =
+            PseudonymousCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
+        Ok(pseudonymous_credential)
     }
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
-pub struct InfraCredentialPlaintext {
-    pub(crate) payload: InfraCredentialTbs,
+pub struct PseudonymousCredentialPlaintext {
+    pub(crate) payload: PseudonymousCredentialTbs,
     pub(crate) signature: Signature,
 }
 
-impl InfraCredentialPlaintext {
+impl PseudonymousCredentialPlaintext {
     pub fn decrypt(
-        credential: &InfraCredential,
+        credential: &PseudonymousCredential,
         ear_key: &SignatureEarKey,
-    ) -> Result<Self, InfraCredentialDecryptionError> {
+    ) -> Result<Self, IdentityLinkDecryptionError> {
         let encrypted_signature =
             Ciphertext::tls_deserialize_exact_bytes(credential.encrypted_signature().as_slice())?
                 .into();
         let signature = Signature::decrypt(ear_key, &encrypted_signature)
-            .map_err(|_| InfraCredentialDecryptionError::SignatureDecryptionError)?;
-        let payload = InfraCredentialTbs {
+            .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        let payload = PseudonymousCredentialTbs {
             identity: credential.identity().to_vec(),
             expiration_data: credential.expiration_data(),
             signature_scheme: credential.signature_scheme(),
@@ -138,7 +138,7 @@ impl InfraCredentialPlaintext {
 }
 
 #[derive(Debug, Error)]
-pub enum InfraCredentialDecryptionError {
+pub enum IdentityLinkDecryptionError {
     #[error(transparent)]
     DeserializationError(#[from] tls_codec::Error),
     #[error("Error decrypting signature")]
@@ -157,14 +157,14 @@ pub enum InfraCredentialDecryptionError {
     TlsDeserialize,
     TlsDeserializeBytes,
 )]
-pub struct InfraCredentialTbs {
+pub struct PseudonymousCredentialTbs {
     pub(crate) identity: Vec<u8>,
     pub(crate) expiration_data: Lifetime,
     pub(crate) signature_scheme: SignatureScheme,
     pub(crate) verifying_key: SignaturePublicKey,
 }
 
-impl Verifiable for InfraCredentialPlaintext {
+impl Verifiable for PseudonymousCredentialPlaintext {
     fn signature(&self) -> &Signature {
         &self.signature
     }
@@ -174,32 +174,35 @@ impl Verifiable for InfraCredentialPlaintext {
     }
 
     fn label(&self) -> &str {
-        "InfraCredential"
+        "PseudonymousCredential"
     }
 }
 
-impl VerifiedStruct<InfraCredentialPlaintext> for InfraCredentialTbs {
+impl VerifiedStruct<PseudonymousCredentialPlaintext> for PseudonymousCredentialTbs {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(verifiable: InfraCredentialPlaintext, _seal: Self::SealingType) -> Self {
+    fn from_verifiable(
+        verifiable: PseudonymousCredentialPlaintext,
+        _seal: Self::SealingType,
+    ) -> Self {
         verifiable.payload
     }
 }
 
-impl SignedStruct<InfraCredentialTbs> for InfraCredentialPlaintext {
-    fn from_payload(payload: InfraCredentialTbs, signature: Signature) -> Self {
+impl SignedStruct<PseudonymousCredentialTbs> for PseudonymousCredentialPlaintext {
+    fn from_payload(payload: PseudonymousCredentialTbs, signature: Signature) -> Self {
         Self { payload, signature }
     }
 }
 
-impl Signable for InfraCredentialTbs {
-    type SignedOutput = InfraCredentialPlaintext;
+impl Signable for PseudonymousCredentialTbs {
+    type SignedOutput = PseudonymousCredentialPlaintext;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
     }
 
     fn label(&self) -> &str {
-        "InfraCredential"
+        "PseudonymousCredential"
     }
 }

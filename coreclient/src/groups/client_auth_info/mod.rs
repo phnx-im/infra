@@ -8,7 +8,9 @@ use anyhow::{anyhow, Result};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{
-        infra_credentials::{InfraCredential, InfraCredentialPlaintext, InfraCredentialTbs},
+        infra_credentials::{
+            PseudonymousCredential, PseudonymousCredentialPlaintext, PseudonymousCredentialTbs,
+        },
         ClientCredential, CredentialFingerprint, EncryptedClientCredential,
         VerifiableClientCredential,
     },
@@ -219,15 +221,15 @@ impl ClientAuthInfo {
     }
 
     pub(super) fn verify_infra_credential(&self, credential: &Credential) -> Result<()> {
-        let infra_credential = InfraCredential::try_from(credential.clone())?;
+        let infra_credential = PseudonymousCredential::try_from(credential.clone())?;
 
         // Verify the leaf credential
-        let credential_plaintext = InfraCredentialPlaintext::decrypt(
+        let credential_plaintext = PseudonymousCredentialPlaintext::decrypt(
             &infra_credential,
             &self.group_membership.signature_ear_key,
         )?;
         credential_plaintext
-            .verify::<InfraCredentialTbs>(self.client_credential().verifying_key())?;
+            .verify::<PseudonymousCredentialTbs>(self.client_credential().verifying_key())?;
         Ok(())
     }
 

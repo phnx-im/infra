@@ -27,7 +27,7 @@ use crate::{
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, InfraCredentialSigningKey, SignatureEarKey,
+    CoreUser, EarEncryptable, FriendshipPackage, PseudonymousCredentialSigningKey, SignatureEarKey,
     UserProfile,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
@@ -147,12 +147,12 @@ impl CoreUser {
         signature_ear_key: &SignatureEarKey,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile: UserProfile,
-    ) -> Result<(InfraCredentialSigningKey, InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(PseudonymousCredentialSigningKey, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
 
-        let leaf_signer = InfraCredentialSigningKey::generate(
+        let leaf_signer = PseudonymousCredentialSigningKey::generate(
             &self.inner.key_store.signing_key,
             signature_ear_key,
         );
@@ -219,7 +219,7 @@ impl CoreUser {
         signature_ear_key: SignatureEarKey,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        leaf_signer: InfraCredentialSigningKey,
+        leaf_signer: PseudonymousCredentialSigningKey,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
         let (group, commit, group_info) = Group::join_group_externally(

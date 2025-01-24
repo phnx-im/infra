@@ -17,7 +17,7 @@ use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
-        keys::{ClientSigningKey, InfraCredentialSigningKey},
+        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
         ClientCredential, EncryptedClientCredential,
     },
     crypto::{
@@ -169,7 +169,7 @@ impl From<Vec<u8>> for GroupData {
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
-    leaf_signer: InfraCredentialSigningKey,
+    leaf_signer: PseudonymousCredentialSigningKey,
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
     group_state_ear_key: GroupStateEarKey,
@@ -207,7 +207,7 @@ impl Group {
         let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
 
         let signature_ear_key = SignatureEarKey::random()?;
-        let leaf_signer = InfraCredentialSigningKey::generate(signer, &signature_ear_key);
+        let leaf_signer = PseudonymousCredentialSigningKey::generate(signer, &signature_ear_key);
 
         let required_capabilities =
             Extension::RequiredCapabilities(default_required_capabilities());
@@ -424,7 +424,7 @@ impl Group {
         connection_mutex: SqliteConnection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
-        leaf_signer: InfraCredentialSigningKey,
+        leaf_signer: PseudonymousCredentialSigningKey,
         signature_ear_key: SignatureEarKey,
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
@@ -1033,7 +1033,7 @@ impl Group {
         Ok(params)
     }
 
-    pub(crate) fn leaf_signer(&self) -> &InfraCredentialSigningKey {
+    pub(crate) fn leaf_signer(&self) -> &PseudonymousCredentialSigningKey {
         &self.leaf_signer
     }
 

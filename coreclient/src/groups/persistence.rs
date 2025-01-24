@@ -5,7 +5,7 @@
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
-    credentials::keys::InfraCredentialSigningKey,
+    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{
         ear::keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKeyWrapperKey},
         signatures::keys::UserAuthSigningKey,
@@ -19,7 +19,7 @@ use super::{diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider, Group}
 
 pub(crate) struct StorableGroup {
     group_id: GroupId,
-    leaf_signer: InfraCredentialSigningKey,
+    leaf_signer: PseudonymousCredentialSigningKey,
     signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
     credential_ear_key: ClientCredentialEarKey,
     group_state_ear_key: GroupStateEarKey,

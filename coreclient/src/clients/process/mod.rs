@@ -4,7 +4,7 @@
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, ContactAddInfos, Conversation, ConversationAttributes,
-    ConversationId, CoreUser, EarEncryptable, FriendshipPackage, InfraCredentialSigningKey,
+    ConversationId, CoreUser, EarEncryptable, FriendshipPackage, PseudonymousCredentialSigningKey,
     SignatureEarKey, TimestampedMessage, UserProfile, Verifiable,
 };
 
