@@ -27,7 +27,7 @@ const AEAD_NONCE_SIZE: usize = 12;
 
 // Convenience struct that allows us to keep ciphertext and nonce together.
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 #[cfg_attr(
     feature = "sqlx",

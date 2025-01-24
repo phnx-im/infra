@@ -24,7 +24,7 @@ use phnxtypes::{
         ear::{
             keys::{
                 ClientCredentialEarKey, EncryptedSignatureEarKey, GroupStateEarKey,
-                SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                IdentityLinkKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
             EarDecryptable, EarEncryptable,
         },
@@ -206,7 +206,7 @@ impl Group {
         let group_state_ear_key = GroupStateEarKey::random()?;
         let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
 
-        let signature_ear_key = SignatureEarKey::random()?;
+        let signature_ear_key = IdentityLinkKey::random()?;
         let leaf_signer = PseudonymousCredentialSigningKey::generate(signer, &signature_ear_key);
 
         let required_capabilities =
@@ -425,7 +425,7 @@ impl Group {
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: PseudonymousCredentialSigningKey,
-        signature_ear_key: SignatureEarKey,
+        signature_ear_key: IdentityLinkKey,
         group_state_ear_key: GroupStateEarKey,
         signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
         credential_ear_key: ClientCredentialEarKey,
@@ -547,14 +547,14 @@ impl Group {
         debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
-            Vec<Vec<(KeyPackage, SignatureEarKey)>>,
+            Vec<Vec<(KeyPackage, IdentityLinkKey)>>,
             Vec<KeyPackageBatch<VERIFIED>>,
         ) = add_infos
             .into_iter()
             .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
             .unzip();
 
-        let (key_packages, signature_ear_keys): (Vec<KeyPackage>, Vec<SignatureEarKey>) =
+        let (key_packages, signature_ear_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) =
             key_package_vecs.into_iter().flatten().unzip();
 
         let ecc = client_credentials

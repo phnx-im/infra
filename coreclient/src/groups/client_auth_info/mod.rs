@@ -17,7 +17,7 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                ClientCredentialEarKey, EncryptedSignatureEarKey, SignatureEarKey,
+                ClientCredentialEarKey, EncryptedSignatureEarKey, IdentityLinkKey,
                 SignatureEarKeyWrapperKey,
             },
             EarDecryptable,
@@ -84,7 +84,7 @@ pub(crate) struct GroupMembership {
     client_id: AsClientId,
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
-    signature_ear_key: SignatureEarKey,
+    signature_ear_key: IdentityLinkKey,
     leaf_index: LeafNodeIndex,
 }
 
@@ -93,7 +93,7 @@ impl GroupMembership {
         client_id: AsClientId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
-        signature_ear_key: SignatureEarKey,
+        signature_ear_key: IdentityLinkKey,
         client_credential_fingerprint: CredentialFingerprint,
     ) -> Self {
         Self {
@@ -128,7 +128,7 @@ impl GroupMembership {
     }
 
     /// Set the signature ear key.
-    pub(super) fn set_signature_ear_key(&mut self, signature_ear_key: SignatureEarKey) {
+    pub(super) fn set_signature_ear_key(&mut self, signature_ear_key: IdentityLinkKey) {
         self.signature_ear_key = signature_ear_key;
     }
 
@@ -205,7 +205,7 @@ impl ClientAuthInfo {
         let client_credential =
             StorableClientCredential::decrypt_and_verify(connection, api_clients, ear_key, ecc)
                 .await?;
-        let signature_ear_key = SignatureEarKey::decrypt(wrapper_key, &esek)?;
+        let signature_ear_key = IdentityLinkKey::decrypt(wrapper_key, &esek)?;
         let group_membership = GroupMembership::new(
             client_credential.identity(),
             group_id.clone(),

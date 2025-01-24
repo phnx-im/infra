@@ -10,7 +10,7 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, SignatureEarKey,
+                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, IdentityLinkKey,
                 SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
             EarDecryptable,
@@ -49,7 +49,7 @@ pub struct Contact {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ContactAddInfos {
-    pub key_packages: Vec<(KeyPackage, SignatureEarKey)>,
+    pub key_packages: Vec<(KeyPackage, IdentityLinkKey)>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
@@ -91,14 +91,14 @@ impl Contact {
                 self.add_package_ear_key.clone(),
             )
             .await?;
-        let key_packages: Vec<(KeyPackage, SignatureEarKey)> = key_package_batch_response
+        let key_packages: Vec<(KeyPackage, IdentityLinkKey)> = key_package_batch_response
             .add_packages
             .into_iter()
             .map(|add_package| {
                 let verified_add_package =
                     add_package.validate(&RustCrypto::default(), ProtocolVersion::default())?;
                 let key_package = verified_add_package.key_package().clone();
-                let sek = SignatureEarKey::decrypt(
+                let sek = IdentityLinkKey::decrypt(
                     &self.signature_ear_key_wrapper_key,
                     verified_add_package.encrypted_signature_ear_key(),
                 )?;

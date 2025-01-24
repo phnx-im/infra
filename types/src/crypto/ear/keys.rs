@@ -230,45 +230,45 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
 
-pub type SignatureEarKeySecret = Secret<AEAD_KEY_SIZE>;
+pub type IdentityLinkKeySecret = Secret<AEAD_KEY_SIZE>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct SignatureEarKey {
-    key: SignatureEarKeySecret,
+pub struct IdentityLinkKey {
+    key: IdentityLinkKeySecret,
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for SignatureEarKey {
+impl rusqlite::types::ToSql for IdentityLinkKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.key.to_sql()
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for SignatureEarKey {
+impl rusqlite::types::FromSql for IdentityLinkKey {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = SignatureEarKeySecret::column_result(value)?;
+        let key = IdentityLinkKeySecret::column_result(value)?;
         Ok(Self { key })
     }
 }
 
-impl SignatureEarKey {
+impl IdentityLinkKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
-            key: SignatureEarKeySecret::random()?,
+            key: IdentityLinkKeySecret::random()?,
         })
     }
 }
 
-impl EarKey for SignatureEarKey {}
+impl EarKey for IdentityLinkKey {}
 
-impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
+impl AsRef<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
+impl From<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }
@@ -364,8 +364,8 @@ impl From<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
     }
 }
 
-impl EarEncryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
-impl EarDecryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
+impl EarEncryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for IdentityLinkKey {}
+impl EarDecryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for IdentityLinkKey {}
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 pub struct EncryptedSignatureEarKey {

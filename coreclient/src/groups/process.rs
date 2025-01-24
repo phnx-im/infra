@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail, Result};
 use phnxtypes::{
     credentials::EncryptedClientCredential,
     crypto::ear::{
-        keys::{EncryptedSignatureEarKey, SignatureEarKey},
+        keys::{EncryptedSignatureEarKey, IdentityLinkKey},
         EarDecryptable,
     },
     identifiers::AsClientId,
@@ -187,7 +187,7 @@ impl Group {
                             } else {
                                 // If not, we decrypt the new EAR key and use
                                 // the existing client credential.
-                                let signature_ear_key = SignatureEarKey::decrypt(
+                                let signature_ear_key = IdentityLinkKey::decrypt(
                                     &self.signature_ear_key_wrapper_key,
                                     &encrypted_signature_ear_key,
                                 )?;
@@ -491,7 +491,7 @@ impl Group {
             } else {
                 // If not, we decrypt the new EAR key and use
                 // the existing client credential.
-                let signature_ear_key = SignatureEarKey::decrypt(
+                let signature_ear_key = IdentityLinkKey::decrypt(
                     &self.signature_ear_key_wrapper_key,
                     &credential_update.encrypted_ear_key,
                 )?;

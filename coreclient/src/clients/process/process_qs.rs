@@ -32,7 +32,7 @@ use crate::{conversations::ConversationType, groups::Group, ConversationMessage,
 
 use super::{
     anyhow, Asset, ContactAddInfos, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    FriendshipPackage, SignatureEarKey, TimestampedMessage, UserProfile, Verifiable,
+    FriendshipPackage, IdentityLinkKey, TimestampedMessage, UserProfile, Verifiable,
 };
 use crate::key_stores::{
     qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableQsQueueRatchet,
@@ -335,14 +335,14 @@ impl CoreUser {
                         friendship_package.add_package_ear_key.clone(),
                     )
                     .await?;
-                let key_packages: Vec<(KeyPackage, SignatureEarKey)> = key_package_batch_response
+                let key_packages: Vec<(KeyPackage, IdentityLinkKey)> = key_package_batch_response
                     .add_packages
                     .into_iter()
                     .map(|add_package| {
                         let verified_add_package = add_package
                             .validate(&RustCrypto::default(), ProtocolVersion::default())?;
                         let key_package = verified_add_package.key_package().clone();
-                        let sek = SignatureEarKey::decrypt(
+                        let sek = IdentityLinkKey::decrypt(
                             &friendship_package.signature_ear_key_wrapper_key,
                             verified_add_package.encrypted_signature_ear_key(),
                         )?;

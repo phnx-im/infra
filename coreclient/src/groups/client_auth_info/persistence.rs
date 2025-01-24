@@ -5,7 +5,7 @@
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
-    crypto::ear::keys::{SignatureEarKey, SignatureEarKeySecret},
+    crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
@@ -357,13 +357,13 @@ impl Storable for GroupMembership {
         let client_uuid = row.get(2)?;
         let user_name = row.get(3)?;
         let leaf_index: i64 = row.get(4)?;
-        let signature_ear_key: SignatureEarKeySecret = row.get(5)?;
+        let signature_ear_key: IdentityLinkKeySecret = row.get(5)?;
         let client_id = AsClientId::new(user_name, client_uuid);
         Ok(Self {
             client_id,
             group_id: group_id.into(),
             leaf_index: LeafNodeIndex::new(leaf_index as u32),
-            signature_ear_key: SignatureEarKey::from(signature_ear_key),
+            signature_ear_key: IdentityLinkKey::from(signature_ear_key),
             client_credential_fingerprint,
         })
     }

@@ -27,7 +27,7 @@ use crate::{
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, PseudonymousCredentialSigningKey, SignatureEarKey,
+    CoreUser, EarEncryptable, FriendshipPackage, IdentityLinkKey, PseudonymousCredentialSigningKey,
     UserProfile,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
@@ -68,7 +68,7 @@ impl CoreUser {
                 let own_user_profile = self.load_own_user_profile().await?;
 
                 // Create signature ear key
-                let signature_ear_key = SignatureEarKey::random()?;
+                let signature_ear_key = IdentityLinkKey::random()?;
 
                 // Prepare group
                 let (leaf_signer, aad, qgid) =
@@ -144,10 +144,14 @@ impl CoreUser {
 
     fn prepare_group(
         &self,
-        signature_ear_key: &SignatureEarKey,
+        signature_ear_key: &IdentityLinkKey,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile: UserProfile,
-    ) -> Result<(PseudonymousCredentialSigningKey, InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(
+        PseudonymousCredentialSigningKey,
+        InfraAadMessage,
+        QualifiedGroupId,
+    )> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
@@ -216,7 +220,7 @@ impl CoreUser {
 
     async fn join_group_externally(
         &self,
-        signature_ear_key: SignatureEarKey,
+        signature_ear_key: IdentityLinkKey,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         leaf_signer: PseudonymousCredentialSigningKey,

@@ -24,7 +24,7 @@ use phnxtypes::{
         ear::{
             keys::{
                 AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
-                SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                IdentityLinkKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
             },
             EarEncryptable, EarKey, GenericSerializable,
         },

@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
-    crypto::{ear::keys::SignatureEarKey, errors::RandomnessError},
+    crypto::{ear::keys::IdentityLinkKey, errors::RandomnessError},
 };
 use rusqlite::{params, OptionalExtension};
 
@@ -35,12 +35,12 @@ impl Storable for LeafKeys {
 pub(crate) struct LeafKeys {
     verifying_key: SignaturePublicKey,
     leaf_signing_key: PseudonymousCredentialSigningKey,
-    signature_ear_key: SignatureEarKey,
+    signature_ear_key: IdentityLinkKey,
 }
 
 impl LeafKeys {
     pub(crate) fn generate(signing_key: &ClientSigningKey) -> Result<Self, RandomnessError> {
-        let signature_ear_key = SignatureEarKey::random()?;
+        let signature_ear_key = IdentityLinkKey::random()?;
         let leaf_signing_key =
             PseudonymousCredentialSigningKey::generate(signing_key, &signature_ear_key);
         let keys = Self {
@@ -63,7 +63,7 @@ impl LeafKeys {
         self.leaf_signing_key
     }
 
-    pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
+    pub(crate) fn signature_ear_key(&self) -> &IdentityLinkKey {
         &self.signature_ear_key
     }
 }

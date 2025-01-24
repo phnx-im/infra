@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashMap;
+
 use mls_assist::{
     openmls::{
         ciphersuite::signature::SignaturePublicKey,
@@ -14,44 +16,43 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{
     DeserializeBytes as _, Serialize as _, TlsDeserialize, TlsDeserializeBytes, TlsSerialize,
-    TlsSize, VLBytes,
+    TlsSize,
 };
 
 use crate::crypto::{
-    ear::{keys::SignatureEarKey, Ciphertext, EarDecryptable},
-    signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+    ear::{keys::IdentityLinkKey, EarDecryptable},
+    signatures::{
+        signable::{
+            EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
+        },
+        traits::SignatureVerificationError,
+    },
 };
 
-use super::private_mod;
+use super::{
+    private_mod, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+    EncryptedClientCredential, VerifiableClientCredential,
+};
 
 /// A credential that contains a (pseudonymous) identity, some metadata, as well
 /// as an encrypted signature.
 #[derive(
-    Debug,
-    PartialEq,
-    Eq,
-    Clone,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsSize,
-    TlsDeserialize,
-    TlsDeserializeBytes,
+    Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
 )]
 pub struct PseudonymousCredential {
     // (Pseudonymous) identity
     tbs: PseudonymousCredentialTbs,
-    encrypted_signature: VLBytes,
+    identity_link_ctxt: IdentityLinkCtxt,
 }
 
 impl PseudonymousCredential {
     /// Create a new [`PseudonymousCredential`].
-    pub fn new(
+    pub(crate) fn new(
         identity: Vec<u8>,
         expiration_data: Lifetime,
         credential_ciphersuite: SignatureScheme,
         verifying_key: SignaturePublicKey,
-        encrypted_signature: VLBytes,
+        identity_link_ctxt: IdentityLinkCtxt,
     ) -> Self {
         let tbs = PseudonymousCredentialTbs {
             identity,
@@ -61,7 +62,7 @@ impl PseudonymousCredential {
         };
         Self {
             tbs,
-            encrypted_signature,
+            identity_link_ctxt,
         }
     }
 
@@ -86,8 +87,8 @@ impl PseudonymousCredential {
     }
 
     /// Returns the encrypted signature of a given credential.
-    pub fn encrypted_signature(&self) -> &VLBytes {
-        &self.encrypted_signature
+    pub fn identity_link_ctxt(&self) -> &IdentityLinkCtxt {
+        &self.identity_link_ctxt
     }
 }
 
@@ -111,29 +112,53 @@ impl TryFrom<Credential> for PseudonymousCredential {
     }
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone)]
+#[derive(
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Debug, Clone, Serialize, Deserialize, PartialEq, Eq,
+)]
+pub(crate) struct IdentityLinkCtxt {
+    pub(crate) encrypted_signature: EncryptedSignature,
+    pub(crate) encrypted_client_credential: EncryptedClientCredential,
+}
+
+#[derive(TlsSerialize, TlsSize, Debug, Clone)]
 pub struct PseudonymousCredentialPlaintext {
     pub(crate) payload: PseudonymousCredentialTbs,
     pub(crate) signature: Signature,
+    pub(crate) client_credential: ClientCredential,
 }
 
 impl PseudonymousCredentialPlaintext {
-    pub fn decrypt(
+    pub fn decrypt_and_verify(
         credential: &PseudonymousCredential,
-        ear_key: &SignatureEarKey,
+        identity_link_key: &IdentityLinkKey,
+        as_verifying_keys: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Self, IdentityLinkDecryptionError> {
-        let encrypted_signature =
-            Ciphertext::tls_deserialize_exact_bytes(credential.encrypted_signature().as_slice())?
-                .into();
-        let signature = Signature::decrypt(ear_key, &encrypted_signature)
-            .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        let signature = Signature::decrypt(
+            identity_link_key,
+            &credential.identity_link_ctxt().encrypted_signature,
+        )
+        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        let verifiable_client_credential = VerifiableClientCredential::decrypt(
+            identity_link_key,
+            &credential.identity_link_ctxt().encrypted_client_credential,
+        )
+        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        let as_verifying_key = as_verifying_keys
+            .get(&verifiable_client_credential.signer_fingerprint())
+            .ok_or(IdentityLinkDecryptionError::NoVerifyingKey)?;
+        let client_credential =
+            verifiable_client_credential.verify(as_verifying_key.verifying_key())?;
         let payload = PseudonymousCredentialTbs {
             identity: credential.identity().to_vec(),
             expiration_data: credential.expiration_data(),
             signature_scheme: credential.signature_scheme(),
             verifying_key: credential.verifying_key().clone(),
         };
-        Ok(Self { payload, signature })
+        Ok(Self {
+            payload,
+            signature,
+            client_credential,
+        })
     }
 }
 
@@ -143,6 +168,10 @@ pub enum IdentityLinkDecryptionError {
     DeserializationError(#[from] tls_codec::Error),
     #[error("Error decrypting signature")]
     SignatureDecryptionError,
+    #[error("Missing AS verifying key")]
+    NoVerifyingKey,
+    #[error("Error verifying client credential: {0}")]
+    ClientCredentialVerificationError(#[from] SignatureVerificationError),
 }
 
 #[derive(
@@ -164,7 +193,13 @@ pub struct PseudonymousCredentialTbs {
     pub(crate) verifying_key: SignaturePublicKey,
 }
 
-impl Verifiable for PseudonymousCredentialPlaintext {
+#[derive(Debug)]
+pub struct SignedPseudonymousCredential {
+    pub(super) payload: PseudonymousCredentialTbs,
+    pub(super) signature: Signature,
+}
+
+impl Verifiable for SignedPseudonymousCredential {
     fn signature(&self) -> &Signature {
         &self.signature
     }
@@ -178,25 +213,22 @@ impl Verifiable for PseudonymousCredentialPlaintext {
     }
 }
 
-impl VerifiedStruct<PseudonymousCredentialPlaintext> for PseudonymousCredentialTbs {
+impl VerifiedStruct<SignedPseudonymousCredential> for PseudonymousCredentialTbs {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(
-        verifiable: PseudonymousCredentialPlaintext,
-        _seal: Self::SealingType,
-    ) -> Self {
+    fn from_verifiable(verifiable: SignedPseudonymousCredential, _seal: Self::SealingType) -> Self {
         verifiable.payload
     }
 }
 
-impl SignedStruct<PseudonymousCredentialTbs> for PseudonymousCredentialPlaintext {
+impl SignedStruct<PseudonymousCredentialTbs> for SignedPseudonymousCredential {
     fn from_payload(payload: PseudonymousCredentialTbs, signature: Signature) -> Self {
         Self { payload, signature }
     }
 }
 
 impl Signable for PseudonymousCredentialTbs {
-    type SignedOutput = PseudonymousCredentialPlaintext;
+    type SignedOutput = SignedPseudonymousCredential;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
