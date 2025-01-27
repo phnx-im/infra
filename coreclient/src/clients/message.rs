@@ -30,7 +30,7 @@ impl CoreUser {
                     content,
                 }
                 .store_unsent_message(transaction, self.store_notifier(), &self.user_name())?
-                .create_group_message(&mut PhnxOpenMlsProvider::new(transaction))?
+                .create_group_message(&PhnxOpenMlsProvider::new(transaction))?
                 .store_group_update(transaction, self.store_notifier())
             })
             .await?;
