@@ -199,8 +199,8 @@ impl DsGroupState {
     /// client records.
     pub(super) fn client_information(&self) -> Vec<EncryptedIdentityLinkKey> {
         self.client_profiles
-            .iter()
-            .map(|(_index, client_profile)| client_profile.encrypted_identity_link_key.clone())
+            .values()
+            .map(|client_profile| client_profile.encrypted_identity_link_key.clone())
             .collect()
     }
 
