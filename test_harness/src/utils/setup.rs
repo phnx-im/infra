@@ -4,7 +4,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
+use phnxcoreclient::{
+    clients::CoreUser, store::Store, ConversationId, ConversationStatus, ConversationType, *,
+};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedUserName},

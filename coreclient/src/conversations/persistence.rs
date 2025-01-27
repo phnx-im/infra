@@ -143,7 +143,7 @@ impl Conversation {
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
     pub(crate) fn mark_as_read(
-        transaction: &mut Transaction,
+        transaction: &Transaction,
         notifier: &mut StoreNotifier,
         mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
     ) -> Result<(), rusqlite::Error> {

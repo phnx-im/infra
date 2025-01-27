@@ -53,6 +53,7 @@ use tokio_stream::Stream;
 use tracing::{error, info};
 use uuid::Uuid;
 
+use crate::store::StoreNotificationsSender;
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -75,7 +76,6 @@ use crate::{
     Asset,
 };
 use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
-use crate::{mimi_content::MimiContent, store::StoreNotificationsSender};
 use crate::{
     utils::persistence::{SqliteConnection, Storable},
     Message,
@@ -87,6 +87,7 @@ pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 pub mod conversations;
 mod create_user;
+mod message;
 pub(crate) mod own_client_info;
 mod persistence;
 pub mod process;
@@ -258,6 +259,20 @@ impl CoreUser {
         let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
 
         Ok(Some(self_user))
+    }
+
+    /// Executes a fallible closure `f` with a transaction.
+    ///
+    /// Transaction is committed on success and rolled back on failure of the closure `f`.
+    pub(crate) async fn with_transaction<T>(
+        &self,
+        f: impl FnOnce(&Transaction) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut connection = self.inner.connection.lock().await;
+        let transaction = connection.transaction()?;
+        let value = f(&transaction)?;
+        transaction.commit()?;
+        Ok(value)
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
@@ -504,79 +519,6 @@ impl CoreUser {
         Ok(conversation_messages)
     }
 
-    /// Send a message and return it. Note that the message has already been
-    /// sent to the DS and has internally been stored in the conversation store.
-    pub async fn send_message(
-        &self,
-        conversation_id: ConversationId,
-        content: MimiContent,
-    ) -> Result<ConversationMessage> {
-        // Phase 1: Load the conversation and group
-        let (group, params, conversation, mut conversation_message) = {
-            let mut notifier = self.store_notifier();
-            let mut connection = self.inner.connection.lock().await;
-            let mut transaction = connection.transaction()?;
-            let conversation =
-                Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
-                    "Can't find conversation with id {}",
-                    conversation_id.as_uuid()
-                ))?;
-            let group_id = conversation.group_id();
-            // Store the message as unsent so that we don't lose it in case
-            // something goes wrong.
-            let conversation_message = ConversationMessage::new_unsent_message(
-                self.user_name().to_string(),
-                conversation_id,
-                content.clone(),
-            );
-            conversation_message.store(&transaction, &mut notifier)?;
-
-            // Notify as early as possible to react to the not yet sent message
-            notifier.notify();
-
-            let mut group = Group::load(&transaction, group_id)?
-                .ok_or(anyhow!("Can't find group with id {group_id:?}"))?;
-            let params = group.create_message(&transaction, content)?;
-            // Immediately write the group back. No need to wait for the DS to
-            // confirm as this is just an application message.
-            group.store_update(&transaction)?;
-            // Also, mark the message (and all messages preceeding it) as read.
-            let mut notifier = self.store_notifier();
-            Conversation::mark_as_read(
-                &mut transaction,
-                &mut notifier,
-                vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
-            )?;
-            transaction.commit()?;
-            notifier.notify();
-            drop(connection);
-            (group, params, conversation, conversation_message)
-        };
-
-        // Phase 2: Send message to DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&conversation.owner_domain())?
-            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Mark the message as sent and read (again).
-        let mut connection = self.inner.connection.lock().await;
-        let mut notifier = self.store_notifier();
-        conversation_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
-        let mut transaction = connection.transaction()?;
-        Conversation::mark_as_read(
-            &mut transaction,
-            &mut notifier,
-            vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
-        )?;
-        transaction.commit()?;
-        notifier.notify();
-
-        Ok(conversation_message)
-    }
-
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&self, local_message_id: Uuid) -> Result<()> {
         // Phase 1: Load the unsent message
@@ -598,7 +540,10 @@ impl CoreUser {
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.create_message(&connection, content)?;
+        let params = {
+            let provider = PhnxOpenMlsProvider::new(&connection);
+            group.create_message(&provider, content)?
+        };
         drop(connection);
 
         // Phase 2: Send message to DS
@@ -614,9 +559,9 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
         unsent_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
         group.store_update(&connection)?;
-        let mut transaction = connection.transaction()?;
+        let transaction = connection.transaction()?;
         Conversation::mark_as_read(
-            &mut transaction,
+            &transaction,
             &mut notifier,
             vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
         )?;
@@ -1161,9 +1106,9 @@ impl CoreUser {
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {
         let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
+        let transaction = connection.transaction()?;
         let mut notifier = self.store_notifier();
-        Conversation::mark_as_read(&mut transaction, &mut notifier, mark_as_read_data)?;
+        Conversation::mark_as_read(&transaction, &mut notifier, mark_as_read_data)?;
         transaction.commit()?;
         notifier.notify();
         Ok(())
