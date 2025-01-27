@@ -25,10 +25,9 @@ use tls_codec::{
 };
 
 use crate::{
-    credentials::EncryptedClientCredential,
     crypto::{
         ear::{
-            keys::{EncryptedSignatureEarKey, GroupStateEarKey, RatchetKey},
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey, RatchetKey},
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{
@@ -223,8 +222,7 @@ impl DsEventMessage {
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_client_credential: EncryptedClientCredential,
-    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: MlsMessageIn,
@@ -288,14 +286,12 @@ pub struct GroupOperationParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct CredentialUpdate {
-    pub encrypted_ear_key: EncryptedSignatureEarKey,
-    pub encrypted_client_credential_option: Option<EncryptedClientCredential>,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
-    pub new_encrypted_credential_information:
-        Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub new_encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub credential_update_option: Option<CredentialUpdate>,
 }
 
@@ -308,8 +304,7 @@ pub struct UpdateClientParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct UpdateClientParamsAad {
-    pub option_encrypted_signature_ear_key: Option<EncryptedSignatureEarKey>,
-    pub option_encrypted_client_credential: Option<EncryptedClientCredential>,
+    pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -322,7 +317,7 @@ pub struct JoinGroupParams {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinGroupParamsAad {
     pub existing_user_clients: Vec<LeafNodeIndex>,
-    pub encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
+    pub encrypted_client_information: EncryptedIdentityLinkKey,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -334,7 +329,7 @@ pub struct JoinConnectionGroupParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinConnectionGroupParamsAad {
-    pub encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_friendship_package: EncryptedFriendshipPackage,
 }
 
@@ -350,7 +345,7 @@ pub struct AddClientsParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct AddClientsParamsAad {
-    pub encrypted_client_information: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -695,7 +690,7 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
 #[derive(TlsSerialize, TlsSize, Clone)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_credentials: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub ratchet_tree: RatchetTree,
 }
 
@@ -732,7 +727,7 @@ impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_information: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_client_information: Vec<EncryptedIdentityLinkKey>,
     pub ratchet_tree: RatchetTreeIn,
 }
 

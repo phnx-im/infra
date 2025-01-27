@@ -11,16 +11,13 @@ use openmls::prelude::{
     UnknownExtension,
 };
 use phnxtypes::{
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::EarEncryptable,
-        errors::EncryptionError,
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
+        kdf::keys::ConnectionKey,
     },
     identifiers::{
         ClientConfig, QsClientId, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
     },
-    keypackage_batch::AddPackage,
 };
 use tls_codec::Serialize as TlsSerializeTrait;
 
@@ -32,10 +29,7 @@ use crate::{
 use phnxtypes::{
     credentials::keys::ClientSigningKey,
     crypto::{
-        ear::keys::{
-            AddPackageEarKey, ClientCredentialEarKey, PushTokenEarKey, SignatureEarKeyWrapperKey,
-            WelcomeAttributionInfoEarKey,
-        },
+        ear::keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
         ConnectionDecryptionKey, RatchetDecryptionKey,
     },
@@ -65,21 +59,12 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     pub(super) friendship_token: FriendshipToken,
-    pub(super) add_package_ear_key: AddPackageEarKey,
-    pub(super) client_credential_ear_key: ClientCredentialEarKey,
-    pub(super) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(super) add_package_ear_key: KeyPackageEarKey,
+    pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
 impl MemoryUserKeyStore {
-    pub(crate) fn encrypt_client_credential(
-        &self,
-    ) -> Result<EncryptedClientCredential, EncryptionError> {
-        self.signing_key
-            .credential()
-            .encrypt(&self.client_credential_ear_key)
-    }
-
     pub(crate) fn create_own_client_reference(
         &self,
         qs_client_id: &QsClientId,
@@ -100,13 +85,12 @@ impl MemoryUserKeyStore {
         }
     }
 
-    pub(crate) fn generate_add_package(
+    pub(crate) fn generate_key_package(
         &self,
         connection: &Connection,
         qs_client_id: &QsClientId,
-        encrypted_client_credential: &EncryptedClientCredential,
         last_resort: bool,
-    ) -> Result<AddPackage> {
+    ) -> Result<KeyPackage> {
         let provider = PhnxOpenMlsProvider::new(connection);
         let leaf_keys = LeafKeys::generate(&self.signing_key)?;
         leaf_keys.store(connection)?;
@@ -124,9 +108,6 @@ impl MemoryUserKeyStore {
         } else {
             Extensions::default()
         };
-        let esek = leaf_keys
-            .signature_ear_key()
-            .encrypt(&self.signature_ear_key_wrapper_key)?;
 
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)
@@ -138,12 +119,6 @@ impl MemoryUserKeyStore {
                 &leaf_keys.into_leaf_signer(),
                 credential_with_key,
             )?;
-
-        let add_package = AddPackage::new(
-            kp.key_package().clone(),
-            esek,
-            encrypted_client_credential.clone(),
-        );
-        Ok(add_package)
+        Ok(kp.key_package().clone())
     }
 }

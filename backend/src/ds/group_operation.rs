@@ -19,9 +19,8 @@ use mls_assist::{
 };
 
 use phnxtypes::{
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
         signatures::{keys::QsVerifyingKey, signable::Verifiable},
     },
@@ -197,7 +196,7 @@ impl DsGroupState {
                     .client_profiles
                     .get(&original_index)
                     .ok_or(GroupOperationError::InvalidMessage)?
-                    .encrypted_client_information
+                    .encrypted_identity_link_key
                     .clone();
                 // Get the queue config from the leaf node extensions.
                 let client_queue_config = staged_commit
@@ -269,7 +268,7 @@ impl DsGroupState {
             // add the new one.
             let client_profile = ClientProfile {
                 leaf_index: sender_index.leaf_index(),
-                encrypted_client_information,
+                encrypted_identity_link_key: encrypted_client_information,
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -290,9 +289,9 @@ impl DsGroupState {
         &mut self,
         added_users: &[(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)],
     ) -> Result<(), GroupOperationError> {
-        for (add_packages, _) in added_users.iter() {
+        for (key_packages, _) in added_users.iter() {
             let mut client_profiles = vec![];
-            for (key_package, encrypted_client_information) in add_packages {
+            for (key_package, encrypted_client_information) in key_packages {
                 let member = self
                     .group()
                     .members()
@@ -316,7 +315,7 @@ impl DsGroupState {
                 .map_err(|_| GroupOperationError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    encrypted_client_information: encrypted_client_information.clone(),
+                    encrypted_identity_link_key: encrypted_client_information.clone(),
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
@@ -364,7 +363,7 @@ impl DsGroupState {
                     key_package.hpke_init_key().clone().into();
                 let encrypted_joiner_info = DsJoinerInformation {
                     group_state_ear_key: group_state_ear_key.clone(),
-                    encrypted_client_credentials: self.client_information(),
+                    encrypted_identity_link_keys: self.client_information(),
                     ratchet_tree: self.group().export_ratchet_tree(),
                 }
                 .encrypt(&encryption_key, info, aad);
@@ -420,10 +419,7 @@ impl DsGroupState {
     }
 }
 
-type AddedClientInfo = (
-    KeyPackage,
-    (EncryptedClientCredential, EncryptedSignatureEarKey),
-);
+type AddedClientInfo = (KeyPackage, EncryptedIdentityLinkKey);
 
 struct AddUsersState {
     added_users: Vec<(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)>,
@@ -438,7 +434,7 @@ fn validate_added_users(
 ) -> Result<AddUsersState, GroupOperationError> {
     let number_of_added_users = staged_commit.add_proposals().count();
     // Check that the lengths of the various vectors match.
-    if aad_payload.new_encrypted_credential_information.len() != number_of_added_users
+    if aad_payload.new_encrypted_identity_link_keys.len() != number_of_added_users
         || add_users_info.encrypted_welcome_attribution_infos.len() != number_of_added_users
         || add_users_info.key_package_batches.len() != number_of_added_users
     {
@@ -449,15 +445,15 @@ fn validate_added_users(
     // added clients are present in the Welcome.
     let mut added_clients: HashMap<KeyPackageRef, AddedClientInfo> = staged_commit
         .add_proposals()
-        .zip(aad_payload.new_encrypted_credential_information.iter())
-        .map(|(add_proposal, (ecc, esek))| {
+        .zip(aad_payload.new_encrypted_identity_link_keys.iter())
+        .map(|(add_proposal, eilk)| {
             let key_package_ref = add_proposal
                 .add_proposal()
                 .key_package()
                 .hash_ref(OpenMlsRustCrypto::default().crypto())
                 .map_err(|_| GroupOperationError::LibraryError)?;
             let key_package = add_proposal.add_proposal().key_package().clone();
-            Ok((key_package_ref, (key_package, (ecc.clone(), esek.clone()))))
+            Ok((key_package_ref, (key_package, eilk.clone())))
         })
         .collect::<Result<_, GroupOperationError>>()?;
 

@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{
-    anyhow, AsCredentials, Asset, Contact, ContactAddInfos, Conversation, ConversationAttributes,
-    ConversationId, CoreUser, EarEncryptable, FriendshipPackage, IdentityLinkKey,
-    PseudonymousCredentialSigningKey, TimestampedMessage, UserProfile, Verifiable,
+    anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
+    CoreUser, EarEncryptable, FriendshipPackage, IdentityLinkKey, PseudonymousCredentialSigningKey,
+    TimestampedMessage, UserProfile,
 };
 
 pub mod process_as;

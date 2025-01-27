@@ -8,12 +8,13 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey,
-                GroupStateEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey,
+                IdentityLinkWrapperKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey,
             },
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
+        kdf::keys::ConnectionKey,
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::SignatureVerificationError,
@@ -36,8 +37,7 @@ pub struct ConnectionEstablishmentPackageTbs {
     pub(crate) sender_client_credential: ClientCredential,
     pub(crate) connection_group_id: GroupId,
     pub(crate) connection_group_ear_key: GroupStateEarKey,
-    pub(crate) connection_group_credential_key: ClientCredentialEarKey,
-    pub(crate) connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(crate) connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey,
     pub(crate) friendship_package_ear_key: FriendshipPackageEarKey,
     pub(crate) friendship_package: FriendshipPackage,
 }
@@ -91,7 +91,7 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     connection_group_id: GroupId,
     connection_group_ear_key: GroupStateEarKey,
     connection_group_credential_key: ClientCredentialEarKey,
-    connection_group_signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey,
     friendship_package_ear_key: FriendshipPackageEarKey,
     friendship_package: FriendshipPackage,
 }
@@ -139,10 +139,9 @@ impl ConnectionEstablishmentPackageIn {
             sender_client_credential,
             connection_group_id: self.payload.connection_group_id,
             connection_group_ear_key: self.payload.connection_group_ear_key,
-            connection_group_credential_key: self.payload.connection_group_credential_key,
-            connection_group_signature_ear_key_wrapper_key: self
+            connection_group_identity_link_wrapper_key: self
                 .payload
-                .connection_group_signature_ear_key_wrapper_key,
+                .connection_group_identity_link_wrapper_key,
             friendship_package_ear_key: self.payload.friendship_package_ear_key,
             friendship_package: self.payload.friendship_package,
         })
@@ -171,9 +170,8 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) add_package_ear_key: AddPackageEarKey,
-    pub(crate) client_credential_ear_key: ClientCredentialEarKey,
-    pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(crate) add_package_ear_key: KeyPackageEarKey,
+    pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile: UserProfile,
 }

@@ -67,19 +67,19 @@ impl CoreUser {
                 // Load user profile
                 let own_user_profile = self.load_own_user_profile().await?;
 
-                // Create signature ear key
-                let signature_ear_key = IdentityLinkKey::random()?;
+                // Create identity link key
+                let identity_link_key = IdentityLinkKey::random()?;
 
                 // Prepare group
                 let (leaf_signer, aad, qgid) =
-                    self.prepare_group(&signature_ear_key, &cep_tbs, own_user_profile)?;
+                    self.prepare_group(&identity_link_key, &cep_tbs, own_user_profile)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
                 let (group, commit, group_info) = self
-                    .join_group_externally(signature_ear_key, eci, &cep_tbs, leaf_signer, aad)
+                    .join_group_externally(identity_link_key, eci, &cep_tbs, leaf_signer, aad)
                     .await?;
 
                 // Create conversation
@@ -144,7 +144,7 @@ impl CoreUser {
 
     fn prepare_group(
         &self,
-        signature_ear_key: &IdentityLinkKey,
+        identity_link_key: &IdentityLinkKey,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile: UserProfile,
     ) -> Result<(
@@ -158,35 +158,24 @@ impl CoreUser {
 
         let leaf_signer = PseudonymousCredentialSigningKey::generate(
             &self.inner.key_store.signing_key,
-            signature_ear_key,
+            identity_link_key,
         );
-        let esek =
-            signature_ear_key.encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
+        let encrypted_identity_link_key =
+            identity_link_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
             add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
-            client_credential_ear_key: self.inner.key_store.client_credential_ear_key.clone(),
-            signature_ear_key_wrapper_key: self
-                .inner
-                .key_store
-                .signature_ear_key_wrapper_key
-                .clone(),
+            connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,
         }
         .encrypt(&cep_tbs.friendship_package_ear_key)?;
-        let ecc = self
-            .inner
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(&cep_tbs.connection_group_credential_key)?;
 
         let aad: InfraAadMessage =
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
-                encrypted_client_information: (ecc, esek),
                 encrypted_friendship_package,
+                encrypted_identity_link_key,
             })
             .into();
         let qgid =
@@ -220,7 +209,7 @@ impl CoreUser {
 
     async fn join_group_externally(
         &self,
-        signature_ear_key: IdentityLinkKey,
+        identity_link_key: IdentityLinkKey,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         leaf_signer: PseudonymousCredentialSigningKey,
@@ -231,12 +220,9 @@ impl CoreUser {
             &self.inner.api_clients,
             eci,
             leaf_signer,
-            signature_ear_key,
+            identity_link_key,
             cep_tbs.connection_group_ear_key.clone(),
-            cep_tbs
-                .connection_group_signature_ear_key_wrapper_key
-                .clone(),
-            cep_tbs.connection_group_credential_key.clone(),
+            cep_tbs.connection_group_identity_link_wrapper_key.clone(),
             aad,
             self.inner.key_store.signing_key.credential(),
         )

@@ -23,8 +23,8 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
-                IdentityLinkKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey, PushTokenEarKey,
+                WelcomeAttributionInfoEarKey,
             },
             EarEncryptable, EarKey, GenericSerializable,
         },
@@ -32,7 +32,7 @@ use phnxtypes::{
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::{Signable, Verifiable},
+            signable::Signable,
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
@@ -391,7 +391,7 @@ impl CoreUser {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            client_credentials.push(contact_client_credentials);
+            client_credentials.extend(contact_client_credentials);
             contacts.push(contact);
         }
         drop(connection);
@@ -717,12 +717,7 @@ impl CoreUser {
         let friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
             add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
-            client_credential_ear_key: self.inner.key_store.client_credential_ear_key.clone(),
-            signature_ear_key_wrapper_key: self
-                .inner
-                .key_store
-                .signature_ear_key_wrapper_key
-                .clone(),
+            connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,
         };
@@ -748,9 +743,8 @@ impl CoreUser {
             sender_client_credential: self.inner.key_store.signing_key.credential().clone(),
             connection_group_id: group_id,
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
-            connection_group_credential_key: connection_group.credential_ear_key().clone(),
-            connection_group_signature_ear_key_wrapper_key: connection_group
-                .signature_ear_key_wrapper_key()
+            connection_group_identity_link_wrapper_key: connection_group
+                .identity_link_wrapper_key()
                 .clone(),
             friendship_package_ear_key,
             friendship_package,
@@ -758,13 +752,7 @@ impl CoreUser {
         .sign(&self.inner.key_store.signing_key)?;
 
         let client_reference = self.create_own_client_reference();
-        let encrypted_client_credential = self
-            .inner
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(connection_group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
+        let params = partial_params.into_params(client_reference);
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages

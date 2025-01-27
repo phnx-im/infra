@@ -7,14 +7,13 @@ use std::ops::Deref;
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
+    credentials::infra_credentials::PseudonymousCredential,
     crypto::{
-        ear::{
-            keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, IdentityLinkKey,
-                SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
-            },
-            EarDecryptable,
+        ear::keys::{
+            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
+            WelcomeAttributionInfoEarKey,
         },
+        kdf::{keys::ConnectionKey, KdfDerivable},
         signatures::signable::Verifiable,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -40,9 +39,8 @@ pub struct Contact {
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) add_package_ear_key: AddPackageEarKey,
-    pub(crate) client_credential_ear_key: ClientCredentialEarKey,
-    pub(crate) signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+    pub(crate) add_package_ear_key: KeyPackageEarKey,
+    pub(crate) connection_key: ConnectionKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
 }
@@ -65,8 +63,7 @@ impl Contact {
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             add_package_ear_key: friendship_package.add_package_ear_key,
-            client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
+            connection_key: friendship_package.connection_key,
             conversation_id,
         }
     }
@@ -92,17 +89,19 @@ impl Contact {
             )
             .await?;
         let key_packages: Vec<(KeyPackage, IdentityLinkKey)> = key_package_batch_response
-            .add_packages
+            .key_packages
             .into_iter()
-            .map(|add_package| {
-                let verified_add_package =
-                    add_package.validate(&RustCrypto::default(), ProtocolVersion::default())?;
-                let key_package = verified_add_package.key_package().clone();
-                let sek = IdentityLinkKey::decrypt(
-                    &self.signature_ear_key_wrapper_key,
-                    verified_add_package.encrypted_signature_ear_key(),
+            .map(|key_package| {
+                let verified_key_package =
+                    key_package.validate(&RustCrypto::default(), ProtocolVersion::default())?;
+                let pseudonymous_credential = PseudonymousCredential::try_from(
+                    verified_key_package.leaf_node().credential().clone(),
                 )?;
-                Ok((key_package, sek))
+                let ilk = IdentityLinkKey::derive(
+                    &self.connection_key,
+                    pseudonymous_credential.tbs().clone(),
+                )?;
+                Ok((verified_key_package, ilk))
             })
             .collect::<Result<Vec<_>>>()?;
         let qs_verifying_key =

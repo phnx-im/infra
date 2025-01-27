@@ -4,14 +4,14 @@
 
 use std::ops::Deref;
 
-use phnxtypes::keypackage_batch::QsEncryptedAddPackage;
+use phnxtypes::keypackage_batch::QsEncryptedKeyPackage;
 
 #[derive(sqlx::Type)]
 #[sqlx(transparent)]
-pub(super) struct StorableEncryptedAddPackage(pub QsEncryptedAddPackage);
+pub(super) struct StorableEncryptedAddPackage(pub QsEncryptedKeyPackage);
 
 impl Deref for StorableEncryptedAddPackage {
-    type Target = QsEncryptedAddPackage;
+    type Target = QsEncryptedKeyPackage;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -32,7 +32,7 @@ mod persistence {
         pub(in crate::qs) async fn store_multiple(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedAddPackage>>,
+            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedKeyPackage>>,
         ) -> Result<(), StorageError> {
             Self::store_multiple_internal(connection, client_id, encrypted_add_packages, false)
                 .await
@@ -41,7 +41,7 @@ mod persistence {
         pub(in crate::qs) async fn store_last_resort(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_package: impl Deref<Target = QsEncryptedAddPackage>,
+            encrypted_add_package: impl Deref<Target = QsEncryptedKeyPackage>,
         ) -> Result<(), StorageError> {
             Self::store_multiple_internal(connection, client_id, [encrypted_add_package], true)
                 .await
@@ -50,7 +50,7 @@ mod persistence {
         async fn store_multiple_internal(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedAddPackage>>,
+            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedKeyPackage>>,
             is_last_resort: bool,
         ) -> Result<(), StorageError> {
             let mut query_args = PgArguments::default();

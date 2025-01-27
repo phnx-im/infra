@@ -19,9 +19,8 @@ use mls_assist::{
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::{
             keys::{UserAuthVerifyingKey, UserKeyHash},
             signable::{Signable, Signature, SignedStruct},
@@ -45,7 +44,7 @@ use super::{
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
-    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_client_info: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -63,8 +62,7 @@ pub enum DsProcessResponseIn {
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_credential: EncryptedClientCredential,
-    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: MlsMessageOut,

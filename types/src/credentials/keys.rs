@@ -16,10 +16,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::{
-    infra_credentials::{
-        IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialPlaintext,
-        PseudonymousCredentialTbs,
-    },
+    infra_credentials::{IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs},
     AsCredential, AsIntermediateCredential,
 };
 
@@ -207,7 +204,7 @@ impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
 pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
 impl PseudonymousCredentialSigningKey {
-    pub fn generate(client_signer: &ClientSigningKey, ear_key: &IdentityLinkKey) -> Self {
+    pub fn generate(client_signer: &ClientSigningKey, identity_link_key: &IdentityLinkKey) -> Self {
         let signing_key = SigningKey::generate().unwrap();
         let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
         let tbs = PseudonymousCredentialTbs {
@@ -217,22 +214,23 @@ impl PseudonymousCredentialSigningKey {
             verifying_key: signing_key.verifying_key().clone().into(),
         };
         let signed_pseudonymous_credential = tbs.sign(client_signer).unwrap();
-        let plaintext_credential = PseudonymousCredentialPlaintext {
-            payload: signed_pseudonymous_credential.payload,
-            signature: signed_pseudonymous_credential.signature,
-            client_credential: client_signer.credential.clone(),
-        };
-        let encrypted_signature = plaintext_credential.signature.encrypt(ear_key).unwrap();
-        let encrypted_client_credential = client_signer.credential().encrypt(ear_key).unwrap();
+        let encrypted_signature = signed_pseudonymous_credential
+            .signature
+            .encrypt(identity_link_key)
+            .unwrap();
+        let encrypted_client_credential = client_signer
+            .credential()
+            .encrypt(identity_link_key)
+            .unwrap();
         let identity_link_ctxt = IdentityLinkCtxt {
             encrypted_signature,
             encrypted_client_credential,
         };
         let credential = PseudonymousCredential::new(
-            plaintext_credential.payload.identity,
-            plaintext_credential.payload.expiration_data,
-            plaintext_credential.payload.signature_scheme,
-            plaintext_credential.payload.verifying_key,
+            signed_pseudonymous_credential.payload.identity,
+            signed_pseudonymous_credential.payload.expiration_data,
+            signed_pseudonymous_credential.payload.signature_scheme,
+            signed_pseudonymous_credential.payload.verifying_key,
             identity_link_ctxt,
         );
         Self {

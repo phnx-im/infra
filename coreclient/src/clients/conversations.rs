@@ -6,8 +6,7 @@ use anyhow::{anyhow, Result};
 use openmls::prelude::GroupId;
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
-    codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::ear::EarEncryptable,
-    identifiers::QsClientReference,
+    codec::PhnxCodec, credentials::keys::ClientSigningKey, identifiers::QsClientReference,
 };
 use rusqlite::Connection;
 use tracing::error;
@@ -54,11 +53,7 @@ impl CoreUser {
         };
 
         created_group
-            .create_group_on_ds(
-                &self.inner.api_clients,
-                &self.inner.key_store.signing_key,
-                self.create_own_client_reference(),
-            )
+            .create_group_on_ds(&self.inner.api_clients, self.create_own_client_reference())
             .await
     }
 
@@ -250,7 +245,6 @@ impl StoredGroup {
     async fn create_group_on_ds(
         self,
         api_clients: &ApiClients,
-        signing_key: &ClientSigningKey,
         client_reference: QsClientReference,
     ) -> Result<ConversationId> {
         let Self {
@@ -259,10 +253,7 @@ impl StoredGroup {
             conversation_id,
         } = self;
 
-        let encrypted_client_credential = signing_key
-            .credential()
-            .encrypt(group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
+        let params = partial_params.into_params(client_reference);
         api_clients
             .default_client()?
             .ds_create_group(

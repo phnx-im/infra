@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{OpenMlsProvider, ProtocolVersion},
+    openmls::prelude::{KeyPackage, KeyPackageIn, OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
@@ -15,7 +15,7 @@ use phnxtypes::{
         QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
         QsPublishKeyPackagesError, QsVerifyingKeyError,
     },
-    keypackage_batch::{AddPackage, AddPackageIn, KeyPackageBatchTbs},
+    keypackage_batch::KeyPackageBatchTbs,
     messages::client_qs::{
         ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse,
         KeyPackageBatchParams, KeyPackageBatchResponse, PublishKeyPackagesParams,
@@ -38,23 +38,23 @@ impl Qs {
     ) -> Result<(), QsPublishKeyPackagesError> {
         let PublishKeyPackagesParams {
             sender,
-            add_packages,
+            key_packages,
             friendship_ear_key,
         } = params;
 
         let mut encrypted_add_packages = vec![];
         let mut last_resort_add_package = None;
-        for add_package in add_packages {
-            let verified_add_package: AddPackage = add_package
+        for key_package in key_packages {
+            let verified_key_package: KeyPackage = key_package
                 .validate(
                     OpenMlsRustCrypto::default().crypto(),
                     ProtocolVersion::default(),
                 )
                 .map_err(|_| QsPublishKeyPackagesError::InvalidKeyPackage)?;
 
-            let is_last_resort = verified_add_package.key_package().last_resort();
+            let is_last_resort = verified_key_package.last_resort();
 
-            let eap = verified_add_package
+            let eap = verified_key_package
                 .encrypt(&friendship_ear_key)
                 .map_err(|_| QsPublishKeyPackagesError::LibraryError)?;
 
@@ -144,10 +144,10 @@ impl Qs {
                     QsKeyPackageBatchError::StorageError
                 })?;
 
-        let add_packages = encrypted_key_packages
+        let key_packages = encrypted_key_packages
             .into_iter()
             .map(|encrypted_key_package| {
-                AddPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
+                KeyPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
                     .map_err(|_| QsKeyPackageBatchError::DecryptionError)
                     .and_then(|ap| {
                         ap.validate(
@@ -159,11 +159,10 @@ impl Qs {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let key_package_refs = add_packages
+        let key_package_refs = key_packages
             .iter()
-            .map(|add_package| {
-                add_package
-                    .key_package()
+            .map(|key_package| {
+                key_package
                     .hash_ref(OpenMlsRustCrypto::default().crypto())
                     .map_err(|_| QsKeyPackageBatchError::LibraryError)
             })
@@ -185,7 +184,7 @@ impl Qs {
             .map_err(|_| QsKeyPackageBatchError::LibraryError)?;
 
         let response = KeyPackageBatchResponse {
-            add_packages,
+            key_packages,
             key_package_batch,
         };
         Ok(response)

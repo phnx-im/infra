@@ -5,11 +5,7 @@
 use super::{openmls_provider::PhnxOpenMlsProvider, Group};
 use anyhow::{anyhow, bail, Result};
 use phnxtypes::{
-    credentials::EncryptedClientCredential,
-    crypto::ear::{
-        keys::{EncryptedSignatureEarKey, IdentityLinkKey},
-        EarDecryptable,
-    },
+    crypto::ear::keys::EncryptedIdentityLinkKey,
     identifiers::AsClientId,
     messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
 };
@@ -23,7 +19,7 @@ use openmls::prelude::{
     StagedCommit,
 };
 
-use super::client_auth_info::{ClientAuthInfo, GroupMembership, StorableClientCredential};
+use super::client_auth_info::{ClientAuthInfo, GroupMembership};
 
 impl Group {
     /// Process inbound message
@@ -110,14 +106,39 @@ impl Group {
                     InfraAadPayload::GroupOperation(group_operation_payload) => {
                         // Process adds if there are any.
                         if !group_operation_payload
-                            .new_encrypted_credential_information
+                            .new_encrypted_identity_link_keys
                             .is_empty()
                         {
+                            // Make sure the vector lengths match.
+                            if staged_commit.add_proposals().count()
+                                != group_operation_payload
+                                    .new_encrypted_identity_link_keys
+                                    .len()
+                            {
+                                bail!(
+                                "Number of add proposals and new identity link keys doesn't match."
+                            )
+                            }
+                            // Prepare inputs for add processing
+                            let added_clients = staged_commit
+                                .add_proposals()
+                                .map(|p| {
+                                    p.add_proposal()
+                                        .key_package()
+                                        .leaf_node()
+                                        .credential()
+                                        .clone()
+                                })
+                                .zip(
+                                    group_operation_payload
+                                        .new_encrypted_identity_link_keys
+                                        .into_iter(),
+                                );
                             self.process_adds(
                                 staged_commit,
                                 api_clients,
                                 &connection_mutex,
-                                group_operation_payload.new_encrypted_credential_information,
+                                added_clients,
                             )
                             .await?;
                         }
@@ -133,7 +154,7 @@ impl Group {
                             self.process_update(
                                 api_clients,
                                 &connection_mutex,
-                                new_sender_credential,
+                                new_sender_credential.clone(),
                                 group_operation_payload.credential_update_option,
                                 sender_index,
                             )
@@ -163,82 +184,54 @@ impl Group {
                             .map(|ln| ln.credential())
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
                         if new_sender_credential != &sender.credential {
-                            // If so, then there has to be a new signature ear key.
-                            let Some(encrypted_signature_ear_key) =
-                                update_client_payload.option_encrypted_signature_ear_key
+                            // If so, then there has to be a new identity link key.
+                            let Some(encrypted_identity_link_key) =
+                                update_client_payload.option_encrypted_identity_link_key
                             else {
                                 bail!("Invalid update client payload.")
                             };
-                            // Optionally, the client could have updated its
-                            // client credential.
-                            let client_auth_info = if let Some(ecc) =
-                                update_client_payload.option_encrypted_client_credential
-                            {
-                                ClientAuthInfo::decrypt_and_verify(
-                                    connection_mutex.clone(),
-                                    api_clients,
-                                    group_id,
-                                    &self.credential_ear_key,
-                                    &self.signature_ear_key_wrapper_key,
-                                    (ecc, encrypted_signature_ear_key),
-                                    sender_index,
-                                )
-                                .await?
-                            } else {
-                                // If not, we decrypt the new EAR key and use
-                                // the existing client credential.
-                                let signature_ear_key = IdentityLinkKey::decrypt(
-                                    &self.signature_ear_key_wrapper_key,
-                                    &encrypted_signature_ear_key,
-                                )?;
-                                let connection = connection_mutex.lock().await;
-                                let mut group_membership =
-                                    GroupMembership::load(&connection, group_id, sender_index)?
-                                        .ok_or(anyhow!(
-                                            "Could not find group membership of sender in database"
-                                        ))?;
-                                group_membership.set_signature_ear_key(signature_ear_key);
-                                let client_credential = StorableClientCredential::load(
-                                    &connection,
-                                    group_membership.client_credential_fingerprint(),
-                                )?
-                                .ok_or(anyhow!(
-                                    "Could not find client credential of sender in database"
-                                ))?;
-                                drop(connection);
+                            let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                                connection_mutex.clone(),
+                                api_clients,
+                                group_id,
+                                self.identity_link_wrapper_key(),
+                                encrypted_identity_link_key,
+                                sender_index,
+                                new_sender_credential.clone(),
+                            )
+                            .await?;
 
-                                ClientAuthInfo::new(client_credential, group_membership)
-                            };
                             // Persist the updated client auth info.
                             let connection = connection_mutex.lock().await;
                             client_auth_info.stage_update(&connection)?;
                             drop(connection);
-                            // Verify the leaf credential
-                            client_auth_info.verify_infra_credential(new_sender_credential)?;
                         };
                         // TODO: Validation:
                         // * Check that the sender type fits.
                         // * Check that the client id is the same as before.
-                        // * Check that the proposals fit the operation (i.e. in this
-                        //   case that there are no proposals at all).
-
-                        // Verify a potential new leaf credential.
+                        // * More validation on pseudonymous and client credential?
                     }
                     InfraAadPayload::JoinGroup(join_group_payload) => {
                         // JoinGroup Phase 1: Decrypt and verify the client
                         // credential of the joiner
+                        let Some(sender_credential) = staged_commit
+                            .update_path_leaf_node()
+                            .map(|ln| ln.credential().clone())
+                        else {
+                            bail!("Could not find sender leaf node in staged commit")
+                        };
+
                         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
                             connection_mutex.clone(),
                             api_clients,
                             group_id,
-                            &self.credential_ear_key,
-                            &self.signature_ear_key_wrapper_key,
+                            &self.identity_link_wrapper_key,
                             join_group_payload.encrypted_client_information,
                             sender_index,
+                            sender_credential,
                         )
                         .await?;
-                        // Validate the leaf credential.
-                        client_auth_info.verify_infra_credential(processed_message.credential())?;
+
                         // JoinGroup Phase 2: Check that the existing user
                         // clients match up and store the new GroupMembership
                         let connection = connection_mutex.lock().await;
@@ -263,18 +256,23 @@ impl Group {
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner
+                        let Some(sender_credential) = staged_commit
+                            .update_path_leaf_node()
+                            .map(|ln| ln.credential().clone())
+                        else {
+                            bail!("Could not find sender leaf node in staged commit")
+                        };
+
                         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
                             connection_mutex.clone(),
                             api_clients,
                             group_id,
-                            &self.credential_ear_key,
-                            &self.signature_ear_key_wrapper_key,
-                            join_connection_group_payload.encrypted_client_information,
+                            &self.identity_link_wrapper_key,
+                            join_connection_group_payload.encrypted_identity_link_key,
                             sender_index,
+                            sender_credential,
                         )
                         .await?;
-                        // Validate the leaf credential.
-                        client_auth_info.verify_infra_credential(processed_message.credential())?;
                         // TODO: (More) validation:
                         // * Check that the user name is unique.
                         // * Check that the proposals fit the operation.
@@ -291,7 +289,14 @@ impl Group {
                         let connection = connection_mutex.lock().await;
                         let encrypted_client_information =
                             GroupMembership::free_indices(&connection, group_id)?
-                                .zip(add_clients_payload.encrypted_client_information.into_iter());
+                                .zip(staged_commit.add_proposals().map(|p| {
+                                    p.add_proposal()
+                                        .key_package()
+                                        .leaf_node()
+                                        .credential()
+                                        .clone()
+                                }))
+                                .zip(add_clients_payload.encrypted_identity_link_keys.into_iter());
                         drop(connection);
 
                         // AddClients Phase 2: Decrypt and verify the client credentials.
@@ -299,8 +304,7 @@ impl Group {
                             connection_mutex.clone(),
                             api_clients,
                             group_id,
-                            &self.credential_ear_key,
-                            &self.signature_ear_key_wrapper_key,
+                            &self.identity_link_wrapper_key,
                             encrypted_client_information,
                         )
                         .await?;
@@ -321,16 +325,7 @@ impl Group {
 
                         // AddClients Phase 3: Verify and store the client auth infos.
                         let connection = connection_mutex.lock().await;
-                        for (proposal, client_auth_info) in
-                            staged_commit.add_proposals().zip(client_auth_infos.iter())
-                        {
-                            client_auth_info.verify_infra_credential(
-                                proposal
-                                    .add_proposal()
-                                    .key_package()
-                                    .leaf_node()
-                                    .credential(),
-                            )?;
+                        for client_auth_info in client_auth_infos {
                             // Persist the client auth info.
                             client_auth_info.stage_add(&connection)?;
                         }
@@ -349,6 +344,13 @@ impl Group {
                         // * Check that this commit contains exactly one remove proposal
                         // * Check that the sender type is correct (external commit).
 
+                        let Some(sender_credential) = staged_commit
+                            .update_path_leaf_node()
+                            .map(|ln| ln.credential().clone())
+                        else {
+                            bail!("Could not find sender leaf node in staged commit")
+                        };
+
                         let removed_index = staged_commit
                             .remove_proposals()
                             .next()
@@ -358,14 +360,25 @@ impl Group {
                             .remove_proposal()
                             .removed();
                         let connection = connection_mutex.lock().await;
-                        let mut client_auth_info =
-                            ClientAuthInfo::load(&connection, group_id, removed_index)?.ok_or(
-                                anyhow!("Could not find client credential of resync sender"),
-                            )?;
-                        // Let's verify the new leaf credential.
-                        client_auth_info.verify_infra_credential(processed_message.credential())?;
+                        // Get the identity link key of the resyncing client
+                        let identity_link_key =
+                            GroupMembership::load(&connection, group_id, removed_index)?
+                                .ok_or(anyhow!("Could not find group membership of resync sender"))
+                                .map(|gm| gm.identity_link_key().clone())?;
+                        drop(connection);
+
+                        let mut client_auth_info = ClientAuthInfo::decrypt_credential_and_verify(
+                            connection_mutex.clone(),
+                            api_clients,
+                            group_id,
+                            identity_link_key,
+                            removed_index,
+                            sender_credential,
+                        )
+                        .await?;
 
                         // Set the client's new leaf index.
+                        let connection = connection_mutex.lock().await;
                         client_auth_info
                             .group_membership_mut()
                             .set_leaf_index(sender_index);
@@ -406,16 +419,14 @@ impl Group {
         staged_commit: &StagedCommit,
         api_clients: &ApiClients,
         connection_mutex: &SqliteConnection,
-        new_encrypted_credential_information: Vec<(
-            EncryptedClientCredential,
-            EncryptedSignatureEarKey,
-        )>,
+        added_clients: impl Iterator<Item = (Credential, EncryptedIdentityLinkKey)>,
     ) -> Result<()> {
         // AddUsers Phase 1: Compute the free indices
         let connection = connection_mutex.lock().await;
-        let encrypted_client_information =
+        let added_clients_with_indices =
             GroupMembership::free_indices(&connection, &self.group_id)?
-                .zip(new_encrypted_credential_information.into_iter());
+                .zip(added_clients.into_iter())
+                .map(|(index, (credential, eilk))| ((index, credential), eilk));
         drop(connection);
 
         // AddUsers Phase 2: Decrypt and verify the client credentials.
@@ -423,9 +434,8 @@ impl Group {
             connection_mutex.clone(),
             api_clients,
             &self.group_id,
-            &self.credential_ear_key,
-            self.signature_ear_key_wrapper_key(),
-            encrypted_client_information,
+            self.identity_link_wrapper_key(),
+            added_clients_with_indices,
         )
         .await?;
 
@@ -444,16 +454,7 @@ impl Group {
         }
         // We assume that leaf credentials are in the same order
         // as client credentials.
-        for (proposal, client_auth_info) in
-            staged_commit.add_proposals().zip(client_auth_infos.iter())
-        {
-            client_auth_info.verify_infra_credential(
-                proposal
-                    .add_proposal()
-                    .key_package()
-                    .leaf_node()
-                    .credential(),
-            )?;
+        for client_auth_info in client_auth_infos.iter() {
             // Persist the client auth info.
             client_auth_info.stage_add(&connection)?;
         }
@@ -466,58 +467,28 @@ impl Group {
         &self,
         api_clients: &ApiClients,
         connection_mutex: &SqliteConnection,
-        new_sender_credential: &Credential,
+        new_sender_credential: Credential,
         credential_update_option: Option<CredentialUpdate>,
         sender_index: LeafNodeIndex,
     ) -> Result<()> {
-        // If so, then there has to be a new signature ear key.
+        // If so, then there has to be a new identity link key.
         let Some(credential_update) = credential_update_option else {
             bail!("Invalid update client payload.")
         };
-        // Optionally, the client could have updated its
-        // client credential.
-        let client_auth_info =
-            if let Some(ecc) = credential_update.encrypted_client_credential_option {
-                ClientAuthInfo::decrypt_and_verify(
-                    connection_mutex.clone(),
-                    api_clients,
-                    &self.group_id,
-                    &self.credential_ear_key,
-                    &self.signature_ear_key_wrapper_key,
-                    (ecc, credential_update.encrypted_ear_key),
-                    sender_index,
-                )
-                .await?
-            } else {
-                // If not, we decrypt the new EAR key and use
-                // the existing client credential.
-                let signature_ear_key = IdentityLinkKey::decrypt(
-                    &self.signature_ear_key_wrapper_key,
-                    &credential_update.encrypted_ear_key,
-                )?;
-                let connection = connection_mutex.lock().await;
-                let mut group_membership =
-                    GroupMembership::load(&connection, &self.group_id, sender_index)?.ok_or(
-                        anyhow!("Could not find group membership of sender in database"),
-                    )?;
-                group_membership.set_signature_ear_key(signature_ear_key);
-                let client_credential = StorableClientCredential::load(
-                    &connection,
-                    group_membership.client_credential_fingerprint(),
-                )?
-                .ok_or(anyhow!(
-                    "Could not find client credential of sender in database"
-                ))?;
-                drop(connection);
-
-                ClientAuthInfo::new(client_credential, group_membership)
-            };
+        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+            connection_mutex.clone(),
+            api_clients,
+            &self.group_id,
+            self.identity_link_wrapper_key(),
+            credential_update.encrypted_identity_link_key,
+            sender_index,
+            new_sender_credential,
+        )
+        .await?;
         // Persist the updated client auth info.
         let connection = connection_mutex.lock().await;
         client_auth_info.stage_update(&connection)?;
         drop(connection);
-        // Verify the leaf credential
-        client_auth_info.verify_infra_credential(new_sender_credential)?;
 
         // TODO: Validation:
         // * Check that the client id is the same as before.
@@ -541,12 +512,20 @@ impl Group {
             ))?
             .remove_proposal()
             .removed();
+
+        let Some(removed_member) = self.mls_group().member_at(removed_index) else {
+            bail!("Could not find removed member in group")
+        };
+
+        // Check that the leaf credential hasn't changed during the resync.
+        if &removed_member.credential != processed_message.credential() {
+            bail!("Invalid resync operation: Leaf credential does not match.")
+        }
+
         let connection = connection_mutex.lock().await;
         let mut client_auth_info =
             ClientAuthInfo::load(&connection, &self.group_id, removed_index)?
                 .ok_or(anyhow!("Could not find client credential of resync sender"))?;
-        // Let's verify the new leaf credential.
-        client_auth_info.verify_infra_credential(processed_message.credential())?;
 
         // Set the client's new leaf index.
         client_auth_info

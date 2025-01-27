@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::openmls::prelude::KeyPackage;
 use phnxtypes::{
     crypto::{
-        ear::keys::AddPackageEarKey,
+        ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
@@ -16,7 +17,6 @@ use phnxtypes::{
     endpoint_paths::ENDPOINT_QS,
     errors::qs::QsProcessError,
     identifiers::{QsClientId, QsUserId},
-    keypackage_batch::AddPackage,
     messages::{
         client_qs::{
             ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
@@ -283,13 +283,13 @@ impl ApiClient {
     pub async fn qs_publish_key_packages(
         &self,
         sender: QsClientId,
-        add_packages: Vec<AddPackage>,
-        friendship_ear_key: AddPackageEarKey,
+        add_packages: Vec<KeyPackage>,
+        friendship_ear_key: KeyPackageEarKey,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let payload = PublishKeyPackagesParamsOut {
             sender,
-            add_packages,
+            key_packages: add_packages,
             friendship_ear_key,
         };
         self.prepare_and_send_qs_message(
@@ -359,7 +359,7 @@ impl ApiClient {
     pub async fn qs_key_package_batch(
         &self,
         sender: FriendshipToken,
-        friendship_ear_key: AddPackageEarKey,
+        friendship_ear_key: KeyPackageEarKey,
     ) -> Result<KeyPackageBatchResponseIn, QsRequestError> {
         let payload = KeyPackageBatchParams {
             sender: sender.clone(),

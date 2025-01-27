@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashMap;
-
 use mls_assist::{
     openmls::{
         ciphersuite::signature::SignaturePublicKey,
@@ -29,10 +27,7 @@ use crate::crypto::{
     },
 };
 
-use super::{
-    private_mod, AsIntermediateCredential, ClientCredential, CredentialFingerprint,
-    EncryptedClientCredential, VerifiableClientCredential,
-};
+use super::{private_mod, EncryptedClientCredential, VerifiableClientCredential};
 
 /// A credential that contains a (pseudonymous) identity, some metadata, as well
 /// as an encrypted signature.
@@ -66,6 +61,11 @@ impl PseudonymousCredential {
         }
     }
 
+    /// Returns the [`PseudonymousCredentialTbs`] of this credential.
+    pub fn tbs(&self) -> &PseudonymousCredentialTbs {
+        &self.tbs
+    }
+
     /// Returns the identity of a given credential.
     pub fn identity(&self) -> &[u8] {
         &self.tbs.identity
@@ -86,9 +86,36 @@ impl PseudonymousCredential {
         &self.tbs.verifying_key
     }
 
-    /// Returns the encrypted signature of a given credential.
-    pub fn identity_link_ctxt(&self) -> &IdentityLinkCtxt {
-        &self.identity_link_ctxt
+    /// Decrypts the client credential and verifies the signature over the
+    /// pseudonymous credential.
+    ///
+    /// Note that this does not verify the client credential itself. Instead it
+    /// returns it as part of the [`PseudonymousCredentialPlaintext`].
+    pub fn decrypt_and_verify(
+        self,
+        identity_link_key: &IdentityLinkKey,
+    ) -> Result<PseudonymousCredentialPlaintext, IdentityLinkDecryptionError> {
+        let signature = Signature::decrypt(
+            identity_link_key,
+            &self.identity_link_ctxt.encrypted_signature,
+        )
+        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        let client_credential = VerifiableClientCredential::decrypt(
+            identity_link_key,
+            &self.identity_link_ctxt.encrypted_client_credential,
+        )
+        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+
+        let payload = SignedPseudonymousCredential {
+            payload: self.tbs,
+            signature,
+        }
+        .verify(&client_credential.payload.csr.verifying_key)?;
+
+        Ok(PseudonymousCredentialPlaintext {
+            payload,
+            client_credential,
+        })
     }
 }
 
@@ -122,45 +149,11 @@ pub(crate) struct IdentityLinkCtxt {
 
 #[derive(TlsSerialize, TlsSize, Debug, Clone)]
 pub struct PseudonymousCredentialPlaintext {
-    pub(crate) payload: PseudonymousCredentialTbs,
-    pub(crate) signature: Signature,
-    pub(crate) client_credential: ClientCredential,
+    pub payload: PseudonymousCredentialTbs,
+    pub client_credential: VerifiableClientCredential,
 }
 
-impl PseudonymousCredentialPlaintext {
-    pub fn decrypt_and_verify(
-        credential: &PseudonymousCredential,
-        identity_link_key: &IdentityLinkKey,
-        as_verifying_keys: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
-    ) -> Result<Self, IdentityLinkDecryptionError> {
-        let signature = Signature::decrypt(
-            identity_link_key,
-            &credential.identity_link_ctxt().encrypted_signature,
-        )
-        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
-        let verifiable_client_credential = VerifiableClientCredential::decrypt(
-            identity_link_key,
-            &credential.identity_link_ctxt().encrypted_client_credential,
-        )
-        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
-        let as_verifying_key = as_verifying_keys
-            .get(&verifiable_client_credential.signer_fingerprint())
-            .ok_or(IdentityLinkDecryptionError::NoVerifyingKey)?;
-        let client_credential =
-            verifiable_client_credential.verify(as_verifying_key.verifying_key())?;
-        let payload = PseudonymousCredentialTbs {
-            identity: credential.identity().to_vec(),
-            expiration_data: credential.expiration_data(),
-            signature_scheme: credential.signature_scheme(),
-            verifying_key: credential.verifying_key().clone(),
-        };
-        Ok(Self {
-            payload,
-            signature,
-            client_credential,
-        })
-    }
-}
+impl PseudonymousCredentialPlaintext {}
 
 #[derive(Debug, Error)]
 pub enum IdentityLinkDecryptionError {

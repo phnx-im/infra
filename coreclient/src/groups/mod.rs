@@ -18,13 +18,13 @@ use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
         keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
-        ClientCredential, EncryptedClientCredential,
+        ClientCredential,
     },
     crypto::{
         ear::{
             keys::{
-                ClientCredentialEarKey, EncryptedSignatureEarKey, GroupStateEarKey,
-                IdentityLinkKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
+                IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
             },
             EarDecryptable, EarEncryptable,
         },
@@ -129,20 +129,15 @@ pub(crate) struct PartialCreateGroupParams {
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
     user_auth_key: UserAuthVerifyingKey,
-    encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 impl PartialCreateGroupParams {
-    pub(crate) fn into_params(
-        self,
-        encrypted_client_credential: EncryptedClientCredential,
-        client_reference: QsClientReference,
-    ) -> CreateGroupParamsOut {
+    pub(crate) fn into_params(self, client_reference: QsClientReference) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
-            encrypted_client_credential,
-            encrypted_signature_ear_key: self.encrypted_signature_ear_key,
+            encrypted_identity_link_key: self.encrypted_identity_link_key,
             creator_client_reference: client_reference,
             creator_user_auth_key: self.user_auth_key,
             group_info: self.group_info,
@@ -170,8 +165,7 @@ impl From<Vec<u8>> for GroupData {
 pub(crate) struct Group {
     group_id: GroupId,
     leaf_signer: PseudonymousCredentialSigningKey,
-    signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    credential_ear_key: ClientCredentialEarKey,
+    identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     // This needs to be set after initially joining a group.
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
@@ -201,13 +195,12 @@ impl Group {
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
-        let credential_ear_key = ClientCredentialEarKey::random()?;
         let user_auth_key = UserAuthSigningKey::generate()?;
         let group_state_ear_key = GroupStateEarKey::random()?;
-        let signature_ear_key_wrapper_key = SignatureEarKeyWrapperKey::random()?;
+        let identity_link_wrapper_key = IdentityLinkWrapperKey::random()?;
 
-        let signature_ear_key = IdentityLinkKey::random()?;
-        let leaf_signer = PseudonymousCredentialSigningKey::generate(signer, &signature_ear_key);
+        let identity_link_key = IdentityLinkKey::random()?;
+        let leaf_signer = PseudonymousCredentialSigningKey::generate(signer, &identity_link_key);
 
         let required_capabilities =
             Extension::RequiredCapabilities(default_required_capabilities());
@@ -236,30 +229,28 @@ impl Group {
             .build(provider, &leaf_signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
-        let encrypted_signature_ear_key =
-            signature_ear_key.encrypt(&signature_ear_key_wrapper_key)?;
+        let encrypted_identity_link_key = identity_link_key.encrypt(&identity_link_wrapper_key)?;
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
             group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
             user_auth_key: user_auth_key.verifying_key().clone(),
-            encrypted_signature_ear_key,
+            encrypted_identity_link_key: encrypted_identity_link_key,
         };
 
         let group_membership = GroupMembership::new(
             signer.credential().identity(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
-            signature_ear_key,
+            identity_link_key,
             signer.credential().fingerprint(),
         );
 
         let group = Self {
             group_id,
             leaf_signer,
-            signature_ear_key_wrapper_key,
+            identity_link_wrapper_key,
             mls_group,
-            credential_ear_key,
             group_state_ear_key: group_state_ear_key.clone(),
             user_auth_signing_key_option: Some(user_auth_key),
             pending_diff: None,
@@ -364,7 +355,7 @@ impl Group {
 
         let encrypted_client_information = mls_group
             .members()
-            .map(|m| m.index)
+            .map(|m| (m.index, m.credential))
             .zip(joiner_info.encrypted_client_information.into_iter());
 
         // Phase 2: Decrypt and verify the client credentials. This can involve
@@ -373,8 +364,7 @@ impl Group {
             connection_mutex.clone(),
             api_clients,
             mls_group.group_id(),
-            welcome_attribution_info.client_credential_encryption_key(),
-            welcome_attribution_info.signature_ear_key_wrapper_key(),
+            welcome_attribution_info.identity_link_wrapper_key(),
             encrypted_client_information,
         )
         .await?;
@@ -386,8 +376,7 @@ impl Group {
 
         // Phase 3: Decrypt and verify the infra credentials.
         let connection = connection_mutex.lock().await;
-        for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
-            client_auth_info.verify_infra_credential(&m.credential)?;
+        for client_auth_info in client_information {
             client_auth_info.store(&connection)?;
         }
 
@@ -403,12 +392,7 @@ impl Group {
             group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
-            signature_ear_key_wrapper_key: welcome_attribution_info
-                .signature_ear_key_wrapper_key()
-                .clone(),
-            credential_ear_key: welcome_attribution_info
-                .client_credential_encryption_key()
-                .clone(),
+            identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             // This one needs to be rolled fresh.
             user_auth_signing_key_option: None,
@@ -425,10 +409,9 @@ impl Group {
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: PseudonymousCredentialSigningKey,
-        signature_ear_key: IdentityLinkKey,
+        identity_link_key: IdentityLinkKey,
         group_state_ear_key: GroupStateEarKey,
-        signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-        credential_ear_key: ClientCredentialEarKey,
+        identity_link_wrapper_key: IdentityLinkWrapperKey,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
@@ -472,7 +455,7 @@ impl Group {
 
         let encrypted_client_information = mls_group
             .members()
-            .map(|m| m.index)
+            .map(|m| (m.index, m.credential))
             .zip(encrypted_client_info.into_iter());
 
         // Phase 2: Decrypt and verify the client credentials.
@@ -480,8 +463,7 @@ impl Group {
             connection_mutex.clone(),
             api_clients,
             group_id,
-            &credential_ear_key,
-            &signature_ear_key_wrapper_key,
+            &identity_link_wrapper_key,
             encrypted_client_information,
         )
         .await?;
@@ -492,7 +474,7 @@ impl Group {
             own_client_credential.identity(),
             group_info.group_context().group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
-            signature_ear_key.clone(),
+            identity_link_key.clone(),
             own_client_credential.fingerprint(),
         );
 
@@ -502,8 +484,7 @@ impl Group {
 
         // Phase 3: Verify and store the infra credentials.
         let connection = connection_mutex.lock().await;
-        for (m, client_auth_info) in mls_group.members().zip(client_information.iter()) {
-            client_auth_info.verify_infra_credential(&m.credential)?;
+        for client_auth_info in client_information.iter() {
             // Store client auth info.
             client_auth_info.store(&connection)?;
         }
@@ -517,8 +498,7 @@ impl Group {
             group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
-            signature_ear_key_wrapper_key,
-            credential_ear_key,
+            identity_link_wrapper_key,
             group_state_ear_key,
             user_auth_signing_key_option: Some(user_auth_key),
             pending_diff: None,
@@ -538,12 +518,12 @@ impl Group {
         // and refer to the same contacts in order.
         add_infos: Vec<ContactAddInfos>,
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
-        client_credentials: Vec<Vec<ClientCredential>>,
+        client_credentials: Vec<ClientCredential>,
     ) -> Result<GroupOperationParamsOut> {
         let Some(user_auth_key) = &self.user_auth_signing_key_option else {
             bail!("No user auth key");
         };
-        let client_credentials = client_credentials.into_iter().flatten().collect::<Vec<_>>();
+        debug_assert!(add_infos.len() == wai_keys.len());
         debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackageBatches and KeyPackages
         let (key_package_vecs, key_package_batches): (
@@ -554,21 +534,17 @@ impl Group {
             .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
             .unzip();
 
-        let (key_packages, signature_ear_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) =
+        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) =
             key_package_vecs.into_iter().flatten().unzip();
 
-        let ecc = client_credentials
+        let new_encrypted_identity_link_keys = identity_link_keys
             .iter()
-            .zip(signature_ear_keys.iter())
-            .map(|(client_credential, sek)| {
-                let ecc = client_credential.encrypt(&self.credential_ear_key)?;
-                let esek = sek.encrypt(&self.signature_ear_key_wrapper_key)?;
-                Ok((ecc, esek))
-            })
-            .collect::<Result<Vec<_>>>()?;
+            .map(|ilk| ilk.encrypt(&self.identity_link_wrapper_key))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let aad_message: InfraAadMessage =
             InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-                new_encrypted_credential_information: ecc,
+                new_encrypted_identity_link_keys,
                 credential_update_option: None,
             })
             .into();
@@ -592,8 +568,7 @@ impl Group {
                 // WAI = WelcomeAttributionInfo
                 let wai_payload = WelcomeAttributionInfoPayload::new(
                     signer.credential().identity(),
-                    self.credential_ear_key.clone(),
-                    self.signature_ear_key_wrapper_key.clone(),
+                    self.identity_link_wrapper_key.clone(),
                 );
 
                 let wai = WelcomeAttributionInfoTbs {
@@ -622,17 +597,17 @@ impl Group {
 
         // Stage the adds in the DB.
         let free_indices = GroupMembership::free_indices(connection, self.group_id())?;
-        for (leaf_index, (client_credential, signature_ear_key)) in free_indices.zip(
+        for (leaf_index, (client_credential, identity_link_key)) in free_indices.zip(
             client_credentials
                 .into_iter()
-                .zip(signature_ear_keys.into_iter()),
+                .zip(identity_link_keys.into_iter()),
         ) {
             let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity(),
                 self.group_id.clone(),
                 leaf_index,
-                signature_ear_key,
+                identity_link_key,
                 fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
@@ -666,7 +641,7 @@ impl Group {
         let remove_indices =
             GroupMembership::client_indices(connection, self.group_id(), &members)?;
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-            new_encrypted_credential_information: vec![],
+            new_encrypted_identity_link_keys: vec![],
             credential_update_option: None,
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
@@ -805,11 +780,8 @@ impl Group {
             if let Some(leaf_signer) = diff.leaf_signer {
                 self.leaf_signer = leaf_signer;
             }
-            if let Some(signature_ear_key) = diff.signature_ear_key {
-                self.signature_ear_key_wrapper_key = signature_ear_key;
-            }
-            if let Some(credential_ear_key) = diff.credential_ear_key {
-                self.credential_ear_key = credential_ear_key;
+            if let Some(identity_link_key) = diff.identity_link_key {
+                self.identity_link_wrapper_key = identity_link_key;
             }
             if let Some(group_state_ear_key) = diff.group_state_ear_key {
                 self.group_state_ear_key = group_state_ear_key;
@@ -907,12 +879,8 @@ impl Group {
             .map(|group_membership| group_membership.client_id().clone())
     }
 
-    pub(crate) fn credential_ear_key(&self) -> &ClientCredentialEarKey {
-        &self.credential_ear_key
-    }
-
-    pub(crate) fn signature_ear_key_wrapper_key(&self) -> &SignatureEarKeyWrapperKey {
-        &self.signature_ear_key_wrapper_key
+    pub(crate) fn identity_link_wrapper_key(&self) -> &IdentityLinkWrapperKey {
+        &self.identity_link_wrapper_key
     }
 
     /// Returns a set containing the [`UserName`] of the members of the group.
@@ -932,8 +900,7 @@ impl Group {
         let provider = &PhnxOpenMlsProvider::new(connection);
         // We don't expect there to be a welcome.
         let aad_payload = UpdateClientParamsAad {
-            option_encrypted_signature_ear_key: None,
-            option_encrypted_client_credential: None,
+            option_encrypted_identity_link_key: None,
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
@@ -972,8 +939,7 @@ impl Group {
     ) -> Result<UpdateClientParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
         let aad_payload = UpdateClientParamsAad {
-            option_encrypted_signature_ear_key: None,
-            option_encrypted_client_credential: None,
+            option_encrypted_identity_link_key: None,
         };
         let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
             .tls_serialize_detached()?;
