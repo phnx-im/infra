@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::keys::PseudonymousCredentialSigningKey,
-    crypto::{ear::keys::IdentityLinkKey, errors::RandomnessError},
+    credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
+    crypto::ear::keys::IdentityLinkKey,
 };
 use rusqlite::{params, OptionalExtension};
 
@@ -39,14 +39,16 @@ pub(crate) struct LeafKeys {
 }
 
 impl LeafKeys {
-    pub(crate) fn generate(signing_key: &ClientSigningKey) -> Result<Self, RandomnessError> {
-        let identity_link_key = IdentityLinkKey::random()?;
-        let leaf_signing_key =
-            PseudonymousCredentialSigningKey::generate(signing_key, &identity_link_key);
+    pub(crate) fn generate(
+        signing_key: &ClientSigningKey,
+        connection_key: &ConnectionKey,
+    ) -> Result<Self, CredentialCreationError> {
+        let (leaf_signing_key, identity_link_key) =
+            PseudonymousCredentialSigningKey::generate(signing_key, connection_key)?;
         let keys = Self {
             verifying_key: leaf_signing_key.credential().verifying_key().clone(),
             leaf_signing_key,
-            identity_link_key: identity_link_key,
+            identity_link_key,
         };
         Ok(keys)
     }
@@ -59,8 +61,16 @@ impl LeafKeys {
         Ok(credential)
     }
 
+    pub(crate) fn identity_link_key(&self) -> &IdentityLinkKey {
+        &self.identity_link_key
+    }
+
     pub(crate) fn into_leaf_signer(self) -> PseudonymousCredentialSigningKey {
         self.leaf_signing_key
+    }
+
+    pub(crate) fn into_parts(self) -> (PseudonymousCredentialSigningKey, IdentityLinkKey) {
+        (self.leaf_signing_key, self.identity_link_key)
     }
 }
 

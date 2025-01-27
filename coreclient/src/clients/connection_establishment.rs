@@ -8,8 +8,8 @@ use phnxtypes::{
     crypto::{
         ear::{
             keys::{
-                ClientCredentialEarKey, FriendshipPackageEarKey, GroupStateEarKey,
-                IdentityLinkWrapperKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey,
+                FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
+                KeyPackageEarKey, WelcomeAttributionInfoEarKey,
             },
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
@@ -90,7 +90,6 @@ pub struct ConnectionEstablishmentPackageTbsIn {
     sender_client_credential: VerifiableClientCredential,
     connection_group_id: GroupId,
     connection_group_ear_key: GroupStateEarKey,
-    connection_group_credential_key: ClientCredentialEarKey,
     connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey,
     friendship_package_ear_key: FriendshipPackageEarKey,
     friendship_package: FriendshipPackage,

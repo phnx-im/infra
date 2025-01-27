@@ -92,7 +92,7 @@ impl MemoryUserKeyStore {
         last_resort: bool,
     ) -> Result<KeyPackage> {
         let provider = PhnxOpenMlsProvider::new(connection);
-        let leaf_keys = LeafKeys::generate(&self.signing_key)?;
+        let leaf_keys = LeafKeys::generate(&self.signing_key, &self.connection_key)?;
         leaf_keys.store(connection)?;
         let credential_with_key = leaf_keys.credential()?;
         let capabilities = default_capabilities();

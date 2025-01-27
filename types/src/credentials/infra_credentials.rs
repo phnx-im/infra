@@ -16,9 +16,11 @@ use tls_codec::{
     DeserializeBytes as _, Serialize as _, TlsDeserialize, TlsDeserializeBytes, TlsSerialize,
     TlsSize,
 };
+use tracing::error;
 
 use crate::crypto::{
     ear::{keys::IdentityLinkKey, EarDecryptable},
+    errors::DecryptionError,
     signatures::{
         signable::{
             EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
@@ -94,17 +96,15 @@ impl PseudonymousCredential {
     pub fn decrypt_and_verify(
         self,
         identity_link_key: &IdentityLinkKey,
-    ) -> Result<PseudonymousCredentialPlaintext, IdentityLinkDecryptionError> {
+    ) -> Result<PseudonymousCredentialPlaintext, IdentityLinkVerificationError> {
         let signature = Signature::decrypt(
             identity_link_key,
             &self.identity_link_ctxt.encrypted_signature,
-        )
-        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        )?;
         let client_credential = VerifiableClientCredential::decrypt(
             identity_link_key,
             &self.identity_link_ctxt.encrypted_client_credential,
-        )
-        .map_err(|_| IdentityLinkDecryptionError::SignatureDecryptionError)?;
+        )?;
 
         let payload = SignedPseudonymousCredential {
             payload: self.tbs,
@@ -156,11 +156,11 @@ pub struct PseudonymousCredentialPlaintext {
 impl PseudonymousCredentialPlaintext {}
 
 #[derive(Debug, Error)]
-pub enum IdentityLinkDecryptionError {
+pub enum IdentityLinkVerificationError {
     #[error(transparent)]
     DeserializationError(#[from] tls_codec::Error),
-    #[error("Error decrypting signature")]
-    SignatureDecryptionError,
+    #[error(transparent)]
+    DecryptionFailed(#[from] DecryptionError),
     #[error("Missing AS verifying key")]
     NoVerifyingKey,
     #[error("Error verifying client credential: {0}")]

@@ -17,13 +17,12 @@ use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
-        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::ClientSigningKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     },
     crypto::{
         ear::{
             keys::{
-                FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey, PushTokenEarKey,
+                FriendshipPackageEarKey, KeyPackageEarKey, PushTokenEarKey,
                 WelcomeAttributionInfoEarKey,
             },
             EarEncryptable, EarKey, GenericSerializable,
@@ -378,7 +377,7 @@ impl CoreUser {
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
-            let contact_client_credentials = contact
+            let mut contact_client_credentials = contact
                 .clients()
                 .iter()
                 .filter_map(|client_id| {
@@ -391,7 +390,8 @@ impl CoreUser {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            client_credentials.extend(contact_client_credentials);
+            // TODO: Workaround
+            client_credentials.push(contact_client_credentials.pop().unwrap());
             contacts.push(contact);
         }
         drop(connection);
@@ -689,6 +689,7 @@ impl CoreUser {
             let (group, group_membership, partial_params) = Group::create_group(
                 &provider,
                 &self.inner.key_store.signing_key,
+                &self.inner.key_store.connection_key,
                 group_id.clone(),
                 group_data,
             )?;

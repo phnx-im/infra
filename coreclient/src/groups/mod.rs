@@ -29,6 +29,7 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable,
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
+        kdf::keys::ConnectionKey,
         signatures::{
             keys::{UserAuthSigningKey, UserAuthVerifyingKey},
             signable::{Signable, Verifiable},
@@ -69,11 +70,11 @@ use openmls::{
     group::ProcessedWelcome,
     key_packages::KeyPackageBundle,
     prelude::{
-        tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, Credential,
-        CredentialType, CredentialWithKey, Extension, ExtensionType, Extensions, GroupId,
-        KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
-        Proposal, ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension,
-        Sender, StagedCommit, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, CredentialType,
+        CredentialWithKey, Extension, ExtensionType, Extensions, GroupId, KeyPackage,
+        LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, Proposal,
+        ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender,
+        StagedCommit, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
     },
     treesync::{LeafNodeParameters, RatchetTree},
 };
@@ -192,6 +193,7 @@ impl Group {
     pub(super) fn create_group(
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
+        connection_key: &ConnectionKey,
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
@@ -199,23 +201,21 @@ impl Group {
         let group_state_ear_key = GroupStateEarKey::random()?;
         let identity_link_wrapper_key = IdentityLinkWrapperKey::random()?;
 
-        let identity_link_key = IdentityLinkKey::random()?;
-        let leaf_signer = PseudonymousCredentialSigningKey::generate(signer, &identity_link_key);
+        let leaf_keys = LeafKeys::generate(signer, connection_key)?;
 
         let required_capabilities =
             Extension::RequiredCapabilities(default_required_capabilities());
         let leaf_node_capabilities = default_capabilities();
 
-        let credential_with_key = CredentialWithKey {
-            credential: Credential::try_from(leaf_signer.credential())?,
-            signature_key: leaf_signer.credential().verifying_key().clone(),
-        };
+        let credential_with_key = leaf_keys.credential()?;
         let group_data_extension = Extension::Unknown(
             GROUP_DATA_EXTENSION_TYPE,
             UnknownExtension(group_data.bytes),
         );
         let gc_extensions =
             Extensions::from_vec(vec![group_data_extension, required_capabilities])?;
+
+        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
 
         let mls_group = MlsGroup::builder()
             .with_group_id(group_id.clone())
@@ -235,7 +235,7 @@ impl Group {
             ratchet_tree: mls_group.export_ratchet_tree(),
             group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
             user_auth_key: user_auth_key.verifying_key().clone(),
-            encrypted_identity_link_key: encrypted_identity_link_key,
+            encrypted_identity_link_key,
         };
 
         let group_membership = GroupMembership::new(

@@ -255,14 +255,6 @@ impl rusqlite::types::FromSql for IdentityLinkKey {
     }
 }
 
-impl IdentityLinkKey {
-    pub fn random() -> Result<Self, RandomnessError> {
-        Ok(Self {
-            key: IdentityLinkKeySecret::random()?,
-        })
-    }
-}
-
 impl EarKey for IdentityLinkKey {}
 
 impl AsRef<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {

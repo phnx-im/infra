@@ -14,6 +14,7 @@ use mls_assist::{
 use rusqlite::{types::ToSqlOutput, ToSql};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tracing::error;
 
 use super::{
     infra_credentials::{IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs},
@@ -25,7 +26,8 @@ use crate::codec::PhnxCodec;
 
 use crate::crypto::{
     ear::{keys::IdentityLinkKey, EarEncryptable},
-    errors::KeyGenerationError,
+    errors::{EncryptionError, KeyGenerationError, RandomnessError},
+    kdf::{keys::ConnectionKey, KdfDerivable},
     signatures::{
         private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
@@ -203,25 +205,49 @@ impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
 // 30 days lifetime in seconds
 pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
+#[derive(Debug, Error)]
+pub enum CredentialCreationError {
+    #[error(transparent)]
+    KeyGenerationError(#[from] KeyGenerationError),
+    #[error(transparent)]
+    RandomnessError(#[from] RandomnessError),
+    #[error("Failed to derive identity link key")]
+    KeyDerivationFailed,
+    #[error(transparent)]
+    EncryptionFailed(#[from] EncryptionError),
+}
+
 impl PseudonymousCredentialSigningKey {
-    pub fn generate(client_signer: &ClientSigningKey, identity_link_key: &IdentityLinkKey) -> Self {
-        let signing_key = SigningKey::generate().unwrap();
-        let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
+    pub fn generate(
+        client_signer: &ClientSigningKey,
+        connection_key: &ConnectionKey,
+    ) -> Result<(Self, IdentityLinkKey), CredentialCreationError> {
+        // Construct the TBS
+        let signing_key = SigningKey::generate()?;
+        let identity = OpenMlsRustCrypto::default()
+            .rand()
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
         let tbs = PseudonymousCredentialTbs {
             identity,
             expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
             signature_scheme: DEFAULT_SIGNATURE_SCHEME,
             verifying_key: signing_key.verifying_key().clone().into(),
         };
+
+        // Derive the identity link key based on the TBS
+        let identity_link_key =
+            IdentityLinkKey::derive(connection_key, tbs.clone()).map_err(|e| {
+                error!(%e, "Failed to derive identity link key");
+                CredentialCreationError::KeyDerivationFailed
+            })?;
+
+        // Sign the TBS and encrypt the identity link
         let signed_pseudonymous_credential = tbs.sign(client_signer).unwrap();
         let encrypted_signature = signed_pseudonymous_credential
             .signature
-            .encrypt(identity_link_key)
-            .unwrap();
-        let encrypted_client_credential = client_signer
-            .credential()
-            .encrypt(identity_link_key)
-            .unwrap();
+            .encrypt(&identity_link_key)?;
+        let encrypted_client_credential = client_signer.credential().encrypt(&identity_link_key)?;
         let identity_link_ctxt = IdentityLinkCtxt {
             encrypted_signature,
             encrypted_client_credential,
@@ -233,10 +259,11 @@ impl PseudonymousCredentialSigningKey {
             signed_pseudonymous_credential.payload.verifying_key,
             identity_link_ctxt,
         );
-        Self {
+        let credential = Self {
             signing_key,
             credential,
-        }
+        };
+        Ok((credential, identity_link_key))
     }
 
     pub fn credential(&self) -> &PseudonymousCredential {

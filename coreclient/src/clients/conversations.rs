@@ -6,7 +6,8 @@ use anyhow::{anyhow, Result};
 use openmls::prelude::GroupId;
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
-    codec::PhnxCodec, credentials::keys::ClientSigningKey, identifiers::QsClientReference,
+    codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
+    identifiers::QsClientReference,
 };
 use rusqlite::Connection;
 use tracing::error;
@@ -43,7 +44,11 @@ impl CoreUser {
             let mut notifier = self.store_notifier();
 
             let created_group = group_data
-                .create_group(&provider, &self.inner.key_store.signing_key)?
+                .create_group(
+                    &provider,
+                    &self.inner.key_store.signing_key,
+                    &self.inner.key_store.connection_key,
+                )?
                 .store_group(&transaction, &mut notifier)?;
 
             transaction.commit()?;
@@ -188,6 +193,7 @@ impl ConversationGroupData {
         self,
         provider: &impl OpenMlsProvider,
         signing_key: &ClientSigningKey,
+        connection_key: &ConnectionKey,
     ) -> Result<CreatedGroup> {
         let Self {
             group_id,
@@ -196,7 +202,7 @@ impl ConversationGroupData {
         } = self;
 
         let (group, group_membership, partial_params) =
-            Group::create_group(provider, signing_key, group_id, group_data)?;
+            Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
 
         Ok(CreatedGroup {
             group,

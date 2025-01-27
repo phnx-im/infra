@@ -107,7 +107,7 @@ impl Contact {
             .collect::<Vec<_>>()
             .join(",");
         connection.execute(
-            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, key_package_ear_key, connection_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, key_package_ear_key, connection_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.user_name,
                 self.conversation_id,

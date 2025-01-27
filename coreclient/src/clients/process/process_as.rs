@@ -22,13 +22,13 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::Group,
+    key_stores::leaf_keys::LeafKeys,
     store::StoreNotifier,
 };
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, IdentityLinkKey, PseudonymousCredentialSigningKey,
-    UserProfile,
+    CoreUser, EarEncryptable, FriendshipPackage, UserProfile,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
@@ -67,19 +67,15 @@ impl CoreUser {
                 // Load user profile
                 let own_user_profile = self.load_own_user_profile().await?;
 
-                // Create identity link key
-                let identity_link_key = IdentityLinkKey::random()?;
-
                 // Prepare group
-                let (leaf_signer, aad, qgid) =
-                    self.prepare_group(&identity_link_key, &cep_tbs, own_user_profile)?;
+                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, own_user_profile)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
                 let (group, commit, group_info) = self
-                    .join_group_externally(identity_link_key, eci, &cep_tbs, leaf_signer, aad)
+                    .join_group_externally(eci, &cep_tbs, leaf_keys, aad)
                     .await?;
 
                 // Create conversation
@@ -144,24 +140,21 @@ impl CoreUser {
 
     fn prepare_group(
         &self,
-        identity_link_key: &IdentityLinkKey,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile: UserProfile,
-    ) -> Result<(
-        PseudonymousCredentialSigningKey,
-        InfraAadMessage,
-        QualifiedGroupId,
-    )> {
+    ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
 
-        let leaf_signer = PseudonymousCredentialSigningKey::generate(
+        let leaf_keys = LeafKeys::generate(
             &self.inner.key_store.signing_key,
-            identity_link_key,
-        );
-        let encrypted_identity_link_key =
-            identity_link_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+            &self.inner.key_store.connection_key,
+        )?;
+
+        let encrypted_identity_link_key = leaf_keys
+            .identity_link_key()
+            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
@@ -181,7 +174,7 @@ impl CoreUser {
         let qgid =
             QualifiedGroupId::tls_deserialize_exact_bytes(cep_tbs.connection_group_id.as_slice())?;
 
-        Ok((leaf_signer, aad, qgid))
+        Ok((leaf_keys, aad, qgid))
     }
 
     async fn load_own_user_profile(&self) -> Result<UserProfile> {
@@ -209,12 +202,12 @@ impl CoreUser {
 
     async fn join_group_externally(
         &self,
-        identity_link_key: IdentityLinkKey,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        leaf_signer: PseudonymousCredentialSigningKey,
+        leaf_keys: LeafKeys,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
+        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
         let (group, commit, group_info) = Group::join_group_externally(
             self.inner.connection.clone(),
             &self.inner.api_clients,

@@ -60,7 +60,7 @@ impl Group {
     pub(crate) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO groups (group_id, leaf_signer, identity_link_wrapper_key, group_state_ear_key, user_auth_signing_key_option, pending_diff) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO groups (group_id, leaf_signer, identity_link_wrapper_key, group_state_ear_key, user_auth_signing_key_option, pending_diff) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 group_id,
                 self.leaf_signer,

@@ -4,8 +4,7 @@
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, IdentityLinkKey, PseudonymousCredentialSigningKey,
-    TimestampedMessage, UserProfile,
+    CoreUser, EarEncryptable, FriendshipPackage, TimestampedMessage, UserProfile,
 };
 
 pub mod process_as;
