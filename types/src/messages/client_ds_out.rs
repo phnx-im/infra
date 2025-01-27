@@ -70,19 +70,18 @@ pub struct CreateGroupParamsOut {
     pub group_info: MlsMessageOut,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AddUsersParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
+#[derive(Debug, TlsSize, TlsSerialize)]
+pub struct AddUsersInfoOut {
     pub welcome: MlsMessageOut,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct RemoveUsersParamsOut {
+#[derive(Debug, TlsSize, TlsSerialize)]
+pub struct GroupOperationParamsOut {
     pub commit: AssistedMessageOut,
     pub sender: UserKeyHash,
+    pub add_users_info_option: Option<AddUsersInfoOut>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -151,9 +150,7 @@ pub struct DeleteGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
-    AddUsers(AddUsersParamsOut),
     CreateGroupParams(CreateGroupParamsOut),
-    RemoveUsers(RemoveUsersParamsOut),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
@@ -167,6 +164,7 @@ pub enum DsRequestParamsOut {
     SelfRemoveClient(SelfRemoveClientParamsOut),
     SendMessage(SendMessageParamsOut),
     DeleteGroup(DeleteGroupParamsOut),
+    GroupOperation(GroupOperationParamsOut),
 }
 
 impl Signable for ClientToDsMessageTbsOut {

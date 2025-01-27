@@ -446,7 +446,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_add_users(
+            .ds_group_operation(
                 params,
                 group.group_state_ear_key(),
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
@@ -498,7 +498,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&conversation.owner_domain())?
-            .ds_remove_users(
+            .ds_group_operation(
                 params,
                 group.group_state_ear_key(),
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
