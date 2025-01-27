@@ -17,7 +17,9 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
 use super::{
-    infra_credentials::{IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs},
+    pseudonymous_credentials::{
+        IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
+    },
     AsCredential, AsIntermediateCredential,
 };
 

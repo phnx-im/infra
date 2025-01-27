@@ -7,13 +7,13 @@ use std::ops::Deref;
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
-    credentials::infra_credentials::PseudonymousCredential,
+    credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
         ear::keys::{
             FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
             WelcomeAttributionInfoEarKey,
         },
-        kdf::{keys::ConnectionKey, KdfDerivable},
+        kdf::keys::ConnectionKey,
         signatures::signable::Verifiable,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -23,6 +23,7 @@ use phnxtypes::{
 
 use crate::{
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    groups::client_auth_info::StorableClientCredential,
     key_stores::qs_verifying_keys::StorableQsVerifyingKey,
     utils::persistence::SqliteConnection,
     ConversationId,
@@ -39,7 +40,7 @@ pub struct Contact {
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) add_package_ear_key: KeyPackageEarKey,
+    pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
@@ -62,7 +63,7 @@ impl Contact {
             clients: vec![client_id],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
+            key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             conversation_id,
         }
@@ -85,25 +86,42 @@ impl Contact {
             .get(&invited_user_domain)?
             .qs_key_package_batch(
                 self.friendship_token.clone(),
-                self.add_package_ear_key.clone(),
+                self.key_package_ear_key.clone(),
             )
             .await?;
-        let key_packages: Vec<(KeyPackage, IdentityLinkKey)> = key_package_batch_response
-            .key_packages
-            .into_iter()
-            .map(|key_package| {
-                let verified_key_package =
-                    key_package.validate(&RustCrypto::default(), ProtocolVersion::default())?;
-                let pseudonymous_credential = PseudonymousCredential::try_from(
-                    verified_key_package.leaf_node().credential().clone(),
-                )?;
-                let ilk = IdentityLinkKey::derive(
-                    &self.connection_key,
-                    pseudonymous_credential.tbs().clone(),
-                )?;
-                Ok((verified_key_package, ilk))
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let mut key_packages = vec![];
+        // Verify the inputs we just got.
+        for key_package_in in key_package_batch_response.key_packages {
+            // Verify the KeyPackage
+            let verified_key_package =
+                key_package_in.validate(&RustCrypto::default(), ProtocolVersion::default())?;
+            let pseudonymous_credential = PseudonymousCredential::try_from(
+                verified_key_package.leaf_node().credential().clone(),
+            )?;
+            // Verify the pseudonymous credential
+            let (plaintext, ilk) =
+                pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
+            // Verify the client credential
+            let incoming_client_credential = StorableClientCredential::verify(
+                connection_mutex.clone(),
+                &api_clients,
+                plaintext.client_credential,
+            )
+            .await?;
+            // Check that the client credential is the same as the one we have on file.
+            let connection = connection_mutex.lock().await;
+            let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
+                &connection,
+                &incoming_client_credential.identity(),
+            )?
+            else {
+                anyhow::bail!("Client credential not found");
+            };
+            if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
+                anyhow::bail!("Client credential does not match");
+            }
+            key_packages.push((verified_key_package, ilk));
+        }
         let qs_verifying_key =
             StorableQsVerifyingKey::get(connection_mutex, &invited_user_domain, &api_clients)
                 .await?;

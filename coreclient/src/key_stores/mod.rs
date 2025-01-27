@@ -59,7 +59,7 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     pub(super) friendship_token: FriendshipToken,
-    pub(super) add_package_ear_key: KeyPackageEarKey,
+    pub(super) key_package_ear_key: KeyPackageEarKey,
     pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }

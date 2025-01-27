@@ -18,21 +18,25 @@ use tls_codec::{
 };
 use tracing::error;
 
-use crate::crypto::{
-    ear::{keys::IdentityLinkKey, EarDecryptable},
-    errors::DecryptionError,
-    signatures::{
-        signable::{
-            EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
+use crate::{
+    crypto::{
+        ear::{keys::IdentityLinkKey, EarDecryptable},
+        errors::DecryptionError,
+        kdf::{keys::ConnectionKey, KdfDerivable},
+        signatures::{
+            signable::{
+                EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
+            },
+            traits::SignatureVerificationError,
         },
-        traits::SignatureVerificationError,
     },
+    LibraryError,
 };
 
 use super::{private_mod, EncryptedClientCredential, VerifiableClientCredential};
 
 /// A credential that contains a (pseudonymous) identity, some metadata, as well
-/// as an encrypted signature.
+/// as an encrypted identity link.
 #[derive(
     Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
 )]
@@ -86,6 +90,16 @@ impl PseudonymousCredential {
     /// Returns the verifying key of a given credential.
     pub fn verifying_key(&self) -> &SignaturePublicKey {
         &self.tbs.verifying_key
+    }
+
+    pub fn derive_decrypt_and_verify(
+        self,
+        connection_key: &ConnectionKey,
+    ) -> Result<(PseudonymousCredentialPlaintext, IdentityLinkKey), IdentityLinkVerificationError>
+    {
+        let identity_link_key = IdentityLinkKey::derive(connection_key, self.tbs.clone())?;
+        let plaintext = self.decrypt_and_verify(&identity_link_key)?;
+        Ok((plaintext, identity_link_key))
     }
 
     /// Decrypts the client credential and verifies the signature over the
@@ -161,10 +175,10 @@ pub enum IdentityLinkVerificationError {
     DeserializationError(#[from] tls_codec::Error),
     #[error(transparent)]
     DecryptionFailed(#[from] DecryptionError),
-    #[error("Missing AS verifying key")]
-    NoVerifyingKey,
     #[error("Error verifying client credential: {0}")]
     ClientCredentialVerificationError(#[from] SignatureVerificationError),
+    #[error("Error deriving identity key")]
+    IdentityKeyDerivationFailure(#[from] LibraryError),
 }
 
 #[derive(

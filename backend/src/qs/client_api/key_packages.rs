@@ -25,8 +25,8 @@ use phnxtypes::{
 };
 
 use crate::qs::{
-    add_package::StorableEncryptedAddPackage,
-    client_id_decryption_key::StorableClientIdDecryptionKey, signing_key::StorableQsSigningKey, Qs,
+    client_id_decryption_key::StorableClientIdDecryptionKey,
+    key_package::StorableEncryptedAddPackage, signing_key::StorableQsSigningKey, Qs,
 };
 
 impl Qs {
@@ -42,8 +42,8 @@ impl Qs {
             friendship_ear_key,
         } = params;
 
-        let mut encrypted_add_packages = vec![];
-        let mut last_resort_add_package = None;
+        let mut encrypted_key_packages = vec![];
+        let mut last_resort_key_package = None;
         for key_package in key_packages {
             let verified_key_package: KeyPackage = key_package
                 .validate(
@@ -59,17 +59,17 @@ impl Qs {
                 .map_err(|_| QsPublishKeyPackagesError::LibraryError)?;
 
             if is_last_resort {
-                last_resort_add_package = Some(eap);
+                last_resort_key_package = Some(eap);
             } else {
-                encrypted_add_packages.push(eap);
+                encrypted_key_packages.push(eap);
             }
         }
 
-        if let Some(last_resort_add_package) = last_resort_add_package {
+        if let Some(last_resort_key_package) = last_resort_key_package {
             StorableEncryptedAddPackage::store_last_resort(
                 &self.db_pool,
                 &sender,
-                &last_resort_add_package,
+                &last_resort_key_package,
             )
             .await
             .map_err(|e| {
@@ -81,7 +81,7 @@ impl Qs {
         StorableEncryptedAddPackage::store_multiple(
             &self.db_pool,
             &sender,
-            &encrypted_add_packages,
+            &encrypted_key_packages,
         )
         .await
         .map_err(|e| {

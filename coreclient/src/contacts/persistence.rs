@@ -73,7 +73,7 @@ impl Storable for Contact {
             clients,
             wai_ear_key,
             friendship_token,
-            add_package_ear_key: key_package_ear_key,
+            key_package_ear_key,
             connection_key,
             conversation_id,
         })
@@ -114,7 +114,7 @@ impl Contact {
                 clients_str,
                 self.wai_ear_key,
                 self.friendship_token,
-                self.add_package_ear_key,
+                self.key_package_ear_key,
                 self.connection_key,
             ],
         )?;
@@ -239,7 +239,7 @@ impl PartialContact {
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
+            key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             conversation_id,
         };

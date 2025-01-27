@@ -117,7 +117,7 @@ impl UserCreationState {
             }
             UserCreationState::QsRegisteredUserState(state) => Self::FinalUserState(
                 state
-                    .upload_add_packages(client_db_connection.clone(), api_clients)
+                    .upload_key_packages(client_db_connection.clone(), api_clients)
                     .await?,
             ),
             UserCreationState::FinalUserState(_) => self,

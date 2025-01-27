@@ -340,8 +340,8 @@ impl DsGroupState {
         welcome: &AssistedWelcome,
     ) -> Result<Vec<DsFanOutMessage>, GroupOperationError> {
         let mut fan_out_messages = vec![];
-        for (add_packages, attribution_info) in added_users.into_iter() {
-            for (key_package, _) in add_packages {
+        for (key_packages, attribution_info) in added_users.into_iter() {
+            for (key_package, _) in key_packages {
                 let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
                     key_package
                         .leaf_node()

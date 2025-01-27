@@ -283,13 +283,13 @@ impl ApiClient {
     pub async fn qs_publish_key_packages(
         &self,
         sender: QsClientId,
-        add_packages: Vec<KeyPackage>,
+        key_packages: Vec<KeyPackage>,
         friendship_ear_key: KeyPackageEarKey,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let payload = PublishKeyPackagesParamsOut {
             sender,
-            key_packages: add_packages,
+            key_packages,
             friendship_ear_key,
         };
         self.prepare_and_send_qs_message(

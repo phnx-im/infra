@@ -169,7 +169,7 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) add_package_ear_key: KeyPackageEarKey,
+    pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile: UserProfile,

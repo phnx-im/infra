@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    credentials::infra_credentials::PseudonymousCredentialTbs,
+    credentials::pseudonymous_credentials::PseudonymousCredentialTbs,
     crypto::{
         errors::RandomnessError,
         kdf::{

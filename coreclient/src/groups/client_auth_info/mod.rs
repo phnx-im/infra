@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{
-        infra_credentials::PseudonymousCredential, ClientCredential, CredentialFingerprint,
+        pseudonymous_credentials::PseudonymousCredential, ClientCredential, CredentialFingerprint,
         VerifiableClientCredential,
     },
     crypto::ear::{
@@ -56,7 +56,7 @@ impl StorableClientCredential {
         Self { client_credential }
     }
 
-    pub(super) async fn verify(
+    pub(crate) async fn verify(
         connection: SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,

@@ -40,8 +40,8 @@ mod private_mod {
     pub struct Seal;
 }
 
-pub mod infra_credentials;
 pub mod keys;
+pub mod pseudonymous_credentials;
 
 use self::keys::ClientVerifyingKey;
 

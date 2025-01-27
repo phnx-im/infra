@@ -158,7 +158,7 @@ impl CoreUser {
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
-            add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
+            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
             connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,

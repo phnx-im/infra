@@ -254,7 +254,7 @@ impl PostRegistrationInitState {
         // TODO: The following five keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
-        let add_package_ear_key = KeyPackageEarKey::random()?;
+        let key_package_ear_key = KeyPackageEarKey::random()?;
         let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
@@ -277,7 +277,7 @@ impl PostRegistrationInitState {
             qs_queue_decryption_key,
             push_token_ear_key,
             friendship_token,
-            add_package_ear_key,
+            key_package_ear_key,
             connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
@@ -457,7 +457,7 @@ pub(crate) struct QsRegisteredUserState {
 }
 
 impl QsRegisteredUserState {
-    pub(super) async fn upload_add_packages(
+    pub(super) async fn upload_key_packages(
         self,
         connection: SqliteConnection,
         api_clients: &ApiClients,
@@ -470,14 +470,14 @@ impl QsRegisteredUserState {
         } = self;
 
         let connection = connection.lock().await;
-        let mut qs_add_packages = vec![];
-        for _ in 0..ADD_PACKAGES {
-            let add_package = key_store.generate_key_package(&connection, qs_client_id, false)?;
-            qs_add_packages.push(add_package);
+        let mut qs_key_packages = vec![];
+        for _ in 0..KEY_PACKAGES {
+            let key_package = key_store.generate_key_package(&connection, qs_client_id, false)?;
+            qs_key_packages.push(key_package);
         }
-        let last_resort_add_package =
+        let last_resort_key_package =
             key_store.generate_key_package(&connection, qs_client_id, true)?;
-        qs_add_packages.push(last_resort_add_package);
+        qs_key_packages.push(last_resort_key_package);
         drop(connection);
 
         // Upload add packages
@@ -485,8 +485,8 @@ impl QsRegisteredUserState {
             .default_client()?
             .qs_publish_key_packages(
                 qs_client_id.clone(),
-                qs_add_packages,
-                key_store.add_package_ear_key.clone(),
+                qs_key_packages,
+                key_store.key_package_ear_key.clone(),
                 &key_store.qs_client_signing_key,
             )
             .await?;
