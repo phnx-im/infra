@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Just
         uses: extractions/setup-just@v2
@@ -46,6 +48,16 @@ jobs:
 
       - name: Generate Dart files
         run: just generate-dart-files
+
+      - name: Test flutter
+        run: just test-flutter
+
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*
 
       - name: Build iOS app
         env:
