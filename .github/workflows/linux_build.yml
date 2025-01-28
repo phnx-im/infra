@@ -35,4 +35,4 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Linux app
-        run: just build-linux-full
+        run: just build-linux-ci
