@@ -74,7 +74,16 @@ build-android:
 # build iOS
 [working-directory: 'app']
 build-ios:
-	flutter build ios --no-codesign
+    flutter build ios --no-codesign
+
+# Build Linux app
+[working-directory: 'app']
+build-linux:
+     flutter build linux
+
+## Build Linux app (with all prerequisite steps)
+[working-directory: 'app']
+build-linux-full: frb-generate generate-dart-files build-linux
 
 # analyze Dart code
 [working-directory: 'app']
