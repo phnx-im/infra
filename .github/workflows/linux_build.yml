@@ -16,7 +16,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  android-build:
+  linux-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +30,9 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
+
+      - name: Set up CI
+        run: just setup-ci
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
