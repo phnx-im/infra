@@ -81,9 +81,9 @@ build-ios:
 build-linux:
      flutter build linux
 
-## Build Linux app (with all prerequisite steps)
+# Build Linux app (with all prerequisite steps for running in CI)
 [working-directory: 'app']
-build-linux-full: frb-generate generate-dart-files build-linux
+build-linux-ci: setup-ci frb-integrate build-linux
 
 # analyze Dart code
 [working-directory: 'app']

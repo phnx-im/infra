@@ -31,9 +31,6 @@ jobs:
         with:
           path: 'app/.fvmrc'
 
-      - name: Set up CI
-        run: just setup-ci
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
