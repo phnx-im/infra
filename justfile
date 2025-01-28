@@ -85,3 +85,7 @@ analyze-dart:
 [working-directory: 'app']
 test-flutter:
     flutter test
+
+# run backend server (at localhost)
+run-backend: init-db
+    cargo run --bin phnxserver
