@@ -369,7 +369,14 @@ impl AsClientId {
     }
 
     pub fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
-        Ok(Self::new(user_name, Uuid::new_v4()))
+        Ok(Self::with_uuid(user_name, Uuid::new_v4()))
+    }
+
+    pub(crate) fn with_uuid(user_name: QualifiedUserName, client_id: Uuid) -> Self {
+        Self {
+            user_name,
+            client_id: TlsUuid(client_id),
+        }
     }
 
     pub fn user_name(&self) -> QualifiedUserName {

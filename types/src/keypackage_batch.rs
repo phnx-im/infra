@@ -197,3 +197,36 @@ impl From<Ciphertext> for QsEncryptedAddPackage {
 
 impl EarDecryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackageIn {}
 impl EarEncryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackage {}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::LazyLock;
+
+    use chrono::{DateTime, Utc};
+    use codec::PhnxCodec;
+
+    use super::*;
+
+    static KEY_PACKAGE_BATCH: LazyLock<KeyPackageBatch<true>> = LazyLock::new(|| {
+        let dt: DateTime<Utc> = "1985-11-16T00:00:00.0Z".parse().unwrap();
+        KeyPackageBatch::<true> {
+            payload: KeyPackageBatchTbs {
+                homeserver_domain: "localhost".parse().unwrap(),
+                key_package_refs: vec![],
+                time_of_signature: dt.into(),
+            },
+            signature: Signature::for_testing(vec![1, 2, 3]),
+        }
+    });
+
+    #[test]
+    fn key_package_batch_serde_stability_json() {
+        insta::assert_json_snapshot!(&*KEY_PACKAGE_BATCH);
+    }
+
+    #[test]
+    fn key_package_batch_serde_stability_bincode() {
+        let bytes = PhnxCodec::to_vec(&*KEY_PACKAGE_BATCH).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
+    }
+}

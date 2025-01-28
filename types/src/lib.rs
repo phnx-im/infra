@@ -4,8 +4,6 @@
 
 //! Common data model used in the server and client.
 
-use std::fmt::Display;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{
@@ -27,7 +25,8 @@ pub const DEFAULT_PORT_HTTP: u16 = 9420;
 pub const DEFAULT_PORT_HTTPS: u16 = 443;
 
 /// Unrecoverable error in this implementation.
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error)]
+#[error("Library error")]
 pub struct LibraryError;
 
 impl LibraryError {
@@ -37,11 +36,5 @@ impl LibraryError {
 
     pub fn unexpected_crypto_error(_error: &str) -> Self {
         LibraryError {}
-    }
-}
-
-impl Display for LibraryError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }

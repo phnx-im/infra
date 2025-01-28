@@ -71,6 +71,11 @@ impl Signature {
     pub fn into_bytes(self) -> Vec<u8> {
         self.0
     }
+
+    #[cfg(test)]
+    pub(crate) fn for_testing(bytes: Vec<u8>) -> Self {
+        Self::from_bytes(bytes)
+    }
 }
 
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]

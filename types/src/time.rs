@@ -159,7 +159,11 @@ impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
     pub fn new(lifetime: Duration) -> Self {
-        let not_before = Utc::now() - Duration::minutes(15);
+        Self::new_from(Utc::now(), lifetime)
+    }
+
+    pub fn new_from(at: DateTime<Utc>, lifetime: Duration) -> Self {
+        let not_before = at - Duration::minutes(15);
         Self {
             not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::from(not_before + lifetime),
@@ -179,5 +183,28 @@ impl ExpirationData {
 
     pub fn not_after(&self) -> TimeStamp {
         self.not_after
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use codec::PhnxCodec;
+
+    use super::*;
+
+    #[test]
+    fn expiration_data_serde_stability_json() {
+        insta::assert_json_snapshot!(&ExpirationData::new_from(
+            "1985-11-16T00:00:00Z".parse().unwrap(),
+            Duration::days(1)
+        ));
+    }
+
+    #[test]
+    fn expiration_data_serde_stability_cbor() {
+        let expiration_data =
+            ExpirationData::new_from("1985-11-16T00:00:00Z".parse().unwrap(), Duration::days(1));
+        let bytes = PhnxCodec::to_vec(&expiration_data).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
     }
 }

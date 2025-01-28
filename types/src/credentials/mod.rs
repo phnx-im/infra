@@ -695,3 +695,74 @@ pub mod persistence {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::LazyLock;
+
+    use uuid::Uuid;
+
+    use crate::codec::PhnxCodec;
+    use crate::crypto::signatures::private_keys::VerifyingKey;
+
+    use super::*;
+
+    static CLIENT_CREDENTIAL_CSR: LazyLock<ClientCredentialCsr> = LazyLock::new(|| {
+        let client_id =
+            AsClientId::with_uuid("alice@localhost".parse().unwrap(), Uuid::from_u128(42));
+        ClientCredentialCsr {
+            version: MlsInfraVersion::Alpha,
+            client_id,
+            signature_scheme: SignatureScheme::ED25519,
+            verifying_key: ClientVerifyingKey(VerifyingKey::for_testing(vec![1, 2, 3])),
+        }
+    });
+
+    static CLIENT_CREDENTIAL_PAYLOAD: LazyLock<ClientCredentialPayload> =
+        LazyLock::new(|| ClientCredentialPayload {
+            csr: CLIENT_CREDENTIAL_CSR.clone(),
+            expiration_data: ExpirationData::new_from(
+                "1985-11-16T00:00:00Z".parse().unwrap(),
+                DEFAULT_CLIENT_CREDENTIAL_LIFETIME,
+            ),
+            signer_fingerprint: CredentialFingerprint(vec![1, 2, 3]),
+        });
+
+    static CLIENT_CREDENTIAL: LazyLock<ClientCredential> = LazyLock::new(|| ClientCredential {
+        payload: CLIENT_CREDENTIAL_PAYLOAD.clone(),
+        signature: Signature::for_testing(vec![1, 2, 3]),
+    });
+
+    #[test]
+    fn client_credential_csr_serde_stability_json() {
+        insta::assert_json_snapshot!(&*CLIENT_CREDENTIAL_CSR);
+    }
+
+    #[test]
+    fn client_credential_csr_serde_stability_cbor() {
+        let bytes = PhnxCodec::to_vec(&*CLIENT_CREDENTIAL_CSR).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
+    }
+
+    #[test]
+    fn client_credential_payload_serde_stability_json() {
+        insta::assert_json_snapshot!(&*CLIENT_CREDENTIAL_PAYLOAD);
+    }
+
+    #[test]
+    fn client_credential_payload_cbor_stability_cbor() {
+        let bytes = PhnxCodec::to_vec(&*CLIENT_CREDENTIAL_PAYLOAD).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
+    }
+
+    #[test]
+    fn client_credential_serde_stability_json() {
+        insta::assert_json_snapshot!(&*CLIENT_CREDENTIAL);
+    }
+
+    #[test]
+    fn client_credential_serde_stability_cbor() {
+        let bytes = PhnxCodec::to_vec(&*CLIENT_CREDENTIAL).unwrap();
+        insta::assert_binary_snapshot!(".cbor", bytes);
+    }
+}

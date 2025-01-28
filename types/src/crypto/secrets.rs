@@ -8,7 +8,7 @@
 //! and the type checker happy.
 use std::{fmt::Display, ops::Deref};
 
-use rand::{RngCore, SeedableRng};
+use rand::{CryptoRng, RngCore, SeedableRng};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
 use secrecy::{zeroize::ZeroizeOnDrop, CloneableSecret, DebugSecret, SerializableSecret, Zeroize};
@@ -42,10 +42,15 @@ impl<const LENGTH: usize> Secret<LENGTH> {
 
     /// Generate a fresh, random secret.
     pub(super) fn random() -> Result<Self, RandomnessError> {
+        Self::random_with_rng(&mut rand_chacha::ChaCha20Rng::from_entropy())
+    }
+
+    /// Generate a fresh, random secret with the given random number generator.
+    pub(super) fn random_with_rng(
+        rng: &mut (impl RngCore + CryptoRng),
+    ) -> Result<Self, RandomnessError> {
         let mut secret = [0; LENGTH];
-        // TODO: Use a proper rng provider.
-        rand_chacha::ChaCha20Rng::from_entropy()
-            .try_fill_bytes(secret.as_mut_slice())
+        rng.try_fill_bytes(secret.as_mut_slice())
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self { secret })
     }
