@@ -28,6 +28,13 @@ font rendering, etc.), screenshots may vary across platforms. To ensure
 consistency, snapshots are recorded on Linux. A CI job, Update Goldens, can be
 triggered manually to update the golden files via CI.
 
+Locally, you can run the following command to update the golden files:
+
+```
+cd app
+fluter test --update-goldens
+```
+
 ## Code organization
 
 The app code is organized in the following way:
