@@ -47,12 +47,7 @@ jobs:
       - name: Run Flutter tests and update goldens
         run: just test-flutter --update-goldens
 
-      - name: Check for modified files
-        id: git-check
-        run: echo "modified=$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)" >> $GITHUB_OUTPUT
-
       - name: Push changes
-        if: steps.git-check.outputs.modified == 'true'
         env:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
@@ -61,5 +56,4 @@ jobs:
           git fetch origin $BRANCH_NAME
           git checkout $BRANCH_NAME
           git add app/test
-          git commit -m "Update golden files"
-          git push
+          if git commit -m "Update golden files"; then git push; fi
