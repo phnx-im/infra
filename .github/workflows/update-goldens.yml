@@ -1,23 +1,17 @@
-# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Flutter tests
+name: Update Goldens
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-on:
-  pull_request:
-    branches: ["main"]
-
-env:
-  CARGO_TERM_COLOR: always
+on: workflow_dispatch
 
 jobs:
-  flutter-test:
+  update_goldens:
+    name: Update Golden Files
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Clone repository
@@ -47,15 +41,16 @@ jobs:
       - name: Generate Dart files
         run: just generate-dart-files
 
-      - name: Analyze dart code
-        run: just analyze-dart
+      - name: Run Flutter tests and update goldens
+        run: just test-flutter --update-goldens
 
-      - name: Run Flutter tests
-        run: just test-flutter
-
-      - name: Upload golden failures
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: golden-failures
-          path: app/test/**/failures/*
+      - name: Push changes
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin $BRANCH_NAME
+          git checkout $BRANCH_NAME
+          git add app/test
+          if git commit -m "Update golden files"; then git push; fi

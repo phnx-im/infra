@@ -116,7 +116,9 @@ TextStyle messageTextStyle(BuildContext context, bool inverted) => TextStyle(
           isLargeScreen(context) ? variationRegular : variationMedium,
       letterSpacing: -0.05,
       fontSize: isLargeScreen(context) ? 14 : 15,
-      height: isLargeScreen(context) ? 1.5 : 1.3,
+      // NOTE: When specifying line height, the text is rendered inconsistently on
+      // Linux and macOS (and therefore also on Android and iOS). For now, we use the default one.
+      // height: isLargeScreen(context) ? 1.5 : 1.3,
     );
 
 final textInputBorder = OutlineInputBorder(

@@ -8,82 +8,62 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';
 import 'message_cubit.dart';
 import 'message_list_cubit.dart';
 
-class MessageListContainer extends StatelessWidget {
-  const MessageListContainer({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final conversationId =
-        context.select((NavigationCubit cubit) => cubit.state.conversationId);
-
-    if (conversationId == null) {
-      throw StateError("an active conversation is obligatory");
-    }
-
-    return BlocProvider<MessageListCubit>(
-      create: (context) => MessageListCubit(
-        userCubit: context.read(),
-        conversationId: conversationId,
-      ),
-      child: const MessageListView(),
-    );
-  }
-}
+typedef MessageCubitCreate = MessageCubit Function({
+  required UserCubit userCubit,
+  required MessageState initialState,
+});
 
 class MessageListView extends StatelessWidget {
   const MessageListView({
     super.key,
+    this.createMessageCubit = MessageCubit.new,
   });
+
+  final MessageCubitCreate createMessageCubit;
 
   @override
   Widget build(BuildContext context) {
     final state = context.select((MessageListCubit cubit) => cubit.state);
 
-    return Expanded(
-      child: SelectionArea(
-        child: ListView.custom(
-          physics: _scrollPhysics,
-          reverse: true,
-          childrenDelegate: SliverChildBuilderDelegate(
-            (context, reverseIndex) {
-              final index = state.loadedMessagesCount - reverseIndex - 1;
-              final message = state.messageAt(index);
-              return message != null
-                  ? BlocProvider(
-                      key: ValueKey(message.id),
-                      create: (context) {
-                        return MessageCubit(
-                          userCubit: context.read(),
-                          initialState: MessageState(message: message),
-                        );
-                      },
-                      child: _VisibilityConversationTile(
-                        messageId: message.id,
-                        timestamp: DateTime.parse(message.timestamp),
-                      ),
-                    )
-                  : const SizedBox.shrink();
-            },
-            findChildIndexCallback: (key) {
-              final messageKey = key as ValueKey<ConversationMessageId>;
-              final messageId = messageKey.value;
-              final index = state.messageIdIndex(messageId);
-              // reverse index
-              return index != null
-                  ? state.loadedMessagesCount - index - 1
-                  : null;
-            },
-            childCount: state.loadedMessagesCount,
-          ),
+    return SelectionArea(
+      child: ListView.custom(
+        physics: _scrollPhysics,
+        reverse: true,
+        childrenDelegate: SliverChildBuilderDelegate(
+          (context, reverseIndex) {
+            final index = state.loadedMessagesCount - reverseIndex - 1;
+            final message = state.messageAt(index);
+            return message != null
+                ? BlocProvider(
+                    key: ValueKey(message.id),
+                    create: (context) {
+                      return createMessageCubit(
+                        userCubit: context.read<UserCubit>(),
+                        initialState: MessageState(message: message),
+                      );
+                    },
+                    child: _VisibilityConversationTile(
+                      messageId: message.id,
+                      timestamp: DateTime.parse(message.timestamp),
+                    ),
+                  )
+                : const SizedBox.shrink();
+          },
+          findChildIndexCallback: (key) {
+            final messageKey = key as ValueKey<ConversationMessageId>;
+            final messageId = messageKey.value;
+            final index = state.messageIdIndex(messageId);
+            // reverse index
+            return index != null ? state.loadedMessagesCount - index - 1 : null;
+          },
+          childCount: state.loadedMessagesCount,
         ),
       ),
     );

@@ -8,6 +8,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 
 import 'conversation_details_cubit.dart';
@@ -24,13 +25,25 @@ class ConversationScreen extends StatelessWidget {
       return const _EmptyConversationPane();
     }
 
-    return BlocProvider(
-      // rebuilds the cubit when the conversation changes
-      key: ValueKey(conversationId),
-      create: (context) => ConversationDetailsCubit(
-        userCubit: context.read(),
-        conversationId: conversationId,
-      ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          // rebuilds the cubit when a different conversation is selected
+          key: ValueKey("conversation-detail-cubit-$conversationId"),
+          create: (context) => ConversationDetailsCubit(
+            userCubit: context.read<UserCubit>(),
+            conversationId: conversationId,
+          ),
+        ),
+        BlocProvider(
+          // rebuilds the cubit when a different conversation is selected
+          key: ValueKey("message-list-cubit-$conversationId"),
+          create: (context) => MessageListCubit(
+            userCubit: context.read<UserCubit>(),
+            conversationId: conversationId,
+          ),
+        ),
+      ],
       child: const ConversationScreenView(),
     );
   }
@@ -53,18 +66,32 @@ class _EmptyConversationPane extends StatelessWidget {
 }
 
 class ConversationScreenView extends StatelessWidget {
-  const ConversationScreenView({super.key});
+  const ConversationScreenView({
+    super.key,
+    this.createMessageCubit = MessageCubit.new,
+  });
+
+  final MessageCubitCreate createMessageCubit;
 
   @override
   Widget build(BuildContext context) {
+    final conversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+
     final conversationTitle = context.select(
         (ConversationDetailsCubit cubit) => cubit.state.conversation?.title);
+
+    if (conversationId == null) {
+      return const _EmptyConversationPane();
+    }
 
     return Scaffold(
       body: Stack(children: <Widget>[
         Column(
           children: [
-            const MessageListContainer(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
             const MessageComposer(),
           ],
         ),

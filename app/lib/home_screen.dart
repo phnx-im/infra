@@ -13,21 +13,40 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const mobileLayout = ConversationListContainer();
-    const desktopLayout = Row(
-      children: [
-        SizedBox(
-          width: 300,
-          child: ConversationListContainer(),
-        ),
-        Expanded(
-          child: ConversationScreen(),
-        ),
-      ],
+    const desktopLayout = HomeScreenDesktopLayout(
+      conversationList: ConversationListContainer(),
+      conversation: ConversationScreen(),
     );
     return const ResponsiveScreen(
       mobile: mobileLayout,
       tablet: desktopLayout,
       desktop: desktopLayout,
+    );
+  }
+}
+
+class HomeScreenDesktopLayout extends StatelessWidget {
+  const HomeScreenDesktopLayout({
+    required this.conversationList,
+    required this.conversation,
+    super.key,
+  });
+
+  final Widget conversationList;
+  final Widget conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 300,
+          child: conversationList,
+        ),
+        Expanded(
+          child: conversation,
+        ),
+      ],
     );
   }
 }
