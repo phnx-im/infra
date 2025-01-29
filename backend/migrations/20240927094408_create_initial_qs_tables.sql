@@ -61,7 +61,7 @@ CREATE TABLE qs_queues (
 CREATE TABLE key_packages (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id uuid NOT NULL,
-    encrypted_add_package aead_ciphertext NOT NULL,
+    encrypted_key_package aead_ciphertext NOT NULL,
     is_last_resort BOOLEAN NOT NULL,
     FOREIGN KEY (client_id) REFERENCES qs_client_records(client_id) ON DELETE CASCADE
 );

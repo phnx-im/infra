@@ -16,10 +16,9 @@ use mls_assist::{
 };
 use phnxtypes::{
     codec::PhnxCodec,
-    credentials::EncryptedClientCredential,
     crypto::{
         ear::{
-            keys::{EncryptedSignatureEarKey, GroupStateEarKey},
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
         },
         errors::{DecryptionError, EncryptionError},
@@ -51,7 +50,7 @@ pub(super) struct UserProfile {
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct ClientProfile {
     pub(super) leaf_index: LeafNodeIndex,
-    pub(super) encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
+    pub(super) encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub(super) client_queue_config: QsClientReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
@@ -77,8 +76,7 @@ impl DsGroupState {
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
         creator_user_auth_key: UserAuthVerifyingKey,
-        creator_encrypted_client_credential: EncryptedClientCredential,
-        creator_encrypted_signature_ear_key: EncryptedSignatureEarKey,
+        creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
         creator_queue_config: QsClientReference,
     ) -> Self {
         let creator_key_hash = creator_user_auth_key.hash();
@@ -89,10 +87,7 @@ impl DsGroupState {
         let user_profiles = [(creator_key_hash, creator_profile)].into();
 
         let creator_client_profile = ClientProfile {
-            encrypted_client_information: (
-                creator_encrypted_client_credential,
-                creator_encrypted_signature_ear_key,
-            ),
+            encrypted_identity_link_key: creator_encrypted_identity_link_key,
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
@@ -150,11 +145,11 @@ impl DsGroupState {
     pub(super) fn external_commit_info(&self) -> ExternalCommitInfo {
         let group_info = self.group().group_info().clone();
         let ratchet_tree = self.group().export_ratchet_tree();
-        let encrypted_client_info = self.client_information();
+        let encrypted_identity_link_keys = self.encrypted_identity_link_keys();
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
-            encrypted_client_info,
+            encrypted_identity_link_keys,
         }
     }
 
@@ -200,16 +195,13 @@ impl DsGroupState {
         Ok((removed_clients, marked_users))
     }
 
-    /// Create vector of encrypted client credentials options from the current
-    /// list of client records.
-    pub(super) fn client_information(
-        &self,
-    ) -> Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)> {
-        let mut client_information = vec![];
-        for (_client_index, client_profile) in self.client_profiles.iter() {
-            client_information.push(client_profile.encrypted_client_information.clone());
-        }
-        client_information
+    /// Create a vector of encrypted identity link keys from the current list of
+    /// client records.
+    pub(super) fn encrypted_identity_link_keys(&self) -> Vec<EncryptedIdentityLinkKey> {
+        self.client_profiles
+            .values()
+            .map(|client_profile| client_profile.encrypted_identity_link_key.clone())
+            .collect()
     }
 
     pub(super) fn encrypt(

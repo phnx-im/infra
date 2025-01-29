@@ -17,11 +17,10 @@ class ConversationListContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userCubit = context.read<UserCubit>();
     return BlocProvider(
-      create: (context) {
-        return ConversationListCubit(userCubit: userCubit);
-      },
+      create: (context) => ConversationListCubit(
+        userCubit: context.read<UserCubit>(),
+      ),
       child: const ConversationListView(),
     );
   }

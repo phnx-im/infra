@@ -17,14 +17,13 @@ use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
-        keys::{ClientSigningKey, InfraCredentialSigningKey},
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::ClientSigningKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     },
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
-                SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                FriendshipPackageEarKey, KeyPackageEarKey, PushTokenEarKey,
+                WelcomeAttributionInfoEarKey,
             },
             EarEncryptable, EarKey, GenericSerializable,
         },
@@ -32,7 +31,7 @@ use phnxtypes::{
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::{Signable, Verifiable},
+            signable::Signable,
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
@@ -99,7 +98,7 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
-pub(crate) const ADD_PACKAGES: usize = 50;
+pub(crate) const KEY_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Clone)]
@@ -406,7 +405,7 @@ impl CoreUser {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            client_credentials.push(contact_client_credentials);
+            client_credentials.extend(contact_client_credentials);
             contacts.push(contact);
         }
         drop(connection);
@@ -634,6 +633,7 @@ impl CoreUser {
             let (group, group_membership, partial_params) = Group::create_group(
                 &provider,
                 &self.inner.key_store.signing_key,
+                &self.inner.key_store.connection_key,
                 group_id.clone(),
                 group_data,
             )?;
@@ -661,13 +661,8 @@ impl CoreUser {
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
-            add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
-            client_credential_ear_key: self.inner.key_store.client_credential_ear_key.clone(),
-            signature_ear_key_wrapper_key: self
-                .inner
-                .key_store
-                .signature_ear_key_wrapper_key
-                .clone(),
+            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
+            connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,
         };
@@ -693,9 +688,8 @@ impl CoreUser {
             sender_client_credential: self.inner.key_store.signing_key.credential().clone(),
             connection_group_id: group_id,
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
-            connection_group_credential_key: connection_group.credential_ear_key().clone(),
-            connection_group_signature_ear_key_wrapper_key: connection_group
-                .signature_ear_key_wrapper_key()
+            connection_group_identity_link_wrapper_key: connection_group
+                .identity_link_wrapper_key()
                 .clone(),
             friendship_package_ear_key,
             friendship_package,
@@ -703,13 +697,7 @@ impl CoreUser {
         .sign(&self.inner.key_store.signing_key)?;
 
         let client_reference = self.create_own_client_reference();
-        let encrypted_client_credential = self
-            .inner
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(connection_group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
+        let params = partial_params.into_params(client_reference);
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages

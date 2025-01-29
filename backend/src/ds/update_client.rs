@@ -142,24 +142,17 @@ impl DsGroupState {
             .credential()
             .clone();
         if new_sender_credential != old_sender_credential {
-            if let Some(encrypted_signature_ear_key) =
-                aad_payload.option_encrypted_signature_ear_key
+            if let Some(encrypted_identity_link_key) =
+                aad_payload.option_encrypted_identity_link_key
             {
                 let client_profile = self
                     .client_profiles
                     .get_mut(&sender)
                     .ok_or(ClientUpdateError::UnknownSender)?;
-                client_profile.encrypted_client_information.1 = encrypted_signature_ear_key;
+                client_profile.encrypted_identity_link_key = encrypted_identity_link_key;
             } else {
                 tracing::warn!("No encrypted signature EAR key in AAD payload");
                 return Err(ClientUpdateError::InvalidMessage);
-            }
-            if let Some(ecc) = aad_payload.option_encrypted_client_credential {
-                let client_profile = self
-                    .client_profiles
-                    .get_mut(&sender)
-                    .ok_or(ClientUpdateError::UnknownSender)?;
-                client_profile.encrypted_client_information.0 = ecc;
             }
         }
 
