@@ -392,7 +392,7 @@ impl CoreUser {
                 invited_user
             ))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
-            let mut contact_client_credentials = contact
+            let contact_client_credentials = contact
                 .clients()
                 .iter()
                 .filter_map(|client_id| {
@@ -405,8 +405,7 @@ impl CoreUser {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            // TODO: Workaround
-            client_credentials.push(contact_client_credentials.pop().unwrap());
+            client_credentials.extend(contact_client_credentials);
             contacts.push(contact);
         }
         drop(connection);

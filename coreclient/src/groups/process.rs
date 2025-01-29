@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{openmls_provider::PhnxOpenMlsProvider, Group};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use phnxtypes::{
     crypto::ear::keys::EncryptedIdentityLinkKey,
     identifiers::AsClientId,
@@ -344,26 +344,22 @@ impl Group {
                         // * Check that this commit contains exactly one remove proposal
                         // * Check that the sender type is correct (external commit).
 
-                        let Some(sender_credential) = staged_commit
+                        let sender_credential = staged_commit
                             .update_path_leaf_node()
                             .map(|ln| ln.credential().clone())
-                        else {
-                            bail!("Could not find sender leaf node in staged commit")
-                        };
+                            .context("Could not find sender leaf node in staged commit")?;
 
                         let removed_index = staged_commit
                             .remove_proposals()
                             .next()
-                            .ok_or(anyhow!(
-                                "Resync operation did not contain a remove proposal"
-                            ))?
+                            .context("Resync operation did not contain a remove proposal")?
                             .remove_proposal()
                             .removed();
                         let connection = connection_mutex.lock().await;
                         // Get the identity link key of the resyncing client
                         let identity_link_key =
                             GroupMembership::load(&connection, group_id, removed_index)?
-                                .ok_or(anyhow!("Could not find group membership of resync sender"))
+                                .context("Could not find group membership of resync sender")
                                 .map(|gm| gm.identity_link_key().clone())?;
                         drop(connection);
 

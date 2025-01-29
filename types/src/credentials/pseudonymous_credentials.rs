@@ -167,8 +167,6 @@ pub struct PseudonymousCredentialPlaintext {
     pub client_credential: VerifiableClientCredential,
 }
 
-impl PseudonymousCredentialPlaintext {}
-
 #[derive(Debug, Error)]
 pub enum IdentityLinkVerificationError {
     #[error(transparent)]
