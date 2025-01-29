@@ -106,7 +106,7 @@ final messages = [
           lastSeen: [],
           body: """Nice to see you both here! 👋
 
-This is a message with multiple lines. It should be properly displayed in the message buble and split between multiple lines.""",
+This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.""",
         ),
       ),
     ),
