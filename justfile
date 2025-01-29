@@ -83,5 +83,5 @@ analyze-dart:
 
 # run Flutter tests
 [working-directory: 'app']
-test-flutter:
-    flutter test
+test-flutter *args='':
+    flutter test {{args}}
