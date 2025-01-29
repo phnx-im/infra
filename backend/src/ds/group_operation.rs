@@ -192,7 +192,7 @@ impl DsGroupState {
                 // Collect the encrypted client information and the client queue
                 // config of the original client. We need this later to create
                 // the new client profile.
-                let encrypted_client_information = self
+                let encrypted_identity_link_key = self
                     .client_profiles
                     .get(&original_index)
                     .ok_or(GroupOperationError::InvalidMessage)?
@@ -218,7 +218,7 @@ impl DsGroupState {
                         _ => None,
                     })
                     .ok_or(GroupOperationError::InvalidMessage)??;
-                Some((encrypted_client_information, client_queue_config))
+                Some((encrypted_identity_link_key, client_queue_config))
             }
             _ => None,
         };
@@ -261,14 +261,14 @@ impl DsGroupState {
         }
 
         // Process resync operations
-        if let Some((encrypted_client_information, client_queue_config)) =
+        if let Some((encrypted_identity_link_key, client_queue_config)) =
             external_sender_information
         {
             // The original client profile was already removed. We just have to
             // add the new one.
             let client_profile = ClientProfile {
                 leaf_index: sender_index.leaf_index(),
-                encrypted_identity_link_key: encrypted_client_information,
+                encrypted_identity_link_key,
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -291,7 +291,7 @@ impl DsGroupState {
     ) -> Result<(), GroupOperationError> {
         for (key_packages, _) in added_users.iter() {
             let mut client_profiles = vec![];
-            for (key_package, encrypted_client_information) in key_packages {
+            for (key_package, encrypted_identity_link_key) in key_packages {
                 let member = self
                     .group()
                     .members()
@@ -315,7 +315,7 @@ impl DsGroupState {
                 .map_err(|_| GroupOperationError::MissingQueueConfig)?;
                 let client_profile = ClientProfile {
                     leaf_index,
-                    encrypted_identity_link_key: encrypted_client_information.clone(),
+                    encrypted_identity_link_key: encrypted_identity_link_key.clone(),
                     client_queue_config: client_queue_config.clone(),
                     activity_time: TimeStamp::now(),
                     activity_epoch: self.group().epoch(),
@@ -363,7 +363,7 @@ impl DsGroupState {
                     key_package.hpke_init_key().clone().into();
                 let encrypted_joiner_info = DsJoinerInformation {
                     group_state_ear_key: group_state_ear_key.clone(),
-                    encrypted_identity_link_keys: self.client_information(),
+                    encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
                     ratchet_tree: self.group().export_ratchet_tree(),
                 }
                 .encrypt(&encryption_key, info, aad);

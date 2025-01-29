@@ -546,7 +546,7 @@ impl Ds {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_info: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[expect(clippy::large_enum_variant)]

@@ -226,7 +226,7 @@ impl Group {
                             api_clients,
                             group_id,
                             &self.identity_link_wrapper_key,
-                            join_group_payload.encrypted_client_information,
+                            join_group_payload.encrypted_identity_link_key,
                             sender_index,
                             sender_credential,
                         )

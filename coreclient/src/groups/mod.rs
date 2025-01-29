@@ -353,10 +353,10 @@ impl Group {
             (mls_group, joiner_info, welcome_attribution_info)
         };
 
-        let encrypted_client_information = mls_group
+        let client_information = mls_group
             .members()
             .map(|m| (m.index, m.credential))
-            .zip(joiner_info.encrypted_client_information.into_iter());
+            .zip(joiner_info.encrypted_identity_link_keys.into_iter());
 
         // Phase 2: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
@@ -365,7 +365,7 @@ impl Group {
             api_clients,
             mls_group.group_id(),
             welcome_attribution_info.identity_link_wrapper_key(),
-            encrypted_client_information,
+            client_information,
         )
         .await?;
 
@@ -426,7 +426,7 @@ impl Group {
         let ExternalCommitInfoIn {
             verifiable_group_info,
             ratchet_tree_in,
-            encrypted_client_info,
+            encrypted_identity_link_keys,
         } = external_commit_info;
 
         // Let's create the group first so that we can access the GroupId.
@@ -456,7 +456,7 @@ impl Group {
         let encrypted_client_information = mls_group
             .members()
             .map(|m| (m.index, m.credential))
-            .zip(encrypted_client_info.into_iter());
+            .zip(encrypted_identity_link_keys.into_iter());
 
         // Phase 2: Decrypt and verify the client credentials.
         let mut client_information = ClientAuthInfo::decrypt_and_verify_all(

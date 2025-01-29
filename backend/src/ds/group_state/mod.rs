@@ -145,11 +145,11 @@ impl DsGroupState {
     pub(super) fn external_commit_info(&self) -> ExternalCommitInfo {
         let group_info = self.group().group_info().clone();
         let ratchet_tree = self.group().export_ratchet_tree();
-        let encrypted_client_info = self.client_information();
+        let encrypted_identity_link_keys = self.encrypted_identity_link_keys();
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
-            encrypted_client_info,
+            encrypted_identity_link_keys,
         }
     }
 
@@ -197,7 +197,7 @@ impl DsGroupState {
 
     /// Create a vector of encrypted identity link keys from the current list of
     /// client records.
-    pub(super) fn client_information(&self) -> Vec<EncryptedIdentityLinkKey> {
+    pub(super) fn encrypted_identity_link_keys(&self) -> Vec<EncryptedIdentityLinkKey> {
         self.client_profiles
             .values()
             .map(|client_profile| client_profile.encrypted_identity_link_key.clone())

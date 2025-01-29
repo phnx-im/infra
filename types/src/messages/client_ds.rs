@@ -317,7 +317,7 @@ pub struct JoinGroupParams {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinGroupParamsAad {
     pub existing_user_clients: Vec<LeafNodeIndex>,
-    pub encrypted_client_information: EncryptedIdentityLinkKey,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -727,7 +727,7 @@ impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_information: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub ratchet_tree: RatchetTreeIn,
 }
 

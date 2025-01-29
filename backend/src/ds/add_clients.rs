@@ -182,7 +182,7 @@ impl DsGroupState {
                 key_package.hpke_init_key().clone().into();
             let encrypted_joiner_info = DsJoinerInformation {
                 group_state_ear_key: group_state_ear_key.clone(),
-                encrypted_identity_link_keys: self.client_information(),
+                encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
                 ratchet_tree: self.group().export_ratchet_tree(),
             }
             .encrypt(&encryption_key, info, aad);
