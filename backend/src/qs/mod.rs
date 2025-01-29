@@ -79,12 +79,12 @@ use crate::{
     messages::intra_backend::DsFanOutMessage,
 };
 
-mod add_package;
 pub mod client_api;
 mod client_id_decryption_key;
 mod client_record;
 pub mod ds_api;
 pub mod errors;
+mod key_package;
 pub mod network_provider_trait;
 pub mod qs_api;
 mod queue;

@@ -22,7 +22,7 @@ use keys::{
 
 use crate::{
     crypto::{
-        ear::{keys::ClientCredentialEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+        ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
         signatures::{
             private_keys::SigningKey,
@@ -40,8 +40,8 @@ mod private_mod {
     pub struct Seal;
 }
 
-pub mod infra_credentials;
 pub mod keys;
+pub mod pseudonymous_credentials;
 
 use self::keys::ClientVerifyingKey;
 
@@ -578,12 +578,9 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-impl EarEncryptable<ClientCredentialEarKey, EncryptedClientCredential> for ClientCredential {}
+impl EarEncryptable<IdentityLinkKey, EncryptedClientCredential> for ClientCredential {}
 
-impl EarDecryptable<ClientCredentialEarKey, EncryptedClientCredential>
-    for VerifiableClientCredential
-{
-}
+impl EarDecryptable<IdentityLinkKey, EncryptedClientCredential> for VerifiableClientCredential {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct VerifiableClientCredential {
@@ -619,7 +616,9 @@ impl Verifiable for VerifiableClientCredential {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+#[derive(
+    Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq,
+)]
 pub struct EncryptedClientCredential {
     pub(super) encrypted_client_credential: Ciphertext,
 }

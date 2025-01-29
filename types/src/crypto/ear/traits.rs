@@ -11,7 +11,7 @@ use aes_gcm::{
     KeyInit,
 };
 use serde::de::DeserializeOwned;
-use tracing::instrument;
+use tracing::{error, instrument};
 
 use crate::{
     codec::PhnxCodec,
@@ -61,7 +61,10 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
         // TODO: Use a proper RNG provider instead.
         cipher
             .decrypt(&ciphertext.nonce.into(), ciphertext.ciphertext.as_slice())
-            .map_err(|_| DecryptionError::DecryptionError)
+            .map_err(|e| {
+                error!(%e,"Decryption error");
+                DecryptionError::DecryptionError
+            })
     }
 }
 
@@ -80,7 +83,7 @@ impl<T: serde::Serialize> GenericSerializable for T {
 }
 
 pub trait GenericDeserializable: Sized {
-    type Error;
+    type Error: std::error::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
 }
