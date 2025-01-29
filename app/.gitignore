@@ -73,7 +73,6 @@ Runner.app.dSYM.zip
 # Other platforms
 macos/
 windows/
-linux/
 web/
 
 lib/**/*.freezed.dart
