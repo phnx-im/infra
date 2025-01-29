@@ -26,6 +26,5 @@ pub use crate::{
     },
     mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
+    utils::persistence::{delete_client_database, delete_databases, open_client_db},
 };
-
-pub use crate::utils::persistence::delete_databases;

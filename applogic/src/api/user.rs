@@ -4,16 +4,25 @@
 
 //! User features
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    clients::{store::ClientRecord, CoreUser},
-    Asset, UserProfile,
+    clients::{
+        store::{ClientRecord, ClientRecordState},
+        CoreUser,
+    },
+    open_client_db, Asset, UserProfile,
 };
-use phnxtypes::{identifiers::QualifiedUserName, messages::push_token::PushTokenOperator};
+use phnxtypes::{
+    identifiers::{AsClientId, QualifiedUserName},
+    messages::push_token::PushTokenOperator,
+};
 use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
+use uuid::Uuid;
+
+use super::types::{UiClientRecord, UiUserName, UiUserProfile};
 
 /// Platform specific push token
 pub enum PlatformPushToken {
@@ -81,22 +90,77 @@ impl User {
         Ok(Self { user })
     }
 
-    /// Loads the user from the given database path.
-    pub async fn load_default(path: String) -> Result<User> {
-        let client_record = ClientRecord::load_all_from_phnx_db(&path)?
-            .pop()
-            .context("No user found")?;
-        let as_client_id = client_record.as_client_id;
-        let user = CoreUser::load(as_client_id.clone(), &path)
-            .await?
-            .ok_or_else(|| {
-                anyhow!(
-                    "Could not load user with client_id {}",
-                    as_client_id.to_string()
-                )
-            })?;
+    /// Loads all client records from the phnx database
+    ///
+    /// Also tries to load user profile from the client database. In case the client database
+    /// cannot be opened, the client record is skipped.
+    pub fn load_client_records(db_path: String) -> Result<Vec<UiClientRecord>> {
+        let ui_records = ClientRecord::load_all_from_phnx_db(&db_path)?
+            .into_iter()
+            .filter_map(|record| {
+                match record.client_record_state {
+                    ClientRecordState::InProgress => {
+                        return None;
+                    }
+                    ClientRecordState::Finished => {}
+                }
 
+                let connection = open_client_db(&record.as_client_id, &db_path)
+                    .inspect_err(|error| {
+                        error!(%error, ?record.as_client_id, "failed to open client db");
+                    })
+                    .ok()?;
+                let user_name =
+                    UiUserName::from_qualified_user_name(&record.as_client_id.user_name());
+                let user_profile = UserProfile::load(&connection, &record.as_client_id.user_name())
+                    .ok()
+                    .flatten()
+                    .map(|profile| UiUserProfile::from_profile(&profile));
+                Some(UiClientRecord {
+                    client_id: record.as_client_id.client_id(),
+                    user_name,
+                    user_profile,
+                })
+            })
+            .rev()
+            .collect();
+        Ok(ui_records)
+    }
+
+    pub async fn load(
+        db_path: String,
+        user_name: UiUserName,
+        client_id: Uuid,
+    ) -> anyhow::Result<Self> {
+        let user_name = user_name.to_string().parse()?;
+        let as_client_id = AsClientId::new(user_name, client_id);
+        let user = CoreUser::load(as_client_id.clone(), &db_path)
+            .await?
+            .with_context(|| format!("Could not load user with client_id {as_client_id}"))?;
         Ok(Self { user: user.clone() })
+    }
+
+    /// Loads the default user from the given database path
+    ///
+    /// If ther no user or multiple users are found, returns `None`.
+    pub async fn load_default(path: String) -> Result<Option<Self>> {
+        let records: Vec<ClientRecord> = ClientRecord::load_all_from_phnx_db(&path)?
+            .into_iter()
+            .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished))
+            .collect();
+        match records.as_slice() {
+            [] => Ok(None),
+            [client_record] => {
+                let as_client_id = client_record.as_client_id.clone();
+                let user = CoreUser::load(as_client_id.clone(), &path)
+                    .await?
+                    .with_context(|| {
+                        format!("Could not load user with client_id {as_client_id}")
+                    })?;
+                Ok(Some(Self { user }))
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Update the push token.
@@ -118,8 +182,14 @@ impl User {
     }
 
     /// The user name of the logged in user
-    #[frb(getter)]
-    pub async fn user_name(&self) -> String {
+    #[frb(getter, sync)]
+    pub fn user_name(&self) -> String {
         self.user.user_name().to_string()
+    }
+
+    /// The unique identifier of the logged in user
+    #[frb(getter, sync)]
+    pub fn client_id(&self) -> Uuid {
+        self.user.as_client_id().client_id()
     }
 }

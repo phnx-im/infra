@@ -5,10 +5,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/user/user.dart';
-import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/util/platform.dart';
 import 'package:prototype/widgets/widgets.dart';
@@ -28,151 +27,171 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    getDeviceToken().then((token) {
-      setState(() {
-        deviceToken = token;
-      });
+    _loadDeviceToken();
+  }
+
+  void _loadDeviceToken() async {
+    final token = await getDeviceToken();
+    setState(() {
+      deviceToken = token;
     });
   }
 
-  bool _canReRegisterPushToken() =>
-      isTouch() && context.read<LoadableUserCubit>().state.user != null;
-
   void _reRegisterPushToken(CoreClient coreClient) async {
-    if (_canReRegisterPushToken()) {
-      final deviceToken = await getDeviceToken();
-      if (deviceToken != null) {
-        if (Platform.isAndroid) {
-          final pushToken = PlatformPushToken.google(deviceToken);
-          coreClient.user.updatePushToken(pushToken);
-        } else if (Platform.isIOS) {
-          final pushToken = PlatformPushToken.apple(deviceToken);
-          coreClient.user.updatePushToken(pushToken);
-        }
+    final newDeviceToken = await getDeviceToken();
+    if (newDeviceToken != null) {
+      if (Platform.isAndroid) {
+        final pushToken = PlatformPushToken.google(newDeviceToken);
+        print("Push token: $pushToken");
+        coreClient.user.updatePushToken(pushToken);
+        setState(() {
+          deviceToken = pushToken.token;
+        });
+      } else if (Platform.isIOS) {
+        final pushToken = PlatformPushToken.apple(newDeviceToken);
+        coreClient.user.updatePushToken(pushToken);
+        setState(() {
+          deviceToken = pushToken.token;
+        });
+      } else {
+        throw StateError("unsupported platform");
       }
     }
   }
 
-  void _confirmEraseDatabase() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmation'),
-          content: const Text('Are you sure you want to erase the database?'),
-          actions: [
-            TextButton(
-              style: textButtonStyle(context),
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              style: textButtonStyle(context),
-              onPressed: _eraseDatabase,
-              child: const Text('Erase'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
 
-  void _eraseDatabase() async {
-    // Perform database erase operation
-    final messengerState = ScaffoldMessenger.of(context);
-    try {
-      await context.read<CoreClient>().deleteDatabase();
-    } catch (e) {
-      showErrorBanner(messengerState, "Could not delete databases: $e");
-      print(e);
-    }
-  }
+    final isMobile = Platform.isAndroid || Platform.isIOS;
 
-  Widget deviceTokenElement() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          "Device token (mobile only):",
-          style: labelStyle,
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Developer Settings'),
+          leading: const AppBarBackButton(),
         ),
-        const SizedBox(height: 10),
-        SelectableText(
-          deviceToken ?? "N/A",
-          style: labelStyle,
-        ),
-        const SizedBox(height: 10),
-        if (deviceToken != null)
-          TextButton(
-            style: ButtonStyle(
-              foregroundColor: WidgetStateProperty.all<Color>(colorDMB),
-              textStyle: WidgetStateProperty.all<TextStyle>(
-                TextStyle(
-                  fontVariations: variationSemiBold,
-                  fontFamily: fontFamily,
-                  fontSize: isSmallScreen(context) ? 16 : 14,
+        body: Center(
+          child: Container(
+            padding: const EdgeInsets.all(Spacings.xs),
+            constraints:
+                isPointer() ? const BoxConstraints(maxWidth: 600) : null,
+            child: ListView(
+              children: [
+                if (isMobile) _SectionHeader("Mobile Device"),
+                if (isMobile)
+                  ListTile(
+                    title: const Text('Push Token'),
+                    subtitle: Text(
+                      "Refresh the current device push token '${deviceToken ?? "N/A"}'.",
+                    ),
+                    onTap: () =>
+                        _reRegisterPushToken(context.read<CoreClient>()),
+                  ),
+                if (user != null) _SectionHeader("User"),
+                if (user != null)
+                  ListTile(
+                    title: Text("Logout"),
+                    subtitle: Text(
+                      "Logout the currently logged in user '${user.userName}, id: ${user.clientId}'.",
+                    ),
+                    onTap: () => context.read<CoreClient>().logout(),
+                  ),
+                _SectionHeader("App Data"),
+                if (user != null)
+                  ListTile(
+                    title: Text('Erase User Database',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(color: Colors.red)),
+                    subtitle: Text(
+                      "Erase the database of the currently logged in user '${user.userName}', id: ${user.clientId}'.",
+                    ),
+                    onTap: () => _confirmDialog(
+                      context: context,
+                      onConfirm: () =>
+                          context.read<CoreClient>().deleteUserDatabase(),
+                      label: "Are you sure you want to erase the database?",
+                      confirmLabel: "Erase",
+                    ),
+                  ),
+                ListTile(
+                  title: Text('Erase All Databases',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(color: Colors.red)),
+                  subtitle: Text(
+                    "Erase all databases of all users.",
+                  ),
+                  onTap: () => _confirmDialog(
+                    context: context,
+                    onConfirm: () {
+                      context.read<CoreClient>().deleteDatabase();
+                      context.read<NavigationCubit>().openIntro();
+                    },
+                    label: "Are you sure you want to erase all databases?",
+                    confirmLabel: "Erase",
+                  ),
                 ),
-              ),
+              ],
             ),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: deviceToken ?? ""));
-            },
-            child: const Text('Copy to clipboard'),
           ),
-        const SizedBox(height: 10),
-        if (_canReRegisterPushToken())
-          OutlinedButton(
-            style: buttonStyle(context, _canReRegisterPushToken()),
-            onPressed: () async {
-              if (_canReRegisterPushToken()) {
-                _reRegisterPushToken(context.read<CoreClient>());
-              }
-            },
-            child: const Text('Re-register push token'),
-          ),
-      ]
-          .map((widget) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: widget,
-              ))
-          .toList(),
+        ),
+      ),
     );
   }
+}
 
-  Widget eraseDatabaseElement() {
-    return OutlinedButton(
-      style: buttonStyle(context, true),
-      onPressed: _confirmEraseDatabase,
-      child: const Text('Erase Database'),
-    );
-  }
+void _confirmDialog({
+  required BuildContext context,
+  required void Function() onConfirm,
+  required String label,
+  required String confirmLabel,
+}) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text(label),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: onConfirm,
+            child: Text(confirmLabel),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Developer Settings'),
-        toolbarHeight: isPointer() ? 100 : null,
-        leading: const AppBarBackButton(),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (isTouch()) deviceTokenElement(),
-              eraseDatabaseElement(),
-            ]
-                .map((widget) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: widget,
-                    ))
-                .toList(),
-          ),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacings.xxs),
+      child: Text(
+        label,
+        style: Theme.of(context)
+            .textTheme
+            .labelMedium
+            ?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
   }

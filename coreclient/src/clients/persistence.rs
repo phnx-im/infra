@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, types::FromSql, OptionalExtension, ToSql};
+use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::persistence::{open_phnx_db, Storable};
@@ -57,7 +57,7 @@ impl Storable for UserCreationState {
 
 impl UserCreationState {
     pub(super) fn load(
-        connection: &rusqlite::Connection,
+        connection: &Connection,
         client_id: &AsClientId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         connection
@@ -69,7 +69,7 @@ impl UserCreationState {
             .optional()
     }
 
-    pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?1, ?2)",
             params![self.client_id(), self],
@@ -109,7 +109,7 @@ impl ClientRecord {
         Ok(client_records)
     }
 
-    pub fn load_all(connection: &rusqlite::Connection) -> Result<Vec<Self>, rusqlite::Error> {
+    pub fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM client_record")?;
         let client_records = stmt
             .query_map([], Self::from_row)?
@@ -118,7 +118,7 @@ impl ClientRecord {
     }
 
     pub(super) fn load(
-        connection: &rusqlite::Connection,
+        connection: &Connection,
         client_id: &AsClientId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         connection
@@ -130,7 +130,7 @@ impl ClientRecord {
             .optional()
     }
 
-    pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         let record_state_str = match self.client_record_state {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
@@ -139,6 +139,11 @@ impl ClientRecord {
             "INSERT OR REPLACE INTO client_record (client_id, record_state) VALUES (?1, ?2)",
             params![self.as_client_id, record_state_str],
         )?;
+        Ok(())
+    }
+
+    pub(crate) fn delete(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
+        connection.execute("DELETE FROM client_record WHERE ?", params![client_id])?;
         Ok(())
     }
 }

@@ -43,3 +43,15 @@ extension UiFlightPositionExtension on UiFlightPosition {
         UiFlightPosition.single || UiFlightPosition.end => true,
       };
 }
+
+extension UiUserNameExtension on UiUserName {
+  String displayName(String? displayName) =>
+      displayName != null && displayName.isNotEmpty ? displayName : userName;
+}
+
+extension DeviceTokenExtension on PlatformPushToken {
+  String get token => switch (this) {
+        PlatformPushToken_Apple(field0: final token) => token,
+        PlatformPushToken_Google(field0: final token) => token,
+      };
+}
