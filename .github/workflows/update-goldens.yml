@@ -4,10 +4,7 @@
 
 name: Update Goldens
 
-# on: workflow_dispatch
-on:
-  pull_request:
-    branches: ["main"]
+on: workflow_dispatch
 
 jobs:
   update_goldens:
