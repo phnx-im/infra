@@ -14,12 +14,19 @@ const goldenThreshold = 0.022;
 /// The physical size of the screen in the test environment
 const pixel8ScreenSize = Size(1080, 2400);
 
+/// The device pixel ratio of the test environment
+const pixel8DevicePixelRatio = 2.625;
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   setUpAll(() async {
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     await _loadFonts();
     await _setGoldenFileComparatorWithThreshold(goldenThreshold);
-    await _setPhysicalScreenSize(binding, pixel8ScreenSize);
+    await _setPhysicalScreenSize(
+      binding,
+      pixel8ScreenSize,
+      pixel8DevicePixelRatio,
+    );
   });
 
   await testMain();
@@ -70,10 +77,11 @@ class _LocalFileComparatorWithThreshold extends LocalFileComparator {
 
 _setPhysicalScreenSize(
   TestWidgetsFlutterBinding binding,
-  Size pixel8screenSize,
+  Size screenSize,
+  double devicePixelRatio,
 ) {
-  // set physical size of the screen
-  binding.platformDispatcher.views.first.physicalSize = pixel8ScreenSize;
+  binding.platformDispatcher.views.first.physicalSize = screenSize;
+  binding.platformDispatcher.views.first.devicePixelRatio = devicePixelRatio;
   addTearDown(() {
     binding.platformDispatcher.views.first.resetPhysicalSize();
   });
