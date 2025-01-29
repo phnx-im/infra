@@ -14,7 +14,7 @@ use super::{Kdf, KDF_KEY_SIZE};
 
 /// A trait that allows the use of a symmetric secret of size [`KDF_KEY_SIZE`]
 /// to derive additional key material.
-pub(crate) trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>> {
+pub trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>> {
     /// Label used as additional input in all derivations made with this KDF key.
     const ADDITIONAL_LABEL: &'static str;
 
@@ -34,7 +34,7 @@ pub(crate) trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>
 /// `DerivingKey` and the given length `OUTPUT_LENGTH`. Upon derivation, the
 /// structs of type `AdditionalInfo` can be provided as context. [`Self::LABEL`]
 /// is used as label in the derivation.
-pub(crate) trait KdfDerivable<
+pub trait KdfDerivable<
     DerivingKey: KdfKey + std::fmt::Debug,
     AdditionalInfo: tls_codec::Serialize + std::fmt::Debug,
     const OUTPUT_LENGTH: usize,
@@ -67,7 +67,7 @@ pub(crate) trait KdfDerivable<
 /// A trait that allows the extraction of the struct from the two given input
 /// key types. The output length is fixed to [`KDF_KEY_SIZE`].
 #[allow(dead_code)]
-pub(crate) trait KdfExtractable<
+pub trait KdfExtractable<
     FirstInput: AsRef<Secret<KDF_KEY_SIZE>> + std::fmt::Debug,
     SecondInput: AsRef<Secret<KDF_KEY_SIZE>> + std::fmt::Debug,
 >: From<Secret<KDF_KEY_SIZE>> + std::fmt::Debug

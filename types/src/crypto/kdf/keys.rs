@@ -143,32 +143,47 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
     const LABEL: &'static str = "RatchetSecret derive";
 }
 
-pub type FriendshipSecretKey = Secret<KDF_KEY_SIZE>;
+pub type ConnectionKeyKey = Secret<KDF_KEY_SIZE>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct FriendshipSecret {
-    key: FriendshipSecretKey,
+pub struct ConnectionKey {
+    key: ConnectionKeyKey,
 }
 
-impl FriendshipSecret {
+impl ConnectionKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let key = Secret::random()?;
         Ok(Self { key })
     }
 }
 
-impl AsRef<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+impl AsRef<Secret<KDF_KEY_SIZE>> for ConnectionKey {
     fn as_ref(&self) -> &Secret<KDF_KEY_SIZE> {
         &self.key
     }
 }
 
-impl KdfKey for FriendshipSecret {
+impl KdfKey for ConnectionKey {
     const ADDITIONAL_LABEL: &'static str = "FriendshipSecret";
 }
 
-impl From<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+impl From<Secret<KDF_KEY_SIZE>> for ConnectionKey {
     fn from(key: Secret<KDF_KEY_SIZE>) -> Self {
         Self { key }
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for ConnectionKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let key = ConnectionKeyKey::column_result(value)?;
+        Ok(Self { key })
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for ConnectionKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
     }
 }

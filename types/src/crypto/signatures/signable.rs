@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::ear::{keys::SignatureEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+    crypto::ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
     messages::FriendshipToken,
     LibraryError,
 };
@@ -73,7 +73,9 @@ impl Signature {
     }
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, PartialEq, Eq,
+)]
 pub struct EncryptedSignature {
     ciphertext: Ciphertext,
 }
@@ -90,8 +92,8 @@ impl AsRef<Ciphertext> for EncryptedSignature {
     }
 }
 
-impl EarEncryptable<SignatureEarKey, EncryptedSignature> for Signature {}
-impl EarDecryptable<SignatureEarKey, EncryptedSignature> for Signature {}
+impl EarEncryptable<IdentityLinkKey, EncryptedSignature> for Signature {}
+impl EarDecryptable<IdentityLinkKey, EncryptedSignature> for Signature {}
 
 /// This trait must be implemented by all structs that contain a self-signature.
 pub trait SignedStruct<T> {

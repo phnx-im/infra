@@ -8,9 +8,7 @@ use tls_codec::Serialize;
 use crate::{
     crypto::{
         ear::{
-            keys::{
-                ClientCredentialEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
-            },
+            keys::{IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey},
             EarDecryptable, EarEncryptable,
         },
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -23,29 +21,22 @@ use super::*;
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfoPayload {
     sender_client_id: AsClientId,
-    client_credential_encryption_key: ClientCredentialEarKey,
-    signature_encryption_key: SignatureEarKeyWrapperKey,
+    identity_link_wrapper_key: IdentityLinkWrapperKey,
 }
 
 impl WelcomeAttributionInfoPayload {
     pub fn new(
         sender_client_id: AsClientId,
-        client_credential_encryption_key: ClientCredentialEarKey,
-        signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
+        identity_link_key_wrapper_key: IdentityLinkWrapperKey,
     ) -> Self {
         Self {
             sender_client_id,
-            client_credential_encryption_key,
-            signature_encryption_key: signature_ear_key_wrapper_key,
+            identity_link_wrapper_key: identity_link_key_wrapper_key,
         }
     }
 
-    pub fn client_credential_encryption_key(&self) -> &ClientCredentialEarKey {
-        &self.client_credential_encryption_key
-    }
-
-    pub fn signature_ear_key_wrapper_key(&self) -> &SignatureEarKeyWrapperKey {
-        &self.signature_encryption_key
+    pub fn identity_link_wrapper_key(&self) -> &IdentityLinkWrapperKey {
+        &self.identity_link_wrapper_key
     }
 }
 
