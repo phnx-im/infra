@@ -178,6 +178,8 @@ pub enum ClientRecordState {
 pub struct ClientRecord {
     pub as_client_id: AsClientId,
     pub client_record_state: ClientRecordState,
+    pub created_at: DateTime<Utc>,
+    pub is_default: bool,
 }
 
 impl ClientRecord {
@@ -185,6 +187,8 @@ impl ClientRecord {
         Self {
             as_client_id,
             client_record_state: ClientRecordState::InProgress,
+            created_at: Utc::now(),
+            is_default: false,
         }
     }
 

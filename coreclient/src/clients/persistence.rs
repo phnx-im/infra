@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::{DateTime, Utc};
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
 use serde::{Deserialize, Serialize};
@@ -47,7 +48,7 @@ impl Storable for UserCreationState {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS user_creation_state (
             client_id BLOB PRIMARY KEY,
-            state BLOB NOT NULL
+            state BLOB NOT NULL,
         );";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
@@ -81,9 +82,11 @@ impl UserCreationState {
 impl Storable for ClientRecord {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS client_record (
-            client_id BLOB PRIMARY KEY,
-            record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished'))
-        );";
+            client_id BLOB NOT NULL PRIMARY KEY,
+            record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
+            created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now', 'utc')),
+            is_default BOOLEAN NOT NULL DEFAULT FALSE
+        )";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let record_state_str: String = row.get(1)?;
@@ -92,9 +95,13 @@ impl Storable for ClientRecord {
             "finished" => ClientRecordState::Finished,
             _ => return Err(rusqlite::Error::InvalidQuery),
         };
+        let created_at: DateTime<Utc> = row.get(2)?;
+        let is_default: bool = row.get(3)?;
         Ok(Self {
             as_client_id: row.get(0)?,
             client_record_state,
+            created_at,
+            is_default,
         })
     }
 }
@@ -136,8 +143,15 @@ impl ClientRecord {
             ClientRecordState::Finished => "finished",
         };
         connection.execute(
-            "INSERT OR REPLACE INTO client_record (client_id, record_state) VALUES (?1, ?2)",
-            params![self.as_client_id, record_state_str],
+            "INSERT OR REPLACE INTO client_record
+            (client_id, record_state, created_at, is_default)
+            VALUES (?1, ?2, ?3, ?4)",
+            params![
+                self.as_client_id,
+                record_state_str,
+                self.created_at,
+                self.is_default,
+            ],
         )?;
         Ok(())
     }
