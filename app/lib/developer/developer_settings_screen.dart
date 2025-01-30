@@ -73,83 +73,85 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
         ),
         body: Center(
           child: Container(
-            padding: const EdgeInsets.all(Spacings.xs),
             constraints:
                 isPointer() ? const BoxConstraints(maxWidth: 800) : null,
-            child: ListView(
-              children: [
-                if (isMobile) ...[
-                  _SectionHeader("Mobile Device"),
-                  ListTile(
-                    title: const Text('Push Token'),
-                    subtitle: Text(
-                      "Refresh the current device push token '${deviceToken ?? "N/A"}'.",
-                    ),
-                    onTap: () =>
-                        _reRegisterPushToken(context.read<CoreClient>()),
+            child: ListTileTheme(
+              data: Theme.of(context).listTileTheme.copyWith(
+                    titleAlignment: ListTileTitleAlignment.titleHeight,
+                    titleTextStyle: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
-                  const Divider(),
-                ],
-                if (user != null) ...[
-                  _SectionHeader("User"),
-                  ListTile(
-                    title: Text("Change User"),
-                    subtitle: Text(
-                      "Change the currently logged in user.",
+              child: ListView(
+                children: [
+                  if (isMobile) ...[
+                    _SectionHeader("Mobile Device"),
+                    ListTile(
+                      title: const Text('Push Token'),
+                      subtitle: Text(deviceToken ?? "N/A"),
+                      trailing: const Icon(Icons.refresh),
+                      onTap: () =>
+                          _reRegisterPushToken(context.read<CoreClient>()),
                     ),
-                    onTap: () => context
-                        .read<NavigationCubit>()
-                        .openDeveloperSettings(
-                            screen: DeveloperSettingsScreenType.changeUser),
-                  ),
-                  ListTile(
-                    title: Text("Log Out"),
-                    subtitle: Text(
-                      "Log out of the currently logged in user.",
+                  ],
+                  if (user != null) ...[
+                    _SectionHeader("User"),
+                    ListTile(
+                      title: Text("Change User"),
+                      trailing: const Icon(Icons.change_circle),
+                      onTap: () => context
+                          .read<NavigationCubit>()
+                          .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.changeUser),
                     ),
-                    onTap: () => context.read<CoreClient>().logout(),
-                  ),
-                  const Divider(),
-                ],
-                _SectionHeader("App Data"),
-                if (user != null)
-                  ListTile(
-                    title: Text('Erase User Database',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(color: Colors.red)),
-                    subtitle: Text(
-                      "Erase the database of the currently logged in user '${user.userName}', id: ${user.clientId}'.",
+                    ListTile(
+                      title: Text("Log Out"),
+                      trailing: const Icon(Icons.logout),
+                      onTap: () => context.read<CoreClient>().logout(),
                     ),
+                  ],
+                  _SectionHeader("App Data"),
+                  if (user != null)
+                    ListTile(
+                      title: Text(
+                        user.userName,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                      subtitle: Text("id: ${user.clientId}"),
+                      trailing: const Icon(Icons.delete),
+                      onTap: () => _confirmDialog(
+                        context: context,
+                        onConfirm: () =>
+                            context.read<CoreClient>().deleteUserDatabase(),
+                        label: "Are you sure you want to erase the database?",
+                        confirmLabel: "Erase",
+                      ),
+                    ),
+                  ListTile(
+                    title: Text(
+                      'Erase All Databases',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    trailing: const Icon(Icons.delete),
                     onTap: () => _confirmDialog(
                       context: context,
-                      onConfirm: () =>
-                          context.read<CoreClient>().deleteUserDatabase(),
-                      label: "Are you sure you want to erase the database?",
+                      onConfirm: () {
+                        context.read<CoreClient>().deleteDatabase();
+                        context.read<NavigationCubit>().openIntro();
+                      },
+                      label: "Are you sure you want to erase all databases?",
                       confirmLabel: "Erase",
                     ),
                   ),
-                ListTile(
-                  title: Text('Erase All Databases',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyLarge
-                          ?.copyWith(color: Colors.red)),
-                  subtitle: Text(
-                    "Erase all databases of all users.",
-                  ),
-                  onTap: () => _confirmDialog(
-                    context: context,
-                    onConfirm: () {
-                      context.read<CoreClient>().deleteDatabase();
-                      context.read<NavigationCubit>().openIntro();
-                    },
-                    label: "Are you sure you want to erase all databases?",
-                    confirmLabel: "Erase",
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -199,7 +201,10 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacings.xxs),
+      padding: const EdgeInsets.symmetric(
+        vertical: Spacings.xxs,
+        horizontal: Spacings.xs,
+      ),
       child: Text(
         label,
         style: Theme.of(context)
