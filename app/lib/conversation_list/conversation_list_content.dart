@@ -65,6 +65,7 @@ class _ListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentConversationId =
         context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    final isSelected = currentConversationId == conversation.id;
     return ListTile(
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
@@ -79,11 +80,7 @@ class _ListTile extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: _selectionColor(
-            context,
-            conversation.id,
-            currentConversationId,
-          ),
+          color: isSelected ? convPaneFocusColor : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -110,31 +107,12 @@ class _ListTile extends StatelessWidget {
           ],
         ),
       ),
-      selected: _isConversationSelected(
-        conversation.id,
-        currentConversationId,
-        context,
-      ),
+      selected: isSelected,
       focusColor: convListItemSelectedColor,
-      onTap: () => _onSelectConversation(context, conversation.id),
+      onTap: () =>
+          context.read<NavigationCubit>().openConversation(conversation.id),
     );
   }
-
-  void _onSelectConversation(
-    BuildContext context,
-    ConversationId conversationId,
-  ) {
-    context.read<NavigationCubit>().openConversation(conversationId);
-  }
-
-  Color? _selectionColor(
-    BuildContext context,
-    ConversationId conversationId,
-    ConversationId? currentConversationId,
-  ) =>
-      isLargeScreen(context) && currentConversationId == conversationId
-          ? convPaneFocusColor
-          : null;
 }
 
 class _ListTileTop extends StatelessWidget {
@@ -318,16 +296,6 @@ class _ConversationTitle extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _isConversationSelected(
-  ConversationId conversationId,
-  ConversationId? currentConversationId,
-  BuildContext context,
-) {
-  return isLargeScreen(context)
-      ? currentConversationId == conversationId
-      : false;
 }
 
 String formatTimestamp(String t, {DateTime? now}) {

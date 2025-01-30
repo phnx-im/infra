@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Just
         uses: extractions/setup-just@v2
@@ -50,3 +52,10 @@ jobs:
 
       - name: Run Flutter tests
         run: just test-flutter
+
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*

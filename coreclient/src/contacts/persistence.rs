@@ -43,9 +43,8 @@ impl Storable for Contact {
             clients TEXT NOT NULL,
             wai_ear_key BLOB NOT NULL,
             friendship_token BLOB NOT NULL,
-            add_package_ear_key BLOB NOT NULL,
-            client_credential_ear_key BLOB NOT NULL,
-            signature_ear_key_wrapper_key BLOB NOT NULL,
+            key_package_ear_key BLOB NOT NULL,
+            connection_key BLOB NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
         );";
 
@@ -66,18 +65,16 @@ impl Storable for Contact {
             })?;
         let wai_ear_key = row.get(3)?;
         let friendship_token = row.get(4)?;
-        let add_package_ear_key = row.get(5)?;
-        let client_credential_ear_key = row.get(6)?;
-        let signature_ear_key_wrapper_key = row.get(7)?;
+        let key_package_ear_key = row.get(5)?;
+        let connection_key = row.get(6)?;
 
         Ok(Contact {
             user_name,
             clients,
             wai_ear_key,
             friendship_token,
-            add_package_ear_key,
-            client_credential_ear_key,
-            signature_ear_key_wrapper_key,
+            key_package_ear_key,
+            connection_key,
             conversation_id,
         })
     }
@@ -110,16 +107,15 @@ impl Contact {
             .collect::<Vec<_>>()
             .join(",");
         connection.execute(
-            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, add_package_ear_key, client_credential_ear_key, signature_ear_key_wrapper_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, key_package_ear_key, connection_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.user_name,
                 self.conversation_id,
                 clients_str,
                 self.wai_ear_key,
                 self.friendship_token,
-                self.add_package_ear_key,
-                self.client_credential_ear_key,
-                self.signature_ear_key_wrapper_key,
+                self.key_package_ear_key,
+                self.connection_key,
             ],
         )?;
         notifier
@@ -243,9 +239,8 @@ impl PartialContact {
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
-            client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
+            key_package_ear_key: friendship_package.key_package_ear_key,
+            connection_key: friendship_package.connection_key,
             conversation_id,
         };
         contact.store(&savepoint, notifier)?;

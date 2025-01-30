@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH deleted_package AS (\n                    DELETE FROM key_packages\n                    USING qs_client_records qcr\n                    WHERE\n                        key_packages.client_id = qcr.client_id\n                        AND key_packages.client_id = $1\n                        AND qcr.user_id = $2\n                    RETURNING key_packages.id, key_packages.encrypted_add_package\n                )\n                SELECT encrypted_add_package as \"eap: _\" FROM deleted_package\n                FOR UPDATE SKIP LOCKED",
+  "query": "WITH deleted_package AS (\n                    DELETE FROM key_packages\n                    USING qs_client_records qcr\n                    WHERE\n                        key_packages.client_id = qcr.client_id\n                        AND key_packages.client_id = $1\n                        AND qcr.user_id = $2\n                    RETURNING key_packages.id, key_packages.encrypted_key_package\n                )\n                SELECT encrypted_key_package as \"eap: _\" FROM deleted_package\n                FOR UPDATE SKIP LOCKED",
   "describe": {
     "columns": [
       {
@@ -35,5 +35,5 @@
       false
     ]
   },
-  "hash": "ec94905b8faa474e9518c7c0fc6b67b58dcf30a1b28c7753e2c344ca07ccc7a0"
+  "hash": "82abbd4b16aa5305b945c53ad38ce93f757a7d1d80336f82a69b91d804718097"
 }

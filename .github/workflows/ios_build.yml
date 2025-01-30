@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Just
         uses: extractions/setup-just@v2
@@ -47,7 +49,33 @@ jobs:
       - name: Generate Dart files
         run: just generate-dart-files
 
+      - name: Test flutter
+        run: just test-flutter
+
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*
+
+      - name: Detect if PR is from a fork
+        id: detect_fork
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build iOS app
+        if: ${{ steps.detect_fork.outputs.is_fork == 'true' }}
+        run: |
+          cd app && fastlane ios build_ios
+
+      - name: Build and sign iOS app
+        if: ${{ steps.detect_fork.outputs.is_fork == 'false' }}
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -58,4 +86,4 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
-          cd app && fastlane beta_ios --verbose
+          cd app && fastlane ios beta_ios --verbose

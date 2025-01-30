@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, credentials::keys::InfraCredentialSigningKey};
+use phnxtypes::{codec::PhnxCodec, credentials::keys::PseudonymousCredentialSigningKey};
 use rusqlite::{types::FromSql, ToSql};
 
 use super::*;
@@ -11,9 +11,8 @@ use super::*;
 /// The diff of a group should be merged when the pending commit of the
 /// underlying MLS group is merged.
 pub(crate) struct GroupDiff {
-    pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
-    pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
-    pub(crate) credential_ear_key: Option<ClientCredentialEarKey>,
+    pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
+    pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
     pub(crate) user_auth_key: Option<UserAuthSigningKey>,
 }
@@ -22,8 +21,7 @@ impl GroupDiff {
     pub(crate) fn new() -> Self {
         Self {
             leaf_signer: None,
-            signature_ear_key: None,
-            credential_ear_key: None,
+            identity_link_key: None,
             group_state_ear_key: None,
             user_auth_key: None,
         }
@@ -32,8 +30,7 @@ impl GroupDiff {
     pub(crate) fn stage(self) -> StagedGroupDiff {
         StagedGroupDiff {
             leaf_signer: self.leaf_signer,
-            signature_ear_key: self.signature_ear_key,
-            credential_ear_key: self.credential_ear_key,
+            identity_link_key: self.identity_link_key,
             group_state_ear_key: self.group_state_ear_key,
             user_auth_key: self.user_auth_key,
         }
@@ -42,9 +39,8 @@ impl GroupDiff {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct StagedGroupDiff {
-    pub(crate) leaf_signer: Option<InfraCredentialSigningKey>,
-    pub(crate) signature_ear_key: Option<SignatureEarKeyWrapperKey>,
-    pub(crate) credential_ear_key: Option<ClientCredentialEarKey>,
+    pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
+    pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
     pub(crate) user_auth_key: Option<UserAuthSigningKey>,
 }

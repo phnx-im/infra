@@ -161,9 +161,8 @@ use uuid::Uuid;
 
 use phnxtypes::{
     codec::PhnxCodec,
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::keys::EncryptedSignatureEarKey,
+        ear::keys::EncryptedIdentityLinkKey,
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::DsProcessingError,
@@ -243,8 +242,7 @@ impl Ds {
             let CreateGroupParams {
                 group_id: _,
                 leaf_node,
-                encrypted_client_credential,
-                encrypted_signature_ear_key,
+                encrypted_identity_link_key,
                 creator_client_reference: creator_queue_config,
                 creator_user_auth_key,
                 group_info,
@@ -259,8 +257,7 @@ impl Ds {
                 provider,
                 group,
                 creator_user_auth_key.clone(),
-                encrypted_client_credential.clone(),
-                encrypted_signature_ear_key.clone(),
+                encrypted_identity_link_key.clone(),
                 creator_queue_config.clone(),
             );
             (GroupData::NewGroup(reserved_group_id), group_state)
@@ -549,7 +546,7 @@ impl Ds {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[expect(clippy::large_enum_variant)]

@@ -7,13 +7,13 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
-use mls_assist::openmls::prelude::SignaturePublicKey;
+use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn, SignaturePublicKey};
 use thiserror::Error;
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::keys::AddPackageEarKey,
+        ear::keys::KeyPackageEarKey,
         hpke::ClientIdEncryptionKey,
         kdf::keys::RatchetSecret,
         signatures::keys::QsClientVerifyingKey,
@@ -24,9 +24,7 @@ use crate::{
         RatchetEncryptionKey,
     },
     identifiers::{QsClientId, QsUserId},
-    keypackage_batch::{
-        AddPackage, AddPackageIn, KeyPackageBatch, QsEncryptedAddPackage, UNVERIFIED, VERIFIED,
-    },
+    keypackage_batch::{KeyPackageBatch, QsEncryptedKeyPackage, UNVERIFIED, VERIFIED},
 };
 
 use super::{push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QueueMessage};
@@ -153,8 +151,8 @@ pub struct DeleteClientRecordParams {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct PublishKeyPackagesParams {
     pub sender: QsClientId,
-    pub add_packages: Vec<AddPackageIn>,
-    pub friendship_ear_key: AddPackageEarKey,
+    pub key_packages: Vec<KeyPackageIn>,
+    pub friendship_ear_key: KeyPackageEarKey,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -165,24 +163,24 @@ pub struct ClientKeyPackageParams {
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ClientKeyPackageResponse {
-    pub encrypted_key_package: QsEncryptedAddPackage,
+    pub encrypted_key_package: QsEncryptedKeyPackage,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct KeyPackageBatchParams {
     pub sender: FriendshipToken,
-    pub friendship_ear_key: AddPackageEarKey,
+    pub friendship_ear_key: KeyPackageEarKey,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct KeyPackageBatchResponse {
-    pub add_packages: Vec<AddPackage>,
+    pub key_packages: Vec<KeyPackage>,
     pub key_package_batch: KeyPackageBatch<VERIFIED>,
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
 pub struct KeyPackageBatchResponseIn {
-    pub add_packages: Vec<AddPackageIn>,
+    pub key_packages: Vec<KeyPackageIn>,
     pub key_package_batch: KeyPackageBatch<UNVERIFIED>,
 }
 
