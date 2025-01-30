@@ -117,7 +117,7 @@ platform :ios do
   lane :beta_ios do |options|
     # Set up CI
     setup_ci()
-    
+
     # Set parameters
     key_id = ENV['APP_STORE_KEY_ID']
     issuer_id = ENV['APP_STORE_ISSUER_ID']
@@ -186,7 +186,7 @@ platform :ios do
 
     # Set XCode version
     xcodes(
-      version: '16.2',
+      version: '16.1',
       select_for_current_build_only: true,
     )
   
