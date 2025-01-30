@@ -98,13 +98,6 @@ impl User {
         let ui_records = ClientRecord::load_all_from_phnx_db(&db_path)?
             .into_iter()
             .filter_map(|record| {
-                match record.client_record_state {
-                    ClientRecordState::InProgress => {
-                        return None;
-                    }
-                    ClientRecordState::Finished => {}
-                }
-
                 let connection = open_client_db(&record.as_client_id, &db_path)
                     .inspect_err(|error| {
                         error!(%error, ?record.as_client_id, "failed to open client db");
@@ -121,6 +114,7 @@ impl User {
                     created_at: record.created_at,
                     user_name,
                     user_profile,
+                    is_finished: record.client_record_state == ClientRecordState::Finished,
                 })
             })
             .rev()

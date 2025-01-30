@@ -136,7 +136,10 @@ class _ClientRecordsList extends StatelessWidget {
                   currentUserSuffix,
             ),
             subtitle: Text(
-              "Domain: ${record.userName.domain}\nID: ${record.clientId}\nCreated: ${record.createdAt}",
+              "Domain: ${record.userName.domain}\n"
+              "ID: ${record.clientId}\n"
+              "Created: ${record.createdAt}\n"
+              "Fully registered: ${record.isFinished ? "yes" : "no"}",
             ),
             onTap: !isCurrentUser
                 ? () {

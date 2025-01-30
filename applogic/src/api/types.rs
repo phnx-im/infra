@@ -460,6 +460,7 @@ pub struct UiClientRecord {
     pub(crate) user_name: UiUserName,
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) user_profile: Option<UiUserProfile>,
+    pub(crate) is_finished: bool,
 }
 
 #[derive(Debug)]

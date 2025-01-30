@@ -23,6 +23,7 @@ final clientRecords = [
     ),
     createdAt: DateTime.parse("2023-01-01T00:00:00.000Z"),
     userProfile: null,
+    isFinished: true,
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("b984c959-c83f-4c99-8999-e6d9d485b172"),
@@ -32,6 +33,7 @@ final clientRecords = [
     ),
     createdAt: DateTime.parse("2024-01-01T00:00:00.000Z"),
     userProfile: null,
+    isFinished: true,
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("c5091f2f-9409-41b1-9965-5955d12f39b2"),
@@ -41,6 +43,7 @@ final clientRecords = [
     ),
     createdAt: DateTime.parse("2025-01-01T00:00:00.000Z"),
     userProfile: null,
+    isFinished: false,
   ),
 ];
 
