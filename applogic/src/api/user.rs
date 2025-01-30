@@ -143,19 +143,20 @@ impl User {
 
     /// Loads the default user from the given database path
     ///
-    /// Retturns the most recent default user if any, or just the most recent user. Users that are
-    /// not finished registering are ignored.
+    /// Returns in this order:
+    /// * the default most recent user with finished registation, or if none
+    /// * the most recent user with finished registration, or if none
+    /// * the most recent user, if any.
     pub async fn load_default(path: String) -> Result<Option<Self>> {
         let finished_records = ClientRecord::load_all_from_phnx_db(&path)?
             .into_iter()
             .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished));
-        // Get the most recent default record or just the most recent record.
-        let Some(client_record) =
-            finished_records.max_by_key(|record| (record.is_default, record.created_at))
-        else {
+        let Some(client_record) = finished_records.max_by_key(|record| {
+            let is_finished = matches!(record.client_record_state, ClientRecordState::Finished);
+            (is_finished, record.is_default, record.created_at)
+        }) else {
             return Ok(None);
         };
-        dbg!(&client_record);
 
         let as_client_id = client_record.as_client_id.clone();
         let user = CoreUser::load(as_client_id.clone(), &path)
