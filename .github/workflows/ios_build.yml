@@ -59,18 +59,23 @@ jobs:
           name: golden-failures
           path: app/test/**/failures/*
 
-      - name: Check if PR is from a fork
-        run: |
-          echo "IS_FORK=$IS_FORK"
-          echo "IS_FORK=false" >> $GITHUB_ENV
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            echo "IS_FORK=true" >> $GITHUB_ENV
-          fi
-          echo "IS_FORK=$IS_FORK"
+      - name: Detect if PR is from a fork
+        id: detect_fork
         shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build iOS app
-        if: env.IS_FORK == 'false'
+        if: ${{ steps.detect_fork.outputs.is_fork == 'true' }}
+        run: |
+          cd app && fastlane ios build_ios
+
+      - name: Build and sign iOS app
+        if: ${{ steps.detect_fork.outputs.is_fork == 'false' }}
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -82,8 +87,3 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           cd app && fastlane ios beta_ios --verbose
-
-      - name: Build iOS app on fork
-        if: env.IS_FORK == 'true'
-        run: |
-          cd app && fastlane ios build_ios
