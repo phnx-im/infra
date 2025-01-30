@@ -168,13 +168,13 @@ impl UserCreationState {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClientRecordState {
     InProgress,
     Finished,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
     pub as_client_id: AsClientId,
     pub client_record_state: ClientRecordState,

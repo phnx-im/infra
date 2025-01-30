@@ -458,6 +458,7 @@ pub struct UiClientRecord {
     /// Also used for identifying the client database path.
     pub(crate) client_id: Uuid,
     pub(crate) user_name: UiUserName,
+    pub(crate) created_at: DateTime<Utc>,
     pub(crate) user_profile: Option<UiUserProfile>,
 }
 

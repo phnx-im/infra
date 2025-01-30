@@ -118,6 +118,7 @@ impl User {
                     .map(|profile| UiUserProfile::from_profile(&profile));
                 Some(UiClientRecord {
                     client_id: record.as_client_id.client_id(),
+                    created_at: record.created_at,
                     user_name,
                     user_profile,
                 })
@@ -142,25 +143,25 @@ impl User {
 
     /// Loads the default user from the given database path
     ///
-    /// If ther no user or multiple users are found, returns `None`.
+    /// Retturns the most recent default user if any, or just the most recent user. Users that are
+    /// not finished registering are ignored.
     pub async fn load_default(path: String) -> Result<Option<Self>> {
-        let records: Vec<ClientRecord> = ClientRecord::load_all_from_phnx_db(&path)?
+        let finished_records = ClientRecord::load_all_from_phnx_db(&path)?
             .into_iter()
-            .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished))
-            .collect();
-        match records.as_slice() {
-            [] => Ok(None),
-            [client_record] => {
-                let as_client_id = client_record.as_client_id.clone();
-                let user = CoreUser::load(as_client_id.clone(), &path)
-                    .await?
-                    .with_context(|| {
-                        format!("Could not load user with client_id {as_client_id}")
-                    })?;
-                Ok(Some(Self { user }))
-            }
-            _ => Ok(None),
-        }
+            .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished));
+        // Get the most recent default record or just the most recent record.
+        let Some(client_record) =
+            finished_records.max_by_key(|record| (record.is_default, record.created_at))
+        else {
+            return Ok(None);
+        };
+        dbg!(&client_record);
+
+        let as_client_id = client_record.as_client_id.clone();
+        let user = CoreUser::load(as_client_id.clone(), &path)
+            .await?
+            .with_context(|| format!("Could not load user with client_id {as_client_id}"))?;
+        Ok(Some(Self { user }))
     }
 
     /// Update the push token.

@@ -86,7 +86,7 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     emit(state.copyWith(isSigningUp: true));
 
     final fqun = "${state.username}@${state.domain}";
-    final url = "https://${state.domain}";
+    final url = "http://${state.domain}";
 
     try {
       _log.info("Registering user ${state.username} ...");

@@ -249,13 +249,17 @@ impl CoreUser {
 
         let final_state = user_creation_state
             .complete_user_creation(
-                phnx_db_connection_mutex,
+                phnx_db_connection_mutex.clone(),
                 client_db_connection_mutex.clone(),
                 &api_clients,
             )
             .await?;
 
-        let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
+        let self_user = final_state.into_self_user(client_db_connection_mutex.clone(), api_clients);
+        ClientRecord::set_default(
+            &*phnx_db_connection_mutex.lock().await,
+            &self_user.as_client_id(),
+        )?;
 
         Ok(Some(self_user))
     }

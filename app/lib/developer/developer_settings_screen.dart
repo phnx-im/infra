@@ -75,11 +75,11 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
           child: Container(
             padding: const EdgeInsets.all(Spacings.xs),
             constraints:
-                isPointer() ? const BoxConstraints(maxWidth: 600) : null,
+                isPointer() ? const BoxConstraints(maxWidth: 800) : null,
             child: ListView(
               children: [
-                if (isMobile) _SectionHeader("Mobile Device"),
-                if (isMobile)
+                if (isMobile) ...[
+                  _SectionHeader("Mobile Device"),
                   ListTile(
                     title: const Text('Push Token'),
                     subtitle: Text(
@@ -88,15 +88,29 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
                     onTap: () =>
                         _reRegisterPushToken(context.read<CoreClient>()),
                   ),
-                if (user != null) _SectionHeader("User"),
-                if (user != null)
+                  const Divider(),
+                ],
+                if (user != null) ...[
+                  _SectionHeader("User"),
                   ListTile(
-                    title: Text("Logout"),
+                    title: Text("Change User"),
                     subtitle: Text(
-                      "Logout the currently logged in user '${user.userName}, id: ${user.clientId}'.",
+                      "Change the currently logged in user.",
+                    ),
+                    onTap: () => context
+                        .read<NavigationCubit>()
+                        .openDeveloperSettings(
+                            screen: DeveloperSettingsScreenType.changeUser),
+                  ),
+                  ListTile(
+                    title: Text("Log Out"),
+                    subtitle: Text(
+                      "Log out of the currently logged in user.",
                     ),
                     onTap: () => context.read<CoreClient>().logout(),
                   ),
+                  const Divider(),
+                ],
                 _SectionHeader("App Data"),
                 if (user != null)
                   ListTile(

@@ -49,9 +49,10 @@ impl Storable for UserCreationState {
         CREATE TABLE IF NOT EXISTS user_creation_state (
             client_id BLOB PRIMARY KEY,
             state BLOB NOT NULL,
+            created_at DATETIME NOT NULL
         );";
 
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         row.get(0)
     }
 }
@@ -72,8 +73,9 @@ impl UserCreationState {
 
     pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?1, ?2)",
-            params![self.client_id(), self],
+            "INSERT OR REPLACE INTO user_creation_state
+            (client_id, state, created_at) VALUES (?1, ?2, ?3)",
+            params![self.client_id(), self, Utc::now()],
         )?;
         Ok(())
     }
@@ -84,7 +86,7 @@ impl Storable for ClientRecord {
         CREATE TABLE IF NOT EXISTS client_record (
             client_id BLOB NOT NULL PRIMARY KEY,
             record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
-            created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now', 'utc')),
+            created_at DATETIME NOT NULL,
             is_default BOOLEAN NOT NULL DEFAULT FALSE
         )";
 
@@ -156,8 +158,85 @@ impl ClientRecord {
         Ok(())
     }
 
+    pub fn set_default(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
+        connection.execute(
+            "UPDATE client_record SET is_default = (client_id == ?)",
+            params![client_id],
+        )?;
+        Ok(())
+    }
+
     pub(crate) fn delete(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
         connection.execute("DELETE FROM client_record WHERE ?", params![client_id])?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn client_records_persistence() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute(ClientRecord::CREATE_TABLE_STATEMENT, [])
+            .unwrap();
+
+        let alice_id = Uuid::new_v4();
+        let alice_client_id = AsClientId::new("alice@localhost".parse().unwrap(), alice_id);
+        let mut alice_client_record = ClientRecord {
+            as_client_id: alice_client_id.clone(),
+            client_record_state: ClientRecordState::Finished,
+            created_at: Utc::now(),
+            is_default: false,
+        };
+
+        let bob_id = Uuid::new_v4();
+        let bob_client_id = AsClientId::new("bob@localhost".parse().unwrap(), bob_id);
+        let mut bob_client_record = ClientRecord {
+            as_client_id: bob_client_id.clone(),
+            client_record_state: ClientRecordState::Finished,
+            created_at: Utc::now(),
+            is_default: false,
+        };
+
+        ClientRecord::create_table(&connection).unwrap();
+
+        // Storing and loading client records works
+        alice_client_record.store(&connection).unwrap();
+        bob_client_record.store(&connection).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Set default to alice set alice is_default
+        alice_client_record.is_default = true;
+        ClientRecord::set_default(&connection, &alice_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Set default to bob clears alice is_default
+        alice_client_record.is_default = false;
+        bob_client_record.is_default = true;
+        ClientRecord::set_default(&connection, &bob_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Delete client records
+        ClientRecord::delete(&connection, &alice_client_id).unwrap();
+        ClientRecord::delete(&connection, &bob_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(records, []);
     }
 }

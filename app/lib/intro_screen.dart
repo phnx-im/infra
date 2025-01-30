@@ -16,8 +16,10 @@ class IntroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUserLoading =
-        context.select((LoadableUserCubit cubit) => cubit.state is LoadingUser);
+    final isUserLoading = context.select((LoadableUserCubit cubit) {
+      debugPrint("isUserLoading: ${cubit.state}");
+      return cubit.state is LoadingUser;
+    });
 
     return Scaffold(
       body: Center(
@@ -50,7 +52,6 @@ class IntroScreen extends StatelessWidget {
                   letterSpacing: -0.9,
                 ),
               ),
-              const _ClientRecords(),
               // Text button that opens the developer settings screen
               TextButton(
                 onPressed: () =>
@@ -74,90 +75,6 @@ class IntroScreen extends StatelessWidget {
                 )
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClientRecords extends StatefulWidget {
-  const _ClientRecords();
-
-  @override
-  State<_ClientRecords> createState() => _ClientRecordsState();
-}
-
-class _ClientRecordsState extends State<_ClientRecords> {
-  Future<List<UiClientRecord>>? _clientRecords;
-
-  @override
-  void initState() {
-    super.initState();
-    loadClientRecords();
-  }
-
-  void loadClientRecords() async {
-    final clientRecords = User.loadClientRecords(dbPath: await dbPath());
-    setState(() {
-      _clientRecords = clientRecords;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<UiClientRecord>>(
-      future: _clientRecords,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return _ClientRecordsList(snapshot.data!);
-        } else if (snapshot.hasError) {
-          return Text(
-            'Error loading contacts',
-          );
-        }
-        return const CircularProgressIndicator();
-      },
-    );
-  }
-}
-
-class _ClientRecordsList extends StatelessWidget {
-  const _ClientRecordsList(this.clientRecords);
-
-  final List<UiClientRecord> clientRecords;
-
-  @override
-  Widget build(BuildContext context) {
-    const itemExtent = 72.0;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: 3.5 * itemExtent, // 3 items without scrolling
-          maxWidth: MediaQuery.of(context).size.width.clamp(0, 400),
-        ),
-        child: ListView(
-          itemExtent: itemExtent,
-          children: clientRecords
-              .map(
-                (record) => ListTile(
-                  leading: UserAvatar(
-                    username: record.userName.userName,
-                    image: record.userProfile?.profilePicture,
-                    size: Spacings.xl,
-                  ),
-                  title: Text(
-                    record.userName
-                        .displayName(record.userProfile?.displayName),
-                  ),
-                  subtitle: Text(
-                    "@${record.userName.domain}",
-                  ),
-                  onTap: () => context.read<CoreClient>().loadUser(
-                      userName: record.userName, clientId: record.clientId),
-                ),
-              )
-              .toList(),
         ),
       ),
     );
