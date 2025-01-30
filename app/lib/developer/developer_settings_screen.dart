@@ -37,12 +37,21 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     });
   }
 
+  @override
+  build(BuildContext context) {
+    return DeveloperSettingsScreenView(
+      deviceToken: deviceToken,
+      isMobile: Platform.isAndroid || Platform.isIOS,
+      onRefreshPushToken: () =>
+          _reRegisterPushToken(context.read<CoreClient>()),
+    );
+  }
+
   void _reRegisterPushToken(CoreClient coreClient) async {
     final newDeviceToken = await getDeviceToken();
     if (newDeviceToken != null) {
       if (Platform.isAndroid) {
         final pushToken = PlatformPushToken.google(newDeviceToken);
-        print("Push token: $pushToken");
         coreClient.user.updatePushToken(pushToken);
         setState(() {
           deviceToken = pushToken.token;
@@ -58,12 +67,25 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
       }
     }
   }
+}
+
+const _titleFontWeight = FontWeight.w600;
+
+class DeveloperSettingsScreenView extends StatelessWidget {
+  const DeveloperSettingsScreenView({
+    required this.deviceToken,
+    required this.onRefreshPushToken,
+    required this.isMobile,
+    super.key,
+  });
+
+  final String? deviceToken;
+  final bool isMobile;
+  final VoidCallback onRefreshPushToken;
 
   @override
   Widget build(BuildContext context) {
     final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
-
-    final isMobile = Platform.isAndroid || Platform.isIOS;
 
     return SafeArea(
       child: Scaffold(
@@ -80,8 +102,8 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
                     titleAlignment: ListTileTitleAlignment.titleHeight,
                     titleTextStyle: Theme.of(context)
                         .textTheme
-                        .bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.w500),
+                        .bodyLarge!
+                        .copyWith(fontWeight: _titleFontWeight),
                   ),
               child: ListView(
                 children: [
@@ -91,8 +113,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
                       title: const Text('Push Token'),
                       subtitle: Text(deviceToken ?? "N/A"),
                       trailing: const Icon(Icons.refresh),
-                      onTap: () =>
-                          _reRegisterPushToken(context.read<CoreClient>()),
+                      onTap: onRefreshPushToken,
                     ),
                   ],
                   if (user != null) ...[
@@ -118,7 +139,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
                         user.userName,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: Colors.red,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: _titleFontWeight,
                             ),
                       ),
                       subtitle: Text("id: ${user.clientId}"),
@@ -136,7 +157,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
                       'Erase All Databases',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: Colors.red,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: _titleFontWeight,
                           ),
                     ),
                     trailing: const Icon(Icons.delete),
