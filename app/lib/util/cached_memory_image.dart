@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:prototype/core/core.dart';
 
 /// Same as [MemoryImage] but caches the result in memory under the given [tag]
 class CachedMemoryImage extends ImageProvider<CachedMemoryImage> {
@@ -13,6 +14,9 @@ class CachedMemoryImage extends ImageProvider<CachedMemoryImage> {
     this.tag,
     this.bytes,
   );
+
+  factory CachedMemoryImage.fromImageData(ImageData imageData) =>
+      CachedMemoryImage(imageData.sha256, imageData.data);
 
   final String tag;
   final Uint8List bytes;

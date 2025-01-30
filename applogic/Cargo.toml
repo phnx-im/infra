@@ -40,3 +40,5 @@ jni = "0.21"
 # Workspace dependencies
 tokio-util = "0.7.13"
 tokio-stream = "0.1.17"
+sha2 = "0.10.8"
+hex = "0.4.3"

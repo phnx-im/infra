@@ -27,7 +27,7 @@ use crate::{
     StreamSink,
 };
 
-use super::user::User;
+use super::{types::ImageData, user::User};
 
 /// State of the [`UserCubit`] which is the logged in user
 ///
@@ -86,9 +86,9 @@ impl UiUser {
     }
 
     #[frb(getter, sync)]
-    pub fn profile_picture(&self) -> Option<Vec<u8>> {
+    pub fn profile_picture(&self) -> Option<ImageData> {
         let profile = self.inner.profile.as_ref()?;
-        Some(profile.profile_picture()?.value()?.to_vec())
+        Some(ImageData::from_asset(profile.profile_picture()?.clone()))
     }
 }
 

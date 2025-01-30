@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -21,7 +20,7 @@ class UserSettingsScreen extends StatefulWidget {
 
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
   String? newDisplayName;
-  Uint8List? newProfilePicture;
+  ImageData? newProfilePicture;
 
   bool get _isChanged => newDisplayName != null || newProfilePicture != null;
 
@@ -30,7 +29,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await user.setProfile(
-          displayName: newDisplayName, profilePicture: newProfilePicture);
+        displayName: newDisplayName,
+        profilePicture: newProfilePicture?.data,
+      );
       setState(() {
         newDisplayName = null;
         newProfilePicture = null;
@@ -73,8 +74,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     final bytes = await image?.readAsBytes();
+                    final data = bytes?.toImageData();
                     setState(() {
-                      newProfilePicture = bytes;
+                      newProfilePicture = data;
                     });
                   },
                 ),

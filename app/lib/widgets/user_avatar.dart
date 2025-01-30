@@ -15,14 +15,12 @@ class UserAvatar extends StatelessWidget {
     this.size = 24.0,
     this.image,
     this.onPressed,
-    this.cacheTag,
   });
 
   final String username;
   final double size;
-  final Uint8List? image;
+  final ImageData? image;
   final VoidCallback? onPressed;
-  final String? cacheTag;
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +36,8 @@ class UserAvatar extends StatelessWidget {
           child: CircleAvatar(
             radius: size / 2,
             backgroundColor: colorDMBLight,
-            foregroundImage: (image != null)
-                ? CachedMemoryImage(cacheTag ?? "avatar:$username", image!)
-                : null,
+            foregroundImage:
+                image != null ? CachedMemoryImage.fromImageData(image!) : null,
             child: Text(
               username.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
@@ -92,7 +89,6 @@ class _FutureUserAvatarState extends State<FutureUserAvatar> {
         image: snapshot.data?.profilePicture,
         size: widget.size,
         onPressed: widget.onPressed,
-        cacheTag: widget.cacheTag,
       ),
     );
   }

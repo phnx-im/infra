@@ -88,7 +88,6 @@ class _ListTile extends StatelessWidget {
           children: [
             UserAvatar(
               size: 48,
-              cacheTag: conversation.avatarCacheTag,
               image: conversation.attributes.picture,
               username: conversation.username,
             ),

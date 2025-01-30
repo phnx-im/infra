@@ -12,11 +12,12 @@ use std::fmt;
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
+    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
     Message, MessageId, MimiContent, SystemMessage, UserProfile,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 /// Mirror of the [`ConversationId`] types
@@ -118,28 +119,21 @@ impl From<ConversationType> for UiConversationType {
 }
 
 /// Attributes of a conversation
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct UiConversationAttributes {
     /// Title of the conversation
     pub title: String,
     /// Optional picture of the conversation
-    pub picture: Option<Vec<u8>>,
-}
-
-impl fmt::Debug for UiConversationAttributes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UiConversationAttributes")
-            .field("title", &self.title)
-            .field("picture", &self.picture.as_ref().map(|b| b.len()))
-            .finish()
-    }
+    pub picture: Option<ImageData>,
 }
 
 impl From<ConversationAttributes> for UiConversationAttributes {
     fn from(attributes: ConversationAttributes) -> Self {
         Self {
             title: attributes.title().to_string(),
-            picture: attributes.picture().map(|a| a.to_vec()),
+            picture: attributes
+                .picture()
+                .map(|a| ImageData::from_bytes(a.to_vec())),
         }
     }
 }
@@ -430,7 +424,7 @@ pub struct UiUserProfile {
     /// Optional display name
     pub display_name: Option<String>,
     /// Optional profile picture
-    pub profile_picture: Option<Vec<u8>>,
+    pub profile_picture: Option<ImageData>,
 }
 
 impl UiUserProfile {
@@ -440,8 +434,40 @@ impl UiUserProfile {
             display_name: user_profile.display_name().map(|name| name.to_string()),
             profile_picture: user_profile
                 .profile_picture()
-                .and_then(|asset| asset.value())
-                .map(|bytes| bytes.to_vec()),
+                .cloned()
+                .map(ImageData::from_asset),
+        }
+    }
+}
+
+/// Image binary data together with its hashsum
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ImageData {
+    /// The image data
+    pub(crate) data: Vec<u8>,
+    /// SHA256 hash of the image as hex string
+    pub(crate) sha256: String,
+}
+
+impl fmt::Debug for ImageData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ImageData")
+            .field("data", &self.data.len())
+            .field("sha256", &self.sha256)
+            .finish()
+    }
+}
+
+impl ImageData {
+    pub(crate) fn from_bytes(data: Vec<u8>) -> Self {
+        let sha256 = Sha256::digest(data.as_slice());
+        let sha256 = hex::encode(sha256);
+        Self { data, sha256 }
+    }
+
+    pub(crate) fn from_asset(asset: Asset) -> Self {
+        match asset {
+            Asset::Value(bytes) => Self::from_bytes(bytes),
         }
     }
 }
