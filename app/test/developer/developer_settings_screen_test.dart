@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/developer/developer_settings_screen.dart';
+import 'package:prototype/developer/developer.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 import 'package:uuid/uuid.dart';

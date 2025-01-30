@@ -9,36 +9,14 @@ import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
-class ChangeUserScreen extends StatelessWidget {
+class ChangeUserScreen extends StatefulWidget {
   const ChangeUserScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Change User'),
-        toolbarHeight: isPointer() ? 100 : null,
-        leading: const AppBarBackButton(),
-      ),
-      body: Center(
-        child: Container(
-          padding: const EdgeInsets.all(Spacings.xs),
-          constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
-          child: const _ClientRecords(),
-        ),
-      ),
-    );
-  }
+  State<ChangeUserScreen> createState() => _ChangeUserScreenState();
 }
 
-class _ClientRecords extends StatefulWidget {
-  const _ClientRecords();
-
-  @override
-  State<_ClientRecords> createState() => _ClientRecordsState();
-}
-
-class _ClientRecordsState extends State<_ClientRecords> {
+class _ChangeUserScreenState extends State<ChangeUserScreen> {
   Future<List<UiClientRecord>>? _clientRecords;
 
   @override
@@ -56,8 +34,51 @@ class _ClientRecordsState extends State<_ClientRecords> {
 
   @override
   Widget build(BuildContext context) {
+    return ChangeUserScreenView(clientRecords: _clientRecords);
+  }
+}
+
+const _maxDesktopWidth = 800.0;
+
+class ChangeUserScreenView extends StatelessWidget {
+  const ChangeUserScreenView({
+    this.clientRecords,
+    super.key,
+  });
+
+  final Future<List<UiClientRecord>>? clientRecords;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Change User'),
+        toolbarHeight: isPointer() ? 100 : null,
+        leading: const AppBarBackButton(),
+      ),
+      body: Center(
+        child: Container(
+          constraints: isPointer()
+              ? const BoxConstraints(maxWidth: _maxDesktopWidth)
+              : null,
+          child: _ClientRecords(clientRecords: clientRecords),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientRecords extends StatelessWidget {
+  const _ClientRecords({
+    this.clientRecords,
+  });
+
+  final Future<List<UiClientRecord>>? clientRecords;
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<UiClientRecord>>(
-      future: _clientRecords,
+      future: clientRecords,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return _ClientRecordsList(snapshot.data!);
@@ -97,7 +118,7 @@ class _ClientRecordsList extends StatelessWidget {
             titleTextStyle: Theme.of(context)
                 .textTheme
                 .bodyMedium
-                ?.copyWith(color: textColor),
+                ?.copyWith(color: textColor, fontWeight: FontWeight.w600),
             subtitleTextStyle: Theme.of(context)
                 .textTheme
                 .bodySmall
