@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/theme/theme.dart';
-import 'package:prototype/widgets/widgets.dart';
 
-import 'core/core.dart';
 import 'navigation/navigation.dart';
 
 class IntroScreen extends StatelessWidget {
