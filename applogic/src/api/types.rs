@@ -17,7 +17,6 @@ use phnxcoreclient::{
     Message, MessageId, MimiContent, SystemMessage, UserProfile,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 /// Mirror of the [`ConversationId`] types
@@ -445,29 +444,35 @@ impl UiUserProfile {
 pub struct ImageData {
     /// The image data
     pub(crate) data: Vec<u8>,
-    /// SHA256 hash of the image as hex string
-    pub(crate) sha256: String,
+    /// Opaque hash of the image data as hex string
+    pub(crate) hash: String,
 }
 
 impl fmt::Debug for ImageData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ImageData")
             .field("data", &self.data.len())
-            .field("sha256", &self.sha256)
+            .field("hash", &self.hash)
             .finish()
     }
 }
 
 impl ImageData {
     pub(crate) fn from_bytes(data: Vec<u8>) -> Self {
-        let sha256 = Sha256::digest(data.as_slice());
-        let sha256 = hex::encode(sha256);
-        Self { data, sha256 }
+        let hash = Self::compute_hash(&data);
+        Self { data, hash }
     }
 
     pub(crate) fn from_asset(asset: Asset) -> Self {
         match asset {
             Asset::Value(bytes) => Self::from_bytes(bytes),
         }
+    }
+
+    /// Computes opaque hashsum of the data and returns it as a hex string.
+    #[frb(sync, positional)]
+    pub fn compute_hash(bytes: &[u8]) -> String {
+        let hash = blake3::hash(bytes);
+        hash.to_hex().to_string()
     }
 }

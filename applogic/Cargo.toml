@@ -21,13 +21,14 @@ crate-type = ["cdylib", "staticlib", "lib"]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 
 [dependencies]
+phnxcoreclient = { path = "../coreclient" }
+phnxapiclient = { path = "../apiclient" }
+phnxtypes = { path = "../types" }
+
 tracing = "0.1"
 tracing-subscriber = { workspace = true }
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
-phnxcoreclient = { path = "../coreclient" }
-phnxapiclient = { path = "../apiclient" }
-phnxtypes = { path = "../types" }
 anyhow = { version = "1", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -36,9 +37,6 @@ flutter_rust_bridge = { version = "=2.7.0", features = ["chrono", "uuid"] }
 notify-rust = "4"
 chrono = { workspace = true }
 jni = "0.21"
-
-# Workspace dependencies
 tokio-util = "0.7.13"
 tokio-stream = "0.1.17"
-sha2 = "0.10.8"
-hex = "0.4.3"
+blake3 = "1.5.5"

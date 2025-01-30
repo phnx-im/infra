@@ -16,7 +16,7 @@ class CachedMemoryImage extends ImageProvider<CachedMemoryImage> {
   );
 
   factory CachedMemoryImage.fromImageData(ImageData imageData) =>
-      CachedMemoryImage(imageData.sha256, imageData.data);
+      CachedMemoryImage(imageData.hash, imageData.data);
 
   final String tag;
   final Uint8List bytes;

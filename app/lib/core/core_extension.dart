@@ -46,5 +46,5 @@ extension UiFlightPositionExtension on UiFlightPosition {
 
 extension ImageDataExtension on Uint8List {
   ImageData toImageData() =>
-      ImageData(data: this, sha256: calculateSha256(this));
+      ImageData(data: this, hash: ImageData.computeHash(this));
 }
