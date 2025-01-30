@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:typed_data';
+
 import 'package:prototype/core/core.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
@@ -18,8 +20,6 @@ extension UiConversationDetailsExtension on UiConversationDetails {
         UiConversationType_Connection(field0: final e) => e,
         UiConversationType_Group() => attributes.title,
       };
-
-  String get avatarCacheTag => 'conv:$id:${attributes.picture?.hashCode}';
 }
 
 extension UiConversationTypeExtension on UiConversationType {
@@ -54,4 +54,9 @@ extension DeviceTokenExtension on PlatformPushToken {
         PlatformPushToken_Apple(field0: final token) => token,
         PlatformPushToken_Google(field0: final token) => token,
       };
+}
+
+extension ImageDataExtension on Uint8List {
+  ImageData toImageData() =>
+      ImageData(data: this, hash: ImageData.computeHash(this));
 }

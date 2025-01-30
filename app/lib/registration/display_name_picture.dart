@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -99,7 +100,7 @@ class _UserAvatarPicker extends StatelessWidget {
         final XFile? image =
             await picker.pickImage(source: ImageSource.gallery);
         final bytes = await image?.readAsBytes();
-        registrationCubit.setAvatar(bytes);
+        registrationCubit.setAvatar(bytes?.toImageData());
       },
     );
   }

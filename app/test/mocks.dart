@@ -26,11 +26,11 @@ class MockUiUser implements UiUser {
     Uint8List? profilePicture,
   })  : _userName = userName,
         _displayName = displayName,
-        _profilePicture = profilePicture;
+        _profilePicture = profilePicture?.toImageData();
 
   final String _userName;
   final String? _displayName;
-  final Uint8List? _profilePicture;
+  final ImageData? _profilePicture;
 
   @override
   String? get displayName => _displayName;
@@ -42,7 +42,7 @@ class MockUiUser implements UiUser {
   bool get isDisposed => false;
 
   @override
-  Uint8List? get profilePicture => _profilePicture;
+  ImageData? get profilePicture => _profilePicture;
 
   @override
   String get userName => _userName;
