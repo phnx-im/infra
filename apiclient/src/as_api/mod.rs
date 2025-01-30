@@ -106,7 +106,7 @@ impl ApiClient {
             Err(error) => {
                 error!(
                     %url,
-                    %error, "Got a POST message error while contacting the URL"
+                    ?error, "Got a POST message error while contacting the URL"
                 );
                 Err(AsRequestError::NetworkError(error.to_string()))
             }
