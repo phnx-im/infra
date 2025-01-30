@@ -12,7 +12,7 @@ use hkdf::Hkdf;
 
 use super::Hash;
 
-pub(crate) use traits::{KdfDerivable, KdfExtractable};
+pub use traits::{KdfDerivable, KdfExtractable};
 
 /// This type determines the KDF used by the backend.
 pub type Kdf = Hkdf<Hash>;

@@ -12,7 +12,7 @@ use mls_assist::{
     },
 };
 use phnxtypes::{
-    credentials::keys::InfraCredentialSigningKey,
+    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{
@@ -196,7 +196,7 @@ impl ApiClient {
         group_id: GroupId,
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &InfraCredentialSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
     ) -> Result<RatchetTreeIn, DsRequestError> {
         let payload = WelcomeInfoParams {
             sender: signing_key.credential().verifying_key().clone(),
@@ -255,7 +255,7 @@ impl ApiClient {
         let payload = ConnectionGroupInfoParams { group_id };
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::ConnectionGroupInfo(payload),
-            AuthenticationMethod::<InfraCredentialSigningKey>::None,
+            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
             group_state_ear_key,
         )
         .await
@@ -275,7 +275,7 @@ impl ApiClient {
         &self,
         params: UpdateClientParamsOut,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &InfraCredentialSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::UpdateClient(params),
@@ -468,7 +468,7 @@ impl ApiClient {
     pub async fn ds_send_message(
         &self,
         params: SendMessageParamsOut,
-        signing_key: &InfraCredentialSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
@@ -516,7 +516,7 @@ impl ApiClient {
         own_index: LeafNodeIndex,
         group_id: GroupId,
         new_queue_config: QsClientReference,
-        signing_key: &InfraCredentialSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateQsClientReferenceParams {

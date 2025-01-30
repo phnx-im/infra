@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::keys::InfraCredentialSigningKey,
-    crypto::{ear::keys::SignatureEarKey, errors::RandomnessError},
+    credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
+    crypto::ear::keys::IdentityLinkKey,
 };
 use rusqlite::{params, OptionalExtension};
 
@@ -17,7 +17,7 @@ impl Storable for LeafKeys {
         CREATE TABLE IF NOT EXISTS leaf_keys (
             verifying_key BLOB PRIMARY KEY,
             leaf_signing_key BLOB NOT NULL,
-            signature_ear_key BLOB NOT NULL
+            identity_link_key BLOB NOT NULL
         );";
 
     fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
@@ -26,7 +26,7 @@ impl Storable for LeafKeys {
         Ok(Self {
             verifying_key,
             leaf_signing_key: row.get(1)?,
-            signature_ear_key: row.get(2)?,
+            identity_link_key: row.get(2)?,
         })
     }
 }
@@ -34,18 +34,21 @@ impl Storable for LeafKeys {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeafKeys {
     verifying_key: SignaturePublicKey,
-    leaf_signing_key: InfraCredentialSigningKey,
-    signature_ear_key: SignatureEarKey,
+    leaf_signing_key: PseudonymousCredentialSigningKey,
+    identity_link_key: IdentityLinkKey,
 }
 
 impl LeafKeys {
-    pub(crate) fn generate(signing_key: &ClientSigningKey) -> Result<Self, RandomnessError> {
-        let signature_ear_key = SignatureEarKey::random()?;
-        let leaf_signing_key = InfraCredentialSigningKey::generate(signing_key, &signature_ear_key);
+    pub(crate) fn generate(
+        signing_key: &ClientSigningKey,
+        connection_key: &ConnectionKey,
+    ) -> Result<Self, CredentialCreationError> {
+        let (leaf_signing_key, identity_link_key) =
+            PseudonymousCredentialSigningKey::generate(signing_key, connection_key)?;
         let keys = Self {
             verifying_key: leaf_signing_key.credential().verifying_key().clone(),
             leaf_signing_key,
-            signature_ear_key,
+            identity_link_key,
         };
         Ok(keys)
     }
@@ -58,12 +61,16 @@ impl LeafKeys {
         Ok(credential)
     }
 
-    pub(crate) fn into_leaf_signer(self) -> InfraCredentialSigningKey {
+    pub(crate) fn identity_link_key(&self) -> &IdentityLinkKey {
+        &self.identity_link_key
+    }
+
+    pub(crate) fn into_leaf_signer(self) -> PseudonymousCredentialSigningKey {
         self.leaf_signing_key
     }
 
-    pub(crate) fn signature_ear_key(&self) -> &SignatureEarKey {
-        &self.signature_ear_key
+    pub(crate) fn into_parts(self) -> (PseudonymousCredentialSigningKey, IdentityLinkKey) {
+        (self.leaf_signing_key, self.identity_link_key)
     }
 }
 
@@ -73,7 +80,7 @@ impl LeafKeys {
         verifying_key: &SignaturePublicKey,
     ) -> Result<Option<LeafKeys>, rusqlite::Error> {
         let mut stmt = connection.prepare(
-            "SELECT verifying_key, leaf_signing_key, signature_ear_key FROM leaf_keys WHERE verifying_key = ?",
+            "SELECT verifying_key, leaf_signing_key, identity_link_key FROM leaf_keys WHERE verifying_key = ?",
         )?;
         stmt.query_row(params![verifying_key.as_slice()], Self::from_row)
             .optional()
@@ -90,11 +97,11 @@ impl LeafKeys {
 
     pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, signature_ear_key) VALUES (?, ?, ?)",
+            "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, identity_link_key) VALUES (?, ?, ?)",
             params![
                 self.verifying_key.as_slice(),
                 self.leaf_signing_key,
-                self.signature_ear_key
+                self.identity_link_key
             ],
         )?;
         Ok(())

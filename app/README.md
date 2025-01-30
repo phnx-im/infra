@@ -8,6 +8,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 A GUI client for OpenMLS
 
+## Testing
+
+```
+# on first run
+just frb-integrate
+# on subsequent runs
+just frb-generate
+cd app
+flutter test
+```
+
+The app uses snapshot testing, which captures screenshots and compares them with
+golden files. These golden files are stored in Git LFS, so make sure to
+configure it; otherwise, the files won't be available.
+
+Due to differences in how operating systems render elements (e.g., aliasing,
+font rendering, etc.), screenshots may vary across platforms. To ensure
+consistency, snapshots are recorded on Linux. A CI job, Update Goldens, can be
+triggered manually to update the golden files via CI.
+
+Locally, you can run the following command to update the golden files:
+
+```
+cd app
+fluter test --update-goldens
+```
+
 ## Code organization
 
 The app code is organized in the following way:

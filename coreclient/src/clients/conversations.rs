@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use openmls::prelude::GroupId;
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
-    codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::ear::EarEncryptable,
+    codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
     identifiers::QsClientReference,
 };
 use rusqlite::Connection;
@@ -44,7 +44,11 @@ impl CoreUser {
             let mut notifier = self.store_notifier();
 
             let created_group = group_data
-                .create_group(&provider, &self.inner.key_store.signing_key)?
+                .create_group(
+                    &provider,
+                    &self.inner.key_store.signing_key,
+                    &self.inner.key_store.connection_key,
+                )?
                 .store_group(&transaction, &mut notifier)?;
 
             transaction.commit()?;
@@ -54,11 +58,7 @@ impl CoreUser {
         };
 
         created_group
-            .create_group_on_ds(
-                &self.inner.api_clients,
-                &self.inner.key_store.signing_key,
-                self.create_own_client_reference(),
-            )
+            .create_group_on_ds(&self.inner.api_clients, self.create_own_client_reference())
             .await
     }
 
@@ -193,6 +193,7 @@ impl ConversationGroupData {
         self,
         provider: &impl OpenMlsProvider,
         signing_key: &ClientSigningKey,
+        connection_key: &ConnectionKey,
     ) -> Result<CreatedGroup> {
         let Self {
             group_id,
@@ -201,7 +202,7 @@ impl ConversationGroupData {
         } = self;
 
         let (group, group_membership, partial_params) =
-            Group::create_group(provider, signing_key, group_id, group_data)?;
+            Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
 
         Ok(CreatedGroup {
             group,
@@ -250,7 +251,6 @@ impl StoredGroup {
     async fn create_group_on_ds(
         self,
         api_clients: &ApiClients,
-        signing_key: &ClientSigningKey,
         client_reference: QsClientReference,
     ) -> Result<ConversationId> {
         let Self {
@@ -259,10 +259,7 @@ impl StoredGroup {
             conversation_id,
         } = self;
 
-        let encrypted_client_credential = signing_key
-            .credential()
-            .encrypt(group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
+        let params = partial_params.into_params(client_reference);
         api_clients
             .default_client()?
             .ds_create_group(

@@ -4,14 +4,14 @@
 
 use std::ops::Deref;
 
-use phnxtypes::keypackage_batch::QsEncryptedAddPackage;
+use phnxtypes::keypackage_batch::QsEncryptedKeyPackage;
 
 #[derive(sqlx::Type)]
 #[sqlx(transparent)]
-pub(super) struct StorableEncryptedAddPackage(pub QsEncryptedAddPackage);
+pub(super) struct StorableEncryptedAddPackage(pub QsEncryptedKeyPackage);
 
 impl Deref for StorableEncryptedAddPackage {
-    type Target = QsEncryptedAddPackage;
+    type Target = QsEncryptedKeyPackage;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -32,36 +32,36 @@ mod persistence {
         pub(in crate::qs) async fn store_multiple(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedAddPackage>>,
+            encrypted_key_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedKeyPackage>>,
         ) -> Result<(), StorageError> {
-            Self::store_multiple_internal(connection, client_id, encrypted_add_packages, false)
+            Self::store_multiple_internal(connection, client_id, encrypted_key_packages, false)
                 .await
         }
 
         pub(in crate::qs) async fn store_last_resort(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_package: impl Deref<Target = QsEncryptedAddPackage>,
+            encrypted_key_package: impl Deref<Target = QsEncryptedKeyPackage>,
         ) -> Result<(), StorageError> {
-            Self::store_multiple_internal(connection, client_id, [encrypted_add_package], true)
+            Self::store_multiple_internal(connection, client_id, [encrypted_key_package], true)
                 .await
         }
 
         async fn store_multiple_internal(
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
-            encrypted_add_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedAddPackage>>,
+            encrypted_key_packages: impl IntoIterator<Item = impl Deref<Target = QsEncryptedKeyPackage>>,
             is_last_resort: bool,
         ) -> Result<(), StorageError> {
             let mut query_args = PgArguments::default();
             let mut query_string = String::from(
-                "INSERT INTO key_packages (client_id, encrypted_add_package, is_last_resort) VALUES",
+                "INSERT INTO key_packages (client_id, encrypted_key_package, is_last_resort) VALUES",
             );
 
-            for (i, encrypted_add_package) in encrypted_add_packages.into_iter().enumerate() {
+            for (i, encrypted_key_package) in encrypted_key_packages.into_iter().enumerate() {
                 // Add values to the query arguments. None of these should throw an error.
                 query_args.add(client_id)?;
-                query_args.add(&*encrypted_add_package)?;
+                query_args.add(&*encrypted_key_package)?;
                 query_args.add(is_last_resort)?;
 
                 if i > 0 {
@@ -95,7 +95,7 @@ mod persistence {
         ) -> Result<Option<Self>, StorageError> {
             let mut transaction = connection.begin().await?;
 
-            let encrypted_add_package_option = sqlx::query_scalar!(
+            let encrypted_key_package_option = sqlx::query_scalar!(
                 r#"WITH deleted_package AS (
                     DELETE FROM key_packages
                     USING qs_client_records qcr
@@ -103,9 +103,9 @@ mod persistence {
                         key_packages.client_id = qcr.client_id
                         AND key_packages.client_id = $1
                         AND qcr.user_id = $2
-                    RETURNING key_packages.id, key_packages.encrypted_add_package
+                    RETURNING key_packages.id, key_packages.encrypted_key_package
                 )
-                SELECT encrypted_add_package as "eap: _" FROM deleted_package
+                SELECT encrypted_key_package as "eap: _" FROM deleted_package
                 FOR UPDATE SKIP LOCKED"#,
                 client_id as &QsClientId,
                 user_id as &QsUserId
@@ -115,7 +115,7 @@ mod persistence {
 
             transaction.commit().await?;
 
-            Ok(encrypted_add_package_option)
+            Ok(encrypted_key_package_option)
         }
 
         pub(in crate::qs) async fn load_user_key_packages(
@@ -124,7 +124,7 @@ mod persistence {
         ) -> Result<Vec<Self>, StorageError> {
             let mut transaction = connection.begin().await?;
 
-            let encrypted_add_packages = sqlx::query_scalar!(
+            let encrypted_key_packages = sqlx::query_scalar!(
                 r#"WITH user_info AS (
                     -- Step 1: Fetch the user_id based on the friendship token.
                     SELECT user_id FROM qs_user_records WHERE friendship_token = $1
@@ -137,15 +137,15 @@ mod persistence {
 
                 ranked_packages AS (
                     -- Step 3: Rank key packages for each client.
-                    SELECT p.id, p.encrypted_add_package, p.is_last_resort,
+                    SELECT p.id, p.encrypted_key_package, p.is_last_resort,
                            ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY p.is_last_resort ASC) AS rn
                     FROM key_packages p
                     INNER JOIN client_ids c ON p.client_id = c.client_id
                 ),
 
-                selected_add_packages AS (
+                selected_key_packages AS (
                     -- Step 4: Select the best-ranked package per client (rn = 1), skipping locked rows.
-                    SELECT id, encrypted_add_package, is_last_resort
+                    SELECT id, encrypted_key_package, is_last_resort
                     FROM ranked_packages
                     WHERE rn = 1
                     FOR UPDATE SKIP LOCKED
@@ -154,18 +154,18 @@ mod persistence {
                 deleted_packages AS (
                     -- Step 5: Delete the selected packages that are not marked as last_resort.
                     DELETE FROM key_packages
-                    WHERE id IN (SELECT id FROM selected_add_packages WHERE is_last_resort = FALSE)
-                    RETURNING encrypted_add_package
+                    WHERE id IN (SELECT id FROM selected_key_packages WHERE is_last_resort = FALSE)
+                    RETURNING encrypted_key_package
                 )
 
-                -- Step 6: Return the encrypted_add_package from the selected packages.
-                SELECT encrypted_add_package as "eap: _" FROM selected_add_packages"#,
+                -- Step 6: Return the encrypted_key_package from the selected packages.
+                SELECT encrypted_key_package as "eap: _" FROM selected_key_packages"#,
                 friendship_token as &FriendshipToken
             ).fetch_all(&mut *transaction).await?;
 
             transaction.commit().await?;
 
-            Ok(encrypted_add_packages)
+            Ok(encrypted_key_packages)
         }
     }
 }

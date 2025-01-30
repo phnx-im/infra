@@ -115,15 +115,9 @@ end
 platform :ios do
   desc "Build app for TestFlight"
   lane :beta_ios do |options|
-    # Set XCode version
-    xcodes(
-      version: '16.1',
-      select_for_current_build_only: true,
-    )
-  
     # Set up CI
     setup_ci()
-  
+
     # Set parameters
     key_id = ENV['APP_STORE_KEY_ID']
     issuer_id = ENV['APP_STORE_ISSUER_ID']
@@ -171,22 +165,9 @@ platform :ios do
         readonly: is_ci,
       )
     end
-  
-    # Install flutter dependencies
-    sh "flutter pub get"
-  
-    # Install CocoaPods dependencies
-    cocoapods(
-      clean: true,
-      podfile: "ios/Podfile"
-    )
-    
-    # Build the app
-    build_app(
-      workspace: "ios/Runner.xcworkspace", 
-      scheme: "Runner",
-      export_method: "app-store",
-    )
+
+    # Build the app with signing
+    build_ios(with_signing: true)
   
     # Upload the app to TestFlight if the parameter is set
     if options[:upload_to_test_flight]
@@ -196,5 +177,38 @@ platform :ios do
         distribute_external: false,
       )
     end
+  end
+
+  desc "Build app"
+  lane :build_ios do |options|
+    # The following is false when "with_signing" is not provided in the oprion and true otherwise
+    skip_signing = !options[:with_signing]
+
+    # Set XCode version
+    xcodes(
+      version: '16.1',
+      select_for_current_build_only: true,
+    )
+  
+    # Set up CI
+    setup_ci()
+
+    # Install flutter dependencies
+    sh "flutter pub get"
+  
+    # Install CocoaPods dependencies
+    cocoapods(
+      clean: true,
+      podfile: "ios/Podfile"
+    )
+
+    # Build the app
+    build_app(
+      workspace: "ios/Runner.xcworkspace", 
+      scheme: "Runner",
+      skip_codesigning: skip_signing,
+      skip_package_ipa: skip_signing,
+      export_method: "app-store",
+    )
   end
 end
