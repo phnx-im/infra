@@ -522,58 +522,6 @@ impl CoreUser {
         Ok(conversation_messages)
     }
 
-    /// Re-try sending a message, where sending previously failed.
-    pub async fn re_send_message(&self, local_message_id: Uuid) -> Result<()> {
-        // Phase 1: Load the unsent message
-        let connection = self.inner.connection.lock().await;
-        let mut unsent_message = ConversationMessage::load(&connection, &local_message_id)?.ok_or(
-            anyhow!("Can't find unsent message with id {}", local_message_id),
-        )?;
-        let content = match unsent_message.message() {
-            Message::Content(content_message) if !content_message.was_sent() => {
-                content_message.content().clone()
-            }
-            _ => bail!("Message with id {} was already sent", local_message_id),
-        };
-        let conversation_id = unsent_message.conversation_id();
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let group_id = conversation.group_id();
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = {
-            let provider = PhnxOpenMlsProvider::new(&connection);
-            group.create_message(&provider, content)?
-        };
-        drop(connection);
-
-        // Phase 2: Send message to DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&conversation.owner_domain())?
-            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Merge the commit into the group & update conversation
-        let mut connection = self.inner.connection.lock().await;
-        let mut notifier = self.store_notifier();
-        unsent_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
-        group.store_update(&connection)?;
-        let transaction = connection.transaction()?;
-        Conversation::mark_as_read(
-            &transaction,
-            &mut notifier,
-            vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
-        )?;
-        transaction.commit()?;
-        notifier.notify();
-
-        Ok(())
-    }
-
     /// Create a connection with a new user.
     ///
     /// Returns the [`ConversationId`] of the newly created connection
