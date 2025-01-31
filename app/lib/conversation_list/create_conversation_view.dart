@@ -30,12 +30,10 @@ class _CreateConversationViewState extends State<CreateConversationView> {
     return AlertDialog(
       title: Text(widget.title),
       titlePadding: const EdgeInsets.all(20),
-      titleTextStyle: const TextStyle(
-        fontFamily: fontFamily,
-        fontWeight: FontWeight.bold,
-        fontSize: 20,
-        color: colorGreyDark,
-      ),
+      titleTextStyle: Theme.of(context)
+          .textTheme
+          .titleLarge
+          ?.copyWith(color: colorGreyDark),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actionsPadding: const EdgeInsets.all(20),
       buttonPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),

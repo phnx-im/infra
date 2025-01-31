@@ -237,7 +237,7 @@ class _SectionHeader extends StatelessWidget {
         style: Theme.of(context)
             .textTheme
             .labelMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+            ?.merge(VariableFontWeight.bold),
       ),
     );
   }

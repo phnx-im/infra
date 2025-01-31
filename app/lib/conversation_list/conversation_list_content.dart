@@ -48,7 +48,6 @@ class _NoConversations extends StatelessWidget {
         'Create a new connection to get started',
         style: TextStyle(
           fontSize: isLargeScreen(context) ? 14 : 15,
-          fontWeight: FontWeight.normal,
           color: Colors.black54,
         ),
       ),
