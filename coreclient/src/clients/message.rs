@@ -108,7 +108,7 @@ impl UnsentContent {
             conversation,
             group,
             conversation_message,
-            state: WithContent(content),
+            content: WithContent(content),
             group_update: GroupUpdateNeeded,
         })
     }
@@ -145,7 +145,7 @@ impl LocalMessage {
             conversation,
             group,
             conversation_message,
-            state: WithContent(content),
+            content: WithContent(content),
             group_update: GroupUpdated,
         };
 
@@ -153,19 +153,21 @@ impl LocalMessage {
     }
 }
 
-/// Inner state with mimi content
+/// Message type state: Message with MIMI content
 struct WithContent(MimiContent);
-/// Inner state with params
+/// Message type state: Message with prepared send parameters
 struct WithParams(SendMessageParamsOut);
 
+/// Message type state: Group update needed before sending the message
 struct GroupUpdateNeeded;
+/// Message type state: Group already updated, message can be sent
 struct GroupUpdated;
 
 struct UnsentMessage<State, GroupUpdate> {
     conversation: Conversation,
     group: Group,
     conversation_message: ConversationMessage,
-    state: State,
+    content: State,
     group_update: GroupUpdate,
 }
 
@@ -178,7 +180,7 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
             conversation,
             mut group,
             conversation_message,
-            state: WithContent(content),
+            content: WithContent(content),
             group_update,
         } = self;
 
@@ -188,7 +190,7 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
             conversation,
             conversation_message,
             group,
-            state: WithParams(params),
+            content: WithParams(params),
             group_update,
         })
     }
@@ -204,7 +206,7 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
             conversation,
             group,
             conversation_message,
-            state: WithParams(params),
+            content: WithParams(params),
             group_update: GroupUpdateNeeded,
         } = self;
 
@@ -224,7 +226,7 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
             conversation,
             group,
             conversation_message,
-            state: WithParams(params),
+            content: WithParams(params),
             group_update: GroupUpdated,
         })
     }
@@ -236,7 +238,7 @@ impl UnsentMessage<WithParams, GroupUpdated> {
             conversation,
             conversation_message,
             group,
-            state: WithParams(params),
+            content: WithParams(params),
             group_update: GroupUpdated,
         } = self;
 
