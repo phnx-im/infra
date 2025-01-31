@@ -36,11 +36,12 @@ TextSpan _styledTextSpan(
             child: SelectionContainer.disabled(
               child: Text(
                 keyword,
-                style: style?.copyWith(
-                  //color: colorDMB,
-                  fontSize: 12,
-                  fontVariations: variationSemiBold,
-                ),
+                style: style
+                    ?.copyWith(
+                      //color: colorDMB,
+                      fontSize: 12,
+                    )
+                    .merge(VariableFontWeight.semiBold),
               ),
             ),
           ),

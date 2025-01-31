@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 
+import 'variable_font_weight.dart';
+
 // === Devices ===
 
 bool isSmallScreen(BuildContext context) {
@@ -52,38 +54,20 @@ const swatchColor = Color(0xFFC0C6CE);
 const activeButtonColor = colorDMB;
 const inactiveButtonColor = colorDMBSuperLight;
 
-// === Text ===
-
-const labelStyle = TextStyle(
-  fontFamily: fontFamily,
-  fontSize: 14,
-  fontVariations: variationRegular,
-  letterSpacing: -0.02,
-);
-
-const boldLabelStyle = TextStyle(
-  fontFamily: fontFamily,
-  fontSize: 14,
-  fontVariations: variationSemiBold,
-  letterSpacing: -0.02,
-);
-
 // === Inputs ===
 
-const inputTextStyle = TextStyle(
+final inputTextStyle = TextStyle(
   fontFamily: fontFamily,
   fontSize: 14,
-  fontVariations: variationRegular,
-);
+).merge(VariableFontWeight.w400);
 
 final inputDecoration = InputDecoration(
   border: InputBorder.none,
   hintStyle: const TextStyle(
     color: colorDMBLight,
     fontSize: 11,
-    fontWeight: FontWeight.w100,
     fontFamily: fontFamily,
-  ),
+  ).merge(VariableFontWeight.w100),
   focusedBorder: textInputBorder,
   enabledBorder: textInputBorder,
   errorBorder: textInputBorder,
@@ -95,12 +79,14 @@ final inputDecoration = InputDecoration(
 InputDecoration messageComposerInputDecoration(BuildContext context) =>
     InputDecoration(
       border: InputBorder.none,
-      hintStyle: TextStyle(
-        color: colorGrey,
-        fontSize: isLargeScreen(context) ? 12 : 14,
-        fontWeight: FontWeight.w400,
-        fontFamily: fontFamily,
-      ),
+      hintStyle: DefaultTextStyle.of(context)
+          .style
+          .copyWith(
+            color: colorGrey,
+            fontSize: isLargeScreen(context) ? 12 : 14,
+            fontFamily: fontFamily,
+          )
+          .merge(VariableFontWeight.w400),
       focusedBorder: textInputBorder,
       enabledBorder: textInputBorder,
       errorBorder: textInputBorder,
@@ -109,17 +95,20 @@ InputDecoration messageComposerInputDecoration(BuildContext context) =>
       fillColor: Colors.white,
     );
 
-TextStyle messageTextStyle(BuildContext context, bool inverted) => TextStyle(
-      color: inverted ? Colors.white : Colors.black,
-      fontFamily: fontFamily,
-      fontVariations:
-          isLargeScreen(context) ? variationRegular : variationMedium,
-      letterSpacing: -0.05,
-      fontSize: isLargeScreen(context) ? 14 : 15,
-      // NOTE: When specifying line height, the text is rendered inconsistently on
-      // Linux and macOS (and therefore also on Android and iOS). For now, we use the default one.
-      // height: isLargeScreen(context) ? 1.5 : 1.3,
-    );
+TextStyle messageTextStyle(BuildContext context, bool inverted) =>
+    DefaultTextStyle.of(context)
+        .style
+        .copyWith(
+          color: inverted ? Colors.white : Colors.black,
+          letterSpacing: -0.05,
+          fontSize: isLargeScreen(context) ? 14 : 15,
+          // NOTE: When specifying line height, the text is rendered inconsistently on
+          // Linux and macOS (and therefore also on Android and iOS). For now, we use the default one.
+          // height: isLargeScreen(context) ? 1.5 : 1.3,
+        )
+        .merge(isLargeScreen(context)
+            ? VariableFontWeight.normal
+            : VariableFontWeight.medium);
 
 final textInputBorder = OutlineInputBorder(
   borderSide: const BorderSide(
@@ -140,11 +129,10 @@ ButtonStyle textButtonStyle(BuildContext context) {
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      TextStyle(
-        fontVariations: variationSemiBold,
-        fontFamily: fontFamily,
-        fontSize: isSmallScreen(context) ? 16 : 14,
-      ),
+      DefaultTextStyle.of(context)
+          .style
+          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .merge(VariableFontWeight.semiBold),
     ),
   );
 }
@@ -160,11 +148,12 @@ ButtonStyle dynamicTextButtonStyle(
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      TextStyle(
-        fontVariations: isMain ? variationSemiBold : variationMedium,
-        fontFamily: fontFamily,
-        fontSize: isSmallScreen(context) ? 16 : 14,
-      ),
+      DefaultTextStyle.of(context)
+          .style
+          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .merge(
+            isMain ? VariableFontWeight.semiBold : VariableFontWeight.medium,
+          ),
     ),
   );
 }
@@ -200,11 +189,10 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
       ),
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      TextStyle(
-        fontVariations: variationSemiBold,
-        fontFamily: fontFamily,
-        fontSize: isSmallScreen(context) ? 16 : 14,
-      ),
+      DefaultTextStyle.of(context)
+          .style
+          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .merge(VariableFontWeight.semiBold),
     ),
   );
 }

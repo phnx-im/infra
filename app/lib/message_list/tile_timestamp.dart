@@ -29,10 +29,8 @@ class TileTimestamp extends StatelessWidget {
           timeString(timestamp),
           style: const TextStyle(
             color: colorDMB,
-            fontWeight: FontWeight.w200,
             fontSize: 10,
-            letterSpacing: -0.2,
-          ),
+          ).merge(VariableFontWeight.w200),
         ),
       ),
     );

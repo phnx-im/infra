@@ -100,10 +100,8 @@ class _UsernameSpace extends StatelessWidget {
           displayName ?? "",
           style: const TextStyle(
             color: colorDMB,
-            fontVariations: variationBold,
             fontSize: 13,
-            letterSpacing: -0.2,
-          ),
+          ).merge(VariableFontWeight.bold),
         ),
         const SizedBox(height: 5),
         Text(
@@ -111,9 +109,7 @@ class _UsernameSpace extends StatelessWidget {
           style: const TextStyle(
             color: colorDMB,
             fontSize: 10,
-            fontVariations: variationMedium,
-            letterSpacing: -0.2,
-          ),
+          ).merge(VariableFontWeight.medium),
           overflow: TextOverflow.ellipsis,
         ),
       ],

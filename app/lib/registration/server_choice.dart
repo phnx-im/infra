@@ -31,9 +31,9 @@ class ServerChoice extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
+              Text(
                 'Choose a server where you want to create your account',
-                style: labelStyle,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               Form(
                 autovalidateMode: AutovalidateMode.always,

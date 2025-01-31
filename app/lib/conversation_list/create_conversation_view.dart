@@ -51,7 +51,10 @@ class _CreateConversationViewState extends State<CreateConversationView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 50),
-              Text(widget.prompt, style: labelStyle),
+              Text(
+                widget.prompt,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
               const SizedBox(height: 20),
               Form(
                 autovalidateMode: AutovalidateMode.always,

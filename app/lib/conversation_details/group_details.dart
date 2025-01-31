@@ -51,10 +51,13 @@ class GroupDetails extends StatelessWidget {
                   final bytes = await image?.readAsBytes();
                   conversationDetailsCubit.setConversationPicture(bytes: bytes);
                 }),
-            Text(conversation.title, style: labelStyle),
+            Text(
+              conversation.title,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
             Text(
               conversation.conversationType.description,
-              style: labelStyle,
+              style: Theme.of(context).textTheme.labelMedium,
             ),
             Expanded(
               child: Container(
@@ -64,9 +67,12 @@ class GroupDetails extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "Members",
-                        style: boldLabelStyle,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.merge(VariableFontWeight.bold),
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -82,7 +88,7 @@ class GroupDetails extends StatelessWidget {
                               ),
                               title: Text(
                                 member,
-                                style: labelStyle,
+                                style: Theme.of(context).textTheme.labelMedium,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               trailing: const Icon(Icons.more_horiz),

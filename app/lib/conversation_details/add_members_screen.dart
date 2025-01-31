@@ -66,7 +66,7 @@ class AddMembersScreenView extends StatelessWidget {
                         ),
                         title: Text(
                           contact.userName,
-                          style: labelStyle,
+                          style: Theme.of(context).textTheme.labelMedium,
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Checkbox(
