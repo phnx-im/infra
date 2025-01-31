@@ -189,11 +189,25 @@ extension on HomeNavigation {
           key: ValueKey("add-members-screen"),
           child: AddMembersScreen(),
         ),
-      if (developerSettingsOpen)
-        const MaterialPage(
-          key: ValueKey("developer-settings-screen"),
-          child: DeveloperSettingsScreen(),
-        ),
+      ...switch (developerSettingsScreen) {
+        null => [],
+        DeveloperSettingsScreenType.root => [
+            const MaterialPage(
+              key: ValueKey("developer-settings-screen"),
+              child: DeveloperSettingsScreen(),
+            ),
+          ],
+        DeveloperSettingsScreenType.changeUser => [
+            const MaterialPage(
+              key: ValueKey("developer-settings-screen-root"),
+              child: DeveloperSettingsScreen(),
+            ),
+            const MaterialPage(
+              key: ValueKey("developer-settings-screen-change-user"),
+              child: ChangeUserScreen(),
+            ),
+          ]
+      },
     ];
   }
 }

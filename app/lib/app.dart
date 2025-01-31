@@ -76,7 +76,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         BlocProvider<LoadableUserCubit>(
           // loads the user on startup
           create: (context) =>
-              LoadableUserCubit((_coreClient..loadUser()).userStream),
+              LoadableUserCubit((_coreClient..loadDefaultUser()).userStream),
           lazy: false, // immediately try to load the user
         ),
       ],

@@ -17,6 +17,7 @@ use phnxcoreclient::{
     Message, MessageId, MimiContent, SystemMessage, UserProfile,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
+use phnxtypes::identifiers::QualifiedUserName;
 use uuid::Uuid;
 
 /// Mirror of the [`ConversationId`] types
@@ -417,6 +418,7 @@ impl From<Contact> for UiContact {
 }
 
 /// Profile of a user
+#[derive(Debug)]
 pub struct UiUserProfile {
     /// Fully qualified user name
     pub user_name: String,
@@ -474,5 +476,41 @@ impl ImageData {
     pub fn compute_hash(bytes: &[u8]) -> String {
         let hash = blake3::hash(bytes);
         hash.to_hex().to_string()
+    }
+}
+
+/// Client record of a user
+///
+/// Each user has a client record which identifies the users database.
+#[derive(Debug)]
+pub struct UiClientRecord {
+    /// The unique identifier of the client
+    ///
+    /// Also used for identifying the client database path.
+    pub(crate) client_id: Uuid,
+    pub(crate) user_name: UiUserName,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) user_profile: Option<UiUserProfile>,
+    pub(crate) is_finished: bool,
+}
+
+#[derive(Debug)]
+pub struct UiUserName {
+    pub(crate) user_name: String,
+    pub(crate) domain: String,
+}
+
+impl UiUserName {
+    pub(crate) fn from_qualified_user_name(user_name: &QualifiedUserName) -> Self {
+        Self {
+            user_name: user_name.user_name().to_string(),
+            domain: user_name.domain().to_string(),
+        }
+    }
+}
+
+impl fmt::Display for UiUserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{}", self.user_name, self.domain)
     }
 }

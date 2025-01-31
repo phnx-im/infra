@@ -10,8 +10,23 @@ import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/util/platform.dart';
+import 'package:uuid/uuid_value.dart';
 
 final _log = Logger('CoreClient');
+
+Future<String> dbPath() async {
+  final String path;
+
+  if (Platform.isAndroid || Platform.isIOS) {
+    path = await getDatabaseDirectoryMobile();
+  } else {
+    final directory = await getApplicationDocumentsDirectory();
+    path = directory.path;
+  }
+
+  _log.info("Database path: $path");
+  return path;
+}
 
 class CoreClient {
   static final CoreClient _coreClient = CoreClient._internal();
@@ -31,47 +46,42 @@ class CoreClient {
   Stream<User?> get userStream => _userController.stream;
 
   User get user => _user!;
-  set user(User user) {
+
+  set user(User? user) {
+    _log.info("setting user: ${user?.userName}");
     _userController.add(user);
     _user = user;
   }
 
-  Future<String> dbPath() async {
-    final String path;
-
-    if (Platform.isAndroid || Platform.isIOS) {
-      path = await getDatabaseDirectoryMobile();
-    } else {
-      final directory = await getApplicationDocumentsDirectory();
-      path = directory.path;
-    }
-
-    _log.info("Database path: $path");
-    return path;
+  void logout() {
+    user = null;
   }
 
   // used in dev settings
   Future<void> deleteDatabase() async {
-    await deleteDatabases(clientDbPath: await dbPath());
+    await deleteDatabases(dbPath: await dbPath());
+    _userController.add(null);
+    _user = null;
+  }
+
+  // used in dev settings
+  Future<void> deleteUserDatabase() async {
+    await deleteClientDatabase(
+      dbPath: await dbPath(),
+      userName: user.userName,
+      clientId: user.clientId,
+    );
     _userController.add(null);
     _user = null;
   }
 
   // used in app initialization
-  Future<bool> loadUser() async {
-    try {
-      user = await User.loadDefault(path: await dbPath());
-      final userName = await user.userName;
-
-      _log.info("Loaded user: $userName");
-
-      return true;
-    } catch (e) {
-      _log.severe("Error when loading user: $e");
-      _userController.add(null);
-      _user = null;
-      return false;
-    }
+  Future<void> loadDefaultUser() async {
+    user = await User.loadDefault(path: await dbPath())
+        .onError((error, stackTrace) {
+      _log.severe("Error loading default user $error");
+      return null;
+    });
   }
 
   // used in registration cubit
@@ -109,5 +119,16 @@ class CoreClient {
     );
 
     _log.info("User registered");
+  }
+
+  Future<void> loadUser({
+    required UiUserName userName,
+    required UuidValue clientId,
+  }) async {
+    user = await User.load(
+      dbPath: await dbPath(),
+      userName: userName,
+      clientId: clientId,
+    );
   }
 }

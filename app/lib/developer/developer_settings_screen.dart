@@ -5,10 +5,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/user/user.dart';
-import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/util/platform.dart';
 import 'package:prototype/widgets/widgets.dart';
@@ -28,151 +27,211 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    getDeviceToken().then((token) {
-      setState(() {
-        deviceToken = token;
-      });
+    _loadDeviceToken();
+  }
+
+  void _loadDeviceToken() async {
+    final token = await getDeviceToken();
+    setState(() {
+      deviceToken = token;
     });
   }
 
-  bool _canReRegisterPushToken() =>
-      isTouch() && context.read<LoadableUserCubit>().state.user != null;
+  @override
+  build(BuildContext context) {
+    return DeveloperSettingsScreenView(
+      deviceToken: deviceToken,
+      isMobile: Platform.isAndroid || Platform.isIOS,
+      onRefreshPushToken: () =>
+          _reRegisterPushToken(context.read<CoreClient>()),
+    );
+  }
 
   void _reRegisterPushToken(CoreClient coreClient) async {
-    if (_canReRegisterPushToken()) {
-      final deviceToken = await getDeviceToken();
-      if (deviceToken != null) {
-        if (Platform.isAndroid) {
-          final pushToken = PlatformPushToken.google(deviceToken);
-          coreClient.user.updatePushToken(pushToken);
-        } else if (Platform.isIOS) {
-          final pushToken = PlatformPushToken.apple(deviceToken);
-          coreClient.user.updatePushToken(pushToken);
-        }
+    final newDeviceToken = await getDeviceToken();
+    if (newDeviceToken != null) {
+      if (Platform.isAndroid) {
+        final pushToken = PlatformPushToken.google(newDeviceToken);
+        coreClient.user.updatePushToken(pushToken);
+        setState(() {
+          deviceToken = pushToken.token;
+        });
+      } else if (Platform.isIOS) {
+        final pushToken = PlatformPushToken.apple(newDeviceToken);
+        coreClient.user.updatePushToken(pushToken);
+        setState(() {
+          deviceToken = pushToken.token;
+        });
+      } else {
+        throw StateError("unsupported platform");
       }
     }
   }
+}
 
-  void _confirmEraseDatabase() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmation'),
-          content: const Text('Are you sure you want to erase the database?'),
-          actions: [
-            TextButton(
-              style: textButtonStyle(context),
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              style: textButtonStyle(context),
-              onPressed: _eraseDatabase,
-              child: const Text('Erase'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+const _titleFontWeight = FontWeight.w600;
 
-  void _eraseDatabase() async {
-    // Perform database erase operation
-    final messengerState = ScaffoldMessenger.of(context);
-    try {
-      await context.read<CoreClient>().deleteDatabase();
-    } catch (e) {
-      showErrorBanner(messengerState, "Could not delete databases: $e");
-      print(e);
-    }
-  }
+class DeveloperSettingsScreenView extends StatelessWidget {
+  const DeveloperSettingsScreenView({
+    required this.deviceToken,
+    required this.onRefreshPushToken,
+    required this.isMobile,
+    super.key,
+  });
 
-  Widget deviceTokenElement() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          "Device token (mobile only):",
-          style: labelStyle,
-        ),
-        const SizedBox(height: 10),
-        SelectableText(
-          deviceToken ?? "N/A",
-          style: labelStyle,
-        ),
-        const SizedBox(height: 10),
-        if (deviceToken != null)
-          TextButton(
-            style: ButtonStyle(
-              foregroundColor: WidgetStateProperty.all<Color>(colorDMB),
-              textStyle: WidgetStateProperty.all<TextStyle>(
-                TextStyle(
-                  fontVariations: variationSemiBold,
-                  fontFamily: fontFamily,
-                  fontSize: isSmallScreen(context) ? 16 : 14,
-                ),
-              ),
-            ),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: deviceToken ?? ""));
-            },
-            child: const Text('Copy to clipboard'),
-          ),
-        const SizedBox(height: 10),
-        if (_canReRegisterPushToken())
-          OutlinedButton(
-            style: buttonStyle(context, _canReRegisterPushToken()),
-            onPressed: () async {
-              if (_canReRegisterPushToken()) {
-                _reRegisterPushToken(context.read<CoreClient>());
-              }
-            },
-            child: const Text('Re-register push token'),
-          ),
-      ]
-          .map((widget) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: widget,
-              ))
-          .toList(),
-    );
-  }
-
-  Widget eraseDatabaseElement() {
-    return OutlinedButton(
-      style: buttonStyle(context, true),
-      onPressed: _confirmEraseDatabase,
-      child: const Text('Erase Database'),
-    );
-  }
+  final String? deviceToken;
+  final bool isMobile;
+  final VoidCallback onRefreshPushToken;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Developer Settings'),
-        toolbarHeight: isPointer() ? 100 : null,
-        leading: const AppBarBackButton(),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (isTouch()) deviceTokenElement(),
-              eraseDatabaseElement(),
-            ]
-                .map((widget) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: widget,
-                    ))
-                .toList(),
+    final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
+
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Developer Settings'),
+          leading: const AppBarBackButton(),
+        ),
+        body: Center(
+          child: Container(
+            constraints:
+                isPointer() ? const BoxConstraints(maxWidth: 800) : null,
+            child: ListTileTheme(
+              data: Theme.of(context).listTileTheme.copyWith(
+                    titleAlignment: ListTileTitleAlignment.titleHeight,
+                    titleTextStyle: Theme.of(context)
+                        .textTheme
+                        .bodyLarge!
+                        .copyWith(fontWeight: _titleFontWeight),
+                  ),
+              child: ListView(
+                children: [
+                  if (isMobile) ...[
+                    _SectionHeader("Mobile Device"),
+                    ListTile(
+                      title: const Text('Push Token'),
+                      subtitle: Text(deviceToken ?? "N/A"),
+                      trailing: const Icon(Icons.refresh),
+                      onTap: onRefreshPushToken,
+                    ),
+                  ],
+                  if (user != null) ...[
+                    _SectionHeader("User"),
+                    ListTile(
+                      title: Text("Change User"),
+                      trailing: const Icon(Icons.change_circle),
+                      onTap: () => context
+                          .read<NavigationCubit>()
+                          .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.changeUser),
+                    ),
+                    ListTile(
+                      title: Text("Log Out"),
+                      trailing: const Icon(Icons.logout),
+                      onTap: () => context.read<CoreClient>().logout(),
+                    ),
+                  ],
+                  _SectionHeader("App Data"),
+                  if (user != null)
+                    ListTile(
+                      title: Text(
+                        user.userName,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Colors.red,
+                              fontWeight: _titleFontWeight,
+                            ),
+                      ),
+                      subtitle: Text("id: ${user.clientId}"),
+                      trailing: const Icon(Icons.delete),
+                      onTap: () => _confirmDialog(
+                        context: context,
+                        onConfirm: () =>
+                            context.read<CoreClient>().deleteUserDatabase(),
+                        label: "Are you sure you want to erase the database?",
+                        confirmLabel: "Erase",
+                      ),
+                    ),
+                  ListTile(
+                    title: Text(
+                      'Erase All Databases',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.red,
+                            fontWeight: _titleFontWeight,
+                          ),
+                    ),
+                    trailing: const Icon(Icons.delete),
+                    onTap: () => _confirmDialog(
+                      context: context,
+                      onConfirm: () {
+                        context.read<CoreClient>().deleteDatabase();
+                        context.read<NavigationCubit>().openIntro();
+                      },
+                      label: "Are you sure you want to erase all databases?",
+                      confirmLabel: "Erase",
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+void _confirmDialog({
+  required BuildContext context,
+  required void Function() onConfirm,
+  required String label,
+  required String confirmLabel,
+}) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text(label),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: onConfirm,
+            child: Text(confirmLabel),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: Spacings.xxs,
+        horizontal: Spacings.xs,
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context)
+            .textTheme
+            .labelMedium
+            ?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
   }

@@ -89,3 +89,8 @@ class MockMessageCubit extends MockCubit<MessageState> implements MessageCubit {
     when(() => state).thenReturn(initialState);
   }
 }
+
+class MockLoadableUserCubit extends MockCubit<LoadableUser>
+    implements LoadableUserCubit {}
+
+class MockUser extends Mock implements User {}

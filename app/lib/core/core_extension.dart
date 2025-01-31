@@ -44,6 +44,18 @@ extension UiFlightPositionExtension on UiFlightPosition {
       };
 }
 
+extension UiUserNameExtension on UiUserName {
+  String displayName(String? displayName) =>
+      displayName != null && displayName.isNotEmpty ? displayName : userName;
+}
+
+extension DeviceTokenExtension on PlatformPushToken {
+  String get token => switch (this) {
+        PlatformPushToken_Apple(field0: final token) => token,
+        PlatformPushToken_Google(field0: final token) => token,
+      };
+}
+
 extension ImageDataExtension on Uint8List {
   ImageData toImageData() =>
       ImageData(data: this, hash: ImageData.computeHash(this));
