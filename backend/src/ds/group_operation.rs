@@ -25,7 +25,7 @@ use phnxtypes::{
         signatures::{keys::QsVerifyingKey, signable::Verifiable},
     },
     errors::GroupOperationError,
-    identifiers::{Fqdn, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{Fqdn, QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     keypackage_batch::{KeyPackageBatch, KEYPACKAGEBATCH_EXPIRATION, VERIFIED},
     messages::{
         client_ds::{
@@ -44,7 +44,7 @@ use crate::{
     qs::QsConnector,
 };
 
-use super::{group_state::ClientProfile, process::USER_EXPIRATION_DAYS};
+use super::{group_state::MemberProfile, process::USER_EXPIRATION_DAYS};
 
 use super::group_state::DsGroupState;
 
@@ -131,17 +131,6 @@ impl DsGroupState {
             }
         };
 
-        if !self
-            .user_profiles
-            .get(&params.sender)
-            .ok_or(GroupOperationError::LibraryError)?
-            .clients
-            .contains(&sender_index.leaf_index())
-        {
-            warn!("External commit is not a resync operation");
-            return Err(GroupOperationError::InvalidMessage);
-        };
-
         // Check if the operation adds a user.
         let adds_users = staged_commit.add_proposals().count() != 0;
 
@@ -193,7 +182,7 @@ impl DsGroupState {
                 // config of the original client. We need this later to create
                 // the new client profile.
                 let encrypted_identity_link_key = self
-                    .client_profiles
+                    .member_profiles
                     .get(&original_index)
                     .ok_or(GroupOperationError::InvalidMessage)?
                     .encrypted_identity_link_key
@@ -206,13 +195,11 @@ impl DsGroupState {
                     .iter()
                     .find_map(|e| match e {
                         Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
-                            let extension = QsClientReference::tls_deserialize_exact_bytes(
-                                &bytes.0,
-                            )
-                            .map_err(|e| {
-                                warn!(%e, "Error deserializing client reference");
-                                GroupOperationError::InvalidMessage
-                            });
+                            let extension = QsReference::tls_deserialize_exact_bytes(&bytes.0)
+                                .map_err(|e| {
+                                    warn!(%e, "Error deserializing client reference");
+                                    GroupOperationError::InvalidMessage
+                                });
                             Some(extension)
                         }
                         _ => None,
@@ -240,7 +227,7 @@ impl DsGroupState {
 
         // Process removes
 
-        self.remove_profiles(removed_clients, sender_index);
+        self.remove_profiles(removed_clients);
 
         // ... s.t. it's easier to update the user and client profiles.
 
@@ -266,14 +253,14 @@ impl DsGroupState {
         {
             // The original client profile was already removed. We just have to
             // add the new one.
-            let client_profile = ClientProfile {
+            let client_profile = MemberProfile {
                 leaf_index: sender_index.leaf_index(),
                 encrypted_identity_link_key,
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
             };
-            self.client_profiles
+            self.member_profiles
                 .insert(sender_index.leaf_index(), client_profile);
         }
 
@@ -298,7 +285,7 @@ impl DsGroupState {
                     .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
                     .ok_or(GroupOperationError::InvalidMessage)?;
                 let leaf_index = member.index;
-                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
+                let client_queue_config = QsReference::tls_deserialize_exact_bytes(
                     key_package
                         .leaf_node()
                         .extensions()
@@ -313,7 +300,7 @@ impl DsGroupState {
                         .as_slice(),
                 )
                 .map_err(|_| GroupOperationError::MissingQueueConfig)?;
-                let client_profile = ClientProfile {
+                let client_profile = MemberProfile {
                     leaf_index,
                     encrypted_identity_link_key: encrypted_identity_link_key.clone(),
                     client_queue_config: client_queue_config.clone(),
@@ -322,10 +309,8 @@ impl DsGroupState {
                 };
                 client_profiles.push(client_profile);
             }
-            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
-            self.unmerged_users.push(clients);
             for client_profile in client_profiles.into_iter() {
-                self.client_profiles
+                self.member_profiles
                     .insert(client_profile.leaf_index, client_profile);
             }
         }
@@ -342,7 +327,7 @@ impl DsGroupState {
         let mut fan_out_messages = vec![];
         for (key_packages, attribution_info) in added_users.into_iter() {
             for (key_package, _) in key_packages {
-                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
+                let client_queue_config = QsReference::tls_deserialize_exact_bytes(
                     key_package
                         .leaf_node()
                         .extensions()
@@ -388,33 +373,10 @@ impl DsGroupState {
     }
 
     /// Removes user and client profiles based on the list of removed clients.
-    // TODO: Simplified version as we don't support multi-client yet.
-    fn remove_profiles(&mut self, removed_clients: Vec<LeafNodeIndex>, sender_index: SenderIndex) {
+    fn remove_profiles(&mut self, removed_clients: Vec<LeafNodeIndex>) {
         for client_index in removed_clients {
-            let removed_client_profile_option = self.client_profiles.remove(&client_index);
+            let removed_client_profile_option = self.member_profiles.remove(&client_index);
             debug_assert!(removed_client_profile_option.is_some());
-
-            // Don't remove user profiles for external senders as they remain in
-            // the group.
-            if let SenderIndex::External(_) = sender_index {
-                continue;
-            }
-
-            let marked_users = self
-                .user_profiles
-                .iter()
-                .filter_map(|(user_key_hash, user_profile)| {
-                    if user_profile.clients.contains(&client_index) {
-                        Some(user_key_hash.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            for user_key_hash in marked_users.iter() {
-                let removed_user_profile_option = self.user_profiles.remove(user_key_hash);
-                debug_assert!(removed_user_profile_option.is_some());
-            }
         }
     }
 }

@@ -35,9 +35,7 @@ use phnxtypes::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    identifiers::{
-        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
-    },
+    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         push_token::{EncryptedPushToken, PushToken},
@@ -449,11 +447,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.group_state_ear_key())
             .await?;
 
         // Phase 5: Merge the commit into the group
@@ -501,11 +495,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&conversation.owner_domain())?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -709,13 +699,7 @@ impl CoreUser {
         self.inner
             .api_clients
             .default_client()?
-            .ds_create_group(
-                params,
-                connection_group.group_state_ear_key(),
-                connection_group
-                    .user_auth_key()
-                    .ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_create_group(params, connection_group.group_state_ear_key())
             .await?;
 
         // Encrypt the connection establishment package for each connection and send it off.
@@ -827,11 +811,7 @@ impl CoreUser {
                 .inner
                 .api_clients
                 .get(&owner_domain)?
-                .ds_delete_group(
-                    params,
-                    group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                    group.group_state_ear_key(),
-                )
+                .ds_delete_group(params, group.group_state_ear_key())
                 .await?;
 
             // Phase 4: Merge the commit into the group
@@ -935,11 +915,7 @@ impl CoreUser {
         self.inner
             .api_clients
             .get(&owner_domain)?
-            .ds_self_remove_client(
-                params,
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                group.group_state_ear_key(),
-            )
+            .ds_self_remove(params, group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -1024,13 +1000,13 @@ impl CoreUser {
         Ok(partial_contact)
     }
 
-    fn create_own_client_reference(&self) -> QsClientReference {
+    fn create_own_client_reference(&self) -> QsReference {
         let sealed_reference = ClientConfig {
             client_id: self.inner.qs_client_id.clone(),
             push_token_ear_key: Some(self.inner.key_store.push_token_ear_key.clone()),
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
-        QsClientReference {
+        QsReference {
             client_homeserver_domain: self.user_name().domain(),
             sealed_reference,
         }

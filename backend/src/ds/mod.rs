@@ -12,17 +12,15 @@ use uuid::Uuid;
 
 use crate::infra_service::{InfraService, ServiceCreationError};
 
-mod add_clients;
 mod delete_group;
 mod group_operation;
 pub mod group_state;
 mod join_connection_group;
 mod join_group;
 pub mod process;
-mod remove_clients;
-mod resync_client;
-mod self_remove_client;
-mod update_client;
+mod resync;
+mod self_remove;
+mod update;
 
 /// Number of days after its last use upon which a group state is considered
 /// expired.

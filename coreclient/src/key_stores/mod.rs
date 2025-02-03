@@ -16,7 +16,7 @@ use phnxtypes::{
         kdf::keys::ConnectionKey,
     },
     identifiers::{
-        ClientConfig, QsClientId, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
+        ClientConfig, QsClientId, QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
     },
 };
 use tls_codec::Serialize as TlsSerializeTrait;
@@ -68,13 +68,13 @@ impl MemoryUserKeyStore {
     pub(crate) fn create_own_client_reference(
         &self,
         qs_client_id: &QsClientId,
-    ) -> QsClientReference {
+    ) -> QsReference {
         let sealed_reference = ClientConfig {
             client_id: qs_client_id.clone(),
             push_token_ear_key: Some(self.push_token_ear_key.clone()),
         }
         .encrypt(&self.qs_client_id_encryption_key, &[], &[]);
-        QsClientReference {
+        QsReference {
             client_homeserver_domain: self
                 .signing_key
                 .credential()

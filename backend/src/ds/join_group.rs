@@ -14,7 +14,7 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 
 use super::{
-    group_state::{ClientProfile, DsGroupState},
+    group_state::{DsGroupState, MemberProfile},
     process::USER_EXPIRATION_DAYS,
 };
 
@@ -64,15 +64,6 @@ impl DsGroupState {
         } else {
             return Err(JoinGroupError::InvalidMessage);
         };
-        // Check if the claimed client indices match those in the user's profile.
-        if let Some(user_profile) = self.user_profiles.get(&params.sender) {
-            if user_profile.clients != aad_payload.existing_user_clients {
-                return Err(JoinGroupError::InvalidMessage);
-            }
-        } else {
-            // This should have been checked during validation
-            return Err(JoinGroupError::LibraryError);
-        }
 
         // Get the sender's credential s.t. we can identify them later.
         let sender_credential = processed_message.credential().clone();
@@ -97,22 +88,14 @@ impl DsGroupState {
             })
             .ok_or(JoinGroupError::ProcessingError)?;
 
-        // Create a client profile and update the user's user profile.
-        if let Some(user_profile) = self.user_profiles.get_mut(&params.sender) {
-            user_profile.clients.push(sender);
-        } else {
-            // This should have been checked during validation
-            return Err(JoinGroupError::LibraryError);
-        }
-
-        let client_profile = ClientProfile {
+        let member_profile = MemberProfile {
             leaf_index: sender,
             encrypted_identity_link_key: aad_payload.encrypted_identity_link_key,
-            client_queue_config: params.qs_client_reference,
+            client_queue_config: params.qs_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),
         };
-        self.client_profiles.insert(sender, client_profile);
+        self.member_profiles.insert(sender, member_profile);
 
         Ok(processed_assisted_message_plus.serialized_mls_message)
     }

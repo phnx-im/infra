@@ -8,7 +8,7 @@
 //! module, to allow re-use by the client implementation.
 
 use mls_assist::{
-    messages::{AssistedMessageOut, AssistedWelcome},
+    messages::AssistedMessageOut,
     openmls::{
         prelude::{
             group_info::VerifiableGroupInfo, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
@@ -21,12 +21,9 @@ use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
-        signatures::{
-            keys::{UserAuthVerifyingKey, UserKeyHash},
-            signable::{Signable, Signature, SignedStruct},
-        },
+        signatures::signable::{Signable, Signature, SignedStruct},
     },
-    identifiers::QsClientReference,
+    identifiers::QsReference,
     keypackage_batch::{KeyPackageBatch, VERIFIED},
     time::TimeStamp,
 };
@@ -63,8 +60,7 @@ pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
-    pub creator_client_reference: QsClientReference,
-    pub creator_user_auth_key: UserAuthVerifyingKey,
+    pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,
 }
 
@@ -78,58 +74,34 @@ pub struct AddUsersInfoOut {
 #[derive(Debug, TlsSize, TlsSerialize)]
 pub struct GroupOperationParamsOut {
     pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
     pub add_users_info_option: Option<AddUsersInfoOut>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct UpdateClientParamsOut {
+pub struct UpdateParamsOut {
     pub commit: AssistedMessageOut,
-    pub sender: LeafNodeIndex,
-    pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct JoinGroupParamsOut {
     pub external_commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
-    pub qs_client_reference: QsClientReference,
+    pub qs_client_reference: QsReference,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessageOut,
-    pub sender: UserAuthVerifyingKey,
-    pub qs_client_reference: QsClientReference,
+    pub qs_client_reference: QsReference,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AddClientsParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
-    pub welcome: AssistedWelcome,
-    // TODO: Do we need those? They come from our own clients. We can probably
-    // just send these through the all-clients group.
-    pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct RemoveClientsParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
-    pub new_auth_key: UserAuthVerifyingKey,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct ResyncClientParamsOut {
+pub struct ResyncParamsOut {
     pub external_commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct SelfRemoveClientParamsOut {
+pub struct SelfRemoveParamsOut {
     pub remove_proposal: AssistedMessageOut,
-    pub sender: UserKeyHash,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -141,7 +113,6 @@ pub struct SendMessageParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct DeleteGroupParamsOut {
     pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -153,13 +124,11 @@ pub enum DsRequestParamsOut {
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
-    UpdateClient(UpdateClientParamsOut),
+    Update(UpdateParamsOut),
     JoinGroup(JoinGroupParamsOut),
     JoinConnectionGroup(JoinConnectionGroupParamsOut),
-    AddClients(AddClientsParamsOut),
-    RemoveClients(RemoveClientsParamsOut),
-    ResyncClient(ResyncClientParamsOut),
-    SelfRemoveClient(SelfRemoveClientParamsOut),
+    Resync(ResyncParamsOut),
+    SelfRemove(SelfRemoveParamsOut),
     SendMessage(SendMessageParamsOut),
     DeleteGroup(DeleteGroupParamsOut),
     GroupOperation(GroupOperationParamsOut),
