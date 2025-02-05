@@ -50,9 +50,9 @@ use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
 use tracing::{error, info};
-use uuid::Uuid;
 
 use crate::store::StoreNotificationsSender;
+use crate::utils::persistence::{SqliteConnection, Storable};
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -75,10 +75,6 @@ use crate::{
     Asset,
 };
 use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
-use crate::{
-    utils::persistence::{SqliteConnection, Storable},
-    Message,
-};
 
 use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 
