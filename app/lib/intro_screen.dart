@@ -15,7 +15,6 @@ class IntroScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUserLoading = context.select((LoadableUserCubit cubit) {
-      debugPrint("isUserLoading: ${cubit.state}");
       return cubit.state is LoadingUser;
     });
 
