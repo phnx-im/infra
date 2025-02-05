@@ -37,6 +37,6 @@ flutter_rust_bridge = { version = "=2.7.0", features = ["chrono", "uuid"] }
 notify-rust = "4"
 chrono = { workspace = true }
 jni = "0.21"
-tokio-util = "0.7.13"
+tokio-util = { workspace = true }
 tokio-stream = "0.1.17"
 blake3 = "1.5.5"
