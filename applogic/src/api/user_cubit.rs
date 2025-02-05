@@ -110,6 +110,12 @@ pub struct UserCubitBase {
     _background_tasks_cancel: DropGuard,
 }
 
+impl Drop for UserCubitBase {
+    fn drop(&mut self) {
+        info!("Dropping UserCubitBase");
+    }
+}
+
 const WEBSOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 const WEBSCOKET_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 const POLLING_INTERVAL: Duration = Duration::from_secs(10);
@@ -244,9 +250,12 @@ impl UserCubitBase {
 fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
-        while let Err(error) = run_websocket(&core_user, &cancel, &mut backoff).await {
+        let mut websocket_cancel = cancel.child_token();
+        while let Err(error) = run_websocket(&core_user, &websocket_cancel, &mut backoff).await {
             let timeout = backoff.next_backoff();
             info!(%error, retry_in =? timeout, "Websocket failed");
+            websocket_cancel.cancel();
+            websocket_cancel = cancel.child_token();
             tokio::time::sleep(timeout).await;
         }
         info!("Websocket handler stopped normally");
@@ -263,6 +272,7 @@ async fn run_websocket(
         .websocket(
             WEBSOCKET_TIMEOUT.as_secs(),
             WEBSCOKET_RETRY_INTERVAL.as_secs(),
+            cancel.clone(),
         )
         .await?;
     loop {
@@ -271,7 +281,7 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, core_user).await?,
+            Some(event) => handle_websocket_message(event, core_user).await,
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
@@ -306,10 +316,10 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
     });
 }
 
-async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) -> anyhow::Result<()> {
+async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
     match event {
         WsEvent::ConnectedEvent => info!("connected to websocket"),
-        WsEvent::DisconnectedEvent => bail!("server disconnect"),
+        WsEvent::DisconnectedEvent => info!("disconnected from websocket"),
         WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
             warn!("ignoring websocket event: {event:?}")
         }
@@ -326,7 +336,6 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) -> anyho
             }
         }
     }
-    Ok(())
 }
 
 async fn process_fetched_messages(_fetched_messages: FetchedMessages) {
