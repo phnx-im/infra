@@ -20,12 +20,10 @@ class ConversationListFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      alignment: AlignmentDirectional.topStart,
-      padding: const EdgeInsets.fromLTRB(15, 15, 15, 30),
+    return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton.icon(
             style: textButtonStyle(context),

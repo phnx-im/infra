@@ -70,7 +70,8 @@ final conversations = [
             id: 2.messageId(),
             timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
             lastSeen: [],
-            body: 'Hello Alice',
+            body:
+                'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           ),
         ),
       ),

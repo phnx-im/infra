@@ -41,14 +41,15 @@ class ConversationListView extends StatelessWidget {
           ),
         ),
       ),
-      child: const Scaffold(
+      child: Scaffold(
         backgroundColor: convPaneBackgroundColor,
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
+        body: Stack(
           children: [
+            Padding(
+              padding: EdgeInsets.only(top: kToolbarHeight, bottom: 120),
+              child: ConversationListContent(),
+            ),
             ConversationListHeader(),
-            SizedBox(height: Spacings.s),
-            Expanded(child: ConversationListContent()),
             ConversationListFooter(),
           ],
         ),
