@@ -20,6 +20,7 @@ use phnxtypes::{
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
 use tls_codec::Serialize;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -49,8 +50,9 @@ async fn ws_lifecycle() {
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Spawn the websocket connection task
+    let cancel = CancellationToken::new();
     let mut ws = client
-        .spawn_websocket(queue_id, timeout, retry_interval)
+        .spawn_websocket(queue_id, timeout, retry_interval, cancel)
         .await
         .expect("Failed to execute request");
 

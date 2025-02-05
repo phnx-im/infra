@@ -31,6 +31,7 @@ async-trait = "0.1.74"
 actix-web-actors = "4.2.0"
 actix = "0.13"
 tokio = "1"
+tokio-util = { workspace = true }
 base64 = "0.22"
 thiserror = "1.0"
 tracing = { version = "0.1", features = ["log"] }
