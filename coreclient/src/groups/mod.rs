@@ -36,7 +36,6 @@ use phnxtypes::{
         signatures::signable::{Signable, Verifiable},
     },
     identifiers::{AsClientId, QsReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
-    keypackage_batch::{KeyPackageBatch, VERIFIED},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
@@ -505,17 +504,12 @@ impl Group {
     ) -> Result<GroupOperationParamsOut> {
         debug_assert!(add_infos.len() == wai_keys.len());
         debug_assert!(add_infos.len() == client_credentials.len());
-        // Prepare KeyPackageBatches and KeyPackages
-        let (key_package_vecs, key_package_batches): (
-            Vec<Vec<(KeyPackage, IdentityLinkKey)>>,
-            Vec<KeyPackageBatch<VERIFIED>>,
-        ) = add_infos
-            .into_iter()
-            .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
-            .unzip();
+        // Prepare KeyPackages
 
-        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) =
-            key_package_vecs.into_iter().flatten().unzip();
+        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) = add_infos
+            .into_iter()
+            .map(|ai| (ai.key_package, ai.identity_link_key))
+            .unzip();
 
         let new_encrypted_identity_link_keys = identity_link_keys
             .iter()
@@ -597,7 +591,6 @@ impl Group {
         let add_users_info = AddUsersInfoOut {
             welcome,
             encrypted_welcome_attribution_infos,
-            key_package_batches,
         };
 
         let params = GroupOperationParamsOut {
@@ -887,40 +880,6 @@ impl Group {
         }
         let commit = AssistedMessageOut::new(mls_message, Some(group_info))?;
         Ok(UpdateParamsOut { commit })
-    }
-
-    /// Update or set the user's auth key in this group.
-    pub(super) fn update_user_key(&mut self, connection: &Connection) -> Result<UpdateParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
-        let aad_payload = UpdateParamsAad {
-            option_encrypted_identity_link_key: None,
-        };
-        let aad =
-            InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
-        self.mls_group.set_aad(aad);
-        let (commit, _welcome_option, group_info_option) = self
-            .mls_group
-            .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
-            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
-            .into_messages();
-        let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
-
-        for remove in self
-            .mls_group()
-            .pending_commit()
-            .ok_or(anyhow!("No pending commit after commit operation"))?
-            .remove_proposals()
-        {
-            GroupMembership::stage_removal(
-                connection,
-                self.group_id(),
-                remove.remove_proposal().removed(),
-            )?;
-        }
-
-        let commit = AssistedMessageOut::new(commit, Some(group_info))?;
-        let params = UpdateParamsOut { commit };
-        Ok(params)
     }
 
     pub(super) fn leave_group(&mut self, connection: &Connection) -> Result<SelfRemoveParamsOut> {

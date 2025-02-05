@@ -16,7 +16,6 @@ mod delete_group;
 mod group_operation;
 pub mod group_state;
 mod join_connection_group;
-mod join_group;
 pub mod process;
 mod resync;
 mod self_remove;

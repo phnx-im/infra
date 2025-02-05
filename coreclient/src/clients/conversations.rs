@@ -262,7 +262,7 @@ impl StoredGroup {
         let params = partial_params.into_params(client_reference);
         api_clients
             .default_client()?
-            .ds_create_group(params, group.group_state_ear_key())
+            .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         Ok(conversation_id)

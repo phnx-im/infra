@@ -211,36 +211,6 @@ impl Group {
                         // * Check that the client id is the same as before.
                         // * More validation on pseudonymous and client credential?
                     }
-                    InfraAadPayload::JoinGroup(join_group_payload) => {
-                        // JoinGroup Phase 1: Decrypt and verify the client
-                        // credential of the joiner
-                        let Some(sender_credential) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| ln.credential().clone())
-                        else {
-                            bail!("Could not find sender leaf node in staged commit")
-                        };
-
-                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                            connection_mutex.clone(),
-                            api_clients,
-                            group_id,
-                            &self.identity_link_wrapper_key,
-                            join_group_payload.encrypted_identity_link_key,
-                            sender_index,
-                            sender_credential,
-                        )
-                        .await?;
-
-                        // JoinGroup Phase 2: Check that the existing user
-                        let connection = connection_mutex.lock().await;
-                        // TODO: (More) validation:
-                        // * Check that the client id is unique.
-                        // * Check that the proposals fit the operation.
-                        // Persist the client auth info.
-                        client_auth_info.stage_add(&connection)?;
-                        drop(connection);
-                    }
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner

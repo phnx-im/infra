@@ -24,7 +24,6 @@ use crate::{
         signatures::signable::{Signable, Signature, SignedStruct},
     },
     identifiers::QsReference,
-    keypackage_batch::{KeyPackageBatch, VERIFIED},
     time::TimeStamp,
 };
 
@@ -68,7 +67,6 @@ pub struct CreateGroupParamsOut {
 pub struct AddUsersInfoOut {
     pub welcome: MlsMessageOut,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-    pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
 #[derive(Debug, TlsSize, TlsSerialize)]
@@ -83,12 +81,6 @@ pub struct UpdateParamsOut {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct JoinGroupParamsOut {
-    pub external_commit: AssistedMessageOut,
-    pub qs_client_reference: QsReference,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessageOut,
     pub qs_client_reference: QsReference,
@@ -97,6 +89,7 @@ pub struct JoinConnectionGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ResyncParamsOut {
     pub external_commit: AssistedMessageOut,
+    pub sender_index: LeafNodeIndex,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -125,7 +118,6 @@ pub enum DsRequestParamsOut {
     ConnectionGroupInfo(ConnectionGroupInfoParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
     Update(UpdateParamsOut),
-    JoinGroup(JoinGroupParamsOut),
     JoinConnectionGroup(JoinConnectionGroupParamsOut),
     Resync(ResyncParamsOut),
     SelfRemove(SelfRemoveParamsOut),

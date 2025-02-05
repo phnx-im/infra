@@ -10,9 +10,7 @@ use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
     qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
 };
-use phnxtypes::{
-    errors::qs::QsVerifyingKeyError, messages::client_qs::VerifiableClientToQsMessage,
-};
+use phnxtypes::messages::client_qs::VerifiableClientToQsMessage;
 use tls_codec::{DeserializeBytes, Serialize};
 
 pub mod push_notification_provider;
@@ -48,7 +46,7 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
 
 #[tracing::instrument(name = "Process federated QS message", skip_all)]
 pub(crate) async fn qs_process_federated_message<
-    Qc: QsConnector<EnqueueError = QsEnqueueError<N>, VerifyingKeyError = QsVerifyingKeyError>,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<N>>,
     N: NetworkProvider,
 >(
     qs_connector: Data<Qc>,
