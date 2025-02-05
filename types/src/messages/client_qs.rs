@@ -341,6 +341,8 @@ impl QsRequestParams {
     }
 }
 
+// We allow the large enum variant here because this is a message enum.
+#[allow(clippy::large_enum_variant)]
 #[derive(TlsSize, TlsSerialize)]
 #[repr(u8)]
 pub enum QsProcessResponse {
@@ -353,6 +355,8 @@ pub enum QsProcessResponse {
     EncryptionKey(EncryptionKeyResponse),
 }
 
+// We allow the large enum variant here because this is a message enum.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsProcessResponseIn {
