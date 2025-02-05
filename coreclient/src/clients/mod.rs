@@ -49,6 +49,7 @@ use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::store::StoreNotificationsSender;
@@ -1028,10 +1029,20 @@ impl CoreUser {
             .map(|group| group.pending_removes(connection))
     }
 
-    pub async fn websocket(&self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
+    pub async fn websocket(
+        &self,
+        timeout: u64,
+        retry_interval: u64,
+        cancel: CancellationToken,
+    ) -> Result<QsWebSocket> {
         let api_client = self.inner.api_clients.default_client();
         Ok(api_client?
-            .spawn_websocket(self.inner.qs_client_id.clone(), timeout, retry_interval)
+            .spawn_websocket(
+                self.inner.qs_client_id.clone(),
+                timeout,
+                retry_interval,
+                cancel,
+            )
             .await?)
     }
 
