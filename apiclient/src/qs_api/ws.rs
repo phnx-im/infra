@@ -90,6 +90,7 @@ impl ConnectionStatus {
 /// When dropped, the websocket connection will be closed.
 pub struct QsWebSocket {
     rx: mpsc::Receiver<WsEvent>,
+    _cancel: DropGuard,
 }
 
 impl QsWebSocket {
@@ -287,10 +288,9 @@ impl ApiClient {
         let (tx, rx) = mpsc::channel(100);
 
         let connection_id = Uuid::new_v4();
-
         info!(%connection_id, "Spawning the websocket connection...");
 
-        let cancel = cancel.clone();
+        let cancel_guard = cancel.clone().drop_guard();
 
         // Spawn the connection task
         tokio::spawn(async move {
@@ -345,6 +345,9 @@ impl ApiClient {
             info!(%connection_id, "QS WebSocket closed");
         });
 
-        Ok(QsWebSocket { rx })
+        Ok(QsWebSocket {
+            rx,
+            _cancel: cancel_guard,
+        })
     }
 }

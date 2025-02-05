@@ -3412,6 +3412,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tls_codec",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-actix-web",
  "tracing-bunyan-formatter",
