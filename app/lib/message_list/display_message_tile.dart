@@ -89,11 +89,9 @@ class SystemMessageContent extends StatelessWidget {
         message.message,
         style: TextStyle(
           color: Colors.grey[700],
-          fontVariations: variationBold,
-          letterSpacing: -0.02,
           fontSize: 10,
           height: 1.4,
-        ),
+        ).merge(VariableFontWeight.bold),
       ),
     );
   }
@@ -115,10 +113,9 @@ class ErrorMessageContent extends StatelessWidget {
         message.message,
         style: const TextStyle(
           color: Colors.red,
-          fontWeight: FontWeight.w200,
           fontSize: 10,
           height: 1.0,
-        ),
+        ).merge(VariableFontWeight.w200),
       ),
     );
   }

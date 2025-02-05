@@ -104,9 +104,8 @@ class TextMessageTile extends StatelessWidget {
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 11,
-            fontVariations: variationMedium,
             letterSpacing: -0.1,
-          ),
+          ).merge(VariableFontWeight.medium),
         ),
       ),
     );
@@ -165,10 +164,8 @@ class TextMessageTile extends StatelessWidget {
         isSender ? "You" : contentMessage.sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
-          fontVariations: variationSemiBold,
           fontSize: 12,
-          letterSpacing: -0.2,
-        ),
+        ).merge(VariableFontWeight.semiBold),
         overflow: TextOverflow.ellipsis,
       ),
     );

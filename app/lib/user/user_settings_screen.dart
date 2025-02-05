@@ -86,8 +86,6 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                   style: const TextStyle(
                     color: colorDMB,
                     fontSize: 12,
-                    fontVariations: variationRegular,
-                    letterSpacing: -0.2,
                   ),
                 ),
               ],

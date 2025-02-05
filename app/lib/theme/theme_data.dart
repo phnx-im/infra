@@ -5,31 +5,44 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/theme/theme.dart';
 
+const _defaultLetterSpacing = -0.2;
+
 ThemeData themeData(BuildContext context) => ThemeData(
       appBarTheme: AppBarTheme(
         color: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         surfaceTintColor: Colors.black,
-        titleTextStyle: boldLabelStyle.copyWith(color: Colors.black),
+        titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: Colors.black,
+          letterSpacing: _defaultLetterSpacing,
+        ).merge(VariableFontWeight.bold),
       ),
       fontFamily: fontFamily,
       textTheme: TextTheme(
-        displayLarge: TextStyle(letterSpacing: -0.2),
-        displayMedium: TextStyle(letterSpacing: -0.2),
-        displaySmall: TextStyle(letterSpacing: -0.2),
-        headlineLarge: TextStyle(letterSpacing: -0.2),
-        headlineMedium: TextStyle(letterSpacing: -0.2),
-        headlineSmall: TextStyle(letterSpacing: -0.2),
-        titleLarge: TextStyle(letterSpacing: -0.2),
-        titleMedium: TextStyle(letterSpacing: -0.2),
-        titleSmall: TextStyle(letterSpacing: -0.2),
-        bodyLarge: TextStyle(letterSpacing: -0.2),
-        bodyMedium: TextStyle(letterSpacing: -0.2),
-        bodySmall: TextStyle(letterSpacing: -0.2),
-        labelLarge: TextStyle(letterSpacing: -0.2),
-        labelMedium: TextStyle(letterSpacing: -0.2),
-        labelSmall: TextStyle(letterSpacing: -0.2),
+        displayLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w400),
+        displayMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
+        displaySmall: TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineLarge: TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineSmall: TextStyle(letterSpacing: _defaultLetterSpacing),
+        titleLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
+        titleMedium: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
+        titleSmall: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
+        bodyLarge: TextStyle(letterSpacing: _defaultLetterSpacing),
+        bodyMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
+        bodySmall: TextStyle(letterSpacing: _defaultLetterSpacing),
+        labelLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
+        labelMedium: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
+        labelSmall: TextStyle(letterSpacing: _defaultLetterSpacing)
+            .merge(VariableFontWeight.w500),
       ),
       canvasColor: Colors.white,
       cardColor: Colors.white,

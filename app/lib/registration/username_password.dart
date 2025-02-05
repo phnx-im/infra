@@ -31,9 +31,9 @@ class UsernamePasswordChoice extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
+              Text(
                 'Choose a username and password',
-                style: labelStyle,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               Form(
                 autovalidateMode: AutovalidateMode.always,

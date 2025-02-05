@@ -15,7 +15,6 @@ class IntroScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUserLoading = context.select((LoadableUserCubit cubit) {
-      debugPrint("isUserLoading: ${cubit.state}");
       return cubit.state is LoadingUser;
     });
 
@@ -35,9 +34,9 @@ class IntroScreen extends StatelessWidget {
                 filterQuality: FilterQuality.high,
                 color: Colors.grey[350],
               ),
-              const _GradientText(
+              _GradientText(
                 "Prototype.",
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [
                     Color.fromARGB(255, 34, 163, 255),
                     Color.fromARGB(255, 72, 23, 250)
@@ -46,9 +45,8 @@ class IntroScreen extends StatelessWidget {
                 ),
                 style: TextStyle(
                   fontSize: 36,
-                  fontVariations: variationMedium,
                   letterSpacing: -0.9,
-                ),
+                ).merge(VariableFontWeight.medium),
               ),
               // Text button that opens the developer settings screen
               TextButton(

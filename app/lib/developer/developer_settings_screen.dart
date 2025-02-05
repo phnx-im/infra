@@ -21,6 +21,8 @@ class DeveloperSettingsScreen extends StatefulWidget {
       _DeveloperSettingsScreenState();
 }
 
+final _titleFontWeight = VariableFontWeight.medium;
+
 class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   String? deviceToken;
 
@@ -69,8 +71,6 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   }
 }
 
-const _titleFontWeight = FontWeight.w600;
-
 class DeveloperSettingsScreenView extends StatelessWidget {
   const DeveloperSettingsScreenView({
     required this.deviceToken,
@@ -87,13 +87,13 @@ class DeveloperSettingsScreenView extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
 
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Developer Settings'),
-          leading: const AppBarBackButton(),
-        ),
-        body: Center(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Developer Settings'),
+        leading: const AppBarBackButton(),
+      ),
+      body: SafeArea(
+        child: Center(
           child: Container(
             constraints:
                 isPointer() ? const BoxConstraints(maxWidth: 800) : null,
@@ -103,7 +103,7 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     titleTextStyle: Theme.of(context)
                         .textTheme
                         .bodyLarge!
-                        .copyWith(fontWeight: _titleFontWeight),
+                        .merge(_titleFontWeight),
                   ),
               child: ListView(
                 children: [
@@ -137,10 +137,13 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     ListTile(
                       title: Text(
                         user.userName,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(
                               color: Colors.red,
-                              fontWeight: _titleFontWeight,
-                            ),
+                            )
+                            .merge(_titleFontWeight),
                       ),
                       subtitle: Text("id: ${user.clientId}"),
                       trailing: const Icon(Icons.delete),
@@ -155,10 +158,13 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   ListTile(
                     title: Text(
                       'Erase All Databases',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(
                             color: Colors.red,
-                            fontWeight: _titleFontWeight,
-                          ),
+                          )
+                          .merge(_titleFontWeight),
                     ),
                     trailing: const Icon(Icons.delete),
                     onTap: () => _confirmDialog(
@@ -231,7 +237,7 @@ class _SectionHeader extends StatelessWidget {
         style: Theme.of(context)
             .textTheme
             .labelMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+            ?.merge(VariableFontWeight.bold),
       ),
     );
   }

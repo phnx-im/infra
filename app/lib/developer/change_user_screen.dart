@@ -118,7 +118,8 @@ class _ClientRecordsList extends StatelessWidget {
             titleTextStyle: Theme.of(context)
                 .textTheme
                 .bodyMedium
-                ?.copyWith(color: textColor, fontWeight: FontWeight.w600),
+                ?.copyWith(color: textColor)
+                .merge(VariableFontWeight.semiBold),
             subtitleTextStyle: Theme.of(context)
                 .textTheme
                 .bodySmall
