@@ -167,7 +167,10 @@ impl ClientRecord {
     }
 
     pub(crate) fn delete(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
-        connection.execute("DELETE FROM client_record WHERE ?", params![client_id])?;
+        connection.execute(
+            "DELETE FROM client_record WHERE client_id = ?",
+            params![client_id],
+        )?;
         Ok(())
     }
 }
