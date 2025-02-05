@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/util/interface_scale.dart';
 import 'package:prototype/util/platform.dart';
 import 'package:prototype/user/user.dart';
 import 'package:provider/provider.dart';
@@ -30,12 +31,19 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
+  double interfaceScale = 1.0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _requestMobileNotifications();
+
+    if (Platform.isLinux) {
+      setState(() {
+        interfaceScale = 1.4;
+      });
+    }
   }
 
   @override
@@ -80,36 +88,39 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           lazy: false, // immediately try to load the user
         ),
       ],
-      child: MaterialApp.router(
-        title: 'Prototype',
-        debugShowCheckedModeBanner: false,
-        theme: themeData(context),
-        routerConfig: _appRouter,
-        // This bloc has two tasks:
-        // 1. Listen to the loadable user and switch the navigation accordingly.
-        // 2. Provide the logged in user to the app, when it is loaded.
-        builder: (context, router) =>
-            BlocConsumer<LoadableUserCubit, LoadableUser>(
-          listenWhen: _isUserLoadedOrUnloaded,
-          buildWhen: _isUserLoadedOrUnloaded,
-          listener: (context, loadableUser) {
-            // Side Effect: navigate to the home screen or away to the intro
-            // screen, depending on whether the user was loaded or unloaded.
-            switch (loadableUser) {
-              case LoadedUser(user: final _?):
-                context.read<NavigationCubit>().openHome();
-              case LoadingUser() || LoadedUser(user: null):
-                context.read<NavigationCubit>().openIntro();
-            }
-          },
-          builder: (context, loadableUser) => loadableUser.user != null
-              // Logged in user is accessible everywhere inside the app after
-              // the user is loaded
-              ? BlocProvider<UserCubit>(
-                  create: (context) => UserCubit(coreClient: context.read()),
-                  child: router!,
-                )
-              : router!,
+      child: InterfaceScale(
+        factor: interfaceScale,
+        child: MaterialApp.router(
+          title: 'Prototype',
+          debugShowCheckedModeBanner: false,
+          theme: themeData(context),
+          routerConfig: _appRouter,
+          // This bloc has two tasks:
+          // 1. Listen to the loadable user and switch the navigation accordingly.
+          // 2. Provide the logged in user to the app, when it is loaded.
+          builder: (context, router) =>
+              BlocConsumer<LoadableUserCubit, LoadableUser>(
+            listenWhen: _isUserLoadedOrUnloaded,
+            buildWhen: _isUserLoadedOrUnloaded,
+            listener: (context, loadableUser) {
+              // Side Effect: navigate to the home screen or away to the intro
+              // screen, depending on whether the user was loaded or unloaded.
+              switch (loadableUser) {
+                case LoadedUser(user: final _?):
+                  context.read<NavigationCubit>().openHome();
+                case LoadingUser() || LoadedUser(user: null):
+                  context.read<NavigationCubit>().openIntro();
+              }
+            },
+            builder: (context, loadableUser) => loadableUser.user != null
+                // Logged in user is accessible everywhere inside the app after
+                // the user is loaded
+                ? BlocProvider<UserCubit>(
+                    create: (context) => UserCubit(coreClient: context.read()),
+                    child: router!,
+                  )
+                : router!,
+          ),
         ),
       ),
     );

@@ -98,13 +98,9 @@ InputDecoration messageComposerInputDecoration(BuildContext context) =>
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
     Theme.of(context)
         .textTheme
-        .bodyLarge!
-        .copyWith(
-          color: inverted ? Colors.white : Colors.black,
-        )
-        .merge(isLargeScreen(context)
-            ? VariableFontWeight.normal
-            : VariableFontWeight.medium);
+        .bodyMedium!
+        .copyWith(color: inverted ? Colors.white : Colors.black)
+        .merge(VariableFontWeight.medium);
 
 final textInputBorder = OutlineInputBorder(
   borderSide: const BorderSide(
