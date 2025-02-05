@@ -6,7 +6,7 @@
 
 use super::*;
 use mls_assist::{
-    messages::{AssistedMessageOut, AssistedWelcome},
+    messages::AssistedMessageOut,
     openmls::prelude::{
         tls_codec::Serialize, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
     },
@@ -15,28 +15,21 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
-        signatures::{
-            keys::{UserAuthSigningKey, UserAuthVerifyingKey},
-            signable::Signable,
-            traits::SigningKeyBehaviour,
-        },
+        signatures::{signable::Signable, traits::SigningKeyBehaviour},
     },
     endpoint_paths::ENDPOINT_DS_GROUPS,
-    identifiers::QsClientReference,
+    identifiers::QsReference,
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
             WelcomeInfoParams,
         },
         client_ds_out::{
-            AddClientsParamsOut, ClientToDsMessageOut, ClientToDsMessageTbsOut,
-            CreateGroupParamsOut, DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn,
-            DsRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-            JoinConnectionGroupParamsOut, JoinGroupParamsOut, RemoveClientsParamsOut,
-            ResyncClientParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
+            DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn, DsRequestParamsOut,
+            ExternalCommitInfoIn, GroupOperationParamsOut, JoinConnectionGroupParamsOut,
+            ResyncParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
         },
-        welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
     time::TimeStamp,
 };
@@ -148,8 +141,8 @@ impl ApiClient {
     pub async fn ds_create_group(
         &self,
         payload: CreateGroupParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
     ) -> Result<(), DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::CreateGroupParams(payload),
@@ -171,8 +164,8 @@ impl ApiClient {
     pub async fn ds_group_operation(
         &self,
         payload: GroupOperationParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::GroupOperation(payload),
@@ -224,15 +217,11 @@ impl ApiClient {
         &self,
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &UserAuthSigningKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
-        let payload = ExternalCommitInfoParams {
-            sender: signing_key.verifying_key().hash(),
-            group_id,
-        };
+        let payload = ExternalCommitInfoParams { group_id };
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::ExternalCommitInfo(payload),
-            signing_key,
+            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
             group_state_ear_key,
         )
         .await
@@ -271,43 +260,14 @@ impl ApiClient {
 
     /// Update your client in this group. Note that the given commit needs to
     /// have [`phnxtypes::messages::client_ds::UpdateClientParamsAad`] in its AAD.
-    pub async fn ds_update_client(
+    pub async fn ds_update(
         &self,
-        params: UpdateClientParamsOut,
-        group_state_ear_key: &GroupStateEarKey,
+        params: UpdateParamsOut,
         signing_key: &PseudonymousCredentialSigningKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::UpdateClient(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Join the group with a new client.
-    pub async fn ds_join_group(
-        &self,
-        external_commit: AssistedMessageOut,
-        qs_client_reference: QsClientReference,
-        signing_key: &UserAuthSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        let payload = JoinGroupParamsOut {
-            sender: signing_key.verifying_key().hash(),
-            external_commit,
-            qs_client_reference,
-        };
         self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::JoinGroup(payload),
+            DsRequestParamsOut::Update(params),
             signing_key,
             group_state_ear_key,
         )
@@ -327,80 +287,18 @@ impl ApiClient {
         &self,
         commit: MlsMessageOut,
         group_info: MlsMessageOut,
-        qs_client_reference: QsClientReference,
-        signing_key: &UserAuthSigningKey,
+        qs_client_reference: QsReference,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         // We unwrap here, because we know that the group_info is present.
         let external_commit = AssistedMessageOut::new(commit, Some(group_info)).unwrap();
         let payload = JoinConnectionGroupParamsOut {
-            sender: signing_key.verifying_key().clone(),
             external_commit,
             qs_client_reference,
         };
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::JoinConnectionGroup(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Add clients to a group.
-    pub async fn ds_add_clients(
-        &self,
-        commit: AssistedMessageOut,
-        welcome: AssistedWelcome,
-        encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-        signing_key: &UserAuthSigningKey,
-        group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        let payload = AddClientsParamsOut {
-            sender: signing_key.verifying_key().hash(),
-            commit,
-            welcome,
-            encrypted_welcome_attribution_infos,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::AddClients(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Remove clients from a group.
-    pub async fn ds_remove_clients(
-        &self,
-        commit: AssistedMessageOut,
-        new_auth_key: UserAuthVerifyingKey,
-        signing_key: &UserAuthSigningKey,
-        group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<TimeStamp, DsRequestError> {
-        let payload = RemoveClientsParamsOut {
-            commit,
-            sender: signing_key.verifying_key().hash(),
-            new_auth_key,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::RemoveClients(payload),
-            signing_key,
+            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
             group_state_ear_key,
         )
         .await
@@ -415,18 +313,19 @@ impl ApiClient {
     }
 
     /// Resync a client to rejoin a group.
-    pub async fn ds_resync_client(
+    pub async fn ds_resync(
         &self,
         external_commit: AssistedMessageOut,
-        signing_key: &UserAuthSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
+        own_leaf_index: LeafNodeIndex,
     ) -> Result<TimeStamp, DsRequestError> {
-        let payload = ResyncClientParamsOut {
+        let payload = ResyncParamsOut {
             external_commit,
-            sender: signing_key.verifying_key().hash(),
+            sender_index: own_leaf_index,
         };
         self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::ResyncClient(payload),
+            DsRequestParamsOut::Resync(payload),
             signing_key,
             group_state_ear_key,
         )
@@ -442,14 +341,14 @@ impl ApiClient {
     }
 
     /// Leave the given group with this client.
-    pub async fn ds_self_remove_client(
+    pub async fn ds_self_remove(
         &self,
-        params: SelfRemoveClientParamsOut,
-        signing_key: &UserAuthSigningKey,
+        params: SelfRemoveParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
-            DsRequestParamsOut::SelfRemoveClient(params),
+            DsRequestParamsOut::SelfRemove(params),
             signing_key,
             group_state_ear_key,
         )
@@ -491,7 +390,7 @@ impl ApiClient {
     pub async fn ds_delete_group(
         &self,
         params: DeleteGroupParamsOut,
-        signing_key: &UserAuthSigningKey,
+        signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.prepare_and_send_ds_group_message(
@@ -515,14 +414,14 @@ impl ApiClient {
         &self,
         own_index: LeafNodeIndex,
         group_id: GroupId,
-        new_queue_config: QsClientReference,
+        new_queue_config: QsReference,
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let payload = UpdateQsClientReferenceParams {
             group_id,
             sender: own_index,
-            new_queue_config,
+            new_qs_reference: new_queue_config,
         };
         self.prepare_and_send_ds_group_message(
             DsRequestParamsOut::UpdateQsClientReference(payload),

@@ -10,9 +10,6 @@ use phnxbackend::{
         Qs, QsConnector,
     },
 };
-use phnxtypes::{
-    crypto::signatures::keys::QsVerifyingKey, errors::qs::QsVerifyingKeyError, identifiers::Fqdn,
-};
 
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
@@ -27,7 +24,6 @@ pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider
 #[async_trait]
 impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqueueProvider<N, P> {
     type EnqueueError = QsEnqueueError<N>;
-    type VerifyingKeyError = QsVerifyingKeyError;
 
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
         Qs::enqueue_message(
@@ -38,9 +34,5 @@ impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqu
             message,
         )
         .await
-    }
-
-    async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError> {
-        self.qs.verifying_key(&self.network, domain).await
     }
 }

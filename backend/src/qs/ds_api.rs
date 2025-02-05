@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::{hpke::HpkeDecryptable, signatures::keys::QsVerifyingKey},
-    errors::qs::QsVerifyingKeyError,
-    identifiers::{ClientConfig, Fqdn},
-    messages::MlsInfraVersion,
+    crypto::hpke::HpkeDecryptable, identifiers::ClientConfig, messages::MlsInfraVersion,
 };
 use tls_codec::Serialize;
 
@@ -18,8 +15,7 @@ use crate::messages::{
 use super::{
     client_id_decryption_key::StorableClientIdDecryptionKey, client_record::QsClientRecord,
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult, signing_key::StorableQsSigningKey, PushNotificationProvider,
-    Qs, WebsocketNotifier,
+    qs_api::FederatedProcessingResult, PushNotificationProvider, Qs, WebsocketNotifier,
 };
 
 impl Qs {
@@ -112,46 +108,5 @@ impl Qs {
             })?;
         }
         Ok(())
-    }
-
-    /// Fetch the verifying key of the server with the given domain
-    #[tracing::instrument(skip_all, err)]
-    pub async fn verifying_key<N: NetworkProvider>(
-        &self,
-        network_provider: &N,
-        domain: Fqdn,
-    ) -> Result<QsVerifyingKey, QsVerifyingKeyError> {
-        let own_domain = &self.domain;
-        let verifying_key = if &domain != own_domain {
-            let qs_to_qs_message = QsToQsMessage {
-                protocol_version: MlsInfraVersion::Alpha,
-                sender: own_domain.clone(),
-                recipient: domain.clone(),
-                payload: QsToQsPayload::VerificationKeyRequest,
-            };
-            let serialized_message = qs_to_qs_message
-                .tls_serialize_detached()
-                .map_err(|_| QsVerifyingKeyError::LibraryError)?;
-            let result = network_provider
-                .deliver(serialized_message, domain)
-                .await
-                .map_err(|_| QsVerifyingKeyError::InvalidResponse)?;
-            if let FederatedProcessingResult::VerifyingKey(verifying_key) = result {
-                verifying_key
-            } else {
-                return Err(QsVerifyingKeyError::InvalidResponse);
-            }
-        } else {
-            StorableQsSigningKey::load(&self.db_pool)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("Failed to load signing key: {:?}", e);
-                    QsVerifyingKeyError::StorageError
-                })?
-                .ok_or(QsVerifyingKeyError::LibraryError)?
-                .verifying_key()
-                .clone()
-        };
-        Ok(verifying_key)
     }
 }

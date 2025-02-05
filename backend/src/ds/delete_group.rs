@@ -36,22 +36,8 @@ impl DsGroupState {
                 return Err(GroupDeletionError::InvalidMessage);
             };
 
-        // Check if sender index and user profile match.
-        let sender_index = if let Sender::Member(leaf_index) = processed_message.sender() {
-            // There should be a user profile. If there wasn't, verification should have failed.
-            if !self
-                .user_profiles
-                .get(&params.sender)
-                .ok_or(GroupDeletionError::LibraryError)?
-                .clients
-                .contains(leaf_index)
-            {
-                tracing::warn!("Missing user profile");
-                return Err(GroupDeletionError::InvalidMessage);
-            };
-            leaf_index
-        } else {
-            // Remove users should be a regular commit
+        let Sender::Member(sender_index) = processed_message.sender() else {
+            // Delete group should be a regular commit
             tracing::warn!("Invalid sender");
             return Err(GroupDeletionError::InvalidMessage);
         };
@@ -72,7 +58,7 @@ impl DsGroupState {
                 .map(|remove_proposal| remove_proposal.remove_proposal().removed())
                 .collect();
             let existing_clients: Vec<_> = self
-                .client_profiles
+                .member_profiles
                 .keys()
                 .filter(|index| index != &sender_index)
                 .copied()

@@ -2,38 +2,30 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::errors::qs::QsVerifyingKeyError;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
-use super::{
-    errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector,
-    QsVerifyingKey,
-};
+use super::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector};
 
 #[derive(Error, Debug)]
 pub enum FederatedProcessingError<N: NetworkProvider> {
     /// Error enqueueing message
     #[error(transparent)]
     EnqueueError(#[from] QsEnqueueError<N>),
-    /// Error getting verifying key
-    #[error(transparent)]
-    VerifyingKeyError(#[from] QsVerifyingKeyError),
 }
 
 #[derive(Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
 pub enum FederatedProcessingResult {
     Ok,
-    VerifyingKey(QsVerifyingKey),
 }
 
 impl Qs {
     /// Process the QsToQsMessage.
     pub async fn process_federated_message<
-        Qc: QsConnector<EnqueueError = QsEnqueueError<N>, VerifyingKeyError = QsVerifyingKeyError>,
+        Qc: QsConnector<EnqueueError = QsEnqueueError<N>>,
         N: NetworkProvider,
     >(
         &self,
@@ -56,10 +48,6 @@ impl Qs {
                     .await
                     .map_err(FederatedProcessingError::EnqueueError)?;
                 FederatedProcessingResult::Ok
-            }
-            QsToQsPayload::VerificationKeyRequest => {
-                let verifying_key_response = self.qs_verifying_key().await?;
-                FederatedProcessingResult::VerifyingKey(verifying_key_response.verifying_key)
             }
         };
         Ok(result)

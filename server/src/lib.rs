@@ -22,12 +22,9 @@ use phnxbackend::{
     ds::Ds,
     qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
 };
-use phnxtypes::{
-    endpoint_paths::{
-        ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS,
-        ENDPOINT_QS_FEDERATION, ENDPOINT_QS_WS,
-    },
-    errors::qs::QsVerifyingKeyError,
+use phnxtypes::endpoint_paths::{
+    ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
+    ENDPOINT_QS_WS,
 };
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
@@ -40,10 +37,7 @@ use crate::endpoints::{
 
 /// Configure and run the server application.
 #[allow(clippy::too_many_arguments)]
-pub fn run<
-    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>, VerifyingKeyError = QsVerifyingKeyError>,
-    Np: NetworkProvider,
->(
+pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvider>(
     listener: TcpListener,
     ds: Ds,
     auth_service: AuthService,

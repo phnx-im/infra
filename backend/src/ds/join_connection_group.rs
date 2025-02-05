@@ -14,7 +14,7 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 
 use super::{
-    group_state::{ClientProfile, DsGroupState, UserProfile},
+    group_state::{DsGroupState, MemberProfile},
     process::USER_EXPIRATION_DAYS,
 };
 
@@ -78,7 +78,7 @@ impl DsGroupState {
             };
 
         // Check if the group indeed only has one user (prior to the new one joining).
-        if self.user_profiles.len() > 1 {
+        if self.member_profiles.len() > 1 {
             return Err(JoinConnectionGroupError::NotAConnectionGroup);
         }
 
@@ -106,12 +106,7 @@ impl DsGroupState {
             return Err(JoinConnectionGroupError::ProcessingError);
         };
 
-        // Create a client profile and a user profile.
-        let user_profile = UserProfile {
-            clients: vec![sender],
-            user_auth_key: params.sender,
-        };
-        let client_profile = ClientProfile {
+        let member_profile = MemberProfile {
             leaf_index: sender,
             encrypted_identity_link_key: aad_payload.encrypted_identity_link_key,
             client_queue_config: params.qs_client_reference,
@@ -119,14 +114,7 @@ impl DsGroupState {
             activity_epoch: self.group().epoch(),
         };
 
-        self.client_profiles.insert(sender, client_profile);
-
-        let hash_collision = self
-            .user_profiles
-            .insert(user_profile.user_auth_key.hash(), user_profile);
-        if hash_collision.is_some() {
-            return Err(JoinConnectionGroupError::UserAuthKeyCollision);
-        }
+        self.member_profiles.insert(sender, member_profile);
 
         // Finally, we create the message for distribution.
         Ok(processed_assisted_message_plus.serialized_mls_message)

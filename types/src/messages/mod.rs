@@ -3,13 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::{KeyPackage, KeyPackageIn, OpenMlsRand},
+    openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::OpenMlsProvider,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::crypto::{ear::Ciphertext, errors::RandomnessError};
+use crate::crypto::{
+    ear::{keys::KeyPackageEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+    errors::RandomnessError,
+};
 
 pub mod client_as;
 pub mod client_as_out;
@@ -123,8 +127,27 @@ impl AsRef<Ciphertext> for EncryptedAsQueueMessage {
 #[repr(u8)]
 pub enum AsTokenType {
     AsEnqueue,
-    AsKeyPackageBatch,
     DsGroupCreation,
     DsGroupOperation,
-    QsKeyPackageBatch,
 }
+
+/// Ciphertext that contains a KeyPackage and an intermediary client certficate.
+/// TODO: do we want a key committing scheme here?
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsEncryptedKeyPackage(Ciphertext);
+
+impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.0
+    }
+}
+
+impl From<Ciphertext> for QsEncryptedKeyPackage {
+    fn from(ctxt: Ciphertext) -> Self {
+        Self(ctxt)
+    }
+}
+
+impl EarDecryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackageIn {}
+impl EarEncryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackage {}

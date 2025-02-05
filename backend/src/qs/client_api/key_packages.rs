@@ -7,26 +7,19 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
-    crypto::{
-        ear::{EarDecryptable, EarEncryptable},
-        signatures::signable::Signable,
-    },
+    crypto::ear::{EarDecryptable, EarEncryptable},
     errors::qs::{
-        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageBatchError,
-        QsPublishKeyPackagesError, QsVerifyingKeyError,
+        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageError, QsPublishKeyPackagesError,
     },
-    keypackage_batch::KeyPackageBatchTbs,
     messages::client_qs::{
-        ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse,
-        KeyPackageBatchParams, KeyPackageBatchResponse, PublishKeyPackagesParams,
-        VerifyingKeyResponse,
+        ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse, KeyPackageParams,
+        KeyPackageResponse, PublishKeyPackagesParams,
     },
-    time::TimeStamp,
 };
 
 use crate::qs::{
     client_id_decryption_key::StorableClientIdDecryptionKey,
-    key_package::StorableEncryptedAddPackage, signing_key::StorableQsSigningKey, Qs,
+    key_package::StorableEncryptedAddPackage, Qs,
 };
 
 impl Qs {
@@ -120,92 +113,42 @@ impl Qs {
         Ok(response)
     }
 
-    /// Retrieve a key package batch for a given client.
+    /// Retrieve a key package for a given client.
     #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_key_package_batch(
+    pub(crate) async fn qs_key_package(
         &self,
-        params: KeyPackageBatchParams,
-    ) -> Result<KeyPackageBatchResponse, QsKeyPackageBatchError> {
-        let KeyPackageBatchParams {
+        params: KeyPackageParams,
+    ) -> Result<KeyPackageResponse, QsKeyPackageError> {
+        let KeyPackageParams {
             sender,
             friendship_ear_key,
         } = params;
 
         let mut connection = self.db_pool.acquire().await.map_err(|e| {
             tracing::warn!("Failed to acquire connection: {:?}", e);
-            QsKeyPackageBatchError::StorageError
+            QsKeyPackageError::StorageError
         })?;
 
-        let encrypted_key_packages =
-            StorableEncryptedAddPackage::load_user_key_packages(&mut connection, &sender)
+        let encrypted_key_package =
+            StorableEncryptedAddPackage::load_user_key_package(&mut connection, &sender)
                 .await
                 .map_err(|e| {
                     tracing::warn!("Storage provider error: {:?}", e);
-                    QsKeyPackageBatchError::StorageError
+                    QsKeyPackageError::StorageError
                 })?;
 
-        let key_packages = encrypted_key_packages
-            .into_iter()
-            .map(|encrypted_key_package| {
-                KeyPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
-                    .map_err(|_| QsKeyPackageBatchError::DecryptionError)
-                    .and_then(|ap| {
-                        ap.validate(
-                            OpenMlsRustCrypto::default().crypto(),
-                            ProtocolVersion::default(),
-                        )
-                        .map_err(|_| QsKeyPackageBatchError::InvalidKeyPackage)
-                    })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let key_package = KeyPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
+            .map_err(|_| QsKeyPackageError::DecryptionError)
+            .and_then(|ap| {
+                ap.validate(
+                    OpenMlsRustCrypto::default().crypto(),
+                    ProtocolVersion::default(),
+                )
+                .map_err(|_| QsKeyPackageError::InvalidKeyPackage)
+            })?;
 
-        let key_package_refs = key_packages
-            .iter()
-            .map(|key_package| {
-                key_package
-                    .hash_ref(OpenMlsRustCrypto::default().crypto())
-                    .map_err(|_| QsKeyPackageBatchError::LibraryError)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let key_package_batch_tbs =
-            KeyPackageBatchTbs::new(self.domain.clone(), key_package_refs, TimeStamp::now());
-
-        let signing_key = StorableQsSigningKey::load(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to load signing key: {:?}", e);
-                QsKeyPackageBatchError::StorageError
-            })?
-            .ok_or(QsKeyPackageBatchError::LibraryError)?;
-
-        let key_package_batch = key_package_batch_tbs
-            .sign(&*signing_key)
-            .map_err(|_| QsKeyPackageBatchError::LibraryError)?;
-
-        let response = KeyPackageBatchResponse {
-            key_packages,
-            key_package_batch,
-        };
+        let response = KeyPackageResponse { key_package };
         Ok(response)
-    }
-
-    /// Retrieve the verifying key of this QS
-    #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_verifying_key(
-        &self,
-    ) -> Result<VerifyingKeyResponse, QsVerifyingKeyError> {
-        StorableQsSigningKey::load(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to load signing key: {:?}", e);
-                QsVerifyingKeyError::StorageError
-            })?
-            .map(|signing_key| {
-                let verifying_key = signing_key.verifying_key().clone();
-                VerifyingKeyResponse { verifying_key }
-            })
-            .ok_or(QsVerifyingKeyError::LibraryError)
     }
 
     /// Retrieve the client id encryption key of this QS

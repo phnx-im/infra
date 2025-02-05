@@ -43,9 +43,6 @@ pub enum GroupOperationError {
     /// Failed to retrieve QS verifying key.
     #[error("Failed to retrieve QS verifying key.")]
     FailedToObtainVerifyingKey,
-    /// Invalid KeyPackageBatch.
-    #[error("Invalid KeyPackageBatch.")]
-    InvalidKeyPackageBatch,
     /// User added twice.
     #[error("User added twice.")]
     DuplicatedUserAddition,

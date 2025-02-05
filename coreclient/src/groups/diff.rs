@@ -14,7 +14,6 @@ pub(crate) struct GroupDiff {
     pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
     pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
-    pub(crate) user_auth_key: Option<UserAuthSigningKey>,
 }
 
 impl GroupDiff {
@@ -23,7 +22,6 @@ impl GroupDiff {
             leaf_signer: None,
             identity_link_key: None,
             group_state_ear_key: None,
-            user_auth_key: None,
         }
     }
 
@@ -32,7 +30,6 @@ impl GroupDiff {
             leaf_signer: self.leaf_signer,
             identity_link_key: self.identity_link_key,
             group_state_ear_key: self.group_state_ear_key,
-            user_auth_key: self.user_auth_key,
         }
     }
 }
@@ -42,7 +39,6 @@ pub(crate) struct StagedGroupDiff {
     pub(crate) leaf_signer: Option<PseudonymousCredentialSigningKey>,
     pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
-    pub(crate) user_auth_key: Option<UserAuthSigningKey>,
 }
 
 impl ToSql for StagedGroupDiff {

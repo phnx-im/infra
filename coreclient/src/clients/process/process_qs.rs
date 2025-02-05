@@ -398,12 +398,6 @@ impl CoreUser {
             };
         }
 
-        // Update user auth keys of newly created conversations.
-        for conversation_id in &new_conversations {
-            let messages = self.update_user_key(conversation_id).await?;
-            new_messages.extend(messages);
-        }
-
         Ok(ProcessedQsMessages {
             new_conversations,
             changed_conversations,

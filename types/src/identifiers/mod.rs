@@ -440,7 +440,7 @@ impl FromSql for AsClientId {
     Eq,
     Hash,
 )]
-pub struct QsClientReference {
+pub struct QsReference {
     pub client_homeserver_domain: Fqdn,
     pub sealed_reference: SealedClientReference,
 }

@@ -117,7 +117,7 @@ pub enum QsClientKeyPackageError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
-pub enum QsKeyPackageBatchError {
+pub enum QsKeyPackageError {
     /// Library error
     #[error("Library Error")]
     LibraryError,
@@ -130,20 +130,6 @@ pub enum QsKeyPackageBatchError {
     /// Error retrieving user key packages
     #[error("Error retrieving user key packages")]
     StorageError,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsVerifyingKeyError {
-    /// Library error
-    #[error("Library Error")]
-    LibraryError,
-    /// Error retrieving verifying key
-    #[error("Error retrieving verifying key")]
-    StorageError,
-    /// Invalid response from remote QS
-    #[error("Invalid response from remote QS")]
-    InvalidResponse,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -201,17 +187,14 @@ pub enum QsProcessError {
     /// Client key package error
     #[error("Client key package error")]
     QsClientKeyPackageError(#[from] QsClientKeyPackageError),
-    /// Key package batch error
-    #[error("Key package batch error")]
-    QsKeyPackageBatchError(#[from] QsKeyPackageBatchError),
+    /// Key package error
+    #[error("Key package error")]
+    QsKeyPackageError(#[from] QsKeyPackageError),
 
     /// Dequeue error
     #[error("Dequeue error")]
     QsDequeueError(#[from] QsDequeueError),
 
-    /// Verifying key error
-    #[error("Verifying key error")]
-    QsVerifyingKeyError(#[from] QsVerifyingKeyError),
     /// Encryption key error
     #[error("Encryption key error")]
     QsEncryptionKeyError(#[from] QsEncryptionKeyError),

@@ -9,7 +9,7 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
-    errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveClientParams, time::Duration,
+    errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveParams, time::Duration,
 };
 
 use super::process::USER_EXPIRATION_DAYS;
@@ -19,7 +19,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
-        params: SelfRemoveClientParams,
+        params: SelfRemoveParams,
     ) -> Result<SerializedMlsMessage, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs
         // mls-assist-level validations and puts the proposal into mls-assist's
@@ -42,17 +42,6 @@ impl DsGroupState {
         // Check if sender index and user profile match.
         let Sender::Member(sender_index) = *processed_message.sender() else {
             // The remove proposal should come from a member.
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        };
-
-        // There should be a user profile. If there wasn't, verification should have failed.
-        if !self
-            .user_profiles
-            .get(&params.sender)
-            .ok_or(ClientSelfRemovalError::LibraryError)?
-            .clients
-            .contains(&sender_index)
-        {
             return Err(ClientSelfRemovalError::InvalidMessage);
         };
 

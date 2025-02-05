@@ -292,27 +292,6 @@ impl GroupMembership {
         Ok(indices)
     }
 
-    /// Returns the leaf indices of the clients owned by the given user.
-    pub(in crate::groups) fn user_client_indices(
-        connection: &Connection,
-        group_id: &GroupId,
-        user_name: QualifiedUserName,
-    ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT leaf_index FROM group_membership WHERE group_id = ? AND user_name = ?",
-        )?;
-        let indices = stmt
-            .query_map(
-                params![GroupIdRefWrapper::from(group_id), user_name],
-                |row| {
-                    let leaf_index: i64 = row.get(0)?;
-                    Ok(LeafNodeIndex::new(leaf_index as u32))
-                },
-            )?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(indices)
-    }
-
     pub(in crate::groups) fn group_members(
         connection: &Connection,
         group_id: &GroupId,

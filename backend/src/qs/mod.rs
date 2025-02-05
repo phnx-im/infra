@@ -63,13 +63,11 @@
 
 use client_id_decryption_key::StorableClientIdDecryptionKey;
 use phnxtypes::{
-    crypto::signatures::keys::QsVerifyingKey,
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
 use async_trait::*;
-use signing_key::StorableQsSigningKey;
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -88,7 +86,6 @@ mod key_package;
 pub mod network_provider_trait;
 pub mod qs_api;
 mod queue;
-mod signing_key;
 mod user_record;
 
 #[derive(Debug, Clone)]
@@ -113,12 +110,6 @@ impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
 impl InfraService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
-        let signing_key_exists = StorableQsSigningKey::load(&db_pool).await?.is_some();
-        if !signing_key_exists {
-            StorableQsSigningKey::generate_and_store(&db_pool)
-                .await
-                .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
-        }
 
         let decryption_key_exists = StorableClientIdDecryptionKey::load(&db_pool)
             .await?
@@ -179,7 +170,5 @@ pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError: std::fmt::Debug;
-    type VerifyingKeyError;
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
-    async fn verifying_key(&self, domain: Fqdn) -> Result<QsVerifyingKey, Self::VerifyingKeyError>;
 }

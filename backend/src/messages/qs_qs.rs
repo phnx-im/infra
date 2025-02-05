@@ -11,7 +11,6 @@ use super::intra_backend::DsFanOutMessage;
 #[repr(u8)]
 pub enum QsToQsPayload {
     FanOutMessageRequest(DsFanOutMessage),
-    VerificationKeyRequest,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]

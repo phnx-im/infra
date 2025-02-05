@@ -34,13 +34,9 @@ use crate::{
             HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
         },
         ratchet::QueueRatchet,
-        signatures::{
-            keys::{UserAuthVerifyingKey, UserKeyHash},
-            signable::{Signature, Verifiable, VerifiedStruct},
-        },
+        signatures::signable::{Signature, Verifiable, VerifiedStruct},
     },
-    identifiers::QsClientReference,
-    keypackage_batch::{KeyPackageBatch, UNVERIFIED},
+    identifiers::QsReference,
     time::TimeStamp,
 };
 
@@ -169,12 +165,9 @@ impl InfraAadMessage {
 #[repr(u8)]
 pub enum InfraAadPayload {
     GroupOperation(GroupOperationParamsAad),
-    UpdateClient(UpdateClientParamsAad),
-    JoinGroup(JoinGroupParamsAad),
+    Update(UpdateParamsAad),
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
-    AddClients(AddClientsParamsAad),
-    RemoveClients,
-    ResyncClient,
+    Resync,
     DeleteGroup,
     // There is no SelfRemoveClient entry, since that message consists of a
     // single proposal and since we don't otherwise support individual
@@ -223,8 +216,7 @@ pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
-    pub creator_client_reference: QsClientReference,
-    pub creator_user_auth_key: UserAuthVerifyingKey,
+    pub creator_qs_reference: QsReference,
     pub group_info: MlsMessageIn,
 }
 
@@ -232,7 +224,7 @@ pub struct CreateGroupParams {
 pub struct UpdateQsClientReferenceParams {
     pub group_id: GroupId,
     pub sender: LeafNodeIndex,
-    pub new_queue_config: QsClientReference,
+    pub new_qs_reference: QsReference,
 }
 
 impl UpdateQsClientReferenceParams {
@@ -240,8 +232,8 @@ impl UpdateQsClientReferenceParams {
         self.sender
     }
 
-    pub fn new_queue_config(&self) -> &QsClientReference {
-        &self.new_queue_config
+    pub fn new_qs_reference(&self) -> &QsReference {
+        &self.new_qs_reference
     }
 }
 
@@ -262,7 +254,6 @@ pub struct GetWelcomeInfoResponse {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ExternalCommitInfoParams {
     pub group_id: GroupId,
-    pub sender: UserKeyHash,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -274,13 +265,11 @@ pub struct ConnectionGroupInfoParams {
 pub struct AddUsersInfo {
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
-    pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
 pub struct GroupOperationParams {
     pub commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
     pub add_users_info_option: Option<AddUsersInfo>,
 }
 
@@ -296,35 +285,19 @@ pub struct GroupOperationParamsAad {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateClientParams {
+pub struct UpdateParams {
     pub commit: AssistedMessageIn,
-    pub sender: LeafNodeIndex,
-    pub new_user_auth_key_option: Option<UserAuthVerifyingKey>,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateClientParamsAad {
+pub struct UpdateParamsAad {
     pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct JoinGroupParams {
-    pub external_commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
-    pub qs_client_reference: QsClientReference,
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct JoinGroupParamsAad {
-    pub existing_user_clients: Vec<LeafNodeIndex>,
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct JoinConnectionGroupParams {
     pub external_commit: AssistedMessageIn,
-    pub sender: UserAuthVerifyingKey,
-    pub qs_client_reference: QsClientReference,
+    pub qs_client_reference: QsReference,
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -334,37 +307,14 @@ pub struct JoinConnectionGroupParamsAad {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct AddClientsParams {
-    pub commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
-    pub welcome: AssistedWelcome,
-    // TODO: Do we need those? They come from our own clients. We can probably
-    // just send these through the all-clients group.
-    pub encrypted_welcome_attribution_infos: EncryptedWelcomeAttributionInfo,
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct AddClientsParamsAad {
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct RemoveClientsParams {
-    pub commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
-    pub new_auth_key: UserAuthVerifyingKey,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct ResyncClientParams {
+pub struct ResyncParams {
     pub external_commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
+    pub sender_index: LeafNodeIndex,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct SelfRemoveClientParams {
+pub struct SelfRemoveParams {
     pub remove_proposal: AssistedMessageIn,
-    pub sender: UserKeyHash,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -382,7 +332,6 @@ pub struct DispatchEventParams {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
 }
 
 /// This enum contains variants for each DS endpoint.
@@ -395,13 +344,10 @@ pub enum DsRequestParams {
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
     UpdateQsClientReference(UpdateQsClientReferenceParams),
-    UpdateClient(UpdateClientParams),
-    JoinGroup(JoinGroupParams),
+    Update(UpdateParams),
     JoinConnectionGroup(JoinConnectionGroupParams),
-    AddClients(AddClientsParams),
-    RemoveClients(RemoveClientsParams),
-    ResyncClient(ResyncClientParams),
-    SelfRemoveClient(SelfRemoveClientParams),
+    Resync(ResyncParams),
+    SelfRemove(SelfRemoveParams),
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
     GroupOperation(GroupOperationParams),
@@ -422,23 +368,14 @@ impl DsRequestParams {
                 &external_commit_info_params.group_id
             }
             DsRequestParams::ConnectionGroupInfo(params) => &params.group_id,
-            DsRequestParams::UpdateClient(update_client_params) => {
-                update_client_params.commit.group_id()
-            }
-            DsRequestParams::JoinGroup(join_group_params) => {
-                join_group_params.external_commit.group_id()
-            }
+            DsRequestParams::Update(update_client_params) => update_client_params.commit.group_id(),
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params.external_commit.group_id()
             }
-            DsRequestParams::AddClients(add_clients_params) => add_clients_params.commit.group_id(),
-            DsRequestParams::RemoveClients(remove_clients_params) => {
-                remove_clients_params.commit.group_id()
-            }
-            DsRequestParams::ResyncClient(resync_client_params) => {
+            DsRequestParams::Resync(resync_client_params) => {
                 resync_client_params.external_commit.group_id()
             }
-            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+            DsRequestParams::SelfRemove(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.group_id()
             }
             DsRequestParams::SendMessage(send_message_params) => {
@@ -459,27 +396,18 @@ impl DsRequestParams {
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            DsRequestParams::UpdateClient(update_client_params) => {
+            DsRequestParams::Update(update_client_params) => {
                 update_client_params.commit.sender()
-            }
-            DsRequestParams::JoinGroup(join_group_params) => {
-                join_group_params.external_commit.sender()
             }
             DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params
                     .external_commit
                     .sender()
             }
-            DsRequestParams::AddClients(add_clients_params) => {
-                add_clients_params.commit.sender()
-            }
-            DsRequestParams::RemoveClients(remove_clients_params) => {
-                remove_clients_params.commit.sender()
-            }
-            DsRequestParams::ResyncClient(resync_client_params) => {
+            DsRequestParams::Resync(resync_client_params) => {
                 resync_client_params.external_commit.sender()
             }
-            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+            DsRequestParams::SelfRemove(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.sender()
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
@@ -503,54 +431,41 @@ impl DsRequestParams {
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
-    pub fn ds_sender(&self) -> DsSender {
+    pub fn ds_sender(&self) -> Option<DsSender> {
         match self {
-            DsRequestParams::WelcomeInfo(welcome_info_params) => {
-                DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
-            }
-            DsRequestParams::CreateGroupParams(create_group_params) => {
-                DsSender::UserKeyHash(create_group_params.creator_user_auth_key.hash())
-            }
+            DsRequestParams::WelcomeInfo(welcome_info_params) => Some(DsSender::LeafSignatureKey(
+                welcome_info_params.sender.clone(),
+            )),
             DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
-                DsSender::LeafIndex(update_queue_info_params.sender)
-            }
-            DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
-                DsSender::UserKeyHash(external_commit_info_params.sender.clone())
-            }
-            DsRequestParams::UpdateClient(update_client_params) => {
-                DsSender::LeafIndex(update_client_params.sender)
-            }
-            DsRequestParams::JoinGroup(join_group_params) => {
-                DsSender::UserKeyHash(join_group_params.sender.clone())
-            }
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
-                DsSender::UserKeyHash(join_connection_group_params.sender.hash())
-            }
-            DsRequestParams::AddClients(add_clients_params) => {
-                DsSender::UserKeyHash(add_clients_params.sender.clone())
-            }
-            DsRequestParams::RemoveClients(remove_clients_params) => {
-                DsSender::UserKeyHash(remove_clients_params.sender.clone())
-            }
-            DsRequestParams::ResyncClient(resync_client_params) => {
-                DsSender::UserKeyHash(resync_client_params.sender.clone())
-            }
-            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
-                DsSender::UserKeyHash(self_remove_client_params.sender.clone())
+                Some(DsSender::LeafIndex(update_queue_info_params.sender))
             }
             DsRequestParams::SendMessage(send_message_params) => {
-                DsSender::LeafIndex(send_message_params.sender)
+                Some(DsSender::LeafIndex(send_message_params.sender))
             }
-            DsRequestParams::DeleteGroup(delete_group_params) => {
-                DsSender::UserKeyHash(delete_group_params.sender.clone())
+            DsRequestParams::DispatchEvent(dispatch_event_params) => Some(DsSender::LeafIndex(
+                dispatch_event_params.event.sender_index(),
+            )),
+            // Messages that don't require additional auth
+            DsRequestParams::CreateGroupParams(_)
+            | DsRequestParams::ExternalCommitInfo(_)
+            | DsRequestParams::ConnectionGroupInfo(_)
+            | DsRequestParams::JoinConnectionGroup(_) => Some(DsSender::Anonymous),
+            // Messages that require auth via the credential at the leaf, but
+            // which contain an external commit
+            DsRequestParams::Resync(resync_params) => {
+                Some(DsSender::LeafIndex(resync_params.sender_index))
             }
-            DsRequestParams::GroupOperation(group_operation_params) => {
-                DsSender::UserKeyHash(group_operation_params.sender.clone())
-            }
-            DsRequestParams::DispatchEvent(dispatch_event_params) => {
-                DsSender::LeafIndex(dispatch_event_params.event.sender_index())
-            }
-            DsRequestParams::ConnectionGroupInfo(_) => DsSender::Anonymous,
+            // Messages from which we pull the leaf index
+            DsRequestParams::DeleteGroup(_)
+            | DsRequestParams::GroupOperation(_)
+            | DsRequestParams::Update(_)
+            | DsRequestParams::SelfRemove(_) => self.mls_sender().and_then(|mls_sender| {
+                if let Sender::Member(leaf_index) = mls_sender {
+                    Some(DsSender::LeafIndex(*leaf_index))
+                } else {
+                    None
+                }
+            }),
         }
     }
 }
@@ -559,8 +474,8 @@ impl DsRequestParams {
 #[repr(u8)]
 pub enum DsSender {
     LeafIndex(LeafNodeIndex),
+    ExternalSender(LeafNodeIndex),
     LeafSignatureKey(SignaturePublicKey),
-    UserKeyHash(UserKeyHash),
     Anonymous,
 }
 
@@ -573,7 +488,7 @@ pub(crate) struct ClientToDsMessageTbs {
 }
 
 impl ClientToDsMessageTbs {
-    fn sender(&self) -> DsSender {
+    fn sender(&self) -> Option<DsSender> {
         self.body.ds_sender()
     }
 }
@@ -627,7 +542,7 @@ impl VerifiableClientToDsMessage {
         &self.message.payload.group_state_ear_key
     }
 
-    pub fn sender(&self) -> DsSender {
+    pub fn sender(&self) -> Option<DsSender> {
         self.message.payload.sender()
     }
 
@@ -645,21 +560,11 @@ impl VerifiableClientToDsMessage {
         }
     }
 
-    /// If the message contains a request to join a connection group, return the
-    /// UserAuthKey. Requests to join connection groups are essentially
-    /// self-authenticated, which is okay.
-    pub fn join_connection_group_sender(&self) -> Option<&UserAuthVerifyingKey> {
-        match &self.message.payload.body {
-            DsRequestParams::JoinConnectionGroup(params) => Some(&params.sender),
-            _ => None,
-        }
-    }
-
     /// This returns the payload without any verification. Can only be used with
     /// payloads that have an `Anonymous` sender.
     pub fn extract_without_verification(self) -> Option<DsRequestParams> {
         match self.message.payload.sender() {
-            DsSender::Anonymous => Some(self.message.payload.body),
+            Some(DsSender::Anonymous) => Some(self.message.payload.body),
             _ => None,
         }
     }

@@ -10,20 +10,17 @@ use mls_assist::{
 };
 use phnxtypes::{
     errors::ClientUpdateError,
-    messages::client_ds::{InfraAadMessage, InfraAadPayload, UpdateClientParams},
+    messages::client_ds::{InfraAadMessage, InfraAadPayload, UpdateParams},
     time::Duration,
 };
 use tls_codec::DeserializeBytes;
 
-use super::{
-    group_state::{DsGroupState, UserProfile},
-    process::USER_EXPIRATION_DAYS,
-};
+use super::{group_state::DsGroupState, process::USER_EXPIRATION_DAYS};
 
 impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
-        params: UpdateClientParams,
+        params: UpdateParams,
     ) -> Result<SerializedMlsMessage, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
@@ -53,12 +50,6 @@ impl DsGroupState {
                 tracing::warn!("Client update message contained add or update proposals");
                 return Err(ClientUpdateError::InvalidMessage);
             }
-            let remove_proposals: Vec<_> = staged_commit.remove_proposals().collect();
-            self.process_referenced_remove_proposals(&remove_proposals)
-                .map_err(|e| {
-                    tracing::warn!("Error processing referenced remove proposals: {:?}", e);
-                    ClientUpdateError::InvalidMessage
-                })?;
         } else {
             tracing::warn!("Client update message was not acommit");
             return Err(ClientUpdateError::InvalidMessage);
@@ -85,7 +76,7 @@ impl DsGroupState {
                 ClientUpdateError::InvalidMessage
             })?;
         // TODO: Check version of Aad Message
-        let aad_payload = if let InfraAadPayload::UpdateClient(aad) = aad_message.into_payload() {
+        let aad_payload = if let InfraAadPayload::Update(aad) = aad_message.into_payload() {
             aad
         } else {
             tracing::warn!("Invalid AAD payload");
@@ -99,41 +90,6 @@ impl DsGroupState {
             Duration::days(USER_EXPIRATION_DAYS),
         )?;
 
-        if let Some(user_auth_key) = params.new_user_auth_key_option {
-            let user_key_hash = user_auth_key.hash();
-            // Let's figure out if the sending user has not yet set its user auth key.
-            if let Some(position) = self
-                .unmerged_users
-                .iter()
-                .position(|clients| clients.contains(&sender))
-            {
-                let unmerged_user_clients = self.unmerged_users.remove(position);
-                let user_profile = UserProfile {
-                    clients: unmerged_user_clients,
-                    user_auth_key: user_auth_key.clone(),
-                };
-                if self
-                    .user_profiles
-                    .insert(user_key_hash, user_profile)
-                    .is_some()
-                {
-                    // We have a user auth key collision
-                    tracing::warn!("Unmerged user tries to set duplicate user auth key");
-                    return Err(ClientUpdateError::InvalidMessage);
-                };
-            } else {
-                self.user_profiles
-                    .get_mut(&user_key_hash)
-                    // There has to be a valid user profile since the user is
-                    // not unmerged.
-                    .ok_or({
-                        tracing::warn!("Could not find user profile of sending client.");
-                        ClientUpdateError::InvalidMessage
-                    })?
-                    .user_auth_key = user_auth_key.clone();
-            }
-        }
-
         // We update the client profile only if the update has changed the sender's credential.
         let new_sender_credential = self
             .group()
@@ -146,7 +102,7 @@ impl DsGroupState {
                 aad_payload.option_encrypted_identity_link_key
             {
                 let client_profile = self
-                    .client_profiles
+                    .member_profiles
                     .get_mut(&sender)
                     .ok_or(ClientUpdateError::UnknownSender)?;
                 client_profile.encrypted_identity_link_key = encrypted_identity_link_key;

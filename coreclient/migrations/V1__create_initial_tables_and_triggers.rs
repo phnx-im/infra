@@ -26,8 +26,7 @@ use crate::{
         persistence::StorableGroup,
     },
     key_stores::{
-        as_credentials::AsCredentials, leaf_keys::LeafKeys,
-        qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableAsQueueRatchet,
+        as_credentials::AsCredentials, leaf_keys::LeafKeys, queue_ratchets::StorableAsQueueRatchet,
     },
     user_profiles::UserProfile,
     utils::persistence::Storable,
@@ -53,7 +52,6 @@ pub fn migration() -> String {
         <StorableKeyPackage<u8> as Storable>::CREATE_TABLE_STATEMENT,
         <StorableProposal<u8, u8> as Storable>::CREATE_TABLE_STATEMENT,
         <StorablePskBundle<u8> as Storable>::CREATE_TABLE_STATEMENT,
-        <StorableQsVerifyingKey as Storable>::CREATE_TABLE_STATEMENT,
         <StorableAsQueueRatchet as Storable>::CREATE_TABLE_STATEMENT,
         <AsCredentials as Storable>::CREATE_TABLE_STATEMENT,
         <LeafKeys as Storable>::CREATE_TABLE_STATEMENT,

@@ -172,7 +172,7 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::UpdateClient(update_client_payload) => {
+                    InfraAadPayload::Update(update_client_payload) => {
                         // Check if the client has updated its leaf credential.
                         let sender = self
                             .mls_group
@@ -211,48 +211,6 @@ impl Group {
                         // * Check that the client id is the same as before.
                         // * More validation on pseudonymous and client credential?
                     }
-                    InfraAadPayload::JoinGroup(join_group_payload) => {
-                        // JoinGroup Phase 1: Decrypt and verify the client
-                        // credential of the joiner
-                        let Some(sender_credential) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| ln.credential().clone())
-                        else {
-                            bail!("Could not find sender leaf node in staged commit")
-                        };
-
-                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                            connection_mutex.clone(),
-                            api_clients,
-                            group_id,
-                            &self.identity_link_wrapper_key,
-                            join_group_payload.encrypted_identity_link_key,
-                            sender_index,
-                            sender_credential,
-                        )
-                        .await?;
-
-                        // JoinGroup Phase 2: Check that the existing user
-                        // clients match up and store the new GroupMembership
-                        let connection = connection_mutex.lock().await;
-                        if GroupMembership::user_client_indices(
-                            &connection,
-                            group_id,
-                            client_auth_info.client_credential().identity().user_name(),
-                        )? != join_group_payload
-                            .existing_user_clients
-                            .into_iter()
-                            .collect::<Vec<_>>()
-                        {
-                            bail!("User clients don't match up.")
-                        };
-                        // TODO: (More) validation:
-                        // * Check that the client id is unique.
-                        // * Check that the proposals fit the operation.
-                        // Persist the client auth info.
-                        client_auth_info.stage_add(&connection)?;
-                        drop(connection);
-                    }
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner
@@ -284,62 +242,7 @@ impl Group {
                         client_auth_info.stage_add(&connection)?;
                         drop(connection);
                     }
-                    InfraAadPayload::AddClients(add_clients_payload) => {
-                        // AddClients Phase 1: Compute the free indices
-                        let connection = connection_mutex.lock().await;
-                        let encrypted_client_information =
-                            GroupMembership::free_indices(&connection, group_id)?
-                                .zip(staged_commit.add_proposals().map(|p| {
-                                    p.add_proposal()
-                                        .key_package()
-                                        .leaf_node()
-                                        .credential()
-                                        .clone()
-                                }))
-                                .zip(add_clients_payload.encrypted_identity_link_keys.into_iter());
-                        drop(connection);
-
-                        // AddClients Phase 2: Decrypt and verify the client credentials.
-                        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
-                            connection_mutex.clone(),
-                            api_clients,
-                            group_id,
-                            &self.identity_link_wrapper_key,
-                            encrypted_client_information,
-                        )
-                        .await?;
-
-                        // TODO: Validation:
-                        // * Check that this commit only contains (inline) add proposals
-                        // * Check that the leaf credential is not changed in the path
-                        //   (or maybe if it is, check that it's valid).
-                        // * Client IDs MUST be unique within the group.
-                        // * Maybe check sender type (only Members can add users).
-
-                        // Verify the leaf credentials in all add proposals. We assume
-                        // that leaf credentials are in the same order as client
-                        // credentials.
-                        if staged_commit.add_proposals().count() != client_auth_infos.len() {
-                            bail!("Number of add proposals and client credentials don't match.")
-                        }
-
-                        // AddClients Phase 3: Verify and store the client auth infos.
-                        let connection = connection_mutex.lock().await;
-                        for client_auth_info in client_auth_infos {
-                            // Persist the client auth info.
-                            client_auth_info.stage_add(&connection)?;
-                        }
-                        drop(connection);
-                    }
-                    InfraAadPayload::RemoveClients => {
-                        // We already processed remove proposals above, so there is nothing to do here.
-                        // TODO: Validation:
-                        // * Check that this commit only contains (inline) remove proposals
-                        // * Check that the sender type is correct.
-                        // * Check that the leaf credential is not changed in the path
-                        // * Check that the remover has sufficient privileges.
-                    }
-                    InfraAadPayload::ResyncClient => {
+                    InfraAadPayload::Resync => {
                         // TODO: Validation:
                         // * Check that this commit contains exactly one remove proposal
                         // * Check that the sender type is correct (external commit).
