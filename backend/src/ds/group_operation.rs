@@ -398,17 +398,8 @@ fn validate_added_users(
     let added_users = staged_commit
         .add_proposals()
         .map(|ap| ap.add_proposal().key_package().clone())
-        .zip(
-            aad_payload
-                .new_encrypted_identity_link_keys
-                .clone()
-                .into_iter(),
-        )
-        .zip(
-            add_users_info
-                .encrypted_welcome_attribution_infos
-                .into_iter(),
-        )
+        .zip(aad_payload.new_encrypted_identity_link_keys.clone())
+        .zip(add_users_info.encrypted_welcome_attribution_infos)
         .collect();
 
     Ok(AddUsersState {
