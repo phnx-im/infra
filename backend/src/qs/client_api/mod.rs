@@ -13,6 +13,7 @@ use phnxtypes::{
 
 use super::{client_record::QsClientRecord, queue::Queue, user_record::UserRecord, Qs};
 
+mod api_migrations;
 pub(crate) mod client_records;
 pub(crate) mod key_packages;
 pub(crate) mod user_records;
@@ -22,7 +23,7 @@ impl Qs {
         &self,
         message: VerifiableClientToQsMessage,
     ) -> Result<QsProcessResponse, QsProcessError> {
-        let request_params = match message.sender() {
+        let request_params = match message.sender()? {
             QsSender::User(user_id) => {
                 let Some(user) = UserRecord::load(&self.db_pool, &user_id)
                     .await
@@ -70,6 +71,8 @@ impl Qs {
                 QsProcessError::AuthenticationError
             })?,
         };
+
+        let request_params = api_migrations::migrate_qs_request_params(request_params)?;
 
         Ok(match request_params {
             QsRequestParams::CreateUser(params) => {

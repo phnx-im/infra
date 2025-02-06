@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use api_migrations::migrate_qs_process_response;
+use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
 use phnxtypes::{
     crypto::{
@@ -15,7 +17,6 @@ use phnxtypes::{
         RatchetEncryptionKey,
     },
     endpoint_paths::ENDPOINT_QS,
-    errors::qs::QsProcessError,
     identifiers::{QsClientId, QsUserId},
     messages::{
         client_qs::{
@@ -23,7 +24,8 @@ use phnxtypes::{
             CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
             DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
             KeyPackageBatchParams, KeyPackageBatchResponseIn, QsProcessResponseIn,
-            UpdateClientRecordParams, UpdateUserRecordParams, VerifyingKeyResponse,
+            QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
+            VerifyingKeyResponse, VersionError,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
@@ -40,6 +42,7 @@ use crate::{ApiClient, Protocol};
 
 pub mod ws;
 
+mod api_migrations;
 #[cfg(test)]
 mod tests;
 
@@ -48,13 +51,15 @@ pub enum QsRequestError {
     #[error("Library Error")]
     LibraryError,
     #[error("Couldn't deserialize response body.")]
-    BadResponse,
+    InvalidResponse,
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
+    #[error("Unsuccessful response: status = {status}, error = {error}")]
+    RequestFailed { status: StatusCode, error: String },
     #[error("Network error: {0}")]
     NetworkError(String),
     #[error(transparent)]
-    QsError(#[from] QsProcessError),
+    Version(#[from] VersionError),
 }
 
 // TODO: This is a workaround that allows us to use the Signable trait.
@@ -89,31 +94,25 @@ impl ApiClient {
             .await
         {
             Ok(res) => {
-                match res.status().as_u16() {
+                let status = res.status();
+                if status.is_success() {
                     // Success!
-                    x if (200..=299).contains(&x) => {
-                        let ds_proc_res_bytes =
-                            res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
-                        let ds_proc_res =
-                            QsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
-                                .map_err(|_| QsRequestError::BadResponse)?;
-                        Ok(ds_proc_res)
-                    }
-                    // DS Specific Error
-                    418 => {
-                        let ds_proc_err_bytes =
-                            res.bytes().await.map_err(|_| QsRequestError::BadResponse)?;
-                        let ds_proc_err =
-                            QsProcessError::tls_deserialize_exact_bytes(&ds_proc_err_bytes)
-                                .map_err(|_| QsRequestError::BadResponse)?;
-                        Err(QsRequestError::QsError(ds_proc_err))
-                    }
-                    // All other errors
-                    _ => {
-                        let error_text =
-                            res.text().await.map_err(|_| QsRequestError::BadResponse)?;
-                        Err(QsRequestError::NetworkError(error_text))
-                    }
+                    let ds_proc_res_bytes = res
+                        .bytes()
+                        .await
+                        .map_err(|_| QsRequestError::InvalidResponse)?;
+                    let ds_proc_res = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(
+                        &ds_proc_res_bytes,
+                    )
+                    .map_err(|_| QsRequestError::InvalidResponse)?;
+                    migrate_qs_process_response(ds_proc_res)
+                } else {
+                    // Error
+                    let error = res
+                        .text()
+                        .await
+                        .map_err(|_| QsRequestError::InvalidResponse)?;
+                    Err(QsRequestError::RequestFailed { status, error })
                 }
             }
             // A network error occurred.
@@ -337,7 +336,7 @@ impl ApiClient {
         signing_key: &QsClientSigningKey,
     ) -> Result<DequeueMessagesResponse, QsRequestError> {
         let payload = DequeueMessagesParams {
-            sender: sender.clone(),
+            sender: *sender,
             sequence_number_start,
             max_message_number,
         };

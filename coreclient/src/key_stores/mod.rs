@@ -70,7 +70,7 @@ impl MemoryUserKeyStore {
         qs_client_id: &QsClientId,
     ) -> QsClientReference {
         let sealed_reference = ClientConfig {
-            client_id: qs_client_id.clone(),
+            client_id: *qs_client_id,
             push_token_ear_key: Some(self.push_token_ear_key.clone()),
         }
         .encrypt(&self.qs_client_id_encryption_key, &[], &[]);

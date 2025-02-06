@@ -179,8 +179,8 @@ impl CoreUser {
         let client_db_connection = client_db_connection_mutex.lock().await;
         OwnClientInfo {
             server_url,
-            qs_user_id: final_state.qs_user_id().clone(),
-            qs_client_id: final_state.qs_client_id().clone(),
+            qs_user_id: *final_state.qs_user_id(),
+            qs_client_id: *final_state.qs_client_id(),
             as_client_id: final_state.client_id().clone(),
         }
         .store(&client_db_connection)?;
@@ -971,7 +971,7 @@ impl CoreUser {
 
     fn create_own_client_reference(&self) -> QsClientReference {
         let sealed_reference = ClientConfig {
-            client_id: self.inner.qs_client_id.clone(),
+            client_id: self.inner.qs_client_id,
             push_token_ear_key: Some(self.inner.key_store.push_token_ear_key.clone()),
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
@@ -1038,7 +1038,7 @@ impl CoreUser {
         let api_client = self.inner.api_clients.default_client();
         Ok(api_client?
             .spawn_websocket(
-                self.inner.qs_client_id.clone(),
+                self.inner.qs_client_id,
                 timeout,
                 retry_interval,
                 cancel,
@@ -1114,7 +1114,7 @@ impl CoreUser {
 
     /// Updates the client's push token on the QS.
     pub async fn update_push_token(&self, push_token: Option<PushToken>) -> Result<()> {
-        let client_id = self.inner.qs_client_id.clone();
+        let client_id = self.inner.qs_client_id;
         // Ratchet encryption key
         let queue_encryption_key = self
             .inner

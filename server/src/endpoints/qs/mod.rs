@@ -25,9 +25,9 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
     // Deserialize the message.
     let message = match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(message.as_ref()) {
         Ok(message) => message,
-        Err(e) => {
-            tracing::warn!("QS received invalid message: {:?}", e);
-            return HttpResponse::BadRequest().body(e.to_string());
+        Err(error) => {
+            tracing::error!(%error, "QS received invalid message");
+            return HttpResponse::BadRequest().body(error.to_string());
         }
     };
 
@@ -39,9 +39,9 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
             HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
         }
         // If the message could not be processed, return an error.
-        Err(e) => {
-            tracing::warn!("QS failed to process message: {:?}", e);
-            HttpResponse::InternalServerError().body(e.to_string())
+        Err(error) => {
+            tracing::error!(%error, "QS failed to process message");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
