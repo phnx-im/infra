@@ -510,7 +510,6 @@ mod tests {
             signatures::{private_keys::VerifyingKey, signable::SignedStruct},
         },
         keypackage_batch::KeyPackageBatchTbs,
-        time::TimeStamp,
     };
 
     use super::*;

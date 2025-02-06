@@ -50,8 +50,10 @@ mod tests;
 pub enum QsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error("Couldn't deserialize response body.")]
-    InvalidResponse,
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+    #[error("Couldn't deserialize TLS response body: {0}")]
+    Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
     #[error("Unsuccessful response: status = {status}, error = {error}")]
@@ -97,21 +99,15 @@ impl ApiClient {
                 let status = res.status();
                 if status.is_success() {
                     // Success!
-                    let ds_proc_res_bytes = res
-                        .bytes()
-                        .await
-                        .map_err(|_| QsRequestError::InvalidResponse)?;
+                    let ds_proc_res_bytes = res.bytes().await.map_err(QsRequestError::Reqwest)?;
                     let ds_proc_res = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(
                         &ds_proc_res_bytes,
                     )
-                    .map_err(|_| QsRequestError::InvalidResponse)?;
+                    .map_err(QsRequestError::Tls)?;
                     migrate_qs_process_response(ds_proc_res)
                 } else {
                     // Error
-                    let error = res
-                        .text()
-                        .await
-                        .map_err(|_| QsRequestError::InvalidResponse)?;
+                    let error = res.text().await.map_err(QsRequestError::Reqwest)?;
                     Err(QsRequestError::RequestFailed { status, error })
                 }
             }

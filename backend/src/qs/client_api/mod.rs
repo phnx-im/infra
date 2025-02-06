@@ -7,7 +7,7 @@ use phnxtypes::{
     errors::qs::{QsDequeueError, QsProcessError},
     messages::client_qs::{
         DequeueMessagesParams, DequeueMessagesResponse, QsProcessResponse, QsRequestParams,
-        QsSender, VerifiableClientToQsMessage,
+        QsSender, QsVersionedProcessResponse, VerifiableClientToQsMessage,
     },
 };
 
@@ -22,7 +22,7 @@ impl Qs {
     pub async fn process(
         &self,
         message: VerifiableClientToQsMessage,
-    ) -> Result<QsProcessResponse, QsProcessError> {
+    ) -> Result<QsVersionedProcessResponse, QsProcessError> {
         let request_params = match message.sender()? {
             QsSender::User(user_id) => {
                 let Some(user) = UserRecord::load(&self.db_pool, &user_id)
@@ -74,7 +74,7 @@ impl Qs {
 
         let request_params = api_migrations::migrate_qs_request_params(request_params)?;
 
-        Ok(match request_params {
+        let response = match request_params {
             QsRequestParams::CreateUser(params) => {
                 QsProcessResponse::CreateUser(self.qs_create_user_record(params).await?)
             }
@@ -116,7 +116,9 @@ impl Qs {
             QsRequestParams::EncryptionKey => {
                 QsProcessResponse::EncryptionKey(self.qs_encryption_key().await?)
             }
-        })
+        };
+
+        Ok(QsVersionedProcessResponse::Alpha(response))
     }
 
     /// Retrieve messages the given number of messages, starting with
