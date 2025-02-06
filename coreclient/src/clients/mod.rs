@@ -1037,12 +1037,7 @@ impl CoreUser {
     ) -> Result<QsWebSocket> {
         let api_client = self.inner.api_clients.default_client();
         Ok(api_client?
-            .spawn_websocket(
-                self.inner.qs_client_id,
-                timeout,
-                retry_interval,
-                cancel,
-            )
+            .spawn_websocket(self.inner.qs_client_id, timeout, retry_interval, cancel)
             .await?)
     }
 
