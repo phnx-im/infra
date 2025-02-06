@@ -368,8 +368,20 @@ impl UiFlightPosition {
     ) -> Self {
         match (prev_message, next_message) {
             (None, None) => Self::Single,
-            (Some(_prev), None) => Self::End,
-            (None, Some(_next)) => Self::Start,
+            (Some(prev), None) => {
+                if Self::flight_break_condition(prev, message) {
+                    Self::Single
+                } else {
+                    Self::End
+                }
+            }
+            (None, Some(next)) => {
+                if Self::flight_break_condition(message, next) {
+                    Self::Single
+                } else {
+                    Self::Start
+                }
+            }
             (Some(prev), Some(next)) => {
                 let at_flight_start = Self::flight_break_condition(prev, message);
                 let at_flight_end = Self::flight_break_condition(message, next);

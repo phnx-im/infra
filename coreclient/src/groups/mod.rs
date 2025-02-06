@@ -57,7 +57,7 @@ use phnxtypes::{
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use crate::{
     clients::api_clients::ApiClients, contacts::ContactAddInfos,
@@ -803,8 +803,8 @@ impl Group {
                 .collect::<Vec<_>>();
             let infra_group_members = GroupMembership::group_members(connection, self.group_id())?;
             if mls_group_members.len() != infra_group_members.len() {
-                info!(?mls_group_members, "Group members according to OpenMLS");
-                info!(?infra_group_members, "Group members according to Infra");
+                tracing::info!(?mls_group_members, "Group members according to OpenMLS");
+                tracing::info!(?infra_group_members, "Group members according to Infra");
                 panic!("Group members don't match up");
             }
             let infra_indices =
