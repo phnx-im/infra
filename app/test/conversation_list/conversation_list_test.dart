@@ -13,6 +13,7 @@ import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 import 'conversation_list_content_test.dart';
 
@@ -81,10 +82,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_list.png'),
-      );
+      // Increase threshold because rendering frosted glass varies significantly across different platforms.
+      await withThreshold(0.028, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_list.png'),
+        );
+      });
     });
   });
 }
