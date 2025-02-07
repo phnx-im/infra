@@ -138,40 +138,66 @@ class _MessageComposerState extends State<MessageComposer> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: _MessageInput(
                   focusNode: _focusNode,
-                  style: messageTextStyle(context, false),
                   controller: _controller,
-                  minLines: 1,
-                  maxLines: 10,
-                  decoration: messageComposerInputDecoration(context)
-                      .copyWith(hintText: "Message $conversationTitle"),
-                  textInputAction: isSmallScreen(context)
-                      ? TextInputAction.send
-                      : TextInputAction.newline,
-                  onEditingComplete: () => _focusNode.requestFocus(),
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
+                  conversationTitle: conversationTitle,
                 ),
               ),
-              isSmallScreen(context)
-                  ? Container(
-                      width: 40,
-                      margin: const EdgeInsets.all(10),
-                      child: IconButton(
-                        icon: const Icon(Icons.send),
-                        color: colorDMB,
-                        hoverColor: const Color(0x00FFFFFF),
-                        onPressed: () {
-                          _submitMessage(context.read());
-                        },
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+              if (isSmallScreen(context))
+                Container(
+                  width: 40,
+                  margin: const EdgeInsets.all(10),
+                  child: IconButton(
+                    icon: const Icon(Icons.send),
+                    color: colorDMB,
+                    hoverColor: const Color(0x00FFFFFF),
+                    onPressed: () {
+                      _submitMessage(context.read());
+                    },
+                  ),
+                )
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MessageInput extends StatelessWidget {
+  const _MessageInput({
+    required FocusNode focusNode,
+    required TextEditingController controller,
+    required this.conversationTitle,
+  })  : _focusNode = focusNode,
+        _controller = controller;
+
+  final FocusNode _focusNode;
+  final TextEditingController _controller;
+  final String? conversationTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final smallScreen = isSmallScreen(context);
+
+    final style = Theme.of(context).textTheme.bodyLarge!.merge(
+        smallScreen ? VariableFontWeight.medium : VariableFontWeight.normal);
+
+    return TextField(
+      focusNode: _focusNode,
+      style: style,
+      controller: _controller,
+      minLines: 1,
+      maxLines: 10,
+      decoration: InputDecoration(
+        hintText: "Message $conversationTitle",
+      ).copyWith(filled: false),
+      textInputAction:
+          smallScreen ? TextInputAction.send : TextInputAction.newline,
+      onEditingComplete: () => _focusNode.requestFocus(),
+      keyboardType: TextInputType.multiline,
+      textCapitalization: TextCapitalization.sentences,
     );
   }
 }
