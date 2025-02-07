@@ -70,7 +70,8 @@ final conversations = [
             id: 2.messageId(),
             timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
             lastSeen: [],
-            body: 'Hello Alice',
+            body:
+                'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           ),
         ),
       ),
@@ -173,10 +174,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_list_content.png'),
-      );
+      // Increase threshold because rendering frosted glass varies significantly across different platforms.
+      await withThreshold(0.03, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_list_content.png'),
+        );
+      });
     });
   });
 }

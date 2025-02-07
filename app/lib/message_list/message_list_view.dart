@@ -36,6 +36,9 @@ class MessageListView extends StatelessWidget {
       child: ListView.custom(
         physics: _scrollPhysics,
         reverse: true,
+        padding: EdgeInsets.only(
+          top: kToolbarHeight + MediaQuery.of(context).padding.top,
+        ),
         childrenDelegate: SliverChildBuilderDelegate(
           (context, reverseIndex) {
             final index = state.loadedMessagesCount - reverseIndex - 1;

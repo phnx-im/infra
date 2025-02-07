@@ -74,7 +74,7 @@ class _ListTile extends StatelessWidget {
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.topStart,
-        height: 74,
+        height: 76,
         width: 300,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(

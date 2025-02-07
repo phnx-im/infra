@@ -56,14 +56,12 @@ class FutureUserAvatar extends StatefulWidget {
   final AsyncValueGetter<UiUserProfile?> profile;
   final VoidCallback? onPressed;
   final double size;
-  final String? cacheTag;
 
   const FutureUserAvatar({
     super.key,
     required this.profile,
     this.onPressed,
     this.size = 24.0,
-    this.cacheTag,
   });
 
   @override
