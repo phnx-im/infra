@@ -80,7 +80,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: Scaffold(
+                home: const Scaffold(
                   body: ConversationScreenView(
                     createMessageCubit: createMockMessageCubit,
                   ),
@@ -91,7 +91,8 @@ void main() {
         );
 
     testWidgets('renders correctly when empty', (tester) async {
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());

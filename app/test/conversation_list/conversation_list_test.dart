@@ -27,7 +27,8 @@ void main() {
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => userCubit.state)
           .thenReturn(MockUiUser(userName: "alice@localhost"));
     });
@@ -49,7 +50,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: Scaffold(body: ConversationListView()),
+                home: const Scaffold(body: ConversationListView()),
               );
             },
           ),
@@ -58,7 +59,7 @@ void main() {
     testWidgets('renders correctly when there are no conversations',
         (tester) async {
       when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: []));
+          .thenReturn(const ConversationListState(conversations: []));
 
       await tester.pumpWidget(buildSubject());
 
