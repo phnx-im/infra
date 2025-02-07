@@ -15,7 +15,6 @@ platform :mac do
       team_id = ENV['TEAM_ID']
       matchType = "appstore"
       app_identifier = "im.phnx.prototype"
-      app_identifier_nse = "im.phnx.prototype.nse"
     
       # Load the app store connect API key
       api_key = app_store_connect_api_key(
@@ -38,7 +37,7 @@ platform :mac do
                     end
     
       increment_build_number(
-        xcodeproj: "ios/Runner.xcodeproj",
+        xcodeproj: "macos/Runner.xcodeproj",
         build_number: build_number,
       )
     
@@ -50,14 +49,14 @@ platform :mac do
           git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
           git_branch: "main",
           storage_mode: "git",
-          app_identifier: [app_identifier, app_identifier_nse],
+          app_identifier: [app_identifier],
           team_id: team_id,
           readonly: is_ci,
         )
       end
   
       # Build the app with signing
-      build_ios(with_signing: true)
+      build_macos(with_signing: true)
     
       # Upload the app to TestFlight if the parameter is set
       if options[:upload_to_test_flight]
@@ -96,8 +95,9 @@ platform :mac do
       build_mac_app(
         workspace: "macos/Runner.xcworkspace", 
         scheme: "Runner",
+        
         skip_codesigning: skip_signing,
-        skip_package_ipa: skip_signing,
+        skip_archive: skip_signing,
         export_method: "app-store",
       )
     end
