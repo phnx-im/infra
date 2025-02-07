@@ -41,7 +41,7 @@ class ConversationListView extends StatelessWidget {
           ),
         ),
       ),
-      child: Scaffold(
+      child: const Scaffold(
         backgroundColor: convPaneBackgroundColor,
         body: Stack(
           children: [
