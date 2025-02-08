@@ -91,6 +91,9 @@ platform :mac do
         clean: true,
         podfile: "macos/Podfile"
       )
+
+      # Build the app with flutter first to create the necessary ephemeral files
+      sh "flutter build macos"
   
       # Build the app
       build_mac_app(
