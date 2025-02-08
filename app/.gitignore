@@ -68,6 +68,7 @@ flutter_rust_bridge.yaml.generated
 
 # Fastlane related
 *.ipa
+*.pkg
 *.app
 *.app.dSYM.zip
 

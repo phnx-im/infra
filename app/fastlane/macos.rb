@@ -32,7 +32,7 @@ platform :mac do
                       latest_testflight_build_number(
                         version: "1.0.0",
                         api_key: api_key,
-                        platform: "mac"
+                        platform: "osx",
                         app_identifier: app_identifier
                       ) + 1
                     end
