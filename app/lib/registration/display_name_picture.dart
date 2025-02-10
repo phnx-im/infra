@@ -64,7 +64,7 @@ class _DisplayNameTextField extends StatelessWidget {
 
     return TextFormField(
       autofocus: isSmallScreen(context) ? false : true,
-      decoration: InputDecoration(hintText: 'DISPLAY NAME'),
+      decoration: const InputDecoration(hintText: 'DISPLAY NAME'),
       initialValue: displayName,
       style: inputTextStyle,
       onChanged: (value) {

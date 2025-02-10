@@ -113,7 +113,8 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                         constraints: BoxConstraints.tight(const Size(300, 80)),
                         child: TextFormField(
                           autofocus: isSmallScreen(context) ? false : true,
-                          decoration: InputDecoration(hintText: 'DISPLAY NAME'),
+                          decoration:
+                              const InputDecoration(hintText: 'DISPLAY NAME'),
                           initialValue: displayName,
                           style: inputTextStyle,
                           onChanged: (value) {

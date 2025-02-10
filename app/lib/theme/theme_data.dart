@@ -73,7 +73,7 @@ ThemeData themeData(BuildContext context) => ThemeData(
           const TextSelectionThemeData(cursorColor: Colors.blue),
       inputDecorationTheme: InputDecorationTheme(
         border: InputBorder.none,
-        hintStyle: TextStyle(
+        hintStyle: const TextStyle(
           color: colorDMBLight,
           fontSize: 11,
           fontFamily: fontFamily,

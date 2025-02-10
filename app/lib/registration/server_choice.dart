@@ -45,7 +45,8 @@ class ServerChoice extends StatelessWidget {
                         autofocus: (Platform.isIOS || Platform.isAndroid)
                             ? false
                             : true,
-                        decoration: InputDecoration(hintText: 'DOMAIN NAME'),
+                        decoration:
+                            const InputDecoration(hintText: 'DOMAIN NAME'),
                         initialValue:
                             context.read<RegistrationCubit>().state.domain,
                         style: inputTextStyle,
