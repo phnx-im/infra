@@ -4,8 +4,11 @@
 
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:logging/logging.dart';
 
 const platform = MethodChannel('im.phnx.prototype/channel');
+
+final _log = Logger('Platform');
 
 void initMethodChannel() {
   platform.setMethodCallHandler(_handleMethod);
@@ -16,17 +19,17 @@ Future<void> _handleMethod(MethodCall call) async {
     case 'receivedNotification':
       // Handle notification data
       final String data = call.arguments["customData"];
-      print('Notification data: $data');
+      _log.info('Notification data: $data');
       // Do something with the data
       break;
     case 'openedNotification':
       // Handle notification opened
       final String data = call.arguments["customData"];
-      print('Notification opened: $data');
+      _log.info('Notification opened: $data');
       // Do something with the data
       break;
     default:
-      print('Unknown method called: ${call.method}');
+      _log.severe('Unknown method called: ${call.method}');
   }
 }
 
@@ -34,8 +37,8 @@ Future<String?> getDeviceToken() async {
   if (Platform.isAndroid || Platform.isIOS) {
     try {
       return await platform.invokeMethod('getDeviceToken');
-    } on PlatformException catch (e) {
-      print("Failed to get device token: '${e.message}'.");
+    } on PlatformException catch (e, stacktrace) {
+      _log.severe("Failed to get device token: '${e.message}'.", e, stacktrace);
     }
   }
   return null;
@@ -45,8 +48,9 @@ Future<String> getDatabaseDirectoryMobile() async {
   if (Platform.isAndroid || Platform.isIOS) {
     try {
       return await platform.invokeMethod('getDatabasesDirectory');
-    } on PlatformException catch (e) {
-      print("Failed to get database directory: '${e.message}'.");
+    } on PlatformException catch (e, stacktrace) {
+      _log.severe(
+          "Failed to get database directory: '${e.message}'.", e, stacktrace);
       throw PlatformException(code: 'failed_to_get_database_directory');
     }
   }
@@ -60,7 +64,7 @@ Future<void> setBadgeCount(int count) async {
   }
   try {
     await platform.invokeMethod('setBadgeCount', {'count': count});
-  } on PlatformException catch (e) {
-    print("Failed to set badge count: '${e.message}'.");
+  } on PlatformException catch (e, stacktrace) {
+    _log.severe("Failed to set badge count: '${e.message}'.", e, stacktrace);
   }
 }

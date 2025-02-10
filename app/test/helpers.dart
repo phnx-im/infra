@@ -44,6 +44,7 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
     if (!result.passed && result.diffPercent < threshold) {
       if ((result.diffPercent - threshold).abs() > 0.01) {
         final diff = (result.diffPercent * 10000.0).round() / 100.0;
+        // ignore: avoid_print
         print("Golden file comparison passed with $diff% difference, "
             "which is more than 1%pt under the configured threshold of ${threshold * 100}%. "
             "Consider making the threshold tighter.");
