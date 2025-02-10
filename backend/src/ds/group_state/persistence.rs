@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::codec::PhnxCodec;
-use phnxtypes::identifiers::QualifiedGroupId;
+use phnxtypes::{
+    codec::persist::{BlobPersist, BlobPersisted},
+    identifiers::{QualifiedGroupId, SealedClientReference},
+};
 use sqlx::{
     types::chrono::{DateTime, Utc},
     PgExecutor,
 };
+use uuid::Uuid;
 
-use crate::errors::StorageError;
+use crate::{ds::group_state::EncryptedDsGroupState, errors::StorageError};
 
 use super::StorableDsGroupData;
 
@@ -23,9 +26,9 @@ impl StorableDsGroupData {
                 ($1, $2, $3, $4)
             ON CONFLICT (group_id) DO NOTHING",
             self.group_id,
-            PhnxCodec::to_vec(&self.encrypted_group_state)?,
+            self.encrypted_group_state.persist() as _,
             DateTime::<Utc>::from(self.last_used),
-            PhnxCodec::to_vec(&self.deleted_queues)?
+            self.deleted_queues.persist() as _,
         )
         .execute(connection)
         .await?;
@@ -36,27 +39,44 @@ impl StorableDsGroupData {
         connection: impl PgExecutor<'_>,
         qgid: &QualifiedGroupId,
     ) -> Result<Option<StorableDsGroupData>, StorageError> {
-        let Some(group_data_record) = sqlx::query!(
-            "SELECT
-                group_id, ciphertext, last_used, deleted_queues
+        struct SqlStorableDsGroupData {
+            group_id: Uuid,
+            ciphertext: BlobPersisted<EncryptedDsGroupState>,
+            last_used: DateTime<Utc>,
+            deleted_queues: BlobPersisted<Vec<SealedClientReference>>,
+        }
+
+        let group_data = sqlx::query_as!(
+            SqlStorableDsGroupData,
+            r#"SELECT
+                group_id,
+                ciphertext AS "ciphertext: _",
+                last_used,
+                deleted_queues AS "deleted_queues: _"
             FROM
                 encrypted_groups
             WHERE
-                group_id = $1",
+                group_id = $1"#,
             qgid.group_uuid()
         )
         .fetch_optional(connection)
         .await?
-        else {
-            return Ok(None);
-        };
-        let storable_group_data = Self {
-            group_id: group_data_record.group_id,
-            encrypted_group_state: PhnxCodec::from_slice(&group_data_record.ciphertext)?,
-            last_used: group_data_record.last_used.into(),
-            deleted_queues: PhnxCodec::from_slice(&group_data_record.deleted_queues)?,
-        };
-        Ok(Some(storable_group_data))
+        .map(
+            |SqlStorableDsGroupData {
+                 group_id,
+                 ciphertext: BlobPersisted(encrypted_group_state),
+                 last_used,
+                 deleted_queues: BlobPersisted(deleted_queues),
+             }| {
+                Self {
+                    group_id,
+                    encrypted_group_state,
+                    last_used: last_used.into(),
+                    deleted_queues,
+                }
+            },
+        );
+        Ok(group_data)
     }
 
     pub(crate) async fn update(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
@@ -64,13 +84,15 @@ impl StorableDsGroupData {
             "UPDATE
                 encrypted_groups
             SET
-                ciphertext = $2, last_used = $3, deleted_queues = $4
+                ciphertext = $2,
+                last_used = $3,
+                deleted_queues = $4
             WHERE
                 group_id = $1",
             self.group_id,
-            PhnxCodec::to_vec(&self.encrypted_group_state)?,
+            self.encrypted_group_state.persist() as _,
             DateTime::<Utc>::from(self.last_used),
-            PhnxCodec::to_vec(&self.deleted_queues)?
+            self.deleted_queues.persist() as _,
         )
         .execute(connection)
         .await?;

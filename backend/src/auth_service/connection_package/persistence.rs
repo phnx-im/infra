@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    codec::PhnxCodec,
+    codec::persist::{BlobPersist, BlobPersisted},
     identifiers::{AsClientId, QualifiedUserName},
     messages::client_as::ConnectionPackage,
 };
@@ -26,11 +26,10 @@ impl StorableConnectionPackage {
 
         for (i, connection_package) in connection_packages.into_iter().enumerate() {
             let connection_package: StorableConnectionPackage = connection_package.into();
-            let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
 
             // Add values to the query arguments. None of these should throw an error.
             query_args.add(client_id.client_id())?;
-            query_args.add(connection_package_bytes)?;
+            query_args.add(connection_package.persist())?;
 
             if i > 0 {
                 query_string.push(',');
@@ -51,36 +50,40 @@ impl StorableConnectionPackage {
         Ok(())
     }
 
-    async fn load(connection: &mut PgConnection, client_id: Uuid) -> Result<Vec<u8>, StorageError> {
+    async fn load(
+        connection: &mut PgConnection,
+        client_id: Uuid,
+    ) -> Result<StorableConnectionPackage, StorageError> {
         let mut transaction = connection.begin().await?;
 
         // This is to ensure that counting and deletion happen atomically. If we
         // don't do this, two concurrent queries might both count 2 and delete,
         // leaving us with 0 packages.
-        let connection_package_bytes_record = sqlx::query!(
-            "WITH next_connection_package AS (
-                SELECT id, connection_package 
-                FROM connection_packages 
-                WHERE client_id = $1 
-                LIMIT 1 
+        let BlobPersisted(connection_package) = sqlx::query_scalar!(
+            r#"WITH next_connection_package AS (
+                SELECT id, connection_package
+                FROM connection_packages
+                WHERE client_id = $1
+                LIMIT 1
                 FOR UPDATE -- make sure two concurrent queries don't return the same package
                 SKIP LOCKED -- skip rows that are already locked by other processes
-            ), 
+            ),
             remaining_packages AS (
-                SELECT COUNT(*) as count 
-                FROM connection_packages 
+                SELECT COUNT(*) as count
+                FROM connection_packages
                 WHERE client_id = $1
             ),
             deleted_package AS (
-                DELETE FROM connection_packages 
+                DELETE FROM connection_packages
                 WHERE id = (
-                    SELECT id 
+                    SELECT id
                     FROM next_connection_package
-                ) 
+                )
                 AND (SELECT count FROM remaining_packages) > 1
                 RETURNING connection_package
             )
-            SELECT connection_package FROM next_connection_package",
+            SELECT connection_package AS "connection_package: _"
+            FROM next_connection_package"#,
             client_id,
         )
         .fetch_one(&mut *transaction)
@@ -88,7 +91,7 @@ impl StorableConnectionPackage {
 
         transaction.commit().await?;
 
-        Ok(connection_package_bytes_record.connection_package)
+        Ok(connection_package)
     }
 
     /// TODO: Last resort key package
@@ -96,12 +99,9 @@ impl StorableConnectionPackage {
         connection: &mut PgConnection,
         client_id: &AsClientId,
     ) -> Result<ConnectionPackage, StorageError> {
-        let connection_package_bytes = Self::load(connection, client_id.client_id()).await?;
-
-        let connection_package: StorableConnectionPackage =
-            PhnxCodec::from_slice(&connection_package_bytes)?;
-
-        Ok(connection_package.into())
+        Self::load(connection, client_id.client_id())
+            .await
+            .map(From::from)
     }
 
     /// Return a connection package for each client of a user referenced by a
@@ -126,25 +126,15 @@ impl StorableConnectionPackage {
         .await?;
 
         // First fetch all connection package records from the DB.
-        let mut connection_packages_bytes = Vec::new();
+        let mut connection_packages: Vec<ConnectionPackage> =
+            Vec::with_capacity(client_ids_record.len());
         for client_id in client_ids_record {
-            let connection_package_bytes =
-                Self::load(&mut transaction, client_id.client_id).await?;
-            connection_packages_bytes.push(connection_package_bytes);
+            let connection_package = Self::load(&mut transaction, client_id.client_id).await?;
+            connection_packages.push(connection_package.into());
         }
 
         // End the transaction.
         transaction.commit().await?;
-
-        // Deserialize the connection packages.
-        let connection_packages = connection_packages_bytes
-            .into_iter()
-            .map(|connection_package_bytes| {
-                let storable: StorableConnectionPackage =
-                    PhnxCodec::from_slice(&connection_package_bytes)?;
-                Ok(storable.into())
-            })
-            .collect::<Result<Vec<ConnectionPackage>, StorageError>>()?;
 
         Ok(connection_packages)
     }

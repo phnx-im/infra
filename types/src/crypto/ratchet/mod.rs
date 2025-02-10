@@ -37,6 +37,11 @@ pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<C
     _phantom: PhantomData<(Ciphertext, Payload)>,
 }
 
+impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> BlobPersist
+    for QueueRatchet<Ciphertext, Payload>
+{
+}
+
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom<RatchetSecret>
     for QueueRatchet<Ciphertext, Payload>
 {

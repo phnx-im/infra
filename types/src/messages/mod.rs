@@ -9,7 +9,10 @@ use mls_assist::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::crypto::{ear::Ciphertext, errors::RandomnessError};
+use crate::{
+    codec::persist::BlobPersist,
+    crypto::{ear::Ciphertext, errors::RandomnessError},
+};
 
 pub mod client_as;
 pub mod client_as_out;
@@ -82,6 +85,8 @@ pub struct QueueMessage {
     pub sequence_number: u64,
     pub ciphertext: Ciphertext,
 }
+
+impl BlobPersist for QueueMessage {}
 
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,

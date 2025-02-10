@@ -12,7 +12,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 #[cfg(feature = "sqlite")]
 use crate::codec::PhnxCodec;
 
-use crate::crypto::errors::KeyGenerationError;
+use crate::{codec::persist::BlobPersist, crypto::errors::KeyGenerationError};
 
 use super::{
     private_keys::{SigningKey, VerifyingKey},
@@ -129,6 +129,8 @@ impl UserKeyHash {
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct QsClientVerifyingKey(VerifyingKey);
+
+impl BlobPersist for QsClientVerifyingKey {}
 
 impl AsRef<VerifyingKey> for QsClientVerifyingKey {
     fn as_ref(&self) -> &VerifyingKey {

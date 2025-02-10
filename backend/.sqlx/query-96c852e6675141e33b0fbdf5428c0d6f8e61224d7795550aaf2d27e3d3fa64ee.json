@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+  "query": "INSERT INTO as_client_records (\n                    client_id,\n                    user_name,\n                    queue_encryption_key,\n                    ratchet,\n                    activity_time,\n                    credential,\n                    remaining_tokens\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -100,5 +100,5 @@
     },
     "nullable": []
   },
-  "hash": "6f5111ddd6b33e7449b904797bd9b8363e107a5194a40d065860f31aba15db02"
+  "hash": "96c852e6675141e33b0fbdf5428c0d6f8e61224d7795550aaf2d27e3d3fa64ee"
 }

@@ -6,6 +6,7 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
+    codec::persist::BlobPersist,
     credentials::{keys::AsSigningKey, AsCredential, CredentialFingerprint},
     identifiers::Fqdn,
 };
@@ -18,6 +19,8 @@ use super::CredentialGenerationError;
 pub(in crate::auth_service) enum StorableSigningKey {
     V1(AsSigningKey),
 }
+
+impl BlobPersist for StorableSigningKey {}
 
 impl From<StorableSigningKey> for AsSigningKey {
     fn from(signing_key: StorableSigningKey) -> Self {
@@ -66,7 +69,7 @@ impl StorableSigningKey {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::codec::persist::BlobPersisted;
 
     use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 
@@ -81,11 +84,11 @@ mod persistence {
                 "INSERT INTO
                     as_signing_keys
                     (cred_type, credential_fingerprint, signing_key, currently_active)
-                VALUES 
+                VALUES
                     ($1, $2, $3, $4)",
                 CredentialType::As as _,
                 self.fingerprint().as_bytes(),
-                PhnxCodec::to_vec(&self)?,
+                self.persist() as _,
                 false,
             )
             .execute(connection)
@@ -96,17 +99,16 @@ mod persistence {
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
         ) -> Result<Option<AsSigningKey>, StorageError> {
-            sqlx::query!(
-                "SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = $1",
+            let value = sqlx::query_scalar!(
+                r#"SELECT signing_key AS "signing_key: _"
+                FROM as_signing_keys
+                WHERE currently_active = true AND cred_type = $1"#,
                 CredentialType::As as _
             )
             .fetch_optional(connection)
             .await?
-            .map(|record| {
-                let signing_key: StorableSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
-                Ok(signing_key.into())
-            })
-            .transpose()
+            .map(|BlobPersisted(key): BlobPersisted<StorableSigningKey>| key.into());
+            Ok(value)
         }
 
         pub(super) async fn activate(
@@ -132,23 +134,19 @@ mod persistence {
         pub(in crate::auth_service) async fn load_all(
             connection: impl PgExecutor<'_>,
         ) -> Result<Vec<AsCredential>, StorageError> {
-            let records = sqlx::query!(
-                "SELECT signing_key FROM as_signing_keys WHERE cred_type = $1",
+            let credentials = sqlx::query_scalar!(
+                r#"SELECT signing_key AS "signing_key: _"
+                FROM as_signing_keys
+                WHERE cred_type = $1"#,
                 CredentialType::As as _
             )
             .fetch_all(connection)
-            .await?;
-
-            let credentials = records
-                .into_iter()
-                .map(|record| {
-                    let signing_key: StorableSigningKey =
-                        PhnxCodec::from_slice(&record.signing_key)?;
-                    let as_signing_key = AsSigningKey::from(signing_key);
-                    Ok(as_signing_key.credential().clone())
-                })
-                .collect::<Result<Vec<_>, StorageError>>()?;
-
+            .await?
+            .into_iter()
+            .map(|BlobPersisted(key): BlobPersisted<StorableSigningKey>| {
+                AsSigningKey::from(key).take_credential()
+            })
+            .collect();
             Ok(credentials)
         }
     }

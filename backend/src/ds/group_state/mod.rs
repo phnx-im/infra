@@ -15,7 +15,7 @@ use mls_assist::{
     MlsAssistRustCrypto,
 };
 use phnxtypes::{
-    codec::PhnxCodec,
+    codec::{persist::BlobPersist, PhnxCodec},
     crypto::{
         ear::{
             keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
@@ -243,6 +243,8 @@ pub(super) enum DsGroupStateDecryptionError {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);
+
+impl BlobPersist for EncryptedDsGroupState {}
 
 #[derive(Debug)]
 pub(super) struct StorableDsGroupData {

@@ -6,6 +6,7 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
+    codec::persist::BlobPersist,
     credentials::{
         keys::AsIntermediateSigningKey, AsIntermediateCredential, AsIntermediateCredentialCsr,
         CredentialFingerprint,
@@ -23,6 +24,8 @@ use super::{signing_key::StorableSigningKey, CredentialGenerationError};
 pub(in crate::auth_service) enum IntermediateSigningKey {
     V1(AsIntermediateSigningKey),
 }
+
+impl BlobPersist for IntermediateSigningKey {}
 
 impl From<IntermediateSigningKey> for AsIntermediateSigningKey {
     fn from(signing_key: IntermediateSigningKey) -> Self {
@@ -97,7 +100,7 @@ impl IntermediateSigningKey {
 
 mod persistence {
     use phnxtypes::{
-        codec::PhnxCodec,
+        codec::persist::{BlobPersist, BlobPersisted},
         credentials::{keys::AsIntermediateSigningKey, AsIntermediateCredential},
     };
     use sqlx::PgExecutor;
@@ -115,11 +118,11 @@ mod persistence {
                 "INSERT INTO
                     as_signing_keys
                     (cred_type, credential_fingerprint, signing_key, currently_active)
-                VALUES 
+                VALUES
                     ($1, $2, $3, $4)",
                 CredentialType::Intermediate as _,
                 self.fingerprint().as_bytes(),
-                PhnxCodec::to_vec(&self)?,
+                self.persist() as _,
                 false,
             )
             .execute(connection)
@@ -130,12 +133,15 @@ mod persistence {
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
         ) -> Result<Option<AsIntermediateSigningKey>, StorageError> {
-            sqlx::query!("SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'")
-                .fetch_optional(connection)
-                .await?.map(|record| {
-                    let signing_key: IntermediateSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
-                    Ok(signing_key.into())
-                }).transpose()
+            let value = sqlx::query_scalar!(
+                r#"SELECT signing_key AS "signing_key: _"
+                FROM as_signing_keys
+                WHERE currently_active = true AND cred_type = 'intermediate'"#
+            )
+            .fetch_optional(connection)
+            .await?
+            .map(|BlobPersisted(value): BlobPersisted<IntermediateSigningKey>| value.into());
+            Ok(value)
         }
 
         pub(super) async fn activate(
@@ -161,21 +167,20 @@ mod persistence {
         pub(in crate::auth_service) async fn load_all(
             connection: impl PgExecutor<'_>,
         ) -> Result<Vec<AsIntermediateCredential>, StorageError> {
-            let records = sqlx::query!(
-                "SELECT signing_key FROM as_signing_keys WHERE cred_type = $1",
+            let credentials = sqlx::query_scalar!(
+                r#"SELECT signing_key AS "signing_key: _"
+                FROM as_signing_keys WHERE cred_type = $1"#,
                 CredentialType::Intermediate as _,
             )
             .fetch_all(connection)
-            .await?;
-            let credentials = records
-                .into_iter()
-                .map(|record| {
-                    let signing_key: IntermediateSigningKey =
-                        PhnxCodec::from_slice(&record.signing_key)?;
-                    let as_signing_key = AsIntermediateSigningKey::from(signing_key);
-                    Ok(as_signing_key.credential().clone())
-                })
-                .collect::<Result<Vec<_>, StorageError>>()?;
+            .await?
+            .into_iter()
+            .map(
+                |BlobPersisted(value): BlobPersisted<IntermediateSigningKey>| {
+                    AsIntermediateSigningKey::from(value).take_credential()
+                },
+            )
+            .collect();
             Ok(credentials)
         }
     }

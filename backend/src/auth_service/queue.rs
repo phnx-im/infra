@@ -27,8 +27,11 @@ impl Queue {
 }
 
 mod persistence {
-    use phnxtypes::{codec::PhnxCodec, messages::QueueMessage};
-    use sqlx::{Connection, Row};
+    use phnxtypes::{
+        codec::persist::{BlobPersist, BlobPersisted},
+        messages::QueueMessage,
+    };
+    use sqlx::Connection;
     use uuid::Uuid;
 
     use crate::errors::QueueError;
@@ -55,9 +58,6 @@ mod persistence {
             client_id: &AsClientId,
             message: QueueMessage,
         ) -> Result<(), QueueError> {
-            // Encode the message
-            let message_bytes = PhnxCodec::to_vec(&message).map_err(StorageError::Serde)?;
-
             // Begin the transaction
             let mut transaction = connection.begin().await?;
 
@@ -87,14 +87,15 @@ mod persistence {
             let message_id = Uuid::new_v4();
             // Store the message in the DB
             sqlx::query!(
-            "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
-            message_id,
-            client_id.client_id(),
-            sequence_number,
-            message_bytes,
-        )
-        .execute(&mut *transaction)
-        .await?;
+                "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes)
+                VALUES ($1, $2, $3, $4)",
+                message_id,
+                client_id.client_id(),
+                sequence_number,
+                message.persist() as _,
+            )
+            .execute(&mut *transaction)
+            .await?;
 
             let new_sequence_number = sequence_number + 1;
             // Increase the sequence number and store it.
@@ -128,7 +129,8 @@ mod persistence {
             let mut transaction = connection.begin().await?;
 
             // This query is idempotent, so there's no need to lock anything.
-            let query = "WITH deleted AS (
+            let rows = sqlx::query!(
+                r#"WITH deleted AS (
                 DELETE FROM as_queues
                 WHERE queue_id = $1 AND sequence_number < $2
             ),
@@ -144,32 +146,29 @@ mod persistence {
                 WHERE queue_id = $1 AND sequence_number >= $2
             )
             SELECT
-                fetched.message_bytes,
+                fetched.message_bytes AS "message: BlobPersisted<QueueMessage>",
                 remaining.count
-            FROM fetched, remaining";
-
-            let rows = sqlx::query(query)
-                .bind(client_id.client_id())
-                .bind(sequence_number as i64)
-                .bind(number_of_messages)
-                .fetch_all(&mut *transaction)
-                .await?;
+            FROM fetched, remaining"#,
+                client_id.client_id(),
+                sequence_number as i64,
+                number_of_messages,
+            )
+            .fetch_all(&mut *transaction)
+            .await?;
 
             transaction.commit().await?;
 
             // Convert the records to messages.
-            let messages = rows
-                .iter()
+            let mut remaining = None;
+            let messages: Vec<QueueMessage> = rows
+                .into_iter()
                 .map(|row| {
-                    let message_bytes: &[u8] = row.try_get("message_bytes")?;
-                    let message =
-                        PhnxCodec::from_slice(message_bytes).map_err(StorageError::Serde)?;
-                    Ok(message)
+                    remaining.get_or_insert(row.count);
+                    row.message.into_inner()
                 })
-                .collect::<Result<Vec<_>, QueueError>>()?;
+                .collect();
 
-            let remaining_messages = if let Some(row) = rows.first() {
-                let remaining_count: i64 = row.try_get("count")?;
+            let remaining_messages = if let Some(remaining_count) = remaining.flatten() {
                 // Subtract the number of messages we've read from the remaining
                 // count to get the number of unread messages.
                 remaining_count - messages.len() as i64

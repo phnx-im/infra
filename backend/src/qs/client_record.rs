@@ -92,7 +92,7 @@ impl QsClientRecord {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::codec::persist::{BlobPersist, BlobPersisted};
     use sqlx::{PgConnection, PgExecutor};
 
     use super::*;
@@ -104,11 +104,6 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            // Create and store the client record.
-            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
-
             sqlx::query!(
                 "INSERT INTO
                     qs_client_records
@@ -118,9 +113,9 @@ mod persistence {
                 &self.client_id as &QsClientId,
                 &self.user_id as &QsUserId,
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                owner_public_key,
-                owner_signature_key,
-                ratchet,
+                self.queue_encryption_key.persist() as _,
+                self.auth_key.persist() as _,
+                self.ratchet_key.persist() as _,
                 &self.activity_time as &TimeStamp,
             )
             .execute(connection)
@@ -133,15 +128,26 @@ mod persistence {
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
         ) -> Result<Option<QsClientRecord>, StorageError> {
+            struct SqlQsClientRecord {
+                user_id: QsUserId,
+                encrypted_push_token: Option<EncryptedPushToken>,
+                queue_encryption_key: BlobPersisted<RatchetEncryptionKey>,
+                auth_key: BlobPersisted<QsClientVerifyingKey>,
+                ratchet:
+                    BlobPersisted<QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>>,
+                activity_time: TimeStamp,
+            }
+
             let client_id = client_id.as_uuid();
-            sqlx::query!(
+            sqlx::query_as!(
+                SqlQsClientRecord,
                 r#"SELECT
                     user_id as "user_id: QsUserId",
                     encrypted_push_token as "encrypted_push_token: EncryptedPushToken",
-                    owner_public_key,
-                    owner_signature_key,
-                    ratchet,
-                    activity_time as "activity_time: TimeStamp"
+                    owner_public_key AS "queue_encryption_key: _",
+                    owner_signature_key AS "auth_key: _",
+                    ratchet AS "ratchet: _",
+                    activity_time AS "activity_time: TimeStamp"
                 FROM
                     qs_client_records
                 WHERE
@@ -150,21 +156,26 @@ mod persistence {
             )
             .fetch_optional(connection)
             .await?
-            .map(|record| {
-                let owner_public_key = PhnxCodec::from_slice(&record.owner_public_key)?;
-                let owner_signature_key = PhnxCodec::from_slice(&record.owner_signature_key)?;
-                let ratchet_key = PhnxCodec::from_slice(&record.ratchet)?;
-
-                Ok(QsClientRecord {
-                    user_id: record.user_id,
-                    client_id: (*client_id).into(),
-                    encrypted_push_token: record.encrypted_push_token,
-                    queue_encryption_key: owner_public_key,
-                    auth_key: owner_signature_key,
-                    ratchet_key,
-                    activity_time: record.activity_time,
-                })
-            })
+            .map(
+                |SqlQsClientRecord {
+                     user_id,
+                     encrypted_push_token,
+                     queue_encryption_key: BlobPersisted(queue_encryption_key),
+                     auth_key: BlobPersisted(auth_key),
+                     ratchet: BlobPersisted(ratchet_key),
+                     activity_time,
+                 }| {
+                    Ok(QsClientRecord {
+                        user_id,
+                        client_id: (*client_id).into(),
+                        encrypted_push_token,
+                        queue_encryption_key,
+                        auth_key,
+                        ratchet_key,
+                        activity_time,
+                    })
+                },
+            )
             .transpose()
         }
 
@@ -172,10 +183,6 @@ mod persistence {
             &self,
             connection: &mut PgConnection,
         ) -> Result<(), StorageError> {
-            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
-
             sqlx::query!(
                 "UPDATE qs_client_records
                 SET
@@ -187,9 +194,9 @@ mod persistence {
                 WHERE
                     client_id = $6",
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                owner_public_key,
-                owner_signature_key,
-                ratchet,
+                self.queue_encryption_key.persist() as _,
+                self.auth_key.persist() as _,
+                self.ratchet_key.persist() as _,
                 &self.activity_time as &TimeStamp,
                 &self.client_id as &QsClientId,
             )

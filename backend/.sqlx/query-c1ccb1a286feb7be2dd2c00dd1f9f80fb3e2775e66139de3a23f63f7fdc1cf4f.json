@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = $1",
+  "query": "SELECT signing_key AS \"signing_key: _\"\n                FROM as_signing_keys\n                WHERE currently_active = true AND cred_type = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "signing_key",
+        "name": "signing_key: _",
         "type_info": "Bytea"
       }
     ],
@@ -28,5 +28,5 @@
       false
     ]
   },
-  "hash": "05558d3ff3e5761778af844cbc9bd71ebc98657719abe87bc7aa821c01c24b37"
+  "hash": "c1ccb1a286feb7be2dd2c00dd1f9f80fb3e2775e66139de3a23f63f7fdc1cf4f"
 }

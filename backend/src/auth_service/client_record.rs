@@ -57,7 +57,8 @@ impl ClientRecord {
 
 mod persistence {
     use phnxtypes::{
-        codec::PhnxCodec, credentials::persistence::FlatClientCredential,
+        codec::persist::{BlobPersist, BlobPersisted},
+        credentials::persistence::FlatClientCredential,
         identifiers::QualifiedUserName,
     };
     use sqlx::{
@@ -72,18 +73,23 @@ mod persistence {
             &self,
             connection: &mut PgConnection,
         ) -> Result<(), StorageError> {
-            let queue_encryption_key_bytes = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
-            let activity_time = DateTime::<Utc>::from(self.activity_time);
             let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO as_client_records (
+                    client_id,
+                    user_name,
+                    queue_encryption_key,
+                    ratchet,
+                    activity_time,
+                    credential,
+                    remaining_tokens
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
                 client_id.user_name().to_string(),
-                queue_encryption_key_bytes,
-                ratchet,
-                activity_time,
+                self.queue_encryption_key.persist() as _,
+                self.ratchet_key.persist() as _,
+                self.activity_time as TimeStamp,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
             )
@@ -96,17 +102,21 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let queue_encryption_key_bytes = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
-            let activity_time = DateTime::<Utc>::from(self.activity_time);
             let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, credential = $4, remaining_tokens = $5 WHERE client_id = $6",
-                queue_encryption_key_bytes,
-                ratchet,
-                activity_time,
-                client_credential as FlatClientCredential,
+                r#"UPDATE as_client_records SET
+                    queue_encryption_key = $1,
+                    ratchet = $2,
+                    activity_time = $3,
+                    credential = $4,
+                    remaining_tokens = $5
+                WHERE client_id = $6
+                "#,
+                self.queue_encryption_key.persist() as _,
+                self.ratchet_key.persist() as _,
+                self.activity_time as TimeStamp,
+                client_credential as _,
                 self.token_allowance,
                 client_id.client_id(),
             )
@@ -119,30 +129,45 @@ mod persistence {
             connection: impl PgExecutor<'_>,
             client_id: &AsClientId,
         ) -> Result<Option<ClientRecord>, StorageError> {
-            sqlx::query!(
+            struct SqlClientRecord {
+                queue_encryption_key: BlobPersisted<RatchetEncryptionKey>,
+                ratchet:
+                    BlobPersisted<QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>>,
+                activity_time: DateTime<Utc>,
+                credential: FlatClientCredential,
+                remaining_tokens: i32,
+            }
+
+            sqlx::query_as!(
+                SqlClientRecord,
                 r#"SELECT
-                    queue_encryption_key,
-                    ratchet,
+                    queue_encryption_key AS "queue_encryption_key: _",
+                    ratchet AS "ratchet: _",
                     activity_time,
-                    credential as "client_credential: FlatClientCredential",
+                    credential AS "credential: _",
                     remaining_tokens
                 FROM as_client_records WHERE client_id = $1"#,
                 client_id.client_id(),
             )
             .fetch_optional(connection)
             .await?
-            .map(|record| {
-                let queue_encryption_key = PhnxCodec::from_slice(&record.queue_encryption_key)?;
-                let ratchet = PhnxCodec::from_slice(&record.ratchet)?;
-                let activity_time = record.activity_time.into();
-                Ok(ClientRecord {
-                    queue_encryption_key,
-                    ratchet_key: ratchet,
-                    activity_time,
-                    credential: record.client_credential.into(),
-                    token_allowance: record.remaining_tokens,
-                })
-            })
+            .map(
+                |SqlClientRecord {
+                     queue_encryption_key: BlobPersisted(queue_encryption_key),
+                     ratchet: BlobPersisted(ratchet_key),
+                     activity_time,
+                     credential,
+                     remaining_tokens,
+                 }: SqlClientRecord| {
+                    Ok(ClientRecord {
+                        queue_encryption_key,
+                        ratchet_key,
+                        activity_time: activity_time.into(),
+                        credential: credential.into(),
+                        token_allowance: remaining_tokens,
+                    })
+                },
+            )
             .transpose()
         }
 

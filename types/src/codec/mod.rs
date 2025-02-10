@@ -9,6 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 mod cbor;
 mod error;
+pub mod persist;
 #[cfg(test)]
 mod tests;
 
@@ -52,6 +53,15 @@ impl PhnxCodec {
         let mut buf = vec![*self as u8];
         buf.extend(res);
         Ok(buf)
+    }
+
+    fn serialize_to_writer<T: Serialize>(
+        &self,
+        value: &T,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Cbor::to_writer(value, writer)?;
+        Ok(())
     }
 
     fn deserialize<T: DeserializeOwned>(
