@@ -145,6 +145,11 @@ impl KeyPackageEarKey {
             key: KeyPackageEarKeySecret::random()?,
         })
     }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test(key: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key }
+    }
 }
 
 impl EarKey for KeyPackageEarKey {}

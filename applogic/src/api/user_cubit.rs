@@ -303,9 +303,9 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
                     process_fetched_messages(fetched_messages).await;
                     backoff.reset();
                 }
-                Err(_error) => {
+                Err(error) => {
                     timeout = backoff.next_backoff().max(timeout);
-                    error!(retry_in =? timeout, "Failed to fetch messages");
+                    error!(retry_in =? timeout, %error, "Failed to fetch messages");
                 }
             }
             tokio::select! {

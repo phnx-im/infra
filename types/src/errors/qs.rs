@@ -5,6 +5,8 @@
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
+use crate::messages::client_qs::VersionError;
+
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
@@ -159,8 +161,7 @@ pub enum QsEncryptionKeyError {
 
 // === Other errors ===
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
+#[derive(Error, Debug)]
 pub enum QsProcessError {
     /// Storage Error
     #[error("Storage Error")]
@@ -171,6 +172,9 @@ pub enum QsProcessError {
     /// Codec error
     #[error("Codec error")]
     CodecError,
+    /// API Version error
+    #[error(transparent)]
+    Api(#[from] VersionError),
 
     /// Create user error
     #[error("Create user error")]

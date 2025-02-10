@@ -28,7 +28,7 @@ use super::{
 };
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct EncryptionPublicKey(Vec<u8>);
@@ -217,6 +217,7 @@ impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
 }
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct ClientIdEncryptionKey {
     public_key: EncryptionPublicKey,
 }
@@ -230,6 +231,11 @@ impl AsRef<EncryptionPublicKey> for ClientIdEncryptionKey {
 impl HpkeEncryptionKey for ClientIdEncryptionKey {}
 
 impl ClientIdEncryptionKey {
+    #[cfg(test)]
+    pub fn new_for_test(public_key: EncryptionPublicKey) -> Self {
+        Self { public_key }
+    }
+
     pub fn seal_client_config(
         &self,
         client_config: ClientConfig,

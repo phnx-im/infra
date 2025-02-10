@@ -60,7 +60,7 @@ impl Signature {
         &self.0
     }
 
-    pub(super) fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(bytes)
     }
 

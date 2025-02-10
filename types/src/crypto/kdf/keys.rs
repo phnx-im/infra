@@ -121,6 +121,11 @@ impl RatchetSecret {
         let key = Secret::random()?;
         Ok(Self { key })
     }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test(key: Secret<KDF_KEY_SIZE>) -> Self {
+        Self { key }
+    }
 }
 
 impl AsRef<Secret<KDF_KEY_SIZE>> for RatchetSecret {

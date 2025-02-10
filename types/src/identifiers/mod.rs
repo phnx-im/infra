@@ -486,6 +486,7 @@ impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientCon
     Serialize,
     Deserialize,
     Clone,
+    Copy,
     Debug,
     PartialEq,
     Eq,
@@ -530,6 +531,7 @@ impl From<Uuid> for QsClientId {
 
 #[derive(
     Clone,
+    Copy,
     Debug,
     Serialize,
     Deserialize,

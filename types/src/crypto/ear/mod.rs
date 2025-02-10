@@ -48,7 +48,7 @@ impl Default for Ciphertext {
     }
 }
 
-#[cfg(feature = "test_utils")]
+#[cfg(any(feature = "test_utils", test))]
 impl Ciphertext {
     pub fn dummy() -> Self {
         Self {

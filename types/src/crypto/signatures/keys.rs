@@ -130,6 +130,13 @@ impl UserKeyHash {
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct QsClientVerifyingKey(VerifyingKey);
 
+impl QsClientVerifyingKey {
+    #[cfg(test)]
+    pub(crate) fn new_for_test(verifying_key: VerifyingKey) -> Self {
+        Self(verifying_key)
+    }
+}
+
 impl AsRef<VerifyingKey> for QsClientVerifyingKey {
     fn as_ref(&self) -> &VerifyingKey {
         &self.0
@@ -166,6 +173,13 @@ impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct QsUserVerifyingKey(VerifyingKey);
+
+impl QsUserVerifyingKey {
+    #[cfg(test)]
+    pub(crate) fn new_for_test(verifying_key: VerifyingKey) -> Self {
+        Self(verifying_key)
+    }
+}
 
 impl AsRef<VerifyingKey> for QsUserVerifyingKey {
     fn as_ref(&self) -> &VerifyingKey {
@@ -222,6 +236,7 @@ impl SigningKeyBehaviour for QsSigningKey {}
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct QsVerifyingKey(VerifyingKey);
 
 #[cfg(feature = "sqlite")]

@@ -38,7 +38,7 @@ impl Qs {
                 })?;
 
         let create_client_params = CreateClientRecordParams {
-            sender: user_record.user_id.clone(),
+            sender: user_record.user_id,
             client_record_auth_key,
             queue_encryption_key,
             encrypted_push_token,

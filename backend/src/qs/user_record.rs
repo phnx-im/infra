@@ -78,7 +78,7 @@ mod persistence {
             .await?
             .map(|record| {
                 Ok(UserRecord {
-                    user_id: user_id.clone(),
+                    user_id: *user_id,
                     verifying_key: record.verifying_key,
                     friendship_token: record.friendship_token,
                 })
