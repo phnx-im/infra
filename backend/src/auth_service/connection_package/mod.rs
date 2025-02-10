@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::messages::client_as::ConnectionPackage;
+use phnxtypes::{codec::persist::BlobPersist, messages::client_as::ConnectionPackage};
 use serde::{Deserialize, Serialize};
 
 mod persistence;
@@ -11,6 +11,8 @@ mod persistence;
 pub(in crate::auth_service) enum StorableConnectionPackage {
     CurrentVersion(ConnectionPackage),
 }
+
+impl BlobPersist for StorableConnectionPackage {}
 
 impl From<StorableConnectionPackage> for ConnectionPackage {
     fn from(connection_package: StorableConnectionPackage) -> Self {

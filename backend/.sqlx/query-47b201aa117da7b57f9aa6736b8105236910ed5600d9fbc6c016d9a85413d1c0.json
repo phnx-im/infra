@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                group_id, ciphertext, last_used, deleted_queues\n            FROM\n                encrypted_groups\n            WHERE\n                group_id = $1",
+  "query": "SELECT\n                group_id,\n                ciphertext AS \"ciphertext: _\",\n                last_used,\n                deleted_queues AS \"deleted_queues: _\"\n            FROM\n                encrypted_groups\n            WHERE\n                group_id = $1",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "ciphertext",
+        "name": "ciphertext: _",
         "type_info": "Bytea"
       },
       {
@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "deleted_queues",
+        "name": "deleted_queues: _",
         "type_info": "Bytea"
       }
     ],
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "4c8dac26fef5c235476dca6fd0fbbafb1929a95bdf63fd120ffbf0cc0af07990"
+  "hash": "47b201aa117da7b57f9aa6736b8105236910ed5600d9fbc6c016d9a85413d1c0"
 }

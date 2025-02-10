@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use phnxtypes::codec::PhnxCodec;
+use phnxtypes::codec::persist::{BlobPersist, BlobPersisted};
 use privacypass::{
     batched_tokens_ristretto255::server::BatchedKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
+use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, Postgres, Transaction};
 use tokio::sync::Mutex;
 
@@ -24,6 +25,11 @@ impl<'a, 'b> AuthServiceBatchedKeyStoreProvider<'a, 'b> {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct StorableVoprfServer(VoprfServer<Ristretto255>);
+
+impl BlobPersist for StorableVoprfServer {}
+
 #[async_trait]
 impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
@@ -32,17 +38,15 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
         truncated_token_key_id: TruncatedTokenKeyId,
         server: VoprfServer<Ristretto255>,
     ) {
-        let Ok(server_bytes) = PhnxCodec::to_vec(&server) else {
-            return;
-        };
         let mut transaction = self.transaction_mutex.lock().await;
         let Ok(connection) = transaction.acquire().await else {
             return;
         };
+        let server = StorableVoprfServer(server);
         let _ = sqlx::query!(
             "INSERT INTO as_batched_keys (token_key_id, voprf_server) VALUES ($1, $2)",
-            truncated_token_key_id as i16,
-            server_bytes,
+            i16::from(truncated_token_key_id),
+            server.persist() as _,
         )
         .execute(connection)
         .await;
@@ -55,13 +59,13 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
     ) -> Option<VoprfServer<Ristretto255>> {
         let mut transaction = self.transaction_mutex.lock().await;
         let connection = transaction.acquire().await.ok()?;
-        let server_bytes_record = sqlx::query!(
-            "SELECT voprf_server FROM as_batched_keys WHERE token_key_id = $1",
+        let server: Option<BlobPersisted<StorableVoprfServer>> = sqlx::query_scalar!(
+            r#"SELECT voprf_server AS "voprf_server: _" FROM as_batched_keys WHERE token_key_id = $1"#,
             *truncated_token_key_id as i16,
         )
         .fetch_one(connection)
         .await
         .ok()?;
-        PhnxCodec::from_slice(&server_bytes_record.voprf_server).ok()
+        server.map(|record| record.into_inner().0)
     }
 }

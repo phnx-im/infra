@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, identifiers::QsClientId, messages::QueueMessage};
+use phnxtypes::{
+    codec::persist::{BlobPersist, BlobPersisted},
+    identifiers::QsClientId,
+    messages::QueueMessage,
+};
 use sqlx::{Connection, PgConnection, PgExecutor};
 
 use crate::errors::{QueueError, StorageError};
@@ -30,9 +34,6 @@ impl Queue {
         queue_id: &QsClientId,
         message: QueueMessage,
     ) -> Result<(), QueueError> {
-        // Encode the message
-        let message_bytes = PhnxCodec::to_vec(&message)?;
-
         // Begin the transaction
         let mut transaction = connection.begin().await?;
 
@@ -41,18 +42,18 @@ impl Queue {
             r#"
             WITH updated_sequence AS (
                 -- Step 1: Update and return the current sequence number.
-                UPDATE qs_queue_data 
-                SET sequence_number = sequence_number + 1 
-                WHERE queue_id = $1 
+                UPDATE qs_queue_data
+                SET sequence_number = sequence_number + 1
+                WHERE queue_id = $1
                 RETURNING sequence_number - 1 as sequence_number
             )
             -- Step 2: Insert the message with the new sequence number.
-            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) 
+            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
             SELECT $1, sequence_number, $2 FROM updated_sequence
             RETURNING sequence_number
             "#,
             queue_id as &QsClientId,
-            message_bytes,
+            message.persist() as _,
         )
         .fetch_one(&mut *transaction)
         .await?;
@@ -87,7 +88,7 @@ impl Queue {
         let rows = sqlx::query!(
             r#"
             WITH deleted AS (
-                DELETE FROM qs_queues 
+                DELETE FROM qs_queues
                 WHERE queue_id = $1 AND sequence_number < $2
                 RETURNING *
             ),
@@ -98,12 +99,12 @@ impl Queue {
                 LIMIT $3
             ),
             remaining AS (
-                SELECT COALESCE(COUNT(*)) AS count 
+                SELECT COALESCE(COUNT(*)) AS count
                 FROM qs_queues
                 WHERE queue_id = $1 AND sequence_number >= $2
             )
-            SELECT 
-                fetched.message_bytes,
+            SELECT
+                fetched.message_bytes AS "message: BlobPersisted<QueueMessage>",
                 remaining.count
             FROM fetched, remaining
             "#,
@@ -117,16 +118,16 @@ impl Queue {
         transaction.commit().await?;
 
         // Convert the records to messages.
-        let messages = rows
-            .iter()
+        let mut remaining = None;
+        let messages: Vec<QueueMessage> = rows
+            .into_iter()
             .map(|row| {
-                let message = PhnxCodec::from_slice(&row.message_bytes)?;
-                Ok(message)
+                remaining.get_or_insert(row.count);
+                row.message.into_inner()
             })
-            .collect::<Result<Vec<_>, QueueError>>()?;
+            .collect();
 
-        let remaining_messages = if let Some(row) = rows.first() {
-            let remaining_count: i64 = row.count.unwrap_or_default();
+        let remaining_messages = if let Some(remaining_count) = remaining.flatten() {
             // Subtract the number of messages we've read from the remaining
             // count to get the number of unread messages.
             remaining_count - messages.len() as i64
@@ -147,10 +148,10 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "INSERT INTO 
-                    qs_queue_data 
+                "INSERT INTO
+                    qs_queue_data
                     (queue_id, sequence_number)
-                VALUES 
+                VALUES
                     ($1, $2)",
                 &self.queue_id as &QsClientId,
                 self.sequence_number,

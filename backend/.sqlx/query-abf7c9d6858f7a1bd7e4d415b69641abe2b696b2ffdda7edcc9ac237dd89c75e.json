@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, credential = $4, remaining_tokens = $5 WHERE client_id = $6",
+  "query": "UPDATE as_client_records SET\n                    queue_encryption_key = $1,\n                    ratchet = $2,\n                    activity_time = $3,\n                    credential = $4,\n                    remaining_tokens = $5\n                WHERE client_id = $6\n                ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -99,5 +99,5 @@
     },
     "nullable": []
   },
-  "hash": "fa1f4e4a98ac823a01d7af12eaff3edf9bdd9ba1671314eec9aeba7e4de2e671"
+  "hash": "abf7c9d6858f7a1bd7e4d415b69641abe2b696b2ffdda7edcc9ac237dd89c75e"
 }

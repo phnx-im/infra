@@ -8,12 +8,16 @@ use opaque_ke::{
     rand::{CryptoRng, RngCore},
     ServerSetup,
 };
-use phnxtypes::crypto::OpaqueCiphersuite;
+use phnxtypes::{codec::persist::BlobPersist, crypto::OpaqueCiphersuite};
+use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 
 use crate::errors::StorageError;
 
+#[derive(Serialize, Deserialize)]
 pub(super) struct OpaqueSetup(ServerSetup<OpaqueCiphersuite>);
+
+impl BlobPersist for OpaqueSetup {}
 
 impl Deref for OpaqueSetup {
     type Target = ServerSetup<OpaqueCiphersuite>;
@@ -35,7 +39,7 @@ impl OpaqueSetup {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::codec::persist::BlobPersisted;
 
     use super::*;
 
@@ -46,7 +50,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO opaque_setup (opaque_setup) VALUES ($1)",
-                PhnxCodec::to_vec(&self.0)?
+                self.persist() as _
             )
             .execute(connection)
             .await?;
@@ -57,11 +61,12 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<ServerSetup<OpaqueCiphersuite>, StorageError> {
             // There is currently only one OPAQUE setup.
-            let opaque_setup_record = sqlx::query!("SELECT opaque_setup FROM opaque_setup")
-                .fetch_one(connection)
-                .await?;
-            let opaque_setup = PhnxCodec::from_slice(&opaque_setup_record.opaque_setup)?;
-            Ok(opaque_setup)
+            let BlobPersisted(OpaqueSetup(value)) = sqlx::query_scalar!(
+                r#"SELECT opaque_setup AS "opaque_setup: _" FROM opaque_setup"#
+            )
+            .fetch_one(connection)
+            .await?;
+            Ok(value)
         }
     }
 }
