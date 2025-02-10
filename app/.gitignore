@@ -67,8 +67,10 @@ rust_builder/
 flutter_rust_bridge.yaml.generated
 
 # Fastlane related
-Runner.ipa
-Runner.app.dSYM.zip
+*.ipa
+*.pkg
+*.app
+*.app.dSYM.zip
 
 # Other platforms
 windows/

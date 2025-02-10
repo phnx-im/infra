@@ -65,6 +65,11 @@ setup-android-ci: setup-ci
 setup-ios-ci: setup-ci
 	bundle install
 
+# set up the CI environment for macOS builds
+[working-directory: 'app/fastlane']
+setup-macos-ci: setup-ci
+	bundle install
+
 # build Android
 # we limit it to android-arm64 to speed up the build process
 [working-directory: 'app']
