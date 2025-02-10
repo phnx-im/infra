@@ -71,4 +71,26 @@ ThemeData themeData(BuildContext context) => ThemeData(
       ),
       textSelectionTheme:
           const TextSelectionThemeData(cursorColor: Colors.blue),
+      inputDecorationTheme: InputDecorationTheme(
+        border: InputBorder.none,
+        hintStyle: const TextStyle(
+          color: colorDMBLight,
+          fontSize: 11,
+          fontFamily: fontFamily,
+        ).merge(VariableFontWeight.normal),
+        focusedBorder: _textInputBorder,
+        enabledBorder: _textInputBorder,
+        errorBorder: _textInputBorder,
+        focusedErrorBorder: _textInputBorder,
+        filled: true,
+        fillColor: colorDMBSuperLight,
+      ),
     );
+
+final _textInputBorder = OutlineInputBorder(
+  borderSide: const BorderSide(
+    width: 0,
+    style: BorderStyle.none,
+  ),
+  borderRadius: BorderRadius.circular(7),
+);
