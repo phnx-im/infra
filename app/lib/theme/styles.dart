@@ -56,7 +56,7 @@ const inactiveButtonColor = colorDMBSuperLight;
 
 // === Inputs ===
 
-final inputTextStyle = TextStyle(
+final inputTextStyle = const TextStyle(
   fontFamily: fontFamily,
   fontSize: 14,
 ).merge(VariableFontWeight.normal);

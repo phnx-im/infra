@@ -32,7 +32,7 @@ class ConversationDetailsScreen extends StatelessWidget {
         userCubit: context.read(),
         conversationId: conversationId,
       ),
-      child: ConversationDetailsScreenView(),
+      child: const ConversationDetailsScreenView(),
     );
   }
 }
@@ -59,7 +59,7 @@ class ConversationDetailsScreenView extends StatelessWidget {
         UiConversationType_Connection() =>
           const ConnectionDetails(),
         UiConversationType_Group() => const GroupDetails(),
-        null => Center(child: const Text("Unknown conversation")),
+        null => const Center(child: Text("Unknown conversation")),
       },
     );
   }

@@ -13,12 +13,14 @@ void initLogging() {
   // Init Dart logging
   Logger.root.level = kDebugMode ? Level.FINE : Level.INFO;
   Logger.root.onRecord.listen((record) {
+    // ignore: avoid_print
     print(
         '[F] ${record.time} ${record.level.name} ${record.loggerName}: ${record.message}');
   });
 
   // Rust Logging
   createLogStream().listen((event) {
+    // ignore: avoid_print
     print(
         '[R] ${event.time.toLocal()} ${event.level.asString} ${event.target}: ${event.msg}');
   });

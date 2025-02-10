@@ -114,7 +114,7 @@ void main() {
                   .map(
                     (weight) => Text(
                       "This text has weight $weight",
-                      style: TextStyle().merge(
+                      style: const TextStyle().merge(
                         VariableFontWeight.values[weight.index],
                       ),
                     ),
