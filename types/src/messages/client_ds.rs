@@ -25,10 +25,9 @@ use tls_codec::{
 };
 
 use crate::{
-    credentials::EncryptedClientCredential,
     crypto::{
         ear::{
-            keys::{EncryptedSignatureEarKey, GroupStateEarKey, RatchetKey},
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey, RatchetKey},
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{
@@ -169,12 +168,11 @@ impl InfraAadMessage {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum InfraAadPayload {
-    AddUsers(AddUsersParamsAad),
+    GroupOperation(GroupOperationParamsAad),
     UpdateClient(UpdateClientParamsAad),
     JoinGroup(JoinGroupParamsAad),
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     AddClients(AddClientsParamsAad),
-    RemoveUsers,
     RemoveClients,
     ResyncClient,
     DeleteGroup,
@@ -224,8 +222,7 @@ impl DsEventMessage {
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_client_credential: EncryptedClientCredential,
-    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: MlsMessageIn,
@@ -251,7 +248,7 @@ impl UpdateQsClientReferenceParams {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    // The Public key from the sender's InfraCredential
+    // The Public key from the sender's PseudonymousCredential
     pub sender: SignaturePublicKey,
     pub epoch: GroupEpoch,
 }
@@ -274,24 +271,28 @@ pub struct ConnectionGroupInfoParams {
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
-pub struct AddUsersParams {
-    pub commit: AssistedMessageIn,
-    pub sender: UserKeyHash,
+pub struct AddUsersInfo {
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<UNVERIFIED>>,
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct AddUsersParamsAad {
-    pub encrypted_credential_information:
-        Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct RemoveUsersParams {
+#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+pub struct GroupOperationParams {
     pub commit: AssistedMessageIn,
     pub sender: UserKeyHash,
+    pub add_users_info_option: Option<AddUsersInfo>,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct CredentialUpdate {
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
+}
+
+#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct GroupOperationParamsAad {
+    pub new_encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub credential_update_option: Option<CredentialUpdate>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -303,8 +304,7 @@ pub struct UpdateClientParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct UpdateClientParamsAad {
-    pub option_encrypted_signature_ear_key: Option<EncryptedSignatureEarKey>,
-    pub option_encrypted_client_credential: Option<EncryptedClientCredential>,
+    pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -317,7 +317,7 @@ pub struct JoinGroupParams {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinGroupParamsAad {
     pub existing_user_clients: Vec<LeafNodeIndex>,
-    pub encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -329,7 +329,7 @@ pub struct JoinConnectionGroupParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinConnectionGroupParamsAad {
-    pub encrypted_client_information: (EncryptedClientCredential, EncryptedSignatureEarKey),
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_friendship_package: EncryptedFriendshipPackage,
 }
 
@@ -345,7 +345,7 @@ pub struct AddClientsParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct AddClientsParamsAad {
-    pub encrypted_client_information: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -390,9 +390,7 @@ pub struct DeleteGroupParams {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParams {
-    AddUsers(AddUsersParams),
     CreateGroupParams(CreateGroupParams),
-    RemoveUsers(RemoveUsersParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
@@ -406,13 +404,13 @@ pub enum DsRequestParams {
     SelfRemoveClient(SelfRemoveClientParams),
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
+    GroupOperation(GroupOperationParams),
     DispatchEvent(DispatchEventParams),
 }
 
 impl DsRequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            DsRequestParams::AddUsers(add_user_params) => add_user_params.commit.group_id(),
             DsRequestParams::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
             DsRequestParams::CreateGroupParams(create_group_params) => {
                 &create_group_params.group_id
@@ -424,9 +422,6 @@ impl DsRequestParams {
                 &external_commit_info_params.group_id
             }
             DsRequestParams::ConnectionGroupInfo(params) => &params.group_id,
-            DsRequestParams::RemoveUsers(remove_users_params) => {
-                remove_users_params.commit.group_id()
-            }
             DsRequestParams::UpdateClient(update_client_params) => {
                 update_client_params.commit.group_id()
             }
@@ -455,16 +450,15 @@ impl DsRequestParams {
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 dispatch_event_params.event.group_id()
             }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                group_operation_params.commit.group_id()
+            }
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            DsRequestParams::AddUsers(add_users_params) => add_users_params.commit.sender(),
-            DsRequestParams::RemoveUsers(remove_users_params) => {
-                remove_users_params.commit.sender()
-            }
             DsRequestParams::UpdateClient(update_client_params) => {
                 update_client_params.commit.sender()
             }
@@ -491,6 +485,9 @@ impl DsRequestParams {
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 delete_group_params.commit.sender()
             }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                group_operation_params.commit.sender()
+            }
             DsRequestParams::DispatchEvent(_) => {
                 None
             }
@@ -508,9 +505,6 @@ impl DsRequestParams {
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub fn ds_sender(&self) -> DsSender {
         match self {
-            DsRequestParams::AddUsers(add_users_params) => {
-                DsSender::UserKeyHash(add_users_params.sender.clone())
-            }
             DsRequestParams::WelcomeInfo(welcome_info_params) => {
                 DsSender::LeafSignatureKey(welcome_info_params.sender.clone())
             }
@@ -522,9 +516,6 @@ impl DsRequestParams {
             }
             DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
                 DsSender::UserKeyHash(external_commit_info_params.sender.clone())
-            }
-            DsRequestParams::RemoveUsers(remove_users_params) => {
-                DsSender::UserKeyHash(remove_users_params.sender.clone())
             }
             DsRequestParams::UpdateClient(update_client_params) => {
                 DsSender::LeafIndex(update_client_params.sender)
@@ -552,6 +543,9 @@ impl DsRequestParams {
             }
             DsRequestParams::DeleteGroup(delete_group_params) => {
                 DsSender::UserKeyHash(delete_group_params.sender.clone())
+            }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                DsSender::UserKeyHash(group_operation_params.sender.clone())
             }
             DsRequestParams::DispatchEvent(dispatch_event_params) => {
                 DsSender::LeafIndex(dispatch_event_params.event.sender_index())
@@ -696,7 +690,7 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
 #[derive(TlsSerialize, TlsSize, Clone)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_credentials: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub ratchet_tree: RatchetTree,
 }
 
@@ -733,7 +727,7 @@ impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_client_information: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub ratchet_tree: RatchetTreeIn,
 }
 

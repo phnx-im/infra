@@ -43,8 +43,7 @@ generate-dart-files:
 frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -f {{app_rust_base_dir}}/src/frb_*.rs
     touch {{app_rust_base_dir}}/src/frb_generated.rs
-    rm -Rf lib/core
-    mkdir lib/core
+    rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
 
 # integrate the Flutter Rust bridge
@@ -87,7 +86,16 @@ build-android:
 # build iOS
 [working-directory: 'app']
 build-ios:
-	flutter build ios --no-codesign
+    flutter build ios --no-codesign
+
+# Build Linux app
+[working-directory: 'app']
+build-linux:
+     flutter build linux
+
+# Build Linux app (with all prerequisite steps for running in CI)
+[working-directory: 'app']
+build-linux-ci: setup-ci frb-integrate build-linux
 
 # analyze Dart code
 [working-directory: 'app']
@@ -96,5 +104,9 @@ analyze-dart:
 
 # run Flutter tests
 [working-directory: 'app']
-test-flutter:
+test-flutter *args='':
     flutter test
+
+# run backend server (at localhost)
+run-backend: init-db
+    cargo run --bin phnxserver

@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::openmls::prelude::KeyPackage;
 use tls_codec::{Serialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
-        ear::keys::AddPackageEarKey,
+        ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
@@ -15,7 +16,6 @@ use crate::{
         RatchetEncryptionKey,
     },
     identifiers::{QsClientId, QsUserId},
-    keypackage_batch::AddPackage,
 };
 
 use super::{
@@ -103,8 +103,8 @@ pub struct CreateClientRecordParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct PublishKeyPackagesParamsOut {
     pub sender: QsClientId,
-    pub add_packages: Vec<AddPackage>,
-    pub friendship_ear_key: AddPackageEarKey,
+    pub key_packages: Vec<KeyPackage>,
+    pub friendship_ear_key: KeyPackageEarKey,
 }
 
 /// This enum contains variants for each DS endpoint.

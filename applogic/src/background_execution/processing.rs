@@ -54,7 +54,11 @@ pub(crate) fn retrieve_messages_sync(path: String) -> NotificationBatch {
 pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
     info!(path, "Retrieving messages with DB path");
     let user = match User::load_default(path).await {
-        Ok(user) => user,
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            error!("User not found");
+            return error_batch("User not found".to_string());
+        }
         Err(error) => {
             error!(%error, "Failed to load user");
             return error_batch(error.to_string());

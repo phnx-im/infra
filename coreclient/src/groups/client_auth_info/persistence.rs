@@ -5,7 +5,7 @@
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
-    crypto::ear::keys::{SignatureEarKey, SignatureEarKeySecret},
+    crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
@@ -92,7 +92,7 @@ impl GroupMembership {
         UPDATE group_membership AS merged
         SET client_credential_fingerprint = staged.client_credential_fingerprint,
             leaf_index = staged.leaf_index,
-            signature_ear_key = staged.signature_ear_key,
+            identity_link_key = staged.identity_link_key,
             status = 'merged'
         FROM group_membership AS staged
         WHERE merged.group_id = staged.group_id
@@ -117,15 +117,15 @@ impl GroupMembership {
         Ok(())
     }
 
-    pub(in crate::groups) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT OR IGNORE INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
+            "INSERT OR IGNORE INTO group_membership (client_uuid, user_name, group_id, leaf_index, identity_link_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
             params![
                 self.client_id.client_id(),
                 self.client_id.user_name(),
                 self.sql_group_id(),
                 self.leaf_index.usize() as i64,
-                self.signature_ear_key.as_ref(),
+                self.identity_link_key.as_ref(),
                 self.client_credential_fingerprint,
             ],
         )?;
@@ -134,13 +134,13 @@ impl GroupMembership {
 
     pub(super) fn stage_update(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
+            "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, identity_link_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
             params![
                 self.client_id.client_id(),
                 self.client_id.user_name(),
                 self.sql_group_id(),
                 self.leaf_index.usize() as i64,
-                self.signature_ear_key.as_ref(),
+                self.identity_link_key.as_ref(),
                 self.client_credential_fingerprint,
             ],
         )?;
@@ -149,13 +149,13 @@ impl GroupMembership {
 
     pub(super) fn stage_add(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, signature_ear_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
+            "INSERT INTO group_membership (client_uuid, user_name, group_id, leaf_index, identity_link_key, client_credential_fingerprint, status) VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
             params![
                 self.client_id.client_id(),
                 self.client_id.user_name(),
                 self.sql_group_id(),
                 self.leaf_index.usize() as i64,
-                self.signature_ear_key.as_ref(),
+                self.identity_link_key.as_ref(),
                 self.client_credential_fingerprint,
             ],
         )?;
@@ -202,7 +202,7 @@ impl GroupMembership {
         leaf_index: LeafNodeIndex,
         merged: bool,
     ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut query_string = "SELECT client_credential_fingerprint, group_id, client_uuid, user_name, leaf_index, signature_ear_key FROM group_membership WHERE group_id = ? AND leaf_index = ?".to_owned();
+        let mut query_string = "SELECT client_credential_fingerprint, group_id, client_uuid, user_name, leaf_index, identity_link_key FROM group_membership WHERE group_id = ? AND leaf_index = ?".to_owned();
         if merged {
             query_string += " AND status = 'merged'";
         } else {
@@ -345,7 +345,7 @@ impl Storable for GroupMembership {
                 client_uuid BLOB NOT NULL,
                 user_name TEXT NOT NULL,
                 leaf_index INTEGER NOT NULL,
-                signature_ear_key BLOB NOT NULL,
+                identity_link_key BLOB NOT NULL,
                 status TEXT DEFAULT 'staged_update' NOT NULL CHECK (status IN ('staged_update', 'staged_removal', 'staged_add', 'merged')),
                 FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
                 PRIMARY KEY (group_id, leaf_index, status)
@@ -357,13 +357,13 @@ impl Storable for GroupMembership {
         let client_uuid = row.get(2)?;
         let user_name = row.get(3)?;
         let leaf_index: i64 = row.get(4)?;
-        let signature_ear_key: SignatureEarKeySecret = row.get(5)?;
+        let identity_link_key: IdentityLinkKeySecret = row.get(5)?;
         let client_id = AsClientId::new(user_name, client_uuid);
         Ok(Self {
             client_id,
             group_id: group_id.into(),
             leaf_index: LeafNodeIndex::new(leaf_index as u32),
-            signature_ear_key: SignatureEarKey::from(signature_ear_key),
+            identity_link_key: IdentityLinkKey::from(identity_link_key),
             client_credential_fingerprint,
         })
     }

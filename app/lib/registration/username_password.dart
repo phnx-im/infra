@@ -6,9 +6,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
+import 'package:prototype/widgets/widgets.dart';
 
 import 'registration_cubit.dart';
 
@@ -22,7 +22,7 @@ class UsernamePasswordChoice extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sign up', style: TextStyle(fontFamily: fontFamily)),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -31,9 +31,9 @@ class UsernamePasswordChoice extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
+              Text(
                 'Choose a username and password',
-                style: labelStyle,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               Form(
                 autovalidateMode: AutovalidateMode.always,
@@ -48,9 +48,7 @@ class UsernamePasswordChoice extends StatelessWidget {
                     ConstrainedBox(
                       constraints: BoxConstraints.tight(const Size(300, 80)),
                       child: TextFormField(
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'PASSWORD',
-                        ),
+                        decoration: const InputDecoration(hintText: 'PASSWORD'),
                         style: inputTextStyle,
                         obscureText: true,
                         onChanged: (String value) {
@@ -82,9 +80,7 @@ class _UsernameTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       autofocus: (Platform.isIOS || Platform.isAndroid) ? false : true,
-      decoration: inputDecoration.copyWith(
-        hintText: 'USERNAME',
-      ),
+      decoration: const InputDecoration(hintText: 'USERNAME'),
       style: inputTextStyle,
       validator: _usernameValidator,
       onChanged: (String value) {

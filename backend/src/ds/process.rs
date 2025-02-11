@@ -161,9 +161,8 @@ use uuid::Uuid;
 
 use phnxtypes::{
     codec::PhnxCodec,
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::keys::EncryptedSignatureEarKey,
+        ear::keys::EncryptedIdentityLinkKey,
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::DsProcessingError,
@@ -243,8 +242,7 @@ impl Ds {
             let CreateGroupParams {
                 group_id: _,
                 leaf_node,
-                encrypted_client_credential,
-                encrypted_signature_ear_key,
+                encrypted_identity_link_key,
                 creator_client_reference: creator_queue_config,
                 creator_user_auth_key,
                 group_info,
@@ -259,8 +257,7 @@ impl Ds {
                 provider,
                 group,
                 creator_user_auth_key.clone(),
-                encrypted_client_credential.clone(),
-                encrypted_signature_ear_key.clone(),
+                encrypted_identity_link_key.clone(),
                 creator_queue_config.clone(),
             );
             (GroupData::NewGroup(reserved_group_id), group_state)
@@ -416,19 +413,6 @@ impl Ds {
                 )
             }
             // ======= Committing Endpoints =======
-            DsRequestParams::AddUsers(add_users_params) => {
-                // This function is async and needs the qs provider, because it
-                // needs to fetch the verifying keys from the QS of all added
-                // users.
-                let (group_message, welcome_bundles) = group_state
-                    .add_users(add_users_params, &ear_key, qs_connector)
-                    .await?;
-                prepare_result(group_message, welcome_bundles)
-            }
-            DsRequestParams::RemoveUsers(remove_users_params) => {
-                let group_message = group_state.remove_users(remove_users_params)?;
-                prepare_result(group_message, vec![])
-            }
             DsRequestParams::UpdateClient(update_client_params) => {
                 let group_message = group_state.update_client(update_client_params)?;
                 prepare_result(group_message, vec![])
@@ -441,6 +425,12 @@ impl Ds {
             DsRequestParams::RemoveClients(remove_clients_params) => {
                 let group_message = group_state.remove_clients(remove_clients_params)?;
                 prepare_result(group_message, vec![])
+            }
+            DsRequestParams::GroupOperation(group_operation_params) => {
+                let (group_message, welcome_bundles) = group_state
+                    .group_operation(group_operation_params, &ear_key, qs_connector)
+                    .await?;
+                prepare_result(group_message, welcome_bundles)
             }
             // ======= Externally Committing Endpoints =======
             DsRequestParams::JoinGroup(join_group_params) => {
@@ -556,7 +546,7 @@ impl Ds {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[expect(clippy::large_enum_variant)]

@@ -11,8 +11,8 @@ use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{
-    clients::CoreUser, Asset, ConversationId, ConversationMessage, DisplayName, MimiContent,
-    UserProfile,
+    clients::CoreUser, store::Store, Asset, ConversationId, ConversationMessage, DisplayName,
+    MimiContent, UserProfile,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
@@ -534,7 +534,7 @@ async fn mark_as_read() {
     async fn send_messages(
         user: &mut CoreUser,
         conversation_id: ConversationId,
-        number_of_messages: u32,
+        number_of_messages: usize,
     ) -> Vec<ConversationMessage> {
         let mut messages_sent = vec![];
         for _ in 0..number_of_messages {

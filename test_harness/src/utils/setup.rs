@@ -4,7 +4,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use phnxcoreclient::{clients::CoreUser, ConversationId, ConversationStatus, ConversationType, *};
+use phnxcoreclient::{
+    clients::CoreUser, store::Store, ConversationId, ConversationStatus, ConversationType, *,
+};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedUserName},
@@ -558,7 +560,7 @@ impl TestBackend {
         let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
         let group_picture_bytes_option = Some(OsRng.gen::<[u8; 32]>().to_vec());
         let conversation_id = user
-            .create_conversation(&group_name, group_picture_bytes_option.clone())
+            .create_conversation(group_name.clone(), group_picture_bytes_option.clone())
             .await
             .unwrap();
         let mut user_conversations_after = user.conversations().await.unwrap();
@@ -572,7 +574,7 @@ impl TestBackend {
         assert!(conversation.conversation_type() == &ConversationType::Group);
         assert_eq!(conversation.attributes().title(), &group_name);
         assert_eq!(
-            conversation.attributes().conversation_picture_option(),
+            conversation.attributes().picture(),
             group_picture_bytes_option.as_deref()
         );
         user_conversations_before
@@ -686,10 +688,8 @@ impl TestBackend {
                 inviter_conversation.attributes().title()
             );
             assert_eq!(
-                conversation.attributes().conversation_picture_option(),
-                inviter_conversation
-                    .attributes()
-                    .conversation_picture_option()
+                conversation.attributes().picture(),
+                inviter_conversation.attributes().picture()
             );
             // In case it was a re-join, we remove it from the conversation list before as well.
             if let Some(inactive_conversation_position) = invitee_conversations_before

@@ -19,9 +19,8 @@ use mls_assist::{
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::keys::{EncryptedSignatureEarKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::{
             keys::{UserAuthVerifyingKey, UserKeyHash},
             signable::{Signable, Signature, SignedStruct},
@@ -45,7 +44,7 @@ use super::{
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
-    pub encrypted_client_info: Vec<(EncryptedClientCredential, EncryptedSignatureEarKey)>,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -63,26 +62,24 @@ pub enum DsProcessResponseIn {
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_client_credential: EncryptedClientCredential,
-    pub encrypted_signature_ear_key: EncryptedSignatureEarKey,
+    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub creator_client_reference: QsClientReference,
     pub creator_user_auth_key: UserAuthVerifyingKey,
     pub group_info: MlsMessageOut,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AddUsersParamsOut {
-    pub commit: AssistedMessageOut,
-    pub sender: UserKeyHash,
+#[derive(Debug, TlsSize, TlsSerialize)]
+pub struct AddUsersInfoOut {
     pub welcome: MlsMessageOut,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
     pub key_package_batches: Vec<KeyPackageBatch<VERIFIED>>,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct RemoveUsersParamsOut {
+#[derive(Debug, TlsSize, TlsSerialize)]
+pub struct GroupOperationParamsOut {
     pub commit: AssistedMessageOut,
     pub sender: UserKeyHash,
+    pub add_users_info_option: Option<AddUsersInfoOut>,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -151,9 +148,7 @@ pub struct DeleteGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParamsOut {
-    AddUsers(AddUsersParamsOut),
     CreateGroupParams(CreateGroupParamsOut),
-    RemoveUsers(RemoveUsersParamsOut),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
@@ -167,6 +162,7 @@ pub enum DsRequestParamsOut {
     SelfRemoveClient(SelfRemoveClientParamsOut),
     SendMessage(SendMessageParamsOut),
     DeleteGroup(DeleteGroupParamsOut),
+    GroupOperation(GroupOperationParamsOut),
 }
 
 impl Signable for ClientToDsMessageTbsOut {

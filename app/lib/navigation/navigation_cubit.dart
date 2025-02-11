@@ -4,7 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/api/types.dart';
+import 'package:prototype/core/core.dart';
 
 part 'navigation_cubit.freezed.dart';
 
@@ -28,7 +28,7 @@ sealed class NavigationState with _$NavigationState {
   /// screen is opened.
   const factory NavigationState.home({
     ConversationId? conversationId,
-    @Default(false) bool developerSettingsOpen,
+    DeveloperSettingsScreenType? developerSettingsScreen,
     @Default(false) bool userSettingsOpen,
     @Default(false) bool conversationDetailsOpen,
     @Default(false) bool addMembersOpen,
@@ -51,6 +51,8 @@ enum IntroScreenType {
   displayNamePicture,
   developerSettings,
 }
+
+enum DeveloperSettingsScreenType { root, changeUser }
 
 /// Provides the navigation state and navigation actions to the app
 ///
@@ -124,7 +126,9 @@ class NavigationCubit extends Cubit<NavigationState> {
     throw NavigationError(state);
   }
 
-  void openDeveloperSettings() {
+  void openDeveloperSettings({
+    DeveloperSettingsScreenType screen = DeveloperSettingsScreenType.root,
+  }) {
     switch (state) {
       case IntroNavigation intro:
         if (intro.screens.lastOrNull != IntroScreenType.developerSettings) {
@@ -132,7 +136,7 @@ class NavigationCubit extends Cubit<NavigationState> {
           emit(intro.copyWith(screens: stack));
         }
       case HomeNavigation home:
-        emit(home.copyWith(developerSettingsOpen: true));
+        emit(home.copyWith(developerSettingsScreen: screen));
     }
   }
 
@@ -179,9 +183,19 @@ class NavigationCubit extends Cubit<NavigationState> {
         }
         return false;
       case HomeNavigation home:
-        if (home.developerSettingsOpen) {
-          emit(home.copyWith(developerSettingsOpen: false));
-          return true;
+        if (home.developerSettingsScreen != null) {
+          switch (home.developerSettingsScreen) {
+            case null:
+              throw StateError("impossible state");
+            case DeveloperSettingsScreenType.root:
+              emit(home.copyWith(developerSettingsScreen: null));
+              return true;
+            case DeveloperSettingsScreenType.changeUser:
+              emit(home.copyWith(
+                developerSettingsScreen: DeveloperSettingsScreenType.root,
+              ));
+              return true;
+          }
         } else if (home.userSettingsOpen) {
           emit(home.copyWith(userSettingsOpen: false));
           return true;

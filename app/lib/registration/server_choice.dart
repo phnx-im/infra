@@ -5,9 +5,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/elements.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';
@@ -22,18 +22,17 @@ class ServerChoice extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sign up'),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      body: SafeArea(
         child: Center(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
+              Text(
                 'Choose a server where you want to create your account',
-                style: labelStyle,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               Form(
                 autovalidateMode: AutovalidateMode.always,
@@ -46,9 +45,8 @@ class ServerChoice extends StatelessWidget {
                         autofocus: (Platform.isIOS || Platform.isAndroid)
                             ? false
                             : true,
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'DOMAIN NAME',
-                        ),
+                        decoration:
+                            const InputDecoration(hintText: 'DOMAIN NAME'),
                         initialValue:
                             context.read<RegistrationCubit>().state.domain,
                         style: inputTextStyle,

@@ -4,10 +4,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/elements.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/styles.dart';
+import 'package:prototype/theme/theme.dart';
+import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';
@@ -22,7 +23,7 @@ class DisplayNameAvatarChoice extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sign up'),
         toolbarHeight: isPointer() ? 100 : null,
-        leading: appBarBackButton(context),
+        leading: const AppBarBackButton(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -63,9 +64,7 @@ class _DisplayNameTextField extends StatelessWidget {
 
     return TextFormField(
       autofocus: isSmallScreen(context) ? false : true,
-      decoration: inputDecoration.copyWith(
-        hintText: 'DISPLAY NAME',
-      ),
+      decoration: const InputDecoration(hintText: 'DISPLAY NAME'),
       initialValue: displayName,
       style: inputTextStyle,
       onChanged: (value) {
@@ -99,7 +98,7 @@ class _UserAvatarPicker extends StatelessWidget {
         final XFile? image =
             await picker.pickImage(source: ImageSource.gallery);
         final bytes = await image?.readAsBytes();
-        registrationCubit.setAvatar(bytes);
+        registrationCubit.setAvatar(bytes?.toImageData());
       },
     );
   }

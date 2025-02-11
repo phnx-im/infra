@@ -8,6 +8,7 @@ use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;
 use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
+use tokio_util::sync::CancellationToken;
 
 /// Test the websocket reconnect.
 #[actix_rt::test]
@@ -29,8 +30,9 @@ async fn ws_reconnect() {
     let address = format!("http://{}", address);
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
+    let cancel = CancellationToken::new();
     let mut ws = client
-        .spawn_websocket(client_id, timeout, retry_interval)
+        .spawn_websocket(client_id, timeout, retry_interval, cancel)
         .await
         .expect("Failed to execute request");
 
@@ -67,8 +69,9 @@ async fn ws_sending() {
     let address = format!("http://{}", address);
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
+    let cancel = CancellationToken::new();
     let mut ws = client
-        .spawn_websocket(client_id.clone(), timeout, retry_interval)
+        .spawn_websocket(client_id.clone(), timeout, retry_interval, cancel)
         .await
         .expect("Failed to execute request");
 

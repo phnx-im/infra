@@ -117,7 +117,7 @@ impl UserCreationState {
             }
             UserCreationState::QsRegisteredUserState(state) => Self::FinalUserState(
                 state
-                    .upload_add_packages(client_db_connection.clone(), api_clients)
+                    .upload_key_packages(client_db_connection.clone(), api_clients)
                     .await?,
             ),
             UserCreationState::FinalUserState(_) => self,
@@ -168,16 +168,18 @@ impl UserCreationState {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClientRecordState {
     InProgress,
     Finished,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
     pub as_client_id: AsClientId,
     pub client_record_state: ClientRecordState,
+    pub created_at: DateTime<Utc>,
+    pub is_default: bool,
 }
 
 impl ClientRecord {
@@ -185,6 +187,8 @@ impl ClientRecord {
         Self {
             as_client_id,
             client_record_state: ClientRecordState::InProgress,
+            created_at: Utc::now(),
+            is_default: false,
         }
     }
 

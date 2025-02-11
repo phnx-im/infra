@@ -7,7 +7,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use rusqlite::{
-    params,
+    named_params, params,
     types::{FromSql, FromSqlError, Type, ValueRef},
     Connection, OptionalExtension, ToSql,
 };
@@ -60,7 +60,7 @@ impl<'r> Decode<'r, Sqlite> for VersionedMessage {
 }
 
 impl FromSql for VersionedMessage {
-    fn column_result(value: ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let bytes = value.as_blob()?;
         let versioned_message = PhnxCodec::from_slice(bytes)?;
         Ok(versioned_message)
@@ -242,7 +242,15 @@ impl ConversationMessage {
         local_message_id: &Uuid,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT message_id, conversation_id, timestamp, sender, content, sent FROM conversation_messages WHERE message_id = ?",
+            "SELECT
+                message_id,
+                conversation_id,
+                timestamp,
+                sender,
+                content,
+                sent
+            FROM conversation_messages
+            WHERE message_id = ?",
         )?;
         statement
             .query_row(params![local_message_id], Self::from_row)
@@ -281,25 +289,22 @@ impl ConversationMessage {
         number_of_messages: u32,
     ) -> Result<Vec<ConversationMessage>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT *
-            FROM (
-                SELECT
-                    message_id,
-                    conversation_id,
-                    timestamp,
-                    sender,
-                    content,
-                    sent
-                FROM conversation_messages
-                WHERE conversation_id = ?
-                ORDER BY timestamp DESC
-                LIMIT ?
-            ) AS messages
-            ORDER BY timestamp ASC;",
+            "SELECT
+               message_id,
+               conversation_id,
+               timestamp,
+               sender,
+               content,
+               sent
+            FROM conversation_messages
+            WHERE conversation_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?",
         )?;
-        let messages = statement
+        let mut messages = statement
             .query_map(params![conversation_id, number_of_messages], Self::from_row)?
             .collect::<Result<Vec<_>, _>>()?;
+        messages.reverse();
         Ok(messages)
     }
 
@@ -361,6 +366,8 @@ impl ConversationMessage {
             ],
         )?;
         notifier.add(self.conversation_message_id);
+        notifier.update(self.conversation_id);
+
         Ok(())
     }
 
@@ -446,10 +453,17 @@ impl ConversationMessage {
         conversation_id: ConversationId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
-            "SELECT message_id, conversation_id, timestamp, sender, content, sent
+            "SELECT
+                message_id,
+                conversation_id,
+                timestamp,
+                sender,
+                content,
+                sent
             FROM conversation_messages
             WHERE conversation_id = ? AND sender != 'system'
-            ORDER BY timestamp DESC LIMIT 1",
+            ORDER BY timestamp DESC
+            LIMIT 1",
         )?;
         statement
             .query_row(params![conversation_id], Self::from_row)
@@ -482,5 +496,57 @@ impl ConversationMessage {
                 .transpose()
                 .map_err(From::from)
         })?
+    }
+
+    pub(crate) fn prev_message(
+        connection: &Connection,
+        message_id: ConversationMessageId,
+    ) -> rusqlite::Result<Option<ConversationMessage>> {
+        connection
+            .query_row(
+                "SELECT
+                    message_id,
+                    conversation_id,
+                    timestamp,
+                    sender,
+                    content,
+                    sent
+                FROM conversation_messages
+                WHERE message_id != :message_id
+                    AND timestamp <= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY timestamp DESC
+                LIMIT 1",
+                named_params! {
+                    ":message_id": message_id.to_uuid(),
+                },
+                Self::from_row,
+            )
+            .optional()
+    }
+
+    pub(crate) fn next_message(
+        connection: &Connection,
+        message_id: ConversationMessageId,
+    ) -> rusqlite::Result<Option<ConversationMessage>> {
+        connection
+            .query_row(
+                "SELECT
+                    message_id,
+                    conversation_id,
+                    timestamp,
+                    sender,
+                    content,
+                    sent
+                FROM conversation_messages
+                WHERE message_id != :message_id
+                    AND timestamp >= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
+                ORDER BY timestamp ASC
+                LIMIT 1",
+                named_params! {
+                    ":message_id": message_id.to_uuid(),
+                },
+                Self::from_row,
+            )
+            .optional()
     }
 }

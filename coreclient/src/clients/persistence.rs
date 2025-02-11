@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::{DateTime, Utc};
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, types::FromSql, OptionalExtension, ToSql};
+use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     encode::IsNull, error::BoxDynError, query, query_scalar, sqlite::SqliteTypeInfo, Database,
@@ -78,17 +79,18 @@ impl Storable for UserCreationState {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS user_creation_state (
             client_id BLOB PRIMARY KEY,
-            state BLOB NOT NULL
+            state BLOB NOT NULL,
+            created_at DATETIME NOT NULL
         );";
 
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         row.get(0)
     }
 }
 
 impl UserCreationState {
     pub(super) fn load(
-        connection: &rusqlite::Connection,
+        connection: &Connection,
         client_id: &AsClientId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         connection
@@ -112,10 +114,11 @@ impl UserCreationState {
         .await
     }
 
-    pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?1, ?2)",
-            params![self.client_id(), self],
+            "INSERT OR REPLACE INTO user_creation_state
+            (client_id, state, created_at) VALUES (?1, ?2, ?3)",
+            params![self.client_id(), self, Utc::now()],
         )?;
         Ok(())
     }
@@ -137,9 +140,11 @@ impl UserCreationState {
 impl Storable for ClientRecord {
     const CREATE_TABLE_STATEMENT: &'static str = "
         CREATE TABLE IF NOT EXISTS client_record (
-            client_id BLOB PRIMARY KEY,
-            record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished'))
-        );";
+            client_id BLOB NOT NULL PRIMARY KEY,
+            record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
+            created_at DATETIME NOT NULL,
+            is_default BOOLEAN NOT NULL DEFAULT FALSE
+        )";
 
     fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
         let record_state_str: String = row.get(1)?;
@@ -148,9 +153,13 @@ impl Storable for ClientRecord {
             "finished" => ClientRecordState::Finished,
             _ => return Err(rusqlite::Error::InvalidQuery),
         };
+        let created_at: DateTime<Utc> = row.get(2)?;
+        let is_default: bool = row.get(3)?;
         Ok(Self {
             as_client_id: row.get(0)?,
             client_record_state,
+            created_at,
+            is_default,
         })
     }
 }
@@ -165,7 +174,7 @@ impl ClientRecord {
         Ok(client_records)
     }
 
-    pub fn load_all(connection: &rusqlite::Connection) -> Result<Vec<Self>, rusqlite::Error> {
+    pub fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT * FROM client_record")?;
         let client_records = stmt
             .query_map([], Self::from_row)?
@@ -174,7 +183,7 @@ impl ClientRecord {
     }
 
     pub(super) fn load(
-        connection: &rusqlite::Connection,
+        connection: &Connection,
         client_id: &AsClientId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         connection
@@ -186,15 +195,107 @@ impl ClientRecord {
             .optional()
     }
 
-    pub(super) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         let record_state_str = match self.client_record_state {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
         };
         connection.execute(
-            "INSERT OR REPLACE INTO client_record (client_id, record_state) VALUES (?1, ?2)",
-            params![self.as_client_id, record_state_str],
+            "INSERT OR REPLACE INTO client_record
+            (client_id, record_state, created_at, is_default)
+            VALUES (?1, ?2, ?3, ?4)",
+            params![
+                self.as_client_id,
+                record_state_str,
+                self.created_at,
+                self.is_default,
+            ],
         )?;
         Ok(())
+    }
+
+    pub fn set_default(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
+        connection.execute(
+            "UPDATE client_record SET is_default = (client_id == ?)",
+            params![client_id],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn delete(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
+        connection.execute(
+            "DELETE FROM client_record WHERE client_id = ?",
+            params![client_id],
+        )?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn client_records_persistence() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute(ClientRecord::CREATE_TABLE_STATEMENT, [])
+            .unwrap();
+
+        let alice_id = Uuid::new_v4();
+        let alice_client_id = AsClientId::new("alice@localhost".parse().unwrap(), alice_id);
+        let mut alice_client_record = ClientRecord {
+            as_client_id: alice_client_id.clone(),
+            client_record_state: ClientRecordState::Finished,
+            created_at: Utc::now(),
+            is_default: false,
+        };
+
+        let bob_id = Uuid::new_v4();
+        let bob_client_id = AsClientId::new("bob@localhost".parse().unwrap(), bob_id);
+        let mut bob_client_record = ClientRecord {
+            as_client_id: bob_client_id.clone(),
+            client_record_state: ClientRecordState::Finished,
+            created_at: Utc::now(),
+            is_default: false,
+        };
+
+        ClientRecord::create_table(&connection).unwrap();
+
+        // Storing and loading client records works
+        alice_client_record.store(&connection).unwrap();
+        bob_client_record.store(&connection).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Set default to alice set alice is_default
+        alice_client_record.is_default = true;
+        ClientRecord::set_default(&connection, &alice_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Set default to bob clears alice is_default
+        alice_client_record.is_default = false;
+        bob_client_record.is_default = true;
+        ClientRecord::set_default(&connection, &bob_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(
+            records,
+            [alice_client_record.clone(), bob_client_record.clone()]
+        );
+
+        // Delete client records
+        ClientRecord::delete(&connection, &alice_client_id).unwrap();
+        ClientRecord::delete(&connection, &bob_client_id).unwrap();
+        let records = ClientRecord::load_all(&connection).unwrap();
+        assert_eq!(records, []);
     }
 }

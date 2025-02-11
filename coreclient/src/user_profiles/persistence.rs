@@ -51,7 +51,7 @@ impl From<SqlUserProfile> for UserProfile {
 }
 
 impl UserProfile {
-    pub(crate) fn load(
+    pub fn load(
         connection: &Connection,
         user_name: &QualifiedUserName,
     ) -> Result<Option<Self>, rusqlite::Error> {

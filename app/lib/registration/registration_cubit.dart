@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/core_client.dart';
+import 'package:prototype/core/core.dart';
 
 part 'registration_cubit.freezed.dart';
 
@@ -36,7 +34,7 @@ sealed class RegistrationState with _$RegistrationState {
     @Default(false) bool isPasswordValid,
 
     // Display name/avatar screen data
-    Uint8List? avatar,
+    ImageData? avatar,
     String? displayName,
     @Default(false) bool isSigningUp,
   }) = _RegistrationState;
@@ -74,7 +72,7 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     ));
   }
 
-  void setAvatar(Uint8List? bytes) {
+  void setAvatar(ImageData? bytes) {
     emit(state.copyWith(avatar: bytes));
   }
 
@@ -86,7 +84,9 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     emit(state.copyWith(isSigningUp: true));
 
     final fqun = "${state.username}@${state.domain}";
-    final url = "https://${state.domain}";
+    final url = state.domain == "localhost"
+        ? "http://${state.domain}"
+        : "https://${state.domain}";
 
     try {
       _log.info("Registering user ${state.username} ...");
@@ -95,7 +95,7 @@ class RegistrationCubit extends Cubit<RegistrationState> {
         state.password,
         url,
         state.displayName,
-        state.avatar,
+        state.avatar?.data,
       );
     } catch (e) {
       final message = "Error when registering user: ${e.toString()}";

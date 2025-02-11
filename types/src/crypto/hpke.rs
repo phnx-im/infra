@@ -17,6 +17,7 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tracing::error;
 
 use crate::identifiers::{ClientConfig, SealedClientReference};
 
@@ -149,7 +150,10 @@ pub trait HpkeDecryptable<
         aad: &[u8],
     ) -> Result<Self, DecryptionError> {
         let plaintext = decryption_key.as_ref().decrypt(info, aad, ct.as_ref())?;
-        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
+        Self::deserialize(&plaintext).map_err(|e| {
+            error!(%e, "Error deserializing decrypted data");
+            DecryptionError::DeserializationError
+        })
     }
 }
 

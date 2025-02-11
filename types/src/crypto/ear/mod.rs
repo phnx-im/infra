@@ -30,6 +30,7 @@ const AEAD_NONCE_SIZE: usize = 12;
     Clone,
     Debug,
     PartialEq,
+    Eq,
     Serialize,
     Deserialize,
     TlsSerialize,

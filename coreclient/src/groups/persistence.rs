@@ -5,9 +5,9 @@
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
-    credentials::keys::InfraCredentialSigningKey,
+    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{
-        ear::keys::{ClientCredentialEarKey, GroupStateEarKey, SignatureEarKeyWrapperKey},
+        ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
         signatures::keys::UserAuthSigningKey,
     },
 };
@@ -19,9 +19,8 @@ use super::{diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider, Group}
 
 pub(crate) struct StorableGroup {
     group_id: GroupId,
-    leaf_signer: InfraCredentialSigningKey,
-    signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    credential_ear_key: ClientCredentialEarKey,
+    leaf_signer: PseudonymousCredentialSigningKey,
+    identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     user_auth_signing_key_option: Option<UserAuthSigningKey>,
     pending_diff: Option<StagedGroupDiff>,
@@ -32,8 +31,7 @@ impl Storable for StorableGroup {
         CREATE TABLE IF NOT EXISTS groups (
             group_id BLOB PRIMARY KEY,
             leaf_signer BLOB NOT NULL,
-            signature_ear_key_wrapper_key BLOB NOT NULL,
-            credential_ear_key BLOB NOT NULL,
+            identity_link_wrapper_key BLOB NOT NULL,
             group_state_ear_key BLOB NOT NULL,
             user_auth_signing_key_option BLOB,
             pending_diff BLOB
@@ -42,17 +40,15 @@ impl Storable for StorableGroup {
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let group_id: GroupIdWrapper = row.get(0)?;
         let leaf_signer = row.get(1)?;
-        let signature_ear_key_wrapper_key = row.get(2)?;
-        let credential_ear_key = row.get(3)?;
-        let group_state_ear_key = row.get(4)?;
-        let user_auth_signing_key_option = row.get(5)?;
-        let pending_diff = row.get(6)?;
+        let identity_link_wrapper_key = row.get(2)?;
+        let group_state_ear_key = row.get(3)?;
+        let user_auth_signing_key_option = row.get(4)?;
+        let pending_diff = row.get(5)?;
 
         Ok(StorableGroup {
             group_id: group_id.into(),
             leaf_signer,
-            signature_ear_key_wrapper_key,
-            credential_ear_key,
+            identity_link_wrapper_key,
             group_state_ear_key,
             user_auth_signing_key_option,
             pending_diff,
@@ -64,12 +60,11 @@ impl Group {
     pub(crate) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO groups (group_id, leaf_signer, signature_ear_key_wrapper_key, credential_ear_key, group_state_ear_key, user_auth_signing_key_option, pending_diff) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO groups (group_id, leaf_signer, identity_link_wrapper_key, group_state_ear_key, user_auth_signing_key_option, pending_diff) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 group_id,
                 self.leaf_signer,
-                self.signature_ear_key_wrapper_key,
-                self.credential_ear_key,
+                self.identity_link_wrapper_key,
                 self.group_state_ear_key,
                 self.user_auth_signing_key_option,
                 self.pending_diff,
@@ -96,8 +91,7 @@ impl Group {
                 sg.map(|sg| Group {
                     group_id: sg.group_id,
                     leaf_signer: sg.leaf_signer,
-                    signature_ear_key_wrapper_key: sg.signature_ear_key_wrapper_key,
-                    credential_ear_key: sg.credential_ear_key,
+                    identity_link_wrapper_key: sg.identity_link_wrapper_key,
                     group_state_ear_key: sg.group_state_ear_key,
                     user_auth_signing_key_option: sg.user_auth_signing_key_option,
                     pending_diff: sg.pending_diff,
@@ -112,11 +106,10 @@ impl Group {
     ) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "UPDATE groups SET leaf_signer = ?, signature_ear_key_wrapper_key = ?, credential_ear_key = ?, group_state_ear_key = ?, user_auth_signing_key_option = ?, pending_diff = ? WHERE group_id = ?",
+            "UPDATE groups SET leaf_signer = ?, identity_link_wrapper_key = ?, group_state_ear_key = ?, user_auth_signing_key_option = ?, pending_diff = ? WHERE group_id = ?",
             params![
                 self.leaf_signer,
-                self.signature_ear_key_wrapper_key,
-                self.credential_ear_key,
+                self.identity_link_wrapper_key,
                 self.group_state_ear_key,
                 self.user_auth_signing_key_option,
                 self.pending_diff,

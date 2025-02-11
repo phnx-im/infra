@@ -143,32 +143,71 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
     const LABEL: &'static str = "RatchetSecret derive";
 }
 
-pub type FriendshipSecretKey = Secret<KDF_KEY_SIZE>;
+pub type ConnectionKeyKey = Secret<KDF_KEY_SIZE>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct FriendshipSecret {
-    key: FriendshipSecretKey,
+pub struct ConnectionKey {
+    key: ConnectionKeyKey,
 }
 
-impl FriendshipSecret {
+impl sqlx::Type<sqlx::Sqlite> for ConnectionKey {
+    fn type_info() -> <sqlx::Sqlite as sqlx::Database>::TypeInfo {
+        <ConnectionKeyKey as sqlx::Type<sqlx::Sqlite>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for ConnectionKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <sqlx::Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        self.key.encode_by_ref(buf)
+    }
+}
+
+impl sqlx::Decode<'_, sqlx::Sqlite> for ConnectionKey {
+    fn decode(
+        value: <sqlx::Sqlite as sqlx::Database>::ValueRef<'_>,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        let key = ConnectionKeyKey::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
+impl ConnectionKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let key = Secret::random()?;
         Ok(Self { key })
     }
 }
 
-impl AsRef<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+impl AsRef<Secret<KDF_KEY_SIZE>> for ConnectionKey {
     fn as_ref(&self) -> &Secret<KDF_KEY_SIZE> {
         &self.key
     }
 }
 
-impl KdfKey for FriendshipSecret {
+impl KdfKey for ConnectionKey {
     const ADDITIONAL_LABEL: &'static str = "FriendshipSecret";
 }
 
-impl From<Secret<KDF_KEY_SIZE>> for FriendshipSecret {
+impl From<Secret<KDF_KEY_SIZE>> for ConnectionKey {
     fn from(key: Secret<KDF_KEY_SIZE>) -> Self {
         Self { key }
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::FromSql for ConnectionKey {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let key = ConnectionKeyKey::column_result(value)?;
+        Ok(Self { key })
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl rusqlite::types::ToSql for ConnectionKey {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        self.key.to_sql()
     }
 }

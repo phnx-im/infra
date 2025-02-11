@@ -2,17 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
-
 use anyhow::{bail, Context, Result};
 use openmls::{
     group::QueuedProposal,
-    prelude::{
-        KeyPackage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage,
-        ProtocolVersion, Sender,
-    },
+    prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
 };
-use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::ear::EarDecryptable,
@@ -31,12 +25,10 @@ use tls_codec::DeserializeBytes;
 use crate::{conversations::ConversationType, groups::Group, ConversationMessage, PartialContact};
 
 use super::{
-    anyhow, Asset, ContactAddInfos, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    FriendshipPackage, SignatureEarKey, TimestampedMessage, UserProfile, Verifiable,
+    anyhow, Asset, Conversation, ConversationAttributes, ConversationId, CoreUser,
+    FriendshipPackage, TimestampedMessage, UserProfile,
 };
-use crate::key_stores::{
-    qs_verifying_keys::StorableQsVerifyingKey, queue_ratchets::StorableQsQueueRatchet,
-};
+use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
 pub enum ProcessQsMessageResult {
     NewConversation(ConversationId),
@@ -322,50 +314,7 @@ impl CoreUser {
                 &encrypted_friendship_package,
             )?;
 
-            // UnconfirmedConnection Phase 2: Get KeyPackageBatches and (if necessary) the
-            // QS verifying keys required to verify them.
-            let mut add_infos = vec![];
-            for _ in 0..5 {
-                let key_package_batch_response = self
-                    .inner
-                    .api_clients
-                    .get(&user_name.domain())?
-                    .qs_key_package_batch(
-                        friendship_package.friendship_token.clone(),
-                        friendship_package.add_package_ear_key.clone(),
-                    )
-                    .await?;
-                let key_packages: Vec<(KeyPackage, SignatureEarKey)> = key_package_batch_response
-                    .add_packages
-                    .into_iter()
-                    .map(|add_package| {
-                        let verified_add_package = add_package
-                            .validate(&RustCrypto::default(), ProtocolVersion::default())?;
-                        let key_package = verified_add_package.key_package().clone();
-                        let sek = SignatureEarKey::decrypt(
-                            &friendship_package.signature_ear_key_wrapper_key,
-                            verified_add_package.encrypted_signature_ear_key(),
-                        )?;
-                        Ok((key_package, sek))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let qs_verifying_key = StorableQsVerifyingKey::get(
-                    self.inner.connection.clone(),
-                    &user_name.domain(),
-                    &self.inner.api_clients,
-                )
-                .await?;
-                let key_package_batch = key_package_batch_response
-                    .key_package_batch
-                    .verify(qs_verifying_key.deref())?;
-                let add_info = ContactAddInfos {
-                    key_package_batch,
-                    key_packages,
-                };
-                add_infos.push(add_info);
-            }
-
-            // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
+            // UnconfirmedConnection Phase 2: Store the user profile of the sender and the contact.
             let mut connection = self.inner.connection.lock().await;
             friendship_package
                 .user_profile

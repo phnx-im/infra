@@ -58,9 +58,8 @@ CREATE TABLE contacts (
     clients TEXT NOT NULL,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
-    add_package_ear_key BLOB NOT NULL,
-    client_credential_ear_key BLOB NOT NULL,
-    signature_ear_key_wrapper_key BLOB NOT NULL,
+    key_package_ear_key BLOB NOT NULL,
+    connection_key BLOB NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 

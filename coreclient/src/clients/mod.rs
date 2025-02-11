@@ -17,14 +17,13 @@ use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
-        keys::{ClientSigningKey, InfraCredentialSigningKey},
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::ClientSigningKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     },
     crypto::{
         ear::{
             keys::{
-                AddPackageEarKey, ClientCredentialEarKey, FriendshipPackageEarKey, PushTokenEarKey,
-                SignatureEarKey, SignatureEarKeyWrapperKey, WelcomeAttributionInfoEarKey,
+                FriendshipPackageEarKey, KeyPackageEarKey, PushTokenEarKey,
+                WelcomeAttributionInfoEarKey,
             },
             EarEncryptable, EarKey, GenericSerializable,
         },
@@ -32,7 +31,7 @@ use phnxtypes::{
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::{Signable, Verifiable},
+            signable::Signable,
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
@@ -50,9 +49,11 @@ use serde::{Deserialize, Serialize};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use uuid::Uuid;
 
+use crate::store::StoreNotificationsSender;
+use crate::utils::persistence::{SqliteConnection, Storable};
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -60,6 +61,7 @@ use crate::{
         messages::{ConversationMessage, TimestampedMessage},
         Conversation, ConversationAttributes,
     },
+    groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
@@ -67,17 +69,13 @@ use crate::{
         migration::run_migrations,
         persistence::{open_client_db, open_phnx_db},
     },
+    ConversationMessageId,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
     Asset,
 };
 use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
-use crate::{mimi_content::MimiContent, store::StoreNotificationsSender};
-use crate::{
-    utils::persistence::{SqliteConnection, Storable},
-    Message,
-};
 
 use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 
@@ -85,6 +83,7 @@ pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 pub mod conversations;
 mod create_user;
+mod message;
 pub(crate) mod own_client_info;
 mod persistence;
 pub mod process;
@@ -96,7 +95,7 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
-pub(crate) const ADD_PACKAGES: usize = 50;
+pub(crate) const KEY_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Clone)]
@@ -247,15 +246,39 @@ impl CoreUser {
 
         let final_state = user_creation_state
             .complete_user_creation(
-                phnx_db_connection_mutex,
+                phnx_db_connection_mutex.clone(),
                 client_db_connection_mutex.clone(),
                 &api_clients,
             )
             .await?;
 
-        let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
+        let self_user = final_state.into_self_user(client_db_connection_mutex.clone(), api_clients);
+        ClientRecord::set_default(
+            &*phnx_db_connection_mutex.lock().await,
+            &self_user.as_client_id(),
+        )?;
 
         Ok(Some(self_user))
+    }
+
+    /// Executes a fallible closure `f` with a transaction.
+    ///
+    /// Transaction is committed on success and rolled back on failure of the closure `f`.
+    pub(crate) async fn with_transaction<T>(
+        &self,
+        f: impl FnOnce(&Transaction) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut connection = self.inner.connection.lock().await;
+        let transaction = connection.transaction()?;
+        let value = f(&transaction)?;
+        transaction.commit()?;
+        Ok(value)
+    }
+
+    pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
+        if !notification.ops.is_empty() {
+            self.inner.store_notifications_tx.notify(notification);
+        }
     }
 
     pub(crate) fn subscribe_to_store_notifications(
@@ -383,7 +406,7 @@ impl CoreUser {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            client_credentials.push(contact_client_credentials);
+            client_credentials.extend(contact_client_credentials);
             contacts.push(contact);
         }
         drop(connection);
@@ -423,7 +446,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_add_users(
+            .ds_group_operation(
                 params,
                 group.group_state_ear_key(),
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
@@ -475,7 +498,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&conversation.owner_domain())?
-            .ds_remove_users(
+            .ds_group_operation(
                 params,
                 group.group_state_ear_key(),
                 group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
@@ -494,123 +517,6 @@ impl CoreUser {
         drop(connection);
 
         Ok(conversation_messages)
-    }
-
-    /// Send a message and return it. Note that the message has already been
-    /// sent to the DS and has internally been stored in the conversation store.
-    pub async fn send_message(
-        &self,
-        conversation_id: ConversationId,
-        content: MimiContent,
-    ) -> Result<ConversationMessage> {
-        // Phase 1: Load the conversation and group
-        let (group, params, conversation, mut conversation_message) = {
-            let mut notifier = self.store_notifier();
-            let mut connection = self.inner.connection.lock().await;
-            let mut transaction = connection.transaction()?;
-            let conversation =
-                Conversation::load(&transaction, &conversation_id)?.ok_or(anyhow!(
-                    "Can't find conversation with id {}",
-                    conversation_id.as_uuid()
-                ))?;
-            let group_id = conversation.group_id();
-            // Store the message as unsent so that we don't lose it in case
-            // something goes wrong.
-            let conversation_message = ConversationMessage::new_unsent_message(
-                self.user_name().to_string(),
-                conversation_id,
-                content.clone(),
-            );
-            conversation_message.store(&transaction, &mut notifier)?;
-            let mut group = Group::load(&transaction, group_id)?
-                .ok_or(anyhow!("Can't find group with id {group_id:?}"))?;
-            let params = group.create_message(&transaction, content)?;
-            // Immediately write the group back. No need to wait for the DS to
-            // confirm as this is just an application message.
-            group.store_update(&transaction)?;
-            // Also, mark the message (and all messages preceeding it) as read.
-            Conversation::mark_as_read(
-                &mut transaction,
-                &mut notifier,
-                vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
-            )?;
-            transaction.commit()?;
-            notifier.notify();
-            drop(connection);
-            (group, params, conversation, conversation_message)
-        };
-
-        // Phase 2: Send message to DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&conversation.owner_domain())?
-            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Mark the message as sent and read (again).
-        let mut connection = self.inner.connection.lock().await;
-        let mut notifier = self.store_notifier();
-        conversation_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
-        let mut transaction = connection.transaction()?;
-        Conversation::mark_as_read(
-            &mut transaction,
-            &mut notifier,
-            vec![(conversation.id(), conversation_message.timestamp())].into_iter(),
-        )?;
-        transaction.commit()?;
-        notifier.notify();
-
-        Ok(conversation_message)
-    }
-
-    /// Re-try sending a message, where sending previously failed.
-    pub async fn re_send_message(&self, local_message_id: Uuid) -> Result<()> {
-        // Phase 1: Load the unsent message
-        let connection = self.inner.connection.lock().await;
-        let mut unsent_message = ConversationMessage::load(&connection, &local_message_id)?.ok_or(
-            anyhow!("Can't find unsent message with id {}", local_message_id),
-        )?;
-        let content = match unsent_message.message() {
-            Message::Content(content_message) if !content_message.was_sent() => {
-                content_message.content().clone()
-            }
-            _ => bail!("Message with id {} was already sent", local_message_id),
-        };
-        let conversation_id = unsent_message.conversation_id();
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let group_id = conversation.group_id();
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.create_message(&connection, content)?;
-        drop(connection);
-
-        // Phase 2: Send message to DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&conversation.owner_domain())?
-            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Merge the commit into the group & update conversation
-        let mut connection = self.inner.connection.lock().await;
-        let mut notifier = self.store_notifier();
-        unsent_message.mark_as_sent(&connection, &mut notifier, ds_timestamp)?;
-        group.store_update(&connection)?;
-        let mut transaction = connection.transaction()?;
-        Conversation::mark_as_read(
-            &mut transaction,
-            &mut notifier,
-            vec![(conversation.id(), unsent_message.timestamp())].into_iter(),
-        )?;
-        transaction.commit()?;
-        notifier.notify();
-
-        Ok(())
     }
 
     /// Create a connection with a new user.
@@ -670,13 +576,21 @@ impl CoreUser {
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let mut connection = self.inner.connection.lock().await;
-        let (connection_group, partial_params) = Group::create_group(
-            &mut connection,
-            &self.inner.key_store.signing_key,
-            group_id.clone(),
-            group_data,
-        )?;
-        connection_group.store(&connection)?;
+        let (connection_group, partial_params) = {
+            let transaction = connection.transaction()?;
+            let provider = PhnxOpenMlsProvider::new(&transaction);
+            let (group, group_membership, partial_params) = Group::create_group(
+                &provider,
+                &self.inner.key_store.signing_key,
+                &self.inner.key_store.connection_key,
+                group_id.clone(),
+                group_data,
+            )?;
+            group_membership.store(&transaction)?;
+            group.store(&transaction)?;
+            transaction.commit()?;
+            (group, partial_params)
+        };
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -696,13 +610,8 @@ impl CoreUser {
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
-            add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
-            client_credential_ear_key: self.inner.key_store.client_credential_ear_key.clone(),
-            signature_ear_key_wrapper_key: self
-                .inner
-                .key_store
-                .signature_ear_key_wrapper_key
-                .clone(),
+            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
+            connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,
         };
@@ -728,9 +637,8 @@ impl CoreUser {
             sender_client_credential: self.inner.key_store.signing_key.credential().clone(),
             connection_group_id: group_id,
             connection_group_ear_key: connection_group.group_state_ear_key().clone(),
-            connection_group_credential_key: connection_group.credential_ear_key().clone(),
-            connection_group_signature_ear_key_wrapper_key: connection_group
-                .signature_ear_key_wrapper_key()
+            connection_group_identity_link_wrapper_key: connection_group
+                .identity_link_wrapper_key()
                 .clone(),
             friendship_package_ear_key,
             friendship_package,
@@ -738,13 +646,7 @@ impl CoreUser {
         .sign(&self.inner.key_store.signing_key)?;
 
         let client_reference = self.create_own_client_reference();
-        let encrypted_client_credential = self
-            .inner
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(connection_group.credential_ear_key())?;
-        let params = partial_params.into_params(encrypted_client_credential, client_reference);
+        let params = partial_params.into_params(client_reference);
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
@@ -1127,10 +1029,20 @@ impl CoreUser {
             .map(|group| group.pending_removes(connection))
     }
 
-    pub async fn websocket(&self, timeout: u64, retry_interval: u64) -> Result<QsWebSocket> {
+    pub async fn websocket(
+        &self,
+        timeout: u64,
+        retry_interval: u64,
+        cancel: CancellationToken,
+    ) -> Result<QsWebSocket> {
         let api_client = self.inner.api_clients.default_client();
         Ok(api_client?
-            .spawn_websocket(self.inner.qs_client_id.clone(), timeout, retry_interval)
+            .spawn_websocket(
+                self.inner.qs_client_id.clone(),
+                timeout,
+                retry_interval,
+                cancel,
+            )
             .await?)
     }
 
@@ -1141,24 +1053,42 @@ impl CoreUser {
         mark_as_read_data: T,
     ) -> Result<(), rusqlite::Error> {
         let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
+        let transaction = connection.transaction()?;
         let mut notifier = self.store_notifier();
-        Conversation::mark_as_read(&mut transaction, &mut notifier, mark_as_read_data)?;
+        Conversation::mark_as_read(&transaction, &mut notifier, mark_as_read_data)?;
         transaction.commit()?;
         notifier.notify();
         Ok(())
     }
 
+    /// Mark all messages in the conversation with the given conversation id and
+    /// with a timestamp older than the given timestamp as read.
+    pub async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> Result<bool, rusqlite::Error> {
+        let connection = self.inner.connection.lock().await;
+        let mut notifier = self.store_notifier();
+        let marked_as_read = Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut notifier,
+            conversation_id,
+            until,
+        )?;
+        notifier.notify();
+        Ok(marked_as_read)
+    }
+
     /// Returns how many messages are marked as unread across all conversations.
-    pub async fn global_unread_messages_count(&self) -> Result<u32, rusqlite::Error> {
+    pub async fn global_unread_messages_count(&self) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::global_unread_message_count(connection)?;
-        Ok(count)
+        Conversation::global_unread_message_count(connection)
     }
 
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> u32 {
+    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> usize {
         let connection = &self.inner.connection.lock().await;
         Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
             error!(%error, "Error while fetching unread messages count");
@@ -1166,13 +1096,20 @@ impl CoreUser {
         })
     }
 
+    pub(crate) async fn try_messages_count(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<usize, rusqlite::Error> {
+        let connection = &self.inner.connection.lock().await;
+        Conversation::messages_count(connection, conversation_id)
+    }
+
     pub(crate) async fn try_unread_messages_count(
         &self,
         conversation_id: ConversationId,
     ) -> Result<usize, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        let count = Conversation::unread_messages_count(connection, conversation_id)?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Conversation::unread_messages_count(connection, conversation_id)
     }
 
     /// Updates the client's push token on the QS.

@@ -3,21 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::Duration;
-use mls_assist::{
-    openmls::{
-        prelude::{KeyPackage, KeyPackageIn, KeyPackageRef, KeyPackageVerifyError},
-        versions::ProtocolVersion,
-    },
-    openmls_traits::crypto::OpenMlsCrypto,
-};
+use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn, KeyPackageRef};
 
 use crate::{
-    credentials::EncryptedClientCredential,
     crypto::{
-        ear::{
-            keys::{AddPackageEarKey, EncryptedSignatureEarKey},
-            Ciphertext, EarDecryptable, EarEncryptable,
-        },
+        ear::{keys::KeyPackageEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
     identifiers::Fqdn,
@@ -126,76 +116,25 @@ impl KeyPackageBatch<VERIFIED> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsSize)]
-pub struct AddPackage {
-    key_package: KeyPackage,
-    encrypted_signature_ear_key: EncryptedSignatureEarKey,
-    encrypted_client_credential: EncryptedClientCredential,
-}
-
-impl AddPackage {
-    pub fn new(
-        key_package: KeyPackage,
-        encrypted_signature_ear_key: EncryptedSignatureEarKey,
-        encrypted_client_credential: EncryptedClientCredential,
-    ) -> Self {
-        Self {
-            key_package,
-            encrypted_signature_ear_key,
-            encrypted_client_credential,
-        }
-    }
-
-    pub fn key_package(&self) -> &KeyPackage {
-        &self.key_package
-    }
-
-    pub fn encrypted_signature_ear_key(&self) -> &EncryptedSignatureEarKey {
-        &self.encrypted_signature_ear_key
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct AddPackageIn {
-    key_package: KeyPackageIn,
-    encrypted_signature_ear_key: EncryptedSignatureEarKey,
-    encrypted_client_credential: EncryptedClientCredential,
-}
-
-impl AddPackageIn {
-    pub fn validate(
-        self,
-        crypto: &impl OpenMlsCrypto,
-        protocol_version: ProtocolVersion,
-    ) -> Result<AddPackage, KeyPackageVerifyError> {
-        let key_package = self.key_package.validate(crypto, protocol_version)?;
-        Ok(AddPackage {
-            key_package,
-            encrypted_signature_ear_key: self.encrypted_signature_ear_key,
-            encrypted_client_credential: self.encrypted_client_credential,
-        })
-    }
-}
-
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
 #[derive(
     Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, sqlx::Type,
 )]
 #[sqlx(transparent)]
-pub struct QsEncryptedAddPackage(Ciphertext);
+pub struct QsEncryptedKeyPackage(Ciphertext);
 
-impl AsRef<Ciphertext> for QsEncryptedAddPackage {
+impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
     fn as_ref(&self) -> &Ciphertext {
         &self.0
     }
 }
 
-impl From<Ciphertext> for QsEncryptedAddPackage {
+impl From<Ciphertext> for QsEncryptedKeyPackage {
     fn from(ctxt: Ciphertext) -> Self {
         Self(ctxt)
     }
 }
 
-impl EarDecryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackageIn {}
-impl EarEncryptable<AddPackageEarKey, QsEncryptedAddPackage> for AddPackage {}
+impl EarDecryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackageIn {}
+impl EarEncryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackage {}

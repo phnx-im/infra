@@ -4,7 +4,6 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -31,7 +30,7 @@ impl Store for CoreUser {
 
     async fn create_conversation(
         &self,
-        title: &str,
+        title: String,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<ConversationId> {
         self.create_conversation(title, picture).await
@@ -106,6 +105,20 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
+    async fn prev_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>> {
+        self.prev_message(message_id).await
+    }
+
+    async fn next_message(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<ConversationMessage>> {
+        self.next_message(message_id).await
+    }
+
     async fn last_message(
         &self,
         conversation_id: ConversationId,
@@ -113,21 +126,26 @@ impl Store for CoreUser {
         Ok(self.try_last_message(conversation_id).await?)
     }
 
+    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
+        Ok(self.try_messages_count(conversation_id).await?)
+    }
+
     async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
         Ok(self.try_unread_messages_count(conversation_id).await?)
     }
 
     async fn global_unread_messages_count(&self) -> StoreResult<usize> {
-        let count = self.global_unread_messages_count().await?;
-        Ok(usize::try_from(count).expect("usize overflow"))
+        Ok(self.global_unread_messages_count().await?)
     }
 
-    async fn mark_conversation_as_read<I>(&self, until: I) -> StoreResult<()>
-    where
-        I: IntoIterator<Item = (ConversationId, DateTime<Utc>)> + Send,
-        I::IntoIter: Send,
-    {
-        Ok(self.mark_as_read(until).await?)
+    async fn mark_conversation_as_read(
+        &self,
+        conversation_id: ConversationId,
+        until: ConversationMessageId,
+    ) -> StoreResult<bool> {
+        Ok(self
+            .mark_conversation_as_read(conversation_id, until)
+            .await?)
     }
 
     async fn send_message(
@@ -140,6 +158,10 @@ impl Store for CoreUser {
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {
         self.re_send_message(local_message_id).await
+    }
+
+    fn notify(&self, notification: StoreNotification) {
+        self.send_store_notification(notification);
     }
 
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {

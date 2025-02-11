@@ -14,13 +14,16 @@ use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::crypto::{
-    errors::RandomnessError,
-    kdf::{
-        keys::{InitialClientKdfKey, RatchetSecret, RosterKdfKey},
-        KdfDerivable,
+use crate::{
+    credentials::pseudonymous_credentials::PseudonymousCredentialTbs,
+    crypto::{
+        errors::RandomnessError,
+        kdf::{
+            keys::{ConnectionKey, InitialClientKdfKey, RatchetSecret, RosterKdfKey},
+            KdfDerivable,
+        },
+        secrets::Secret,
     },
-    secrets::Secret,
 };
 
 use super::{traits::EarKey, Ciphertext, EarDecryptable, EarEncryptable, AEAD_KEY_SIZE};
@@ -95,7 +98,7 @@ pub struct PushTokenEarKey {
 impl PushTokenEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
-            key: AddPackageEarKeySecret::random()?,
+            key: KeyPackageEarKeySecret::random()?,
         })
     }
 }
@@ -114,68 +117,68 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
     }
 }
 
-pub type AddPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
+pub type KeyPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`AddPackage`]s.
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
-pub struct AddPackageEarKey {
-    key: AddPackageEarKeySecret,
+pub struct KeyPackageEarKey {
+    key: KeyPackageEarKeySecret,
 }
 
-impl Type<Sqlite> for AddPackageEarKey {
+impl Type<Sqlite> for KeyPackageEarKey {
     fn type_info() -> <Sqlite as Database>::TypeInfo {
         <&[u8] as Type<Sqlite>>::type_info()
     }
 }
 
-impl<'q> Encode<'q, Sqlite> for AddPackageEarKey {
+impl<'q> Encode<'q, Sqlite> for KeyPackageEarKey {
     fn encode_by_ref(
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <AddPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+        <KeyPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
     }
 }
 
-impl<'r> Decode<'r, Sqlite> for AddPackageEarKey {
+impl<'r> Decode<'r, Sqlite> for KeyPackageEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <AddPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        let key = <KeyPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
         Ok(Self { key })
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for AddPackageEarKey {
+impl rusqlite::types::ToSql for KeyPackageEarKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.key.to_sql()
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for AddPackageEarKey {
+impl rusqlite::types::FromSql for KeyPackageEarKey {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = AddPackageEarKeySecret::column_result(value)?;
+        let key = KeyPackageEarKeySecret::column_result(value)?;
         Ok(Self { key })
     }
 }
 
-impl AddPackageEarKey {
+impl KeyPackageEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
-            key: AddPackageEarKeySecret::random()?,
+            key: KeyPackageEarKeySecret::random()?,
         })
     }
 }
 
-impl EarKey for AddPackageEarKey {}
+impl EarKey for KeyPackageEarKey {}
 
-impl AsRef<Secret<AEAD_KEY_SIZE>> for AddPackageEarKey {
+impl AsRef<Secret<AEAD_KEY_SIZE>> for KeyPackageEarKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for AddPackageEarKey {
+impl From<Secret<AEAD_KEY_SIZE>> for KeyPackageEarKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }
@@ -275,48 +278,44 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
 
-pub type SignatureEarKeySecret = Secret<AEAD_KEY_SIZE>;
+pub type IdentityLinkKeySecret = Secret<AEAD_KEY_SIZE>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct SignatureEarKey {
-    key: SignatureEarKeySecret,
+pub struct IdentityLinkKey {
+    key: IdentityLinkKeySecret,
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for SignatureEarKey {
+impl rusqlite::types::ToSql for IdentityLinkKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.key.to_sql()
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for SignatureEarKey {
+impl rusqlite::types::FromSql for IdentityLinkKey {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = SignatureEarKeySecret::column_result(value)?;
+        let key = IdentityLinkKeySecret::column_result(value)?;
         Ok(Self { key })
     }
 }
 
-impl SignatureEarKey {
-    pub fn random() -> Result<Self, RandomnessError> {
-        Ok(Self {
-            key: SignatureEarKeySecret::random()?,
-        })
-    }
-}
+impl EarKey for IdentityLinkKey {}
 
-impl EarKey for SignatureEarKey {}
-
-impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
+impl AsRef<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKey {
+impl From<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }
+}
+
+impl KdfDerivable<ConnectionKey, PseudonymousCredentialTbs, AEAD_KEY_SIZE> for IdentityLinkKey {
+    const LABEL: &'static str = "IdentityLinkKey";
 }
 
 pub type WelcomeAttributionInfoEarKeySecret = Secret<AEAD_KEY_SIZE>;
@@ -453,87 +452,65 @@ impl From<Secret<AEAD_KEY_SIZE>> for FriendshipPackageEarKey {
     }
 }
 
-impl EarEncryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
-impl EarDecryptable<SignatureEarKeyWrapperKey, EncryptedSignatureEarKey> for SignatureEarKey {}
+impl EarEncryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKey> for IdentityLinkKey {}
+impl EarDecryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKey> for IdentityLinkKey {}
 
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-pub struct EncryptedSignatureEarKey {
+pub struct EncryptedIdentityLinkKey {
     ciphertext: Ciphertext,
 }
 
-impl From<Ciphertext> for EncryptedSignatureEarKey {
+impl From<Ciphertext> for EncryptedIdentityLinkKey {
     fn from(ciphertext: Ciphertext) -> Self {
         Self { ciphertext }
     }
 }
 
-impl AsRef<Ciphertext> for EncryptedSignatureEarKey {
+impl AsRef<Ciphertext> for EncryptedIdentityLinkKey {
     fn as_ref(&self) -> &Ciphertext {
         &self.ciphertext
     }
 }
 
-pub type SignatureEarKeyWrapperKeySecret = Secret<AEAD_KEY_SIZE>;
+pub type IdentityLinkWrapperKeySecret = Secret<AEAD_KEY_SIZE>;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct SignatureEarKeyWrapperKey {
-    key: SignatureEarKeyWrapperKeySecret,
-}
-
-impl Type<Sqlite> for SignatureEarKeyWrapperKey {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <&[u8] as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for SignatureEarKeyWrapperKey {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        <SignatureEarKeyWrapperKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for SignatureEarKeyWrapperKey {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <SignatureEarKeyWrapperKeySecret as Decode<Sqlite>>::decode(value)?;
-        Ok(Self { key })
-    }
+pub struct IdentityLinkWrapperKey {
+    key: IdentityLinkWrapperKeySecret,
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for SignatureEarKeyWrapperKey {
+impl rusqlite::types::ToSql for IdentityLinkWrapperKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         self.key.to_sql()
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for SignatureEarKeyWrapperKey {
+impl rusqlite::types::FromSql for IdentityLinkWrapperKey {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = SignatureEarKeyWrapperKeySecret::column_result(value)?;
+        let key = IdentityLinkWrapperKeySecret::column_result(value)?;
         Ok(Self { key })
     }
 }
 
-impl SignatureEarKeyWrapperKey {
+impl IdentityLinkWrapperKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
-            key: SignatureEarKeyWrapperKeySecret::random()?,
+            key: IdentityLinkWrapperKeySecret::random()?,
         })
     }
 }
 
-impl EarKey for SignatureEarKeyWrapperKey {}
+impl EarKey for IdentityLinkWrapperKey {}
 
-impl AsRef<Secret<AEAD_KEY_SIZE>> for SignatureEarKeyWrapperKey {
+impl AsRef<Secret<AEAD_KEY_SIZE>> for IdentityLinkWrapperKey {
     fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
         &self.key
     }
 }
 
-impl From<Secret<AEAD_KEY_SIZE>> for SignatureEarKeyWrapperKey {
+impl From<Secret<AEAD_KEY_SIZE>> for IdentityLinkWrapperKey {
     fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
         Self { key: secret }
     }

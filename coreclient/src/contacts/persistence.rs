@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::ear::keys::{
-        AddPackageEarKey, ClientCredentialEarKey, SignatureEarKeyWrapperKey,
-        WelcomeAttributionInfoEarKey,
+    crypto::{
+        ear::keys::{KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+        kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
     messages::FriendshipToken,
@@ -54,9 +54,8 @@ impl Storable for Contact {
             clients TEXT NOT NULL,
             wai_ear_key BLOB NOT NULL,
             friendship_token BLOB NOT NULL,
-            add_package_ear_key BLOB NOT NULL,
-            client_credential_ear_key BLOB NOT NULL,
-            signature_ear_key_wrapper_key BLOB NOT NULL,
+            key_package_ear_key BLOB NOT NULL,
+            connection_key BLOB NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
         );";
 
@@ -77,18 +76,16 @@ impl Storable for Contact {
             })?;
         let wai_ear_key = row.get(3)?;
         let friendship_token = row.get(4)?;
-        let add_package_ear_key = row.get(5)?;
-        let client_credential_ear_key = row.get(6)?;
-        let signature_ear_key_wrapper_key = row.get(7)?;
+        let key_package_ear_key = row.get(5)?;
+        let connection_key = row.get(6)?;
 
         Ok(Contact {
             user_name,
             clients,
             wai_ear_key,
             friendship_token,
-            add_package_ear_key,
-            client_credential_ear_key,
-            signature_ear_key_wrapper_key,
+            key_package_ear_key,
+            connection_key,
             conversation_id,
         })
     }
@@ -116,13 +113,12 @@ impl<'r> Decode<'r, Sqlite> for SqlAsClientIds {
 
 struct SqlContact {
     user_name: QualifiedUserName,
+    conversation_id: ConversationId,
     clients: SqlAsClientIds,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
-    add_package_ear_key: AddPackageEarKey,
-    client_credential_ear_key: ClientCredentialEarKey,
-    signature_ear_key_wrapper_key: SignatureEarKeyWrapperKey,
-    conversation_id: ConversationId,
+    key_package_ear_key: KeyPackageEarKey,
+    connection_key: ConnectionKey,
 }
 
 impl From<SqlContact> for Contact {
@@ -132,10 +128,9 @@ impl From<SqlContact> for Contact {
             clients: SqlAsClientIds(clients),
             wai_ear_key,
             friendship_token,
-            add_package_ear_key,
-            client_credential_ear_key,
-            signature_ear_key_wrapper_key,
             conversation_id,
+            key_package_ear_key,
+            connection_key,
         }: SqlContact,
     ) -> Self {
         Self {
@@ -143,9 +138,8 @@ impl From<SqlContact> for Contact {
             clients,
             wai_ear_key,
             friendship_token,
-            add_package_ear_key,
-            client_credential_ear_key,
-            signature_ear_key_wrapper_key,
+            key_package_ear_key,
+            connection_key,
             conversation_id,
         }
     }
@@ -168,13 +162,12 @@ impl Contact {
             SqlContact,
             r#"SELECT
                 user_name AS "user_name: _",
+                conversation_id AS "conversation_id: _",
                 clients AS "clients: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
-                add_package_ear_key AS "add_package_ear_key: _",
-                client_credential_ear_key AS "client_credential_ear_key: _",
-                signature_ear_key_wrapper_key AS "signature_ear_key_wrapper_key: _",
-                conversation_id AS "conversation_id: _"
+                key_package_ear_key AS "key_package_ear_key: _",
+                connection_key AS "connection_key: _"
             FROM contacts WHERE user_name = ?"#,
             user_name
         )
@@ -194,13 +187,12 @@ impl Contact {
             SqlContact,
             r#"SELECT
                 user_name AS "user_name: _",
+                conversation_id AS "conversation_id: _",
                 clients AS "clients: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
-                add_package_ear_key AS "add_package_ear_key: _",
-                client_credential_ear_key AS "client_credential_ear_key: _",
-                signature_ear_key_wrapper_key AS "signature_ear_key_wrapper_key: _",
-                conversation_id AS "conversation_id: _"
+                key_package_ear_key AS "key_package_ear_key: _",
+                connection_key AS "connection_key: _"
             FROM contacts"#
         )
         .fetch(db)
@@ -221,16 +213,15 @@ impl Contact {
             .collect::<Vec<_>>()
             .join(",");
         connection.execute(
-            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, add_package_ear_key, client_credential_ear_key, signature_ear_key_wrapper_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, key_package_ear_key, connection_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.user_name,
                 self.conversation_id,
                 clients_str,
                 self.wai_ear_key,
                 self.friendship_token,
-                self.add_package_ear_key,
-                self.client_credential_ear_key,
-                self.signature_ear_key_wrapper_key,
+                self.key_package_ear_key,
+                self.connection_key,
             ],
         )?;
         notifier
@@ -254,16 +245,15 @@ impl Contact {
         query!(
             "INSERT INTO contacts
                 (user_name, conversation_id, clients, wai_ear_key, friendship_token,
-                add_package_ear_key, client_credential_ear_key, signature_ear_key_wrapper_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                key_package_ear_key, connection_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.user_name,
             self.conversation_id,
             clients_str,
             self.wai_ear_key,
             self.friendship_token,
-            self.add_package_ear_key,
-            self.client_credential_ear_key,
-            self.signature_ear_key_wrapper_key,
+            self.key_package_ear_key,
+            self.connection_key,
         )
         .execute(executor)
         .await?;
@@ -454,9 +444,8 @@ impl PartialContact {
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
-            client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
+            key_package_ear_key: friendship_package.key_package_ear_key,
+            connection_key: friendship_package.connection_key,
             conversation_id,
         };
         contact.store(&savepoint, notifier)?;
@@ -481,13 +470,12 @@ impl PartialContact {
         self.delete_2(&mut *transaction, notifier).await?;
         let contact = Contact {
             user_name,
+            conversation_id,
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            add_package_ear_key: friendship_package.add_package_ear_key,
-            client_credential_ear_key: friendship_package.client_credential_ear_key,
-            signature_ear_key_wrapper_key: friendship_package.signature_ear_key_wrapper_key,
-            conversation_id,
+            key_package_ear_key: friendship_package.key_package_ear_key,
+            connection_key: friendship_package.connection_key,
         };
         contact.store_2(&mut *transaction, notifier).await?;
 

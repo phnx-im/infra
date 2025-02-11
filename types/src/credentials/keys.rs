@@ -13,10 +13,13 @@ use mls_assist::{
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::ToSqlOutput, ToSql};
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tracing::error;
 
 use super::{
-    infra_credentials::{InfraCredential, InfraCredentialTbs},
+    pseudonymous_credentials::{
+        IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
+    },
     AsCredential, AsIntermediateCredential,
 };
 
@@ -24,8 +27,9 @@ use super::{
 use crate::codec::PhnxCodec;
 
 use crate::crypto::{
-    ear::{keys::SignatureEarKey, EarEncryptable},
-    errors::KeyGenerationError,
+    ear::{keys::IdentityLinkKey, EarEncryptable},
+    errors::{EncryptionError, KeyGenerationError, RandomnessError},
+    kdf::{keys::ConnectionKey, KdfDerivable},
     signatures::{
         private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
@@ -188,13 +192,13 @@ impl AsRef<VerifyingKey> for ClientVerifyingKey {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InfraCredentialSigningKey {
+pub struct PseudonymousCredentialSigningKey {
     signing_key: SigningKey,
-    credential: InfraCredential,
+    credential: PseudonymousCredential,
 }
 
 #[cfg(feature = "sqlite")]
-impl ToSql for InfraCredentialSigningKey {
+impl ToSql for PseudonymousCredentialSigningKey {
     fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
         let bytes = PhnxCodec::to_vec(self)?;
         Ok(ToSqlOutput::from(bytes))
@@ -202,7 +206,7 @@ impl ToSql for InfraCredentialSigningKey {
 }
 
 #[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for InfraCredentialSigningKey {
+impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let key = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(key)
@@ -212,46 +216,82 @@ impl rusqlite::types::FromSql for InfraCredentialSigningKey {
 // 30 days lifetime in seconds
 pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
-impl InfraCredentialSigningKey {
-    pub fn generate(client_signer: &ClientSigningKey, ear_key: &SignatureEarKey) -> Self {
-        let signing_key = SigningKey::generate().unwrap();
-        let identity = OpenMlsRustCrypto::default().rand().random_vec(32).unwrap();
-        let tbs = InfraCredentialTbs {
+#[derive(Debug, Error)]
+pub enum CredentialCreationError {
+    #[error(transparent)]
+    KeyGenerationError(#[from] KeyGenerationError),
+    #[error(transparent)]
+    RandomnessError(#[from] RandomnessError),
+    #[error("Failed to derive identity link key")]
+    KeyDerivationFailed,
+    #[error(transparent)]
+    EncryptionFailed(#[from] EncryptionError),
+}
+
+impl PseudonymousCredentialSigningKey {
+    pub fn generate(
+        client_signer: &ClientSigningKey,
+        connection_key: &ConnectionKey,
+    ) -> Result<(Self, IdentityLinkKey), CredentialCreationError> {
+        // Construct the TBS
+        let signing_key = SigningKey::generate()?;
+        let identity = OpenMlsRustCrypto::default()
+            .rand()
+            .random_vec(32)
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        let tbs = PseudonymousCredentialTbs {
             identity,
             expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
             signature_scheme: DEFAULT_SIGNATURE_SCHEME,
             verifying_key: signing_key.verifying_key().clone().into(),
         };
-        let plaintext_credential = tbs.sign(client_signer).unwrap();
-        let encrypted_signature = plaintext_credential.signature.encrypt(ear_key).unwrap();
-        let credential = InfraCredential::new(
-            plaintext_credential.payload.identity,
-            plaintext_credential.payload.expiration_data,
-            plaintext_credential.payload.signature_scheme,
-            plaintext_credential.payload.verifying_key,
-            encrypted_signature.tls_serialize_detached().unwrap().into(),
+
+        // Derive the identity link key based on the TBS
+        let identity_link_key =
+            IdentityLinkKey::derive(connection_key, tbs.clone()).map_err(|e| {
+                error!(%e, "Failed to derive identity link key");
+                CredentialCreationError::KeyDerivationFailed
+            })?;
+
+        // Sign the TBS and encrypt the identity link
+        let signed_pseudonymous_credential = tbs.sign(client_signer).unwrap();
+        let encrypted_signature = signed_pseudonymous_credential
+            .signature
+            .encrypt(&identity_link_key)?;
+        let encrypted_client_credential = client_signer.credential().encrypt(&identity_link_key)?;
+        let identity_link_ctxt = IdentityLinkCtxt {
+            encrypted_signature,
+            encrypted_client_credential,
+        };
+        let credential = PseudonymousCredential::new(
+            signed_pseudonymous_credential.payload.identity,
+            signed_pseudonymous_credential.payload.expiration_data,
+            signed_pseudonymous_credential.payload.signature_scheme,
+            signed_pseudonymous_credential.payload.verifying_key,
+            identity_link_ctxt,
         );
-        Self {
+        let credential = Self {
             signing_key,
             credential,
-        }
+        };
+        Ok((credential, identity_link_key))
     }
 
-    pub fn credential(&self) -> &InfraCredential {
+    pub fn credential(&self) -> &PseudonymousCredential {
         &self.credential
     }
 }
 
-impl SigningKeyBehaviour for InfraCredentialSigningKey {}
-impl SigningKeyBehaviour for &InfraCredentialSigningKey {}
+impl SigningKeyBehaviour for PseudonymousCredentialSigningKey {}
+impl SigningKeyBehaviour for &PseudonymousCredentialSigningKey {}
 
-impl AsRef<SigningKey> for InfraCredentialSigningKey {
+impl AsRef<SigningKey> for PseudonymousCredentialSigningKey {
     fn as_ref(&self) -> &SigningKey {
         &self.signing_key
     }
 }
 
-impl Signer for InfraCredentialSigningKey {
+impl Signer for PseudonymousCredentialSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
         <Self as SigningKeyBehaviour>::sign(self, payload)
             .map_err(|_| SignerError::SigningError)

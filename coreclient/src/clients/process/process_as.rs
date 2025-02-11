@@ -22,13 +22,13 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::Group,
+    key_stores::leaf_keys::LeafKeys,
     store::StoreNotifier,
 };
 
 use super::{
     anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, InfraCredentialSigningKey, SignatureEarKey,
-    UserProfile,
+    CoreUser, EarEncryptable, FriendshipPackage, UserProfile,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
@@ -67,19 +67,15 @@ impl CoreUser {
                 // Load user profile
                 let own_user_profile = self.load_own_user_profile().await?;
 
-                // Create signature ear key
-                let signature_ear_key = SignatureEarKey::random()?;
-
                 // Prepare group
-                let (leaf_signer, aad, qgid) =
-                    self.prepare_group(&signature_ear_key, &cep_tbs, own_user_profile)?;
+                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, own_user_profile)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
                 let (group, commit, group_info) = self
-                    .join_group_externally(signature_ear_key, eci, &cep_tbs, leaf_signer, aad)
+                    .join_group_externally(eci, &cep_tbs, leaf_keys, aad)
                     .await?;
 
                 // Create conversation
@@ -144,51 +140,41 @@ impl CoreUser {
 
     fn prepare_group(
         &self,
-        signature_ear_key: &SignatureEarKey,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile: UserProfile,
-    ) -> Result<(InfraCredentialSigningKey, InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
 
-        let leaf_signer = InfraCredentialSigningKey::generate(
+        let leaf_keys = LeafKeys::generate(
             &self.inner.key_store.signing_key,
-            signature_ear_key,
-        );
-        let esek =
-            signature_ear_key.encrypt(&cep_tbs.connection_group_signature_ear_key_wrapper_key)?;
+            &self.inner.key_store.connection_key,
+        )?;
+
+        let encrypted_identity_link_key = leaf_keys
+            .identity_link_key()
+            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
-            add_package_ear_key: self.inner.key_store.add_package_ear_key.clone(),
-            client_credential_ear_key: self.inner.key_store.client_credential_ear_key.clone(),
-            signature_ear_key_wrapper_key: self
-                .inner
-                .key_store
-                .signature_ear_key_wrapper_key
-                .clone(),
+            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
+            connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile: own_user_profile,
         }
         .encrypt(&cep_tbs.friendship_package_ear_key)?;
-        let ecc = self
-            .inner
-            .key_store
-            .signing_key
-            .credential()
-            .encrypt(&cep_tbs.connection_group_credential_key)?;
 
         let aad: InfraAadMessage =
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
-                encrypted_client_information: (ecc, esek),
                 encrypted_friendship_package,
+                encrypted_identity_link_key,
             })
             .into();
         let qgid =
             QualifiedGroupId::tls_deserialize_exact_bytes(cep_tbs.connection_group_id.as_slice())?;
 
-        Ok((leaf_signer, aad, qgid))
+        Ok((leaf_keys, aad, qgid))
     }
 
     async fn load_own_user_profile(&self) -> Result<UserProfile> {
@@ -216,23 +202,20 @@ impl CoreUser {
 
     async fn join_group_externally(
         &self,
-        signature_ear_key: SignatureEarKey,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        leaf_signer: InfraCredentialSigningKey,
+        leaf_keys: LeafKeys,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
+        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
         let (group, commit, group_info) = Group::join_group_externally(
             self.inner.connection.clone(),
             &self.inner.api_clients,
             eci,
             leaf_signer,
-            signature_ear_key,
+            identity_link_key,
             cep_tbs.connection_group_ear_key.clone(),
-            cep_tbs
-                .connection_group_signature_ear_key_wrapper_key
-                .clone(),
-            cep_tbs.connection_group_credential_key.clone(),
+            cep_tbs.connection_group_identity_link_wrapper_key.clone(),
             aad,
             self.inner.key_store.signing_key.credential(),
         )

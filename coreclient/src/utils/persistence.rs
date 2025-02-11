@@ -4,6 +4,7 @@
 
 use std::{
     fmt::Display,
+    fs,
     ops::{Deref, DerefMut},
     path::Path,
     sync::Arc,
@@ -14,6 +15,7 @@ use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
 use rusqlite::{types::FromSql, Connection, ToSql};
 use tokio::sync::{Mutex, MutexGuard};
+use tracing::error;
 
 use crate::clients::store::ClientRecord;
 
@@ -73,9 +75,7 @@ pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, rusqlite:
 /// WARNING: This will delete all APP-data from this device! Also, this function
 /// may panic.
 pub fn delete_databases(client_db_path: &str) -> Result<()> {
-    use std::fs;
-
-    let full_phnx_db_path = format!("{}/{}", client_db_path, PHNX_DB_NAME);
+    let full_phnx_db_path = format!("{client_db_path}/{PHNX_DB_NAME}");
     if !Path::new(&full_phnx_db_path).exists() {
         bail!("phnx.db does not exist")
     }
@@ -84,13 +84,10 @@ pub fn delete_databases(client_db_path: &str) -> Result<()> {
     let phnx_db_connection = open_phnx_db(client_db_path)?;
     if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection) {
         for client_record in client_records {
-            let full_client_db_path = format!(
-                "{}/{}",
-                client_db_path,
-                client_db_name(&client_record.as_client_id)
-            );
-            if let Err(error) = fs::remove_file(full_client_db_path) {
-                tracing::error!(%error, "Failed to delete client DB")
+            let client_db_name = client_db_name(&client_record.as_client_id);
+            let client_db_path = format!("{client_db_path}/{client_db_name}");
+            if let Err(error) = fs::remove_file(&client_db_path) {
+                error!(%error, %client_db_path, "Failed to delete client DB")
             }
         }
     }
@@ -100,11 +97,30 @@ pub fn delete_databases(client_db_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Result<()> {
+    // Delete the client DB
+    let client_db_name = client_db_name(as_client_id);
+    let client_db_path = format!("{db_path}/{client_db_name}");
+    if let Err(error) = fs::remove_file(&client_db_path) {
+        error!(%error, %client_db_path, "Failed to delete client DB")
+    }
+
+    // Delete the client record from the phnx DB
+    let full_phnx_db_path = format!("{db_path}/{PHNX_DB_NAME}");
+    if !Path::new(&full_phnx_db_path).exists() {
+        bail!("phnx.db does not exist")
+    }
+    let phnx_db_connection = open_phnx_db(&client_db_path)?;
+    ClientRecord::delete(&phnx_db_connection, as_client_id)?;
+
+    Ok(())
+}
+
 fn client_db_name(as_client_id: &AsClientId) -> String {
     format!("{}.db", as_client_id)
 }
 
-pub(crate) fn open_client_db(
+pub fn open_client_db(
     as_client_id: &AsClientId,
     client_db_path: &str,
 ) -> Result<Connection, rusqlite::Error> {
