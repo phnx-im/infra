@@ -20,7 +20,7 @@ class ConversationListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final height = kToolbarHeight;
+    const height = kToolbarHeight;
 
     return Stack(
       children: [
@@ -34,13 +34,13 @@ class ConversationListHeader extends StatelessWidget {
         Container(
           height: topPadding + height,
           padding: EdgeInsets.only(top: topPadding),
-          child: Row(
+          child: const Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(),
-              const Spacer(),
+              Spacer(),
               _UsernameSpace(),
-              const Spacer(),
+              Spacer(),
               _SettingsButton(),
             ],
           ),

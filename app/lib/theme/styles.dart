@@ -56,44 +56,10 @@ const inactiveButtonColor = colorDMBSuperLight;
 
 // === Inputs ===
 
-final inputTextStyle = TextStyle(
+final inputTextStyle = const TextStyle(
   fontFamily: fontFamily,
   fontSize: 14,
-).merge(VariableFontWeight.w400);
-
-final inputDecoration = InputDecoration(
-  border: InputBorder.none,
-  hintStyle: const TextStyle(
-    color: colorDMBLight,
-    fontSize: 11,
-    fontFamily: fontFamily,
-  ).merge(VariableFontWeight.w100),
-  focusedBorder: textInputBorder,
-  enabledBorder: textInputBorder,
-  errorBorder: textInputBorder,
-  focusedErrorBorder: textInputBorder,
-  filled: true,
-  fillColor: colorDMBSuperLight,
-);
-
-InputDecoration messageComposerInputDecoration(BuildContext context) =>
-    InputDecoration(
-      border: InputBorder.none,
-      hintStyle: DefaultTextStyle.of(context)
-          .style
-          .copyWith(
-            color: colorGrey,
-            fontSize: isLargeScreen(context) ? 12 : 14,
-            fontFamily: fontFamily,
-          )
-          .merge(VariableFontWeight.w400),
-      focusedBorder: textInputBorder,
-      enabledBorder: textInputBorder,
-      errorBorder: textInputBorder,
-      focusedErrorBorder: textInputBorder,
-      filled: true,
-      fillColor: Colors.white,
-    );
+).merge(VariableFontWeight.normal);
 
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
     Theme.of(context)
@@ -105,15 +71,6 @@ TextStyle messageTextStyle(BuildContext context, bool inverted) =>
         .merge(isLargeScreen(context)
             ? VariableFontWeight.normal
             : VariableFontWeight.medium);
-
-final textInputBorder = OutlineInputBorder(
-  borderSide: const BorderSide(
-    color: Colors.white,
-    width: 0,
-    style: BorderStyle.none,
-  ),
-  borderRadius: BorderRadius.circular(7),
-);
 
 // === Buttons ===
 

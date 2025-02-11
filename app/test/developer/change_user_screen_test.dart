@@ -17,7 +17,7 @@ import '../mocks.dart';
 final clientRecords = [
   UiClientRecord(
     clientId: UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"),
-    userName: UiUserName(
+    userName: const UiUserName(
       userName: "alice",
       domain: "localhost",
     ),
@@ -27,7 +27,7 @@ final clientRecords = [
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("b984c959-c83f-4c99-8999-e6d9d485b172"),
-    userName: UiUserName(
+    userName: const UiUserName(
       userName: "alice",
       domain: "example.com",
     ),
@@ -37,7 +37,7 @@ final clientRecords = [
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("c5091f2f-9409-41b1-9965-5955d12f39b2"),
-    userName: UiUserName(
+    userName: const UiUserName(
       userName: "bob",
       domain: "localhost",
     ),
