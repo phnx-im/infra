@@ -114,7 +114,7 @@ just frb-integrate
 docker info
 ```
 
-> If you see something like `ERROR: Cannot connect to the Docker daemon at unix:///Users/joshsmith/.docker/run/docker.sock. Is the docker daemon running?` then Docker is not running.
+> If you see something like `ERROR: Cannot connect to the Docker daemon at unix:///Users/[YOUR_USERNAME]/.docker/run/docker.sock. Is the docker daemon running?` then Docker is not running.
 
 3. Initialize the database:
 
@@ -145,12 +145,6 @@ gem install cocoapods
 ### Running the App
 
 Quick start:
-
-```bash
-(cd app; flutter run -d macos)
-```
-
-Alternatively:
 
 ```bash
 cd app
