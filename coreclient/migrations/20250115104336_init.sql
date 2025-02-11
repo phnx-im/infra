@@ -28,7 +28,7 @@ CREATE TABLE "groups" (
 );
 
 CREATE TABLE client_credentials (
-    fingerprint BLOB PRIMARY KEY,
+    fingerprint BLOB NOT NULL PRIMARY KEY,
     client_id TEXT NOT NULL,
     client_credential BLOB NOT NULL
 );

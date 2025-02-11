@@ -21,6 +21,7 @@ use keys::{
 };
 
 use crate::{
+    codec::persist::BlobPersist,
     crypto::{
         ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
@@ -503,6 +504,8 @@ pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
 }
+
+impl BlobPersist for ClientCredential {}
 
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {

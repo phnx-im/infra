@@ -9,6 +9,15 @@ use crate::codec::PhnxCodec;
 
 pub(super) struct Json;
 
+impl Json {
+    pub(crate) fn to_writer<W: std::io::Write, T: Serialize>(
+        value: &T,
+        writer: &mut W,
+    ) -> Result<(), serde_json::Error> {
+        serde_json::to_writer(writer, value)
+    }
+}
+
 impl super::Codec for Json {
     type Error = serde_json::Error;
 
