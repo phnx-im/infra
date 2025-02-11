@@ -15,9 +15,18 @@ use crate::crypto::{errors::KeyGenerationError, secrets::SecretBytes};
 use super::DEFAULT_SIGNATURE_SCHEME;
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct VerifyingKey(Vec<u8>);
 
 // We need these traits to interop the MLS leaf keys.
@@ -39,12 +48,8 @@ impl VerifyingKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "signing_key_data")
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "signing_key_data")]
 pub struct SigningKey {
     signing_key: SecretBytes,
     verifying_key: VerifyingKey,

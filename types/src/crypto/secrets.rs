@@ -13,6 +13,7 @@ use rand::{RngCore, SeedableRng};
 use rusqlite::{types::FromSql, ToSql};
 use secrecy::{zeroize::ZeroizeOnDrop, CloneableSecret, DebugSecret, SerializableSecret, Zeroize};
 use serde::{Deserialize, Serialize};
+use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::RandomnessError;
@@ -74,6 +75,31 @@ impl<const LENGTH: usize> Display for Secret<LENGTH> {
     }
 }
 
+impl<const LENGTH: usize> Type<Sqlite> for Secret<LENGTH> {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q, const LENGTH: usize> Encode<'q, Sqlite> for Secret<LENGTH> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = self.secret.into();
+        <Box<[u8]> as Encode<Sqlite>>::encode(bytes, buf)
+    }
+}
+
+impl<'r, const LENGTH: usize> Decode<'r, Sqlite> for Secret<LENGTH> {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        Ok(Secret {
+            secret: bytes.try_into()?,
+        })
+    }
+}
+
 #[cfg(feature = "sqlite")]
 impl ToSql for Secret<32> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
@@ -93,8 +119,8 @@ impl FromSql for Secret<32> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub(super) struct SecretBytes(Vec<u8>);
 
 impl From<Vec<u8>> for SecretBytes {

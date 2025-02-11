@@ -118,8 +118,10 @@ impl KeyPackageBatch<VERIFIED> {
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, sqlx::Type,
+)]
+#[sqlx(transparent)]
 pub struct QsEncryptedKeyPackage(Ciphertext);
 
 impl AsRef<Ciphertext> for QsEncryptedKeyPackage {

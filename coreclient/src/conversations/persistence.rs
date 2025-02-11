@@ -5,6 +5,8 @@
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
+use sqlx::{query, query_as, query_scalar, sqlite::SqlitePool};
+use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::{
@@ -46,6 +48,42 @@ impl Storable for Conversation {
     }
 }
 
+struct SqlConversation {
+    conversation_id: ConversationId,
+    conversation_title: String,
+    conversation_picture: Option<Vec<u8>>,
+    group_id: GroupIdWrapper,
+    last_read: DateTime<Utc>,
+    conversation_status: ConversationStatus,
+    conversation_type: ConversationType,
+}
+
+impl From<SqlConversation> for Conversation {
+    fn from(
+        SqlConversation {
+            conversation_id,
+            conversation_title,
+            conversation_picture,
+            group_id: GroupIdWrapper(group_id),
+            last_read,
+            conversation_status,
+            conversation_type,
+        }: SqlConversation,
+    ) -> Self {
+        Self {
+            id: conversation_id,
+            group_id,
+            last_read,
+            status: conversation_status,
+            conversation_type,
+            attributes: ConversationAttributes {
+                title: conversation_title,
+                picture: conversation_picture,
+            },
+        }
+    }
+}
+
 impl Conversation {
     pub(crate) fn store(
         &self,
@@ -74,6 +112,46 @@ impl Conversation {
         Ok(())
     }
 
+    pub(crate) async fn store2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        info!(
+            id =% self.id,
+            title =% self.attributes().title(),
+            "Storing conversation"
+        );
+        let title = self.attributes().title();
+        let picture = self.attributes().picture();
+        let group_id = self.group_id.as_slice();
+        let conversation_status = self.status();
+        let conversation_type = self.conversation_type();
+        query!(
+            "INSERT INTO conversations (
+                conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)",
+            self.id,
+            title,
+            picture,
+            group_id,
+            self.last_read,
+            conversation_status,
+            conversation_type
+        )
+        .execute(db)
+        .await?;
+        notifier.add(self.id);
+        Ok(())
+    }
+
     pub(crate) fn load(
         connection: &Connection,
         conversation_id: &ConversationId,
@@ -81,6 +159,29 @@ impl Conversation {
         let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations WHERE conversation_id = ?")?;
         stmt.query_row(params![conversation_id], Self::from_row)
             .optional()
+    }
+
+    pub(crate) async fn load2(
+        db: &SqlitePool,
+        conversation_id: &ConversationId,
+    ) -> sqlx::Result<Option<Conversation>> {
+        query_as!(
+            SqlConversation,
+            r#"SELECT
+                conversation_id AS "conversation_id: _",
+                conversation_title,
+                conversation_picture,
+                group_id AS "group_id: _",
+                last_read AS "last_read: _",
+                conversation_status AS "conversation_status: _",
+                conversation_type AS "conversation_type: _"
+            FROM conversations
+            WHERE conversation_id = ?"#,
+            conversation_id
+        )
+        .fetch_optional(db)
+        .await
+        .map(|value| value.map(From::from))
     }
 
     pub(crate) fn load_by_group_id(
@@ -92,10 +193,52 @@ impl Conversation {
         stmt.query_row(params![group_id], Self::from_row).optional()
     }
 
+    pub(crate) async fn load_by_group_id_2(
+        db: &SqlitePool,
+        group_id: &GroupId,
+    ) -> sqlx::Result<Option<Conversation>> {
+        let group_id = group_id.as_slice();
+        query_as!(
+            SqlConversation,
+            r#"SELECT
+                conversation_id AS "conversation_id: _",
+                conversation_title,
+                conversation_picture,
+                group_id AS "group_id: _",
+                last_read AS "last_read: _",
+                conversation_status AS "conversation_status: _",
+                conversation_type AS "conversation_type: _"
+            FROM conversations WHERE group_id = ?"#,
+            group_id
+        )
+        .fetch_optional(db)
+        .await
+        .map(|value| value.map(From::from))
+    }
+
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
         let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations")?;
         let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
+    }
+
+    pub(crate) async fn load_all_2(db: &SqlitePool) -> sqlx::Result<Vec<Conversation>> {
+        query_as!(
+            SqlConversation,
+            r#"SELECT
+                conversation_id AS "conversation_id: _",
+                conversation_title,
+                conversation_picture,
+                group_id AS "group_id: _",
+                last_read AS "last_read: _",
+                conversation_status AS "conversation_status: _",
+                conversation_type AS "conversation_type: _"
+            FROM conversations"#,
+        )
+        .fetch(db)
+        .map(|res| res.map(From::from))
+        .collect()
+        .await
     }
 
     pub(super) fn update_conversation_picture(
@@ -108,6 +251,23 @@ impl Conversation {
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
             params![conversation_picture, self.id],
         )?;
+        notifier.update(self.id);
+        Ok(())
+    }
+
+    pub(super) async fn update_conversation_picture_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        conversation_picture: Option<&[u8]>,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
+            conversation_picture,
+            self.id
+        )
+        .execute(db)
+        .await?;
         notifier.update(self.id);
         Ok(())
     }
@@ -126,6 +286,23 @@ impl Conversation {
         Ok(())
     }
 
+    pub(super) async fn update_status_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        status: &ConversationStatus,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
+            status,
+            self.id
+        )
+        .execute(db)
+        .await?;
+        notifier.update(self.id);
+        Ok(())
+    }
+
     pub(crate) fn delete(
         connection: &Connection,
         notifier: &mut StoreNotifier,
@@ -135,6 +312,21 @@ impl Conversation {
             "DELETE FROM conversations WHERE conversation_id = ?",
             params![conversation_id],
         )?;
+        notifier.remove(conversation_id);
+        Ok(())
+    }
+
+    pub(crate) async fn delete_2(
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+    ) -> sqlx::Result<()> {
+        query!(
+            "DELETE FROM conversations WHERE conversation_id = ?",
+            conversation_id
+        )
+        .execute(db)
+        .await?;
         notifier.remove(conversation_id);
         Ok(())
     }
@@ -226,6 +418,23 @@ impl Conversation {
         )
     }
 
+    pub(crate) async fn global_unread_message_count_2(db: &SqlitePool) -> sqlx::Result<u32> {
+        query_scalar!(
+            r#"SELECT
+                COUNT(cm.conversation_id) AS "count: _"
+            FROM
+                conversations c
+            LEFT JOIN
+                conversation_messages cm
+            ON
+                c.conversation_id = cm.conversation_id
+                AND cm.sender != 'system'
+                AND cm.timestamp > c.last_read"#
+        )
+        .fetch_one(db)
+        .await
+    }
+
     pub(crate) fn messages_count(
         connection: &Connection,
         conversation_id: ConversationId,
@@ -269,6 +478,33 @@ impl Conversation {
         )
     }
 
+    pub(crate) async fn unread_messages_count_2(
+        db: &SqlitePool,
+        conversation_id: ConversationId,
+    ) -> sqlx::Result<u32> {
+        query_scalar!(
+            r#"SELECT
+                COUNT(*) AS "count: _"
+            FROM
+                conversation_messages
+            WHERE
+                conversation_id = :conversation_id
+                AND sender != 'system'
+                AND timestamp >
+                (
+                    SELECT
+                        last_read
+                    FROM
+                        conversations
+                    WHERE
+                        conversation_id = :conversation_id
+                )"#,
+            conversation_id
+        )
+        .fetch_one(db)
+        .await
+    }
+
     pub(super) fn set_conversation_type(
         &self,
         connection: &Connection,
@@ -279,6 +515,23 @@ impl Conversation {
             "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
             params![conversation_type, self.id],
         )?;
+        notifier.update(self.id);
+        Ok(())
+    }
+
+    pub(super) async fn set_conversation_type_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        conversation_type: &ConversationType,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
+            conversation_type,
+            self.id,
+        )
+        .execute(db)
+        .await?;
         notifier.update(self.id);
         Ok(())
     }

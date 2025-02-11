@@ -4,11 +4,13 @@
 
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
+    codec::persist::{BlobPersist, BlobPersisted},
     credentials::CredentialFingerprint,
     crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
+use sqlx::{query, query_scalar, SqlitePool};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
@@ -43,6 +45,23 @@ impl StorableClientCredential {
         Ok(client_credential_option)
     }
 
+    pub(crate) async fn load_2(
+        db: &SqlitePool,
+        credential_fingerprint: &[u8],
+    ) -> sqlx::Result<Option<Self>> {
+        let value = query_scalar!(
+            r#"SELECT
+                client_credential AS "client_credential: _"
+            FROM client_credentials
+            WHERE fingerprint = ?"#,
+            credential_fingerprint
+        )
+        .fetch_optional(db)
+        .await?
+        .map(|BlobPersisted(client_credential)| StorableClientCredential { client_credential });
+        Ok(value)
+    }
+
     pub(crate) fn load_by_client_id(
         connection: &Connection,
         client_id: &AsClientId,
@@ -56,6 +75,23 @@ impl StorableClientCredential {
         Ok(client_credential_option)
     }
 
+    pub(crate) async fn load_by_client_id_2(
+        db: &SqlitePool,
+        client_id: &AsClientId,
+    ) -> sqlx::Result<Option<Self>> {
+        let value = query_scalar!(
+            r#"SELECT
+                client_credential AS "client_credential: _"
+            FROM client_credentials
+            WHERE client_id = ?"#,
+            client_id,
+        )
+        .fetch_optional(db)
+        .await?
+        .map(|BlobPersisted(client_credential)| StorableClientCredential { client_credential });
+        Ok(value)
+    }
+
     /// Stores the client credential in the database if it does not already exist.
     pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
         let fingerprint = self.fingerprint();
@@ -67,6 +103,21 @@ impl StorableClientCredential {
                 self.client_credential,
             ],
         )?;
+        Ok(())
+    }
+
+    pub(crate) async fn store_2(&self, db: &SqlitePool) -> sqlx::Result<()> {
+        let fingerprint = self.fingerprint();
+        let identity = self.client_credential.identity();
+        let client_credential = self.client_credential.persist();
+        query!(
+            "INSERT OR IGNORE INTO client_credentials (fingerprint, client_id, client_credential) VALUES (?, ?, ?)",
+            fingerprint,
+            identity,
+            client_credential ,
+        )
+        .execute(db)
+        .await?;
         Ok(())
     }
 }

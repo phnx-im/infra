@@ -20,13 +20,11 @@ members = [
 
 sqlx = { version = "0.8.2", default-features = false, features = [
     "macros",
-    "postgres",
     "uuid",
     "chrono",
     "migrate",
     "bigdecimal",
     "runtime-tokio",
-    "tls-rustls",
 ] }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }

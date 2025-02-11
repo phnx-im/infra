@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                user_name AS \"user_name: _\",\n                conversation_id AS \"conversation_id: _\",\n                clients AS \"clients: _\",\n                wai_ear_key AS \"wai_ear_key: _\",\n                friendship_token AS \"friendship_token: _\",\n                key_package_ear_key AS \"key_package_ear_key: _\",\n                connection_key AS \"connection_key: _\"\n            FROM contacts WHERE user_name = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_name: _",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "conversation_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "clients: _",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "wai_ear_key: _",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "friendship_token: _",
+        "ordinal": 4,
+        "type_info": "Blob"
+      },
+      {
+        "name": "key_package_ear_key: _",
+        "ordinal": 5,
+        "type_info": "Blob"
+      },
+      {
+        "name": "connection_key: _",
+        "ordinal": 6,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4c2d92f0f13ff8241491c49659bd80d4038add85f2afadfe01775a702fc16e93"
+}

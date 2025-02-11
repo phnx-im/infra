@@ -11,6 +11,7 @@ use mls_assist::openmls::prelude::GroupId;
 #[cfg(feature = "sqlite")]
 use rusqlite::types::FromSql;
 use serde::{Deserialize, Serialize};
+use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
@@ -124,6 +125,28 @@ pub struct KeyPackageEarKey {
     key: KeyPackageEarKeySecret,
 }
 
+impl Type<Sqlite> for KeyPackageEarKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for KeyPackageEarKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <KeyPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for KeyPackageEarKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = <KeyPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for KeyPackageEarKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
@@ -167,6 +190,28 @@ pub type ClientCredentialEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredentialEarKey {
     key: ClientCredentialEarKeySecret,
+}
+
+impl Type<Sqlite> for ClientCredentialEarKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for ClientCredentialEarKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <ClientCredentialEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for ClientCredentialEarKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = <ClientCredentialEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        Ok(Self { key })
+    }
 }
 
 #[cfg(feature = "sqlite")]
@@ -281,6 +326,28 @@ pub struct WelcomeAttributionInfoEarKey {
     key: WelcomeAttributionInfoEarKeySecret,
 }
 
+impl Type<Sqlite> for WelcomeAttributionInfoEarKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for WelcomeAttributionInfoEarKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <WelcomeAttributionInfoEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for WelcomeAttributionInfoEarKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = <WelcomeAttributionInfoEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 #[cfg(feature = "sqlite")]
 impl rusqlite::types::ToSql for WelcomeAttributionInfoEarKey {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
@@ -324,6 +391,28 @@ pub type FriendshipPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct FriendshipPackageEarKey {
     key: FriendshipPackageEarKeySecret,
+}
+
+impl Type<Sqlite> for FriendshipPackageEarKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for FriendshipPackageEarKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        <FriendshipPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for FriendshipPackageEarKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = <FriendshipPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        Ok(Self { key })
+    }
 }
 
 #[cfg(feature = "sqlite")]
