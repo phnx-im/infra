@@ -14,33 +14,33 @@ class ConversationListHeader extends StatelessWidget {
     super.key,
   });
 
-  double _topOffset() {
-    return isPointer() ? 30 : kToolbarHeight;
-  }
-
-  double _topHeight() {
-    return 60 + _topOffset();
-  }
+  static height(BuildContext context) =>
+      MediaQuery.of(context).padding.top + kToolbarHeight;
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    const height = kToolbarHeight;
+
     return Stack(
       children: [
         SizedBox(
-          height: _topHeight(),
+          height: topPadding + height,
           child: FrostedGlass(
             color: convPaneBackgroundColor,
-            height: _topHeight(),
+            height: topPadding + height,
           ),
         ),
-        Padding(
-          padding: EdgeInsets.only(left: 8, right: 8, top: _topOffset()),
+        Container(
+          height: topPadding + height,
+          padding: EdgeInsets.only(top: topPadding),
           child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(),
-              Expanded(
-                child: _UsernameSpace(),
-              ),
+              Spacer(),
+              _UsernameSpace(),
+              Spacer(),
               _SettingsButton(),
             ],
           ),
@@ -95,6 +95,7 @@ class _UsernameSpace extends StatelessWidget {
     );
 
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           displayName ?? "",

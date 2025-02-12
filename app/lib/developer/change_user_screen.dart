@@ -83,9 +83,7 @@ class _ClientRecords extends StatelessWidget {
         if (snapshot.hasData) {
           return _ClientRecordsList(snapshot.data!);
         } else if (snapshot.hasError) {
-          return Text(
-            'Error loading contacts',
-          );
+          return const Text('Error loading contacts');
         }
         return const CircularProgressIndicator();
       },
@@ -125,7 +123,7 @@ class _ClientRecordsList extends StatelessWidget {
                 .bodySmall
                 ?.copyWith(color: textColor),
             leading: Transform.translate(
-              offset: Offset(0, Spacings.xxs),
+              offset: const Offset(0, Spacings.xxs),
               child: UserAvatar(
                 username: record.userName.userName,
                 image: record.userProfile?.profilePicture,

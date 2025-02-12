@@ -19,11 +19,11 @@ import '../helpers.dart';
 final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
-    status: UiConversationStatus.active(),
-    conversationType: UiConversationType_Connection("bob@localhost"),
+    status: const UiConversationStatus.active(),
+    conversationType: const UiConversationType_Connection("bob@localhost"),
     unreadMessages: 10,
     messagesCount: 10,
-    attributes: UiConversationAttributes(
+    attributes: const UiConversationAttributes(
       title: "Bob",
       picture: null,
     ),
@@ -49,11 +49,12 @@ final conversations = [
   ),
   UiConversationDetails(
     id: 2.conversationId(),
-    status: UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection("eve@localhost"),
+    status: const UiConversationStatus.active(),
+    conversationType:
+        const UiConversationType_UnconfirmedConnection("eve@localhost"),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: UiConversationAttributes(
+    attributes: const UiConversationAttributes(
       title: "Eve",
       picture: null,
     ),
@@ -70,7 +71,8 @@ final conversations = [
             id: 2.messageId(),
             timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
             lastSeen: [],
-            body: 'Hello Alice',
+            body:
+                'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           ),
         ),
       ),
@@ -79,11 +81,11 @@ final conversations = [
   ),
   UiConversationDetails(
     id: 3.conversationId(),
-    status: UiConversationStatus.active(),
-    conversationType: UiConversationType_Group(),
+    status: const UiConversationStatus.active(),
+    conversationType: const UiConversationType_Group(),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: UiConversationAttributes(
+    attributes: const UiConversationAttributes(
       title: "Group",
       picture: null,
     ),
@@ -120,7 +122,8 @@ void main() {
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => userCubit.state)
           .thenReturn(MockUiUser(userName: "alice@localhost"));
     });
@@ -142,7 +145,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: Scaffold(body: ConversationListContent()),
+                home: const Scaffold(body: ConversationListContent()),
               );
             },
           ),
@@ -151,7 +154,7 @@ void main() {
     testWidgets('renders correctly when there are no conversations',
         (tester) async {
       when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: []));
+          .thenReturn(const ConversationListState(conversations: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -173,10 +176,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_list_content.png'),
-      );
+      // Increase threshold because rendering frosted glass varies significantly across different platforms.
+      await withThreshold(0.03, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_list_content.png'),
+        );
+      });
     });
   });
 }

@@ -25,9 +25,9 @@ class ConversationTile extends StatelessWidget {
     );
 
     return ListTile(
-      contentPadding: EdgeInsets.symmetric(horizontal: Spacings.s),
+      contentPadding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       dense: true,
-      visualDensity: VisualDensity(horizontal: 0, vertical: -4),
+      visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.centerStart,

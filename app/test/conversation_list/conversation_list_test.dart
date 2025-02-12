@@ -13,6 +13,7 @@ import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 import 'conversation_list_content_test.dart';
 
@@ -27,7 +28,8 @@ void main() {
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => userCubit.state)
           .thenReturn(MockUiUser(userName: "alice@localhost"));
     });
@@ -49,7 +51,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: Scaffold(body: ConversationListView()),
+                home: const Scaffold(body: ConversationListView()),
               );
             },
           ),
@@ -58,7 +60,7 @@ void main() {
     testWidgets('renders correctly when there are no conversations',
         (tester) async {
       when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: []));
+          .thenReturn(const ConversationListState(conversations: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -80,10 +82,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_list.png'),
-      );
+      // Increase threshold because rendering frosted glass varies significantly across different platforms.
+      await withThreshold(0.028, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_list.png'),
+        );
+      });
     });
   });
 }

@@ -56,68 +56,21 @@ const inactiveButtonColor = colorDMBSuperLight;
 
 // === Inputs ===
 
-final inputTextStyle = TextStyle(
+final inputTextStyle = const TextStyle(
   fontFamily: fontFamily,
   fontSize: 14,
-).merge(VariableFontWeight.w400);
-
-final inputDecoration = InputDecoration(
-  border: InputBorder.none,
-  hintStyle: const TextStyle(
-    color: colorDMBLight,
-    fontSize: 11,
-    fontFamily: fontFamily,
-  ).merge(VariableFontWeight.w100),
-  focusedBorder: textInputBorder,
-  enabledBorder: textInputBorder,
-  errorBorder: textInputBorder,
-  focusedErrorBorder: textInputBorder,
-  filled: true,
-  fillColor: colorDMBSuperLight,
-);
-
-InputDecoration messageComposerInputDecoration(BuildContext context) =>
-    InputDecoration(
-      border: InputBorder.none,
-      hintStyle: DefaultTextStyle.of(context)
-          .style
-          .copyWith(
-            color: colorGrey,
-            fontSize: isLargeScreen(context) ? 12 : 14,
-            fontFamily: fontFamily,
-          )
-          .merge(VariableFontWeight.w400),
-      focusedBorder: textInputBorder,
-      enabledBorder: textInputBorder,
-      errorBorder: textInputBorder,
-      focusedErrorBorder: textInputBorder,
-      filled: true,
-      fillColor: Colors.white,
-    );
+).merge(VariableFontWeight.normal);
 
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
-    DefaultTextStyle.of(context)
-        .style
+    Theme.of(context)
+        .textTheme
+        .bodyLarge!
         .copyWith(
           color: inverted ? Colors.white : Colors.black,
-          letterSpacing: -0.05,
-          fontSize: isLargeScreen(context) ? 14 : 15,
-          // NOTE: When specifying line height, the text is rendered inconsistently on
-          // Linux and macOS (and therefore also on Android and iOS). For now, we use the default one.
-          // height: isLargeScreen(context) ? 1.5 : 1.3,
         )
         .merge(isLargeScreen(context)
             ? VariableFontWeight.normal
             : VariableFontWeight.medium);
-
-final textInputBorder = OutlineInputBorder(
-  borderSide: const BorderSide(
-    color: Colors.white,
-    width: 0,
-    style: BorderStyle.none,
-  ),
-  borderRadius: BorderRadius.circular(7),
-);
 
 // === Buttons ===
 
@@ -129,8 +82,9 @@ ButtonStyle textButtonStyle(BuildContext context) {
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      DefaultTextStyle.of(context)
-          .style
+      Theme.of(context)
+          .textTheme
+          .labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(VariableFontWeight.semiBold),
     ),
@@ -148,8 +102,9 @@ ButtonStyle dynamicTextButtonStyle(
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      DefaultTextStyle.of(context)
-          .style
+      Theme.of(context)
+          .textTheme
+          .labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(
             isMain ? VariableFontWeight.semiBold : VariableFontWeight.medium,
@@ -189,8 +144,9 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
       ),
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      DefaultTextStyle.of(context)
-          .style
+      Theme.of(context)
+          .textTheme
+          .labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(VariableFontWeight.semiBold),
     ),
