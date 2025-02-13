@@ -4998,10 +4998,10 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "tls_codec"
 version = "0.4.2"
-source = "git+https://github.com/boxdot/formats?rev=8c0bddbf17ed739f59c719a60c4d39830e970694#8c0bddbf17ed739f59c719a60c4d39830e970694"
+source = "git+https://github.com/boxdot/formats?rev=9846c69f91e732b493dcccf92f4c163bfc711b7d#9846c69f91e732b493dcccf92f4c163bfc711b7d"
 dependencies = [
  "serde",
- "tls_codec_derive 0.4.2 (git+https://github.com/boxdot/formats?rev=8c0bddbf17ed739f59c719a60c4d39830e970694)",
+ "tls_codec_derive 0.4.2 (git+https://github.com/boxdot/formats?rev=9846c69f91e732b493dcccf92f4c163bfc711b7d)",
  "zeroize",
 ]
 
@@ -5019,7 +5019,7 @@ dependencies = [
 [[package]]
 name = "tls_codec_derive"
 version = "0.4.2"
-source = "git+https://github.com/boxdot/formats?rev=8c0bddbf17ed739f59c719a60c4d39830e970694#8c0bddbf17ed739f59c719a60c4d39830e970694"
+source = "git+https://github.com/boxdot/formats?rev=9846c69f91e732b493dcccf92f4c163bfc711b7d#9846c69f91e732b493dcccf92f4c163bfc711b7d"
 dependencies = [
  "proc-macro2",
  "quote",
