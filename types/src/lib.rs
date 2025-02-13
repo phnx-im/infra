@@ -19,7 +19,6 @@ pub mod crypto;
 pub mod endpoint_paths;
 pub mod errors;
 pub mod identifiers;
-pub mod keypackage_batch;
 pub mod messages;
 pub mod time;
 

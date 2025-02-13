@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub(crate) mod client_auth_info;
+// TODO: Allowing dead code here for now. We'll need diffs when we start
+// rotating keys.
+#[allow(dead_code)]
 pub(crate) mod diff;
 pub(crate) mod error;
 pub(crate) mod openmls_provider;
@@ -30,24 +33,17 @@ use phnxtypes::{
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         kdf::keys::ConnectionKey,
-        signatures::{
-            keys::{UserAuthSigningKey, UserAuthVerifyingKey},
-            signable::{Signable, Verifiable},
-        },
+        signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{
-        AsClientId, QsClientReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
-    },
-    keypackage_batch::{KeyPackageBatch, VERIFIED},
+    identifiers::{AsClientId, QsReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
-            UpdateClientParamsAad, WelcomeBundle,
+            UpdateParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, SelfRemoveClientParamsOut, SendMessageParamsOut,
-            UpdateClientParamsOut,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -81,7 +77,7 @@ use openmls::{
 
 use self::{
     client_auth_info::{ClientAuthInfo, GroupMembership, StorableClientCredential},
-    diff::{GroupDiff, StagedGroupDiff},
+    diff::StagedGroupDiff,
 };
 
 pub const FRIENDSHIP_PACKAGE_PROPOSAL_TYPE: u16 = 0xff00;
@@ -129,18 +125,16 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    user_auth_key: UserAuthVerifyingKey,
     encrypted_identity_link_key: EncryptedIdentityLinkKey,
 }
 
 impl PartialCreateGroupParams {
-    pub(crate) fn into_params(self, client_reference: QsClientReference) -> CreateGroupParamsOut {
+    pub(crate) fn into_params(self, client_reference: QsReference) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
             encrypted_identity_link_key: self.encrypted_identity_link_key,
             creator_client_reference: client_reference,
-            creator_user_auth_key: self.user_auth_key,
             group_info: self.group_info,
         }
     }
@@ -168,8 +162,6 @@ pub(crate) struct Group {
     leaf_signer: PseudonymousCredentialSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
-    // This needs to be set after initially joining a group.
-    user_auth_signing_key_option: Option<UserAuthSigningKey>,
     mls_group: MlsGroup,
     pending_diff: Option<StagedGroupDiff>,
 }
@@ -197,7 +189,6 @@ impl Group {
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
-        let user_auth_key = UserAuthSigningKey::generate()?;
         let group_state_ear_key = GroupStateEarKey::random()?;
         let identity_link_wrapper_key = IdentityLinkWrapperKey::random()?;
 
@@ -234,7 +225,6 @@ impl Group {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
             group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
-            user_auth_key: user_auth_key.verifying_key().clone(),
             encrypted_identity_link_key,
         };
 
@@ -252,7 +242,6 @@ impl Group {
             identity_link_wrapper_key,
             mls_group,
             group_state_ear_key: group_state_ear_key.clone(),
-            user_auth_signing_key_option: Some(user_auth_key),
             pending_diff: None,
         };
 
@@ -394,8 +383,6 @@ impl Group {
             leaf_signer,
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
-            // This one needs to be rolled fresh.
-            user_auth_signing_key_option: None,
             pending_diff: None,
         };
 
@@ -490,17 +477,12 @@ impl Group {
         }
         drop(connection);
 
-        // TODO: Once we support multiple clients, this should be synchronized
-        // across clients.
-        let user_auth_key = UserAuthSigningKey::generate()?;
-
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
             leaf_signer,
             identity_link_wrapper_key,
             group_state_ear_key,
-            user_auth_signing_key_option: Some(user_auth_key),
             pending_diff: None,
         };
 
@@ -520,22 +502,14 @@ impl Group {
         wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<ClientCredential>,
     ) -> Result<GroupOperationParamsOut> {
-        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
-            bail!("No user auth key");
-        };
         debug_assert!(add_infos.len() == wai_keys.len());
         debug_assert!(add_infos.len() == client_credentials.len());
-        // Prepare KeyPackageBatches and KeyPackages
-        let (key_package_vecs, key_package_batches): (
-            Vec<Vec<(KeyPackage, IdentityLinkKey)>>,
-            Vec<KeyPackageBatch<VERIFIED>>,
-        ) = add_infos
-            .into_iter()
-            .map(|add_info| (add_info.key_packages, add_info.key_package_batch))
-            .unzip();
+        // Prepare KeyPackages
 
-        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) =
-            key_package_vecs.into_iter().flatten().unzip();
+        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) = add_infos
+            .into_iter()
+            .map(|ai| (ai.key_package, ai.identity_link_key))
+            .unzip();
 
         let new_encrypted_identity_link_keys = identity_link_keys
             .iter()
@@ -617,12 +591,10 @@ impl Group {
         let add_users_info = AddUsersInfoOut {
             welcome,
             encrypted_welcome_attribution_infos,
-            key_package_batches,
         };
 
         let params = GroupOperationParamsOut {
             commit,
-            sender: user_auth_key.verifying_key().hash(),
             add_users_info_option: Some(add_users_info),
         };
 
@@ -635,9 +607,6 @@ impl Group {
         members: Vec<AsClientId>,
     ) -> Result<GroupOperationParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
-        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
-            bail!("No user auth key")
-        };
         let remove_indices =
             GroupMembership::client_indices(connection, self.group_id(), &members)?;
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
@@ -671,7 +640,6 @@ impl Group {
 
         let params = GroupOperationParamsOut {
             commit,
-            sender: user_auth_key.verifying_key().hash(),
             add_users_info_option: None,
         };
         Ok(params)
@@ -679,9 +647,6 @@ impl Group {
 
     pub(super) fn delete(&mut self, connection: &Connection) -> Result<DeleteGroupParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
-        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
-            bail!("No user auth key")
-        };
         let remove_indices = self
             .mls_group()
             .members()
@@ -721,10 +686,7 @@ impl Group {
             )?;
         }
 
-        let params = DeleteGroupParamsOut {
-            commit,
-            sender: user_auth_key.verifying_key().hash(),
-        };
+        let params = DeleteGroupParamsOut { commit };
         Ok(params)
     }
 
@@ -786,9 +748,6 @@ impl Group {
             if let Some(group_state_ear_key) = diff.group_state_ear_key {
                 self.group_state_ear_key = group_state_ear_key;
             }
-            if let Some(user_auth_key) = diff.user_auth_key {
-                self.user_auth_signing_key_option = Some(user_auth_key);
-            }
         }
 
         GroupMembership::merge_for_group(connection, self.group_id())?;
@@ -844,10 +803,6 @@ impl Group {
         self.mls_group().group_id()
     }
 
-    pub(crate) fn user_auth_key(&self) -> Option<&UserAuthSigningKey> {
-        self.user_auth_signing_key_option.as_ref()
-    }
-
     pub(crate) fn group_state_ear_key(&self) -> &GroupStateEarKey {
         &self.group_state_ear_key
     }
@@ -895,14 +850,14 @@ impl Group {
             .collect::<HashSet<QualifiedUserName>>()
     }
 
-    pub(super) fn update(&mut self, connection: &Connection) -> Result<UpdateClientParamsOut> {
+    pub(super) fn update(&mut self, connection: &Connection) -> Result<UpdateParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
         // We don't expect there to be a welcome.
-        let aad_payload = UpdateClientParamsAad {
+        let aad_payload = UpdateParamsAad {
             option_encrypted_identity_link_key: None,
         };
-        let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
-            .tls_serialize_detached()?;
+        let aad =
+            InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
@@ -924,76 +879,16 @@ impl Group {
             )?;
         }
         let commit = AssistedMessageOut::new(mls_message, Some(group_info))?;
-        Ok(UpdateClientParamsOut {
-            commit,
-            sender: self.mls_group.own_leaf_index(),
-            new_user_auth_key_option: None,
-        })
+        Ok(UpdateParamsOut { commit })
     }
 
-    /// Update or set the user's auth key in this group.
-    pub(super) fn update_user_key(
-        &mut self,
-        connection: &Connection,
-    ) -> Result<UpdateClientParamsOut> {
+    pub(super) fn leave_group(&mut self, connection: &Connection) -> Result<SelfRemoveParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
-        let aad_payload = UpdateClientParamsAad {
-            option_encrypted_identity_link_key: None,
-        };
-        let aad = InfraAadMessage::from(InfraAadPayload::UpdateClient(aad_payload))
-            .tls_serialize_detached()?;
-        self.mls_group.set_aad(aad);
-        let (commit, _welcome_option, group_info_option) = self
-            .mls_group
-            .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
-            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
-            .into_messages();
-        let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
-
-        for remove in self
-            .mls_group()
-            .pending_commit()
-            .ok_or(anyhow!("No pending commit after commit operation"))?
-            .remove_proposals()
-        {
-            GroupMembership::stage_removal(
-                connection,
-                self.group_id(),
-                remove.remove_proposal().removed(),
-            )?;
-        }
-
-        let mut diff = GroupDiff::new();
-
-        let user_auth_signing_key = UserAuthSigningKey::generate()?;
-        let verifying_key = user_auth_signing_key.verifying_key().clone();
-
-        diff.user_auth_key = Some(user_auth_signing_key);
-        self.pending_diff = Some(diff.stage());
-
-        let commit = AssistedMessageOut::new(commit, Some(group_info))?;
-        let params = UpdateClientParamsOut {
-            commit,
-            sender: self.mls_group.own_leaf_index(),
-            new_user_auth_key_option: Some(verifying_key),
-        };
-        Ok(params)
-    }
-
-    pub(super) fn leave_group(
-        &mut self,
-        connection: &Connection,
-    ) -> Result<SelfRemoveClientParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
-        let Some(user_auth_key) = &self.user_auth_signing_key_option else {
-            bail!("User auth key not set")
-        };
         let proposal = self.mls_group.leave_group(provider, &self.leaf_signer)?;
 
         let assisted_message = AssistedMessageOut::new(proposal, None)?;
-        let params = SelfRemoveClientParamsOut {
+        let params = SelfRemoveParamsOut {
             remove_proposal: assisted_message,
-            sender: user_auth_key.verifying_key().hash(),
         };
         Ok(params)
     }

@@ -151,12 +151,13 @@ use mls_assist::{
     group::Group,
     messages::SerializedMlsMessage,
     openmls::{
-        prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn, Sender},
+        prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn},
         treesync::RatchetTree,
     },
     MlsAssistRustCrypto,
 };
 use tls_codec::{TlsSerialize, TlsSize};
+use tracing::warn;
 use uuid::Uuid;
 
 use phnxtypes::{
@@ -243,8 +244,7 @@ impl Ds {
                 group_id: _,
                 leaf_node,
                 encrypted_identity_link_key,
-                creator_client_reference: creator_queue_config,
-                creator_user_auth_key,
+                creator_qs_reference: creator_queue_config,
                 group_info,
             } = create_group_params;
             let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
@@ -256,7 +256,6 @@ impl Ds {
             let group_state = DsGroupState::new(
                 provider,
                 group,
-                creator_user_auth_key.clone(),
                 encrypted_identity_link_key.clone(),
                 creator_queue_config.clone(),
             );
@@ -290,76 +289,47 @@ impl Ds {
         };
 
         // Verify the message.
-        let verified_message: DsRequestParams = match message.sender() {
-            DsSender::LeafIndex(leaf_index) => {
+        let (sender_index_option, verified_message) = match message
+            .sender()
+            .ok_or(DsProcessingError::InvalidSenderType)?
+        {
+            DsSender::ExternalSender(leaf_index) | DsSender::LeafIndex(leaf_index) => {
                 let verifying_key: LeafVerifyingKey = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
                     .signature_key()
                     .into();
-                message
-                    .verify(&verifying_key)
-                    .map_err(|_| DsProcessingError::InvalidSignature)?
+                let params: DsRequestParams = message.verify(&verifying_key).map_err(|_| {
+                    warn!("Could not verify message based on leaf index");
+                    DsProcessingError::InvalidSignature
+                })?;
+                (Some(leaf_index), params)
             }
-            DsSender::LeafSignatureKey(verifying_key) => message
-                .verify(&LeafVerifyingKey::from(&verifying_key))
-                .map_err(|_| DsProcessingError::InvalidSignature)?,
-            DsSender::UserKeyHash(user_key_hash) => {
-                let verifying_key =
-                // If the message is a join connection group message, it's okay
-                // to pull the key directly from the request parameters, since
-                // join connection group messages are self-authenticated.
-                    if let Some(user_auth_key) = message.join_connection_group_sender() {
-                        user_auth_key
-                    } else {
-                        group_state
-                            .get_user_key(&user_key_hash)
-                            .ok_or(DsProcessingError::UnknownSender)?
-                    }
-                    .clone();
-                message
-                    .verify(&verifying_key)
-                    .map_err(|_| DsProcessingError::InvalidSignature)?
-            }
-            DsSender::Anonymous => message
-                .extract_without_verification()
-                .ok_or(DsProcessingError::InvalidSenderType)?,
-        };
-
-        let sender = verified_message.mls_sender().cloned();
-
-        // We always want to distribute to all members that are group members
-        // before the message is processed (except the sender).
-        let sender_index_option = match verified_message.ds_sender() {
-            DsSender::LeafIndex(leaf_index) => Some(leaf_index),
             DsSender::LeafSignatureKey(verifying_key) => {
-                let index = group_state
+                let message: DsRequestParams = message
+                    .verify(&LeafVerifyingKey::from(&verifying_key))
+                    .map_err(|_| {
+                        warn!("Could not verify message based on leaf signature key");
+                        DsProcessingError::InvalidSignature
+                    })?;
+                let sender_index = group_state
                     .group
                     .members()
-                    .find_map(|m| {
-                        if m.signature_key == verifying_key.as_slice() {
-                            Some(m.index)
-                        } else {
-                            None
-                        }
-                    })
+                    .find_map(|m| (m.signature_key == verifying_key.as_slice()).then_some(m.index))
                     .ok_or(DsProcessingError::UnknownSender)?;
-                Some(index)
+                (Some(sender_index), message)
             }
-            DsSender::UserKeyHash(_) => {
-                if let Some(Sender::Member(leaf_index)) = sender {
-                    Some(leaf_index)
-                } else {
-                    None
-                }
+            DsSender::Anonymous => {
+                let message: DsRequestParams = message
+                    .extract_without_verification()
+                    .ok_or(DsProcessingError::InvalidSenderType)?;
+                (None, message)
             }
-            // None is fine here, since all messages that are meant for
-            // distribution have some form of authentication.
-            DsSender::Anonymous => None,
         };
+
         let destination_clients: Vec<_> = group_state
-            .client_profiles
+            .member_profiles
             .iter()
             .filter_map(|(client_index, client_profile)| {
                 if let Some(sender_index) = sender_index_option {
@@ -413,45 +383,32 @@ impl Ds {
                 )
             }
             // ======= Committing Endpoints =======
-            DsRequestParams::UpdateClient(update_client_params) => {
+            DsRequestParams::Update(update_client_params) => {
                 let group_message = group_state.update_client(update_client_params)?;
-                prepare_result(group_message, vec![])
-            }
-            DsRequestParams::AddClients(add_clients_params) => {
-                let (group_message, welcome_bundles) =
-                    group_state.add_clients(add_clients_params, &ear_key)?;
-                prepare_result(group_message, welcome_bundles)
-            }
-            DsRequestParams::RemoveClients(remove_clients_params) => {
-                let group_message = group_state.remove_clients(remove_clients_params)?;
                 prepare_result(group_message, vec![])
             }
             DsRequestParams::GroupOperation(group_operation_params) => {
                 let (group_message, welcome_bundles) = group_state
-                    .group_operation(group_operation_params, &ear_key, qs_connector)
+                    .group_operation(group_operation_params, &ear_key)
                     .await?;
                 prepare_result(group_message, welcome_bundles)
-            }
-            // ======= Externally Committing Endpoints =======
-            DsRequestParams::JoinGroup(join_group_params) => {
-                let group_message = group_state.join_group(join_group_params)?;
-                prepare_result(group_message, vec![])
-            }
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
-                let group_message =
-                    group_state.join_connection_group(join_connection_group_params)?;
-                prepare_result(group_message, vec![])
-            }
-            DsRequestParams::ResyncClient(resync_client_params) => {
-                let group_message = group_state.resync_client(resync_client_params)?;
-                prepare_result(group_message, vec![])
             }
             DsRequestParams::DeleteGroup(delete_group) => {
                 let group_message = group_state.delete_group(delete_group)?;
                 prepare_result(group_message, vec![])
             }
+            // ======= Externally Committing Endpoints =======
+            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+                let group_message =
+                    group_state.join_connection_group(join_connection_group_params)?;
+                prepare_result(group_message, vec![])
+            }
+            DsRequestParams::Resync(resync_client_params) => {
+                let group_message = group_state.resync_client(resync_client_params)?;
+                prepare_result(group_message, vec![])
+            }
             // ======= Proposal Endpoints =======
-            DsRequestParams::SelfRemoveClient(self_remove_client_params) => {
+            DsRequestParams::SelfRemove(self_remove_client_params) => {
                 let group_message = group_state.self_remove_client(self_remove_client_params)?;
                 prepare_result(group_message, vec![])
             }
