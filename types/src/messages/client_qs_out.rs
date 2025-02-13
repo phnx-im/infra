@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::KeyPackage;
-use tls_codec::{Serialize, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     crypto::{
@@ -53,10 +53,27 @@ pub struct ClientToQsMessageTbsOut {
     body: QsVersionedRequestParamsOut,
 }
 
-#[derive(Debug, TlsSize)]
-#[repr(u16)]
+#[derive(Debug)]
 enum QsVersionedRequestParamsOut {
-    Alpha(QsRequestParamsOut) = 1,
+    Alpha(QsRequestParamsOut),
+}
+
+impl QsVersionedRequestParamsOut {
+    pub fn version(&self) -> TlsVarInt {
+        match self {
+            QsVersionedRequestParamsOut::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+        }
+    }
+}
+
+impl tls_codec::Size for QsVersionedRequestParamsOut {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            QsVersionedRequestParamsOut::Alpha(params) => {
+                self.version().tls_serialized_len() + params.tls_serialized_len()
+            }
+        }
+    }
 }
 
 // Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
@@ -64,7 +81,7 @@ impl Serialize for QsVersionedRequestParamsOut {
     fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedRequestParamsOut::Alpha(params) => {
-                Ok(1u16.tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
             }
         }
     }

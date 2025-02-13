@@ -11,7 +11,7 @@ pub(crate) fn migrate_qs_request_params(
     match params {
         QsVersionedRequestParams::Alpha(params) => Ok(params),
         QsVersionedRequestParams::Other(version) => {
-            Err(VersionError::from_unsupported_version(version))
+            Err(VersionError::from_unsupported_version(version.into()))
         }
     }
 }

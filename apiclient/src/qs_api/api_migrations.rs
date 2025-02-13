@@ -14,7 +14,7 @@ pub(super) fn migrate_qs_process_response(
     match response {
         QsVersionedProcessResponseIn::Alpha(response) => Ok(response),
         QsVersionedProcessResponseIn::Other(version) => {
-            Err(VersionError::from_unsupported_version(version).into())
+            Err(VersionError::from_unsupported_version(version.into()).into())
         }
     }
 }

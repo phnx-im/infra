@@ -30,6 +30,7 @@ sqlx = { version = "0.8.2", default-features = false, features = [
 ] }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
+
 reqwest = { version = "^0.12", features = [
     "json",
     "rustls-tls-webpki-roots",
@@ -58,6 +59,8 @@ tokio-util = "0.7.13"
 
 [patch.crates-io]
 #opaque-ke = { git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0" }
+# PR: <https://github.com/RustCrypto/formats/pull/1656/files>
+tls_codec = { git = "https://github.com/boxdot/formats", rev = "8c0bddbf17ed739f59c719a60c4d39830e970694" }
 
 [profile.release]
 strip = true

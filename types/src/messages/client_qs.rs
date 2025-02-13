@@ -11,7 +11,9 @@ use std::io;
 
 use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn, SignaturePublicKey};
 use thiserror::Error;
-use tls_codec::{DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt,
+};
 
 use crate::{
     crypto::{
@@ -313,20 +315,29 @@ pub struct ClientToQsMessageTbs {
 /// **WARNING**: Only add new variants with new API versions. Do not reuse the API version (variant
 /// tag).
 #[derive(Debug)]
-#[repr(u16)]
+#[repr(u64)]
 pub enum QsVersionedRequestParams {
     /// Fallback for unknown versions
-    Other(u16) = 0,
-    Alpha(QsRequestParams) = 1,
+    Other(TlsVarInt),
+    Alpha(QsRequestParams),
+}
+
+impl QsVersionedRequestParams {
+    pub fn version(&self) -> TlsVarInt {
+        match self {
+            QsVersionedRequestParams::Other(version) => *version,
+            QsVersionedRequestParams::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+        }
+    }
 }
 
 impl tls_codec::Size for QsVersionedRequestParams {
     fn tls_serialized_len(&self) -> usize {
         match self {
-            QsVersionedRequestParams::Alpha(params) => {
-                1u16.tls_serialized_len() + params.tls_serialized_len()
+            QsVersionedRequestParams::Other(_) => self.version().tls_serialized_len(),
+            QsVersionedRequestParams::Alpha(qs_request_params) => {
+                self.version().tls_serialized_len() + qs_request_params.tls_serialized_len()
             }
-            QsVersionedRequestParams::Other(version) => version.tls_serialized_len(),
         }
     }
 }
@@ -335,17 +346,17 @@ impl Serialize for QsVersionedRequestParams {
     fn tls_serialize<W: io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedRequestParams::Alpha(params) => {
-                Ok(1u16.tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
             }
-            QsVersionedRequestParams::Other(version) => version.tls_serialize(writer),
+            QsVersionedRequestParams::Other(_) => self.version().tls_serialize(writer),
         }
     }
 }
 
 impl DeserializeBytes for QsVersionedRequestParams {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
-        let (version, bytes) = u16::tls_deserialize_bytes(bytes)?;
-        match version {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
             1 => {
                 let (params, bytes) = QsRequestParams::tls_deserialize_bytes(bytes)?;
                 Ok((QsVersionedRequestParams::Alpha(params), bytes))
@@ -358,12 +369,12 @@ impl DeserializeBytes for QsVersionedRequestParams {
 #[derive(Debug, thiserror::Error)]
 #[error("Unsupported version: {version}, supported versions: {supported_versions:?}")]
 pub struct VersionError {
-    version: u16,
+    version: u64,
     supported_versions: Vec<MlsInfraVersion>,
 }
 
 impl VersionError {
-    pub fn from_unsupported_version(version: u16) -> Self {
+    pub fn from_unsupported_version(version: u64) -> Self {
         Self {
             version,
             supported_versions: vec![MlsInfraVersion::Alpha],
@@ -376,7 +387,7 @@ impl ClientToQsMessageTbs {
         match &self.body {
             QsVersionedRequestParams::Alpha(params) => Ok(params.sender()),
             QsVersionedRequestParams::Other(version) => {
-                Err(VersionError::from_unsupported_version(*version))
+                Err(VersionError::from_unsupported_version(version.value()))
             }
         }
     }
@@ -427,18 +438,33 @@ impl QsRequestParams {
     }
 }
 
-#[derive(TlsSize)]
-#[repr(u16)]
 pub enum QsVersionedProcessResponse {
-    Alpha(QsProcessResponse) = 1,
+    Alpha(QsProcessResponse),
 }
 
-// Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
+impl QsVersionedProcessResponse {
+    pub fn version(&self) -> TlsVarInt {
+        match self {
+            QsVersionedProcessResponse::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+        }
+    }
+}
+
+impl tls_codec::Size for QsVersionedProcessResponse {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            QsVersionedProcessResponse::Alpha(qs_process_response) => {
+                self.version().tls_serialized_len() + qs_process_response.tls_serialized_len()
+            }
+        }
+    }
+}
+
 impl tls_codec::Serialize for QsVersionedProcessResponse {
     fn tls_serialize<W: io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedProcessResponse::Alpha(params) => {
-                Ok(1u16.tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
             }
         }
     }
@@ -457,17 +483,35 @@ pub enum QsProcessResponse {
     EncryptionKey(EncryptionKeyResponse),
 }
 
-#[derive(TlsSize)]
-#[repr(u16)]
 pub enum QsVersionedProcessResponseIn {
-    Other(u16) = 0,
-    Alpha(QsProcessResponseIn) = 1,
+    Other(TlsVarInt),
+    Alpha(QsProcessResponseIn),
+}
+
+impl QsVersionedProcessResponseIn {
+    pub fn version(&self) -> TlsVarInt {
+        match self {
+            QsVersionedProcessResponseIn::Other(version) => *version,
+            QsVersionedProcessResponseIn::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+        }
+    }
+}
+
+impl tls_codec::Size for QsVersionedProcessResponseIn {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            QsVersionedProcessResponseIn::Other(_) => self.version().tls_serialized_len(),
+            QsVersionedProcessResponseIn::Alpha(qs_process_response_in) => {
+                self.version().tls_serialized_len() + qs_process_response_in.tls_serialized_len()
+            }
+        }
+    }
 }
 
 impl tls_codec::DeserializeBytes for QsVersionedProcessResponseIn {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
-        let (version, bytes) = u16::tls_deserialize_bytes(bytes)?;
-        match version {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
             1 => {
                 let (params, bytes) = QsProcessResponseIn::tls_deserialize_bytes(bytes)?;
                 Ok((QsVersionedProcessResponseIn::Alpha(params), bytes))
