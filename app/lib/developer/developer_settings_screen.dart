@@ -21,7 +21,7 @@ class DeveloperSettingsScreen extends StatefulWidget {
       _DeveloperSettingsScreenState();
 }
 
-final _titleFontWeight = VariableFontWeight.medium;
+const _titleFontWeight = VariableFontWeight.medium;
 
 class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   String? deviceToken;
@@ -108,7 +108,7 @@ class DeveloperSettingsScreenView extends StatelessWidget {
               child: ListView(
                 children: [
                   if (isMobile) ...[
-                    _SectionHeader("Mobile Device"),
+                    const _SectionHeader("Mobile Device"),
                     ListTile(
                       title: const Text('Push Token'),
                       subtitle: Text(deviceToken ?? "N/A"),
@@ -117,9 +117,9 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     ),
                   ],
                   if (user != null) ...[
-                    _SectionHeader("User"),
+                    const _SectionHeader("User"),
                     ListTile(
-                      title: Text("Change User"),
+                      title: const Text("Change User"),
                       trailing: const Icon(Icons.change_circle),
                       onTap: () => context
                           .read<NavigationCubit>()
@@ -127,12 +127,12 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                               screen: DeveloperSettingsScreenType.changeUser),
                     ),
                     ListTile(
-                      title: Text("Log Out"),
+                      title: const Text("Log Out"),
                       trailing: const Icon(Icons.logout),
                       onTap: () => context.read<CoreClient>().logout(),
                     ),
                   ],
-                  _SectionHeader("App Data"),
+                  const _SectionHeader("App Data"),
                   if (user != null)
                     ListTile(
                       title: Text(

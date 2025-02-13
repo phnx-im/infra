@@ -43,7 +43,7 @@ class IntroScreen extends StatelessWidget {
                   ],
                   transform: GradientRotation(1.1),
                 ),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 36,
                   letterSpacing: -0.9,
                 ).merge(VariableFontWeight.medium),

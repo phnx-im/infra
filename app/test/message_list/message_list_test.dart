@@ -162,7 +162,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: Scaffold(
+                home: const Scaffold(
                   body: MessageListView(
                     createMessageCubit: createMockMessageCubit,
                   ),
