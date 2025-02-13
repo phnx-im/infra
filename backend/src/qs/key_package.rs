@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use phnxtypes::keypackage_batch::QsEncryptedKeyPackage;
+use phnxtypes::messages::QsEncryptedKeyPackage;
 
 #[derive(sqlx::Type)]
 #[sqlx(transparent)]
@@ -118,13 +118,13 @@ mod persistence {
             Ok(encrypted_key_package_option)
         }
 
-        pub(in crate::qs) async fn load_user_key_packages(
+        pub(in crate::qs) async fn load_user_key_package(
             connection: &mut PgConnection,
             friendship_token: &FriendshipToken,
-        ) -> Result<Vec<Self>, StorageError> {
+        ) -> Result<Self, StorageError> {
             let mut transaction = connection.begin().await?;
 
-            let encrypted_key_packages = sqlx::query_scalar!(
+            let encrypted_key_package = sqlx::query_scalar!(
                 r#"WITH user_info AS (
                     -- Step 1: Fetch the user_id based on the friendship token.
                     SELECT user_id FROM qs_user_records WHERE friendship_token = $1
@@ -161,11 +161,11 @@ mod persistence {
                 -- Step 6: Return the encrypted_key_package from the selected packages.
                 SELECT encrypted_key_package as "eap: _" FROM selected_key_packages"#,
                 friendship_token as &FriendshipToken
-            ).fetch_all(&mut *transaction).await?;
+            ).fetch_one(&mut *transaction).await?;
 
             transaction.commit().await?;
 
-            Ok(encrypted_key_packages)
+            Ok(encrypted_key_package)
         }
     }
 }

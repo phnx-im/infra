@@ -18,16 +18,18 @@ use crate::{
         kdf::keys::RatchetSecret,
         signatures::keys::QsClientVerifyingKey,
         signatures::{
-            keys::{QsUserVerifyingKey, QsVerifyingKey},
+            keys::QsUserVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
         RatchetEncryptionKey,
     },
     identifiers::{QsClientId, QsUserId},
-    keypackage_batch::{KeyPackageBatch, QsEncryptedKeyPackage, UNVERIFIED, VERIFIED},
 };
 
-use super::{push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QueueMessage};
+use super::{
+    push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QsEncryptedKeyPackage,
+    QueueMessage,
+};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct QsOpenWsParams {
@@ -167,26 +169,19 @@ pub struct ClientKeyPackageResponse {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct KeyPackageBatchParams {
+pub struct KeyPackageParams {
     pub sender: FriendshipToken,
     pub friendship_ear_key: KeyPackageEarKey,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct KeyPackageBatchResponse {
-    pub key_packages: Vec<KeyPackage>,
-    pub key_package_batch: KeyPackageBatch<VERIFIED>,
+pub struct KeyPackageResponse {
+    pub key_package: KeyPackage,
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
-pub struct KeyPackageBatchResponseIn {
-    pub key_packages: Vec<KeyPackageIn>,
-    pub key_package_batch: KeyPackageBatch<UNVERIFIED>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct VerifyingKeyResponse {
-    pub verifying_key: QsVerifyingKey,
+pub struct KeyPackageResponseIn {
+    pub key_package: KeyPackageIn,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
@@ -247,10 +242,7 @@ impl VerifiableClientToQsMessage {
     pub fn extract_without_verification(
         self,
     ) -> Result<QsRequestParams, ClientToQsVerificationError> {
-        if matches!(
-            self.message.payload.body,
-            QsRequestParams::VerifyingKey | QsRequestParams::EncryptionKey
-        ) {
+        if matches!(self.message.payload.body, QsRequestParams::EncryptionKey) {
             Ok(self.message.payload.body)
         } else {
             Err(ClientToQsVerificationError::ExtractionError)
@@ -322,11 +314,10 @@ pub enum QsRequestParams {
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParams),
     ClientKeyPackage(ClientKeyPackageParams),
-    KeyPackageBatch(KeyPackageBatchParams),
+    KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
     // Key material
-    VerifyingKey,
     EncryptionKey,
 }
 
@@ -343,15 +334,15 @@ impl QsRequestParams {
             QsRequestParams::DeleteClient(params) => QsSender::Client(params.sender.clone()),
             QsRequestParams::PublishKeyPackages(params) => QsSender::Client(params.sender.clone()),
             QsRequestParams::ClientKeyPackage(params) => QsSender::User(params.sender.clone()),
-            QsRequestParams::KeyPackageBatch(params) => {
-                QsSender::FriendshipToken(params.sender.clone())
-            }
+            QsRequestParams::KeyPackage(params) => QsSender::FriendshipToken(params.sender.clone()),
             QsRequestParams::DequeueMessages(params) => QsSender::Client(params.sender.clone()),
-            QsRequestParams::EncryptionKey | QsRequestParams::VerifyingKey => QsSender::Anonymous,
+            QsRequestParams::EncryptionKey => QsSender::Anonymous,
         }
     }
 }
 
+// We allow the large enum variant here because this is a message enum.
+#[allow(clippy::large_enum_variant)]
 #[derive(TlsSize, TlsSerialize)]
 #[repr(u8)]
 pub enum QsProcessResponse {
@@ -359,12 +350,13 @@ pub enum QsProcessResponse {
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
     ClientKeyPackage(ClientKeyPackageResponse),
-    KeyPackageBatch(KeyPackageBatchResponse),
+    KeyPackage(KeyPackageResponse),
     DequeueMessages(DequeueMessagesResponse),
-    VerifyingKey(VerifyingKeyResponse),
     EncryptionKey(EncryptionKeyResponse),
 }
 
+// We allow the large enum variant here because this is a message enum.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum QsProcessResponseIn {
@@ -372,9 +364,8 @@ pub enum QsProcessResponseIn {
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
     ClientKeyPackage(ClientKeyPackageResponse),
-    KeyPackageBatch(KeyPackageBatchResponseIn),
+    KeyPackage(KeyPackageResponseIn),
     DequeueMessages(DequeueMessagesResponse),
-    VerifyingKey(VerifyingKeyResponse),
     EncryptionKey(EncryptionKeyResponse),
 }
 
