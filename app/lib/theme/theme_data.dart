@@ -13,7 +13,7 @@ ThemeData themeData(BuildContext context) => ThemeData(
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         surfaceTintColor: Colors.black,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           fontFamily: fontFamily,
           color: Colors.black,
           letterSpacing: _defaultLetterSpacing,
@@ -21,27 +21,27 @@ ThemeData themeData(BuildContext context) => ThemeData(
       ),
       fontFamily: fontFamily,
       textTheme: TextTheme(
-        displayLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+        displayLarge: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w400),
-        displayMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
-        displaySmall: TextStyle(letterSpacing: _defaultLetterSpacing),
-        headlineLarge: TextStyle(letterSpacing: _defaultLetterSpacing),
-        headlineMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
-        headlineSmall: TextStyle(letterSpacing: _defaultLetterSpacing),
-        titleLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+        displayMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        displaySmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineLarge: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        headlineSmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        titleLarge: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
-        titleMedium: TextStyle(letterSpacing: _defaultLetterSpacing)
+        titleMedium: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
-        titleSmall: TextStyle(letterSpacing: _defaultLetterSpacing)
+        titleSmall: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
-        bodyLarge: TextStyle(letterSpacing: _defaultLetterSpacing),
-        bodyMedium: TextStyle(letterSpacing: _defaultLetterSpacing),
-        bodySmall: TextStyle(letterSpacing: _defaultLetterSpacing),
-        labelLarge: TextStyle(letterSpacing: _defaultLetterSpacing)
+        bodyLarge: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        bodyMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        bodySmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
+        labelLarge: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
-        labelMedium: TextStyle(letterSpacing: _defaultLetterSpacing)
+        labelMedium: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
-        labelSmall: TextStyle(letterSpacing: _defaultLetterSpacing)
+        labelSmall: const TextStyle(letterSpacing: _defaultLetterSpacing)
             .merge(VariableFontWeight.w500),
       ),
       canvasColor: Colors.white,
@@ -71,4 +71,26 @@ ThemeData themeData(BuildContext context) => ThemeData(
       ),
       textSelectionTheme:
           const TextSelectionThemeData(cursorColor: Colors.blue),
+      inputDecorationTheme: InputDecorationTheme(
+        border: InputBorder.none,
+        hintStyle: const TextStyle(
+          color: colorDMBLight,
+          fontSize: 11,
+          fontFamily: fontFamily,
+        ).merge(VariableFontWeight.normal),
+        focusedBorder: _textInputBorder,
+        enabledBorder: _textInputBorder,
+        errorBorder: _textInputBorder,
+        focusedErrorBorder: _textInputBorder,
+        filled: true,
+        fillColor: colorDMBSuperLight,
+      ),
     );
+
+final _textInputBorder = OutlineInputBorder(
+  borderSide: const BorderSide(
+    width: 0,
+    style: BorderStyle.none,
+  ),
+  borderRadius: BorderRadius.circular(7),
+);

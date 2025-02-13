@@ -83,7 +83,7 @@ void main() {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: themeData(context),
-                home: HomeScreenDesktopLayout(
+                home: const HomeScreenDesktopLayout(
                   conversationList: ConversationListView(),
                   conversation: ConversationScreenView(
                     createMessageCubit: createMockMessageCubit,
@@ -96,14 +96,16 @@ void main() {
 
     testWidgets('desktop layout empty', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize =
+          const Size(3840, 2160);
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: []));
+          .thenReturn(const ConversationListState(conversations: []));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -116,12 +118,14 @@ void main() {
 
     testWidgets('desktop layout no conversation', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize =
+          const Size(3840, 2160);
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home());
+      when(() => navigationCubit.state)
+          .thenReturn(const NavigationState.home());
       when(() => conversationListCubit.state)
           .thenReturn(ConversationListState(conversations: conversations));
       when(() => messageListCubit.state)
@@ -139,7 +143,8 @@ void main() {
 
     testWidgets('desktop layout selected conversation', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize =
+          const Size(3840, 2160);
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });

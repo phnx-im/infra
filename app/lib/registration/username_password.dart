@@ -48,9 +48,7 @@ class UsernamePasswordChoice extends StatelessWidget {
                     ConstrainedBox(
                       constraints: BoxConstraints.tight(const Size(300, 80)),
                       child: TextFormField(
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'PASSWORD',
-                        ),
+                        decoration: const InputDecoration(hintText: 'PASSWORD'),
                         style: inputTextStyle,
                         obscureText: true,
                         onChanged: (String value) {
@@ -82,9 +80,7 @@ class _UsernameTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       autofocus: (Platform.isIOS || Platform.isAndroid) ? false : true,
-      decoration: inputDecoration.copyWith(
-        hintText: 'USERNAME',
-      ),
+      decoration: const InputDecoration(hintText: 'USERNAME'),
       style: inputTextStyle,
       validator: _usernameValidator,
       onChanged: (String value) {
