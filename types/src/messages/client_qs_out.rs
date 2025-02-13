@@ -21,8 +21,7 @@ use crate::{
 use super::{
     client_qs::{
         ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
-        DequeueMessagesParams, KeyPackageBatchParams, UpdateClientRecordParams,
-        UpdateUserRecordParams,
+        DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
     },
     push_token::EncryptedPushToken,
     FriendshipToken, MlsInfraVersion,
@@ -122,10 +121,9 @@ pub enum QsRequestParamsOut {
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParamsOut),
     ClientKeyPackage(ClientKeyPackageParams),
-    KeyPackageBatch(KeyPackageBatchParams),
+    KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
     // Key material
-    QsVerifyingKey,
     QsEncryptionKey,
 }

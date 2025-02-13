@@ -7,7 +7,7 @@ use openmls::prelude::GroupId;
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
-    identifiers::QsClientReference,
+    identifiers::QsReference,
 };
 use rusqlite::Connection;
 use tracing::error;
@@ -251,7 +251,7 @@ impl StoredGroup {
     async fn create_group_on_ds(
         self,
         api_clients: &ApiClients,
-        client_reference: QsClientReference,
+        client_reference: QsReference,
     ) -> Result<ConversationId> {
         let Self {
             group,
@@ -262,13 +262,7 @@ impl StoredGroup {
         let params = partial_params.into_params(client_reference);
         api_clients
             .default_client()?
-            .ds_create_group(
-                params,
-                group.group_state_ear_key(),
-                group
-                    .user_auth_key()
-                    .ok_or_else(|| anyhow!("No user auth key"))?,
-            )
+            .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         Ok(conversation_id)

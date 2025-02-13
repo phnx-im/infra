@@ -95,7 +95,7 @@ impl CoreUser {
                 .await?;
 
                 // Send confirmation
-                self.send_confirmation_to_ds(&group, commit, group_info, &cep_tbs, qgid)
+                self.send_confirmation_to_ds(commit, group_info, &cep_tbs, qgid)
                     .await?;
 
                 notifier.notify();
@@ -277,7 +277,6 @@ impl CoreUser {
 
     async fn send_confirmation_to_ds(
         &self,
-        group: &Group,
         commit: MlsMessageOut,
         group_info: MlsMessageOut,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
@@ -291,7 +290,6 @@ impl CoreUser {
                 commit,
                 group_info,
                 qs_client_reference,
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
                 &cep_tbs.connection_group_ear_key,
             )
             .await?;
