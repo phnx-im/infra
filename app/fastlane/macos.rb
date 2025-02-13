@@ -44,7 +44,7 @@ platform :mac do
     
       # Use match for code signing
       ["development", "appstore"].each do |i|
-        match_params = {
+        match(
           type: i,
           git_url: ENV['MATCH_GIT_URL'],
           git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
@@ -54,13 +54,8 @@ platform :mac do
           team_id: team_id,
           readonly: is_ci,
           platform: "macos",
-        }
-
-        if i == "appstore"
-          match_params[:additional_cert_types] = ["mac_installer_distribution"]
-        end
-
-        match(match_params)
+          additional_cert_types: ["mac_installer_distribution"]
+        )
       end
   
       # Build the app with signing
