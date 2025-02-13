@@ -51,7 +51,6 @@ ThemeData themeData(BuildContext context) => ThemeData(
         backgroundColor: Colors.white,
         brightness: Brightness.light,
       ),
-      dialogBackgroundColor: Colors.white,
       dialogTheme: const DialogTheme(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
