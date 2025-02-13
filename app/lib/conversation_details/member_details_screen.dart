@@ -60,7 +60,7 @@ class MemberDetailsScreen extends StatelessWidget {
                 const SizedBox(height: _padding),
                 Text(
                   memberUsername,
-                  style: labelStyle,
+                  style: Theme.of(context).textTheme.labelMedium,
                 ),
                 const SizedBox(height: _padding),
               ],

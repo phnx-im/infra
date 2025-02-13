@@ -24,16 +24,15 @@ class ServerChoice extends StatelessWidget {
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      body: SafeArea(
         child: Center(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
+              Text(
                 'Choose a server where you want to create your account',
-                style: labelStyle,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               Form(
                 autovalidateMode: AutovalidateMode.always,
@@ -46,9 +45,8 @@ class ServerChoice extends StatelessWidget {
                         autofocus: (Platform.isIOS || Platform.isAndroid)
                             ? false
                             : true,
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'DOMAIN NAME',
-                        ),
+                        decoration:
+                            const InputDecoration(hintText: 'DOMAIN NAME'),
                         initialValue:
                             context.read<RegistrationCubit>().state.domain,
                         style: inputTextStyle,

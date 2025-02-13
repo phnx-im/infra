@@ -6,3 +6,4 @@ export 'spacings.dart';
 export 'theme_data.dart';
 export 'responsive_screen.dart';
 export 'styles.dart';
+export 'variable_font_weight.dart';

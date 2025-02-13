@@ -37,11 +37,11 @@ class ConnectionDetails extends StatelessWidget {
           ),
           Text(
             conversation.title,
-            style: labelStyle,
+            style: Theme.of(context).textTheme.labelMedium,
           ),
           Text(
             conversation.conversationType.description,
-            style: labelStyle,
+            style: Theme.of(context).textTheme.labelMedium,
           ),
         ],
       ),

@@ -48,7 +48,6 @@ class _NoConversations extends StatelessWidget {
         'Create a new connection to get started',
         style: TextStyle(
           fontSize: isLargeScreen(context) ? 14 : 15,
-          fontWeight: FontWeight.normal,
           color: Colors.black54,
         ),
       ),
@@ -75,7 +74,7 @@ class _ListTile extends StatelessWidget {
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.topStart,
-        height: 74,
+        height: 76,
         width: 300,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -186,10 +185,10 @@ class _UnreadBadge extends StatelessWidget {
       child: Text(
         badgeText,
         style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontVariations: variationSemiBold,
-            letterSpacing: 0),
+          color: Colors.white,
+          fontSize: 10,
+          letterSpacing: 0,
+        ).merge(VariableFontWeight.semiBold),
       ),
     );
   }
@@ -210,16 +209,14 @@ class _LastMessage extends StatelessWidget {
     final style = TextStyle(
       color: colorDMB,
       fontSize: isSmallScreen(context) ? 14 : 13,
-      fontVariations: variationRegular,
-      letterSpacing: -0.2,
       height: 1.2,
     );
 
     final contentStyle = conversation.unreadMessages > 0
-        ? style.copyWith(fontVariations: variationMedium)
+        ? style.merge(VariableFontWeight.medium)
         : style;
 
-    final senderStyle = style.copyWith(fontVariations: variationSemiBold);
+    final senderStyle = style.merge(VariableFontWeight.semiBold);
 
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
       UiMessage_Content(field0: final content) => (
@@ -263,8 +260,6 @@ class _LastUpdated extends StatelessWidget {
         style: const TextStyle(
           color: colorDMB,
           fontSize: 11,
-          fontVariations: variationRegular,
-          letterSpacing: -0.2,
         ),
       ),
     );
@@ -289,9 +284,7 @@ class _ConversationTitle extends StatelessWidget {
         style: const TextStyle(
           color: convListItemTextColor,
           fontSize: 14,
-          fontVariations: variationSemiBold,
-          letterSpacing: -0.2,
-        ),
+        ).merge(VariableFontWeight.semiBold),
       ),
     );
   }

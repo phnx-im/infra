@@ -21,10 +21,15 @@ class UserSettingsScreen extends StatefulWidget {
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
   String? newDisplayName;
   ImageData? newProfilePicture;
+  bool isSetting = false;
 
   bool get _isChanged => newDisplayName != null || newProfilePicture != null;
 
   void _save(BuildContext context) async {
+    setState(() {
+      isSetting = true;
+    });
+
     final user = context.read<UserCubit>();
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -35,6 +40,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
       setState(() {
         newDisplayName = null;
         newProfilePicture = null;
+        isSetting = false;
       });
     } catch (e) {
       showErrorBanner(messenger, "Error when saving profile: ${e.toString()}");
@@ -57,72 +63,87 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Column(
-              children: [
-                UserAvatar(
-                  username: userName,
-                  size: 100,
-                  image: newProfilePicture ?? profilePicture,
-                  onPressed: () async {
-                    // Image picker
-                    final ImagePicker picker = ImagePicker();
-                    // Pick an image.
-                    final XFile? image =
-                        await picker.pickImage(source: ImageSource.gallery);
-                    final bytes = await image?.readAsBytes();
-                    final data = bytes?.toImageData();
-                    setState(() {
-                      newProfilePicture = data;
-                    });
-                  },
-                ),
-                const SizedBox(height: 15),
-                Text(
-                  userName,
-                  style: const TextStyle(
-                    color: colorDMB,
-                    fontSize: 12,
-                    fontVariations: variationRegular,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ],
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: Spacings.xs,
+              right: Spacings.xs,
+              bottom: Spacings.xs,
             ),
-            Column(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Text('Display name'),
-                const SizedBox(height: 20),
-                Form(
-                  autovalidateMode: AutovalidateMode.always,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints.tight(const Size(300, 80)),
-                    child: TextFormField(
-                      autofocus: isSmallScreen(context) ? false : true,
-                      decoration: inputDecoration.copyWith(
-                        hintText: 'DISPLAY NAME',
-                      ),
-                      initialValue: displayName,
-                      style: inputTextStyle,
-                      onChanged: (value) {
+                Column(
+                  children: [
+                    UserAvatar(
+                      username: userName,
+                      size: 100,
+                      image: newProfilePicture ?? profilePicture,
+                      onPressed: () async {
+                        // Image picker
+                        final ImagePicker picker = ImagePicker();
+                        // Pick an image.
+                        final XFile? image =
+                            await picker.pickImage(source: ImageSource.gallery);
+                        final bytes = await image?.readAsBytes();
+                        final data = bytes?.toImageData();
                         setState(() {
-                          newDisplayName = value;
+                          newProfilePicture = data;
                         });
                       },
                     ),
-                  ),
+                    const SizedBox(height: 15),
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        color: colorDMB,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Text('Display name'),
+                    const SizedBox(height: 20),
+                    Form(
+                      autovalidateMode: AutovalidateMode.always,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints.tight(const Size(300, 80)),
+                        child: TextFormField(
+                          autofocus: isSmallScreen(context) ? false : true,
+                          decoration:
+                              const InputDecoration(hintText: 'DISPLAY NAME'),
+                          initialValue: displayName,
+                          style: inputTextStyle,
+                          onChanged: (value) {
+                            setState(() {
+                              newDisplayName = value;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: isSmallScreen(context)
+                      ? CrossAxisAlignment.stretch
+                      : CrossAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: _isChanged && !isSetting
+                          ? () => _save(context)
+                          : null,
+                      style: buttonStyle(context, _isChanged && !isSetting),
+                      child: const Text('Save'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            OutlinedButton(
-              onPressed: _isChanged ? () => _save(context) : null,
-              style: buttonStyle(context, _isChanged),
-              child: const Text('Save'),
-            )
-          ],
+          ),
         ),
       ),
     );

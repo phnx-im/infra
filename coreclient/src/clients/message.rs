@@ -2,14 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
     identifiers::QualifiedUserName, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
 };
 use rusqlite::{Connection, Transaction};
+use uuid::Uuid;
 
-use crate::{Conversation, ConversationId, ConversationMessage, MimiContent};
+use crate::{Conversation, ConversationId, ConversationMessage, Message, MimiContent};
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
 
@@ -25,7 +26,7 @@ impl CoreUser {
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
             .with_transaction(|transaction| {
-                InitialParams {
+                UnsentContent {
                     conversation_id,
                     content,
                 }
@@ -44,21 +45,43 @@ impl CoreUser {
         })
         .await
     }
+
+    /// Re-try sending a message, where sending previously failed.
+    pub async fn re_send_message(&self, local_message_id: Uuid) -> anyhow::Result<()> {
+        let unsent_group_message = self
+            .with_transaction(|transaction| {
+                LocalMessage { local_message_id }
+                    .load(transaction)?
+                    .create_group_message(&PhnxOpenMlsProvider::new(transaction))
+            })
+            .await?;
+
+        let sent_message = unsent_group_message
+            .send_message_to_ds(&self.inner.api_clients)
+            .await?;
+
+        self.with_transaction(|transaction| {
+            sent_message.mark_as_sent_and_read(transaction, self.store_notifier())
+        })
+        .await?;
+
+        Ok(())
+    }
 }
 
-struct InitialParams {
+struct UnsentContent {
     conversation_id: ConversationId,
     content: MimiContent,
 }
 
-impl InitialParams {
+impl UnsentContent {
     fn store_unsent_message(
         self,
         connection: &Connection,
         mut notifier: StoreNotifier,
         sender: &QualifiedUserName,
-    ) -> anyhow::Result<UnsentMessage<WithContent>> {
-        let InitialParams {
+    ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
+        let UnsentContent {
             conversation_id,
             content,
         } = self;
@@ -85,34 +108,80 @@ impl InitialParams {
             conversation,
             group,
             conversation_message,
-            state: WithContent(content),
+            content: WithContent(content),
+            group_update: GroupUpdateNeeded,
         })
     }
 }
 
-// States of an unsent message
+struct LocalMessage {
+    local_message_id: Uuid,
+}
 
+impl LocalMessage {
+    fn load(
+        self,
+        connection: &Connection,
+    ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdated>> {
+        let Self { local_message_id } = self;
+
+        let conversation_message = ConversationMessage::load(connection, &local_message_id)?
+            .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
+        let content = match conversation_message.message() {
+            Message::Content(content_message) if !content_message.was_sent() => {
+                content_message.content().clone()
+            }
+            Message::Content(_) => bail!("Message with id {local_message_id} was already sent"),
+            _ => bail!("Message with id {local_message_id} is not a content message"),
+        };
+        let conversation_id = conversation_message.conversation_id();
+        let conversation = Conversation::load(connection, &conversation_id)?
+            .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
+        let group_id = conversation.group_id();
+        let group = Group::load(connection, group_id)?
+            .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+
+        let message = UnsentMessage {
+            conversation,
+            group,
+            conversation_message,
+            content: WithContent(content),
+            group_update: GroupUpdated,
+        };
+
+        Ok(message)
+    }
+}
+
+/// Message type state: Message with MIMI content
 struct WithContent(MimiContent);
+/// Message type state: Message with prepared send parameters
 struct WithParams(SendMessageParamsOut);
-struct StoredWithParams(SendMessageParamsOut);
 
-struct UnsentMessage<State> {
+/// Message type state: Group update needed before sending the message
+struct GroupUpdateNeeded;
+/// Message type state: Group already updated, message can be sent
+struct GroupUpdated;
+
+struct UnsentMessage<State, GroupUpdate> {
     conversation: Conversation,
     group: Group,
     conversation_message: ConversationMessage,
-    state: State,
+    content: State,
+    group_update: GroupUpdate,
 }
 
-impl UnsentMessage<WithContent> {
+impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
     fn create_group_message(
         self,
         provider: &impl OpenMlsProvider,
-    ) -> anyhow::Result<UnsentMessage<WithParams>> {
+    ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdate>> {
         let Self {
             conversation,
             mut group,
             conversation_message,
-            state: WithContent(content),
+            content: WithContent(content),
+            group_update,
         } = self;
 
         let params = group.create_message(provider, content)?;
@@ -121,22 +190,24 @@ impl UnsentMessage<WithContent> {
             conversation,
             conversation_message,
             group,
-            state: WithParams(params),
+            content: WithParams(params),
+            group_update,
         })
     }
 }
 
-impl UnsentMessage<WithParams> {
+impl UnsentMessage<WithParams, GroupUpdateNeeded> {
     fn store_group_update(
         self,
         transaction: &Transaction,
         mut notifier: StoreNotifier,
-    ) -> anyhow::Result<UnsentMessage<StoredWithParams>> {
+    ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdated>> {
         let Self {
             conversation,
             group,
             conversation_message,
-            state: WithParams(params),
+            content: WithParams(params),
+            group_update: GroupUpdateNeeded,
         } = self;
 
         // Immediately write the group back. No need to wait for the DS to
@@ -155,18 +226,20 @@ impl UnsentMessage<WithParams> {
             conversation,
             group,
             conversation_message,
-            state: StoredWithParams(params),
+            content: WithParams(params),
+            group_update: GroupUpdated,
         })
     }
 }
 
-impl UnsentMessage<StoredWithParams> {
+impl UnsentMessage<WithParams, GroupUpdated> {
     async fn send_message_to_ds(self, api_clients: &ApiClients) -> anyhow::Result<SentMessage> {
         let Self {
             conversation,
             conversation_message,
             group,
-            state: StoredWithParams(params),
+            content: WithParams(params),
+            group_update: GroupUpdated,
         } = self;
 
         let ds_timestamp = api_clients

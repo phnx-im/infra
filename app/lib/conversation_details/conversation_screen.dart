@@ -57,7 +57,10 @@ class _EmptyConversationPane extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: Text(
-          style: labelStyle.copyWith(color: colorDMB),
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: colorDMB),
           "Select a chat to start messaging",
         ),
       ),
