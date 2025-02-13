@@ -15,9 +15,6 @@ on:
       - 'types/**'
       - 'app/**'
       - 'Cargo.toml'
-  workflow_dispatch:
-  pull_request:
-    branches: ["main"]
 
 jobs:
   mac-publish:
