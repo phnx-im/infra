@@ -53,6 +53,8 @@ platform :mac do
           app_identifier: [app_identifier],
           team_id: team_id,
           readonly: is_ci,
+          platform: "macos",
+          additional_cert_types: ["mac_installer_distribution"],
         )
       end
   
