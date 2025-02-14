@@ -1,4 +1,3 @@
-
 platform :android do
     desc "Build and release the app"
     lane :beta_android do |options|

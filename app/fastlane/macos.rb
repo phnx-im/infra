@@ -1,4 +1,3 @@
-
 require 'xcodeproj'
 require 'plist'
 
