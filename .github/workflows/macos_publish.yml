@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Publish iOS app
+name: Publish macOS app
 
 on:
   push:
@@ -15,10 +15,9 @@ on:
       - 'types/**'
       - 'app/**'
       - 'Cargo.toml'
-  workflow_dispatch:
 
 jobs:
-  ios-publish:
+  mac-publish:
     runs-on: macos-latest
 
     steps:
@@ -41,10 +40,10 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up iOS CI
+      - name: Set up macOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just setup-ios-ci
+        run: just setup-macos-ci
 
       - name: Integrate bridge
         run: just frb-integrate
@@ -63,4 +62,4 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
-          cd app && fastlane ios beta_ios upload_to_test_flight:true --verbose
+          cd app && fastlane mac beta_macos upload_to_test_flight:true --verbose
