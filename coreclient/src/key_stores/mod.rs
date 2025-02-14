@@ -15,9 +15,7 @@ use phnxtypes::{
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
         kdf::keys::ConnectionKey,
     },
-    identifiers::{
-        ClientConfig, QsClientId, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE,
-    },
+    identifiers::{ClientConfig, QsClientId, QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
 };
 use tls_codec::Serialize as TlsSerializeTrait;
 
@@ -40,7 +38,6 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) mod as_credentials;
 pub(crate) mod leaf_keys;
-pub(crate) mod qs_verifying_keys;
 pub(crate) mod queue_ratchets;
 
 // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
@@ -65,16 +62,13 @@ pub(crate) struct MemoryUserKeyStore {
 }
 
 impl MemoryUserKeyStore {
-    pub(crate) fn create_own_client_reference(
-        &self,
-        qs_client_id: &QsClientId,
-    ) -> QsClientReference {
+    pub(crate) fn create_own_client_reference(&self, qs_client_id: &QsClientId) -> QsReference {
         let sealed_reference = ClientConfig {
             client_id: *qs_client_id,
             push_token_ear_key: Some(self.push_token_ear_key.clone()),
         }
         .encrypt(&self.qs_client_id_encryption_key, &[], &[]);
-        QsClientReference {
+        QsReference {
             client_homeserver_domain: self
                 .signing_key
                 .credential()

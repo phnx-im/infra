@@ -23,9 +23,9 @@ use phnxtypes::{
             ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
             CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
             DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
-            KeyPackageBatchParams, KeyPackageBatchResponseIn, QsProcessResponseIn,
+            KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
-            VerifyingKeyResponse, VersionError,
+            VersionError,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
@@ -351,39 +351,23 @@ impl ApiClient {
         })
     }
 
-    pub async fn qs_key_package_batch(
+    pub async fn qs_key_package(
         &self,
         sender: FriendshipToken,
         friendship_ear_key: KeyPackageEarKey,
-    ) -> Result<KeyPackageBatchResponseIn, QsRequestError> {
-        let payload = KeyPackageBatchParams {
+    ) -> Result<KeyPackageResponseIn, QsRequestError> {
+        let payload = KeyPackageParams {
             sender: sender.clone(),
             friendship_ear_key,
         };
         self.prepare_and_send_qs_message(
-            QsRequestParamsOut::KeyPackageBatch(payload),
+            QsRequestParamsOut::KeyPackage(payload),
             AuthenticationMethod::<QsUserSigningKey>::Token(sender),
         )
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if let QsProcessResponseIn::KeyPackageBatch(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    pub async fn qs_verifying_key(&self) -> Result<VerifyingKeyResponse, QsRequestError> {
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::QsVerifyingKey,
-            AuthenticationMethod::<QsUserSigningKey>::None,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::VerifyingKey(resp) = response {
+            if let QsProcessResponseIn::KeyPackage(resp) = response {
                 Ok(resp)
             } else {
                 Err(QsRequestError::UnexpectedResponse)

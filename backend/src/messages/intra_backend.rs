@@ -6,7 +6,7 @@
 //! passed internally within the backend.
 
 use phnxtypes::{
-    identifiers::QsClientReference,
+    identifiers::QsReference,
     messages::client_ds::{DsEventMessage, QsQueueMessagePayload},
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -18,7 +18,7 @@ pub type QsInputMessage = DsFanOutMessage;
 #[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct DsFanOutMessage {
     pub payload: DsFanOutPayload,
-    pub client_reference: QsClientReference,
+    pub client_reference: QsReference,
 }
 
 #[derive(Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]

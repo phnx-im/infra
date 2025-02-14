@@ -2,15 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::openmls::prelude::ProcessedMessageContent;
 use mls_assist::{
-    group::ProcessedAssistedMessage,
-    messages::SerializedMlsMessage,
-    openmls::prelude::{ProcessedMessageContent, Sender},
+    group::ProcessedAssistedMessage, messages::SerializedMlsMessage, openmls::prelude::Sender,
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{
-    errors::ResyncClientError, messages::client_ds::ResyncClientParams, time::Duration,
-};
+use phnxtypes::{errors::ResyncClientError, messages::client_ds::ResyncParams, time::Duration};
 
 use super::process::USER_EXPIRATION_DAYS;
 
@@ -19,7 +16,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
-        params: ResyncClientParams,
+        params: ResyncParams,
     ) -> Result<SerializedMlsMessage, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
@@ -39,45 +36,28 @@ impl DsGroupState {
                 return Err(ResyncClientError::InvalidMessage);
             };
 
-        let removed_client = if let ProcessedMessageContent::StagedCommitMessage(staged_commit) =
+        let ProcessedMessageContent::StagedCommitMessage(staged_commit_message) =
             processed_message.content()
-        {
-            // Check that the commit only contains removes.
-            if staged_commit.add_proposals().count() > 0
-                || staged_commit.update_proposals().count() > 0
-            {
-                return Err(ResyncClientError::InvalidMessage);
-            }
-
-            if let Some(leaf_index) = staged_commit
-                .remove_proposals()
-                .map(|remove_proposal| remove_proposal.remove_proposal().removed())
-                .next()
-            {
-                leaf_index
-            } else {
-                return Err(ResyncClientError::InvalidMessage);
-            }
-        } else {
+        else {
+            // This should be a staged commit message.
             return Err(ResyncClientError::InvalidMessage);
         };
 
         // Check if it's an external commit.
-        if let Sender::NewMemberCommit = processed_message.sender() {
+        if !matches!(processed_message.sender(), Sender::NewMemberCommit) {
             return Err(ResyncClientError::InvalidMessage);
         }
 
-        // Check if the removed client belongs to the sending user.
-        if !self
-            .user_profiles
-            .get(&params.sender)
-            // There should be a user profile. If there wasn't, verification should have failed.
-            .ok_or(ResyncClientError::LibraryError)?
-            .clients
-            .contains(&removed_client)
-        {
+        let Some(remove_proposal) = staged_commit_message.remove_proposals().next() else {
+            // This should contain a remove proposal.
             return Err(ResyncClientError::InvalidMessage);
         };
+
+        if remove_proposal.remove_proposal().removed() != params.sender_index {
+            // The sender index in the remove proposal should match the sender
+            // index in the params.
+            return Err(ResyncClientError::InvalidMessage);
+        }
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.

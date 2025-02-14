@@ -22,16 +22,18 @@ use crate::{
         kdf::keys::RatchetSecret,
         signatures::keys::QsClientVerifyingKey,
         signatures::{
-            keys::{QsUserVerifyingKey, QsVerifyingKey},
+            keys::QsUserVerifyingKey,
             signable::{Signature, Verifiable, VerifiedStruct},
         },
         RatchetEncryptionKey,
     },
     identifiers::{QsClientId, QsUserId},
-    keypackage_batch::{KeyPackageBatch, QsEncryptedKeyPackage, UNVERIFIED, VERIFIED},
 };
 
-use super::{push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QueueMessage};
+use super::{
+    push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QsEncryptedKeyPackage,
+    QueueMessage,
+};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct QsOpenWsParams {
@@ -173,27 +175,19 @@ pub struct ClientKeyPackageResponse {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct KeyPackageBatchParams {
+pub struct KeyPackageParams {
     pub sender: FriendshipToken,
     pub friendship_ear_key: KeyPackageEarKey,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct KeyPackageBatchResponse {
-    pub key_packages: Vec<KeyPackage>,
-    pub key_package_batch: KeyPackageBatch<VERIFIED>,
+pub struct KeyPackageResponse {
+    pub key_package: KeyPackage,
 }
 
 #[derive(Debug, TlsSize, TlsDeserializeBytes)]
-pub struct KeyPackageBatchResponseIn {
-    pub key_packages: Vec<KeyPackageIn>,
-    pub key_package_batch: KeyPackageBatch<UNVERIFIED>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub struct VerifyingKeyResponse {
-    pub verifying_key: QsVerifyingKey,
+pub struct KeyPackageResponseIn {
+    pub key_package: KeyPackageIn,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
@@ -257,10 +251,10 @@ impl VerifiableClientToQsMessage {
         self,
     ) -> Result<QsVersionedRequestParams, ClientToQsVerificationError> {
         match self.message.payload.body {
-            QsVersionedRequestParams::Alpha(
-                QsRequestParams::VerifyingKey | QsRequestParams::EncryptionKey,
-            ) => Ok(self.message.payload.body),
-            QsVersionedRequestParams::Alpha(_) | QsVersionedRequestParams::Other(_) => {
+            QsVersionedRequestParams::Alpha(QsRequestParams::EncryptionKey) => {
+                Ok(self.message.payload.body)
+            }
+            QsVersionedRequestParams::Other(_) | QsVersionedRequestParams::Alpha(_) => {
                 Err(ClientToQsVerificationError::ExtractionError)
             }
         }
@@ -408,11 +402,10 @@ pub enum QsRequestParams {
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParams),
     ClientKeyPackage(ClientKeyPackageParams),
-    KeyPackageBatch(KeyPackageBatchParams),
+    KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
     // Key material
-    VerifyingKey,
     EncryptionKey,
 }
 
@@ -429,11 +422,9 @@ impl QsRequestParams {
             QsRequestParams::DeleteClient(params) => QsSender::Client(params.sender),
             QsRequestParams::PublishKeyPackages(params) => QsSender::Client(params.sender),
             QsRequestParams::ClientKeyPackage(params) => QsSender::User(params.sender),
-            QsRequestParams::KeyPackageBatch(params) => {
-                QsSender::FriendshipToken(params.sender.clone())
-            }
+            QsRequestParams::KeyPackage(params) => QsSender::FriendshipToken(params.sender.clone()),
             QsRequestParams::DequeueMessages(params) => QsSender::Client(params.sender),
-            QsRequestParams::EncryptionKey | QsRequestParams::VerifyingKey => QsSender::Anonymous,
+            QsRequestParams::EncryptionKey => QsSender::Anonymous,
         }
     }
 }
@@ -472,17 +463,18 @@ impl tls_codec::Serialize for QsVersionedProcessResponse {
 
 #[derive(TlsSize, TlsSerialize)]
 #[repr(u8)]
+#[expect(clippy::large_enum_variant, reason = "this is a message enum")]
 pub enum QsProcessResponse {
     Ok,
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
     ClientKeyPackage(ClientKeyPackageResponse),
-    KeyPackageBatch(KeyPackageBatchResponse),
+    KeyPackage(KeyPackageResponse),
     DequeueMessages(DequeueMessagesResponse),
-    VerifyingKey(VerifyingKeyResponse),
     EncryptionKey(EncryptionKeyResponse),
 }
 
+#[expect(clippy::large_enum_variant, reason = "this is a message enum")]
 pub enum QsVersionedProcessResponseIn {
     Other(TlsVarInt),
     Alpha(QsProcessResponseIn),
@@ -523,14 +515,14 @@ impl tls_codec::DeserializeBytes for QsVersionedProcessResponseIn {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
+#[expect(clippy::large_enum_variant, reason = "this is a message enum")]
 pub enum QsProcessResponseIn {
     Ok,
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
     ClientKeyPackage(ClientKeyPackageResponse),
-    KeyPackageBatch(KeyPackageBatchResponseIn),
+    KeyPackage(KeyPackageResponseIn),
     DequeueMessages(DequeueMessagesResponse),
-    VerifyingKey(VerifyingKeyResponse),
     EncryptionKey(EncryptionKeyResponse),
 }
 
@@ -545,35 +537,27 @@ pub enum QsSender {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
-    use crate::{
-        crypto::{
-            ear::Ciphertext,
-            signatures::{private_keys::VerifyingKey, signable::SignedStruct},
-        },
-        keypackage_batch::KeyPackageBatchTbs,
-    };
+    use crate::crypto::ear::Ciphertext;
 
     use super::*;
 
     #[test]
-    fn create_user_api_stability() {
-        let create_user_record_response = CreateUserRecordResponse {
+    fn qs_response_create_user_api_stability() {
+        let response = CreateUserRecordResponse {
             user_id: QsUserId::from(Uuid::from_u128(1)),
             client_id: QsClientId::from(Uuid::from_u128(2)),
         };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::CreateUser(
-            create_user_record_response.clone(),
-        ));
+        let response =
+            QsVersionedProcessResponse::Alpha(QsProcessResponse::CreateUser(response.clone()));
         let response_tls = response.tls_serialize_detached().unwrap();
 
         let response_in =
             QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
         match response_in {
             QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::CreateUser(response)) => {
-                assert_eq!(response, create_user_record_response);
+                assert_eq!(response, response);
             }
             _ => panic!("expected CreateUser variant"),
         }
@@ -582,20 +566,19 @@ mod tests {
     }
 
     #[test]
-    fn create_client_api_stability() {
-        let create_client_record_response = CreateClientRecordResponse {
+    fn qs_response_create_client_api_stability() {
+        let response = CreateClientRecordResponse {
             client_id: QsClientId::from(Uuid::from_u128(1)),
         };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::CreateClient(
-            create_client_record_response.clone(),
-        ));
+        let response =
+            QsVersionedProcessResponse::Alpha(QsProcessResponse::CreateClient(response.clone()));
         let response_tls = response.tls_serialize_detached().unwrap();
 
         let response_in =
             QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
         match response_in {
             QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::CreateClient(response)) => {
-                assert_eq!(response, create_client_record_response);
+                assert_eq!(response, response);
             }
             _ => panic!("expected CreateClient variant"),
         }
@@ -604,13 +587,12 @@ mod tests {
     }
 
     #[test]
-    fn client_key_package_api_stability() {
-        let client_key_package_response = ClientKeyPackageResponse {
+    fn qs_response_client_key_package_api_stability() {
+        let response = ClientKeyPackageResponse {
             encrypted_key_package: QsEncryptedKeyPackage::from(Ciphertext::dummy()),
         };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::ClientKeyPackage(
-            client_key_package_response,
-        ));
+        let response =
+            QsVersionedProcessResponse::Alpha(QsProcessResponse::ClientKeyPackage(response));
         let response_tls = response.tls_serialize_detached().unwrap();
 
         let response_in =
@@ -624,33 +606,8 @@ mod tests {
     }
 
     #[test]
-    fn key_package_batch_api_stability() {
-        let signed_at: DateTime<Utc> = "2023-01-01T00:00:00.000Z".parse().unwrap();
-        let key_package_batch_reponse = KeyPackageBatchResponse {
-            key_packages: vec![],
-            key_package_batch: KeyPackageBatch::from_payload(
-                KeyPackageBatchTbs::new("localhost".parse().unwrap(), vec![], signed_at.into()),
-                Signature::from_bytes(b"signature".to_vec()),
-            ),
-        };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::KeyPackageBatch(
-            key_package_batch_reponse,
-        ));
-        let response_tls = response.tls_serialize_detached().unwrap();
-
-        let response_in =
-            QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
-        match response_in {
-            QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::KeyPackageBatch(_)) => {}
-            _ => panic!("expected KeyPackageBatch variant"),
-        }
-
-        insta::assert_binary_snapshot!(".tls", response_tls);
-    }
-
-    #[test]
-    fn dequeue_messages_api_stability() {
-        let dequeue_messages_response = DequeueMessagesResponse {
+    fn qs_response_dequeue_messages_api_stability() {
+        let response = DequeueMessagesResponse {
             messages: vec![
                 QueueMessage {
                     sequence_number: 1,
@@ -663,16 +620,15 @@ mod tests {
             ],
             remaining_messages_number: 42,
         };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::DequeueMessages(
-            dequeue_messages_response.clone(),
-        ));
+        let response =
+            QsVersionedProcessResponse::Alpha(QsProcessResponse::DequeueMessages(response.clone()));
         let response_tls = response.tls_serialize_detached().unwrap();
 
         let response_in =
             QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
         match response_in {
             QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::DequeueMessages(response)) => {
-                assert_eq!(response, dequeue_messages_response);
+                assert_eq!(response, response);
             }
             _ => panic!("expected DequeueMessages variant"),
         }
@@ -681,44 +637,19 @@ mod tests {
     }
 
     #[test]
-    fn verifying_key_api_stability() {
-        let verifying_key_response = VerifyingKeyResponse {
-            verifying_key: QsVerifyingKey::from(VerifyingKey::new_for_test(
-                b"verifying_key".to_vec(),
-            )),
-        };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::VerifyingKey(
-            verifying_key_response.clone(),
-        ));
-        let response_tls = response.tls_serialize_detached().unwrap();
-
-        let response_in =
-            QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
-        match response_in {
-            QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::VerifyingKey(response)) => {
-                assert_eq!(response, verifying_key_response);
-            }
-            _ => panic!("expected VerifyingKey variant"),
-        }
-
-        insta::assert_binary_snapshot!(".tls", response_tls);
-    }
-
-    #[test]
-    fn encryption_key_api_stability() {
-        let encryption_key_response = EncryptionKeyResponse {
+    fn qs_response_encryption_key_api_stability() {
+        let response = EncryptionKeyResponse {
             encryption_key: ClientIdEncryptionKey::new_for_test(b"encryption_key".to_vec().into()),
         };
-        let response = QsVersionedProcessResponse::Alpha(QsProcessResponse::EncryptionKey(
-            encryption_key_response.clone(),
-        ));
+        let response =
+            QsVersionedProcessResponse::Alpha(QsProcessResponse::EncryptionKey(response.clone()));
         let response_tls = response.tls_serialize_detached().unwrap();
 
         let response_in =
             QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
         match response_in {
             QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::EncryptionKey(response)) => {
-                assert_eq!(response, encryption_key_response);
+                assert_eq!(response, response);
             }
             _ => panic!("expected EncryptionKey variant"),
         }

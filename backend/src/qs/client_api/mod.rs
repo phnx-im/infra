@@ -104,14 +104,11 @@ impl Qs {
             QsRequestParams::ClientKeyPackage(params) => {
                 QsProcessResponse::ClientKeyPackage(self.qs_client_key_package(params).await?)
             }
-            QsRequestParams::KeyPackageBatch(params) => {
-                QsProcessResponse::KeyPackageBatch(self.qs_key_package_batch(params).await?)
+            QsRequestParams::KeyPackage(params) => {
+                QsProcessResponse::KeyPackage(self.qs_key_package(params).await?)
             }
             QsRequestParams::DequeueMessages(params) => {
                 QsProcessResponse::DequeueMessages(self.qs_dequeue_messages(params).await?)
-            }
-            QsRequestParams::VerifyingKey => {
-                QsProcessResponse::VerifyingKey(self.qs_verifying_key().await?)
             }
             QsRequestParams::EncryptionKey => {
                 QsProcessResponse::EncryptionKey(self.qs_encryption_key().await?)

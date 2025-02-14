@@ -35,9 +35,7 @@ use phnxtypes::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    identifiers::{
-        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
-    },
+    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         push_token::{EncryptedPushToken, PushToken},
@@ -446,11 +444,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 5: Merge the commit into the group
@@ -498,11 +492,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&conversation.owner_domain())?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -656,10 +646,8 @@ impl CoreUser {
             .default_client()?
             .ds_create_group(
                 params,
+                connection_group.leaf_signer(),
                 connection_group.group_state_ear_key(),
-                connection_group
-                    .user_auth_key()
-                    .ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
 
@@ -682,56 +670,6 @@ impl CoreUser {
         notifier.notify();
 
         Ok(conversation.id())
-    }
-
-    /// Update the user's user auth key in the conversation with the given
-    /// [`ConversationId`].
-    ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    pub async fn update_user_key(
-        &self,
-        conversation_id: &ConversationId,
-    ) -> Result<Vec<ConversationMessage>> {
-        // Phase 1: Load the conversation and the group
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let group_id = conversation.group_id();
-        // Generate ciphertext
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update_user_key(&connection)?;
-        drop(connection);
-
-        let owner_domain = conversation.owner_domain();
-
-        // Phase 2: Send the update to the DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&owner_domain)?
-            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
-            .await?;
-
-        // Phase 3: Store the updated group
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-
-        group.store_update(&transaction)?;
-
-        let conversation_messages =
-            self.store_messages(&mut transaction, *conversation_id, group_messages)?;
-        transaction.commit()?;
-        drop(connection);
-
-        Ok(conversation_messages)
     }
 
     /// Delete the conversation with the given [`ConversationId`].
@@ -772,11 +710,7 @@ impl CoreUser {
                 .inner
                 .api_clients
                 .get(&owner_domain)?
-                .ds_delete_group(
-                    params,
-                    group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                    group.group_state_ear_key(),
-                )
+                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
                 .await?;
 
             // Phase 4: Merge the commit into the group
@@ -880,11 +814,7 @@ impl CoreUser {
         self.inner
             .api_clients
             .get(&owner_domain)?
-            .ds_self_remove_client(
-                params,
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                group.group_state_ear_key(),
-            )
+            .ds_self_remove(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -925,7 +855,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+            .ds_update(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -969,13 +899,13 @@ impl CoreUser {
         Ok(partial_contact)
     }
 
-    fn create_own_client_reference(&self) -> QsClientReference {
+    fn create_own_client_reference(&self) -> QsReference {
         let sealed_reference = ClientConfig {
             client_id: self.inner.qs_client_id,
             push_token_ear_key: Some(self.inner.key_store.push_token_ear_key.clone()),
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
-        QsClientReference {
+        QsReference {
             client_homeserver_domain: self.user_name().domain(),
             sealed_reference,
         }

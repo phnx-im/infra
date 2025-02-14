@@ -21,8 +21,7 @@ use crate::{
 use super::{
     client_qs::{
         ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
-        DequeueMessagesParams, KeyPackageBatchParams, UpdateClientRecordParams,
-        UpdateUserRecordParams,
+        DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
     },
     push_token::EncryptedPushToken,
     FriendshipToken,
@@ -154,11 +153,10 @@ pub enum QsRequestParamsOut {
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParamsOut),
     ClientKeyPackage(ClientKeyPackageParams),
-    KeyPackageBatch(KeyPackageBatchParams),
+    KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
     // Key material
-    QsVerifyingKey,
     QsEncryptionKey,
 }
 
@@ -177,9 +175,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn create_user_api_stability() {
+    fn qs_request_create_user_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let create_user_record_params = CreateUserRecordParamsOut {
+        let params = CreateUserRecordParamsOut {
             user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
                 b"user_record_auth_key".to_vec(),
             )),
@@ -197,9 +195,7 @@ mod tests {
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::CreateUser(
-                    create_user_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::CreateUser(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -218,9 +214,9 @@ mod tests {
     }
 
     #[test]
-    fn update_user_api_stability() {
+    fn qs_request_update_user_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let update_user_record_params = UpdateUserRecordParams {
+        let params = UpdateUserRecordParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
             user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
                 b"user_record_auth_key".to_vec(),
@@ -229,9 +225,7 @@ mod tests {
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::UpdateUser(
-                    update_user_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::UpdateUser(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -250,16 +244,14 @@ mod tests {
     }
 
     #[test]
-    fn delete_user_api_stability() {
+    fn qs_request_delete_user_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let delete_user_record_params = DeleteUserRecordParams {
+        let params = DeleteUserRecordParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::DeleteUser(
-                    delete_user_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::DeleteUser(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -278,9 +270,9 @@ mod tests {
     }
 
     #[test]
-    fn create_client_api_stability() {
+    fn qs_request_create_client_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let create_client_record_params = CreateClientRecordParamsOut {
+        let params = CreateClientRecordParamsOut {
             sender: QsUserId::from(Uuid::from_u128(1)),
             client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
@@ -295,9 +287,7 @@ mod tests {
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::CreateClient(
-                    create_client_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::CreateClient(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -316,9 +306,9 @@ mod tests {
     }
 
     #[test]
-    fn update_client_api_stability() {
+    fn qs_request_update_client_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let update_client_record_params = UpdateClientRecordParams {
+        let params = UpdateClientRecordParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
             client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
@@ -330,9 +320,7 @@ mod tests {
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::UpdateClient(
-                    update_client_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::UpdateClient(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -351,16 +339,14 @@ mod tests {
     }
 
     #[test]
-    fn delete_client_api_stability() {
+    fn qs_request_delete_client_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let delete_client_record_params = DeleteClientRecordParams {
+        let params = DeleteClientRecordParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::DeleteClient(
-                    delete_client_record_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::DeleteClient(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -379,9 +365,9 @@ mod tests {
     }
 
     #[test]
-    fn publish_key_packages_api_stability() {
+    fn qs_request_publish_key_packages_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let publish_key_packages_params = PublishKeyPackagesParamsOut {
+        let params = PublishKeyPackagesParamsOut {
             sender: QsClientId::from(Uuid::from_u128(1)),
             key_packages: vec![], // Note: No easy way to create a key package for testing.
             friendship_ear_key: KeyPackageEarKey::new_for_test(
@@ -391,7 +377,7 @@ mod tests {
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
                 body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::PublishKeyPackages(
-                    publish_key_packages_params,
+                    params,
                 )),
             },
             signature: Signature::from_token(token.clone()),
@@ -411,16 +397,16 @@ mod tests {
     }
 
     #[test]
-    fn client_key_package_api_stability() {
+    fn qs_request_client_key_package_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let client_key_package_params = ClientKeyPackageParams {
+        let params = ClientKeyPackageParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
             client_id: QsClientId::from(Uuid::from_u128(2)),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
                 body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::ClientKeyPackage(
-                    client_key_package_params,
+                    params,
                 )),
             },
             signature: Signature::from_token(token.clone()),
@@ -440,19 +426,17 @@ mod tests {
     }
 
     #[test]
-    fn key_package_batch_api_stability() {
+    fn qs_request_key_package_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let key_package_batch_params = KeyPackageBatchParams {
-            sender: FriendshipToken::new_for_test(b"friendship_token".to_vec()),
+        let params = KeyPackageParams {
+            sender: token.clone(),
             friendship_ear_key: KeyPackageEarKey::new_for_test(
                 (*b"friendship_ear_key_32_bytes__pad").into(),
             ),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::KeyPackageBatch(
-                    key_package_batch_params,
-                )),
+                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::KeyPackage(params)),
             },
             signature: Signature::from_token(token.clone()),
         };
@@ -463,17 +447,17 @@ mod tests {
             .verify_with_token(token)
             .unwrap()
         {
-            QsVersionedRequestParams::Alpha(QsRequestParams::KeyPackageBatch(_)) => {}
-            _ => panic!("expected KeyPackageBatch variant"),
+            QsVersionedRequestParams::Alpha(QsRequestParams::KeyPackage(_)) => {}
+            _ => panic!("expected ClientKeyPackage variant"),
         }
 
         insta::assert_binary_snapshot!(".tls", message_out_tls);
     }
 
     #[test]
-    fn dequeue_messages_api_stability() {
+    fn qs_request_dequeue_messages_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let dequeue_messages_params = DequeueMessagesParams {
+        let params = DequeueMessagesParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
             sequence_number_start: 1,
             max_message_number: 42,
@@ -481,7 +465,7 @@ mod tests {
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
                 body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::DequeueMessages(
-                    dequeue_messages_params,
+                    params,
                 )),
             },
             signature: Signature::from_token(token.clone()),
@@ -501,29 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn qs_verifying_key_api_stability() {
-        let message_out = ClientToQsMessageOut {
-            payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::QsVerifyingKey),
-            },
-            signature: Signature::empty(),
-        };
-
-        let message_out_tls = message_out.tls_serialize_detached().unwrap();
-        match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(&message_out_tls)
-            .unwrap()
-            .extract_without_verification()
-            .unwrap()
-        {
-            QsVersionedRequestParams::Alpha(QsRequestParams::VerifyingKey) => {}
-            _ => panic!("expected VerifyingKey variant"),
-        }
-
-        insta::assert_binary_snapshot!(".tls", message_out_tls);
-    }
-
-    #[test]
-    fn qs_encryption_key_api_stability() {
+    fn qs_request_qs_encryption_key_api_stability() {
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
                 body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::QsEncryptionKey),
