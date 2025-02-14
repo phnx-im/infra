@@ -2,16 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashMap;
-
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedWelcome, SerializedMlsMessage},
     openmls::{
         group::StagedCommit,
         prelude::{
-            Extension, KeyPackage, KeyPackageRef, LeafNodeIndex, OpenMlsProvider,
-            ProcessedMessageContent, Sender,
+            Extension, KeyPackage, LeafNodeIndex, OpenMlsProvider, ProcessedMessageContent, Sender,
         },
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -22,11 +19,9 @@ use phnxtypes::{
     crypto::{
         ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
-        signatures::{keys::QsVerifyingKey, signable::Verifiable},
     },
     errors::GroupOperationError,
-    identifiers::{Fqdn, QsClientReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
-    keypackage_batch::{KeyPackageBatch, KEYPACKAGEBATCH_EXPIRATION, VERIFIED},
+    identifiers::{QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
     messages::{
         client_ds::{
             AddUsersInfo, DsJoinerInformation, GroupOperationParams, GroupOperationParamsAad,
@@ -39,12 +34,9 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 use tracing::warn;
 
-use crate::{
-    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
-    qs::QsConnector,
-};
+use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
 
-use super::{group_state::ClientProfile, process::USER_EXPIRATION_DAYS};
+use super::{group_state::MemberProfile, process::USER_EXPIRATION_DAYS};
 
 use super::group_state::DsGroupState;
 
@@ -66,11 +58,10 @@ impl SenderIndex {
 impl DsGroupState {
     // TODO: Structured logging
     // TODO: Make into a sans-io-style state machine
-    pub(crate) async fn group_operation<Q: QsConnector>(
+    pub(crate) async fn group_operation(
         &mut self,
         params: GroupOperationParams,
         group_state_ear_key: &GroupStateEarKey,
-        qs_provider: &Q,
     ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), GroupOperationError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
@@ -131,17 +122,6 @@ impl DsGroupState {
             }
         };
 
-        if !self
-            .user_profiles
-            .get(&params.sender)
-            .ok_or(GroupOperationError::LibraryError)?
-            .clients
-            .contains(&sender_index.leaf_index())
-        {
-            warn!("External commit is not a resync operation");
-            return Err(GroupOperationError::InvalidMessage);
-        };
-
         // Check if the operation adds a user.
         let adds_users = staged_commit.add_proposals().count() != 0;
 
@@ -159,25 +139,8 @@ impl DsGroupState {
                 return Err(GroupOperationError::InvalidMessage);
             };
 
-            let mut verifying_keys = HashMap::new();
-
-            // Fetch all verifying keys for the domains of the added users.
-            // TODO: There should be some DS-level caching of verifying keys.
-            // For now, we fetch them each time.
-            for domain in add_users_info
-                .key_package_batches
-                .iter()
-                .map(|kpb| kpb.homeserver_domain())
-            {
-                let verifying_key = qs_provider
-                    .verifying_key(domain.clone())
-                    .await
-                    .map_err(|_| GroupOperationError::FailedToObtainVerifyingKey)?;
-                verifying_keys.insert(domain.clone(), verifying_key);
-            }
-
             let add_users_state =
-                validate_added_users(staged_commit, &aad_payload, add_users_info, verifying_keys)?;
+                validate_added_users(staged_commit, &aad_payload, add_users_info)?;
             Some(add_users_state)
         };
 
@@ -193,7 +156,7 @@ impl DsGroupState {
                 // config of the original client. We need this later to create
                 // the new client profile.
                 let encrypted_identity_link_key = self
-                    .client_profiles
+                    .member_profiles
                     .get(&original_index)
                     .ok_or(GroupOperationError::InvalidMessage)?
                     .encrypted_identity_link_key
@@ -206,13 +169,11 @@ impl DsGroupState {
                     .iter()
                     .find_map(|e| match e {
                         Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
-                            let extension = QsClientReference::tls_deserialize_exact_bytes(
-                                &bytes.0,
-                            )
-                            .map_err(|e| {
-                                warn!(%e, "Error deserializing client reference");
-                                GroupOperationError::InvalidMessage
-                            });
+                            let extension = QsReference::tls_deserialize_exact_bytes(&bytes.0)
+                                .map_err(|e| {
+                                    warn!(%e, "Error deserializing client reference");
+                                    GroupOperationError::InvalidMessage
+                                });
                             Some(extension)
                         }
                         _ => None,
@@ -240,7 +201,7 @@ impl DsGroupState {
 
         // Process removes
 
-        self.remove_profiles(removed_clients, sender_index);
+        self.remove_profiles(removed_clients);
 
         // ... s.t. it's easier to update the user and client profiles.
 
@@ -266,14 +227,14 @@ impl DsGroupState {
         {
             // The original client profile was already removed. We just have to
             // add the new one.
-            let client_profile = ClientProfile {
+            let client_profile = MemberProfile {
                 leaf_index: sender_index.leaf_index(),
                 encrypted_identity_link_key,
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
             };
-            self.client_profiles
+            self.member_profiles
                 .insert(sender_index.leaf_index(), client_profile);
         }
 
@@ -287,47 +248,44 @@ impl DsGroupState {
     /// Updates client and user profiles based on the added users.
     fn update_membership_profiles(
         &mut self,
-        added_users: &[(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)],
+        added_users: &[(AddedUserInfo, EncryptedWelcomeAttributionInfo)],
     ) -> Result<(), GroupOperationError> {
-        for (key_packages, _) in added_users.iter() {
-            let mut client_profiles = vec![];
-            for (key_package, encrypted_identity_link_key) in key_packages {
-                let member = self
-                    .group()
-                    .members()
-                    .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
-                    .ok_or(GroupOperationError::InvalidMessage)?;
-                let leaf_index = member.index;
-                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
-                    key_package
-                        .leaf_node()
-                        .extensions()
-                        .iter()
-                        .find_map(|e| match e {
-                            Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
-                                Some(&bytes.0)
-                            }
-                            _ => None,
-                        })
-                        .ok_or(GroupOperationError::MissingQueueConfig)?
-                        .as_slice(),
-                )
-                .map_err(|_| GroupOperationError::MissingQueueConfig)?;
-                let client_profile = ClientProfile {
-                    leaf_index,
-                    encrypted_identity_link_key: encrypted_identity_link_key.clone(),
-                    client_queue_config: client_queue_config.clone(),
-                    activity_time: TimeStamp::now(),
-                    activity_epoch: self.group().epoch(),
-                };
-                client_profiles.push(client_profile);
-            }
-            let clients = client_profiles.iter().map(|cp| cp.leaf_index).collect();
-            self.unmerged_users.push(clients);
-            for client_profile in client_profiles.into_iter() {
-                self.client_profiles
-                    .insert(client_profile.leaf_index, client_profile);
-            }
+        let mut client_profiles = vec![];
+        for ((key_package, encrypted_identity_link_key), _) in added_users.iter() {
+            let member = self
+                .group()
+                .members()
+                .find(|m| m.signature_key == key_package.leaf_node().signature_key().as_slice())
+                .ok_or(GroupOperationError::InvalidMessage)?;
+            let leaf_index = member.index;
+            let client_queue_config = QsReference::tls_deserialize_exact_bytes(
+                key_package
+                    .leaf_node()
+                    .extensions()
+                    .iter()
+                    .find_map(|e| match e {
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                            Some(&bytes.0)
+                        }
+                        _ => None,
+                    })
+                    .ok_or(GroupOperationError::MissingQueueConfig)?
+                    .as_slice(),
+            )
+            .map_err(|_| GroupOperationError::MissingQueueConfig)?;
+            let client_profile = MemberProfile {
+                leaf_index,
+                encrypted_identity_link_key: encrypted_identity_link_key.clone(),
+                client_queue_config: client_queue_config.clone(),
+                activity_time: TimeStamp::now(),
+                activity_epoch: self.group().epoch(),
+            };
+            client_profiles.push(client_profile);
+        }
+
+        for client_profile in client_profiles.into_iter() {
+            self.member_profiles
+                .insert(client_profile.leaf_index, client_profile);
         }
 
         Ok(())
@@ -335,94 +293,69 @@ impl DsGroupState {
 
     fn generate_fan_out_messages(
         &self,
-        added_users: Vec<(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)>,
+        added_users: Vec<(AddedUserInfo, EncryptedWelcomeAttributionInfo)>,
         group_state_ear_key: &GroupStateEarKey,
         welcome: &AssistedWelcome,
     ) -> Result<Vec<DsFanOutMessage>, GroupOperationError> {
         let mut fan_out_messages = vec![];
-        for (key_packages, attribution_info) in added_users.into_iter() {
-            for (key_package, _) in key_packages {
-                let client_queue_config = QsClientReference::tls_deserialize_exact_bytes(
-                    key_package
-                        .leaf_node()
-                        .extensions()
-                        .iter()
-                        .find_map(|e| match e {
-                            Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
-                                Some(&bytes.0)
-                            }
-                            _ => None,
-                        })
-                        .ok_or(GroupOperationError::MissingQueueConfig)?
-                        .as_slice(),
-                )
-                .map_err(|_| GroupOperationError::MissingQueueConfig)?;
-                let info = &[];
-                let aad = &[];
-                let encryption_key: JoinerInfoEncryptionKey =
-                    key_package.hpke_init_key().clone().into();
-                let encrypted_joiner_info = DsJoinerInformation {
-                    group_state_ear_key: group_state_ear_key.clone(),
-                    encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
-                    ratchet_tree: self.group().export_ratchet_tree(),
-                }
-                .encrypt(&encryption_key, info, aad);
-                let welcome_bundle = WelcomeBundle {
-                    welcome: welcome.clone(),
-                    encrypted_attribution_info: attribution_info.clone(),
-                    encrypted_joiner_info,
-                };
-                let fan_out_message = DsFanOutMessage {
-                    payload: DsFanOutPayload::QueueMessage(
-                        welcome_bundle
-                            .try_into()
-                            .map_err(|_| GroupOperationError::LibraryError)?,
-                    ),
-                    client_reference: client_queue_config,
-                };
-                fan_out_messages.push(fan_out_message);
+        for ((key_package, _), attribution_info) in added_users.into_iter() {
+            let client_queue_config = QsReference::tls_deserialize_exact_bytes(
+                key_package
+                    .leaf_node()
+                    .extensions()
+                    .iter()
+                    .find_map(|e| match e {
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                            Some(&bytes.0)
+                        }
+                        _ => None,
+                    })
+                    .ok_or(GroupOperationError::MissingQueueConfig)?
+                    .as_slice(),
+            )
+            .map_err(|_| GroupOperationError::MissingQueueConfig)?;
+            let info = &[];
+            let aad = &[];
+            let encryption_key: JoinerInfoEncryptionKey =
+                key_package.hpke_init_key().clone().into();
+            let encrypted_joiner_info = DsJoinerInformation {
+                group_state_ear_key: group_state_ear_key.clone(),
+                encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
+                ratchet_tree: self.group().export_ratchet_tree(),
             }
+            .encrypt(&encryption_key, info, aad);
+            let welcome_bundle = WelcomeBundle {
+                welcome: welcome.clone(),
+                encrypted_attribution_info: attribution_info.clone(),
+                encrypted_joiner_info,
+            };
+            let fan_out_message = DsFanOutMessage {
+                payload: DsFanOutPayload::QueueMessage(
+                    welcome_bundle
+                        .try_into()
+                        .map_err(|_| GroupOperationError::LibraryError)?,
+                ),
+                client_reference: client_queue_config,
+            };
+            fan_out_messages.push(fan_out_message);
         }
 
         Ok(fan_out_messages)
     }
 
     /// Removes user and client profiles based on the list of removed clients.
-    // TODO: Simplified version as we don't support multi-client yet.
-    fn remove_profiles(&mut self, removed_clients: Vec<LeafNodeIndex>, sender_index: SenderIndex) {
+    fn remove_profiles(&mut self, removed_clients: Vec<LeafNodeIndex>) {
         for client_index in removed_clients {
-            let removed_client_profile_option = self.client_profiles.remove(&client_index);
+            let removed_client_profile_option = self.member_profiles.remove(&client_index);
             debug_assert!(removed_client_profile_option.is_some());
-
-            // Don't remove user profiles for external senders as they remain in
-            // the group.
-            if let SenderIndex::External(_) = sender_index {
-                continue;
-            }
-
-            let marked_users = self
-                .user_profiles
-                .iter()
-                .filter_map(|(user_key_hash, user_profile)| {
-                    if user_profile.clients.contains(&client_index) {
-                        Some(user_key_hash.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            for user_key_hash in marked_users.iter() {
-                let removed_user_profile_option = self.user_profiles.remove(user_key_hash);
-                debug_assert!(removed_user_profile_option.is_some());
-            }
         }
     }
 }
 
-type AddedClientInfo = (KeyPackage, EncryptedIdentityLinkKey);
+type AddedUserInfo = (KeyPackage, EncryptedIdentityLinkKey);
 
 struct AddUsersState {
-    added_users: Vec<(Vec<AddedClientInfo>, EncryptedWelcomeAttributionInfo)>,
+    added_users: Vec<(AddedUserInfo, EncryptedWelcomeAttributionInfo)>,
     welcome: AssistedWelcome,
 }
 
@@ -430,86 +363,44 @@ fn validate_added_users(
     staged_commit: &StagedCommit,
     aad_payload: &GroupOperationParamsAad,
     add_users_info: AddUsersInfo,
-    verifying_keys: HashMap<Fqdn, QsVerifyingKey>,
 ) -> Result<AddUsersState, GroupOperationError> {
     let number_of_added_users = staged_commit.add_proposals().count();
     // Check that the lengths of the various vectors match.
     if aad_payload.new_encrypted_identity_link_keys.len() != number_of_added_users
         || add_users_info.encrypted_welcome_attribution_infos.len() != number_of_added_users
-        || add_users_info.key_package_batches.len() != number_of_added_users
     {
         return Err(GroupOperationError::InvalidMessage);
     }
 
-    // Collect all added clients in a map s.t. we can later check if all
-    // added clients are present in the Welcome.
-    let mut added_clients: HashMap<KeyPackageRef, AddedClientInfo> = staged_commit
-        .add_proposals()
-        .zip(aad_payload.new_encrypted_identity_link_keys.iter())
-        .map(|(add_proposal, eilk)| {
-            let key_package_ref = add_proposal
-                .add_proposal()
-                .key_package()
-                .hash_ref(OpenMlsRustCrypto::default().crypto())
-                .map_err(|_| GroupOperationError::LibraryError)?;
-            let key_package = add_proposal.add_proposal().key_package().clone();
-            Ok((key_package_ref, (key_package, eilk.clone())))
-        })
-        .collect::<Result<_, GroupOperationError>>()?;
-
     // Check if for each added member, there is a corresponding entry
     // in the Welcome.
-    if added_clients.iter().any(|(add_proposal_ref, _)| {
-        !add_users_info
-            .welcome
-            .joiners()
-            .any(|joiner_ref| &joiner_ref == add_proposal_ref)
-    }) {
+    if staged_commit
+        .add_proposals()
+        .map(|ap| {
+            ap.add_proposal()
+                .key_package()
+                .hash_ref(OpenMlsRustCrypto::default().crypto())
+        })
+        .any(|add_proposal_ref| {
+            // Hashing shouldn't fail, so we ignore it here.
+            let Ok(hash_ref) = add_proposal_ref else {
+                return true;
+            };
+            !add_users_info
+                .welcome
+                .joiners()
+                .any(|joiner_ref| joiner_ref == hash_ref)
+        })
+    {
         return Err(GroupOperationError::IncompleteWelcome);
     }
 
-    // Verify all KeyPackageBatches.
-    let mut added_users = vec![];
-    for (key_package_batch, attribution_info) in add_users_info.key_package_batches.into_iter().zip(
-        add_users_info
-            .encrypted_welcome_attribution_infos
-            .into_iter(),
-    ) {
-        let fqdn = key_package_batch.homeserver_domain().clone();
-
-        let Some(verifying_key) = verifying_keys.get(&fqdn) else {
-            // All verifying keys should be present in the map.
-            return Err(GroupOperationError::LibraryError);
-        };
-
-        let key_package_batch: KeyPackageBatch<VERIFIED> =
-            key_package_batch.verify(verifying_key).map_err(|e| {
-                warn!(
-                    "Error verifying key package batch with pre-fetched key: {:?}",
-                    e
-                );
-                GroupOperationError::InvalidKeyPackageBatch
-            })?;
-
-        // Validate freshness of the batch.
-        if key_package_batch.has_expired(KEYPACKAGEBATCH_EXPIRATION) {
-            warn!("Key package batch has expired");
-            return Err(GroupOperationError::InvalidKeyPackageBatch);
-        }
-
-        let mut key_packages = vec![];
-        // Check if the KeyPackages in each batch are all present in the commit.
-        for key_package_ref in key_package_batch.key_package_refs() {
-            let Some(added_client) = added_clients.remove(key_package_ref) else {
-                warn!("Incomplete KeyPackageBatch");
-                return Err(GroupOperationError::InvalidKeyPackageBatch);
-            };
-            // Also, let's store the signature keys s.t. we can later find the
-            // KeyPackages belonging to one user in the tree.
-            key_packages.push(added_client);
-        }
-        added_users.push((key_packages, attribution_info));
-    }
+    let added_users = staged_commit
+        .add_proposals()
+        .map(|ap| ap.add_proposal().key_package().clone())
+        .zip(aad_payload.new_encrypted_identity_link_keys.clone())
+        .zip(add_users_info.encrypted_welcome_attribution_infos)
+        .collect();
 
     Ok(AddUsersState {
         added_users,
