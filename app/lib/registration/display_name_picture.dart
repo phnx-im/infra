@@ -25,28 +25,30 @@ class DisplayNameAvatarChoice extends StatelessWidget {
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              const _UserAvatarPicker(),
-              Column(
-                children: [
-                  const Text('Choose a picture and a display name'),
-                  const SizedBox(height: 20),
-                  Form(
-                    autovalidateMode: AutovalidateMode.always,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: const _DisplayNameTextField(),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                const _UserAvatarPicker(),
+                Column(
+                  children: [
+                    const Text('Choose a picture and a display name'),
+                    const SizedBox(height: 20),
+                    Form(
+                      autovalidateMode: AutovalidateMode.always,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints.tight(const Size(300, 80)),
+                        child: const _DisplayNameTextField(),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const _SignUpFooter()
-            ],
+                  ],
+                ),
+                const _SignUpFooter()
+              ],
+            ),
           ),
         ),
       ),
