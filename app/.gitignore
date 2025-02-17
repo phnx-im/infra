@@ -73,7 +73,6 @@ flutter_rust_bridge.yaml.generated
 *.app.dSYM.zip
 
 # Other platforms
-windows/
 web/
 
 lib/**/*.freezed.dart

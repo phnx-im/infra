@@ -1,0 +1,6 @@
+---
+source: types/src/messages/client_qs.rs
+expression: response_tls
+extension: tls
+snapshot_kind: binary
+---

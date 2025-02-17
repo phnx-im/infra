@@ -79,7 +79,7 @@ impl QsWsConnection {
             if Instant::now().duration_since(act.heartbeat) > CLIENT_TIMEOUT {
                 tracing::info!("Disconnecting websocket because heartbeat failed");
                 act.dispatch_addr.do_send(Disconnect {
-                    queue_id: act.queue_id.clone(),
+                    queue_id: act.queue_id,
                 });
                 ctx.stop();
                 return;
@@ -104,7 +104,7 @@ impl Actor for QsWsConnection {
         self.dispatch_addr
             .send(Connect {
                 addr: addr.recipient(),
-                own_queue_id: self.queue_id.clone(),
+                own_queue_id: self.queue_id,
             })
             .into_actor(self)
             .then(|res, _, ctx| {
@@ -124,7 +124,7 @@ impl Actor for QsWsConnection {
     /// This method is called when the actor is dropped.
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         self.dispatch_addr.do_send(Disconnect {
-            queue_id: self.queue_id.clone(),
+            queue_id: self.queue_id,
         });
         Running::Stop
     }
@@ -148,7 +148,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for QsWsConnection {
                 ws::Message::Close(close_reason) => {
                     tracing::trace!("Received a close: {:?}", close_reason);
                     self.dispatch_addr.do_send(Disconnect {
-                        queue_id: self.queue_id.clone(),
+                        queue_id: self.queue_id,
                     });
                     ctx.stop()
                 }
@@ -274,7 +274,7 @@ impl WebsocketNotifier for DispatchWebsocketNotifier {
         // Send the notification message to the dispatch actor
         self.dispatch_addr
             .send(NotifyMessage {
-                queue_id: queue_id.clone(),
+                queue_id: *queue_id,
                 payload: ws_notification.into(),
             })
             .await
