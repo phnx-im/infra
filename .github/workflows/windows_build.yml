@@ -16,7 +16,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux-build:
+  windows-build:
     runs-on: windows-latest
 
     steps:
