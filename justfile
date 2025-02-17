@@ -4,6 +4,8 @@
 
 export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
+set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
+
 # === Backend ===
 
 # run postgres via docker compose and apply migrations
