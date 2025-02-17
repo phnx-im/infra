@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Build Windows app
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
+      - name: Set up Flutter FVM
+        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
+        with:
+          path: 'app/.fvmrc'
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Windows app
+        run: just build-windows-ci

@@ -105,3 +105,12 @@ test-flutter *args='':
 # run backend server (at localhost)
 run-backend: init-db
     cargo run --bin phnxserver
+
+# Build Windows app
+[working-directory: 'app']
+build-windows:
+     flutter build windows
+
+# Build Windows app (with all prerequisite steps for running in CI)
+[working-directory: 'app']
+build-windows-ci: setup-ci frb-integrate build-windows
