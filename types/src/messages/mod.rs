@@ -56,6 +56,11 @@ impl FriendshipToken {
         Ok(Self(token))
     }
 
+    #[cfg(test)]
+    pub(crate) fn new_for_test(token: Vec<u8>) -> Self {
+        Self(token)
+    }
+
     pub fn token(&self) -> &[u8] {
         self.0.as_ref()
     }
@@ -80,7 +85,7 @@ impl Default for MlsInfraVersion {
 // === Queue ===
 
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct QueueMessage {
     pub sequence_number: u64,

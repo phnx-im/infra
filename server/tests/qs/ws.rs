@@ -71,7 +71,7 @@ async fn ws_sending() {
 
     let cancel = CancellationToken::new();
     let mut ws = client
-        .spawn_websocket(client_id.clone(), timeout, retry_interval, cancel)
+        .spawn_websocket(client_id, timeout, retry_interval, cancel)
         .await
         .expect("Failed to execute request");
 

@@ -64,7 +64,7 @@ pub(crate) struct MemoryUserKeyStore {
 impl MemoryUserKeyStore {
     pub(crate) fn create_own_client_reference(&self, qs_client_id: &QsClientId) -> QsReference {
         let sealed_reference = ClientConfig {
-            client_id: qs_client_id.clone(),
+            client_id: *qs_client_id,
             push_token_ear_key: Some(self.push_token_ear_key.clone()),
         }
         .encrypt(&self.qs_client_id_encryption_key, &[], &[]);

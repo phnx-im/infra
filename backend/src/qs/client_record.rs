@@ -74,7 +74,7 @@ impl QsClientRecord {
 
         let record = Self {
             user_id,
-            client_id: client_id.clone(),
+            client_id,
             encrypted_push_token,
             queue_encryption_key,
             auth_key,
