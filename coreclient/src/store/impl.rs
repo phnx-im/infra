@@ -167,4 +167,16 @@ impl Store for CoreUser {
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {
         self.subscribe_to_store_notifications()
     }
+
+    fn subscribe_iter(&self) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static {
+        self.subscribe_iter_to_store_notifications()
+    }
+
+    async fn enqueue_notification(&self, notification: &StoreNotification) -> StoreResult<()> {
+        self.enqueue_store_notification(notification).await
+    }
+
+    async fn dequeue_notification(&self) -> StoreResult<StoreNotification> {
+        self.dequeue_store_notification().await
+    }
 }

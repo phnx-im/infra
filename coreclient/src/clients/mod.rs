@@ -274,19 +274,47 @@ impl CoreUser {
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
-        if !notification.ops.is_empty() {
+        if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);
         }
     }
 
+    /// Subscribes to store notifications.
+    ///
+    /// All notifications sent after this function was called are observed as items of the returned
+    /// stream.
     pub(crate) fn subscribe_to_store_notifications(
         &self,
     ) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {
         self.inner.store_notifications_tx.subscribe()
     }
 
+    /// Subcribes to pending store notifications.
+    ///
+    /// Unlike `subscribe_to_store_notifications`, this function does not remove stored
+    /// notifications from the persisted queue.
+    pub(crate) fn subscribe_iter_to_store_notifications(
+        &self,
+    ) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static {
+        self.inner.store_notifications_tx.subscribe_iter()
+    }
+
     pub(crate) fn store_notifier(&self) -> StoreNotifier {
         StoreNotifier::new(self.inner.store_notifications_tx.clone())
+    }
+
+    pub(crate) async fn enqueue_store_notification(
+        &self,
+        notification: &StoreNotification,
+    ) -> Result<()> {
+        notification.enqueue(&mut *self.inner.connection.lock().await)?;
+        Ok(())
+    }
+
+    pub(crate) async fn dequeue_store_notification(&self) -> Result<StoreNotification> {
+        Ok(dbg!(StoreNotification::dequeue(
+            &mut *self.inner.connection.lock().await,
+        ))?)
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {

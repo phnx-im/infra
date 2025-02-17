@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxcoreclient::store::Store;
 use std::panic::{self, AssertUnwindSafe};
 use tokio::runtime::Builder;
 use tracing::{error, info};
@@ -65,6 +66,9 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
         }
     };
 
+    // capture store notification in below store calls
+    let pending_store_notifications = user.user.subscribe_iter();
+
     let notifications = match user.fetch_all_messages().await {
         Ok(fetched_messages) => {
             info!("All messages fetched");
@@ -88,6 +92,12 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
     };
 
     let badge_count = user.global_unread_messages_count().await;
+
+    for store_notification in pending_store_notifications {
+        if let Err(error) = Store::enqueue_notification(&user.user, &store_notification).await {
+            error!(%error, "Failed to enqueue store notification");
+        }
+    }
 
     NotificationBatch {
         badge_count,

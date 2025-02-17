@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxcoreclient::{clients::CoreUser, ConversationId};
+use phnxcoreclient::{clients::CoreUser, store::Store, ConversationId};
 use phnxcoreclient::{Asset, UserProfile};
 use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
@@ -318,7 +318,15 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
 
 async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
     match event {
-        WsEvent::ConnectedEvent => info!("connected to websocket"),
+        WsEvent::ConnectedEvent => {
+            info!("connected to websocket");
+            // After (re)connecting, dequeue any pending store notifications that might have been
+            // enqueued by the push notifications background processing task.
+            match dbg!(core_user.dequeue_notification().await) {
+                Ok(notification) => core_user.notify(notification),
+                Err(error) => error!(%error, "Failed to dequeue store notification"),
+            }
+        }
         WsEvent::DisconnectedEvent => info!("disconnected from websocket"),
         WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
             warn!("ignoring websocket event: {event:?}")
