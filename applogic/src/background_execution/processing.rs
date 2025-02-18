@@ -12,14 +12,14 @@ use crate::api::user::User;
 use super::{NotificationBatch, NotificationContent};
 
 /// TODO: Debug code to be removed
-pub(crate) fn error_batch(e: String) -> NotificationBatch {
+pub(crate) fn error_batch(title: String, body: String) -> NotificationBatch {
     NotificationBatch {
         badge_count: 0,
         removals: Vec::new(),
         additions: vec![NotificationContent {
             identifier: "".to_string(),
-            title: "Error".to_string(),
-            body: e,
+            title,
+            body,
             data: "".to_string(),
         }],
     }
@@ -33,21 +33,29 @@ pub(crate) fn retrieve_messages_sync(path: String) -> NotificationBatch {
         .build()
         .map_err(|error| {
             error!(%error, "Failed to initialize tokio runtime");
-            error.to_string()
+            ("Runtime error".to_string(), error.to_string())
         })
         .and_then(|runtime| {
             panic::catch_unwind(AssertUnwindSafe(|| {
                 runtime.block_on(async { retrieve_messages(path).await })
             }))
-            .map_err(|_| {
-                error!("Failed to execute async function");
-                "Failed to execute async function".to_string()
+            .map_err(|payload| {
+                if let Some(s) = payload.downcast_ref::<&str>() {
+                    error!("Panic in tokio runtime: {}", s);
+                    ("Panic in tokio runtime".to_string(), s.to_string())
+                } else if let Some(s) = payload.downcast_ref::<String>() {
+                    error!("Panic in tokio runtime: {}", s);
+                    ("Panic in tokio runtime".to_string(), s.clone())
+                } else {
+                    error!("Panic in tokio runtime occurred with unknown payload type");
+                    ("Panic in tokio runtime".to_string(), "Unknown".to_string())
+                }
             })
         });
 
     match result {
         Ok(batch) => batch,
-        Err(e) => error_batch(e),
+        Err((title, body)) => error_batch(title, body),
     }
 }
 
@@ -58,11 +66,14 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
         Ok(Some(user)) => user,
         Ok(None) => {
             error!("User not found");
-            return error_batch("User not found".to_string());
+            return error_batch(
+                "User not found".to_string(),
+                "The database contained no user data".to_string(),
+            );
         }
         Err(error) => {
             error!(%error, "Failed to load user");
-            return error_batch(error.to_string());
+            return error_batch("Failed to load user".to_string(), error.to_string());
         }
     };
 
