@@ -59,7 +59,14 @@ impl Conversation {
         );
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO conversations (conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO conversations (conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.id,
                 self.attributes().title(),
@@ -78,7 +85,18 @@ impl Conversation {
         connection: &Connection,
         conversation_id: &ConversationId,
     ) -> Result<Option<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations WHERE conversation_id = ?")?;
+        let mut stmt = connection.prepare(
+            "SELECT
+                conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type
+            FROM conversations
+            WHERE conversation_id = ?",
+        )?;
         stmt.query_row(params![conversation_id], Self::from_row)
             .optional()
     }
@@ -88,41 +106,62 @@ impl Conversation {
         group_id: &GroupId,
     ) -> Result<Option<Conversation>, rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(group_id);
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations WHERE group_id = ?")?;
+        let mut stmt = connection.prepare(
+            "SELECT
+                conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type
+            FROM conversations
+            WHERE group_id = ?",
+        )?;
         stmt.query_row(params![group_id], Self::from_row).optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT conversation_id, conversation_title, conversation_picture, group_id, last_read, conversation_status, conversation_type FROM conversations")?;
+        let mut stmt = connection.prepare(
+            "SELECT
+                conversation_id,
+                conversation_title,
+                conversation_picture,
+                group_id,
+                last_read,
+                conversation_status,
+                conversation_type
+            FROM conversations",
+        )?;
         let rows = stmt.query_map([], Self::from_row)?;
         rows.collect()
     }
 
-    pub(super) fn update_conversation_picture(
-        &self,
+    pub(super) fn update_picture(
         connection: &Connection,
         notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
         conversation_picture: Option<&[u8]>,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
-            params![conversation_picture, self.id],
+            params![conversation_picture, conversation_id],
         )?;
-        notifier.update(self.id);
+        notifier.update(conversation_id);
         Ok(())
     }
 
     pub(super) fn update_status(
-        &self,
         connection: &Connection,
         notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
         status: &ConversationStatus,
     ) -> rusqlite::Result<()> {
         connection.execute(
             "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
-            params![status, self.id],
+            params![status, conversation_id],
         )?;
-        notifier.update(self.id);
+        notifier.update(conversation_id);
         Ok(())
     }
 
@@ -280,6 +319,162 @@ impl Conversation {
             params![conversation_type, self.id],
         )?;
         notifier.update(self.id);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+
+    use crate::InactiveConversation;
+
+    use super::*;
+
+    fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(Conversation::CREATE_TABLE_STATEMENT)
+            .unwrap();
+        connection
+    }
+
+    fn test_conversation() -> Conversation {
+        let id = ConversationId {
+            uuid: Uuid::new_v4(),
+        };
+        Conversation {
+            id,
+            group_id: GroupId::from_slice(&[0; 32]),
+            last_read: Utc::now(),
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::Group,
+            attributes: ConversationAttributes {
+                title: "Test conversation".to_string(),
+                picture: None,
+            },
+        }
+    }
+
+    #[test]
+    fn store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+        let loaded =
+            Conversation::load(&connection, &conversation.id)?.expect("missing conversation");
+        assert_eq!(loaded, conversation);
+
+        Ok(())
+    }
+
+    #[test]
+    fn store_load_by_group_id() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+        let loaded = Conversation::load_by_group_id(&connection, &conversation.group_id)?
+            .expect("missing conversation");
+        assert_eq!(loaded, conversation);
+
+        Ok(())
+    }
+
+    #[test]
+    fn store_load_all() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation_a = test_conversation();
+        conversation_a
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+
+        let conversation_b = test_conversation();
+        conversation_b
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+
+        let loaded = Conversation::load_all(&connection)?;
+        assert_eq!(loaded, [conversation_a, conversation_b]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_conversation_picture() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let mut conversation = test_conversation();
+        conversation
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+
+        let new_picture = [1, 2, 3];
+        Conversation::update_picture(
+            &connection,
+            &mut store_notifier,
+            conversation.id,
+            Some(&new_picture),
+        )?;
+
+        conversation.attributes.picture = Some(new_picture.to_vec());
+
+        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        assert_eq!(loaded, conversation);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_conversation_status() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let mut conversation = test_conversation();
+        conversation
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+
+        let past_members = vec![
+            "alice@localhost".parse().unwrap(),
+            "bob@localhost".parse().unwrap(),
+        ];
+        let status = ConversationStatus::Inactive(InactiveConversation::new(past_members));
+        Conversation::update_status(&connection, &mut store_notifier, conversation.id, &status)?;
+
+        conversation.status = status;
+        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        assert_eq!(loaded, conversation);
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation
+            .store(&connection, &mut store_notifier)
+            .unwrap();
+        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        assert_eq!(loaded, conversation);
+
+        Conversation::delete(&connection, &mut store_notifier, conversation.id)?;
+        let loaded = Conversation::load(&connection, &conversation.id)?;
+        assert!(loaded.is_none());
+
         Ok(())
     }
 }
