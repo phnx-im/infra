@@ -240,7 +240,9 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
 
 pub type IdentityLinkKeySecret = Secret<AEAD_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct IdentityLinkKey {
     key: IdentityLinkKeySecret,
 }
