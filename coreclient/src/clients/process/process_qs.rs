@@ -331,15 +331,13 @@ impl CoreUser {
                 &mut notifier,
                 conversation_picture_option,
             )?;
-            let mut transaction = connection.transaction()?;
             // Now we can turn the partial contact into a full one.
             partial_contact.mark_as_complete(
-                &mut transaction,
+                &mut connection,
                 &mut notifier,
                 friendship_package,
                 sender_client_id.clone(),
             )?;
-            transaction.commit()?;
 
             conversation.confirm(&connection, &mut notifier)?;
             conversation_changed = true;
