@@ -15,7 +15,7 @@ use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 use super::{GroupMembership, StorableClientCredential};
 
 impl Storable for StorableClientCredential {
-    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS client_credentials (
+    const CREATE_TABLE_STATEMENT: &str = "CREATE TABLE IF NOT EXISTS client_credentials (
                 fingerprint BLOB PRIMARY KEY,
                 client_id TEXT NOT NULL,
                 client_credential BLOB NOT NULL
@@ -369,3 +369,98 @@ pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str =
                 SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
             );
         END;";
+
+#[cfg(test)]
+mod tests {
+    use openmls::prelude::SignatureScheme;
+    use phnxtypes::{
+        credentials::{ClientCredential, ClientCredentialCsr, ClientCredentialPayload},
+        crypto::signatures::signable::{Signature, SignedStruct},
+    };
+    use tls_codec::Serialize;
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(StorableClientCredential::CREATE_TABLE_STATEMENT)
+            .unwrap();
+        connection
+    }
+
+    /// Returns test credential with a fixed identity but random payload.
+    fn test_client_credential() -> StorableClientCredential {
+        let client_id = AsClientId::new("alice@localhost".parse().unwrap(), Uuid::nil());
+        let (client_credential_csr, _) =
+            ClientCredentialCsr::new(client_id, SignatureScheme::ED25519).unwrap();
+        let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());
+        let client_credential = ClientCredential::from_payload(
+            ClientCredentialPayload::new(client_credential_csr, None, fingerprint),
+            Signature::new_for_test(b"signature".to_vec()),
+        );
+        StorableClientCredential { client_credential }
+    }
+
+    #[test]
+    fn store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let credential = test_client_credential();
+
+        credential.store(&connection).unwrap();
+        let loaded =
+            StorableClientCredential::load_by_client_id(&connection, &credential.identity())?
+                .expect("missing credential");
+        assert_eq!(
+            loaded.client_credential.tls_serialize_detached(),
+            credential.client_credential.tls_serialize_detached()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn store_load_by_id() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let credential = test_client_credential();
+
+        credential.store(&connection).unwrap();
+        let loaded =
+            StorableClientCredential::load_by_client_id(&connection, &credential.identity())?
+                .expect("missing credential");
+        assert_eq!(
+            loaded.client_credential.tls_serialize_detached(),
+            credential.client_credential.tls_serialize_detached()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn store_idempotent() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let credential_1 = test_client_credential();
+        let credential_2 = test_client_credential();
+
+        // precondition
+        assert_eq!(credential_1.identity(), credential_2.identity());
+        assert_ne!(
+            credential_1.tls_serialize_detached(),
+            credential_2.tls_serialize_detached()
+        );
+
+        credential_1.store(&connection).unwrap();
+        credential_2.store(&connection).unwrap();
+
+        let loaded =
+            StorableClientCredential::load_by_client_id(&connection, &credential_1.identity())?
+                .expect("missing credential");
+        assert_eq!(
+            loaded.client_credential.tls_serialize_detached(),
+            credential_1.client_credential.tls_serialize_detached()
+        );
+
+        Ok(())
+    }
+}
