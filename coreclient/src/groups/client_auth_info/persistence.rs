@@ -135,10 +135,27 @@ impl GroupMembership {
     ) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(group_id);
         // Delete all 'staged_removal' rows.
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("5 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         connection.execute(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_removal'",
             params![group_id],
         )?;
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("6 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Move modified information from 'staged_update' rows to their
         // 'merged' counterparts (i.e. rows with the same group_id and
@@ -148,21 +165,37 @@ impl GroupMembership {
         UPDATE group_membership AS merged
         SET client_credential_fingerprint = staged.client_credential_fingerprint,
             leaf_index = staged.leaf_index,
-            identity_link_key = staged.identity_link_key,
-            status = 'merged'
+            identity_link_key = staged.identity_link_key
         FROM group_membership AS staged
         WHERE merged.group_id = staged.group_id
           AND merged.client_uuid = staged.client_uuid
           AND merged.user_name = staged.user_name
+          AND merged.status = 'merged'
           AND staged.status = 'staged_update'",
             [],
         )?;
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("7 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Delete all (previously merged) 'staged_update' rows.
         connection.execute(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_update'",
             params![group_id],
         )?;
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("8 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Mark all 'staged_add' rows as 'merged'.
         connection.execute(
@@ -501,17 +534,42 @@ mod tests {
     fn group_membership_merge_for_group() -> anyhow::Result<()> {
         let connection = test_connection();
 
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("1 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         let credential_add = test_client_credential(Uuid::new_v4());
         credential_add.store(&connection)?;
         let index_add = LeafNodeIndex::new(0);
         let membership_add = test_group_membership(&credential_add, index_add);
         membership_add.stage_add(&connection)?;
 
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("2 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         let credential_update = test_client_credential(Uuid::new_v4());
         credential_update.store(&connection)?;
         let index_update = LeafNodeIndex::new(1);
         let membership_update = test_group_membership(&credential_update, index_update);
+        membership_update.store(&connection)?;
         membership_update.stage_update(&connection)?;
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("3 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         let credential_remove = test_client_credential(Uuid::new_v4());
         credential_remove.store(&connection)?;
@@ -525,6 +583,14 @@ mod tests {
         let index = LeafNodeIndex::new(3);
         let membership = test_group_membership(&credential, index);
         membership.store(&connection)?;
+
+        connection
+            .prepare("SELECT * FROM  group_membership")?
+            .query_map([], |row| {
+                println!("4 {row:?}");
+                Ok(())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         GroupMembership::merge_for_group(&connection, &membership.group_id)?;
 
