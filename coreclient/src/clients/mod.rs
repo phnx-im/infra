@@ -376,7 +376,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
@@ -475,7 +475,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
@@ -684,11 +684,9 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let connection = self.inner.connection.lock().await;
-        let mut conversation =
-            Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-                "Can't find conversation with id {}",
-                conversation_id.as_uuid()
-            ))?;
+        let mut conversation = Conversation::load(&connection, &conversation_id)?.ok_or(
+            anyhow!("Can't find conversation with id {}", conversation_id.uuid()),
+        )?;
         let group_id = conversation.group_id();
         // Generate ciphertext
         let mut group = Group::load(&connection, group_id)?
@@ -799,7 +797,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
@@ -840,7 +838,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?

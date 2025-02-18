@@ -267,11 +267,9 @@ impl CoreUser {
 
         // StagedCommitMessage Phase 1: Load the conversation.
         let connection = self.inner.connection.lock().await;
-        let mut conversation =
-            Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-                "Can't find conversation with id {}",
-                conversation_id.as_uuid()
-            ))?;
+        let mut conversation = Conversation::load(&connection, &conversation_id)?.ok_or(
+            anyhow!("Can't find conversation with id {}", conversation_id.uuid()),
+        )?;
         drop(connection);
         let mut conversation_changed = false;
 

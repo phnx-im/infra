@@ -50,7 +50,17 @@ impl FromSql for ConversationId {
 }
 
 impl ConversationId {
-    pub fn as_uuid(&self) -> Uuid {
+    pub fn random() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+        }
+    }
+
+    pub fn new(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    pub fn uuid(&self) -> Uuid {
         self.uuid
     }
 }

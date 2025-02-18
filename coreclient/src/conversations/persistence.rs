@@ -226,11 +226,16 @@ impl Conversation {
         conversation_id: ConversationId,
         until_message_id: ConversationMessageId,
     ) -> rusqlite::Result<bool> {
-        let timestamp: DateTime<Utc> = connection.query_row(
-            "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
-            params![until_message_id],
-            |row| row.get(0),
-        )?;
+        let timestamp: Option<DateTime<Utc>> = connection
+            .query_row(
+                "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
+                params![until_message_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(timestamp) = timestamp else {
+            return Ok(false);
+        };
         let updated = connection.execute(
             "UPDATE conversations SET last_read = :timestamp
             WHERE conversation_id = :conversation_id AND last_read != :timestamp",
@@ -324,22 +329,18 @@ impl Conversation {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
+    use chrono::Duration;
     use uuid::Uuid;
 
-    use crate::InactiveConversation;
+    use crate::{
+        conversations::messages::persistence::tests::{test_connection, test_conversation_message},
+        InactiveConversation,
+    };
 
     use super::*;
 
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(Conversation::CREATE_TABLE_STATEMENT)
-            .unwrap();
-        connection
-    }
-
-    fn test_conversation() -> Conversation {
+    pub(crate) fn test_conversation() -> Conversation {
         let id = ConversationId {
             uuid: Uuid::new_v4(),
         };
@@ -474,6 +475,81 @@ mod tests {
         Conversation::delete(&connection, &mut store_notifier, conversation.id)?;
         let loaded = Conversation::load(&connection, &conversation.id)?;
         assert!(loaded.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn counters() -> anyhow::Result<()> {
+        let mut connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation_a = test_conversation();
+        conversation_a.store(&connection, &mut store_notifier)?;
+
+        let conversation_b = test_conversation();
+        conversation_b.store(&connection, &mut store_notifier)?;
+
+        let message_a = test_conversation_message(conversation_a.id());
+        let message_b = test_conversation_message(conversation_b.id());
+
+        message_a.store(&connection, &mut store_notifier)?;
+        message_b.store(&connection, &mut store_notifier)?;
+
+        let n = Conversation::messages_count(&connection, conversation_a.id())?;
+        assert_eq!(n, 1);
+
+        let n = Conversation::messages_count(&connection, conversation_b.id())?;
+        assert_eq!(n, 1);
+
+        let n = Conversation::global_unread_message_count(&connection)?;
+        assert_eq!(n, 2);
+
+        let transaction = connection.transaction()?;
+        dbg!(1);
+        Conversation::mark_as_read(
+            &transaction,
+            &mut store_notifier,
+            [(
+                conversation_a.id(),
+                message_a.timestamp() - Duration::seconds(1),
+            )],
+        )?;
+        transaction.commit()?;
+        let n = Conversation::unread_messages_count(&connection, conversation_a.id())?;
+        assert_eq!(n, 1);
+        dbg!(2);
+
+        let transaction = connection.transaction()?;
+        Conversation::mark_as_read(
+            &transaction,
+            &mut store_notifier,
+            [(conversation_a.id(), Utc::now())],
+        )?;
+        transaction.commit()?;
+        let n = Conversation::unread_messages_count(&connection, conversation_a.id())?;
+        assert_eq!(n, 0);
+
+        Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut store_notifier,
+            conversation_b.id(),
+            ConversationMessageId::random(),
+        )?;
+        let n = Conversation::unread_messages_count(&connection, conversation_b.id())?;
+        assert_eq!(n, 1);
+
+        Conversation::mark_as_read_until_message_id(
+            &connection,
+            &mut store_notifier,
+            conversation_b.id(),
+            message_b.id(),
+        )?;
+        let n = Conversation::unread_messages_count(&connection, conversation_b.id())?;
+        assert_eq!(n, 0);
+
+        let n = Conversation::global_unread_message_count(&connection)?;
+        assert_eq!(n, 0);
 
         Ok(())
     }
