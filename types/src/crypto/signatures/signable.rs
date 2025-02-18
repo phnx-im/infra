@@ -71,6 +71,11 @@ impl Signature {
     pub fn into_bytes(self) -> Vec<u8> {
         self.0
     }
+
+    #[cfg(any(feature = "test_utils", test))]
+    pub fn new_for_test(value: Vec<u8>) -> Self {
+        Self::from_bytes(value)
+    }
 }
 
 #[derive(

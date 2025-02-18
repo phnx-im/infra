@@ -181,64 +181,56 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn client_records_persistence() {
+    fn test_connection() -> rusqlite::Connection {
         let connection = rusqlite::Connection::open_in_memory().unwrap();
         connection
-            .execute(ClientRecord::CREATE_TABLE_STATEMENT, [])
+            .execute_batch(ClientRecord::CREATE_TABLE_STATEMENT)
             .unwrap();
+        connection
+    }
 
-        let alice_id = Uuid::new_v4();
-        let alice_client_id = AsClientId::new("alice@localhost".parse().unwrap(), alice_id);
-        let mut alice_client_record = ClientRecord {
-            as_client_id: alice_client_id.clone(),
+    fn test_client_record() -> ClientRecord {
+        let id = Uuid::new_v4();
+        let client_id = AsClientId::new("{id}@localhost".parse().unwrap(), id);
+        ClientRecord {
+            as_client_id: client_id.clone(),
             client_record_state: ClientRecordState::Finished,
             created_at: Utc::now(),
             is_default: false,
-        };
+        }
+    }
 
-        let bob_id = Uuid::new_v4();
-        let bob_client_id = AsClientId::new("bob@localhost".parse().unwrap(), bob_id);
-        let mut bob_client_record = ClientRecord {
-            as_client_id: bob_client_id.clone(),
-            client_record_state: ClientRecordState::Finished,
-            created_at: Utc::now(),
-            is_default: false,
-        };
+    #[test]
+    fn persistence() {
+        let connection = test_connection();
+
+        let mut alice_record = test_client_record();
+        let mut bob_record = test_client_record();
 
         ClientRecord::create_table(&connection).unwrap();
 
         // Storing and loading client records works
-        alice_client_record.store(&connection).unwrap();
-        bob_client_record.store(&connection).unwrap();
+        alice_record.store(&connection).unwrap();
+        bob_record.store(&connection).unwrap();
         let records = ClientRecord::load_all(&connection).unwrap();
-        assert_eq!(
-            records,
-            [alice_client_record.clone(), bob_client_record.clone()]
-        );
+        assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to alice set alice is_default
-        alice_client_record.is_default = true;
-        ClientRecord::set_default(&connection, &alice_client_id).unwrap();
+        alice_record.is_default = true;
+        ClientRecord::set_default(&connection, &alice_record.as_client_id).unwrap();
         let records = ClientRecord::load_all(&connection).unwrap();
-        assert_eq!(
-            records,
-            [alice_client_record.clone(), bob_client_record.clone()]
-        );
+        assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to bob clears alice is_default
-        alice_client_record.is_default = false;
-        bob_client_record.is_default = true;
-        ClientRecord::set_default(&connection, &bob_client_id).unwrap();
+        alice_record.is_default = false;
+        bob_record.is_default = true;
+        ClientRecord::set_default(&connection, &bob_record.as_client_id).unwrap();
         let records = ClientRecord::load_all(&connection).unwrap();
-        assert_eq!(
-            records,
-            [alice_client_record.clone(), bob_client_record.clone()]
-        );
+        assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Delete client records
-        ClientRecord::delete(&connection, &alice_client_id).unwrap();
-        ClientRecord::delete(&connection, &bob_client_id).unwrap();
+        ClientRecord::delete(&connection, &alice_record.as_client_id).unwrap();
+        ClientRecord::delete(&connection, &bob_record.as_client_id).unwrap();
         let records = ClientRecord::load_all(&connection).unwrap();
         assert_eq!(records, []);
     }

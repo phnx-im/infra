@@ -71,7 +71,7 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
         let mut conversation =
             Conversation::load(connection, &conversation_id)?.ok_or_else(|| {
-                let id = conversation_id.as_uuid();
+                let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
         let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
@@ -85,7 +85,7 @@ impl CoreUser {
         message_id: ConversationMessageId,
     ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
         let connection = &self.inner.connection.lock().await;
-        ConversationMessage::load(connection, &message_id.to_uuid())
+        ConversationMessage::load(connection, message_id)
     }
 
     pub(crate) async fn prev_message(

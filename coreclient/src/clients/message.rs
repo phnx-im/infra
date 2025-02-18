@@ -10,7 +10,9 @@ use phnxtypes::{
 use rusqlite::{Connection, Transaction};
 use uuid::Uuid;
 
-use crate::{Conversation, ConversationId, ConversationMessage, Message, MimiContent};
+use crate::{
+    Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message, MimiContent,
+};
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
 
@@ -125,8 +127,9 @@ impl LocalMessage {
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdated>> {
         let Self { local_message_id } = self;
 
-        let conversation_message = ConversationMessage::load(connection, &local_message_id)?
-            .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
+        let conversation_message =
+            ConversationMessage::load(connection, ConversationMessageId::new(local_message_id))?
+                .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
         let content = match conversation_message.message() {
             Message::Content(content_message) if !content_message.was_sent() => {
                 content_message.content().clone()

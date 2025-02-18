@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::{AsClientId, QualifiedUserName};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::{
     clients::connection_establishment::FriendshipPackage, store::StoreNotifier,
@@ -107,7 +107,15 @@ impl Contact {
             .collect::<Vec<_>>()
             .join(",");
         connection.execute(
-            "INSERT INTO contacts (user_name, conversation_id, clients, wai_ear_key, friendship_token, key_package_ear_key, connection_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO contacts (
+                user_name,
+                conversation_id,
+                clients,
+                wai_ear_key,
+                friendship_token,
+                key_package_ear_key,
+                connection_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![
                 self.user_name,
                 self.conversation_id,
@@ -178,14 +186,17 @@ impl PartialContact {
         connection: &Connection,
         user_name: &QualifiedUserName,
     ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?;
-        stmt.query_row([user_name], Self::from_row).optional()
+        connection
+            .prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?
+            .query_row([user_name], Self::from_row)
+            .optional()
     }
 
     pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT * FROM partial_contacts")?;
-        let rows = stmt.query_map([], Self::from_row)?;
-        rows.collect()
+        connection
+            .prepare("SELECT * FROM partial_contacts")?
+            .query_map([], Self::from_row)?
+            .collect()
     }
 
     pub(crate) fn store(
@@ -194,7 +205,11 @@ impl PartialContact {
         notifier: &mut StoreNotifier,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
-            "INSERT INTO partial_contacts (user_name, conversation_id, friendship_package_ear_key) VALUES (?, ?, ?)",
+            "INSERT INTO partial_contacts (
+                user_name,
+                conversation_id,
+                friendship_package_ear_key
+            ) VALUES (?, ?, ?)",
             params![
                 self.user_name,
                 self.conversation_id,
@@ -208,15 +223,15 @@ impl PartialContact {
     }
 
     fn delete(
-        self,
         connection: &Connection,
         notifier: &mut StoreNotifier,
+        user_name: &QualifiedUserName,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "DELETE FROM partial_contacts WHERE user_name = ?",
-            params![self.user_name],
+            params![user_name],
         )?;
-        notifier.remove(self.user_name.clone());
+        notifier.remove(user_name.clone());
         Ok(())
     }
 
@@ -224,18 +239,17 @@ impl PartialContact {
     /// persists the resulting contact.
     pub(crate) fn mark_as_complete(
         self,
-        transaction: &mut Transaction,
+        connection: &mut Connection,
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
-    ) -> Result<(), rusqlite::Error> {
-        let savepoint = transaction.savepoint()?;
+    ) -> Result<Contact, rusqlite::Error> {
+        let transaction = connection.transaction()?;
 
         let conversation_id = self.conversation_id;
-        let user_name = self.user_name.clone();
-        self.delete(&savepoint, notifier)?;
+        Self::delete(&transaction, notifier, &self.user_name)?;
         let contact = Contact {
-            user_name,
+            user_name: self.user_name,
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
@@ -243,9 +257,158 @@ impl PartialContact {
             connection_key: friendship_package.connection_key,
             conversation_id,
         };
-        contact.store(&savepoint, notifier)?;
+        contact.store(&transaction, notifier)?;
 
-        savepoint.commit()?;
+        transaction.commit()?;
+
+        Ok(contact)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use phnxtypes::{
+        crypto::{
+            ear::keys::{FriendshipPackageEarKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+            kdf::keys::ConnectionKey,
+        },
+        messages::FriendshipToken,
+    };
+    use uuid::Uuid;
+
+    use crate::{
+        conversations::persistence::tests::test_conversation, Conversation, ConversationId,
+        UserProfile,
+    };
+
+    use super::*;
+
+    fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                &[
+                    Conversation::CREATE_TABLE_STATEMENT,
+                    Contact::CREATE_TABLE_STATEMENT,
+                    PartialContact::CREATE_TABLE_STATEMENT,
+                ]
+                .join("\n"),
+            )
+            .unwrap();
+
+        connection
+    }
+
+    fn test_contact(conversation_id: ConversationId) -> Contact {
+        let user_id = Uuid::new_v4();
+        let user_name: QualifiedUserName = format!("{user_id}@localhost").parse().unwrap();
+        Contact {
+            user_name: user_name.clone(),
+            clients: vec![AsClientId::new(user_name, user_id)],
+            wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
+            friendship_token: FriendshipToken::random().unwrap(),
+            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
+            connection_key: ConnectionKey::random().unwrap(),
+            conversation_id,
+        }
+    }
+
+    fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
+        let user_id = Uuid::new_v4();
+        let user_name: QualifiedUserName = format!("{user_id}@localhost").parse().unwrap();
+        PartialContact {
+            user_name,
+            conversation_id,
+            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+        }
+    }
+
+    #[test]
+    fn contact_store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let contact = test_contact(conversation.id());
+        contact.store(&connection, &mut store_notifier)?;
+
+        let loaded = Contact::load(&connection, &contact.user_name)?.unwrap();
+        assert_eq!(loaded, contact);
+
+        Ok(())
+    }
+
+    #[test]
+    fn partial_contact_store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let contact = test_partial_contact(conversation.id());
+        contact.store(&connection, &mut store_notifier)?;
+
+        let loaded = PartialContact::load(&connection, &contact.user_name)?.unwrap();
+        assert_eq!(loaded, contact);
+
+        Ok(())
+    }
+
+    #[test]
+    fn partial_contact_store_load_all() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let alice = test_partial_contact(conversation.id());
+        let bob = test_partial_contact(conversation.id());
+
+        alice.store(&connection, &mut store_notifier)?;
+        bob.store(&connection, &mut store_notifier)?;
+
+        let loaded = PartialContact::load_all(&connection)?;
+        assert_eq!(loaded, [alice, bob]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn partial_contact_mark_as_complete() -> anyhow::Result<()> {
+        let mut connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let partial = test_partial_contact(conversation.id());
+        let user_name = partial.user_name.clone();
+
+        partial.store(&connection, &mut store_notifier)?;
+
+        let friendship_package = FriendshipPackage {
+            friendship_token: FriendshipToken::random().unwrap(),
+            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
+            connection_key: ConnectionKey::random().unwrap(),
+            wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
+            user_profile: UserProfile::new(user_name.clone(), None, None),
+        };
+        let contact = partial.mark_as_complete(
+            &mut connection,
+            &mut store_notifier,
+            friendship_package,
+            AsClientId::new(user_name.clone(), Uuid::new_v4()),
+        )?;
+
+        let loaded = PartialContact::load(&connection, &user_name)?;
+        assert!(loaded.is_none());
+
+        let loaded = Contact::load(&connection, &user_name)?.unwrap();
+        assert_eq!(loaded, contact);
 
         Ok(())
     }

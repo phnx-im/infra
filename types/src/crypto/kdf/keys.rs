@@ -150,7 +150,9 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
 
 pub type ConnectionKeyKey = Secret<KDF_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct ConnectionKey {
     key: ConnectionKeyKey,
 }

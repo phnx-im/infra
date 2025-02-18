@@ -140,7 +140,7 @@ impl TestBackend {
         info!(
             "{} performs an update in group {}",
             updater_name,
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
 
         let test_updater = self.users.get_mut(&updater_name).unwrap();
@@ -222,7 +222,7 @@ impl TestBackend {
         info!(
             "{} performs an update in group {}",
             updater_name,
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
 
         let test_updater = self.users.get_mut(updater_name).unwrap();
@@ -619,7 +619,7 @@ impl TestBackend {
             "{} invites {} to the group with id {}",
             inviter_name,
             invitee_strings.join(", "),
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
 
         // Perform the invite operation and check that the invitees are now in the group.
@@ -674,7 +674,7 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             let mut invitee_conversations_after = invitee.conversations().await.unwrap();
-            let conversation_uuid = conversation_id.as_uuid();
+            let conversation_uuid = conversation_id.uuid();
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id() == conversation_id)
@@ -796,7 +796,7 @@ impl TestBackend {
             "{} removes {} from the group with id {}",
             remover_name,
             removed_strings.join(", "),
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
 
         // Perform the remove operation and check that the removed are not in
@@ -874,7 +874,7 @@ impl TestBackend {
                 .unwrap_or_else(|| {
                     panic!(
                         "{removed_name} should have the conversation with id {}",
-                        conversation_id.as_uuid()
+                        conversation_id.uuid()
                     )
                 });
             assert!(conversation.id() == conversation_id);
@@ -945,7 +945,7 @@ impl TestBackend {
         info!(
             "{} leaves the group with id {}",
             leaver_name,
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
         let test_leaver = self.users.get_mut(leaver_name).unwrap();
         let leaver = &mut test_leaver.user;
@@ -994,7 +994,7 @@ impl TestBackend {
         info!(
             "{} deletes the group with id {}",
             deleter_name,
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         );
         let test_deleter = self.users.get_mut(deleter_name).unwrap();
         let deleter = &mut test_deleter.user;
@@ -1131,7 +1131,7 @@ impl TestBackend {
                 info!(
                     random_operation = true,
                     "Random operation: Created group {}",
-                    conversation_id.as_uuid()
+                    conversation_id.uuid()
                 );
                 // TODO: Invite user(s)
             }
@@ -1185,7 +1185,7 @@ impl TestBackend {
                             "Random operation: {} invites {} to group {}",
                             random_user,
                             invitee_strings.join(", "),
-                            conversation.id().as_uuid()
+                            conversation.id().uuid()
                         );
                         self.invite_to_group(
                             conversation.id(),
@@ -1229,7 +1229,7 @@ impl TestBackend {
                             "Random operation: {} removes {} from group {}",
                             random_user,
                             removed_strings.join(", "),
-                            conversation.id().as_uuid()
+                            conversation.id().uuid()
                         );
                         let members_to_remove = members_to_remove.iter().collect();
                         self.remove_from_group(conversation.id(), &random_user, members_to_remove)
@@ -1255,7 +1255,7 @@ impl TestBackend {
                         random_operation = true,
                         "Random operation: {} leaves group {}",
                         random_user,
-                        conversation.id().as_uuid()
+                        conversation.id().uuid()
                     );
                     self.leave_group(conversation.id(), &random_user).await;
                 }

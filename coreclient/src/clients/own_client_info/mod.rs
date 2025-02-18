@@ -8,6 +8,7 @@ mod persistence;
 
 /// The purpose of this struct is to be stored in the local DB for use as
 /// reference for other tables.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OwnClientInfo {
     pub(crate) server_url: String,
     pub(crate) qs_user_id: QsUserId,

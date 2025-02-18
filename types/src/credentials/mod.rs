@@ -68,6 +68,11 @@ impl std::fmt::Display for CredentialFingerprint {
 }
 
 impl CredentialFingerprint {
+    #[cfg(any(feature = "test_utils", test))]
+    pub fn new_for_test(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+
     fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
         let hash_label = format!("Infra Credential Fingerprint {}", label);
         let rust_crypto = OpenMlsRustCrypto::default();

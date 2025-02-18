@@ -50,7 +50,17 @@ impl FromSql for ConversationId {
 }
 
 impl ConversationId {
-    pub fn as_uuid(&self) -> Uuid {
+    pub fn random() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+        }
+    }
+
+    pub fn new(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    pub fn uuid(&self) -> Uuid {
         self.uuid
     }
 }
@@ -161,7 +171,12 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         conversation_picture: Option<Vec<u8>>,
     ) -> Result<(), rusqlite::Error> {
-        self.update_conversation_picture(connection, notifier, conversation_picture.as_deref())?;
+        Self::update_picture(
+            connection,
+            notifier,
+            self.id,
+            conversation_picture.as_deref(),
+        )?;
         self.attributes.set_picture(conversation_picture);
         Ok(())
     }
@@ -173,7 +188,7 @@ impl Conversation {
         past_members: Vec<QualifiedUserName>,
     ) -> Result<(), rusqlite::Error> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
-        self.update_status(connection, notifier, &new_status)?;
+        Self::update_status(connection, notifier, self.id, &new_status)?;
         self.status = new_status;
         Ok(())
     }
