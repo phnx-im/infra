@@ -108,7 +108,13 @@ impl StoreNotificationsSender {
 
     /// Sends a notification to all current subscribers.
     pub(crate) fn notify(&self, notification: impl Into<Arc<StoreNotification>>) {
-        let _no_receivers = self.tx.send(notification.into());
+        let notification = notification.into();
+        debug!(
+            num_receivers = self.tx.receiver_count(),
+            ?notification,
+            "StoreNotificationsSender::notify"
+        );
+        let _no_receivers = self.tx.send(notification);
     }
 
     /// Creates a new subscription to the notifications.
@@ -126,6 +132,31 @@ impl StoreNotificationsSender {
             }
         })
     }
+
+    /// Returns all pending notifications.
+    ///
+    /// The pending notifications are the notifications captured starting at the call to this function.
+    /// Getting the next item from the iterator gets the next pending notification is there is any,
+    /// otherwise it returns `None`. Therefore, the iterator is not fused.
+    ///
+    /// This is useful for capturing all pending notifications synchronously.
+    pub(crate) fn subscribe_iter(
+        &self,
+    ) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static {
+        let mut rx = self.tx.subscribe();
+        std::iter::from_fn(move || loop {
+            match rx.try_recv() {
+                Ok(notification) => return Some(notification),
+                Err(broadcast::error::TryRecvError::Lagged(n)) => {
+                    error!(n, "store notifications lagged");
+                    continue;
+                }
+                Err(
+                    broadcast::error::TryRecvError::Closed | broadcast::error::TryRecvError::Empty,
+                ) => return None,
+            }
+        })
+    }
 }
 
 impl Default for StoreNotificationsSender {
@@ -139,6 +170,7 @@ impl Default for StoreNotificationsSender {
 /// Bundles all changes to the store, that is, all entities that have been added, updated or
 /// removed.
 #[derive(Debug, Default)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct StoreNotification {
     pub ops: BTreeMap<StoreEntityId, StoreOperation>,
 }
@@ -146,6 +178,10 @@ pub struct StoreNotification {
 impl StoreNotification {
     fn empty() -> Self {
         Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ops.is_empty()
     }
 }
 
@@ -167,4 +203,77 @@ pub enum StoreEntityId {
     User(QualifiedUserName),
     Conversation(ConversationId),
     Message(ConversationMessageId),
+}
+
+impl StoreEntityId {
+    pub(crate) fn kind(&self) -> StoreEntityKind {
+        match self {
+            StoreEntityId::User(_) => StoreEntityKind::User,
+            StoreEntityId::Conversation(_) => StoreEntityKind::Conversation,
+            StoreEntityId::Message(_) => StoreEntityKind::Message,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) enum StoreEntityKind {
+    User = 0,
+    Conversation = 1,
+    Message = 2,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subscribe_iter() {
+        let tx = StoreNotificationsSender::new();
+
+        let ops_1: BTreeMap<_, _> = [(
+            StoreEntityId::User("alice@localhost".parse().unwrap()),
+            StoreOperation::Add,
+        )]
+        .into_iter()
+        .collect();
+
+        let ops_2: BTreeMap<_, _> = [(
+            StoreEntityId::User("bob@localhost".parse().unwrap()),
+            StoreOperation::Update,
+        )]
+        .into_iter()
+        .collect();
+
+        let ops_3: BTreeMap<_, _> = [(
+            StoreEntityId::User("eve@localhost".parse().unwrap()),
+            StoreOperation::Remove,
+        )]
+        .into_iter()
+        .collect();
+
+        let ops_4: BTreeMap<_, _> = [(
+            StoreEntityId::User("mallory@localhost".parse().unwrap()),
+            StoreOperation::Add,
+        )]
+        .into_iter()
+        .collect();
+
+        tx.notify(StoreNotification {
+            ops: ops_1.into_iter().collect(),
+        });
+
+        let mut iter = tx.subscribe_iter();
+
+        tx.notify(StoreNotification { ops: ops_2.clone() });
+
+        // first notification is not observed, because it was sent before the subscription
+        assert_eq!(iter.next().unwrap().ops, ops_2);
+        assert_eq!(iter.next(), None);
+
+        tx.notify(StoreNotification { ops: ops_3.clone() });
+        assert_eq!(iter.next().unwrap().ops, ops_3);
+        tx.notify(StoreNotification { ops: ops_4.clone() });
+        assert_eq!(iter.next().unwrap().ops, ops_4);
+        assert_eq!(iter.next(), None);
+    }
 }
