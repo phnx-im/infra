@@ -312,9 +312,9 @@ impl CoreUser {
     }
 
     pub(crate) async fn dequeue_store_notification(&self) -> Result<StoreNotification> {
-        Ok(dbg!(StoreNotification::dequeue(
+        Ok(StoreNotification::dequeue(
             &mut *self.inner.connection.lock().await,
-        ))?)
+        )?)
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {

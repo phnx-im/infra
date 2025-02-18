@@ -78,8 +78,6 @@ impl StoreNotification {
         let mut statement = connection.prepare("DELETE FROM store_notifications RETURNING *")?;
         let ops = statement
             .query_map(params![], |row| {
-                dbg!(&row);
-
                 let kind: StoreEntityKind = row.get(1)?;
                 let entity_id = match kind {
                     StoreEntityKind::User => {

@@ -322,7 +322,7 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
             info!("connected to websocket");
             // After (re)connecting, dequeue any pending store notifications that might have been
             // enqueued by the push notifications background processing task.
-            match dbg!(core_user.dequeue_notification().await) {
+            match core_user.dequeue_notification().await {
                 Ok(notification) => core_user.notify(notification),
                 Err(error) => error!(%error, "Failed to dequeue store notification"),
             }
