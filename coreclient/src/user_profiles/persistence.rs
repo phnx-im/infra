@@ -6,7 +6,7 @@ use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{params, Connection, OptionalExtension};
 use tracing::error;
 
-use crate::{store::StoreNotifier, utils::persistence::Storable, Asset, DisplayName, UserProfile};
+use crate::{store::StoreNotifier, utils::persistence::Storable, UserProfile};
 
 impl Storable for UserProfile {
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (
@@ -52,23 +52,42 @@ impl UserProfile {
         Ok(user)
     }
 
-    /// Store the user's profile in the database. This will overwrite any existing profile.
-    pub(crate) fn store_own_user_profile(
+    /// Stores this new [`UserProfile`] if one doesn't already exist.
+    pub(crate) fn store(
+        &self,
         connection: &Connection,
         notifier: &mut StoreNotifier,
-        user_name: QualifiedUserName,
-        display_name_option: Option<DisplayName>,
-        profile_picture_option: Option<Asset>,
+    ) -> Result<(), rusqlite::Error> {
+        connection.execute(
+            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
+            params![
+                self.user_name.to_string(),
+                self.display_name_option,
+                self.profile_picture_option
+            ],
+        )?;
+        // TODO: We can skip this notification if the user profile was already stored.
+        notifier.add(self.user_name.clone());
+        Ok(())
+    }
+
+    /// Stores this new [`UserProfile`].
+    ///
+    /// Replaces the existing user profile if one exists.
+    pub(crate) fn upsert(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
             params![
-                user_name.to_string(),
-                display_name_option,
-                profile_picture_option
+                self.user_name.to_string(),
+                self.display_name_option,
+                self.profile_picture_option
             ],
         )?;
-        notifier.update(user_name);
+        notifier.update(self.user_name.clone());
         Ok(())
     }
 
@@ -90,23 +109,103 @@ impl UserProfile {
         notifier.update(self.user_name.clone());
         Ok(())
     }
+}
 
-    /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) fn store(
-        &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        // TODO: We can skip this notification if the user profile was already stored.
-        notifier.add(self.user_name.clone());
+#[cfg(test)]
+mod tests {
+    use crate::Asset;
+
+    use super::*;
+
+    fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(UserProfile::CREATE_TABLE_STATEMENT)
+            .unwrap();
+        connection
+    }
+
+    fn test_profile() -> UserProfile {
+        UserProfile::new(
+            "alice@localhost".parse().unwrap(),
+            Some("Alice".to_string().try_into().unwrap()),
+            Some(Asset::Value(vec![1, 2, 3])),
+        )
+    }
+
+    #[test]
+    fn store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut notifier = StoreNotifier::noop();
+
+        let profile = test_profile();
+
+        profile.store(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_eq!(loaded, profile);
+
+        let mut new_profile = profile.clone();
+        new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
+        new_profile.set_profile_picture(None);
+
+        // store ignores the new profile if the user already exists
+        new_profile.store(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_eq!(loaded, profile);
+        assert_ne!(loaded, new_profile);
+
+        // upsert/load works
+        new_profile.upsert(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_ne!(loaded, profile);
+        assert_eq!(loaded, new_profile);
+
+        Ok(())
+    }
+
+    #[test]
+    fn upsert_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut notifier = StoreNotifier::noop();
+
+        let profile = test_profile();
+
+        profile.upsert(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_eq!(loaded, profile);
+
+        let mut new_profile = profile.clone();
+        new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
+        new_profile.set_profile_picture(None);
+
+        new_profile.upsert(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_ne!(loaded, profile);
+        assert_eq!(loaded, new_profile);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut notifier = StoreNotifier::noop();
+
+        let profile = test_profile();
+
+        profile.store(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_eq!(loaded, profile);
+
+        let mut new_profile = profile.clone();
+        new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
+        new_profile.set_profile_picture(None);
+
+        new_profile.update(&connection, &mut notifier)?;
+        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        assert_ne!(loaded, profile);
+        assert_eq!(loaded, new_profile);
+
         Ok(())
     }
 }
