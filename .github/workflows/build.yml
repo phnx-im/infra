@@ -170,4 +170,4 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Run tests
-        run: just test --verbose
+        run: just test-rust --verbose
