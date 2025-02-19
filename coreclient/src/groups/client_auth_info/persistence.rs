@@ -72,7 +72,7 @@ impl StorableClientCredential {
 }
 
 impl Storable for GroupMembership {
-    // TODO: Reinstate the foreign key constraint as soon as we have migrated
+    // TODO(#349): Reinstate the foreign key constraint as soon as we have migrated
     // the mls group table to the new style of storage.
     // FOREIGN KEY (group_id) REFERENCES mlsgroup(primary_key),
     const CREATE_TABLE_STATEMENT: &str = "CREATE TABLE IF NOT EXISTS group_membership (
