@@ -15,6 +15,10 @@ use tls_codec::{
     DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt,
 };
 
+pub const CURRENT_QS_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
+
+pub const SUPPORTED_QS_API_VERSIONS: &[ApiVersion] = &[CURRENT_QS_API_VERSION];
+
 use crate::{
     crypto::{
         ear::keys::KeyPackageEarKey,
@@ -323,6 +327,17 @@ impl QsVersionedRequestParams {
             QsVersionedRequestParams::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
+
+    pub fn into_unversioned(self) -> Result<(QsRequestParams, ApiVersion), VersionError> {
+        let version = self.version();
+        let params = match self {
+            QsVersionedRequestParams::Alpha(params) => params,
+            QsVersionedRequestParams::Other(version) => {
+                return Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS))
+            }
+        };
+        Ok((params, version))
+    }
 }
 
 impl tls_codec::Size for QsVersionedRequestParams {
@@ -373,10 +388,10 @@ pub struct VersionError {
 }
 
 impl VersionError {
-    pub fn new(version: ApiVersion, supported_versions: Vec<ApiVersion>) -> Self {
+    pub fn new(version: ApiVersion, supported_versions: impl Into<Vec<ApiVersion>>) -> Self {
         Self {
             version,
-            supported_versions,
+            supported_versions: supported_versions.into(),
         }
     }
 
@@ -386,17 +401,12 @@ impl VersionError {
 }
 
 impl ClientToQsMessageTbs {
-    pub const CURRENT_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
-
-    pub const SUPPORTED_API_VERSIONS: &[ApiVersion] = &[Self::CURRENT_API_VERSION];
-
     pub(crate) fn sender(&self) -> Result<QsSender, VersionError> {
         match &self.body {
             QsVersionedRequestParams::Alpha(params) => Ok(params.sender()),
-            QsVersionedRequestParams::Other(version) => Err(VersionError::new(
-                *version,
-                Self::SUPPORTED_API_VERSIONS.to_vec(),
-            )),
+            QsVersionedRequestParams::Other(version) => {
+                Err(VersionError::new(*version, SUPPORTED_QS_API_VERSIONS))
+            }
         }
     }
 }
@@ -448,9 +458,19 @@ pub enum QsVersionedProcessResponse {
 }
 
 impl QsVersionedProcessResponse {
-    pub fn version(&self) -> TlsVarInt {
+    pub fn with_version(
+        response: QsProcessResponse,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(response)),
+            _ => Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS)),
+        }
+    }
+
+    pub fn version(&self) -> ApiVersion {
         match self {
-            QsVersionedProcessResponse::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+            QsVersionedProcessResponse::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 }
@@ -459,7 +479,8 @@ impl tls_codec::Size for QsVersionedProcessResponse {
     fn tls_serialized_len(&self) -> usize {
         match self {
             QsVersionedProcessResponse::Alpha(qs_process_response) => {
-                self.version().tls_serialized_len() + qs_process_response.tls_serialized_len()
+                self.version().tls_value().tls_serialized_len()
+                    + qs_process_response.tls_serialized_len()
             }
         }
     }
@@ -469,7 +490,8 @@ impl tls_codec::Serialize for QsVersionedProcessResponse {
     fn tls_serialize<W: io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedProcessResponse::Alpha(params) => {
-                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
             }
         }
     }
@@ -499,6 +521,15 @@ impl QsVersionedProcessResponseIn {
         match self {
             QsVersionedProcessResponseIn::Other(version) => *version,
             QsVersionedProcessResponseIn::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<QsProcessResponseIn, VersionError> {
+        match self {
+            QsVersionedProcessResponseIn::Alpha(response) => Ok(response),
+            QsVersionedProcessResponseIn::Other(version) => {
+                Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS))
+            }
         }
     }
 }

@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use api_migrations::migrate_qs_process_response;
 use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
 use phnxtypes::{
@@ -20,19 +19,20 @@ use phnxtypes::{
     identifiers::{QsClientId, QsUserId},
     messages::{
         client_qs::{
-            ClientKeyPackageParams, ClientKeyPackageResponse, ClientToQsMessageTbs,
-            CreateClientRecordResponse, CreateUserRecordResponse, DeleteClientRecordParams,
-            DeleteUserRecordParams, DequeueMessagesParams, DequeueMessagesResponse,
-            EncryptionKeyResponse, KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
+            ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
+            CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
+            DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
+            KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
-            VersionError,
+            VersionError, SUPPORTED_QS_API_VERSIONS,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
             CreateUserRecordParamsOut, PublishKeyPackagesParamsOut, QsRequestParamsOut,
+            QsVersionedRequestParamsOut,
         },
         push_token::EncryptedPushToken,
-        ApiVersion, FriendshipToken,
+        FriendshipToken,
     },
 };
 use thiserror::Error;
@@ -45,7 +45,6 @@ use crate::{
 
 pub mod ws;
 
-mod api_migrations;
 #[cfg(test)]
 mod tests;
 
@@ -82,7 +81,10 @@ impl ApiClient {
     ) -> Result<QsProcessResponseIn, QsRequestError> {
         let api_version = self.negotiated_versions().qs_api_version();
 
-        let message = sign_params(request_params, &token_or_signing_key, api_version)?;
+        let request_params =
+            QsVersionedRequestParamsOut::with_version(request_params, api_version)?;
+        let message = sign_params(request_params, &token_or_signing_key)?;
+
         let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
         let response = send_qs_message(&self.client, &endpoint, &message).await?;
 
@@ -91,14 +93,17 @@ impl ApiClient {
             return process_response(response).await;
         };
 
-        let supported_versions = ClientToQsMessageTbs::SUPPORTED_API_VERSIONS;
+        let supported_versions = SUPPORTED_QS_API_VERSIONS;
         let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
             .ok_or_else(|| VersionError::new(api_version, supported_versions.to_vec()))?;
         self.negotiated_versions()
             .set_qs_api_version(accepted_version);
 
-        let request_params = message.into_payload().into_unversioned_params();
-        let message = sign_params(request_params, &token_or_signing_key, accepted_version)?;
+        let (request_params, _) = message
+            .into_payload()
+            .into_body()
+            .change_version(accepted_version)?;
+        let message = sign_params(request_params, &token_or_signing_key)?;
 
         let response = send_qs_message(&self.client, &endpoint, &message).await?;
         process_response(response).await
@@ -387,8 +392,9 @@ async fn process_response(
     if status.is_success() {
         let bytes = response.bytes().await.map_err(QsRequestError::Reqwest)?;
         let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)
-            .map_err(QsRequestError::Tls)?;
-        migrate_qs_process_response(qs_response)
+            .map_err(QsRequestError::Tls)?
+            .into_unversioned()?;
+        Ok(qs_response)
     } else {
         let error = response
             .text()
@@ -416,18 +422,10 @@ async fn send_qs_message(
 }
 
 fn sign_params<T: SigningKeyBehaviour>(
-    request_params: QsRequestParamsOut,
+    request_params: QsVersionedRequestParamsOut,
     token_or_signing_key: &AuthenticationMethod<'_, T>,
-    api_version: ApiVersion,
 ) -> Result<ClientToQsMessageOut, QsRequestError> {
-    let tbs = ClientToQsMessageTbsOut::with_api_version(api_version, request_params).ok_or_else(
-        || {
-            VersionError::new(
-                api_version,
-                ClientToQsMessageTbs::SUPPORTED_API_VERSIONS.to_vec(),
-            )
-        },
-    )?;
+    let tbs = ClientToQsMessageTbsOut::new(request_params);
     let message = match token_or_signing_key {
         AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
         AuthenticationMethod::SigningKey(signing_key) => tbs

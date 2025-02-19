@@ -9,7 +9,7 @@ use std::{
 
 use http::{HeaderMap, StatusCode};
 use phnxtypes::{
-    messages::{client_qs::ClientToQsMessageTbs, ApiVersion},
+    messages::{client_qs::CURRENT_QS_API_VERSION, ApiVersion},
     ACCEPTED_API_VERSIONS_HEADER,
 };
 use tracing::error;
@@ -24,7 +24,7 @@ pub(crate) struct NegotiatedApiVersions {
 impl NegotiatedApiVersions {
     pub(crate) fn new() -> Self {
         Self {
-            qs_api_version: AtomicU64::new(ClientToQsMessageTbs::CURRENT_API_VERSION.value()),
+            qs_api_version: AtomicU64::new(CURRENT_QS_API_VERSION.value()),
         }
     }
 
