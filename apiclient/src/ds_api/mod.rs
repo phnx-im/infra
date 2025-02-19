@@ -81,7 +81,7 @@ impl ApiClient {
             Ok(res) => {
                 match res.status().as_u16() {
                     // Success!
-                    x if (200..=299).contains(&x) => {
+                    _ if res.status().is_success() => {
                         let ds_proc_res_bytes =
                             res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
                         let ds_proc_res =

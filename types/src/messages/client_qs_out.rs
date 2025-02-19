@@ -24,7 +24,7 @@ use super::{
         DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
     },
     push_token::EncryptedPushToken,
-    FriendshipToken,
+    ApiVersion, FriendshipToken,
 };
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -44,6 +44,10 @@ impl ClientToQsMessageOut {
         let signature = Signature::empty();
         Self { payload, signature }
     }
+
+    pub fn into_payload(self) -> ClientToQsMessageTbsOut {
+        self.payload
+    }
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -58,7 +62,7 @@ enum QsVersionedRequestParamsOut {
 }
 
 impl QsVersionedRequestParamsOut {
-    pub fn version(&self) -> TlsVarInt {
+    pub(crate) fn version(&self) -> TlsVarInt {
         match self {
             QsVersionedRequestParamsOut::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
         }
@@ -87,9 +91,17 @@ impl Serialize for QsVersionedRequestParamsOut {
 }
 
 impl ClientToQsMessageTbsOut {
-    pub fn new(body: QsRequestParamsOut) -> Self {
-        Self {
-            body: QsVersionedRequestParamsOut::Alpha(body),
+    pub fn with_api_version(version: ApiVersion, body: QsRequestParamsOut) -> Option<Self> {
+        let body = match version.value() {
+            1 => QsVersionedRequestParamsOut::Alpha(body),
+            _ => return None,
+        };
+        Some(Self { body })
+    }
+
+    pub fn into_unversioned_params(self) -> QsRequestParamsOut {
+        match self.body {
+            QsVersionedRequestParamsOut::Alpha(body) => body,
         }
     }
 }

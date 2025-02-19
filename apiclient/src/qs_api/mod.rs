@@ -20,10 +20,10 @@ use phnxtypes::{
     identifiers::{QsClientId, QsUserId},
     messages::{
         client_qs::{
-            ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
-            CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
-            DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
-            KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
+            ClientKeyPackageParams, ClientKeyPackageResponse, ClientToQsMessageTbs,
+            CreateClientRecordResponse, CreateUserRecordResponse, DeleteClientRecordParams,
+            DeleteUserRecordParams, DequeueMessagesParams, DequeueMessagesResponse,
+            EncryptionKeyResponse, KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
             VersionError,
         },
@@ -32,13 +32,13 @@ use phnxtypes::{
             CreateUserRecordParamsOut, PublishKeyPackagesParamsOut, QsRequestParamsOut,
         },
         push_token::EncryptedPushToken,
-        FriendshipToken,
+        ApiVersion, FriendshipToken,
     },
 };
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 
-use crate::{ApiClient, Protocol};
+use crate::{version::api_version_negotiation, ApiClient, Protocol};
 
 pub mod ws;
 
@@ -77,43 +77,31 @@ impl ApiClient {
         request_params: QsRequestParamsOut,
         token_or_signing_key: AuthenticationMethod<'_, T>,
     ) -> Result<QsProcessResponseIn, QsRequestError> {
-        let tbs = ClientToQsMessageTbsOut::new(request_params);
-        let message = match token_or_signing_key {
-            AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token),
-            AuthenticationMethod::SigningKey(signing_key) => tbs
-                .sign(signing_key)
-                .map_err(|_| QsRequestError::LibraryError)?,
-            AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
+        let api_version = self.negotiated_versions().qs_api_version();
+
+        let message = sign_params(request_params, &token_or_signing_key, api_version)?;
+        let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
+        let response = send_qs_message(&self.client, &endpoint, &message).await?;
+
+        // check if we need to negotiate a new API version
+        let Some(accepted_version) = api_version_negotiation(
+            &response,
+            api_version,
+            ClientToQsMessageTbs::SUPPORTED_API_VERSIONS,
+        )
+        .transpose()?
+        else {
+            return process_response(response).await;
         };
-        let message_bytes = message
-            .tls_serialize_detached()
-            .map_err(|_| QsRequestError::LibraryError)?;
-        match self
-            .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_QS))
-            .body(message_bytes)
-            .send()
-            .await
-        {
-            Ok(res) => {
-                let status = res.status();
-                if status.is_success() {
-                    // Success!
-                    let ds_proc_res_bytes = res.bytes().await.map_err(QsRequestError::Reqwest)?;
-                    let ds_proc_res = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(
-                        &ds_proc_res_bytes,
-                    )
-                    .map_err(QsRequestError::Tls)?;
-                    migrate_qs_process_response(ds_proc_res)
-                } else {
-                    // Error
-                    let error = res.text().await.map_err(QsRequestError::Reqwest)?;
-                    Err(QsRequestError::RequestFailed { status, error })
-                }
-            }
-            // A network error occurred.
-            Err(err) => Err(QsRequestError::NetworkError(err.to_string())),
-        }
+
+        self.negotiated_versions()
+            .set_qs_api_version(accepted_version);
+
+        let request_params = message.into_payload().into_unversioned_params();
+        let message = sign_params(request_params, &token_or_signing_key, accepted_version)?;
+
+        let response = send_qs_message(&self.client, &endpoint, &message).await?;
+        process_response(response).await
     }
 
     pub async fn qs_create_user(
@@ -390,4 +378,62 @@ impl ApiClient {
             }
         })
     }
+}
+
+async fn process_response(
+    response: reqwest::Response,
+) -> Result<QsProcessResponseIn, QsRequestError> {
+    let status = response.status();
+    if status.is_success() {
+        let bytes = response.bytes().await.map_err(QsRequestError::Reqwest)?;
+        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)
+            .map_err(QsRequestError::Tls)?;
+        migrate_qs_process_response(qs_response)
+    } else {
+        let error = response
+            .text()
+            .await
+            .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
+        Err(QsRequestError::RequestFailed { status, error })
+    }
+}
+
+async fn send_qs_message(
+    client: &reqwest::Client,
+    endpoint: &str,
+    message: &ClientToQsMessageOut,
+) -> Result<reqwest::Response, QsRequestError> {
+    client
+        .post(endpoint)
+        .body(
+            message
+                .tls_serialize_detached()
+                .map_err(|_| QsRequestError::LibraryError)?,
+        )
+        .send()
+        .await
+        .map_err(From::from)
+}
+
+fn sign_params<T: SigningKeyBehaviour>(
+    request_params: QsRequestParamsOut,
+    token_or_signing_key: &AuthenticationMethod<'_, T>,
+    api_version: ApiVersion,
+) -> Result<ClientToQsMessageOut, QsRequestError> {
+    let tbs = ClientToQsMessageTbsOut::with_api_version(api_version, request_params).ok_or_else(
+        || {
+            VersionError::new(
+                api_version,
+                ClientToQsMessageTbs::SUPPORTED_API_VERSIONS.to_vec(),
+            )
+        },
+    )?;
+    let message = match token_or_signing_key {
+        AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
+        AuthenticationMethod::SigningKey(signing_key) => tbs
+            .sign(*signing_key)
+            .map_err(|_| QsRequestError::LibraryError)?,
+        AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
+    };
+    Ok(message)
 }
