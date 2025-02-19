@@ -38,7 +38,10 @@ use phnxtypes::{
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 
-use crate::{version::api_version_negotiation, ApiClient, Protocol};
+use crate::{
+    version::{extract_api_version_negotiation, negotiate_api_version},
+    ApiClient, Protocol,
+};
 
 pub mod ws;
 
@@ -84,16 +87,13 @@ impl ApiClient {
         let response = send_qs_message(&self.client, &endpoint, &message).await?;
 
         // check if we need to negotiate a new API version
-        let Some(accepted_version) = api_version_negotiation(
-            &response,
-            api_version,
-            ClientToQsMessageTbs::SUPPORTED_API_VERSIONS,
-        )
-        .transpose()?
-        else {
+        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
             return process_response(response).await;
         };
 
+        let supported_versions = ClientToQsMessageTbs::SUPPORTED_API_VERSIONS;
+        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
+            .ok_or_else(|| VersionError::new(api_version, supported_versions.to_vec()))?;
         self.negotiated_versions()
             .set_qs_api_version(accepted_version);
 
