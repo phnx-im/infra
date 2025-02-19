@@ -166,5 +166,8 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Run tests
         run: just test --verbose
