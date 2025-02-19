@@ -6,7 +6,6 @@ use actix_web::{
     web::{self, Data},
     HttpResponse, Responder,
 };
-use itertools::Itertools;
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
     qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
@@ -46,7 +45,12 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
             HttpResponse::NotAcceptable()
                 .insert_header((
                     ACCEPTED_API_VERSIONS_HEADER,
-                    format!("{}", version_error.supported_versions().iter().format(",")),
+                    version_error
+                        .supported_versions()
+                        .iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(","),
                 ))
                 .body(version_error.to_string())
         }

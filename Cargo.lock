@@ -3447,7 +3447,6 @@ dependencies = [
  "base64 0.22.1",
  "config",
  "image",
- "itertools",
  "jsonwebtoken",
  "once_cell",
  "opaque-ke",

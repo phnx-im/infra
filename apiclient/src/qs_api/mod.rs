@@ -95,7 +95,7 @@ impl ApiClient {
 
         let supported_versions = SUPPORTED_QS_API_VERSIONS;
         let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
-            .ok_or_else(|| VersionError::new(api_version, supported_versions.to_vec()))?;
+            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
         self.negotiated_versions()
             .set_qs_api_version(accepted_version);
 

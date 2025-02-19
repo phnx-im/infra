@@ -384,19 +384,19 @@ impl DeserializeBytes for QsVersionedRequestParams {
 #[error("Unsupported version: {version}, supported versions: {supported_versions:?}")]
 pub struct VersionError {
     version: ApiVersion,
-    supported_versions: Vec<ApiVersion>,
+    supported_versions: &'static [ApiVersion],
 }
 
 impl VersionError {
-    pub fn new(version: ApiVersion, supported_versions: impl Into<Vec<ApiVersion>>) -> Self {
+    pub fn new(version: ApiVersion, supported_versions: &'static [ApiVersion]) -> Self {
         Self {
             version,
-            supported_versions: supported_versions.into(),
+            supported_versions,
         }
     }
 
     pub fn supported_versions(&self) -> &[ApiVersion] {
-        &self.supported_versions
+        self.supported_versions
     }
 }
 
