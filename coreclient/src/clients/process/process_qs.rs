@@ -267,11 +267,9 @@ impl CoreUser {
 
         // StagedCommitMessage Phase 1: Load the conversation.
         let connection = self.inner.connection.lock().await;
-        let mut conversation =
-            Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-                "Can't find conversation with id {}",
-                conversation_id.as_uuid()
-            ))?;
+        let mut conversation = Conversation::load(&connection, &conversation_id)?.ok_or(
+            anyhow!("Can't find conversation with id {}", conversation_id.uuid()),
+        )?;
         drop(connection);
         let mut conversation_changed = false;
 
@@ -333,15 +331,13 @@ impl CoreUser {
                 &mut notifier,
                 conversation_picture_option,
             )?;
-            let mut transaction = connection.transaction()?;
             // Now we can turn the partial contact into a full one.
             partial_contact.mark_as_complete(
-                &mut transaction,
+                &mut connection,
                 &mut notifier,
                 friendship_package,
                 sender_client_id.clone(),
             )?;
-            transaction.commit()?;
 
             conversation.confirm(&connection, &mut notifier)?;
             conversation_changed = true;

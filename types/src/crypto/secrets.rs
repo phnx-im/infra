@@ -18,7 +18,9 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize,
+)]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
     secret: [u8; LENGTH],

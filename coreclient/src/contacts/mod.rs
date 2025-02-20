@@ -24,11 +24,10 @@ use crate::{
     ConversationId,
 };
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 
 pub(crate) mod persistence;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contact {
     pub user_name: QualifiedUserName,
     pub(crate) clients: Vec<AsClientId>,
@@ -41,7 +40,7 @@ pub struct Contact {
     pub(crate) conversation_id: ConversationId,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub(crate) struct ContactAddInfos {
     pub key_package: KeyPackage,
     pub identity_link_key: IdentityLinkKey,
@@ -130,7 +129,7 @@ impl Contact {
 }
 
 /// Contact which has not yet accepted our connection request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartialContact {
     pub user_name: QualifiedUserName,
     // ID of the connection conversation with this contact.
