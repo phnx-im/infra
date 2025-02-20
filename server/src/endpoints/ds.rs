@@ -7,9 +7,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use phnxbackend::{ds::Ds, qs::QsConnector};
-use phnxtypes::{
-    errors::DsProcessingError, messages::client_ds::DsMessageTypeIn, ACCEPTED_API_VERSIONS_HEADER,
-};
+use phnxtypes::{errors::DsProcessingError, ACCEPTED_API_VERSIONS_HEADER};
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::{info, trace, warn};
 
@@ -24,7 +22,7 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
     let storage_provider = ds_storage_provider.get_ref();
     let qs_connector = qs_connector.get_ref();
     // Create a new group on the DS.
-    let message = match DsMessageTypeIn::tls_deserialize_exact_bytes(&message) {
+    let message = match DeserializeBytes::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
         Err(e) => {
             warn!("Received invalid message: {:?}", e);

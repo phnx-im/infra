@@ -218,10 +218,21 @@ impl Serialize for DsVersionedRequestParamsOut {
     }
 }
 
+#[derive(Debug, TlsSerialize, TlsSize)]
+#[repr(u8)]
+#[expect(clippy::large_enum_variant)]
+pub enum DsRequestParamsOut {
+    Group {
+        group_state_ear_key: GroupStateEarKey,
+        request_params: DsGroupRequestParamsOut,
+    },
+    NonGroup(DsNonGroupRequestParamsOut),
+}
+
 #[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
-pub enum DsRequestParamsOut {
+pub enum DsGroupRequestParamsOut {
     CreateGroupParams(CreateGroupParamsOut),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
@@ -250,38 +261,18 @@ impl Signable for ClientToDsMessageTbsOut {
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToDsMessageTbsOut {
-    group_state_ear_key: GroupStateEarKey,
     // This essentially includes the wire format.
     body: DsVersionedRequestParamsOut,
 }
 
 impl ClientToDsMessageTbsOut {
-    pub fn new(group_state_ear_key: GroupStateEarKey, body: DsVersionedRequestParamsOut) -> Self {
-        Self {
-            group_state_ear_key,
-            body,
-        }
+    pub fn new(body: DsVersionedRequestParamsOut) -> Self {
+        Self { body }
     }
 
-    pub fn change_version(
-        self,
-        to_version: ApiVersion,
-    ) -> Result<(Self, ApiVersion), VersionError> {
-        let Self {
-            group_state_ear_key,
-            body,
-        } = self;
-        let (body, from_version) = body.change_version(to_version)?;
-        Ok((Self::new(group_state_ear_key, body), from_version))
+    pub fn into_body(self) -> DsVersionedRequestParamsOut {
+        self.body
     }
-}
-
-#[expect(clippy::large_enum_variant)]
-#[derive(Debug, TlsSerialize, TlsSize)]
-#[repr(u8)]
-pub enum DsMessageTypeOut {
-    Group(ClientToDsMessageOut),
-    NonGroup,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -306,4 +297,10 @@ impl SignedStruct<ClientToDsMessageTbsOut> for ClientToDsMessageOut {
     fn from_payload(payload: ClientToDsMessageTbsOut, signature: Signature) -> Self {
         Self { payload, signature }
     }
+}
+
+#[derive(Debug, TlsSerialize, TlsSize)]
+#[repr(u8)]
+pub enum DsNonGroupRequestParamsOut {
+    RequestGroupId,
 }

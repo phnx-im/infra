@@ -163,15 +163,15 @@ use uuid::Uuid;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
-        ear::keys::EncryptedIdentityLinkKey,
+        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::DsProcessingError,
     identifiers::QualifiedGroupId,
     messages::{
         client_ds::{
-            CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender,
-            DsVersionedRequestParams, QsQueueMessagePayload, VerifiableClientToDsMessage,
+            CreateGroupParams, DsGroupRequestParams, DsNonGroupRequestParams, DsRequestParams,
+            DsSender, DsVersionedRequestParams, QsQueueMessagePayload, VerifiableClientToDsMessage,
             SUPPORTED_DS_API_VERSIONS,
         },
         client_qs::VersionError,
@@ -199,22 +199,32 @@ impl Ds {
     pub async fn process<Q: QsConnector>(
         &self,
         qs_connector: &Q,
-        message: DsMessageTypeIn,
+        message: VerifiableClientToDsMessage,
     ) -> Result<DsVersionedProcessResponse, DsProcessingError> {
-        match message {
-            DsMessageTypeIn::Group(group_message) => {
-                self.process_group_message(qs_connector, group_message)
+        let group_id_and_ear_key = message
+            .group_id_and_ear_key()?
+            .map(|(group_id, ear_key)| -> Result<_, DsProcessingError> {
+                let qgid = QualifiedGroupId::try_from(group_id).map_err(|_| {
+                    tracing::warn!("Could not convert group id to qualified group id");
+                    DsProcessingError::GroupNotFound
+                })?;
+                Ok((qgid, ear_key.clone()))
+            })
+            .transpose()?;
+
+        match group_id_and_ear_key {
+            Some((group_id, ear_key)) => {
+                // Group message
+                self.process_group_message(qs_connector, message, group_id, ear_key)
                     .await
             }
-            DsMessageTypeIn::NonGroup => self
-                .request_group_id()
-                .await
-                .map_err(|e| {
-                    tracing::warn!("Could not generate group id: {:?}", e);
-                    DsProcessingError::StorageError
-                })
-                // TODO: We should use the version of the request here.
-                .map(DsVersionedProcessResponse::Alpha),
+            None => {
+                // Non-group message: not signed
+                let request_params = message
+                    .extract_without_verification()
+                    .ok_or(DsProcessingError::InvalidSenderType)?;
+                self.process_non_group_message(request_params).await
+            }
         }
     }
 
@@ -222,15 +232,9 @@ impl Ds {
         &self,
         qs_connector: &Q,
         message: VerifiableClientToDsMessage,
+        qgid: QualifiedGroupId,
+        ear_key: GroupStateEarKey,
     ) -> Result<DsVersionedProcessResponse, DsProcessingError> {
-        let ear_key = message.ear_key().clone();
-
-        // Verify group id
-        let qgid = QualifiedGroupId::try_from(message.group_id()?).map_err(|_| {
-            tracing::warn!("Could not convert group id to qualified group id");
-            DsProcessingError::GroupNotFound
-        })?;
-
         if qgid.owning_domain() != self.own_domain() {
             tracing::warn!("Group id does not belong to own domain");
             return Err(DsProcessingError::GroupNotFound);
@@ -338,7 +342,14 @@ impl Ds {
             }
         };
 
-        let (verified_message, from_version) = verified_message.into_unversioned()?;
+        let (request_params, from_version) = verified_message.into_unversioned()?;
+        let group_request_params = match request_params {
+            DsRequestParams::Group {
+                group_state_ear_key: _,
+                request_params,
+            } => request_params,
+            DsRequestParams::NonGroup(..) => return Err(DsProcessingError::ProcessingError),
+        };
 
         let destination_clients: Vec<_> = group_state
             .member_profiles
@@ -357,11 +368,12 @@ impl Ds {
             .collect();
 
         let mut group_state_has_changed = true;
+
         // For now, we just process directly.
         // TODO: We might want to realize this via a trait.
-        let (ds_fanout_payload, response, fan_out_messages) = match verified_message {
+        let (ds_fanout_payload, response, fan_out_messages) = match group_request_params {
             // ======= Non-Commiting Endpoints =======
-            DsRequestParams::WelcomeInfo(welcome_info_params) => {
+            DsGroupRequestParams::WelcomeInfo(welcome_info_params) => {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
@@ -371,14 +383,14 @@ impl Ds {
                     vec![],
                 )
             }
-            DsRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
-            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
+            DsGroupRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
+            DsGroupRequestParams::UpdateQsClientReference(update_queue_info_params) => {
                 group_state
                     .update_queue_config(update_queue_info_params)
                     .map_err(|_| DsProcessingError::UnknownSender)?;
                 (None, DsProcessResponse::Ok, vec![])
             }
-            DsRequestParams::ExternalCommitInfo(_) => {
+            DsGroupRequestParams::ExternalCommitInfo(_) => {
                 group_state_has_changed = false;
                 (
                     None,
@@ -386,7 +398,7 @@ impl Ds {
                     vec![],
                 )
             }
-            DsRequestParams::ConnectionGroupInfo(_) => {
+            DsGroupRequestParams::ConnectionGroupInfo(_) => {
                 group_state_has_changed = false;
                 (
                     None,
@@ -395,37 +407,37 @@ impl Ds {
                 )
             }
             // ======= Committing Endpoints =======
-            DsRequestParams::Update(update_client_params) => {
+            DsGroupRequestParams::Update(update_client_params) => {
                 let group_message = group_state.update_client(update_client_params)?;
                 prepare_result(group_message, vec![])
             }
-            DsRequestParams::GroupOperation(group_operation_params) => {
+            DsGroupRequestParams::GroupOperation(group_operation_params) => {
                 let (group_message, welcome_bundles) = group_state
                     .group_operation(group_operation_params, &ear_key)
                     .await?;
                 prepare_result(group_message, welcome_bundles)
             }
-            DsRequestParams::DeleteGroup(delete_group) => {
+            DsGroupRequestParams::DeleteGroup(delete_group) => {
                 let group_message = group_state.delete_group(delete_group)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Externally Committing Endpoints =======
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+            DsGroupRequestParams::JoinConnectionGroup(join_connection_group_params) => {
                 let group_message =
                     group_state.join_connection_group(join_connection_group_params)?;
                 prepare_result(group_message, vec![])
             }
-            DsRequestParams::Resync(resync_client_params) => {
+            DsGroupRequestParams::Resync(resync_client_params) => {
                 let group_message = group_state.resync_client(resync_client_params)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Proposal Endpoints =======
-            DsRequestParams::SelfRemove(self_remove_client_params) => {
+            DsGroupRequestParams::SelfRemove(self_remove_client_params) => {
                 let group_message = group_state.self_remove_client(self_remove_client_params)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Sending messages =======
-            DsRequestParams::SendMessage(send_message_params) => {
+            DsGroupRequestParams::SendMessage(send_message_params) => {
                 // There is nothing to process here, so we just stick the
                 // message into a QueueMessagePayload for distribution.
                 group_state_has_changed = false;
@@ -433,7 +445,7 @@ impl Ds {
                 prepare_result(group_message, vec![])
             }
             // ======= Events =======
-            DsRequestParams::DispatchEvent(dispatch_event_params) => {
+            DsGroupRequestParams::DispatchEvent(dispatch_event_params) => {
                 group_state_has_changed = false;
                 let event_message = DsFanOutPayload::EventMessage(dispatch_event_params.event);
                 (Some(event_message), DsProcessResponse::Ok, vec![])
@@ -494,6 +506,28 @@ impl Ds {
                 .map_err(|_| DsProcessingError::DistributionError)?;
         }
 
+        Ok(DsVersionedProcessResponse::with_version(
+            response,
+            from_version,
+        )?)
+    }
+
+    async fn process_non_group_message(
+        &self,
+        request_params: DsVersionedRequestParams,
+    ) -> Result<DsVersionedProcessResponse, DsProcessingError> {
+        let (request_params, from_version) = request_params.into_unversioned()?;
+        let DsRequestParams::NonGroup(request_params) = request_params else {
+            return Err(DsProcessingError::ProcessingError);
+        };
+        let response = match request_params {
+            DsNonGroupRequestParams::RequestGroupId => {
+                self.request_group_id().await.map_err(|e| {
+                    tracing::warn!("Could not generate group id: {:?}", e);
+                    DsProcessingError::StorageError
+                })?
+            }
+        };
         Ok(DsVersionedProcessResponse::with_version(
             response,
             from_version,
