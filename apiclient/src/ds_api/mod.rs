@@ -20,6 +20,7 @@ use phnxtypes::{
         signatures::{signable::Signable, traits::SigningKeyBehaviour},
     },
     endpoint_paths::ENDPOINT_DS_GROUPS,
+    errors::version::VersionError,
     identifiers::QsReference,
     messages::{
         client_ds::{
@@ -34,7 +35,6 @@ use phnxtypes::{
             JoinConnectionGroupParamsOut, ResyncParamsOut, SelfRemoveParamsOut,
             SendMessageParamsOut, UpdateParamsOut,
         },
-        client_qs::VersionError,
     },
     time::TimeStamp,
     LibraryError,

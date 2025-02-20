@@ -9,11 +9,8 @@ use std::{
 
 use http::{HeaderMap, StatusCode};
 use phnxtypes::{
-    messages::{
-        client_ds::CURRENT_DS_API_VERSION,
-        client_qs::{VersionError, CURRENT_QS_API_VERSION},
-        ApiVersion,
-    },
+    errors::version::VersionError,
+    messages::{client_ds::CURRENT_DS_API_VERSION, client_qs::CURRENT_QS_API_VERSION, ApiVersion},
     ACCEPTED_API_VERSIONS_HEADER,
 };
 use tracing::error;

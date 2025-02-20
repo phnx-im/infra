@@ -16,6 +16,7 @@ use phnxtypes::{
         RatchetEncryptionKey,
     },
     endpoint_paths::ENDPOINT_QS,
+    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
     messages::{
         client_qs::{
@@ -24,7 +25,7 @@ use phnxtypes::{
             DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
             KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
-            VersionError, SUPPORTED_QS_API_VERSIONS,
+            SUPPORTED_QS_API_VERSIONS,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,

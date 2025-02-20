@@ -166,7 +166,7 @@ use phnxtypes::{
         ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
-    errors::DsProcessingError,
+    errors::{version::VersionError, DsProcessingError},
     identifiers::QualifiedGroupId,
     messages::{
         client_ds::{
@@ -174,7 +174,6 @@ use phnxtypes::{
             DsSender, DsVersionedRequestParams, QsQueueMessagePayload, VerifiableClientToDsMessage,
             SUPPORTED_DS_API_VERSIONS,
         },
-        client_qs::VersionError,
         ApiVersion,
     },
     time::TimeStamp,

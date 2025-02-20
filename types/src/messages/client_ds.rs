@@ -36,12 +36,13 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signature, Verifiable, VerifiedStruct},
     },
+    errors::version::VersionError,
     identifiers::QsReference,
     time::TimeStamp,
 };
 
 use super::{
-    client_as::EncryptedFriendshipPackage, client_qs::VersionError,
+    client_as::EncryptedFriendshipPackage,
     welcome_attribution_info::EncryptedWelcomeAttributionInfo, ApiVersion, EncryptedQsQueueMessage,
     MlsInfraVersion,
 };

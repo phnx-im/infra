@@ -23,6 +23,7 @@ use crate::{
         ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::signable::{Signable, Signature, SignedStruct},
     },
+    errors::version::VersionError,
     identifiers::QsReference,
     time::TimeStamp,
 };
@@ -32,7 +33,6 @@ use super::{
         ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
         WelcomeInfoParams, SUPPORTED_DS_API_VERSIONS,
     },
-    client_qs::VersionError,
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     ApiVersion,
 };

@@ -7,11 +7,13 @@ use mls_assist::{
     openmls::group::MergeCommitError,
 };
 use thiserror::Error;
+use version::VersionError;
 
-use crate::{codec::PhnxCodec, messages::client_qs::VersionError};
+use crate::codec::PhnxCodec;
 
 pub mod auth_service;
 pub mod qs;
+pub mod version;
 
 pub type CborMlsAssistStorage = MlsAssistMemoryStorage<PhnxCodec>;
 

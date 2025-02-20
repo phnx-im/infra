@@ -24,13 +24,13 @@ use crate::{
         ear::keys::KeyPackageEarKey,
         hpke::ClientIdEncryptionKey,
         kdf::keys::RatchetSecret,
-        signatures::keys::QsClientVerifyingKey,
         signatures::{
-            keys::QsUserVerifyingKey,
+            keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
         RatchetEncryptionKey,
     },
+    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
 };
 
@@ -376,44 +376,6 @@ impl DeserializeBytes for QsVersionedRequestParams {
                 bytes,
             )),
         }
-    }
-}
-
-// TODO: Move to a different module.
-#[derive(Debug, thiserror::Error)]
-#[error("Unsupported version: {version}, supported versions: {supported_versions:?}")]
-pub struct VersionError {
-    version: ApiVersion,
-    supported_versions: &'static [ApiVersion],
-}
-
-impl VersionError {
-    pub fn new(version: ApiVersion, supported_versions: &'static [ApiVersion]) -> Self {
-        Self {
-            version,
-            supported_versions,
-        }
-    }
-
-    pub fn supported_versions(&self) -> &[ApiVersion] {
-        self.supported_versions
-    }
-
-    pub fn supported_versions_header_value(&self) -> String {
-        self.supported_versions
-            .iter()
-            .map(|v| v.to_string())
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-
-    pub fn parse_supported_versions_header_value(
-        value: &str,
-    ) -> impl Iterator<Item = ApiVersion> + '_ {
-        value
-            .split(',')
-            .filter_map(|s| s.parse().ok())
-            .filter_map(ApiVersion::new)
     }
 }
 
