@@ -13,7 +13,6 @@ use phnxtypes::{
 
 use super::{client_record::QsClientRecord, queue::Queue, user_record::UserRecord, Qs};
 
-mod api_migrations;
 pub(crate) mod client_records;
 pub(crate) mod key_packages;
 pub(crate) mod user_records;
@@ -72,7 +71,7 @@ impl Qs {
             })?,
         };
 
-        let request_params = api_migrations::migrate_qs_request_params(request_params)?;
+        let (request_params, from_version) = request_params.into_unversioned()?;
 
         let response = match request_params {
             QsRequestParams::CreateUser(params) => {
@@ -115,7 +114,10 @@ impl Qs {
             }
         };
 
-        Ok(QsVersionedProcessResponse::Alpha(response))
+        Ok(QsVersionedProcessResponse::with_version(
+            response,
+            from_version,
+        )?)
     }
 
     /// Retrieve messages the given number of messages, starting with

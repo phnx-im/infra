@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::KeyPackage;
-use tls_codec::{Serialize, TlsSerialize, TlsSize, TlsVarInt};
+use tls_codec::{Serialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
@@ -22,9 +22,10 @@ use super::{
     client_qs::{
         ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
         DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
+        VersionError, SUPPORTED_QS_API_VERSIONS,
     },
     push_token::EncryptedPushToken,
-    FriendshipToken,
+    ApiVersion, FriendshipToken,
 };
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -44,6 +45,10 @@ impl ClientToQsMessageOut {
         let signature = Signature::empty();
         Self { payload, signature }
     }
+
+    pub fn into_payload(self) -> ClientToQsMessageTbsOut {
+        self.payload
+    }
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -53,14 +58,35 @@ pub struct ClientToQsMessageTbsOut {
 }
 
 #[derive(Debug)]
-enum QsVersionedRequestParamsOut {
+pub enum QsVersionedRequestParamsOut {
     Alpha(QsRequestParamsOut),
 }
 
 impl QsVersionedRequestParamsOut {
-    pub fn version(&self) -> TlsVarInt {
+    pub fn with_version(
+        params: QsRequestParamsOut,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(params)),
+            _ => Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS)),
+        }
+    }
+
+    pub fn change_version(
+        self,
+        to_version: ApiVersion,
+    ) -> Result<(Self, ApiVersion), VersionError> {
+        let from_version = self.version();
+        match (to_version.value(), self) {
+            (1, Self::Alpha(params)) => Ok((Self::Alpha(params), from_version)),
+            (_, Self::Alpha(_)) => Err(VersionError::new(to_version, SUPPORTED_QS_API_VERSIONS)),
+        }
+    }
+
+    pub(crate) fn version(&self) -> ApiVersion {
         match self {
-            QsVersionedRequestParamsOut::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+            QsVersionedRequestParamsOut::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 }
@@ -69,7 +95,7 @@ impl tls_codec::Size for QsVersionedRequestParamsOut {
     fn tls_serialized_len(&self) -> usize {
         match self {
             QsVersionedRequestParamsOut::Alpha(params) => {
-                self.version().tls_serialized_len() + params.tls_serialized_len()
+                self.version().tls_value().tls_serialized_len() + params.tls_serialized_len()
             }
         }
     }
@@ -80,17 +106,20 @@ impl Serialize for QsVersionedRequestParamsOut {
     fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedRequestParamsOut::Alpha(params) => {
-                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
             }
         }
     }
 }
 
 impl ClientToQsMessageTbsOut {
-    pub fn new(body: QsRequestParamsOut) -> Self {
-        Self {
-            body: QsVersionedRequestParamsOut::Alpha(body),
-        }
+    pub fn new(body: QsVersionedRequestParamsOut) -> Self {
+        Self { body }
+    }
+
+    pub fn into_body(self) -> QsVersionedRequestParamsOut {
+        self.body
     }
 }
 

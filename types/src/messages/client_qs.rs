@@ -15,6 +15,10 @@ use tls_codec::{
     DeserializeBytes, Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt,
 };
 
+pub const CURRENT_QS_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
+
+pub const SUPPORTED_QS_API_VERSIONS: &[ApiVersion] = &[CURRENT_QS_API_VERSION];
+
 use crate::{
     crypto::{
         ear::keys::KeyPackageEarKey,
@@ -31,7 +35,7 @@ use crate::{
 };
 
 use super::{
-    push_token::EncryptedPushToken, FriendshipToken, MlsInfraVersion, QsEncryptedKeyPackage,
+    push_token::EncryptedPushToken, ApiVersion, FriendshipToken, QsEncryptedKeyPackage,
     QueueMessage,
 };
 
@@ -312,25 +316,37 @@ pub struct ClientToQsMessageTbs {
 #[repr(u64)]
 pub enum QsVersionedRequestParams {
     /// Fallback for unknown versions
-    Other(TlsVarInt),
+    Other(ApiVersion),
     Alpha(QsRequestParams),
 }
 
 impl QsVersionedRequestParams {
-    pub fn version(&self) -> TlsVarInt {
+    pub fn version(&self) -> ApiVersion {
         match self {
             QsVersionedRequestParams::Other(version) => *version,
-            QsVersionedRequestParams::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+            QsVersionedRequestParams::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
+    }
+
+    pub fn into_unversioned(self) -> Result<(QsRequestParams, ApiVersion), VersionError> {
+        let version = self.version();
+        let params = match self {
+            QsVersionedRequestParams::Alpha(params) => params,
+            QsVersionedRequestParams::Other(version) => {
+                return Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS))
+            }
+        };
+        Ok((params, version))
     }
 }
 
 impl tls_codec::Size for QsVersionedRequestParams {
     fn tls_serialized_len(&self) -> usize {
         match self {
-            QsVersionedRequestParams::Other(_) => self.version().tls_serialized_len(),
+            QsVersionedRequestParams::Other(_) => self.version().tls_value().tls_serialized_len(),
             QsVersionedRequestParams::Alpha(qs_request_params) => {
-                self.version().tls_serialized_len() + qs_request_params.tls_serialized_len()
+                self.version().tls_value().tls_serialized_len()
+                    + qs_request_params.tls_serialized_len()
             }
         }
     }
@@ -340,9 +356,10 @@ impl Serialize for QsVersionedRequestParams {
     fn tls_serialize<W: io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedRequestParams::Alpha(params) => {
-                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
             }
-            QsVersionedRequestParams::Other(_) => self.version().tls_serialize(writer),
+            QsVersionedRequestParams::Other(_) => self.version().tls_value().tls_serialize(writer),
         }
     }
 }
@@ -355,7 +372,10 @@ impl DeserializeBytes for QsVersionedRequestParams {
                 let (params, bytes) = QsRequestParams::tls_deserialize_bytes(bytes)?;
                 Ok((QsVersionedRequestParams::Alpha(params), bytes))
             }
-            _ => Ok((QsVersionedRequestParams::Other(version), bytes)),
+            _ => Ok((
+                QsVersionedRequestParams::Other(ApiVersion::from_tls_value(version)),
+                bytes,
+            )),
         }
     }
 }
@@ -363,16 +383,20 @@ impl DeserializeBytes for QsVersionedRequestParams {
 #[derive(Debug, thiserror::Error)]
 #[error("Unsupported version: {version}, supported versions: {supported_versions:?}")]
 pub struct VersionError {
-    version: u64,
-    supported_versions: Vec<MlsInfraVersion>,
+    version: ApiVersion,
+    supported_versions: &'static [ApiVersion],
 }
 
 impl VersionError {
-    pub fn from_unsupported_version(version: u64) -> Self {
+    pub fn new(version: ApiVersion, supported_versions: &'static [ApiVersion]) -> Self {
         Self {
             version,
-            supported_versions: vec![MlsInfraVersion::Alpha],
+            supported_versions,
         }
+    }
+
+    pub fn supported_versions(&self) -> &[ApiVersion] {
+        self.supported_versions
     }
 }
 
@@ -381,7 +405,7 @@ impl ClientToQsMessageTbs {
         match &self.body {
             QsVersionedRequestParams::Alpha(params) => Ok(params.sender()),
             QsVersionedRequestParams::Other(version) => {
-                Err(VersionError::from_unsupported_version(version.value()))
+                Err(VersionError::new(*version, SUPPORTED_QS_API_VERSIONS))
             }
         }
     }
@@ -434,9 +458,19 @@ pub enum QsVersionedProcessResponse {
 }
 
 impl QsVersionedProcessResponse {
-    pub fn version(&self) -> TlsVarInt {
+    pub fn with_version(
+        response: QsProcessResponse,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(response)),
+            _ => Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS)),
+        }
+    }
+
+    pub fn version(&self) -> ApiVersion {
         match self {
-            QsVersionedProcessResponse::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+            QsVersionedProcessResponse::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 }
@@ -445,7 +479,8 @@ impl tls_codec::Size for QsVersionedProcessResponse {
     fn tls_serialized_len(&self) -> usize {
         match self {
             QsVersionedProcessResponse::Alpha(qs_process_response) => {
-                self.version().tls_serialized_len() + qs_process_response.tls_serialized_len()
+                self.version().tls_value().tls_serialized_len()
+                    + qs_process_response.tls_serialized_len()
             }
         }
     }
@@ -455,7 +490,8 @@ impl tls_codec::Serialize for QsVersionedProcessResponse {
     fn tls_serialize<W: io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         match self {
             QsVersionedProcessResponse::Alpha(params) => {
-                Ok(self.version().tls_serialize(writer)? + params.tls_serialize(writer)?)
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
             }
         }
     }
@@ -476,15 +512,24 @@ pub enum QsProcessResponse {
 
 #[expect(clippy::large_enum_variant, reason = "this is a message enum")]
 pub enum QsVersionedProcessResponseIn {
-    Other(TlsVarInt),
+    Other(ApiVersion),
     Alpha(QsProcessResponseIn),
 }
 
 impl QsVersionedProcessResponseIn {
-    pub fn version(&self) -> TlsVarInt {
+    pub fn version(&self) -> ApiVersion {
         match self {
             QsVersionedProcessResponseIn::Other(version) => *version,
-            QsVersionedProcessResponseIn::Alpha(_) => TlsVarInt::new(1).expect("infallible"),
+            QsVersionedProcessResponseIn::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<QsProcessResponseIn, VersionError> {
+        match self {
+            QsVersionedProcessResponseIn::Alpha(response) => Ok(response),
+            QsVersionedProcessResponseIn::Other(version) => {
+                Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS))
+            }
         }
     }
 }
@@ -492,9 +537,12 @@ impl QsVersionedProcessResponseIn {
 impl tls_codec::Size for QsVersionedProcessResponseIn {
     fn tls_serialized_len(&self) -> usize {
         match self {
-            QsVersionedProcessResponseIn::Other(_) => self.version().tls_serialized_len(),
+            QsVersionedProcessResponseIn::Other(_) => {
+                self.version().tls_value().tls_serialized_len()
+            }
             QsVersionedProcessResponseIn::Alpha(qs_process_response_in) => {
-                self.version().tls_serialized_len() + qs_process_response_in.tls_serialized_len()
+                self.version().tls_value().tls_serialized_len()
+                    + qs_process_response_in.tls_serialized_len()
             }
         }
     }
@@ -508,7 +556,10 @@ impl tls_codec::DeserializeBytes for QsVersionedProcessResponseIn {
                 let (params, bytes) = QsProcessResponseIn::tls_deserialize_bytes(bytes)?;
                 Ok((QsVersionedProcessResponseIn::Alpha(params), bytes))
             }
-            _ => Ok((QsVersionedProcessResponseIn::Other(version), bytes)),
+            _ => Ok((
+                QsVersionedProcessResponseIn::Other(ApiVersion::from_tls_value(version)),
+                bytes,
+            )),
         }
     }
 }
