@@ -300,8 +300,8 @@ mod tests {
 
     fn new_test_message(sender: &str, timestamp_secs: i64) -> ConversationMessage {
         ConversationMessage::new_for_test(
-            ConversationId::from(Uuid::from_u128(1)),
-            ConversationMessageId::from_uuid(Uuid::from_u128(1)),
+            ConversationId::new(Uuid::from_u128(1)),
+            ConversationMessageId::new(Uuid::from_u128(1)),
             TimeStamp::from(timestamp_secs * 1_000_000_000),
             Message::with_content(ContentMessage::new(
                 sender.into(),

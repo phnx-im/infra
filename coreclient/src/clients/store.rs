@@ -70,13 +70,8 @@ impl UserCreationState {
         };
 
         // Create user profile entry for own user.
-        UserProfile::store_own_user_profile(
-            client_db_connection,
-            &mut StoreNotifier::noop(),
-            as_client_id.user_name(),
-            None,
-            None,
-        )?;
+        UserProfile::new(as_client_id.user_name(), None, None)
+            .upsert(client_db_connection, &mut StoreNotifier::noop())?;
 
         let user_creation_state = UserCreationState::BasicUserData(basic_user_data);
 
