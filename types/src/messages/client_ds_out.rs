@@ -16,7 +16,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     crypto::{
@@ -30,10 +30,11 @@ use crate::{
 use super::{
     client_ds::{
         ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
-        WelcomeInfoParams,
+        WelcomeInfoParams, SUPPORTED_DS_API_VERSIONS,
     },
+    client_qs::VersionError,
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
-    MlsInfraVersion,
+    ApiVersion,
 };
 
 #[derive(TlsSize, TlsDeserializeBytes)]
@@ -41,6 +42,59 @@ pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+}
+
+#[expect(clippy::large_enum_variant)]
+pub enum DsVersionedProcessResponseIn {
+    Other(ApiVersion),
+    Alpha(DsProcessResponseIn),
+}
+
+impl DsVersionedProcessResponseIn {
+    pub fn version(&self) -> ApiVersion {
+        match self {
+            DsVersionedProcessResponseIn::Other(version) => *version,
+            DsVersionedProcessResponseIn::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<DsProcessResponseIn, VersionError> {
+        match self {
+            DsVersionedProcessResponseIn::Alpha(response) => Ok(response),
+            DsVersionedProcessResponseIn::Other(version) => {
+                Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS))
+            }
+        }
+    }
+}
+
+impl tls_codec::Size for DsVersionedProcessResponseIn {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            DsVersionedProcessResponseIn::Other(_) => {
+                self.version().tls_value().tls_serialized_len()
+            }
+            DsVersionedProcessResponseIn::Alpha(response) => {
+                self.version().tls_value().tls_serialized_len() + response.tls_serialized_len()
+            }
+        }
+    }
+}
+
+impl tls_codec::DeserializeBytes for DsVersionedProcessResponseIn {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
+            1 => {
+                let (response, bytes) = DsProcessResponseIn::tls_deserialize_bytes(bytes)?;
+                Ok((DsVersionedProcessResponseIn::Alpha(response), bytes))
+            }
+            _ => Ok((
+                DsVersionedProcessResponseIn::Other(ApiVersion::from_tls_value(version)),
+                bytes,
+            )),
+        }
+    }
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -108,6 +162,62 @@ pub struct DeleteGroupParamsOut {
     pub commit: AssistedMessageOut,
 }
 
+#[derive(Debug)]
+pub enum DsVersionedRequestParamsOut {
+    Alpha(DsRequestParamsOut),
+}
+
+impl DsVersionedRequestParamsOut {
+    pub fn with_version(
+        params: DsRequestParamsOut,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(params)),
+            _ => Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS)),
+        }
+    }
+
+    pub fn change_version(
+        self,
+        to_version: ApiVersion,
+    ) -> Result<(Self, ApiVersion), VersionError> {
+        let from_version = self.version();
+        match (to_version.value(), self) {
+            (1, Self::Alpha(params)) => Ok((Self::Alpha(params), from_version)),
+            (_, Self::Alpha(_)) => Err(VersionError::new(to_version, SUPPORTED_DS_API_VERSIONS)),
+        }
+    }
+
+    pub(crate) fn version(&self) -> ApiVersion {
+        match self {
+            DsVersionedRequestParamsOut::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+}
+
+impl tls_codec::Size for DsVersionedRequestParamsOut {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            DsVersionedRequestParamsOut::Alpha(params) => {
+                self.version().tls_value().tls_serialized_len() + params.tls_serialized_len()
+            }
+        }
+    }
+}
+
+// Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
+impl Serialize for DsVersionedRequestParamsOut {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        match self {
+            DsVersionedRequestParamsOut::Alpha(params) => {
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
+            }
+        }
+    }
+}
+
 #[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
@@ -140,19 +250,29 @@ impl Signable for ClientToDsMessageTbsOut {
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ClientToDsMessageTbsOut {
-    _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
     // This essentially includes the wire format.
-    body: DsRequestParamsOut,
+    body: DsVersionedRequestParamsOut,
 }
 
 impl ClientToDsMessageTbsOut {
-    pub fn new(group_state_ear_key: GroupStateEarKey, body: DsRequestParamsOut) -> Self {
+    pub fn new(group_state_ear_key: GroupStateEarKey, body: DsVersionedRequestParamsOut) -> Self {
         Self {
-            _version: MlsInfraVersion::default(),
             group_state_ear_key,
             body,
         }
+    }
+
+    pub fn change_version(
+        self,
+        to_version: ApiVersion,
+    ) -> Result<(Self, ApiVersion), VersionError> {
+        let Self {
+            group_state_ear_key,
+            body,
+        } = self;
+        let (body, from_version) = body.change_version(to_version)?;
+        Ok((Self::new(group_state_ear_key, body), from_version))
     }
 }
 
@@ -175,6 +295,10 @@ impl ClientToDsMessageOut {
     pub fn without_signature(payload: ClientToDsMessageTbsOut) -> Self {
         let signature = Signature::empty();
         Self { payload, signature }
+    }
+
+    pub fn into_payload(self) -> ClientToDsMessageTbsOut {
+        self.payload
     }
 }
 

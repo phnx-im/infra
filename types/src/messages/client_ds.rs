@@ -21,7 +21,7 @@ use mls_assist::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, Size, TlsDeserializeBytes, TlsSerialize,
-    TlsSize,
+    TlsSize, TlsVarInt,
 };
 
 use crate::{
@@ -41,8 +41,8 @@ use crate::{
 };
 
 use super::{
-    client_as::EncryptedFriendshipPackage,
-    welcome_attribution_info::EncryptedWelcomeAttributionInfo, EncryptedQsQueueMessage,
+    client_as::EncryptedFriendshipPackage, client_qs::VersionError,
+    welcome_attribution_info::EncryptedWelcomeAttributionInfo, ApiVersion, EncryptedQsQueueMessage,
     MlsInfraVersion,
 };
 
@@ -50,6 +50,10 @@ mod private_mod {
     #[derive(Default)]
     pub struct Seal;
 }
+
+pub const CURRENT_DS_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
+
+pub const SUPPORTED_DS_API_VERSIONS: &[ApiVersion] = &[CURRENT_DS_API_VERSION];
 
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -334,6 +338,70 @@ pub struct DeleteGroupParams {
     pub commit: AssistedMessageIn,
 }
 
+#[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
+pub enum DsVersionedRequestParams {
+    Other(ApiVersion),
+    Alpha(DsRequestParams),
+}
+
+impl DsVersionedRequestParams {
+    pub fn version(&self) -> ApiVersion {
+        match self {
+            DsVersionedRequestParams::Other(version) => *version,
+            DsVersionedRequestParams::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    fn unversioned(&self) -> Result<&DsRequestParams, VersionError> {
+        match self {
+            DsVersionedRequestParams::Alpha(params) => Ok(params),
+            DsVersionedRequestParams::Other(version) => {
+                Err(VersionError::new(*version, SUPPORTED_DS_API_VERSIONS))
+            }
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<(DsRequestParams, ApiVersion), VersionError> {
+        let version = self.version();
+        let params = match self {
+            DsVersionedRequestParams::Other(_) => {
+                return Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS))
+            }
+            DsVersionedRequestParams::Alpha(params) => params,
+        };
+        Ok((params, version))
+    }
+}
+
+impl tls_codec::Size for DsVersionedRequestParams {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            DsVersionedRequestParams::Other(_) => self.version().tls_value().tls_serialized_len(),
+            DsVersionedRequestParams::Alpha(ds_request_params) => {
+                self.version().tls_value().tls_serialized_len()
+                    + ds_request_params.tls_serialized_len()
+            }
+        }
+    }
+}
+
+impl DeserializeBytes for DsVersionedRequestParams {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
+            1 => {
+                let (params, bytes) = DsRequestParams::tls_deserialize_bytes(bytes)?;
+                Ok((DsVersionedRequestParams::Alpha(params), bytes))
+            }
+            _ => Ok((
+                DsVersionedRequestParams::Other(ApiVersion::from_tls_value(version)),
+                bytes,
+            )),
+        }
+    }
+}
+
 /// This enum contains variants for each DS endpoint.
 #[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -481,15 +549,17 @@ pub enum DsSender {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageTbs {
-    _version: MlsInfraVersion,
     group_state_ear_key: GroupStateEarKey,
     // This essentially includes the wire format.
-    body: DsRequestParams,
+    body: DsVersionedRequestParams,
 }
 
 impl ClientToDsMessageTbs {
     fn sender(&self) -> Option<DsSender> {
-        self.body.ds_sender()
+        match &self.body {
+            DsVersionedRequestParams::Alpha(params) => params.ds_sender(),
+            DsVersionedRequestParams::Other(_) => None,
+        }
     }
 }
 
@@ -534,8 +604,12 @@ impl DeserializeBytes for VerifiableClientToDsMessage {
 }
 
 impl VerifiableClientToDsMessage {
-    pub fn group_id(&self) -> &GroupId {
-        self.message.payload.body.group_id()
+    pub fn group_id(&self) -> Result<&GroupId, VersionError> {
+        self.message
+            .payload
+            .body
+            .unversioned()
+            .map(|params| params.group_id())
     }
 
     pub fn ear_key(&self) -> &GroupStateEarKey {
@@ -551,18 +625,18 @@ impl VerifiableClientToDsMessage {
     ///
     /// Group creation messages are essentially self-authenticated, so it's okay
     /// to extract the content before verification.
-    pub fn create_group_params(&self) -> Option<&CreateGroupParams> {
-        match &self.message.payload.body {
+    pub fn create_group_params(&self) -> Result<Option<&CreateGroupParams>, VersionError> {
+        match self.message.payload.body.unversioned()? {
             DsRequestParams::CreateGroupParams(group_creation_params) => {
-                Some(group_creation_params)
+                Ok(Some(group_creation_params))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
     /// This returns the payload without any verification. Can only be used with
     /// payloads that have an `Anonymous` sender.
-    pub fn extract_without_verification(self) -> Option<DsRequestParams> {
+    pub fn extract_without_verification(self) -> Option<DsVersionedRequestParams> {
         match self.message.payload.sender() {
             Some(DsSender::Anonymous) => Some(self.message.payload.body),
             _ => None,
@@ -584,7 +658,7 @@ impl Verifiable for VerifiableClientToDsMessage {
     }
 }
 
-impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
+impl VerifiedStruct<VerifiableClientToDsMessage> for DsVersionedRequestParams {
     type SealingType = private_mod::Seal;
 
     fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {

@@ -7,8 +7,11 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use phnxbackend::{ds::Ds, qs::QsConnector};
-use phnxtypes::messages::client_ds::DsMessageTypeIn;
+use phnxtypes::{
+    errors::DsProcessingError, messages::client_ds::DsMessageTypeIn, ACCEPTED_API_VERSIONS_HEADER,
+};
 use tls_codec::{DeserializeBytes, Serialize};
+use tracing::{info, trace, warn};
 
 /// DS endpoint for all group-based functionalities.
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
@@ -24,20 +27,29 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
     let message = match DsMessageTypeIn::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
         Err(e) => {
-            tracing::warn!("Received invalid message: {:?}", e);
+            warn!("Received invalid message: {:?}", e);
             return HttpResponse::BadRequest().body(e.to_string());
         }
     };
     match Ds::process(storage_provider, qs_connector, message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
-            tracing::trace!("Processed message successfully");
+            trace!("Processed message successfully");
             let serialized_response = response.tls_serialize_detached().unwrap();
             HttpResponse::Ok().body(serialized_response)
         }
+        Err(DsProcessingError::Api(version_error)) => {
+            info!(%version_error, "Unsupported QS API version");
+            HttpResponse::NotAcceptable()
+                .insert_header((
+                    ACCEPTED_API_VERSIONS_HEADER,
+                    version_error.supported_versions_header_value(),
+                ))
+                .body(version_error.to_string())
+        }
         // If the message could not be processed, return an error.
         Err(e) => {
-            tracing::warn!("DS failed to process message: {:?}", e);
+            warn!("DS failed to process message: {:?}", e);
             HttpResponse::InternalServerError().body(e.to_string())
         }
     }

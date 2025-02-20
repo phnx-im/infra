@@ -9,7 +9,11 @@ use std::{
 
 use http::{HeaderMap, StatusCode};
 use phnxtypes::{
-    messages::{client_qs::CURRENT_QS_API_VERSION, ApiVersion},
+    messages::{
+        client_ds::CURRENT_DS_API_VERSION,
+        client_qs::{VersionError, CURRENT_QS_API_VERSION},
+        ApiVersion,
+    },
     ACCEPTED_API_VERSIONS_HEADER,
 };
 use tracing::error;
@@ -19,12 +23,14 @@ use tracing::error;
 /// The default values are the current API versions of the corresponding messages.
 pub(crate) struct NegotiatedApiVersions {
     qs_api_version: AtomicU64,
+    ds_api_version: AtomicU64,
 }
 
 impl NegotiatedApiVersions {
     pub(crate) fn new() -> Self {
         Self {
             qs_api_version: AtomicU64::new(CURRENT_QS_API_VERSION.value()),
+            ds_api_version: AtomicU64::new(CURRENT_DS_API_VERSION.value()),
         }
     }
 
@@ -35,6 +41,16 @@ impl NegotiatedApiVersions {
 
     pub(crate) fn qs_api_version(&self) -> ApiVersion {
         let version = self.qs_api_version.load(Ordering::Relaxed);
+        ApiVersion::new(version).expect("logic error")
+    }
+
+    pub(crate) fn set_ds_api_version(&self, version: ApiVersion) {
+        self.ds_api_version
+            .store(version.value(), Ordering::Relaxed);
+    }
+
+    pub(crate) fn ds_api_version(&self) -> ApiVersion {
+        let version = self.ds_api_version.load(Ordering::Relaxed);
         ApiVersion::new(version).expect("logic error")
     }
 }
@@ -53,25 +69,16 @@ pub(crate) fn extract_api_version_negotiation(
 
 fn parse_accepted_versions_header(headers: &HeaderMap) -> Option<HashSet<ApiVersion>> {
     let value = headers.get(ACCEPTED_API_VERSIONS_HEADER)?;
-    let Ok(value) = value.to_str() else {
-        error!(
-            value =% String::from_utf8_lossy(value.as_bytes()),
-            "Invalid value for {ACCEPTED_API_VERSIONS_HEADER} header"
-        );
-        return Some(Default::default());
-    };
-    let versions = value
-        .split(',')
-        .filter_map(|version| {
-            version
-                .trim()
-                .parse()
-                .inspect_err(|_| error!(version, "skipping invalid api version"))
-                .ok()
-        })
-        .filter_map(ApiVersion::new)
-        .collect();
-    Some(versions)
+    match value.to_str() {
+        Ok(value) => Some(VersionError::parse_supported_versions_header_value(value).collect()),
+        Err(_) => {
+            error!(
+                value =% String::from_utf8_lossy(value.as_bytes()),
+                "Invalid value for {ACCEPTED_API_VERSIONS_HEADER} header"
+            );
+            Some(Default::default())
+        }
+    }
 }
 
 /// Returns the highest API version that is supported by both the client and the server.

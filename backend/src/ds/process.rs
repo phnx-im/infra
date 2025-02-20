@@ -168,9 +168,14 @@ use phnxtypes::{
     },
     errors::DsProcessingError,
     identifiers::QualifiedGroupId,
-    messages::client_ds::{
-        CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender, QsQueueMessagePayload,
-        VerifiableClientToDsMessage,
+    messages::{
+        client_ds::{
+            CreateGroupParams, DsMessageTypeIn, DsRequestParams, DsSender,
+            DsVersionedRequestParams, QsQueueMessagePayload, VerifiableClientToDsMessage,
+            SUPPORTED_DS_API_VERSIONS,
+        },
+        client_qs::VersionError,
+        ApiVersion,
     },
     time::TimeStamp,
 };
@@ -195,16 +200,21 @@ impl Ds {
         &self,
         qs_connector: &Q,
         message: DsMessageTypeIn,
-    ) -> Result<DsProcessResponse, DsProcessingError> {
+    ) -> Result<DsVersionedProcessResponse, DsProcessingError> {
         match message {
             DsMessageTypeIn::Group(group_message) => {
                 self.process_group_message(qs_connector, group_message)
                     .await
             }
-            DsMessageTypeIn::NonGroup => self.request_group_id().await.map_err(|e| {
-                tracing::warn!("Could not generate group id: {:?}", e);
-                DsProcessingError::StorageError
-            }),
+            DsMessageTypeIn::NonGroup => self
+                .request_group_id()
+                .await
+                .map_err(|e| {
+                    tracing::warn!("Could not generate group id: {:?}", e);
+                    DsProcessingError::StorageError
+                })
+                // TODO: We should use the version of the request here.
+                .map(DsVersionedProcessResponse::Alpha),
         }
     }
 
@@ -212,11 +222,11 @@ impl Ds {
         &self,
         qs_connector: &Q,
         message: VerifiableClientToDsMessage,
-    ) -> Result<DsProcessResponse, DsProcessingError> {
+    ) -> Result<DsVersionedProcessResponse, DsProcessingError> {
         let ear_key = message.ear_key().clone();
 
         // Verify group id
-        let qgid = QualifiedGroupId::try_from(message.group_id().clone()).map_err(|_| {
+        let qgid = QualifiedGroupId::try_from(message.group_id()?).map_err(|_| {
             tracing::warn!("Could not convert group id to qualified group id");
             DsProcessingError::GroupNotFound
         })?;
@@ -234,7 +244,7 @@ impl Ds {
         // Depending on the message, either load and decrypt an encrypted group state or
         // create a new one.
         let (group_data, mut group_state) = if let Some(create_group_params) =
-            message.create_group_params()
+            message.create_group_params()?
         {
             let reserved_group_id = self
                 .claim_reserved_group_id(qgid.group_uuid())
@@ -289,7 +299,7 @@ impl Ds {
         };
 
         // Verify the message.
-        let (sender_index_option, verified_message) = match message
+        let (sender_index_option, verified_message): (_, DsVersionedRequestParams) = match message
             .sender()
             .ok_or(DsProcessingError::InvalidSenderType)?
         {
@@ -300,14 +310,14 @@ impl Ds {
                     .ok_or(DsProcessingError::UnknownSender)?
                     .signature_key()
                     .into();
-                let params: DsRequestParams = message.verify(&verifying_key).map_err(|_| {
+                let params = message.verify(&verifying_key).map_err(|_| {
                     warn!("Could not verify message based on leaf index");
                     DsProcessingError::InvalidSignature
                 })?;
                 (Some(leaf_index), params)
             }
             DsSender::LeafSignatureKey(verifying_key) => {
-                let message: DsRequestParams = message
+                let message = message
                     .verify(&LeafVerifyingKey::from(&verifying_key))
                     .map_err(|_| {
                         warn!("Could not verify message based on leaf signature key");
@@ -321,12 +331,14 @@ impl Ds {
                 (Some(sender_index), message)
             }
             DsSender::Anonymous => {
-                let message: DsRequestParams = message
+                let message = message
                     .extract_without_verification()
                     .ok_or(DsProcessingError::InvalidSenderType)?;
                 (None, message)
             }
         };
+
+        let (verified_message, from_version) = verified_message.into_unversioned()?;
 
         let destination_clients: Vec<_> = group_state
             .member_profiles
@@ -482,7 +494,10 @@ impl Ds {
                 .map_err(|_| DsProcessingError::DistributionError)?;
         }
 
-        Ok(response)
+        Ok(DsVersionedProcessResponse::with_version(
+            response,
+            from_version,
+        )?)
     }
 
     pub async fn request_group_id(&self) -> Result<DsProcessResponse, StorageError> {
@@ -533,4 +548,49 @@ fn prepare_result(
         DsProcessResponse::FanoutTimestamp(timestamp),
         welcome_bundles,
     )
+}
+
+#[derive(Debug)]
+pub enum DsVersionedProcessResponse {
+    Alpha(DsProcessResponse),
+}
+
+impl DsVersionedProcessResponse {
+    pub(crate) fn version(&self) -> ApiVersion {
+        match self {
+            DsVersionedProcessResponse::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub(crate) fn with_version(
+        response: DsProcessResponse,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(response)),
+            _ => Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS)),
+        }
+    }
+}
+
+impl tls_codec::Size for DsVersionedProcessResponse {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            DsVersionedProcessResponse::Alpha(response) => {
+                self.version().tls_value().tls_serialized_len() + response.tls_serialized_len()
+            }
+        }
+    }
+}
+
+// Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
+impl tls_codec::Serialize for DsVersionedProcessResponse {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        match self {
+            DsVersionedProcessResponse::Alpha(response) => {
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + response.tls_serialize(writer)?)
+            }
+        }
+    }
 }

@@ -8,7 +8,7 @@ use mls_assist::{
 };
 use thiserror::Error;
 
-use crate::codec::PhnxCodec;
+use crate::{codec::PhnxCodec, messages::client_qs::VersionError};
 
 pub mod auth_service;
 pub mod qs;
@@ -77,6 +77,9 @@ pub enum ClientUpdateError {
 #[derive(Debug, Error)]
 #[repr(u8)]
 pub enum DsProcessingError {
+    /// API Version error
+    #[error(transparent)]
+    Api(#[from] VersionError),
     /// Failed to distribute message to other members
     #[error("Failed to distribute message to other members")]
     DistributionError,

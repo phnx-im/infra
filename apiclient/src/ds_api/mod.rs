@@ -4,6 +4,8 @@
 
 //! API endpoints of the DS
 
+use crate::version::{extract_api_version_negotiation, negotiate_api_version};
+
 use super::*;
 use mls_assist::{
     messages::AssistedMessageOut,
@@ -22,33 +24,45 @@ use phnxtypes::{
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
-            WelcomeInfoParams,
+            WelcomeInfoParams, SUPPORTED_DS_API_VERSIONS,
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
             DeleteGroupParamsOut, DsMessageTypeOut, DsProcessResponseIn, DsRequestParamsOut,
-            ExternalCommitInfoIn, GroupOperationParamsOut, JoinConnectionGroupParamsOut,
-            ResyncParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            DsVersionedProcessResponseIn, DsVersionedRequestParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, JoinConnectionGroupParamsOut, ResyncParamsOut,
+            SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
         },
+        client_qs::VersionError,
     },
     time::TimeStamp,
+    LibraryError,
 };
 
 use tls_codec::DeserializeBytes;
-use tracing::warn;
 
 #[derive(Error, Debug)]
 pub enum DsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error("Couldn't deserialize response body.")]
-    BadResponse,
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("Network error: {0}")]
-    NetworkError(String),
     #[error("DS Error: {0}")]
     DsError(String),
+    #[error("API Error: {0}")]
+    Api(#[from] VersionError),
+    #[error("Unsuccessful response: status = {status}, error = {error}")]
+    RequestFailed { status: StatusCode, error: String },
+}
+
+impl From<LibraryError> for DsRequestError {
+    fn from(_: LibraryError) -> Self {
+        Self::LibraryError
+    }
 }
 
 pub enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
@@ -63,78 +77,46 @@ impl<'a, T: SigningKeyBehaviour + 'a> From<&'a T> for AuthenticationMethod<'a, T
 }
 
 impl ApiClient {
-    // Single purpose function since this is the only endpoint that doesn't require authentication.
-    pub async fn send_ds_message(
-        &self,
-        message: DsMessageTypeOut,
-    ) -> Result<DsProcessResponseIn, DsRequestError> {
-        let message_bytes = message
-            .tls_serialize_detached()
-            .map_err(|_| DsRequestError::LibraryError)?;
-        match self
-            .client
-            .post(self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS))
-            .body(message_bytes)
-            .send()
-            .await
-        {
-            Ok(res) => {
-                match res.status().as_u16() {
-                    // Success!
-                    _ if res.status().is_success() => {
-                        let ds_proc_res_bytes =
-                            res.bytes().await.map_err(|_| DsRequestError::BadResponse)?;
-                        let ds_proc_res =
-                            DsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
-                                .map_err(|error| {
-                                    warn!(%error, "Couldn't deserialize OK response body");
-                                    DsRequestError::BadResponse
-                                })?;
-                        Ok(ds_proc_res)
-                    }
-                    // DS Specific Error
-                    418 => {
-                        let ds_proc_err_bytes = res.bytes().await.map_err(|_| {
-                            warn!("No body in DS-error response");
-                            DsRequestError::BadResponse
-                        })?;
-                        let ds_proc_err =
-                            String::from_utf8(ds_proc_err_bytes.to_vec()).map_err(|_| {
-                                warn!("Couldn't deserialize DS-error response body");
-                                DsRequestError::BadResponse
-                            })?;
-                        Err(DsRequestError::DsError(ds_proc_err))
-                    }
-                    // All other errors
-                    _ => {
-                        let error_text = res.text().await.map_err(|_| {
-                            warn!("Other network error without body");
-                            DsRequestError::BadResponse
-                        })?;
-                        Err(DsRequestError::NetworkError(error_text))
-                    }
-                }
-            }
-            // A network error occurred.
-            Err(err) => Err(DsRequestError::NetworkError(err.to_string())),
-        }
-    }
-
     async fn prepare_and_send_ds_group_message<'a, T: SigningKeyBehaviour + 'a>(
         &self,
         request_params: DsRequestParamsOut,
         auth_method: impl Into<AuthenticationMethod<'a, T>>,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<DsProcessResponseIn, DsRequestError> {
+        let api_version = self.negotiated_versions().ds_api_version();
+
+        let request_params =
+            DsVersionedRequestParamsOut::with_version(request_params, api_version)?;
+        let auth_method = auth_method.into();
         let tbs = ClientToDsMessageTbsOut::new(group_state_ear_key.clone(), request_params);
-        let message = match auth_method.into() {
-            AuthenticationMethod::Signature(signer) => {
-                tbs.sign(signer).map_err(|_| DsRequestError::LibraryError)?
-            }
-            AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
+        let message = sign_ds_params(tbs, &auth_method)?;
+
+        let response = self.send_ds_http_request(&message).await?;
+
+        // check if we need to negotiate a new API version
+        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
+            return handle_ds_response(response).await;
         };
-        let message_type = DsMessageTypeOut::Group(message);
-        self.send_ds_message(message_type).await
+
+        let tbs = match message {
+            DsMessageTypeOut::Group(message) => message.into_payload(),
+            DsMessageTypeOut::NonGroup => {
+                // For non-group messages, the API is not versioned.
+                return handle_ds_response(response).await;
+            }
+        };
+
+        let supported_versions = SUPPORTED_DS_API_VERSIONS;
+        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
+            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
+        self.negotiated_versions()
+            .set_ds_api_version(accepted_version);
+
+        let (tbs, _) = tbs.change_version(accepted_version)?;
+        let message = sign_ds_params(tbs, &auth_method)?;
+
+        let response = self.send_ds_http_request(&message).await?;
+        handle_ds_response(response).await
     }
 
     /// Creates a new group on the DS.
@@ -442,15 +424,66 @@ impl ApiClient {
     /// Delete the given group.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
         let message_type = DsMessageTypeOut::NonGroup;
-        self.send_ds_message(message_type)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let DsProcessResponseIn::GroupId(group_id) = response {
-                    Ok(group_id)
-                } else {
-                    Err(DsRequestError::UnexpectedResponse)
-                }
-            })
+        let response = self.send_ds_http_request(&message_type).await?;
+        let ds_response = handle_ds_response(response).await?;
+        if let DsProcessResponseIn::GroupId(group_id) = ds_response {
+            Ok(group_id)
+        } else {
+            Err(DsRequestError::UnexpectedResponse)
+        }
     }
+
+    async fn send_ds_http_request(
+        &self,
+        message: &DsMessageTypeOut,
+    ) -> Result<reqwest::Response, DsRequestError> {
+        let message_bytes = message.tls_serialize_detached()?;
+        let endpoint = self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS);
+        let response = self
+            .client
+            .post(endpoint)
+            .body(message_bytes)
+            .send()
+            .await?;
+        Ok(response)
+    }
+}
+
+async fn handle_ds_response(res: reqwest::Response) -> Result<DsProcessResponseIn, DsRequestError> {
+    let status = res.status();
+    match status.as_u16() {
+        // Success!
+        _ if res.status().is_success() => {
+            let ds_proc_res_bytes = res.bytes().await?;
+            let ds_proc_res =
+                DsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)?
+                    .into_unversioned()?;
+            Ok(ds_proc_res)
+        }
+        // DS Specific Error
+        418 => {
+            let ds_proc_err_bytes = res.bytes().await?;
+            let ds_proc_err = String::from_utf8_lossy(&ds_proc_err_bytes);
+            Err(DsRequestError::DsError(ds_proc_err.into_owned()))
+        }
+        // All other errors
+        _ => {
+            let error = res
+                .text()
+                .await
+                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
+            Err(DsRequestError::RequestFailed { status, error })
+        }
+    }
+}
+
+fn sign_ds_params<'a, T: SigningKeyBehaviour + 'a>(
+    tbs: ClientToDsMessageTbsOut,
+    auth_method: &AuthenticationMethod<'a, T>,
+) -> Result<DsMessageTypeOut, DsRequestError> {
+    let message = match auth_method {
+        AuthenticationMethod::Signature(signer) => tbs.sign(*signer)?,
+        AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
+    };
+    Ok(DsMessageTypeOut::Group(message))
 }
