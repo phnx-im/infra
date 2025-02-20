@@ -7,11 +7,13 @@ use mls_assist::{
     openmls::group::MergeCommitError,
 };
 use thiserror::Error;
+use version::VersionError;
 
 use crate::codec::PhnxCodec;
 
 pub mod auth_service;
 pub mod qs;
+pub mod version;
 
 pub type CborMlsAssistStorage = MlsAssistMemoryStorage<PhnxCodec>;
 
@@ -77,6 +79,9 @@ pub enum ClientUpdateError {
 #[derive(Debug, Error)]
 #[repr(u8)]
 pub enum DsProcessingError {
+    /// API Version error
+    #[error(transparent)]
+    Api(#[from] VersionError),
     /// Failed to distribute message to other members
     #[error("Failed to distribute message to other members")]
     DistributionError,

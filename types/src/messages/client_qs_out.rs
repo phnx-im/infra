@@ -15,6 +15,7 @@ use crate::{
         },
         RatchetEncryptionKey,
     },
+    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
 };
 
@@ -22,7 +23,7 @@ use super::{
     client_qs::{
         ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
         DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
-        VersionError, SUPPORTED_QS_API_VERSIONS,
+        SUPPORTED_QS_API_VERSIONS,
     },
     push_token::EncryptedPushToken,
     ApiVersion, FriendshipToken,

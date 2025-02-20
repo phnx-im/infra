@@ -179,7 +179,7 @@ impl ApiVersion {
         Self(value)
     }
 
-    pub(crate) const fn tls_value(&self) -> TlsVarInt {
+    pub const fn tls_value(&self) -> TlsVarInt {
         self.0
     }
 }

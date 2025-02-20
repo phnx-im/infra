@@ -41,16 +41,11 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
             HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
         }
         Err(QsProcessError::Api(version_error)) => {
-            info!(%version_error, "Unsupported API version");
+            info!(%version_error, "Unsupported QS API version");
             HttpResponse::NotAcceptable()
                 .insert_header((
                     ACCEPTED_API_VERSIONS_HEADER,
-                    version_error
-                        .supported_versions()
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join(","),
+                    version_error.supported_versions_header_value(),
                 ))
                 .body(version_error.to_string())
         }
