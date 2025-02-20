@@ -39,6 +39,9 @@ impl NegotiatedApiVersions {
     }
 }
 
+/// Returns Some if API version negotiation is required, otherwise None.
+///
+/// The returned set contains the supported API versions by the server.
 pub(crate) fn extract_api_version_negotiation(
     response: &reqwest::Response,
 ) -> Option<HashSet<ApiVersion>> {
@@ -48,7 +51,7 @@ pub(crate) fn extract_api_version_negotiation(
     parse_accepted_versions_header(response.headers())
 }
 
-pub(crate) fn parse_accepted_versions_header(headers: &HeaderMap) -> Option<HashSet<ApiVersion>> {
+fn parse_accepted_versions_header(headers: &HeaderMap) -> Option<HashSet<ApiVersion>> {
     let value = headers.get(ACCEPTED_API_VERSIONS_HEADER)?;
     let Ok(value) = value.to_str() else {
         error!(

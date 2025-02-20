@@ -90,7 +90,7 @@ impl ApiClient {
 
         // check if we need to negotiate a new API version
         let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
-            return process_response(response).await;
+            return handle_qs_response(response).await;
         };
 
         let supported_versions = SUPPORTED_QS_API_VERSIONS;
@@ -106,7 +106,7 @@ impl ApiClient {
         let message = sign_params(request_params, &token_or_signing_key)?;
 
         let response = send_qs_message(&self.client, &endpoint, &message).await?;
-        process_response(response).await
+        handle_qs_response(response).await
     }
 
     pub async fn qs_create_user(
@@ -385,23 +385,19 @@ impl ApiClient {
     }
 }
 
-async fn process_response(
-    response: reqwest::Response,
-) -> Result<QsProcessResponseIn, QsRequestError> {
-    let status = response.status();
-    if status.is_success() {
-        let bytes = response.bytes().await.map_err(QsRequestError::Reqwest)?;
-        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)
-            .map_err(QsRequestError::Tls)?
-            .into_unversioned()?;
-        Ok(qs_response)
-    } else {
-        let error = response
-            .text()
-            .await
-            .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
-        Err(QsRequestError::RequestFailed { status, error })
-    }
+fn sign_params<T: SigningKeyBehaviour>(
+    request_params: QsVersionedRequestParamsOut,
+    token_or_signing_key: &AuthenticationMethod<'_, T>,
+) -> Result<ClientToQsMessageOut, QsRequestError> {
+    let tbs = ClientToQsMessageTbsOut::new(request_params);
+    let message = match token_or_signing_key {
+        AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
+        AuthenticationMethod::SigningKey(signing_key) => tbs
+            .sign(*signing_key)
+            .map_err(|_| QsRequestError::LibraryError)?,
+        AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
+    };
+    Ok(message)
 }
 
 async fn send_qs_message(
@@ -421,17 +417,21 @@ async fn send_qs_message(
         .map_err(From::from)
 }
 
-fn sign_params<T: SigningKeyBehaviour>(
-    request_params: QsVersionedRequestParamsOut,
-    token_or_signing_key: &AuthenticationMethod<'_, T>,
-) -> Result<ClientToQsMessageOut, QsRequestError> {
-    let tbs = ClientToQsMessageTbsOut::new(request_params);
-    let message = match token_or_signing_key {
-        AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
-        AuthenticationMethod::SigningKey(signing_key) => tbs
-            .sign(*signing_key)
-            .map_err(|_| QsRequestError::LibraryError)?,
-        AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
-    };
-    Ok(message)
+async fn handle_qs_response(
+    response: reqwest::Response,
+) -> Result<QsProcessResponseIn, QsRequestError> {
+    let status = response.status();
+    if status.is_success() {
+        let bytes = response.bytes().await.map_err(QsRequestError::Reqwest)?;
+        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)
+            .map_err(QsRequestError::Tls)?
+            .into_unversioned()?;
+        Ok(qs_response)
+    } else {
+        let error = response
+            .text()
+            .await
+            .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
+        Err(QsRequestError::RequestFailed { status, error })
+    }
 }
