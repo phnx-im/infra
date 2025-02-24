@@ -41,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-app-x64
-          path: build/windows/x64/runner/Release/prototype.exe
+          path: app/build/windows/x64/runner/Release/prototype.exe

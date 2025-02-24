@@ -44,4 +44,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-app-x64
-          path: build/linux/x64/release/bundle
+          path: app/build/linux/x64/release/bundle
