@@ -206,7 +206,17 @@ extension on HomeNavigation {
               key: ValueKey("developer-settings-screen-change-user"),
               child: ChangeUserScreen(),
             ),
-          ]
+          ],
+        DeveloperSettingsScreenType.logs => [
+            const MaterialPage(
+              key: ValueKey("developer-settings-screen-root"),
+              child: DeveloperSettingsScreen(),
+            ),
+            const MaterialPage(
+              key: ValueKey("developer-settings-screen-logs"),
+              child: LogsScreen(),
+            ),
+          ],
       },
     ];
   }

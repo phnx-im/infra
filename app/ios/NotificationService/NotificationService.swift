@@ -11,10 +11,11 @@ struct IncomingNotificationContent: Codable {
     let body: String
     let data: String
     let path: String
+    let logFilePath: String
 }
 
 struct NotificationBatch: Codable {
-    let badge_count: UInt32
+    let badgeCount: UInt32
     let removals: [String]
     let additions: [NotificationContent]
 }
@@ -27,21 +28,21 @@ struct NotificationContent: Codable {
 }
 
 class NotificationService: UNNotificationServiceExtension {
-    
+
     var contentHandler: ((UNNotificationContent) -> Void)?
     var bestAttemptContent: UNMutableNotificationContent?
-    
+
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        
+
         NSLog("NSE Received notification")
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
-        
+
         guard let bestAttemptContent = bestAttemptContent else {
             contentHandler(request.content)
             return
         }
-        
+
         // Extract the "data" field from the push notification payload
         let userInfo = request.content.userInfo
         guard let data = userInfo["data"] as? String else {
@@ -49,30 +50,42 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(request.content)
             return
         }
-        
+
         // Find the documents directory path for the databases
         guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype") else {
             NSLog("NSE Could not find documents directory")
             contentHandler(request.content)
             return
         }
-        
         let path = containerURL.appendingPathComponent("Documents").path
-        
+
+        guard let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            NSLog("NSE Could not find cache directory")
+            contentHandler(request.content)
+            return
+        }
+        let cachePath = cachesDirectory.appendPathComponent("background.log").path
+
         // Create IncomingNotificationContent object
-        let incomingContent = IncomingNotificationContent(title: bestAttemptContent.title, body: bestAttemptContent.body, data: data, path: path)
-        
+        let incomingContent = IncomingNotificationContent(
+            title: bestAttemptContent.title,
+            body: bestAttemptContent.body,
+            data: data,
+            path: path,
+            logFilePath: logFilePath
+        )
+
         if let jsonData = try? JSONEncoder().encode(incomingContent),
            let jsonString = String(data: jsonData, encoding: .utf8) {
-            
+
             jsonString.withCString { cString in
                 if let responsePointer = process_new_messages(cString) {
                     let responseString = String(cString: responsePointer)
                     free_string(responsePointer)
-                    
+
                     if let responseData = responseString.data(using: .utf8),
                        let notificationBatch = try? JSONDecoder().decode(NotificationBatch.self, from: responseData) {
-                        
+
                         handleNotificationBatch(notificationBatch, contentHandler: contentHandler)
                     } else {
                         contentHandler(request.content)
@@ -85,7 +98,7 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(request.content)
         }
     }
-    
+
     override func serviceExtensionTimeWillExpire() {
         NSLog("NSE Expiration handler invoked")
         if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
@@ -94,14 +107,14 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(bestAttemptContent)
         }
     }
-    
+
     func handleNotificationBatch(_ batch: NotificationBatch, contentHandler: @escaping (UNNotificationContent) -> Void) {
         let center = UNUserNotificationCenter.current()
         let dispatchGroup = DispatchGroup()
-        
+
         // Remove notifications
         center.removeDeliveredNotifications(withIdentifiers: batch.removals)
-        
+
         // Add notifications
         var lastNotification: NotificationContent?
         for (index, notificationContent) in batch.additions.enumerated() {
@@ -124,7 +137,7 @@ class NotificationService: UNNotificationServiceExtension {
                 }
             }
         }
-        
+
         // Notify when all notifications are added
         dispatchGroup.notify(queue: DispatchQueue.main) {
             let content = UNMutableNotificationContent()
@@ -135,7 +148,7 @@ class NotificationService: UNNotificationServiceExtension {
                 content.userInfo["customData"] = lastNotification.data
             }
             // Add the badge number
-            content.badge = NSNumber(value: batch.badge_count)
+            content.badge = NSNumber(value: batch.badgeCount)
             // Delay the callback by 1 second so that the notifications can be removed
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 contentHandler(content)
