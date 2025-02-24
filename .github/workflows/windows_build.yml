@@ -36,3 +36,9 @@ jobs:
 
       - name: Build Windows app
         run: just build-windows-ci
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app-x64
+          path: build/windows/x64/runner/Release/prototype.exe
