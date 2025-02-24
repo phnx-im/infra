@@ -21,7 +21,7 @@ use mls_assist::{
 use serde::{Deserialize, Serialize};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, Size, TlsDeserializeBytes, TlsSerialize,
-    TlsSize,
+    TlsSize, TlsVarInt,
 };
 
 use crate::{
@@ -36,13 +36,14 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signature, Verifiable, VerifiedStruct},
     },
+    errors::version::VersionError,
     identifiers::QsReference,
     time::TimeStamp,
 };
 
 use super::{
     client_as::EncryptedFriendshipPackage,
-    welcome_attribution_info::EncryptedWelcomeAttributionInfo, EncryptedQsQueueMessage,
+    welcome_attribution_info::EncryptedWelcomeAttributionInfo, ApiVersion, EncryptedQsQueueMessage,
     MlsInfraVersion,
 };
 
@@ -50,6 +51,10 @@ mod private_mod {
     #[derive(Default)]
     pub struct Seal;
 }
+
+pub const CURRENT_DS_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
+
+pub const SUPPORTED_DS_API_VERSIONS: &[ApiVersion] = &[CURRENT_DS_API_VERSION];
 
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -334,11 +339,86 @@ pub struct DeleteGroupParams {
     pub commit: AssistedMessageIn,
 }
 
-/// This enum contains variants for each DS endpoint.
+#[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
+pub enum DsVersionedRequestParams {
+    Other(ApiVersion),
+    Alpha(DsRequestParams),
+}
+
+impl DsVersionedRequestParams {
+    pub fn version(&self) -> ApiVersion {
+        match self {
+            DsVersionedRequestParams::Other(version) => *version,
+            DsVersionedRequestParams::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    fn unversioned(&self) -> Result<&DsRequestParams, VersionError> {
+        match self {
+            DsVersionedRequestParams::Alpha(params) => Ok(params),
+            DsVersionedRequestParams::Other(version) => {
+                Err(VersionError::new(*version, SUPPORTED_DS_API_VERSIONS))
+            }
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<(DsRequestParams, ApiVersion), VersionError> {
+        let version = self.version();
+        let params = match self {
+            DsVersionedRequestParams::Other(_) => {
+                return Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS))
+            }
+            DsVersionedRequestParams::Alpha(params) => params,
+        };
+        Ok((params, version))
+    }
+}
+
+impl tls_codec::Size for DsVersionedRequestParams {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            DsVersionedRequestParams::Other(_) => self.version().tls_value().tls_serialized_len(),
+            DsVersionedRequestParams::Alpha(ds_request_params) => {
+                self.version().tls_value().tls_serialized_len()
+                    + ds_request_params.tls_serialized_len()
+            }
+        }
+    }
+}
+
+impl DeserializeBytes for DsVersionedRequestParams {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
+            1 => {
+                let (params, bytes) = DsRequestParams::tls_deserialize_bytes(bytes)?;
+                Ok((DsVersionedRequestParams::Alpha(params), bytes))
+            }
+            _ => Ok((
+                DsVersionedRequestParams::Other(ApiVersion::from_tls_value(version)),
+                bytes,
+            )),
+        }
+    }
+}
+
 #[expect(clippy::large_enum_variant)]
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsRequestParams {
+    Group {
+        group_state_ear_key: GroupStateEarKey,
+        request_params: DsGroupRequestParams,
+    },
+    NonGroup(DsNonGroupRequestParams),
+}
+
+/// This enum contains variants for each DS endpoint.
+#[expect(clippy::large_enum_variant)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum DsGroupRequestParams {
     CreateGroupParams(CreateGroupParams),
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
@@ -354,40 +434,30 @@ pub enum DsRequestParams {
     DispatchEvent(DispatchEventParams),
 }
 
-impl DsRequestParams {
+impl DsGroupRequestParams {
     pub(crate) fn group_id(&self) -> &GroupId {
         match self {
-            DsRequestParams::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
-            DsRequestParams::CreateGroupParams(create_group_params) => {
-                &create_group_params.group_id
-            }
-            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
+            Self::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
+            Self::CreateGroupParams(create_group_params) => &create_group_params.group_id,
+            Self::UpdateQsClientReference(update_queue_info_params) => {
                 &update_queue_info_params.group_id
             }
-            DsRequestParams::ExternalCommitInfo(external_commit_info_params) => {
+            Self::ExternalCommitInfo(external_commit_info_params) => {
                 &external_commit_info_params.group_id
             }
-            DsRequestParams::ConnectionGroupInfo(params) => &params.group_id,
-            DsRequestParams::Update(update_client_params) => update_client_params.commit.group_id(),
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+            Self::ConnectionGroupInfo(params) => &params.group_id,
+            Self::Update(update_client_params) => update_client_params.commit.group_id(),
+            Self::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params.external_commit.group_id()
             }
-            DsRequestParams::Resync(resync_client_params) => {
-                resync_client_params.external_commit.group_id()
-            }
-            DsRequestParams::SelfRemove(self_remove_client_params) => {
+            Self::Resync(resync_client_params) => resync_client_params.external_commit.group_id(),
+            Self::SelfRemove(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.group_id()
             }
-            DsRequestParams::SendMessage(send_message_params) => {
-                send_message_params.message.group_id()
-            }
-            DsRequestParams::DeleteGroup(delete_group_params) => {
-                delete_group_params.commit.group_id()
-            }
-            DsRequestParams::DispatchEvent(dispatch_event_params) => {
-                dispatch_event_params.event.group_id()
-            }
-            DsRequestParams::GroupOperation(group_operation_params) => {
+            Self::SendMessage(send_message_params) => send_message_params.message.group_id(),
+            Self::DeleteGroup(delete_group_params) => delete_group_params.commit.group_id(),
+            Self::DispatchEvent(dispatch_event_params) => dispatch_event_params.event.group_id(),
+            Self::GroupOperation(group_operation_params) => {
                 group_operation_params.commit.group_id()
             }
         }
@@ -396,70 +466,68 @@ impl DsRequestParams {
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub fn mls_sender(&self) -> Option<&Sender> {
         match self {
-            DsRequestParams::Update(update_client_params) => {
+            Self::Update(update_client_params) => {
                 update_client_params.commit.sender()
             }
-            DsRequestParams::JoinConnectionGroup(join_connection_group_params) => {
+            Self::JoinConnectionGroup(join_connection_group_params) => {
                 join_connection_group_params
                     .external_commit
                     .sender()
             }
-            DsRequestParams::Resync(resync_client_params) => {
+            Self::Resync(resync_client_params) => {
                 resync_client_params.external_commit.sender()
             }
-            DsRequestParams::SelfRemove(self_remove_client_params) => {
+            Self::SelfRemove(self_remove_client_params) => {
                 self_remove_client_params.remove_proposal.sender()
             }
-            DsRequestParams::DeleteGroup(delete_group_params) => {
+            Self::DeleteGroup(delete_group_params) => {
                 delete_group_params.commit.sender()
             }
-            DsRequestParams::GroupOperation(group_operation_params) => {
+            Self::GroupOperation(group_operation_params) => {
                 group_operation_params.commit.sender()
             }
-            DsRequestParams::DispatchEvent(_) => {
+            Self::DispatchEvent(_) => {
                 None
             }
-            DsRequestParams::WelcomeInfo(_)
-            | DsRequestParams::ExternalCommitInfo(_)
-            | DsRequestParams::ConnectionGroupInfo(_)
-            | DsRequestParams::CreateGroupParams(_)
+            Self::WelcomeInfo(_)
+            | Self::ExternalCommitInfo(_)
+            | Self::ConnectionGroupInfo(_)
+            | Self::CreateGroupParams(_)
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
-            | DsRequestParams::SendMessage(_)
-            | DsRequestParams::UpdateQsClientReference(_) => None,
+            | Self::SendMessage(_)
+            | Self::UpdateQsClientReference(_) => None,
         }
     }
 
     /// Returns a sender if the request contains a public message. Otherwise returns `None`.
     pub fn ds_sender(&self) -> Option<DsSender> {
         match self {
-            DsRequestParams::WelcomeInfo(welcome_info_params) => Some(DsSender::LeafSignatureKey(
+            Self::WelcomeInfo(welcome_info_params) => Some(DsSender::LeafSignatureKey(
                 welcome_info_params.sender.clone(),
             )),
-            DsRequestParams::UpdateQsClientReference(update_queue_info_params) => {
+            Self::UpdateQsClientReference(update_queue_info_params) => {
                 Some(DsSender::LeafIndex(update_queue_info_params.sender))
             }
-            DsRequestParams::SendMessage(send_message_params) => {
+            Self::SendMessage(send_message_params) => {
                 Some(DsSender::LeafIndex(send_message_params.sender))
             }
-            DsRequestParams::DispatchEvent(dispatch_event_params) => Some(DsSender::LeafIndex(
+            Self::DispatchEvent(dispatch_event_params) => Some(DsSender::LeafIndex(
                 dispatch_event_params.event.sender_index(),
             )),
             // Messages that don't require additional auth
-            DsRequestParams::CreateGroupParams(_)
-            | DsRequestParams::ExternalCommitInfo(_)
-            | DsRequestParams::ConnectionGroupInfo(_)
-            | DsRequestParams::JoinConnectionGroup(_) => Some(DsSender::Anonymous),
+            Self::CreateGroupParams(_)
+            | Self::ExternalCommitInfo(_)
+            | Self::ConnectionGroupInfo(_)
+            | Self::JoinConnectionGroup(_) => Some(DsSender::Anonymous),
             // Messages that require auth via the credential at the leaf, but
             // which contain an external commit
-            DsRequestParams::Resync(resync_params) => {
-                Some(DsSender::LeafIndex(resync_params.sender_index))
-            }
+            Self::Resync(resync_params) => Some(DsSender::LeafIndex(resync_params.sender_index)),
             // Messages from which we pull the leaf index
-            DsRequestParams::DeleteGroup(_)
-            | DsRequestParams::GroupOperation(_)
-            | DsRequestParams::Update(_)
-            | DsRequestParams::SelfRemove(_) => self.mls_sender().and_then(|mls_sender| {
+            Self::DeleteGroup(_)
+            | Self::GroupOperation(_)
+            | Self::Update(_)
+            | Self::SelfRemove(_) => self.mls_sender().and_then(|mls_sender| {
                 if let Sender::Member(leaf_index) = mls_sender {
                     Some(DsSender::LeafIndex(*leaf_index))
                 } else {
@@ -481,15 +549,22 @@ pub enum DsSender {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub(crate) struct ClientToDsMessageTbs {
-    _version: MlsInfraVersion,
-    group_state_ear_key: GroupStateEarKey,
     // This essentially includes the wire format.
-    body: DsRequestParams,
+    body: DsVersionedRequestParams,
 }
 
 impl ClientToDsMessageTbs {
     fn sender(&self) -> Option<DsSender> {
-        self.body.ds_sender()
+        match &self.body {
+            DsVersionedRequestParams::Alpha(params) => match params {
+                DsRequestParams::Group {
+                    group_state_ear_key: _,
+                    request_params,
+                } => request_params.ds_sender(),
+                DsRequestParams::NonGroup(params) => Some(params.ds_sender()),
+            },
+            DsVersionedRequestParams::Other(_) => None,
+        }
     }
 }
 
@@ -498,14 +573,6 @@ pub(crate) struct ClientToDsMessageIn {
     payload: ClientToDsMessageTbs,
     // Signature over all of the above.
     signature: Signature,
-}
-
-#[expect(clippy::large_enum_variant)]
-#[derive(Debug, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
-pub enum DsMessageTypeIn {
-    Group(VerifiableClientToDsMessage),
-    NonGroup,
 }
 
 #[derive(Debug, TlsSize)]
@@ -534,12 +601,20 @@ impl DeserializeBytes for VerifiableClientToDsMessage {
 }
 
 impl VerifiableClientToDsMessage {
-    pub fn group_id(&self) -> &GroupId {
-        self.message.payload.body.group_id()
-    }
-
-    pub fn ear_key(&self) -> &GroupStateEarKey {
-        &self.message.payload.group_state_ear_key
+    pub fn group_id_and_ear_key(
+        &self,
+    ) -> Result<Option<(&GroupId, &GroupStateEarKey)>, VersionError> {
+        self.message
+            .payload
+            .body
+            .unversioned()
+            .map(|params| match params {
+                DsRequestParams::Group {
+                    group_state_ear_key,
+                    request_params,
+                } => Some((request_params.group_id(), group_state_ear_key)),
+                DsRequestParams::NonGroup(_) => None,
+            })
     }
 
     pub fn sender(&self) -> Option<DsSender> {
@@ -551,18 +626,23 @@ impl VerifiableClientToDsMessage {
     ///
     /// Group creation messages are essentially self-authenticated, so it's okay
     /// to extract the content before verification.
-    pub fn create_group_params(&self) -> Option<&CreateGroupParams> {
-        match &self.message.payload.body {
-            DsRequestParams::CreateGroupParams(group_creation_params) => {
-                Some(group_creation_params)
-            }
-            _ => None,
+    pub fn create_group_params(&self) -> Result<Option<&CreateGroupParams>, VersionError> {
+        match self.message.payload.body.unversioned()? {
+            DsRequestParams::Group {
+                group_state_ear_key: _,
+                request_params: DsGroupRequestParams::CreateGroupParams(group_creation_params),
+            } => Ok(Some(group_creation_params)),
+            DsRequestParams::Group {
+                group_state_ear_key: _,
+                request_params: _,
+            } => Ok(None),
+            DsRequestParams::NonGroup(_) => Ok(None),
         }
     }
 
     /// This returns the payload without any verification. Can only be used with
     /// payloads that have an `Anonymous` sender.
-    pub fn extract_without_verification(self) -> Option<DsRequestParams> {
+    pub fn extract_without_verification(self) -> Option<DsVersionedRequestParams> {
         match self.message.payload.sender() {
             Some(DsSender::Anonymous) => Some(self.message.payload.body),
             _ => None,
@@ -584,7 +664,7 @@ impl Verifiable for VerifiableClientToDsMessage {
     }
 }
 
-impl VerifiedStruct<VerifiableClientToDsMessage> for DsRequestParams {
+impl VerifiedStruct<VerifiableClientToDsMessage> for DsVersionedRequestParams {
     type SealingType = private_mod::Seal;
 
     fn from_verifiable(verifiable: VerifiableClientToDsMessage, _seal: Self::SealingType) -> Self {
@@ -656,4 +736,18 @@ pub struct WelcomeBundle {
     pub encrypted_attribution_info: EncryptedWelcomeAttributionInfo,
     // This part is added by the DS later.
     pub encrypted_joiner_info: EncryptedDsJoinerInformation,
+}
+
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[repr(u8)]
+pub enum DsNonGroupRequestParams {
+    RequestGroupId,
+}
+
+impl DsNonGroupRequestParams {
+    fn ds_sender(&self) -> DsSender {
+        match self {
+            Self::RequestGroupId => DsSender::Anonymous,
+        }
+    }
 }

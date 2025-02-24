@@ -24,13 +24,13 @@ use crate::{
         ear::keys::KeyPackageEarKey,
         hpke::ClientIdEncryptionKey,
         kdf::keys::RatchetSecret,
-        signatures::keys::QsClientVerifyingKey,
         signatures::{
-            keys::QsUserVerifyingKey,
+            keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
         RatchetEncryptionKey,
     },
+    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
 };
 
@@ -313,7 +313,6 @@ pub struct ClientToQsMessageTbs {
 /// **WARNING**: Only add new variants with new API versions. Do not reuse the API version (variant
 /// tag).
 #[derive(Debug)]
-#[repr(u64)]
 pub enum QsVersionedRequestParams {
     /// Fallback for unknown versions
     Other(ApiVersion),
@@ -377,26 +376,6 @@ impl DeserializeBytes for QsVersionedRequestParams {
                 bytes,
             )),
         }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error("Unsupported version: {version}, supported versions: {supported_versions:?}")]
-pub struct VersionError {
-    version: ApiVersion,
-    supported_versions: &'static [ApiVersion],
-}
-
-impl VersionError {
-    pub fn new(version: ApiVersion, supported_versions: &'static [ApiVersion]) -> Self {
-        Self {
-            version,
-            supported_versions,
-        }
-    }
-
-    pub fn supported_versions(&self) -> &[ApiVersion] {
-        self.supported_versions
     }
 }
 

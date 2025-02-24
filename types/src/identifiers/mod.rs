@@ -143,6 +143,14 @@ impl TryFrom<GroupId> for QualifiedGroupId {
     type Error = tls_codec::Error;
 
     fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+        Self::try_from(&value)
+    }
+}
+
+impl TryFrom<&GroupId> for QualifiedGroupId {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
         Self::tls_deserialize_exact_bytes(value.as_slice())
     }
 }

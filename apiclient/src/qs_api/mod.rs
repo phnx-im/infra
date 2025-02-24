@@ -16,6 +16,7 @@ use phnxtypes::{
         RatchetEncryptionKey,
     },
     endpoint_paths::ENDPOINT_QS,
+    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
     messages::{
         client_qs::{
@@ -24,7 +25,7 @@ use phnxtypes::{
             DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
             KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
-            VersionError, SUPPORTED_QS_API_VERSIONS,
+            SUPPORTED_QS_API_VERSIONS,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
@@ -34,6 +35,7 @@ use phnxtypes::{
         push_token::EncryptedPushToken,
         FriendshipToken,
     },
+    LibraryError,
 };
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
@@ -60,10 +62,14 @@ pub enum QsRequestError {
     UnexpectedResponse,
     #[error("Unsuccessful response: status = {status}, error = {error}")]
     RequestFailed { status: StatusCode, error: String },
-    #[error("Network error: {0}")]
-    NetworkError(String),
     #[error(transparent)]
     Version(#[from] VersionError),
+}
+
+impl From<LibraryError> for QsRequestError {
+    fn from(_: LibraryError) -> Self {
+        Self::LibraryError
+    }
 }
 
 // TODO: This is a workaround that allows us to use the Signable trait.
@@ -85,8 +91,7 @@ impl ApiClient {
             QsVersionedRequestParamsOut::with_version(request_params, api_version)?;
         let message = sign_params(request_params, &token_or_signing_key)?;
 
-        let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
-        let response = send_qs_message(&self.client, &endpoint, &message).await?;
+        let response = self.send_qs_http_request(&message).await?;
 
         // check if we need to negotiate a new API version
         let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
@@ -105,7 +110,7 @@ impl ApiClient {
             .change_version(accepted_version)?;
         let message = sign_params(request_params, &token_or_signing_key)?;
 
-        let response = send_qs_message(&self.client, &endpoint, &message).await?;
+        let response = self.send_qs_http_request(&message).await?;
         handle_qs_response(response).await
     }
 
@@ -383,6 +388,21 @@ impl ApiClient {
             }
         })
     }
+
+    async fn send_qs_http_request(
+        &self,
+        message: &ClientToQsMessageOut,
+    ) -> Result<reqwest::Response, QsRequestError> {
+        let message_bytes = message.tls_serialize_detached()?;
+        let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
+        let response = self
+            .client
+            .post(&endpoint)
+            .body(message_bytes)
+            .send()
+            .await?;
+        Ok(response)
+    }
 }
 
 fn sign_params<T: SigningKeyBehaviour>(
@@ -392,29 +412,10 @@ fn sign_params<T: SigningKeyBehaviour>(
     let tbs = ClientToQsMessageTbsOut::new(request_params);
     let message = match token_or_signing_key {
         AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
-        AuthenticationMethod::SigningKey(signing_key) => tbs
-            .sign(*signing_key)
-            .map_err(|_| QsRequestError::LibraryError)?,
+        AuthenticationMethod::SigningKey(signing_key) => tbs.sign(*signing_key)?,
         AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
     };
     Ok(message)
-}
-
-async fn send_qs_message(
-    client: &reqwest::Client,
-    endpoint: &str,
-    message: &ClientToQsMessageOut,
-) -> Result<reqwest::Response, QsRequestError> {
-    client
-        .post(endpoint)
-        .body(
-            message
-                .tls_serialize_detached()
-                .map_err(|_| QsRequestError::LibraryError)?,
-        )
-        .send()
-        .await
-        .map_err(From::from)
 }
 
 async fn handle_qs_response(
@@ -422,9 +423,8 @@ async fn handle_qs_response(
 ) -> Result<QsProcessResponseIn, QsRequestError> {
     let status = response.status();
     if status.is_success() {
-        let bytes = response.bytes().await.map_err(QsRequestError::Reqwest)?;
-        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)
-            .map_err(QsRequestError::Tls)?
+        let bytes = response.bytes().await?;
+        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)?
             .into_unversioned()?;
         Ok(qs_response)
     } else {
