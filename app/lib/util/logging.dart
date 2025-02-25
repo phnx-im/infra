@@ -14,7 +14,7 @@ void initLogging(LogWriter logWriter) {
   Logger.root.level = kDebugMode ? Level.FINE : Level.INFO;
   Logger.root.onRecord.listen((record) {
     final message =
-        '${record.time} [Flutter] ${record.level.asString} ${record.loggerName}: ${record.message}';
+        '${record.time} [Dart] ${record.level.asString} ${record.loggerName}: ${record.message}';
     // ignore: avoid_print
     print(message);
     logWriter.writeLine(message: message);
@@ -24,7 +24,7 @@ void initLogging(LogWriter logWriter) {
   createLogStream().listen((event) {
     // ignore: avoid_print
     print(
-        '${event.time.toLocal()} [   Rust] ${event.level.asString} ${event.target}: ${event.msg}');
+        '${event.time.toLocal()} [Rust] ${event.level.asString} ${event.target}: ${event.msg}');
   });
 }
 
