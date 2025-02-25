@@ -64,7 +64,7 @@ class NotificationService: UNNotificationServiceExtension {
             contentHandler(request.content)
             return
         }
-        let cachePath = cachesDirectory.appendingPathComponent("background.log").path
+        let logFilePath = cachesDirectory.appendingPathComponent("background.log").path
 
         // Create IncomingNotificationContent object
         let incomingContent = IncomingNotificationContent(
