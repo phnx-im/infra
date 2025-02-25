@@ -100,7 +100,7 @@ platform :mac do
       build_mac_app(
         workspace: "macos/Runner.xcworkspace", 
         scheme: "Runner",
-        
+        configuration: "TestFlight",
         skip_codesigning: skip_signing,
         skip_archive: skip_signing,
         export_method: "app-store",
