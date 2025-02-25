@@ -24,7 +24,7 @@ use crate::{
 
 /// Initializes the Rust logging system
 ///
-/// The logs are sent to Flutter on Android and iOS, and are writter to standard error output on
+/// The logs are sent to Flutter on Android and iOS, and are written to standard error output on
 /// Linux/macOS/Windows. The logs are also written to a file specified by the provided `file_path`.
 /// The file has a fixed size and is used as a ring buffer.
 ///
