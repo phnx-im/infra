@@ -10,9 +10,10 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use bytes::Buf;
 use chrono::{DateTime, Utc};
+use flate2::{write::GzEncoder, Compression};
 use flutter_rust_bridge::frb;
 use regex::Regex;
 
@@ -66,6 +67,41 @@ pub fn read_background_logs(cache_dir: String) -> anyhow::Result<String> {
 pub fn clear_background_logs(cache_dir: String) -> anyhow::Result<()> {
     open_background_logs_file(cache_dir)?.clear();
     Ok(())
+}
+
+/// Creates a Zlib compressed tar archive of the logs
+pub fn tar_logs(cache_dir: String) -> anyhow::Result<Vec<u8>> {
+    let mut data = Vec::with_capacity(2 * LOG_FILE_RING_BUFFER_SIZE);
+    let enc = GzEncoder::new(&mut data, Compression::default());
+    let mut tar = tar::Builder::new(enc);
+
+    // app logs
+    {
+        let app_buffer = LOG_FILE_RING_BUFFER
+            .get()
+            .context("No application buffer found")?;
+        let buffer = app_buffer.lock();
+        let mut header = tar::Header::new_gnu();
+        header.set_size(buffer.len().try_into().expect("overflow"));
+        header.set_mode(0o644);
+        header.set_cksum();
+        tar.append_data(&mut header, "logs/app.log", buffer.buf().reader())?;
+    }
+
+    // background logs
+    {
+        let buffer = open_background_logs_file(cache_dir)?;
+        let mut header = tar::Header::new_gnu();
+        header.set_size(buffer.len().try_into().expect("overflow"));
+        header.set_mode(0o644);
+        header.set_cksum();
+        tar.append_data(&mut header, "logs/background.log", buffer.buf().reader())?;
+    }
+
+    tar.finish()?;
+    drop(tar);
+
+    Ok(data)
 }
 
 fn open_background_logs_file(cache_dir: String) -> anyhow::Result<FileRingBuffer> {
