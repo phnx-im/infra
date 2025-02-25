@@ -136,26 +136,10 @@ impl GroupMembership {
         let group_id = GroupIdRefWrapper::from(group_id);
         // Delete all 'staged_removal' rows.
 
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("5 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
         connection.execute(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_removal'",
             params![group_id],
         )?;
-
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("6 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
 
         // Move modified information from 'staged_update' rows to their
         // 'merged' counterparts (i.e. rows with the same group_id and
@@ -175,27 +159,11 @@ impl GroupMembership {
             [],
         )?;
 
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("7 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
         // Delete all (previously merged) 'staged_update' rows.
         connection.execute(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_update'",
             params![group_id],
         )?;
-
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("8 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
 
         // Mark all 'staged_add' rows as 'merged'.
         connection.execute(
@@ -534,27 +502,11 @@ mod tests {
     fn group_membership_merge_for_group() -> anyhow::Result<()> {
         let connection = test_connection();
 
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("1 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
         let credential_add = test_client_credential(Uuid::new_v4());
         credential_add.store(&connection)?;
         let index_add = LeafNodeIndex::new(0);
         let membership_add = test_group_membership(&credential_add, index_add);
         membership_add.stage_add(&connection)?;
-
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("2 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
 
         let credential_update = test_client_credential(Uuid::new_v4());
         credential_update.store(&connection)?;
@@ -562,14 +514,6 @@ mod tests {
         let membership_update = test_group_membership(&credential_update, index_update);
         membership_update.store(&connection)?;
         membership_update.stage_update(&connection)?;
-
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("3 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
 
         let credential_remove = test_client_credential(Uuid::new_v4());
         credential_remove.store(&connection)?;
@@ -583,14 +527,6 @@ mod tests {
         let index = LeafNodeIndex::new(3);
         let membership = test_group_membership(&credential, index);
         membership.store(&connection)?;
-
-        connection
-            .prepare("SELECT * FROM  group_membership")?
-            .query_map([], |row| {
-                println!("4 {row:?}");
-                Ok(())
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
 
         GroupMembership::merge_for_group(&connection, &membership.group_id)?;
 

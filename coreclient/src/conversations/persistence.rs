@@ -506,7 +506,6 @@ pub mod tests {
         assert_eq!(n, 2);
 
         let transaction = connection.transaction()?;
-        dbg!(1);
         Conversation::mark_as_read(
             &transaction,
             &mut store_notifier,
@@ -518,7 +517,6 @@ pub mod tests {
         transaction.commit()?;
         let n = Conversation::unread_messages_count(&connection, conversation_a.id())?;
         assert_eq!(n, 1);
-        dbg!(2);
 
         let transaction = connection.transaction()?;
         Conversation::mark_as_read(
