@@ -27,8 +27,6 @@ pub extern "C" fn process_new_messages(
 
     let incoming_content: IncomingNotificationContent = serde_json::from_str(&input).unwrap();
 
-    dbg!(&incoming_content.log_file_path);
-
     init_logger(incoming_content.log_file_path.clone());
     tracing::warn!(incoming_content.log_file_path, "init_logger");
 
