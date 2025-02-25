@@ -39,3 +39,9 @@ jobs:
 
       - name: Build Linux app
         run: just build-linux-ci
+
+      - name: Upload Linux app
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-app-x64
+          path: app/build/linux/x64/release/bundle
