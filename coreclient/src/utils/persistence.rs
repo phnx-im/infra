@@ -136,7 +136,7 @@ pub(crate) trait Storable {
     const CREATE_TABLE_STATEMENT: &'static str;
 
     /// Helper function that creates a table for the given data type.
-    fn create_table(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
+    fn create_table(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let mut stmt = conn.prepare(Self::CREATE_TABLE_STATEMENT)?;
         stmt.execute([])?;
 

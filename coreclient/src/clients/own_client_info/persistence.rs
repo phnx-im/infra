@@ -19,7 +19,7 @@ impl Storable for OwnClientInfo {
             as_client_uuid BLOB NOT NULL
         );";
 
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let server_url = row.get(0)?;
         let qs_user_id = row.get(1)?;
         let qs_client_id = row.get(2)?;

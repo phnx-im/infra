@@ -196,6 +196,7 @@ impl ConversationMessage {
 pub enum Message {
     Content(Box<ContentMessage>),
     Event(EventMessage),
+    Error,
 }
 
 impl Message {
@@ -222,6 +223,7 @@ impl Message {
                 EventMessage::System(system) => system.to_string(),
                 EventMessage::Error(error) => error.message().to_string(),
             },
+            Message::Error => "Error: Failed to load event".to_owned(),
         }
     }
 }

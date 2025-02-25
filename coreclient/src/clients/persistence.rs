@@ -61,7 +61,7 @@ impl UserCreationState {
     pub(super) fn load(
         connection: &Connection,
         client_id: &AsClientId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
+    ) -> rusqlite::Result<Option<Self>> {
         connection
             .query_row(
                 "SELECT state FROM user_creation_state WHERE client_id = ?1",
