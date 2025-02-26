@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prototype/conversation_list/conversation_list_content.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -37,10 +40,9 @@ final conversations = [
           sender: "bob@localhost",
           sent: true,
           content: UiMimiContent(
-            id: 1.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body: 'Hello Alice',
+            plainBody: 'Hello Alice',
+            topicId: Uint8List(0),
+            content: const MessageContent(content: []),
           ),
         ),
       ),
@@ -68,11 +70,10 @@ final conversations = [
           sender: "eve@localhost",
           sent: true,
           content: UiMimiContent(
-            id: 2.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body:
+            plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
+            topicId: Uint8List(0),
+            content: const MessageContent(content: []),
           ),
         ),
       ),
@@ -99,10 +100,9 @@ final conversations = [
           sender: "somebody@localhost",
           sent: true,
           content: UiMimiContent(
-            id: 3.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body: 'Hello All',
+            plainBody: 'Hello All',
+            topicId: Uint8List(0),
+            content: const MessageContent(content: []),
           ),
         ),
       ),

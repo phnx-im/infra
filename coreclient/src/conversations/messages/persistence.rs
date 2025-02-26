@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use mimi_content::MimiContent;
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
     named_params, params,
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
-    ConversationMessage, Message, MimiContent,
+    ConversationMessage, Message,
 };
 
 use super::EventMessage;
@@ -75,6 +76,13 @@ impl VersionedMessage {
             content: PhnxCodec::to_vec(&content)?,
         })
     }
+
+    fn empty_error() -> Self {
+        VersionedMessage {
+            version: CURRENT_MESSAGE_VERSION,
+            content: Vec::new(),
+        }
+    }
 }
 
 use super::{ConversationMessageId, TimestampedMessage};
@@ -131,7 +139,7 @@ impl Storable for ConversationMessage {
 
         let timestamped_message = TimestampedMessage {
             timestamp,
-            message: message.unwrap_or(Message::Error),
+            message: message.unwrap_or_else(|_| Message::Error { sender_str }),
         };
 
         Ok(ConversationMessage {
@@ -198,7 +206,7 @@ impl ConversationMessage {
                 format!("user:{}", content_message.sender)
             }
             Message::Event(_) => "system".to_string(),
-            Message::Error => bail!("cannot store error message"),
+            Message::Error { sender_str } => sender_str.clone(),
         };
 
         let content = match &self.timestamped_message.message {
@@ -206,7 +214,7 @@ impl ConversationMessage {
                 VersionedMessage::from_mimi_content(&content_message.content)?
             }
             Message::Event(event_message) => VersionedMessage::from_event_message(event_message)?,
-            Message::Error => bail!("cannot store error message"),
+            Message::Error { .. } => VersionedMessage::empty_error(),
         };
 
         connection.execute(
@@ -220,7 +228,7 @@ impl ConversationMessage {
                 match &self.timestamped_message.message {
                     Message::Content(content_message) => content_message.sent,
                     Message::Event(_) => true,
-                    Message::Error => bail!("cannot store error message"),
+                    Message::Error { .. } => true,
                 },
             ],
         )?;
@@ -355,10 +363,7 @@ pub(crate) mod tests {
         let message = Message::Content(Box::new(ContentMessage {
             sender: "alice@localhost".to_string(),
             sent: false,
-            content: MimiContent::simple_markdown_message(
-                "localhost".parse().unwrap(),
-                "Hello world!".to_string(),
-            ),
+            content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {

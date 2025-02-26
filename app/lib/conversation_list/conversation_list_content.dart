@@ -221,7 +221,7 @@ class _LastMessage extends StatelessWidget {
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
       UiMessage_Content(field0: final content) => (
           content.sender == userName ? 'You: ' : null,
-          content.content.body
+          content.content.plainBody
         ),
       UiMessage_Display() => (null, null),
       null => (null, null),

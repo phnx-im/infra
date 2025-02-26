@@ -64,7 +64,7 @@ final inputTextStyle = const TextStyle(
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
     Theme.of(context)
         .textTheme
-        .bodyLarge!
+        .bodyMedium!
         .copyWith(
           color: inverted ? Colors.white : Colors.black,
         )

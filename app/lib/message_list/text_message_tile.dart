@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -64,7 +65,7 @@ class TextMessageTile extends StatelessWidget {
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _textMessage(context, contentMessage.content.body, isSender),
+                _textMessage(context, contentMessage.content.content, isSender),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 3),
                   _timestamp(context),
@@ -125,7 +126,8 @@ class TextMessageTile extends StatelessWidget {
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _textMessage(BuildContext context, String text, bool isSender) {
+  Widget _textMessage(
+      BuildContext context, MessageContent messageContent, bool isSender) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.0),
       child: Container(
@@ -143,16 +145,19 @@ class TextMessageTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(7),
             color: isSender ? colorDMB : colorDMBSuperLight,
           ),
-          child: RichText(
-            text: buildTextSpanFromText(
-                ["@Alice", "@Bob", "@Carol", "@Dave", "@Eve"],
-                text,
-                messageTextStyle(context, isSender),
-                HostWidget.richText),
-            selectionRegistrar: SelectionContainer.maybeOf(context),
-            selectionColor: Colors.blue.withValues(alpha: 0.3),
-            textWidthBasis: TextWidthBasis.longestLine,
+          child: DefaultTextStyle.merge(
+            style: messageTextStyle(context, isSender),
+            child: Column(
+              children: messageContent.content
+                  .map((inner) => buildBlockElement(inner.element, isSender))
+                  .toList(),
+            ),
           ),
+          // child: RichText(
+          //   selectionRegistrar: SelectionContainer.maybeOf(context),
+          //   selectionColor: Colors.blue.withValues(alpha: 0.3),
+          //   textWidthBasis: TextWidthBasis.longestLine,
+          // ),
         ),
       ),
     );

@@ -4,9 +4,10 @@
 
 use std::fmt::Formatter;
 
+use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
 
-use crate::{mimi_content::MimiContent, store::StoreNotifier};
+use crate::store::StoreNotifier;
 
 use super::*;
 
@@ -41,17 +42,25 @@ impl TimestampedMessage {
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
         sender_name: QualifiedUserName,
-    ) -> Result<Self, tls_codec::Error> {
-        let content = MimiContent::tls_deserialize_exact_bytes(&application_message.into_bytes())?;
-        let message = Message::Content(Box::new(ContentMessage::new(
-            sender_name.to_string(),
-            true,
-            content,
-        )));
-        Ok(Self {
+    ) -> Self {
+        let message;
+
+        if let Ok(content) = MimiContent::deserialize(&application_message.into_bytes()) {
+            message = Message::Content(Box::new(ContentMessage::new(
+                sender_name.to_string(),
+                true,
+                content,
+            )));
+        } else {
+            message = Message::Error {
+                sender_str: format!("user:{sender_name}"),
+            };
+        }
+
+        Self {
             timestamp: ds_timestamp,
             message,
-        })
+        }
     }
 
     pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
@@ -196,7 +205,7 @@ impl ConversationMessage {
 pub enum Message {
     Content(Box<ContentMessage>),
     Event(EventMessage),
-    Error,
+    Error { sender_str: String },
 }
 
 impl Message {
@@ -211,11 +220,17 @@ impl Message {
             Message::Content(content_message) => match conversation_type {
                 ConversationType::Group => {
                     let sender = &content_message.sender;
-                    let content = content_message.content.string_rendering();
+                    let content = content_message
+                        .content
+                        .string_rendering() // TODO: Better error handling
+                        .unwrap_or_else(|e| format!("Error: {}", e.to_string()));
                     format!("{sender}: {content}")
                 }
                 ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
-                    let content = content_message.content.string_rendering();
+                    let content = content_message
+                        .content
+                        .string_rendering() // TODO: Better error handling
+                        .unwrap_or_else(|e| format!("Error: {}", e.to_string()));
                     content.to_string()
                 }
             },
@@ -223,7 +238,9 @@ impl Message {
                 EventMessage::System(system) => system.to_string(),
                 EventMessage::Error(error) => error.message().to_string(),
             },
-            Message::Error => "Error: Failed to load event".to_owned(),
+            Message::Error { sender_str } => {
+                format!("Error: Failed to load event from {sender_str}")
+            }
         }
     }
 }

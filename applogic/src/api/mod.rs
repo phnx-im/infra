@@ -23,6 +23,7 @@ use crate::logging::init_logger;
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod logging;
+pub mod markdown;
 pub mod message_cubit;
 pub mod message_list_cubit;
 pub mod types;

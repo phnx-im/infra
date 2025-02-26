@@ -8,7 +8,8 @@ use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::{clients::CoreUser, store::Store, ConversationMessageId, MimiContent};
+use mimi_content::MimiContent;
+use phnxcoreclient::{clients::CoreUser, store::Store, ConversationMessageId};
 use phnxcoreclient::{store::StoreNotification, ConversationId};
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
@@ -130,13 +131,14 @@ impl ConversationDetailsCubitBase {
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
-        let domain = self.context.store.user_name().domain();
-        let content = MimiContent::simple_markdown_message(domain, message_text);
+        let content = MimiContent::simple_markdown_message(message_text);
+
         self.context
             .store
             .send_message(self.context.conversation_id, content)
             .await
             .inspect_err(|error| error!(%error, "Failed to send message"))?;
+
         Ok(())
     }
 
