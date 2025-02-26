@@ -36,8 +36,8 @@ jobs:
         run: just setup-ci
       - uses: Swatinem/rust-cache@v2
 
-      - name: Integrate bridge
-        run: just frb-integrate
+      - name: Compare bridge
+        run: just frb-compare
 
       - name: Cache generated Rust files
         uses: actions/cache/save@v4

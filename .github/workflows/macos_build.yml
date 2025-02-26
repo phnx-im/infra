@@ -43,8 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just setup-macos-ci
 
-      - name: Integrate bridge
-        run: just frb-integrate
+      - name: Compare bridge
+        run: just frb-compare
 
       - name: Generate Dart files
         run: just generate-dart-files
