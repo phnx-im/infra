@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
+import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/theme/theme.dart';
@@ -28,10 +31,9 @@ final messages = [
         sender: "bob@localhost",
         sent: true,
         content: UiMimiContent(
-          id: 1.messageId(),
-          timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-          lastSeen: [],
-          body: 'Hello Alice from Bob',
+          plainBody: 'Hello Alice from Bob',
+          topicId: Uint8List(0),
+          content: const MessageContent(content: []),
         ),
       ),
     ),
@@ -46,11 +48,10 @@ final messages = [
         sender: "eve@localhost",
         sent: true,
         content: UiMimiContent(
-          id: 2.messageId(),
-          timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-          lastSeen: [],
-          body:
+          plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
+          topicId: Uint8List(0),
+          content: const MessageContent(content: []),
         ),
       ),
     ),
@@ -65,10 +66,9 @@ final messages = [
         sender: "alice@localhost",
         sent: true,
         content: UiMimiContent(
-          id: 3.messageId(),
-          timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-          lastSeen: [],
-          body: 'Hello Bob and Eve',
+          plainBody: 'Hello Bob and Eve',
+          topicId: Uint8List(0),
+          content: const MessageContent(content: []),
         ),
       ),
     ),
@@ -83,10 +83,9 @@ final messages = [
         sender: "alice@localhost",
         sent: true,
         content: UiMimiContent(
-          id: 5.messageId(),
-          timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-          lastSeen: [],
-          body: 'How are you doing?',
+          plainBody: 'How are you doing?',
+          topicId: Uint8List(0),
+          content: const MessageContent(content: []),
         ),
       ),
     ),
@@ -101,12 +100,11 @@ final messages = [
         sender: "alice@localhost",
         sent: true,
         content: UiMimiContent(
-          id: 4.messageId(),
-          timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-          lastSeen: [],
-          body: """Nice to see you both here! 👋
+          plainBody: """Nice to see you both here! 👋
 
 This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.""",
+          topicId: Uint8List(0),
+          content: const MessageContent(content: []),
         ),
       ),
     ),

@@ -11,14 +11,17 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
+use mimi_content::MimiContent;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
-    Message, MessageId, MimiContent, SystemMessage, UserProfile,
+    Message, SystemMessage, UserProfile,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use phnxtypes::identifiers::QualifiedUserName;
 use uuid::Uuid;
+
+use super::markdown::MessageContent;
 
 /// Mirror of the [`ConversationId`] types
 #[doc(hidden)]
@@ -201,7 +204,7 @@ impl From<Message> for UiMessage {
     fn from(message: Message) -> Self {
         match message {
             Message::Content(content_message) => {
-                UiMessage::Content(Box::new(UiContentMessage::from(content_message)))
+                UiMessage::Content(Box::new(UiContentMessage::from(*content_message)))
             }
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
@@ -210,62 +213,32 @@ impl From<Message> for UiMessage {
     }
 }
 
-/// Id of a message
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiMessageId {
-    pub id: Uuid,
-    pub domain: String,
-}
-
-impl From<MessageId> for UiMessageId {
-    fn from(message_id: MessageId) -> Self {
-        Self {
-            id: message_id.id(),
-            domain: message_id.domain().to_string(),
-        }
-    }
-}
-
-/// Information about a reply to another message
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiReplyToInfo {
-    pub message_id: UiMessageId,
-    pub hash: Vec<u8>,
-}
-
 /// The actual content of a message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiMimiContent {
-    pub id: UiMessageId,
-    pub timestamp: DateTime<Utc>,
-    pub replaces: Option<UiMessageId>,
-    pub topic_id: Option<Vec<u8>>,
-    pub expires: Option<DateTime<Utc>>,
-    pub in_reply_to: Option<UiReplyToInfo>,
-    pub last_seen: Vec<UiMessageId>,
-    // This will need to become more complex.
-    pub body: String,
+    pub replaces: Option<Vec<u8>>,
+    pub topic_id: Vec<u8>,
+    pub in_reply_to: Option<Vec<u8>>,
+    pub plain_body: String,
+    pub content: MessageContent,
 }
 
 impl From<MimiContent> for UiMimiContent {
     fn from(mimi_content: MimiContent) -> Self {
-        let body = mimi_content.string_rendering();
+        let parsed_message = mimi_content
+            .string_rendering()
+            .ok()
+            .and_then(|markdown| MessageContent::try_parse_markdown(markdown.into_bytes()).ok())
+            .unwrap_or_else(|| MessageContent::error("Invalid message".to_owned()));
+
         Self {
-            id: UiMessageId::from(mimi_content.id().clone()),
-            timestamp: mimi_content.timestamp.into(),
-            replaces: mimi_content.replaces.map(UiMessageId::from),
-            topic_id: mimi_content.topic_id.map(|t| t.id.to_vec()),
-            expires: mimi_content.expires.map(|e| e.into()),
-            in_reply_to: mimi_content.in_reply_to.map(|i| UiReplyToInfo {
-                message_id: UiMessageId::from(i.message_id),
-                hash: i.hash.hash,
-            }),
-            last_seen: mimi_content
-                .last_seen
-                .into_iter()
-                .map(UiMessageId::from)
-                .collect(),
-            body,
+            plain_body: mimi_content
+                .string_rendering()
+                .unwrap_or_else(|e| format!("Invalid message: {e}")),
+            replaces: mimi_content.replaces.map(|v| v.into_vec()),
+            topic_id: mimi_content.topic_id.into_vec(),
+            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
+            content: parsed_message,
         }
     }
 }
@@ -285,12 +258,6 @@ impl From<ContentMessage> for UiContentMessage {
             sent: content_message.was_sent(),
             content: UiMimiContent::from(content_message.content().clone()),
         }
-    }
-}
-
-impl From<Box<ContentMessage>> for UiContentMessage {
-    fn from(content_message: Box<ContentMessage>) -> Self {
-        Self::from(*content_message)
     }
 }
 

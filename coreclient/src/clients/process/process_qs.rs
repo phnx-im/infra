@@ -22,7 +22,10 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{conversations::ConversationType, groups::Group, ConversationMessage, PartialContact};
+use crate::{
+    conversations::ConversationType, groups::Group, ConversationMessage, PartialContact,
+    SystemMessage,
+};
 
 use super::{
     anyhow, Asset, Conversation, ConversationAttributes, ConversationId, CoreUser,
@@ -233,7 +236,7 @@ impl CoreUser {
             application_message,
             ds_timestamp,
             sender_client_id.user_name(),
-        )?];
+        )];
         Ok((group_messages, false))
     }
 
