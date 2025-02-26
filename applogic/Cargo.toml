@@ -47,4 +47,6 @@ flate2 = "1.1.0"
 tar = "0.4.44"
 
 [dev-dependencies]
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
 tempfile = "3.17.1"

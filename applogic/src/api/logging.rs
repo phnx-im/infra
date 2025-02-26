@@ -5,12 +5,13 @@
 //! Facilities for sending logs to the Dart side
 
 use std::{
-    io::{self, Read, Write},
+    io::{self, BufRead, Write},
     path::Path,
     sync::{Arc, LazyLock},
 };
 
-use anyhow::{bail, Context};
+use anyhow::bail;
+use anyhow::Context;
 use bytes::Buf;
 use chrono::{DateTime, Utc};
 use flate2::{write::GzEncoder, Compression};
@@ -25,7 +26,7 @@ use crate::{
 
 /// Initializes the Rust logging system
 ///
-/// The logs are sent to Flutter on Android and iOS, and are writter to standard error output on
+/// The logs are sent to Flutter on Android and iOS, and are written to standard error output on
 /// Linux/macOS/Windows. The logs are also written to a file specified by the provided `file_path`.
 /// The file has a fixed size and is used as a ring buffer.
 ///
@@ -71,32 +72,40 @@ pub fn clear_background_logs(cache_dir: String) -> anyhow::Result<()> {
 
 /// Creates a Zlib compressed tar archive of the logs
 pub fn tar_logs(cache_dir: String) -> anyhow::Result<Vec<u8>> {
+    tar_logs_impl(LOG_FILE_RING_BUFFER.get().unwrap(), || {
+        open_background_logs_file(cache_dir)
+    })
+}
+
+fn tar_logs_impl(
+    app_buffer: &Arc<FileRingBufferLock>,
+    background_buffer: impl FnOnce() -> anyhow::Result<FileRingBuffer>,
+) -> anyhow::Result<Vec<u8>> {
     let mut data = Vec::with_capacity(2 * LOG_FILE_RING_BUFFER_SIZE);
     let enc = GzEncoder::new(&mut data, Compression::default());
     let mut tar = tar::Builder::new(enc);
 
-    // app logs
-    {
-        let app_buffer = LOG_FILE_RING_BUFFER
-            .get()
-            .context("No application buffer found")?;
-        let buffer = app_buffer.lock();
-        let mut header = tar::Header::new_gnu();
-        header.set_size(buffer.len().try_into().expect("overflow"));
-        header.set_mode(0o644);
-        header.set_cksum();
-        tar.append_data(&mut header, "logs/app.log", buffer.buf().reader())?;
-    }
+    let mut buffer = Vec::with_capacity(LOG_FILE_RING_BUFFER_SIZE);
 
-    // background logs
-    {
-        let buffer = open_background_logs_file(cache_dir)?;
+    let mut append_data = |path: &str, reader: &mut dyn io::BufRead| {
+        buffer.clear();
+
+        reader.read_to_end(&mut buffer)?;
+        let content = String::from_utf8_lossy(&buffer);
+        let content = content.trim_matches('\0');
+
         let mut header = tar::Header::new_gnu();
-        header.set_size(buffer.len().try_into().expect("overflow"));
+        header.set_size(content.len().try_into().expect("usize overflow"));
         header.set_mode(0o644);
         header.set_cksum();
-        tar.append_data(&mut header, "logs/background.log", buffer.buf().reader())?;
-    }
+        tar.append_data(&mut header, path, content.as_bytes())
+    };
+
+    append_data("logs/app.log", &mut app_buffer.lock().buf().reader())?;
+    append_data(
+        "logs/background.log",
+        &mut background_buffer()?.buf().reader(),
+    )?;
 
     tar.finish()?;
     drop(tar);
@@ -112,15 +121,24 @@ fn open_background_logs_file(cache_dir: String) -> anyhow::Result<FileRingBuffer
     )?)
 }
 
+// Note: this function is not memory-allocations optimized.
 fn read_logs_from_buffer(buffer: &FileRingBuffer) -> anyhow::Result<String> {
     static ANSI_ESCAPE_SEQUENCE_RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap());
-    let mut content = String::new();
-    buffer.buf().reader().read_to_string(&mut content)?;
-    let content = content.lines().rev().collect::<Vec<_>>().join("\n");
-    Ok(ANSI_ESCAPE_SEQUENCE_RE
-        .replace_all(&content, "")
-        .into_owned())
+    let mut lines = buffer
+        .buf()
+        .reader()
+        .split(b'\n')
+        .filter_map(|line| {
+            let line = line.ok()?;
+            let line = String::from_utf8_lossy(&line);
+            let line = line.trim_matches('\0');
+            let line = ANSI_ESCAPE_SEQUENCE_RE.replace_all(line, "").into_owned();
+            Some(line)
+        })
+        .collect::<Vec<_>>();
+    lines.reverse();
+    Ok(lines.join("\n"))
 }
 
 /// Writes the given log entry to the file initialized by [`init_rust_logging`].
@@ -134,8 +152,7 @@ impl LogWriter {
     #[frb]
     pub fn write_line(&self, message: &str) -> io::Result<()> {
         let mut buffer = self.buffer.lock();
-        buffer.write_all(message.as_bytes())?;
-        buffer.write_all(b"\n")?;
+        writeln!(buffer, "{message}")?;
         Ok(())
     }
 }
@@ -186,4 +203,49 @@ impl From<tracing::Level> for LogEntryLevel {
 pub fn create_log_stream(_s: StreamSink<LogEntry>) {
     #[cfg(any(target_os = "android", target_os = "ios"))]
     crate::logging::dart::set_stream_sink(_s)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Read;
+
+    use flate2::read::GzDecoder;
+
+    use super::*;
+
+    #[test]
+    fn tar() -> anyhow::Result<()> {
+        let mut app_buffer = FileRingBuffer::anon(500)?;
+        let mut background_buffer = FileRingBuffer::anon(500)?;
+
+        writeln!(app_buffer, "app logs")?;
+        writeln!(app_buffer, "Hello, world!")?;
+
+        writeln!(background_buffer, "background logs")?;
+        writeln!(background_buffer, "Hello, world!")?;
+
+        let tar_data = tar_logs_impl(&Arc::new(FileRingBufferLock::new(app_buffer)), || {
+            Ok(background_buffer)
+        })?;
+
+        let decoder = GzDecoder::new(&*tar_data);
+        let mut tar = tar::Archive::new(decoder);
+        for entry in tar.entries()? {
+            let mut entry = entry?;
+            let path = entry.path()?;
+
+            let mut content = String::new();
+            if path == Path::new("logs/app.log") {
+                entry.read_to_string(&mut content)?;
+                assert_eq!(content, "app logs\nHello, world!\n");
+            } else if path == Path::new("logs/background.log") {
+                entry.read_to_string(&mut content)?;
+                assert_eq!(content, "background logs\nHello, world!\n");
+            } else {
+                panic!("Unexpected file in tar: {}", path.display());
+            }
+        }
+
+        Ok(())
+    }
 }
