@@ -61,7 +61,7 @@ frb-integrate:
 # set up the CI environment for the app
 setup-ci:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-    cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
+    cargo binstall -y flutter_rust_bridge_codegen@2.7.1 cargo-expand
 
 # set up the CI environment for Android builds
 [working-directory: 'app/fastlane']
