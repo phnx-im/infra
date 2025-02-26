@@ -34,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: rust-setup
     steps:
+      - uses: actions/checkout@v4
       - name: Install cargo-machete
         uses: taiki-e/install-action@cargo-machete
       - run: cargo machete
@@ -42,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: rust-setup
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - run: cargo metadata --locked
@@ -50,6 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: rust-setup
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -99,6 +102,8 @@ jobs:
 
     steps:
       # Increase number of postgres connections
+      - uses: actions/checkout@v4
+      
       - name: Alter max connections
         run: |
           docker exec -i postgres bash << EOF
