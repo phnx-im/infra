@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::crypto::ear::{keys::PushTokenEarKey, EarDecryptable, EarEncryptable};
+use crate::crypto::ear::{EarDecryptable, EarEncryptable, keys::PushTokenEarKey};
 
 use super::*;
 

@@ -76,10 +76,10 @@ mod persistence {
 
             if sequence_number != message.sequence_number as i64 {
                 tracing::warn!(
-                "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
-                message.sequence_number,
-                sequence_number
-            );
+                    "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
+                    message.sequence_number,
+                    sequence_number
+                );
                 return Err(QueueError::SequenceNumberMismatch);
             }
 

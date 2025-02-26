@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
+use opaque_ke::{ServerLogin, ServerLoginStartParameters, rand::rngs::OsRng};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{opaque::OpaqueLoginResponse, signatures::signable::Signable, OpaqueCiphersuite},
+    crypto::{OpaqueCiphersuite, opaque::OpaqueLoginResponse, signatures::signable::Signable},
     errors::auth_service::{
         AsDequeueError, DeleteClientError, FinishClientAdditionError, InitClientAdditionError,
     },
@@ -22,13 +22,13 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
+    AuthService,
     client_record::ClientRecord,
     connection_package::StorableConnectionPackage,
     credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
     opaque::OpaqueSetup,
     queue::Queue,
     user_record::UserRecord,
-    AuthService,
 };
 
 impl AuthService {

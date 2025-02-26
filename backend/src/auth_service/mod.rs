@@ -6,14 +6,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use credentials::{
-    intermediate_signing_key::IntermediateSigningKey, signing_key::StorableSigningKey,
-    CredentialGenerationError,
+    CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
+    signing_key::StorableSigningKey,
 };
 use opaque::OpaqueSetup;
-use opaque_ke::{rand::rngs::OsRng, ServerLogin};
+use opaque_ke::{ServerLogin, rand::rngs::OsRng};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{signatures::DEFAULT_SIGNATURE_SCHEME, OpaqueCiphersuite},
+    crypto::{OpaqueCiphersuite, signatures::DEFAULT_SIGNATURE_SCHEME},
     errors::auth_service::AsProcessingError,
     identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{

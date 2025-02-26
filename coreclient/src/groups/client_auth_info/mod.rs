@@ -4,16 +4,16 @@
 
 use std::ops::Deref;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{
-        pseudonymous_credentials::PseudonymousCredential, ClientCredential, CredentialFingerprint,
-        VerifiableClientCredential,
+        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
+        pseudonymous_credentials::PseudonymousCredential,
     },
     crypto::ear::{
-        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
         EarDecryptable,
+        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
     },
     identifiers::AsClientId,
 };
@@ -102,7 +102,7 @@ impl GroupMembership {
     pub(super) fn free_indices(
         connection: &Connection,
         group_id: &GroupId,
-    ) -> Result<impl Iterator<Item = LeafNodeIndex>> {
+    ) -> Result<impl Iterator<Item = LeafNodeIndex> + 'static> {
         let leaf_indices = Self::member_indices(connection, group_id)?;
         let highest_index = leaf_indices
             .last()

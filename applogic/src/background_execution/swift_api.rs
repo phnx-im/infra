@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 
 use crate::background_execution::{
-    processing::retrieve_messages_sync, IncomingNotificationContent,
+    IncomingNotificationContent, processing::retrieve_messages_sync,
 };
 use crate::logging::init_logger;
 

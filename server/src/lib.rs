@@ -13,14 +13,14 @@ pub mod telemetry;
 use endpoints::{ds::*, qs::ws::DispatchWebsocketNotifier};
 
 use actix_web::{
+    App, HttpServer,
     dev::Server,
     web::{self, Data},
-    App, HttpServer,
 };
 use phnxbackend::{
     auth_service::AuthService,
     ds::Ds,
-    qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
+    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider_trait::NetworkProvider},
 };
 use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,

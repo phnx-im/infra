@@ -5,7 +5,7 @@
 use mls_assist::{
     openmls::{
         ciphersuite::signature::SignaturePublicKey,
-        credentials::{errors::BasicCredentialError, BasicCredential, Credential},
+        credentials::{BasicCredential, Credential, errors::BasicCredentialError},
         key_packages::Lifetime,
     },
     openmls_traits::types::SignatureScheme,
@@ -19,10 +19,11 @@ use tls_codec::{
 use tracing::error;
 
 use crate::{
+    LibraryError,
     crypto::{
-        ear::{keys::IdentityLinkKey, EarDecryptable},
+        ear::{EarDecryptable, keys::IdentityLinkKey},
         errors::DecryptionError,
-        kdf::{keys::ConnectionKey, KdfDerivable},
+        kdf::{KdfDerivable, keys::ConnectionKey},
         signatures::{
             signable::{
                 EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
@@ -30,10 +31,9 @@ use crate::{
             traits::SignatureVerificationError,
         },
     },
-    LibraryError,
 };
 
-use super::{private_mod, EncryptedClientCredential, VerifiableClientCredential};
+use super::{EncryptedClientCredential, VerifiableClientCredential, private_mod};
 
 /// A credential that contains a (pseudonymous) identity, some metadata, as well
 /// as an encrypted identity link.

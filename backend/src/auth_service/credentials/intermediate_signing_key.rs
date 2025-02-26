@@ -7,8 +7,8 @@ use std::ops::Deref;
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
     credentials::{
-        keys::AsIntermediateSigningKey, AsIntermediateCredential, AsIntermediateCredentialCsr,
-        CredentialFingerprint,
+        AsIntermediateCredential, AsIntermediateCredentialCsr, CredentialFingerprint,
+        keys::AsIntermediateSigningKey,
     },
     identifiers::Fqdn,
 };
@@ -17,7 +17,7 @@ use sqlx::{Connection, PgConnection};
 
 use crate::errors::StorageError;
 
-use super::{signing_key::StorableSigningKey, CredentialGenerationError};
+use super::{CredentialGenerationError, signing_key::StorableSigningKey};
 
 #[derive(Serialize, Deserialize)]
 pub(in crate::auth_service) enum IntermediateSigningKey {
@@ -98,7 +98,7 @@ impl IntermediateSigningKey {
 mod persistence {
     use phnxtypes::{
         codec::PhnxCodec,
-        credentials::{keys::AsIntermediateSigningKey, AsIntermediateCredential},
+        credentials::{AsIntermediateCredential, keys::AsIntermediateSigningKey},
     };
     use sqlx::PgExecutor;
 

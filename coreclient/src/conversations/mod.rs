@@ -11,8 +11,8 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use rusqlite::{
-    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
     Connection, ToSql,
+    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;

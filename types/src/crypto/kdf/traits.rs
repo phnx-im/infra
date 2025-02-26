@@ -8,9 +8,9 @@
 
 use tracing::instrument;
 
-use crate::{crypto::secrets::Secret, LibraryError};
+use crate::{LibraryError, crypto::secrets::Secret};
 
-use super::{Kdf, KDF_KEY_SIZE};
+use super::{KDF_KEY_SIZE, Kdf};
 
 /// A trait that allows the use of a symmetric secret of size [`KDF_KEY_SIZE`]
 /// to derive additional key material.

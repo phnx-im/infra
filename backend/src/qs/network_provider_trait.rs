@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::Debug;
 
-use super::{qs_api::FederatedProcessingResult, Fqdn};
+use super::{Fqdn, qs_api::FederatedProcessingResult};
 
 #[async_trait]
 pub trait NetworkProvider: Sync + Send + Debug + 'static {

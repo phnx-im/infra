@@ -4,10 +4,10 @@
 
 use chrono::{DateTime, Utc};
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
+use rusqlite::{Connection, OptionalExtension, ToSql, params, types::FromSql};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::persistence::{open_phnx_db, Storable};
+use crate::utils::persistence::{Storable, open_phnx_db};
 
 use super::store::{ClientRecord, ClientRecordState, UserCreationState};
 

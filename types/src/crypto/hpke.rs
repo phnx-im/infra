@@ -9,10 +9,10 @@ use mls_assist::{
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::{
+        OpenMlsProvider,
         crypto::OpenMlsCrypto,
         random::OpenMlsRand,
         types::{HpkeCiphertext, HpkePrivateKey},
-        OpenMlsProvider,
     },
 };
 use serde::{Deserialize, Serialize};

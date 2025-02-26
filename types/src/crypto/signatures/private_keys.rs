@@ -5,7 +5,7 @@
 use mls_assist::{
     openmls::prelude::SignaturePublicKey,
     openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{crypto::OpenMlsCrypto, OpenMlsProvider},
+    openmls_traits::{OpenMlsProvider, crypto::OpenMlsCrypto},
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -78,7 +78,7 @@ impl SigningKey {
 
 #[cfg(feature = "sqlite")]
 mod sqlite {
-    use rusqlite::{types::FromSql, ToSql};
+    use rusqlite::{ToSql, types::FromSql};
 
     use crate::codec::PhnxCodec;
 

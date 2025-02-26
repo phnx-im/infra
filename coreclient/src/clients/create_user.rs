@@ -13,14 +13,14 @@ use mls_assist::openmls::prelude::tls_codec::*;
 use opaque_ke::{RegistrationRequest, RegistrationResponse};
 use phnxtypes::{
     credentials::{
-        keys::PreliminaryClientSigningKey, AsIntermediateCredential, VerifiableClientCredential,
+        AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
         ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
         kdf::keys::ConnectionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
-        signatures::{signable::Verifiable, DEFAULT_SIGNATURE_SCHEME},
+        signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
         client_as::ConnectionPackage,

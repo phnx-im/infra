@@ -17,9 +17,9 @@ use flutter_rust_bridge::frb;
 use regex::Regex;
 
 use crate::{
-    logging::{init_logger, LOG_FILE_RING_BUFFER, LOG_FILE_RING_BUFFER_SIZE},
-    util::{FileRingBuffer, FileRingBufferLock},
     StreamSink,
+    logging::{LOG_FILE_RING_BUFFER, LOG_FILE_RING_BUFFER_SIZE, init_logger},
+    util::{FileRingBuffer, FileRingBufferLock},
 };
 
 /// Initializes the Rust logging system

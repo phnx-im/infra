@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
-    credentials::{keys::AsSigningKey, AsCredential, CredentialFingerprint},
+    credentials::{AsCredential, CredentialFingerprint, keys::AsSigningKey},
     identifiers::Fqdn,
 };
 use serde::{Deserialize, Serialize};

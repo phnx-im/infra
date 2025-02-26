@@ -18,9 +18,10 @@ use crate::{
         CredentialFingerprint,
     },
     crypto::{
+        ConnectionEncryptionKey, RatchetEncryptionKey,
         ear::{
-            keys::RatchetKey, Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable,
-            GenericSerializable,
+            Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            keys::RatchetKey,
         },
         kdf::keys::RatchetSecret,
         opaque::{
@@ -29,18 +30,17 @@ use crate::{
         },
         ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-        ConnectionEncryptionKey, RatchetEncryptionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
     time::ExpirationData,
 };
 
 use super::{
+    AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
     client_as_out::{
         ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
         VerifiableConnectionPackage,
     },
-    AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
 };
 
 mod private_mod {

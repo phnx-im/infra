@@ -5,8 +5,8 @@
 use std::ops::Deref;
 
 use opaque_ke::{
-    rand::{CryptoRng, RngCore},
     ServerSetup,
+    rand::{CryptoRng, RngCore},
 };
 use phnxtypes::crypto::OpaqueCiphersuite;
 use sqlx::PgExecutor;

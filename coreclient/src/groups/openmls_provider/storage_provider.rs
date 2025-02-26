@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{Entity, Key, StorageProvider, CURRENT_VERSION};
+use openmls_traits::storage::{CURRENT_VERSION, Entity, Key, StorageProvider};
 use phnxtypes::codec::PhnxCodec;
 use rusqlite::{
-    types::{FromSql, ToSqlOutput},
     Connection, ToSql,
+    types::{FromSql, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
 

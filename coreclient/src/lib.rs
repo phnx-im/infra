@@ -17,12 +17,12 @@ mod utils;
 pub use crate::{
     contacts::{Contact, PartialContact},
     conversations::{
+        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+        InactiveConversation,
         messages::{
             ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
             Message, NotificationType, SystemMessage,
         },
-        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-        InactiveConversation,
     },
     mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},

@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::{AsClientId, QualifiedUserName};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{
-    clients::connection_establishment::FriendshipPackage, store::StoreNotifier,
-    utils::persistence::Storable, Contact, PartialContact,
+    Contact, PartialContact, clients::connection_establishment::FriendshipPackage,
+    store::StoreNotifier, utils::persistence::Storable,
 };
 
 pub(crate) const CONTACT_INSERT_TRIGGER: &str =
@@ -277,8 +277,8 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, Conversation, ConversationId,
-        UserProfile,
+        Conversation, ConversationId, UserProfile,
+        conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

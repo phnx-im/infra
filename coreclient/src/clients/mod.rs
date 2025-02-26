@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use opaque_ke::{
@@ -13,19 +13,20 @@ use opaque_ke::{
 };
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
-use phnxapiclient::{qs_api::ws::QsWebSocket, ApiClient, ApiClientInitError};
+use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
 use phnxtypes::{
     codec::PhnxCodec,
     credentials::{
-        keys::ClientSigningKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
+        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
         ear::{
+            EarEncryptable, EarKey, GenericSerializable,
             keys::{
                 FriendshipPackageEarKey, KeyPackageEarKey, PushTokenEarKey,
                 WelcomeAttributionInfoEarKey,
             },
-            EarEncryptable, EarKey, GenericSerializable,
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -33,13 +34,12 @@ use phnxtypes::{
             keys::{QsClientSigningKey, QsUserSigningKey},
             signable::Signable,
         },
-        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
     identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
     messages::{
+        FriendshipToken, MlsInfraVersion, QueueMessage,
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         push_token::{EncryptedPushToken, PushToken},
-        FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
 use rusqlite::{Connection, Transaction};
@@ -53,27 +53,27 @@ use tracing::{error, info};
 use crate::store::StoreNotificationsSender;
 use crate::utils::persistence::{SqliteConnection, Storable};
 use crate::{
+    Asset,
+    groups::{Group, client_auth_info::StorableClientCredential},
+};
+use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
+use crate::{
+    ConversationMessageId,
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{
-        messages::{ConversationMessage, TimestampedMessage},
         Conversation, ConversationAttributes,
+        messages::{ConversationMessage, TimestampedMessage},
     },
     groups::openmls_provider::PhnxOpenMlsProvider,
-    key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
+    key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
     utils::{
         migration::run_migrations,
         persistence::{open_client_db, open_phnx_db},
     },
-    ConversationMessageId,
 };
-use crate::{
-    groups::{client_auth_info::StorableClientCredential, Group},
-    Asset,
-};
-use crate::{key_stores::as_credentials::AsCredentials, ConversationId};
 
 use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 

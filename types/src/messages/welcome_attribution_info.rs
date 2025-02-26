@@ -8,8 +8,8 @@ use tls_codec::Serialize;
 use crate::{
     crypto::{
         ear::{
-            keys::{IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey},
             EarDecryptable, EarEncryptable,
+            keys::{IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey},
         },
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },

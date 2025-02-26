@@ -8,7 +8,7 @@ use phnxtypes::{
     crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
-use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
+use rusqlite::{Connection, OptionalExtension, ToSql, params, params_from_iter};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
@@ -453,7 +453,7 @@ mod tests {
         index: LeafNodeIndex,
     ) -> GroupMembership {
         let group_id = GroupId::from_slice(&[0; 32]);
-        let secret: [u8; 32] = rand::thread_rng().gen();
+        let secret: [u8; 32] = rand::thread_rng().r#gen();
 
         GroupMembership::new(
             credential.identity(),

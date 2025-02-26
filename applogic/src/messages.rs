@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Result;
-use phnxcoreclient::{clients::process::process_qs::ProcessedQsMessages, ConversationId};
+use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
 
 use crate::{api::user::User, notifications::LocalNotificationContent};
 

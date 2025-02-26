@@ -8,15 +8,15 @@ use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::{clients::CoreUser, store::Store, ConversationMessageId, MimiContent};
-use phnxcoreclient::{store::StoreNotification, ConversationId};
+use phnxcoreclient::{ConversationId, store::StoreNotification};
+use phnxcoreclient::{ConversationMessageId, MimiContent, clients::CoreUser, store::Store};
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
+use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
     conversation_list_cubit::converation_into_ui_details,

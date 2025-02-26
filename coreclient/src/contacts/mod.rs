@@ -18,10 +18,10 @@ use phnxtypes::{
 };
 
 use crate::{
+    ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
     utils::persistence::SqliteConnection,
-    ConversationId,
 };
 use anyhow::Result;
 

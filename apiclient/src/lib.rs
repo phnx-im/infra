@@ -6,7 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use phnxtypes::{endpoint_paths::ENDPOINT_HEALTH_CHECK, DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS};
+use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
 use url::ParseError;

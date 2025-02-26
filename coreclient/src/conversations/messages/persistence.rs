@@ -4,16 +4,15 @@
 
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
-    named_params, params,
+    Connection, OptionalExtension, ToSql, named_params, params,
     types::{FromSql, FromSqlError, Type},
-    Connection, OptionalExtension, ToSql,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
-    store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
-    ConversationMessage, Message,
+    ContentMessage, ConversationId, ConversationMessage, Message, store::StoreNotifier,
+    utils::persistence::Storable,
 };
 
 // When adding a variant to this enum, the new variant must be called
@@ -318,8 +317,8 @@ pub(crate) mod tests {
     use chrono::Utc;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        MimiContent, SystemMessage,
+        Conversation, EventMessage, MimiContent, SystemMessage,
+        conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

@@ -27,7 +27,7 @@ impl DsGroupState {
         // Perform DS-level validation
         // Make sure that we have the right message type.
         let processed_message =
-            if let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
+            if let ProcessedAssistedMessage::Commit(processed_message, _group_info) =
                 &processed_assisted_message_plus.processed_assisted_message
             {
                 processed_message

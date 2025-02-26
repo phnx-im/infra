@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use jni::{
+    JNIEnv,
     objects::{JClass, JString},
     sys::jstring,
-    JNIEnv,
 };
 
 use crate::{background_execution::processing::retrieve_messages_sync, logging::init_logger};

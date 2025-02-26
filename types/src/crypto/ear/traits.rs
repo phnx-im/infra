@@ -7,8 +7,8 @@
 //! the [`EarEncryptable`] trait.
 
 use aes_gcm::{
-    aead::{Aead as AesGcmAead, Key, Nonce},
     KeyInit,
+    aead::{Aead as AesGcmAead, Key, Nonce},
 };
 use serde::de::DeserializeOwned;
 use tracing::{error, instrument};
@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-use super::{Aead, Ciphertext, AEAD_KEY_SIZE, AEAD_NONCE_SIZE};
+use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, Ciphertext};
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.

@@ -8,8 +8,8 @@ use std::{collections::HashMap, pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
-    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
     ConversationId, ConversationMessage, ConversationMessageId,
+    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
@@ -17,8 +17,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::{
-    util::{spawn_from_sync, Cubit, CubitCore},
     StreamSink,
+    util::{Cubit, CubitCore, spawn_from_sync},
 };
 
 use super::{

@@ -7,11 +7,12 @@
 use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
+    Asset, UserProfile,
     clients::{
-        store::{ClientRecord, ClientRecordState},
         CoreUser,
+        store::{ClientRecord, ClientRecordState},
     },
-    open_client_db, Asset, UserProfile,
+    open_client_db,
 };
 use phnxtypes::{
     identifiers::{AsClientId, QualifiedUserName},

@@ -10,10 +10,10 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{types::FromSql, Connection, ToSql};
+use rusqlite::{Connection, ToSql, types::FromSql};
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::error;
 

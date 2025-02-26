@@ -5,7 +5,7 @@
 use opaque_ke::ServerRegistration;
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{signatures::signable::Signable, OpaqueCiphersuite},
+    crypto::{OpaqueCiphersuite, signatures::signable::Signable},
     errors::auth_service::{
         DeleteUserError, FinishUserRegistrationError, InitUserRegistrationError,
     },
@@ -20,12 +20,12 @@ use phnxtypes::{
 use tls_codec::Serialize;
 
 use crate::auth_service::{
+    AuthService,
     client_record::ClientRecord,
     connection_package::StorableConnectionPackage,
     credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
     opaque::OpaqueSetup,
     user_record::UserRecord,
-    AuthService,
 };
 
 impl AuthService {

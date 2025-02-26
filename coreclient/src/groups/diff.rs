@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, credentials::keys::PseudonymousCredentialSigningKey};
-use rusqlite::{types::FromSql, ToSql};
+use rusqlite::{ToSql, types::FromSql};
 
 use super::*;
 

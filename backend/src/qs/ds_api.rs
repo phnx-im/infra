@@ -13,9 +13,10 @@ use crate::messages::{
 };
 
 use super::{
+    PushNotificationProvider, Qs, WebsocketNotifier,
     client_id_decryption_key::StorableClientIdDecryptionKey, client_record::QsClientRecord,
     errors::QsEnqueueError, network_provider_trait::NetworkProvider,
-    qs_api::FederatedProcessingResult, PushNotificationProvider, Qs, WebsocketNotifier,
+    qs_api::FederatedProcessingResult,
 };
 
 impl Qs {

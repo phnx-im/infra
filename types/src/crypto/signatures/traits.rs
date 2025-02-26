@@ -8,7 +8,7 @@ use mls_assist::{
 };
 use thiserror::Error;
 
-use super::{private_keys::VerifyingKey, DEFAULT_SIGNATURE_SCHEME};
+use super::{DEFAULT_SIGNATURE_SCHEME, private_keys::VerifyingKey};
 use crate::LibraryError;
 
 use super::signable::Signature;

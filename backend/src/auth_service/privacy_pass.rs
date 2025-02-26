@@ -5,9 +5,9 @@
 use async_trait::async_trait;
 use phnxtypes::codec::PhnxCodec;
 use privacypass::{
+    TruncatedTokenKeyId,
     batched_tokens_ristretto255::server::BatchedKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
-    TruncatedTokenKeyId,
 };
 use sqlx::{Acquire, Postgres, Transaction};
 use tokio::sync::Mutex;

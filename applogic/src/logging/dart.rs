@@ -8,13 +8,13 @@ use std::sync::LazyLock;
 use chrono::Utc;
 use parking_lot::RwLock;
 use tracing::field::{Field, Visit};
-use tracing::{warn, Event, Subscriber};
+use tracing::{Event, Subscriber, warn};
+use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::Layer;
 
-use crate::api::logging::LogEntry;
 use crate::StreamSink;
+use crate::api::logging::LogEntry;
 
 static DART_SINK: LazyLock<RwLock<Option<StreamSink<LogEntry>>>> =
     LazyLock::new(|| RwLock::new(None));

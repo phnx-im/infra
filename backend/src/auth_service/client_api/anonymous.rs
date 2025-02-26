@@ -13,11 +13,11 @@ use phnxtypes::{
 };
 
 use crate::auth_service::{
+    AuthService,
     client_record::ClientRecord,
     connection_package::StorableConnectionPackage,
     credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
     queue::Queue,
-    AuthService,
 };
 
 impl AuthService {

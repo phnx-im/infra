@@ -14,8 +14,8 @@ use anyhow::Context;
 use tracing::warn;
 use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::util::{SubscriberInitExt, TryInitError};
+use tracing_subscriber::{EnvFilter, registry};
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use tracing_subscriber::{registry, EnvFilter};
 
 use crate::util::{FileRingBuffer, FileRingBufferLock};
 

@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{
-    messages::{Connect, Disconnect, NotifyMessage, NotifyMessageError},
     InternalQsWsMessage,
+    messages::{Connect, Disconnect, NotifyMessage, NotifyMessageError},
 };
 use actix::{
-    prelude::{Actor, Context, Handler, Recipient},
     ResponseFuture,
+    prelude::{Actor, Context, Handler, Recipient},
 };
 use phnxtypes::identifiers::QsClientId;
 

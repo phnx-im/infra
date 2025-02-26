@@ -27,8 +27,8 @@ use tls_codec::{
 use crate::{
     crypto::{
         ear::{
-            keys::{EncryptedIdentityLinkKey, GroupStateEarKey, RatchetKey},
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey, RatchetKey},
         },
         hpke::{
             HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
@@ -42,9 +42,8 @@ use crate::{
 };
 
 use super::{
-    client_as::EncryptedFriendshipPackage,
-    welcome_attribution_info::EncryptedWelcomeAttributionInfo, ApiVersion, EncryptedQsQueueMessage,
-    MlsInfraVersion,
+    ApiVersion, EncryptedQsQueueMessage, MlsInfraVersion, client_as::EncryptedFriendshipPackage,
+    welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
 
 mod private_mod {
@@ -367,7 +366,7 @@ impl DsVersionedRequestParams {
         let version = self.version();
         let params = match self {
             DsVersionedRequestParams::Other(_) => {
-                return Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS))
+                return Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS));
             }
             DsVersionedRequestParams::Alpha(params) => params,
         };

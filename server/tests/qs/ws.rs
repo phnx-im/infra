@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::rand::rngs::OsRng;
-use phnxapiclient::{qs_api::ws::WsEvent, ApiClient};
+use phnxapiclient::{ApiClient, qs_api::ws::WsEvent};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;

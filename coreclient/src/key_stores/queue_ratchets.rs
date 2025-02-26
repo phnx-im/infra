@@ -10,8 +10,8 @@ use phnxtypes::{
         ratchet::{QueueRatchet, RatchetCiphertext, RatchetPayload},
     },
     messages::{
-        client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload,
-        EncryptedAsQueueMessage, EncryptedQsQueueMessage,
+        EncryptedAsQueueMessage, EncryptedQsQueueMessage, client_as::AsQueueMessagePayload,
+        client_ds::QsQueueMessagePayload,
     },
 };
 use rusqlite::params;

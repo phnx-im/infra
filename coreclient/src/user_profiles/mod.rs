@@ -8,7 +8,7 @@
 use std::fmt::Display;
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{types::FromSql, ToSql};
+use rusqlite::{ToSql, types::FromSql};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};

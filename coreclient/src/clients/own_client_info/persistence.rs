@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use crate::utils::persistence::Storable;
 

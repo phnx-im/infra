@@ -18,8 +18,8 @@ use phnxtypes::{
 };
 
 use crate::qs::{
-    client_id_decryption_key::StorableClientIdDecryptionKey,
-    key_package::StorableEncryptedAddPackage, Qs,
+    Qs, client_id_decryption_key::StorableClientIdDecryptionKey,
+    key_package::StorableEncryptedAddPackage,
 };
 
 impl Qs {

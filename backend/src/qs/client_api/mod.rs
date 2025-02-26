@@ -11,7 +11,7 @@ use phnxtypes::{
     },
 };
 
-use super::{client_record::QsClientRecord, queue::Queue, user_record::UserRecord, Qs};
+use super::{Qs, client_record::QsClientRecord, queue::Queue, user_record::UserRecord};
 
 pub(crate) mod client_records;
 pub(crate) mod key_packages;

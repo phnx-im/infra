@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::crypto::{
-    kdf::{keys::InitialClientKdfKey, KdfDerivable},
+    kdf::{KdfDerivable, keys::InitialClientKdfKey},
     secrets::Secret,
 };
 
-use super::{traits::MacKey, MAC_KEY_SIZE};
+use super::{MAC_KEY_SIZE, traits::MacKey};
 
 pub type EnqueueAuthenticationKeySecret = Secret<MAC_KEY_SIZE>;
 

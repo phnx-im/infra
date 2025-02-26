@@ -9,8 +9,8 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    clients::CoreUser, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, PartialContact, UserProfile,
+    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    PartialContact, UserProfile, clients::CoreUser,
 };
 
 use super::{Store, StoreNotification, StoreResult};

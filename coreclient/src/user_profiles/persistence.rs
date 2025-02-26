@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use tracing::error;
 
-use crate::{store::StoreNotifier, utils::persistence::Storable, UserProfile};
+use crate::{UserProfile, store::StoreNotifier, utils::persistence::Storable};
 
 impl Storable for UserProfile {
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (

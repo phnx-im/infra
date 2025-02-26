@@ -6,23 +6,24 @@ use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     credentials::{
-        keys::AsIntermediateVerifyingKey, AsCredential, ClientCredential, CredentialFingerprint,
-        VerifiableAsIntermediateCredential, VerifiableClientCredential,
+        AsCredential, ClientCredential, CredentialFingerprint, VerifiableAsIntermediateCredential,
+        VerifiableClientCredential, keys::AsIntermediateVerifyingKey,
     },
     crypto::{
+        ConnectionEncryptionKey, RatchetEncryptionKey,
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
             signable::{Signature, Verifiable},
             traits::SignatureVerificationError,
         },
-        ConnectionEncryptionKey, RatchetEncryptionKey,
     },
     identifiers::AsClientId,
     time::ExpirationData,
 };
 
 use super::{
+    MlsInfraVersion,
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
         AsDequeueMessagesParams, AsPublishConnectionPackagesParams, ClientCredentialAuthenticator,
@@ -33,7 +34,6 @@ use super::{
         UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
-    MlsInfraVersion,
 };
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
