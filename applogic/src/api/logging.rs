@@ -5,7 +5,7 @@
 //! Facilities for sending logs to the Dart side
 
 use std::{
-    io::{self, Read, Write},
+    io::{self, BufRead, Write},
     path::Path,
     sync::{Arc, LazyLock},
 };
@@ -76,15 +76,24 @@ fn open_background_logs_file(cache_dir: String) -> anyhow::Result<FileRingBuffer
     )?)
 }
 
+// Note: this function is not memory-allocations optimized.
 fn read_logs_from_buffer(buffer: &FileRingBuffer) -> anyhow::Result<String> {
     static ANSI_ESCAPE_SEQUENCE_RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap());
-    let mut content = String::new();
-    buffer.buf().reader().read_to_string(&mut content)?;
-    let content = content.lines().rev().collect::<Vec<_>>().join("\n");
-    Ok(ANSI_ESCAPE_SEQUENCE_RE
-        .replace_all(&content, "")
-        .into_owned())
+    let mut lines = buffer
+        .buf()
+        .reader()
+        .split(b'\n')
+        .filter_map(|line| {
+            let line = line.ok()?;
+            let line = String::from_utf8_lossy(&line);
+            let line = line.trim_matches('\0');
+            let line = ANSI_ESCAPE_SEQUENCE_RE.replace_all(line, "").into_owned();
+            Some(line)
+        })
+        .collect::<Vec<_>>();
+    lines.reverse();
+    Ok(lines.join("\n"))
 }
 
 /// Writes the given log entry to the file initialized by [`init_rust_logging`].
@@ -98,8 +107,7 @@ impl LogWriter {
     #[frb]
     pub fn write_line(&self, message: &str) -> io::Result<()> {
         let mut buffer = self.buffer.lock();
-        buffer.write_all(message.as_bytes())?;
-        buffer.write_all(b"\n")?;
+        writeln!(buffer, "{message}")?;
         Ok(())
     }
 }
