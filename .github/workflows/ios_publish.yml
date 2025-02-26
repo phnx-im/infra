@@ -46,12 +46,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just setup-ios-ci
 
-      - name: Compare bridge
-        run: just frb-compare
-
-      - name: Generate Dart files
-        run: just generate-dart-files
-
       - name: Build and upload to TestFlight
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}

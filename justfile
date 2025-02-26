@@ -101,7 +101,7 @@ build-linux:
 
 # Build Linux app (with all prerequisite steps for running in CI)
 [working-directory: 'app']
-build-linux-ci: setup-ci frb-integrate build-linux
+build-linux-ci: setup-ci build-linux
 
 # analyze Dart code
 [working-directory: 'app']
@@ -124,4 +124,4 @@ build-windows:
 
 # Build Windows app (with all prerequisite steps for running in CI)
 [working-directory: 'app']
-build-windows-ci: setup-ci frb-integrate build-windows
+build-windows-ci: setup-ci build-windows
