@@ -41,6 +41,7 @@ frb-compare $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -Rf /tmp/frb-temp-files
     cp -R . /tmp/frb-temp-files
     (cd /tmp/frb-temp-files/app && flutter_rust_bridge_codegen generate --dart-output /tmp/frb-temp-files/app/lib/core)
+    (cd /tmp/frb-temp-files/app && dart run build_runner build --delete-conflicting-outputs)
     diff -r /tmp/frb-temp-files/app/lib/core app/lib/core
 
 # integrate the Flutter Rust bridge

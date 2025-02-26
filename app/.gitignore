@@ -71,7 +71,5 @@ flutter_rust_bridge.yaml.generated
 # Other platforms
 web/
 
-lib/**/*.freezed.dart
-
 # FVM Version Cache
 .fvm/
