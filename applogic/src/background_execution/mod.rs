@@ -16,14 +16,17 @@ pub mod swift_api;
 pub(crate) mod processing;
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct IncomingNotificationContent {
     title: String,
     body: String,
     data: String,
     path: String,
+    log_file_path: String,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct NotificationBatch {
     badge_count: usize,
     removals: Vec<String>,

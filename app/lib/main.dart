@@ -3,13 +3,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:prototype/app.dart';
 import 'package:prototype/core/frb_generated.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/util/logging.dart';
+import 'package:path/path.dart' as p;
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   await RustLib.init();
-  initLogging();
+
+  final cacheDir = await getApplicationCacheDirectory();
+  final logFile = p.join(cacheDir.path, 'app.log');
+
+  final logWriter = initRustLogging(logFile: logFile);
+  initLogging(logWriter);
 
   runApp(const App());
 }
