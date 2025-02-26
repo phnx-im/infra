@@ -39,9 +39,9 @@ pub fn init_rust_logging(log_file: String) -> LogWriter {
 
 /// Reads the application logs from the file currently used for writing logs (if any).
 pub fn read_app_logs() -> anyhow::Result<String> {
-    let Some(buffer) = LOG_FILE_RING_BUFFER.get() else {
-        bail!("No application buffer found");
-    };
+    let buffer = LOG_FILE_RING_BUFFER
+        .get()
+        .context("No application buffer found")?;
     read_logs_from_buffer(&buffer.lock())
 }
 
@@ -72,9 +72,12 @@ pub fn clear_background_logs(cache_dir: String) -> anyhow::Result<()> {
 
 /// Creates a Zlib compressed tar archive of the logs
 pub fn tar_logs(cache_dir: String) -> anyhow::Result<Vec<u8>> {
-    tar_logs_impl(LOG_FILE_RING_BUFFER.get().unwrap(), || {
-        open_background_logs_file(cache_dir)
-    })
+    tar_logs_impl(
+        LOG_FILE_RING_BUFFER
+            .get()
+            .context("No application buffer found")?,
+        || open_background_logs_file(cache_dir),
+    )
 }
 
 fn tar_logs_impl(
@@ -91,7 +94,9 @@ fn tar_logs_impl(
         buffer.clear();
 
         reader.read_to_end(&mut buffer)?;
+        // remove invalid UTF-8 sequences: we could have some because of circular buffer
         let content = String::from_utf8_lossy(&buffer);
+        // remove leading and trailing null bytes (in case the buffer is not full)
         let content = content.trim_matches('\0');
 
         let mut header = tar::Header::new_gnu();
