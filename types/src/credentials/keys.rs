@@ -11,30 +11,30 @@ use mls_assist::{
     },
 };
 #[cfg(feature = "sqlite")]
-use rusqlite::{types::ToSqlOutput, ToSql};
+use rusqlite::{ToSql, types::ToSqlOutput};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
 use super::{
+    AsCredential, AsIntermediateCredential,
     pseudonymous_credentials::{
         IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
     },
-    AsCredential, AsIntermediateCredential,
 };
 
 #[cfg(feature = "sqlite")]
 use crate::codec::PhnxCodec;
 
 use crate::crypto::{
-    ear::{keys::IdentityLinkKey, EarEncryptable},
+    ear::{EarEncryptable, keys::IdentityLinkKey},
     errors::{EncryptionError, KeyGenerationError, RandomnessError},
-    kdf::{keys::ConnectionKey, KdfDerivable},
+    kdf::{KdfDerivable, keys::ConnectionKey},
     signatures::{
+        DEFAULT_SIGNATURE_SCHEME,
         private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
         traits::{SigningKeyBehaviour, VerifyingKeyBehaviour},
-        DEFAULT_SIGNATURE_SCHEME,
     },
 };
 

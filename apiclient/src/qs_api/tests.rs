@@ -6,13 +6,13 @@ use std::{net::TcpListener, time::Duration};
 
 use actix::{Actor, ActorContext, AsyncContext, StreamHandler};
 use actix_web::{
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
     dev::Server,
     middleware::Logger,
     web::{self},
-    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use phnxtypes::{
     codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
@@ -24,7 +24,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::{qs_api::ws::WsEvent, ApiClient};
+use crate::{ApiClient, qs_api::ws::WsEvent};
 
 static QUEUE_ID_VALUE: Uuid = Uuid::nil();
 

@@ -4,14 +4,14 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
+use rusqlite::{Connection, OptionalExtension, Transaction, named_params, params};
 use tracing::info;
 
 use crate::{
-    store::StoreNotifier,
-    utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
     ConversationStatus, ConversationType,
+    store::StoreNotifier,
+    utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
 };
 
 impl Storable for Conversation {
@@ -334,8 +334,8 @@ pub mod tests {
     use uuid::Uuid;
 
     use crate::{
-        conversations::messages::persistence::tests::{test_connection, test_conversation_message},
         InactiveConversation,
+        conversations::messages::persistence::tests::{test_connection, test_conversation_message},
     };
 
     use super::*;

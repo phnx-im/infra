@@ -21,7 +21,7 @@ use phnxtypes::{
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
     errors::GroupOperationError,
-    identifiers::{QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
             AddUsersInfo, DsJoinerInformation, GroupOperationParams, GroupOperationParamsAad,
@@ -74,7 +74,7 @@ impl DsGroupState {
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
-        let ProcessedAssistedMessage::Commit(ref processed_message, ref _group_info) =
+        let ProcessedAssistedMessage::Commit(processed_message, _group_info) =
             &processed_assisted_message_plus.processed_assisted_message
         else {
             // This should be a commit.
@@ -168,7 +168,7 @@ impl DsGroupState {
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
-                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, bytes) => {
                             let extension = QsReference::tls_deserialize_exact_bytes(&bytes.0)
                                 .map_err(|e| {
                                     warn!(%e, "Error deserializing client reference");
@@ -264,7 +264,7 @@ impl DsGroupState {
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
-                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, bytes) => {
                             Some(&bytes.0)
                         }
                         _ => None,
@@ -305,7 +305,7 @@ impl DsGroupState {
                     .extensions()
                     .iter()
                     .find_map(|e| match e {
-                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, ref bytes) => {
+                        Extension::Unknown(QS_CLIENT_REFERENCE_EXTENSION_TYPE, bytes) => {
                             Some(&bytes.0)
                         }
                         _ => None,

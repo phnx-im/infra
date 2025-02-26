@@ -7,12 +7,12 @@ mod qs;
 use std::{fs, io::Cursor, sync::LazyLock};
 
 use image::{ImageBuffer, Rgba};
-use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
+use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{
-    clients::CoreUser, store::Store, Asset, ConversationId, ConversationMessage, DisplayName,
-    MimiContent, UserProfile,
+    Asset, ConversationId, ConversationMessage, DisplayName, MimiContent, UserProfile,
+    clients::CoreUser, store::Store,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};

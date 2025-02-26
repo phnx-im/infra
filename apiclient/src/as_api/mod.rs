@@ -3,20 +3,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::{keys::ClientSigningKey, ClientCredentialPayload},
+    credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
+        RatchetEncryptionKey,
         kdf::keys::RatchetSecret,
         opaque::{
             OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
             OpaqueRegistrationRequest,
         },
         signatures::signable::Signable,
-        RatchetEncryptionKey,
     },
     endpoint_paths::ENDPOINT_AS,
     errors::auth_service::AsProcessingError,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
+        AsTokenType,
         client_as::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
             ClientConnectionPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
@@ -33,7 +34,6 @@ use phnxtypes::{
             UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
-        AsTokenType,
     },
 };
 use privacypass::batched_tokens_ristretto255::TokenRequest;

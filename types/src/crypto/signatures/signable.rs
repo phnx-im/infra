@@ -40,9 +40,9 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    crypto::ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
-    messages::FriendshipToken,
     LibraryError,
+    crypto::ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
+    messages::FriendshipToken,
 };
 
 use super::traits::{SignatureVerificationError, SigningKeyBehaviour, VerifyingKeyBehaviour};

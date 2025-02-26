@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxserver_test_harness::test_scenarios::{run_test_scenario, FederationTestScenario};
+use phnxserver_test_harness::test_scenarios::{FederationTestScenario, run_test_scenario};
 
 #[actix_rt::test]
 #[ignore]

@@ -4,7 +4,7 @@
 
 use once_cell::sync::Lazy;
 
-use crate::{docker::DockerTestBed, TRACING};
+use crate::{TRACING, docker::DockerTestBed};
 
 pub mod basic_group_operations;
 pub mod federated_group_operations;

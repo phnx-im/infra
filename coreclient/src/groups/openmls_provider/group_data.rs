@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{Entity, Key, CURRENT_VERSION};
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
+use openmls_traits::storage::{CURRENT_VERSION, Entity, Key};
+use rusqlite::{Connection, OptionalExtension, ToSql, params, types::FromSql};
 
 use crate::utils::persistence::Storable;
 

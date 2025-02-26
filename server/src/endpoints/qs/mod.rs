@@ -3,16 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix_web::{
-    web::{self, Data},
     HttpResponse, Responder,
+    web::{self, Data},
 };
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
-    qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
+    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider_trait::NetworkProvider},
 };
 use phnxtypes::{
-    errors::qs::QsProcessError, messages::client_qs::VerifiableClientToQsMessage,
-    ACCEPTED_API_VERSIONS_HEADER,
+    ACCEPTED_API_VERSIONS_HEADER, errors::qs::QsProcessError,
+    messages::client_qs::VerifiableClientToQsMessage,
 };
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::{error, info, trace};

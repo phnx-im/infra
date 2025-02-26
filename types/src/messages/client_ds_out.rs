@@ -11,7 +11,7 @@ use mls_assist::{
     messages::AssistedMessageOut,
     openmls::{
         prelude::{
-            group_info::VerifiableGroupInfo, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
+            GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, group_info::VerifiableGroupInfo,
         },
         treesync::RatchetTree,
     },
@@ -29,12 +29,12 @@ use crate::{
 };
 
 use super::{
+    ApiVersion,
     client_ds::{
-        ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
-        WelcomeInfoParams, SUPPORTED_DS_API_VERSIONS,
+        ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
+        UpdateQsClientReferenceParams, WelcomeInfoParams,
     },
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
-    ApiVersion,
 };
 
 #[derive(TlsSize, TlsDeserializeBytes)]

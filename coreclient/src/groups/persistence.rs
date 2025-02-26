@@ -8,11 +8,11 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{OptionalExtension, Transaction, params};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
-use super::{diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider, Group};
+use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider};
 
 pub(crate) struct StorableGroup {
     group_id: GroupId,

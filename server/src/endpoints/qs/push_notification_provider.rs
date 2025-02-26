@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use phnxbackend::{
     qs::{PushNotificationError, PushNotificationProvider},
     settings::{ApnsSettings, FcmSettings},

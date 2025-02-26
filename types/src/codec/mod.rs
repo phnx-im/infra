@@ -5,7 +5,7 @@
 use cbor::Cbor;
 use error::CodecError;
 use mls_assist::memory_provider::Codec;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 mod cbor;
 mod error;

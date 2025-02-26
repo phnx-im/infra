@@ -21,6 +21,7 @@ pub const SUPPORTED_QS_API_VERSIONS: &[ApiVersion] = &[CURRENT_QS_API_VERSION];
 
 use crate::{
     crypto::{
+        RatchetEncryptionKey,
         ear::keys::KeyPackageEarKey,
         hpke::ClientIdEncryptionKey,
         kdf::keys::RatchetSecret,
@@ -28,15 +29,14 @@ use crate::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signature, Verifiable, VerifiedStruct},
         },
-        RatchetEncryptionKey,
     },
     errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
 };
 
 use super::{
-    push_token::EncryptedPushToken, ApiVersion, FriendshipToken, QsEncryptedKeyPackage,
-    QueueMessage,
+    ApiVersion, FriendshipToken, QsEncryptedKeyPackage, QueueMessage,
+    push_token::EncryptedPushToken,
 };
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -332,7 +332,7 @@ impl QsVersionedRequestParams {
         let params = match self {
             QsVersionedRequestParams::Alpha(params) => params,
             QsVersionedRequestParams::Other(version) => {
-                return Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS))
+                return Err(VersionError::new(version, SUPPORTED_QS_API_VERSIONS));
             }
         };
         Ok((params, version))

@@ -9,13 +9,13 @@ use phnxserver::telemetry::{get_subscriber, init_subscriber};
 use phnxserver_test_harness::{
     docker::wait_until_servers_are_up,
     test_scenarios::{
+        FederationTestScenario,
         basic_group_operations::{
             connect_users_runner, invite_to_group_runner, leave_group_runner,
             remove_from_group_runner,
         },
         federated_group_operations::group_operations_runner,
         randomized_operations::randomized_operations_runner,
-        FederationTestScenario,
     },
 };
 

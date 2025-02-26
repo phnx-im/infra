@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls_traits::storage::{
-    traits::SignaturePublicKey as SignaturePublicKeyTrait, Entity, Key, CURRENT_VERSION,
+    CURRENT_VERSION, Entity, Key, traits::SignaturePublicKey as SignaturePublicKeyTrait,
 };
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 
 use crate::utils::persistence::Storable;
 

@@ -23,7 +23,7 @@ mod persistence {
         identifiers::{QsClientId, QsUserId},
         messages::FriendshipToken,
     };
-    use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
+    use sqlx::{Arguments, Connection, PgConnection, PgExecutor, postgres::PgArguments};
 
     use crate::errors::StorageError;
 

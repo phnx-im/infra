@@ -32,7 +32,7 @@ impl DsGroupState {
 
         // Perform DS-level validation
         // Make sure that we have the right message type.
-        let ProcessedAssistedMessage::NonCommit(ref processed_message) =
+        let ProcessedAssistedMessage::NonCommit(processed_message) =
             &processed_assisted_message_plus.processed_assisted_message
         else {
             // This should be a commit.

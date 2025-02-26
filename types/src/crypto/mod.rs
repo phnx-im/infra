@@ -18,13 +18,13 @@ use sha2::Sha256;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{crypto::ear::EarEncryptable, messages::QueueMessage, LibraryError};
+use crate::{LibraryError, crypto::ear::EarEncryptable, messages::QueueMessage};
 
 use self::{
-    ear::{keys::RatchetKey, Ciphertext, EarDecryptable},
+    ear::{Ciphertext, EarDecryptable, keys::RatchetKey},
     errors::RandomnessError,
     hpke::{HpkeDecryptionKey, HpkeEncryptionKey},
-    kdf::{keys::RatchetSecret, KdfDerivable},
+    kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
 pub use opaque::OpaqueCiphersuite;

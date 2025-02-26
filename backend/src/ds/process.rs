@@ -148,13 +148,13 @@
 //!
 
 use mls_assist::{
+    MlsAssistRustCrypto,
     group::Group,
     messages::SerializedMlsMessage,
     openmls::{
-        prelude::{group_info::GroupInfo, GroupId, MlsMessageBodyIn},
+        prelude::{GroupId, MlsMessageBodyIn, group_info::GroupInfo},
         treesync::RatchetTree,
     },
-    MlsAssistRustCrypto,
 };
 use tls_codec::{TlsSerialize, TlsSize};
 use tracing::warn;
@@ -166,15 +166,15 @@ use phnxtypes::{
         ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
-    errors::{version::VersionError, DsProcessingError},
+    errors::{DsProcessingError, version::VersionError},
     identifiers::QualifiedGroupId,
     messages::{
+        ApiVersion,
         client_ds::{
             CreateGroupParams, DsGroupRequestParams, DsNonGroupRequestParams, DsRequestParams,
-            DsSender, DsVersionedRequestParams, QsQueueMessagePayload, VerifiableClientToDsMessage,
-            SUPPORTED_DS_API_VERSIONS,
+            DsSender, DsVersionedRequestParams, QsQueueMessagePayload, SUPPORTED_DS_API_VERSIONS,
+            VerifiableClientToDsMessage,
         },
-        ApiVersion,
     },
     time::TimeStamp,
 };
@@ -187,8 +187,8 @@ use crate::{
 };
 
 use super::{
-    group_state::{DsGroupState, StorableDsGroupData},
     Ds,
+    group_state::{DsGroupState, StorableDsGroupData},
 };
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;

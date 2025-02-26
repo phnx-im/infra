@@ -5,7 +5,7 @@
 use core::time;
 use std::{pin::pin, time::Duration};
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use futures_util::{SinkExt, StreamExt};
 use http::{HeaderValue, Request};
 use phnxtypes::{
@@ -19,12 +19,11 @@ use tls_codec::DeserializeBytes;
 use tokio::{
     net::TcpStream,
     sync::mpsc,
-    time::{sleep, Instant},
+    time::{Instant, sleep},
 };
 use tokio_tungstenite::{
-    connect_async,
+    MaybeTlsStream, WebSocketStream, connect_async,
     tungstenite::{client::IntoClientRequest, protocol::Message},
-    MaybeTlsStream, WebSocketStream,
 };
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{error, info};

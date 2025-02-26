@@ -17,7 +17,7 @@ use crate::{
     crypto::{errors::RandomnessError, secrets::Secret},
 };
 
-use super::{Mac, MacTag, MAC_KEY_SIZE};
+use super::{MAC_KEY_SIZE, Mac, MacTag};
 
 /// Error computing MAC.
 #[derive(Error, Debug, PartialEq, Eq, Clone)]

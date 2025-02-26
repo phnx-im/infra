@@ -10,8 +10,8 @@ use std::time::Duration;
 use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxapiclient::qs_api::ws::WsEvent;
-use phnxcoreclient::{clients::CoreUser, store::Store, ConversationId};
 use phnxcoreclient::{Asset, UserProfile};
+use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
@@ -19,12 +19,12 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{error, info, warn};
 
 use crate::{
-    api::types::{UiContact, UiUserProfile},
-    messages::FetchedMessages,
+    StreamSink,
+    util::{FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
-    util::{spawn_from_sync, FibonacciBackoff},
-    StreamSink,
+    api::types::{UiContact, UiUserProfile},
+    messages::FetchedMessages,
 };
 
 use super::{types::ImageData, user::User};

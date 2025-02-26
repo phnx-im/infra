@@ -12,7 +12,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 
-use crate::qs::{client_record::QsClientRecord, Qs};
+use crate::qs::{Qs, client_record::QsClientRecord};
 
 impl Qs {
     /// Create a new client record.

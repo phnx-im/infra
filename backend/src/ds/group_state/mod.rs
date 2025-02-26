@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use mls_assist::{
+    MlsAssistRustCrypto,
     group::Group,
     openmls::{
         group::GroupId,
@@ -12,14 +13,13 @@ use mls_assist::{
         treesync::RatchetTree,
     },
     provider_traits::MlsAssistProvider,
-    MlsAssistRustCrypto,
 };
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
         ear::{
-            keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
             Ciphertext, EarDecryptable, EarEncryptable,
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         },
         errors::{DecryptionError, EncryptionError},
     },
@@ -35,7 +35,7 @@ use uuid::Uuid;
 
 use crate::errors::StorageError;
 
-use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION};
+use super::{GROUP_STATE_EXPIRATION, ReservedGroupId, process::ExternalCommitInfo};
 
 pub(super) mod persistence;
 

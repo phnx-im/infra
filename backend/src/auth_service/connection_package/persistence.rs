@@ -7,7 +7,7 @@ use phnxtypes::{
     identifiers::{AsClientId, QualifiedUserName},
     messages::client_as::ConnectionPackage,
 };
-use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
+use sqlx::{Arguments, Connection, PgConnection, PgExecutor, postgres::PgArguments};
 use uuid::Uuid;
 
 use crate::errors::StorageError;
