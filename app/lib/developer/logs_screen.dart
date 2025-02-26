@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/widgets/widgets.dart';
+import 'package:share_plus/share_plus.dart';
 
 class LogsScreen extends StatefulWidget {
   const LogsScreen({super.key});
@@ -83,13 +87,23 @@ class LogsScreenView extends StatelessWidget {
           actions: [
             PopupMenuButton(
               itemBuilder: (context) => [
+                if (Platform.isLinux || Platform.isMacOS || Platform.isWindows)
+                  PopupMenuItem(
+                    onTap: _saveLogs,
+                    child: const Text('Save'),
+                  ),
+                if (Platform.isAndroid || Platform.isIOS)
+                  PopupMenuItem(
+                    onTap: _shareLogs,
+                    child: const Text('Share'),
+                  ),
                 PopupMenuItem(
                   onTap: reloadLogs,
-                  child: const Text('Reload Logs'),
+                  child: const Text('Reload'),
                 ),
                 PopupMenuItem(
                   onTap: clearLogs,
-                  child: const Text('Clear Logs'),
+                  child: const Text('Clear'),
                 ),
               ],
             ),
@@ -120,6 +134,29 @@ class LogsScreenView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _shareLogs() async {
+    final cacheDir = await getApplicationCacheDirectory();
+    final data = await tarLogs(cacheDir: cacheDir.path);
+    final file = XFile.fromData(data, mimeType: 'application/gzip');
+    Share.shareXFiles([file], fileNameOverrides: ['logs.tar.gz']);
+  }
+
+  void _saveLogs() async {
+    final cacheDir = await getApplicationCacheDirectory();
+    final data = await tarLogs(cacheDir: cacheDir.path);
+
+    const String fileName = 'logs.tar.gz';
+    final FileSaveLocation? result =
+        await getSaveLocation(suggestedName: fileName);
+    if (result == null) {
+      // Operation was canceled by the user.
+      return;
+    }
+
+    await XFile.fromData(data, mimeType: 'application/gzip')
+        .saveTo(result.path);
   }
 }
 
