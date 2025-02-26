@@ -20,69 +20,36 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
-  generate-app-files:
+  rust-setup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Flutter FVM
-        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
-        with:
-          path: 'app/.fvmrc'
 
       - name: Set up Just
         uses: extractions/setup-just@v2
       - name: Set up CI
         run: just setup-ci
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Compare bridge
-        run: just frb-compare
-
-      - name: Cache generated Rust files
-        uses: actions/cache/save@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
 
   rust-check-dependencies:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
       - name: Install cargo-machete
         uses: taiki-e/install-action@cargo-machete
       - run: cargo machete
 
   rust-check-lock:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - run: cargo metadata --locked
 
   rust-check-fmt:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -90,18 +57,11 @@ jobs:
           components: rustfmt
       - run: cargo fmt -- --check
 
-
   rust-clippy:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -111,23 +71,16 @@ jobs:
 
   rust-build:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - run: cargo build --verbose
 
-
   rust-test:
     runs-on: ubuntu-latest
-    needs: generate-app-files
+    needs: rust-setup
     services:
       postgres:
         image: postgres:14
@@ -154,14 +107,6 @@ jobs:
           EOF
           docker restart --time 0 postgres
           sleep 5
-
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Restore generated files
-        uses: actions/cache/restore@v4
-        with:
-          key: generated-${{ github.sha }}
-          path: applogic/src/frb_generated.rs
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
