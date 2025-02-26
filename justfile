@@ -106,7 +106,7 @@ build-linux-ci: setup-ci build-linux
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
-    flutter analyze
+    flutter analyze --current-package --suggestions
 
 # run Flutter tests
 [working-directory: 'app']
