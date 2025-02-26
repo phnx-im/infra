@@ -9,7 +9,6 @@ mod contacts;
 mod conversations;
 mod groups;
 mod key_stores;
-mod mimi_content;
 pub mod store;
 mod user_profiles;
 mod utils;
@@ -24,7 +23,6 @@ pub use crate::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,
     },
-    mimi_content::{MessageId, MimiContent, ReplyToInfo, TopicId},
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
     utils::persistence::{delete_client_database, delete_databases, open_client_db},
 };

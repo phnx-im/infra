@@ -9,6 +9,7 @@ import 'package:convert/convert.dart';
 import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';
+import 'api/markdown.dart';
 import 'api/message_cubit.dart';
 import 'api/message_list_cubit.dart';
 import 'api/types.dart';
@@ -70,6 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   @override
   Future<void> executeRustInitializers() async {
     await api.crateApiInit();
+    await api.crateApiMarkdownInitApp();
   }
 
   @override
@@ -80,7 +82,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.7.1';
 
   @override
-  int get rustContentHash => -1044504697;
+  int get rustContentHash => -113517134;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -292,7 +294,18 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiInit();
 
+  Future<void> crateApiMarkdownInitApp();
+
   LogWriter crateApiLoggingInitRustLogging({required String logFile});
+
+  Future<MessageContent> crateApiMarkdownMessageContentError(
+      {required String message});
+
+  MessageContent crateApiMarkdownMessageContentParseMarkdown(
+      {required List<int> string});
+
+  MessageContent crateApiMarkdownMessageContentTryParseMarkdown(
+      {required List<int> string});
 
   Future<String> crateApiLoggingReadAppLogs();
 
@@ -2128,12 +2141,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMarkdownInitApp() {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 62, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiMarkdownInitAppConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiMarkdownInitAppConstMeta => const TaskConstMeta(
+        debugName: "init_app",
+        argNames: [],
+      );
+
+  @override
   LogWriter crateApiLoggingInitRustLogging({required String logFile}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(logFile, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 62)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 63)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -2153,12 +2189,88 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<MessageContent> crateApiMarkdownMessageContentError(
+      {required String message}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(message, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 64, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_message_content,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiMarkdownMessageContentErrorConstMeta,
+      argValues: [message],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiMarkdownMessageContentErrorConstMeta =>
+      const TaskConstMeta(
+        debugName: "message_content_error",
+        argNames: ["message"],
+      );
+
+  @override
+  MessageContent crateApiMarkdownMessageContentParseMarkdown(
+      {required List<int> string}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_list_prim_u_8_loose(string, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 65)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_message_content,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiMarkdownMessageContentParseMarkdownConstMeta,
+      argValues: [string],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiMarkdownMessageContentParseMarkdownConstMeta =>
+      const TaskConstMeta(
+        debugName: "message_content_parse_markdown",
+        argNames: ["string"],
+      );
+
+  @override
+  MessageContent crateApiMarkdownMessageContentTryParseMarkdown(
+      {required List<int> string}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_list_prim_u_8_loose(string, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 66)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_message_content,
+        decodeErrorData: sse_decode_AnyhowException,
+      ),
+      constMeta: kCrateApiMarkdownMessageContentTryParseMarkdownConstMeta,
+      argValues: [string],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiMarkdownMessageContentTryParseMarkdownConstMeta =>
+      const TaskConstMeta(
+        debugName: "message_content_try_parse_markdown",
+        argNames: ["string"],
+      );
+
+  @override
   Future<String> crateApiLoggingReadAppLogs() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 63, port: port_);
+            funcId: 67, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2182,7 +2294,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 64, port: port_);
+            funcId: 68, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2207,7 +2319,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 65, port: port_);
+            funcId: 69, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -2633,6 +2745,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BlockElement dco_decode_block_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return BlockElement_Paragraph(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 1:
+        return BlockElement_Heading(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 2:
+        return BlockElement_Quote(
+          dco_decode_list_ranged_block_element(raw[1]),
+        );
+      case 3:
+        return BlockElement_UnorderedList(
+          dco_decode_list_list_ranged_block_element(raw[1]),
+        );
+      case 4:
+        return BlockElement_OrderedList(
+          dco_decode_u_64(raw[1]),
+          dco_decode_list_list_ranged_block_element(raw[2]),
+        );
+      case 5:
+        return BlockElement_Table(
+          head: dco_decode_list_list_ranged_block_element(raw[1]),
+          rows: dco_decode_list_list_list_ranged_block_element(raw[2]),
+        );
+      case 6:
+        return BlockElement_HorizontalRule();
+      case 7:
+        return BlockElement_CodeBlock(
+          dco_decode_list_record_record_u_32_u_32_string(raw[1]),
+        );
+      case 8:
+        return BlockElement_Error(
+          dco_decode_String(raw[1]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
@@ -2645,12 +2802,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
         raw);
-  }
-
-  @protected
-  DateTime dco_decode_box_autoadd_Chrono_Utc(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_Chrono_Utc(raw);
   }
 
   @protected
@@ -2715,18 +2866,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_ui_inactive_conversation(raw);
-  }
-
-  @protected
-  UiMessageId dco_decode_box_autoadd_ui_message_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_ui_message_id(raw);
-  }
-
-  @protected
-  UiReplyToInfo dco_decode_box_autoadd_ui_reply_to_info(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_ui_reply_to_info(raw);
   }
 
   @protected
@@ -2823,9 +2962,73 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  InlineElement dco_decode_inline_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return InlineElement_Text(
+          dco_decode_String(raw[1]),
+        );
+      case 1:
+        return InlineElement_Code(
+          dco_decode_String(raw[1]),
+        );
+      case 2:
+        return InlineElement_Link(
+          destUrl: dco_decode_String(raw[1]),
+          children: dco_decode_list_ranged_inline_element(raw[2]),
+        );
+      case 3:
+        return InlineElement_Bold(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 4:
+        return InlineElement_Italic(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 5:
+        return InlineElement_Strikethrough(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 6:
+        return InlineElement_Spoiler(
+          dco_decode_list_ranged_inline_element(raw[1]),
+        );
+      case 7:
+        return InlineElement_Image(
+          dco_decode_String(raw[1]),
+        );
+      case 8:
+        return InlineElement_TaskListMarker(
+          dco_decode_bool(raw[1]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<List<List<RangedBlockElement>>>
+      dco_decode_list_list_list_ranged_block_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_list_list_ranged_block_element)
+        .toList();
+  }
+
+  @protected
+  List<List<RangedBlockElement>> dco_decode_list_list_ranged_block_element(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_list_ranged_block_element)
+        .toList();
   }
 
   @protected
@@ -2838,6 +3041,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<RangedBlockElement> dco_decode_list_ranged_block_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ranged_block_element).toList();
+  }
+
+  @protected
+  List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_ranged_inline_element)
+        .toList();
+  }
+
+  @protected
+  List<((int, int), String)> dco_decode_list_record_record_u_32_u_32_string(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_record_record_u_32_u_32_string)
+        .toList();
   }
 
   @protected
@@ -2862,12 +3088,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<UiMessageId> dco_decode_list_ui_message_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_ui_message_id).toList();
-  }
-
-  @protected
   LogEntry dco_decode_log_entry(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2885,6 +3105,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   LogEntryLevel dco_decode_log_entry_level(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return LogEntryLevel.values[raw as int];
+  }
+
+  @protected
+  MessageContent dco_decode_message_content(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return MessageContent(
+      content: dco_decode_list_ranged_block_element(arr[0]),
+    );
   }
 
   @protected
@@ -2922,12 +3153,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  DateTime? dco_decode_opt_box_autoadd_Chrono_Utc(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_Chrono_Utc(raw);
-  }
-
-  @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_image_data(raw);
@@ -2959,18 +3184,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiMessageId? dco_decode_opt_box_autoadd_ui_message_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_ui_message_id(raw);
-  }
-
-  @protected
-  UiReplyToInfo? dco_decode_opt_box_autoadd_ui_reply_to_info(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_ui_reply_to_info(raw);
-  }
-
-  @protected
   UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_ui_user_profile(raw);
@@ -2997,6 +3210,68 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       default:
         throw Exception("unreachable");
     }
+  }
+
+  @protected
+  RangedBlockElement dco_decode_ranged_block_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return RangedBlockElement(
+      range: dco_decode_record_u_32_u_32(arr[0]),
+      element: dco_decode_block_element(arr[1]),
+    );
+  }
+
+  @protected
+  RangedInlineElement dco_decode_ranged_inline_element(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return RangedInlineElement(
+      range: dco_decode_record_u_32_u_32(arr[0]),
+      element: dco_decode_inline_element(arr[1]),
+    );
+  }
+
+  @protected
+  ((int, int), String) dco_decode_record_record_u_32_u_32_string(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (
+      dco_decode_record_u_32_u_32(arr[0]),
+      dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
+  (int, int) dco_decode_record_u_32_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (
+      dco_decode_u_32(arr[0]),
+      dco_decode_u_32(arr[1]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -3186,44 +3461,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiMessageId dco_decode_ui_message_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return UiMessageId(
-      id: dco_decode_Uuid(arr[0]),
-      domain: dco_decode_String(arr[1]),
-    );
-  }
-
-  @protected
   UiMimiContent dco_decode_ui_mimi_content(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return UiMimiContent(
-      id: dco_decode_ui_message_id(arr[0]),
-      timestamp: dco_decode_Chrono_Utc(arr[1]),
-      replaces: dco_decode_opt_box_autoadd_ui_message_id(arr[2]),
-      topicId: dco_decode_opt_list_prim_u_8_strict(arr[3]),
-      expires: dco_decode_opt_box_autoadd_Chrono_Utc(arr[4]),
-      inReplyTo: dco_decode_opt_box_autoadd_ui_reply_to_info(arr[5]),
-      lastSeen: dco_decode_list_ui_message_id(arr[6]),
-      body: dco_decode_String(arr[7]),
-    );
-  }
-
-  @protected
-  UiReplyToInfo dco_decode_ui_reply_to_info(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return UiReplyToInfo(
-      messageId: dco_decode_ui_message_id(arr[0]),
-      hash: dco_decode_list_prim_u_8_strict(arr[1]),
+      replaces: dco_decode_opt_list_prim_u_8_strict(arr[0]),
+      topicId: dco_decode_list_prim_u_8_strict(arr[1]),
+      inReplyTo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
+      plainBody: dco_decode_String(arr[3]),
+      content: dco_decode_message_content(arr[4]),
     );
   }
 
@@ -3645,6 +3893,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BlockElement sse_decode_block_element(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return BlockElement_Paragraph(var_field0);
+      case 1:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return BlockElement_Heading(var_field0);
+      case 2:
+        var var_field0 = sse_decode_list_ranged_block_element(deserializer);
+        return BlockElement_Quote(var_field0);
+      case 3:
+        var var_field0 =
+            sse_decode_list_list_ranged_block_element(deserializer);
+        return BlockElement_UnorderedList(var_field0);
+      case 4:
+        var var_field0 = sse_decode_u_64(deserializer);
+        var var_field1 =
+            sse_decode_list_list_ranged_block_element(deserializer);
+        return BlockElement_OrderedList(var_field0, var_field1);
+      case 5:
+        var var_head = sse_decode_list_list_ranged_block_element(deserializer);
+        var var_rows =
+            sse_decode_list_list_list_ranged_block_element(deserializer);
+        return BlockElement_Table(head: var_head, rows: var_rows);
+      case 6:
+        return BlockElement_HorizontalRule();
+      case 7:
+        var var_field0 =
+            sse_decode_list_record_record_u_32_u_32_string(deserializer);
+        return BlockElement_CodeBlock(var_field0);
+      case 8:
+        var var_field0 = sse_decode_String(deserializer);
+        return BlockElement_Error(var_field0);
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
@@ -3657,12 +3948,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
         deserializer));
-  }
-
-  @protected
-  DateTime sse_decode_box_autoadd_Chrono_Utc(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_Chrono_Utc(deserializer));
   }
 
   @protected
@@ -3732,20 +4017,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_ui_inactive_conversation(deserializer));
-  }
-
-  @protected
-  UiMessageId sse_decode_box_autoadd_ui_message_id(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_ui_message_id(deserializer));
-  }
-
-  @protected
-  UiReplyToInfo sse_decode_box_autoadd_ui_reply_to_info(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_ui_reply_to_info(deserializer));
   }
 
   @protected
@@ -3831,6 +4102,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  InlineElement sse_decode_inline_element(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_field0 = sse_decode_String(deserializer);
+        return InlineElement_Text(var_field0);
+      case 1:
+        var var_field0 = sse_decode_String(deserializer);
+        return InlineElement_Code(var_field0);
+      case 2:
+        var var_destUrl = sse_decode_String(deserializer);
+        var var_children = sse_decode_list_ranged_inline_element(deserializer);
+        return InlineElement_Link(destUrl: var_destUrl, children: var_children);
+      case 3:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return InlineElement_Bold(var_field0);
+      case 4:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return InlineElement_Italic(var_field0);
+      case 5:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return InlineElement_Strikethrough(var_field0);
+      case 6:
+        var var_field0 = sse_decode_list_ranged_inline_element(deserializer);
+        return InlineElement_Spoiler(var_field0);
+      case 7:
+        var var_field0 = sse_decode_String(deserializer);
+        return InlineElement_Image(var_field0);
+      case 8:
+        var var_field0 = sse_decode_bool(deserializer);
+        return InlineElement_TaskListMarker(var_field0);
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3838,6 +4148,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<List<List<RangedBlockElement>>>
+      sse_decode_list_list_list_ranged_block_element(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <List<List<RangedBlockElement>>>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_list_ranged_block_element(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<List<RangedBlockElement>> sse_decode_list_list_ranged_block_element(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <List<RangedBlockElement>>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_ranged_block_element(deserializer));
     }
     return ans_;
   }
@@ -3854,6 +4191,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<RangedBlockElement> sse_decode_list_ranged_block_element(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RangedBlockElement>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ranged_block_element(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<RangedInlineElement> sse_decode_list_ranged_inline_element(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RangedInlineElement>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ranged_inline_element(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<((int, int), String)> sse_decode_list_record_record_u_32_u_32_string(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <((int, int), String)>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_record_record_u_32_u_32_string(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -3895,19 +4271,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<UiMessageId> sse_decode_list_ui_message_id(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <UiMessageId>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_ui_message_id(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_time = sse_decode_Chrono_Utc(deserializer);
@@ -3923,6 +4286,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return LogEntryLevel.values[inner];
+  }
+
+  @protected
+  MessageContent sse_decode_message_content(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_content = sse_decode_list_ranged_block_element(deserializer);
+    return MessageContent(content: var_content);
   }
 
   @protected
@@ -3963,18 +4333,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  DateTime? sse_decode_opt_box_autoadd_Chrono_Utc(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_Chrono_Utc(deserializer));
     } else {
       return null;
     }
@@ -4029,30 +4387,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiMessageId? sse_decode_opt_box_autoadd_ui_message_id(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_message_id(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  UiReplyToInfo? sse_decode_opt_box_autoadd_ui_reply_to_info(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_reply_to_info(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
   UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -4091,6 +4425,53 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       default:
         throw UnimplementedError('');
     }
+  }
+
+  @protected
+  RangedBlockElement sse_decode_ranged_block_element(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_range = sse_decode_record_u_32_u_32(deserializer);
+    var var_element = sse_decode_block_element(deserializer);
+    return RangedBlockElement(range: var_range, element: var_element);
+  }
+
+  @protected
+  RangedInlineElement sse_decode_ranged_inline_element(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_range = sse_decode_record_u_32_u_32(deserializer);
+    var var_element = sse_decode_inline_element(deserializer);
+    return RangedInlineElement(range: var_range, element: var_element);
+  }
+
+  @protected
+  ((int, int), String) sse_decode_record_record_u_32_u_32_string(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_record_u_32_u_32(deserializer);
+    var var_field1 = sse_decode_String(deserializer);
+    return (var_field0, var_field1);
+  }
+
+  @protected
+  (int, int) sse_decode_record_u_32_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_u_32(deserializer);
+    var var_field1 = sse_decode_u_32(deserializer);
+    return (var_field0, var_field1);
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -4278,42 +4659,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiMessageId sse_decode_ui_message_id(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_id = sse_decode_Uuid(deserializer);
-    var var_domain = sse_decode_String(deserializer);
-    return UiMessageId(id: var_id, domain: var_domain);
-  }
-
-  @protected
   UiMimiContent sse_decode_ui_mimi_content(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_id = sse_decode_ui_message_id(deserializer);
-    var var_timestamp = sse_decode_Chrono_Utc(deserializer);
-    var var_replaces = sse_decode_opt_box_autoadd_ui_message_id(deserializer);
-    var var_topicId = sse_decode_opt_list_prim_u_8_strict(deserializer);
-    var var_expires = sse_decode_opt_box_autoadd_Chrono_Utc(deserializer);
-    var var_inReplyTo =
-        sse_decode_opt_box_autoadd_ui_reply_to_info(deserializer);
-    var var_lastSeen = sse_decode_list_ui_message_id(deserializer);
-    var var_body = sse_decode_String(deserializer);
+    var var_replaces = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    var var_topicId = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_inReplyTo = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    var var_plainBody = sse_decode_String(deserializer);
+    var var_content = sse_decode_message_content(deserializer);
     return UiMimiContent(
-        id: var_id,
-        timestamp: var_timestamp,
         replaces: var_replaces,
         topicId: var_topicId,
-        expires: var_expires,
         inReplyTo: var_inReplyTo,
-        lastSeen: var_lastSeen,
-        body: var_body);
-  }
-
-  @protected
-  UiReplyToInfo sse_decode_ui_reply_to_info(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_messageId = sse_decode_ui_message_id(deserializer);
-    var var_hash = sse_decode_list_prim_u_8_strict(deserializer);
-    return UiReplyToInfo(messageId: var_messageId, hash: var_hash);
+        plainBody: var_plainBody,
+        content: var_content);
   }
 
   @protected
@@ -4789,6 +5147,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_block_element(BlockElement self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case BlockElement_Paragraph(field0: final field0):
+        sse_encode_i_32(0, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case BlockElement_Heading(field0: final field0):
+        sse_encode_i_32(1, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case BlockElement_Quote(field0: final field0):
+        sse_encode_i_32(2, serializer);
+        sse_encode_list_ranged_block_element(field0, serializer);
+      case BlockElement_UnorderedList(field0: final field0):
+        sse_encode_i_32(3, serializer);
+        sse_encode_list_list_ranged_block_element(field0, serializer);
+      case BlockElement_OrderedList(field0: final field0, field1: final field1):
+        sse_encode_i_32(4, serializer);
+        sse_encode_u_64(field0, serializer);
+        sse_encode_list_list_ranged_block_element(field1, serializer);
+      case BlockElement_Table(head: final head, rows: final rows):
+        sse_encode_i_32(5, serializer);
+        sse_encode_list_list_ranged_block_element(head, serializer);
+        sse_encode_list_list_list_ranged_block_element(rows, serializer);
+      case BlockElement_HorizontalRule():
+        sse_encode_i_32(6, serializer);
+      case BlockElement_CodeBlock(field0: final field0):
+        sse_encode_i_32(7, serializer);
+        sse_encode_list_record_record_u_32_u_32_string(field0, serializer);
+      case BlockElement_Error(field0: final field0):
+        sse_encode_i_32(8, serializer);
+        sse_encode_String(field0, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
@@ -4801,13 +5194,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
         self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_Chrono_Utc(
-      DateTime self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Chrono_Utc(self, serializer);
   }
 
   @protected
@@ -4878,20 +5264,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       UiInactiveConversation self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_ui_inactive_conversation(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_ui_message_id(
-      UiMessageId self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_message_id(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_ui_reply_to_info(
-      UiReplyToInfo self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_reply_to_info(self, serializer);
   }
 
   @protected
@@ -4972,11 +5344,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_inline_element(InlineElement self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case InlineElement_Text(field0: final field0):
+        sse_encode_i_32(0, serializer);
+        sse_encode_String(field0, serializer);
+      case InlineElement_Code(field0: final field0):
+        sse_encode_i_32(1, serializer);
+        sse_encode_String(field0, serializer);
+      case InlineElement_Link(destUrl: final destUrl, children: final children):
+        sse_encode_i_32(2, serializer);
+        sse_encode_String(destUrl, serializer);
+        sse_encode_list_ranged_inline_element(children, serializer);
+      case InlineElement_Bold(field0: final field0):
+        sse_encode_i_32(3, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case InlineElement_Italic(field0: final field0):
+        sse_encode_i_32(4, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case InlineElement_Strikethrough(field0: final field0):
+        sse_encode_i_32(5, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case InlineElement_Spoiler(field0: final field0):
+        sse_encode_i_32(6, serializer);
+        sse_encode_list_ranged_inline_element(field0, serializer);
+      case InlineElement_Image(field0: final field0):
+        sse_encode_i_32(7, serializer);
+        sse_encode_String(field0, serializer);
+      case InlineElement_TaskListMarker(field0: final field0):
+        sse_encode_i_32(8, serializer);
+        sse_encode_bool(field0, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_list_list_ranged_block_element(
+      List<List<List<RangedBlockElement>>> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_list_ranged_block_element(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_list_ranged_block_element(
+      List<List<RangedBlockElement>> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_ranged_block_element(item, serializer);
     }
   }
 
@@ -4995,6 +5422,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_ranged_block_element(
+      List<RangedBlockElement> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ranged_block_element(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_ranged_inline_element(
+      List<RangedInlineElement> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ranged_inline_element(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_record_record_u_32_u_32_string(
+      List<((int, int), String)> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_record_record_u_32_u_32_string(item, serializer);
+    }
   }
 
   @protected
@@ -5028,16 +5485,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_ui_message_id(
-      List<UiMessageId> self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_ui_message_id(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_Chrono_Utc(self.time, serializer);
@@ -5051,6 +5498,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       LogEntryLevel self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_message_content(
+      MessageContent self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_ranged_block_element(self.content, serializer);
   }
 
   @protected
@@ -5090,17 +5544,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (self != null) {
       sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_Chrono_Utc(
-      DateTime? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_Chrono_Utc(self, serializer);
     }
   }
 
@@ -5149,28 +5592,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_ui_message_id(
-      UiMessageId? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_ui_message_id(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_reply_to_info(
-      UiReplyToInfo? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_ui_reply_to_info(self, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_opt_box_autoadd_ui_user_profile(
       UiUserProfile? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5204,6 +5625,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_32(1, serializer);
         sse_encode_String(field0, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_ranged_block_element(
+      RangedBlockElement self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_record_u_32_u_32(self.range, serializer);
+    sse_encode_block_element(self.element, serializer);
+  }
+
+  @protected
+  void sse_encode_ranged_inline_element(
+      RangedInlineElement self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_record_u_32_u_32(self.range, serializer);
+    sse_encode_inline_element(self.element, serializer);
+  }
+
+  @protected
+  void sse_encode_record_record_u_32_u_32_string(
+      ((int, int), String) self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_record_u_32_u_32(self.$1, serializer);
+    sse_encode_String(self.$2, serializer);
+  }
+
+  @protected
+  void sse_encode_record_u_32_u_32((int, int) self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.$1, serializer);
+    sse_encode_u_32(self.$2, serializer);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -5350,32 +5814,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_ui_message_id(UiMessageId self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Uuid(self.id, serializer);
-    sse_encode_String(self.domain, serializer);
-  }
-
-  @protected
   void sse_encode_ui_mimi_content(
       UiMimiContent self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_message_id(self.id, serializer);
-    sse_encode_Chrono_Utc(self.timestamp, serializer);
-    sse_encode_opt_box_autoadd_ui_message_id(self.replaces, serializer);
-    sse_encode_opt_list_prim_u_8_strict(self.topicId, serializer);
-    sse_encode_opt_box_autoadd_Chrono_Utc(self.expires, serializer);
-    sse_encode_opt_box_autoadd_ui_reply_to_info(self.inReplyTo, serializer);
-    sse_encode_list_ui_message_id(self.lastSeen, serializer);
-    sse_encode_String(self.body, serializer);
-  }
-
-  @protected
-  void sse_encode_ui_reply_to_info(
-      UiReplyToInfo self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_message_id(self.messageId, serializer);
-    sse_encode_list_prim_u_8_strict(self.hash, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.replaces, serializer);
+    sse_encode_list_prim_u_8_strict(self.topicId, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.inReplyTo, serializer);
+    sse_encode_String(self.plainBody, serializer);
+    sse_encode_message_content(self.content, serializer);
   }
 
   @protected
