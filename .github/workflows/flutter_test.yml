@@ -41,12 +41,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just setup-ci
 
-      - name: Integrate bridge
-        run: just frb-integrate
-
-      - name: Generate Dart files
-        run: just generate-dart-files
-
       - name: Analyze dart code
         run: just analyze-dart
 

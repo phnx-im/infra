@@ -36,6 +36,14 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
 
+# compare the generated files with the current files
+frb-compare $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
+    rm -Rf /tmp/frb-temp-files
+    cp -R . /tmp/frb-temp-files
+    (cd /tmp/frb-temp-files/app && flutter_rust_bridge_codegen generate --dart-output /tmp/frb-temp-files/app/lib/core)
+    (cd /tmp/frb-temp-files/app && dart run build_runner build --delete-conflicting-outputs)
+    diff -r /tmp/frb-temp-files/app/lib/core app/lib/core
+
 # integrate the Flutter Rust bridge
 [working-directory: 'app']
 frb-integrate:
@@ -54,7 +62,7 @@ frb-integrate:
 # set up the CI environment for the app
 setup-ci:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-    cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
+    cargo binstall -y flutter_rust_bridge_codegen@2.7.1 cargo-expand
 
 # set up the CI environment for Android builds
 [working-directory: 'app/fastlane']
@@ -93,12 +101,12 @@ build-linux:
 
 # Build Linux app (with all prerequisite steps for running in CI)
 [working-directory: 'app']
-build-linux-ci: setup-ci frb-integrate build-linux
+build-linux-ci: setup-ci build-linux
 
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
-    flutter analyze
+    flutter analyze --current-package --suggestions
 
 # run Flutter tests
 [working-directory: 'app']
@@ -116,4 +124,4 @@ build-windows:
 
 # Build Windows app (with all prerequisite steps for running in CI)
 [working-directory: 'app']
-build-windows-ci: setup-ci frb-integrate build-windows
+build-windows-ci: setup-ci build-windows

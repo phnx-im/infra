@@ -94,7 +94,7 @@ platform :mac do
       )
 
       # Build the app with flutter first to create the necessary ephemeral files
-      sh "flutter build macos"
+      sh "flutter build macos --config-only"
   
       # Build the app
       build_mac_app(
