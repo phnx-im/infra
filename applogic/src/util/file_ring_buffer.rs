@@ -117,7 +117,7 @@ impl FileRingBuffer {
         let tail = self.read_tail();
         let data = self.data_mut();
 
-        debug_assert!(tail < data.len(), "{tail} < {}", data.len());
+        debug_assert!(tail < data.len());
         let left_len = new_data.len().min(data.len() - tail);
         debug_assert!(left_len <= new_data.len());
         let right_len = new_data.len() - left_len;
