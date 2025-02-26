@@ -86,9 +86,11 @@
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A3D1107BC633991DDD50333B /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BDAC55E1E890DD0C8CA033D8 /* Pods-RunnerTests.release-testflight.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-testflight.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-testflight.xcconfig"; sourceTree = "<group>"; };
 		C2FA68857FE6B71CD1ACCD3F /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		C993F5D9003CFB3A8BC96C7F /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		DA3A67A27BAB8199AC5380E9 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		EECE11562AB54B5948C0920F /* Pods-Runner.release-testflight.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-testflight.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-testflight.xcconfig"; sourceTree = "<group>"; };
 		F84D1B9F2239F3BBB667BC41 /* Pods-Runner.testflight.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.testflight.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.testflight.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -198,6 +200,8 @@
 				C993F5D9003CFB3A8BC96C7F /* Pods-RunnerTests.profile.xcconfig */,
 				F84D1B9F2239F3BBB667BC41 /* Pods-Runner.testflight.xcconfig */,
 				35FCAA9CA4826DE9CFC6B05C /* Pods-RunnerTests.testflight.xcconfig */,
+				EECE11562AB54B5948C0920F /* Pods-Runner.release-testflight.xcconfig */,
+				BDAC55E1E890DD0C8CA033D8 /* Pods-RunnerTests.release-testflight.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -764,7 +768,7 @@
 			};
 			name = Release;
 		};
-		AE14E2172D6E072A00E6B218 /* TestFlight */ = {
+		AE1356072D6ECCF90013A922 /* Release-testflight */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
@@ -811,16 +815,16 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
-			name = TestFlight;
+			name = "Release-testflight";
 		};
-		AE14E2182D6E072A00E6B218 /* TestFlight */ = {
+		AE1356082D6ECCF90013A922 /* Release-testflight */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 33E5194F232828860026EE4D /* AppInfo.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = 7QXP938FNA;
@@ -833,14 +837,14 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
-			name = TestFlight;
+			name = "Release-testflight";
 		};
-		AE14E2192D6E072A00E6B218 /* TestFlight */ = {
+		AE1356092D6ECCF90013A922 /* Release-testflight */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 35FCAA9CA4826DE9CFC6B05C /* Pods-RunnerTests.testflight.xcconfig */;
+			baseConfigurationReference = BDAC55E1E890DD0C8CA033D8 /* Pods-RunnerTests.release-testflight.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 56;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = im.phnx.prototype.RunnerTests;
@@ -848,15 +852,15 @@
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/prototype.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/prototype";
 			};
-			name = TestFlight;
+			name = "Release-testflight";
 		};
-		AE14E21A2D6E072A00E6B218 /* TestFlight */ = {
+		AE13560A2D6ECCF90013A922 /* Release-testflight */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = TestFlight;
+			name = "Release-testflight";
 		};
 /* End XCBuildConfiguration section */
 
@@ -866,7 +870,7 @@
 			buildConfigurations = (
 				331C80DB294CF71000263BE5 /* Debug */,
 				331C80DC294CF71000263BE5 /* Release */,
-				AE14E2192D6E072A00E6B218 /* TestFlight */,
+				AE1356092D6ECCF90013A922 /* Release-testflight */,
 				331C80DD294CF71000263BE5 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -877,7 +881,7 @@
 			buildConfigurations = (
 				33CC10F92044A3C60003C045 /* Debug */,
 				33CC10FA2044A3C60003C045 /* Release */,
-				AE14E2172D6E072A00E6B218 /* TestFlight */,
+				AE1356072D6ECCF90013A922 /* Release-testflight */,
 				338D0CE9231458BD00FA5F75 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -888,7 +892,7 @@
 			buildConfigurations = (
 				33CC10FC2044A3C60003C045 /* Debug */,
 				33CC10FD2044A3C60003C045 /* Release */,
-				AE14E2182D6E072A00E6B218 /* TestFlight */,
+				AE1356082D6ECCF90013A922 /* Release-testflight */,
 				338D0CEA231458BD00FA5F75 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -899,7 +903,7 @@
 			buildConfigurations = (
 				33CC111C2044C6BA0003C045 /* Debug */,
 				33CC111D2044C6BA0003C045 /* Release */,
-				AE14E21A2D6E072A00E6B218 /* TestFlight */,
+				AE13560A2D6ECCF90013A922 /* Release-testflight */,
 				338D0CEB231458BD00FA5F75 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;

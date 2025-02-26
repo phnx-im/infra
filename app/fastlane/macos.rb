@@ -77,7 +77,7 @@ platform :mac do
   
       # Set XCode version
       xcodes(
-        version: '16.1',
+        version: '16.2',
         select_for_current_build_only: true,
       )
     
@@ -99,8 +99,7 @@ platform :mac do
       # Build the app
       build_mac_app(
         workspace: "macos/Runner.xcworkspace", 
-        scheme: "Runner",
-        configuration: "TestFlight",
+        scheme: "TestFlight",
         skip_codesigning: skip_signing,
         skip_archive: skip_signing,
         export_method: "app-store",
