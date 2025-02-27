@@ -17,7 +17,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  frb-generate:
+  check-frb:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,4 +35,4 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - run: just check-generated-frb-ci
+      - run: just check-frb-ci

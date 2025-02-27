@@ -36,8 +36,8 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
 
-# check that generated flutter rust bridge files are up-to-date
-check-generated-frb: frb-generate
+# Generate Rust and Dart flutter bridge files and check that they are committed
+check-frb: frb-generate
     #!/usr/bin/env -S bash -eu
     if [ -n "$(git status --porcelain)" ]; then
         git add -N .
@@ -47,7 +47,7 @@ check-generated-frb: frb-generate
     fi
 
 # same as check-generated-frb (with all prerequisite steps for running in CI)
-check-generated-frb-ci: setup-ci
+check-frb-ci: setup-ci
     cargo binstall flutter_rust_bridge_codegen@2.7.1 cargo-expand
     just check-generated-frb
 
