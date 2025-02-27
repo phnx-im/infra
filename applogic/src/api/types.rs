@@ -206,6 +206,10 @@ impl From<Message> for UiMessage {
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
             }
+            Message::Error => UiMessage::Display(UiEventMessage::Error(UiErrorMessage {
+                // Connection type does not matter for errors
+                message: message.string_representation(&ConversationType::Group),
+            })),
         }
     }
 }
