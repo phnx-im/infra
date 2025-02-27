@@ -35,4 +35,4 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - run: just check-generated-frb
+      - run: just check-generated-frb-ci
