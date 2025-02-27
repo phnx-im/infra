@@ -165,7 +165,7 @@ impl QsWebSocket {
                                 }
                                 // Try to deserialize the message
                                 if let Ok(QsWsMessage::QueueUpdate) =
-                                    QsWsMessage::tls_deserialize_exact_bytes(&data)
+                                    QsWsMessage::tls_deserialize_exact_bytes(data.as_slice())
                                 {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel
