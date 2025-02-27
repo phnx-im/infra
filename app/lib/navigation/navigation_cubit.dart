@@ -52,7 +52,7 @@ enum IntroScreenType {
   developerSettings,
 }
 
-enum DeveloperSettingsScreenType { root, changeUser }
+enum DeveloperSettingsScreenType { root, changeUser, logs }
 
 /// Provides the navigation state and navigation actions to the app
 ///
@@ -190,7 +190,8 @@ class NavigationCubit extends Cubit<NavigationState> {
             case DeveloperSettingsScreenType.root:
               emit(home.copyWith(developerSettingsScreen: null));
               return true;
-            case DeveloperSettingsScreenType.changeUser:
+            case DeveloperSettingsScreenType.changeUser ||
+                  DeveloperSettingsScreenType.logs:
               emit(home.copyWith(
                 developerSettingsScreen: DeveloperSettingsScreenType.root,
               ));

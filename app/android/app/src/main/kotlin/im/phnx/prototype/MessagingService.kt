@@ -42,12 +42,17 @@ class BackgroundFirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
+        val logFilePath = cacheDir.resolve("background.log").absolutePath
+        Log.d(LOGTAG, "Logging file path: $logFilePath")
+
         val notificationContent = IncomingNotificationContent(
             title = "",
             body = "",
             data = data["data"] ?: "",
-            path = filesDir.absolutePath
+            path = filesDir.absolutePath,
+            logFilePath = cacheDir.resolve("background.log").absolutePath,
         )
+
 
         Log.d(LOGTAG, "Starting to process messages in Rust")
         val notificationBatch = NativeLib().processNewMessages(notificationContent)

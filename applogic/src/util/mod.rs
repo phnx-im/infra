@@ -4,8 +4,10 @@
 
 mod cubit_core;
 mod fibonacci_backoff;
+mod file_ring_buffer;
 mod spawn;
 
 pub(crate) use cubit_core::{Cubit, CubitCore};
 pub(crate) use fibonacci_backoff::FibonacciBackoff;
+pub(crate) use file_ring_buffer::{FileRingBuffer, FileRingBufferLock};
 pub(crate) use spawn::spawn_from_sync;

@@ -13,13 +13,12 @@ use crate::{background_execution::processing::retrieve_messages_sync, logging::i
 use super::IncomingNotificationContent;
 
 /// This methos gets called from the Android Messaging Service
-#[no_mangle]
-pub extern "C" fn Java_im_phnx_prototype_NativeLib_process_1new_1messages(
+#[export_name = "Java_im_phnx_prototype_NativeLib_process_1new_1messages"]
+pub extern "C" fn process_new_messages(
     mut env: JNIEnv,
     _class: JClass,
     content: JString,
 ) -> jstring {
-    init_logger();
     // Convert Java string to Rust string
     let input: String = env
         .get_string(&content)
@@ -27,6 +26,9 @@ pub extern "C" fn Java_im_phnx_prototype_NativeLib_process_1new_1messages(
         .into();
 
     let incoming_content: IncomingNotificationContent = serde_json::from_str(&input).unwrap();
+
+    init_logger(incoming_content.log_file_path.clone());
+    tracing::warn!(incoming_content.log_file_path, "init_logger");
 
     // Retrieve messages
     let batch = retrieve_messages_sync(incoming_content.path);

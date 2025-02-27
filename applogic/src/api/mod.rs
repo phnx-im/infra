@@ -18,8 +18,6 @@
 
 use flutter_rust_bridge::frb;
 
-use crate::logging::init_logger;
-
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod logging;
@@ -31,10 +29,10 @@ pub mod user_cubit;
 pub mod utils;
 
 /// Main entry point of the application in Flutter
+///
+/// Note: Logging has to be initialized separately, see [`logging::init_rust_logging`].
 #[frb(init)]
 pub fn init() {
-    init_logger();
-
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
         if let Err(error) = crate::notifications::init_desktop_os_notifications() {
