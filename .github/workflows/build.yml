@@ -20,19 +20,8 @@ env:
   POSTGRES_DB: phnx_db
 
 jobs:
-  rust-setup:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Just
-        uses: extractions/setup-just@v2
-      - name: Set up CI
-        run: just setup-ci
-
   rust-check-dependencies:
     runs-on: ubuntu-latest
-    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
       - name: Install cargo-machete
@@ -41,7 +30,6 @@ jobs:
 
   rust-check-lock:
     runs-on: ubuntu-latest
-    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
@@ -50,7 +38,6 @@ jobs:
 
   rust-check-fmt:
     runs-on: ubuntu-latest
-    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
@@ -62,7 +49,6 @@ jobs:
 
   rust-clippy:
     runs-on: ubuntu-latest
-    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
@@ -74,7 +60,6 @@ jobs:
 
   rust-build:
     runs-on: ubuntu-latest
-    needs: rust-setup
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
@@ -83,7 +68,6 @@ jobs:
 
   rust-test:
     runs-on: ubuntu-latest
-    needs: rust-setup
     services:
       postgres:
         image: postgres:14
@@ -103,7 +87,7 @@ jobs:
     steps:
       # Increase number of postgres connections
       - uses: actions/checkout@v4
-      
+
       - name: Alter max connections
         run: |
           docker exec -i postgres bash << EOF
