@@ -37,6 +37,11 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     flutter_rust_bridge_codegen generate
 
 # Generate Rust and Dart flutter bridge files and check that they are committed
+#
+# Note: As a side effect, this recipe also checks whether the generated Dart
+# files and the `app/pubspec.lock` file are up to date. This occurs because
+# `flutter_rust_bridge_codegen` runs the `dart run build_runner build` command,
+# which updates the generated files.
 check-frb: frb-generate
     #!/usr/bin/env -S bash -eu
     if [ -n "$(git status --porcelain)" ]; then
