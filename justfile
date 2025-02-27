@@ -48,7 +48,7 @@ check-generated-frb: frb-generate
 
 # same as check-generated-frb (with all prerequisite steps for running in CI)
 check-generated-frb-ci: setup-ci
-    cargo binstall flutter_rust_bridge_codegen@2.7.1
+    cargo binstall flutter_rust_bridge_codegen@2.7.1 cargo-expand
     just check-generated-frb
 
 # integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
