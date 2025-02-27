@@ -36,21 +36,6 @@ enum VersionedMessage {
 
 mark_as_blob_persist!(VersionedMessage);
 
-// impl FromSql for VersionedMessage {
-//     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-//         let bytes = value.as_blob()?;
-//         let versioned_message = PhnxCodec::from_slice(bytes)?;
-//         Ok(versioned_message)
-//     }
-// }
-//
-// impl ToSql for VersionedMessage {
-//     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-//         let bytes = PhnxCodec::to_vec(self)?;
-//         Ok(rusqlite::types::ToSqlOutput::from(bytes))
-//     }
-// }
-
 enum MessageInputs {
     System,
     User(String, bool), // sender, sent

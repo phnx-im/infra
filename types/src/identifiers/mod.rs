@@ -460,9 +460,6 @@ pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
 }
 
-// TODO: remove?
-mark_as_blob_persist!(SealedClientReference);
-
 mark_as_blob_persist!(Vec<SealedClientReference>);
 
 impl Hash for SealedClientReference {
