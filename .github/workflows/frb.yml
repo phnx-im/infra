@@ -26,32 +26,12 @@ jobs:
       - name: Set up Just
         uses: extractions/setup-just@v2
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-
       - name: Set up Flutter FVM
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
 
-      - name: Install required Java version
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up Android CI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just setup-android-ci
-
-      - name: Generate Dart files
-        run: just generate-dart-files
-
-      - name: Compare bridge
-        run: just frb-compare
+      - run: just check-generated-frb

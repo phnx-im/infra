@@ -36,15 +36,22 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
 
-# compare the generated files with the current files
-frb-compare $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
-    rm -Rf /tmp/frb-temp-files
-    cp -R . /tmp/frb-temp-files
-    (cd /tmp/frb-temp-files/app && flutter_rust_bridge_codegen generate --dart-output /tmp/frb-temp-files/app/lib/core)
-    (cd /tmp/frb-temp-files/app && dart run build_runner build --delete-conflicting-outputs)
-    diff -r /tmp/frb-temp-files/app/lib/core app/lib/core
+# check that generated flutter rust bridge files are up-to-date
+check-generated-frb: frb-generate
+    #!/usr/bin/env -S bash -eu
+    if [ -n "$(git status --porcelain)" ]; then
+        git add -N .
+        git diff
+        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
+        exit 1
+    fi
 
-# integrate the Flutter Rust bridge
+# same as check-generated-frb (with all prerequisite steps for running in CI)
+check-generated-frb-ci: setup-ci
+    cargo binstall flutter_rust_bridge_codegen@2.7.1
+    just check-generated-frb
+
+# integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
 [working-directory: 'app']
 frb-integrate:
     mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
