@@ -49,7 +49,7 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
         let _ = sqlx::query!(
             "INSERT INTO as_batched_keys (token_key_id, voprf_server) VALUES ($1, $2)",
             i16::from(truncated_token_key_id),
-            server.persist() as _,
+            server.persisting() as _,
         )
         .execute(connection)
         .await;

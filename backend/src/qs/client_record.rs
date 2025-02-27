@@ -113,9 +113,9 @@ mod persistence {
                 &self.client_id as &QsClientId,
                 &self.user_id as &QsUserId,
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                self.queue_encryption_key.persist() as _,
-                self.auth_key.persist() as _,
-                self.ratchet_key.persist() as _,
+                self.queue_encryption_key.persisting() as _,
+                self.auth_key.persisting() as _,
+                self.ratchet_key.persisting() as _,
                 &self.activity_time as &TimeStamp,
             )
             .execute(connection)
@@ -194,9 +194,9 @@ mod persistence {
                 WHERE
                     client_id = $6",
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                self.queue_encryption_key.persist() as _,
-                self.auth_key.persist() as _,
-                self.ratchet_key.persist() as _,
+                self.queue_encryption_key.persisting() as _,
+                self.auth_key.persisting() as _,
+                self.ratchet_key.persisting() as _,
                 &self.activity_time as &TimeStamp,
                 &self.client_id as &QsClientId,
             )

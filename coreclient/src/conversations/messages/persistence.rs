@@ -221,7 +221,7 @@ impl ConversationMessage {
                 self.conversation_id,
                 self.timestamped_message.timestamp,
                 sender,
-                versioned_message.persist(),
+                versioned_message.persisting(),
                 match &self.timestamped_message.message {
                     Message::Content(content_message) => content_message.sent,
                     Message::Event(_) => true,
@@ -390,7 +390,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn store__load__multiple() -> anyhow::Result<()> {
+    fn store_load_multiple() -> anyhow::Result<()> {
         let connection = test_connection();
         let mut store_notifier = StoreNotifier::noop();
 

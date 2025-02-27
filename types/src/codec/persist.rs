@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Serialize};
 /// `BlobPersist`:
 ///
 /// ```rust
-/// use persist::{BlobPersist, BlobPersistRestore, BlobPersistStore};
+/// use phnxtypes::codec::persist::{BlobPersist, BlobPersistRestore, BlobPersistStore};
 /// use serde::{Deserialize, Serialize};
 ///
 /// /// Data that is persisted as a blob.
@@ -28,10 +28,23 @@ use serde::{de::DeserializeOwned, Serialize};
 /// }
 /// ```
 ///
+/// This is equivalent to the following:
+///
+/// ```rust
+/// use phnxtypes::mark_as_blob_persist;
+/// use serde::{Deserialize, Serialize};
+///
+/// /// Data that is persisted as a blob.
+/// #[derive(Serialize, Deserialize)]
+/// struct Data {}
+///
+/// mark_as_blob_persist!(Data);
+/// ```
+///
 /// Example with wrapper types:
 ///
 /// ```rust
-/// use persist::{BlobPersist, BlobPersistRestore, BlobPersistStore};
+/// use phnxtypes::codec::persist::{BlobPersist, BlobPersistRestore, BlobPersistStore};
 /// use serde::{Deserialize, Serialize};
 ///
 /// /// Data that is persisted as a blob via two wrapper types: `OuterData` and `OuterDataRef`.
@@ -43,17 +56,12 @@ use serde::{de::DeserializeOwned, Serialize};
 ///
 /// impl BlobPersistRestore for OuterData {}
 ///
-/// impl From<OuterData> for InnerData {
-///     fn from(OuterData(value): OuterData) -> Self {
-///         value
-///     }
-/// }
-///
 /// #[derive(Serialize)]
 /// struct OuterDataRef<'a>(&'a InnerData);
 ///
 /// impl BlobPersistStore for OuterDataRef<'_> {}
 ///
+/// // From is only needed, if BlobPersist::persisting will be used.
 /// impl<'a> From<&'a InnerData> for OuterDataRef<'a> {
 ///     fn from(value: &'a InnerData) -> Self {
 ///         Self(value)
@@ -87,7 +95,7 @@ pub trait BlobPersist {
     /// Note that there is no correspoing `restore` method, because
     /// `BlobPersisted<Self::Persisted>` is used in return position to restore the data via the
     /// correspoding sql query functions.
-    fn persist(&self) -> BlobPersisting<Self::Persisting<'_>>
+    fn persisting(&self) -> BlobPersisting<Self::Persisting<'_>>
     where
         for<'a> Self::Persisting<'a>: From<&'a Self>,
     {

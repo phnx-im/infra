@@ -29,7 +29,7 @@ impl StorableConnectionPackage {
 
             // Add values to the query arguments. None of these should throw an error.
             query_args.add(client_id.client_id())?;
-            query_args.add(connection_package.persist())?;
+            query_args.add(connection_package.persisting())?;
 
             if i > 0 {
                 query_string.push(',');

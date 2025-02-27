@@ -11,6 +11,7 @@ use super::Codec;
 pub(super) struct Cbor;
 
 impl Cbor {
+    #[cfg(feature = "sqlx")]
     pub(crate) fn to_writer(
         value: &impl Serialize,
         writer: &mut impl std::io::Write,

@@ -87,8 +87,8 @@ mod persistence {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
                 client_id.user_name().to_string(),
-                self.queue_encryption_key.persist() as _,
-                self.ratchet_key.persist() as _,
+                self.queue_encryption_key.persisting() as _,
+                self.ratchet_key.persisting() as _,
                 self.activity_time as TimeStamp,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -113,8 +113,8 @@ mod persistence {
                     remaining_tokens = $5
                 WHERE client_id = $6
                 "#,
-                self.queue_encryption_key.persist() as _,
-                self.ratchet_key.persist() as _,
+                self.queue_encryption_key.persisting() as _,
+                self.ratchet_key.persisting() as _,
                 self.activity_time as TimeStamp,
                 client_credential as _,
                 self.token_allowance,

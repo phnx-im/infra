@@ -55,6 +55,7 @@ impl PhnxCodec {
         Ok(buf)
     }
 
+    #[cfg(feature = "sqlx")]
     fn serialize_to_writer<T: Serialize>(
         &self,
         value: &T,

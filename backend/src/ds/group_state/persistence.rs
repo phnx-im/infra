@@ -26,9 +26,9 @@ impl StorableDsGroupData {
                 ($1, $2, $3, $4)
             ON CONFLICT (group_id) DO NOTHING",
             self.group_id,
-            self.encrypted_group_state.persist() as _,
+            self.encrypted_group_state.persisting() as _,
             DateTime::<Utc>::from(self.last_used),
-            self.deleted_queues.persist() as _,
+            self.deleted_queues.persisting() as _,
         )
         .execute(connection)
         .await?;
@@ -90,9 +90,9 @@ impl StorableDsGroupData {
             WHERE
                 group_id = $1",
             self.group_id,
-            self.encrypted_group_state.persist() as _,
+            self.encrypted_group_state.persisting() as _,
             DateTime::<Utc>::from(self.last_used),
-            self.deleted_queues.persist() as _,
+            self.deleted_queues.persisting() as _,
         )
         .execute(connection)
         .await?;

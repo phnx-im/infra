@@ -77,7 +77,7 @@ impl UserCreationState {
         connection.execute(
             "INSERT OR REPLACE INTO user_creation_state
             (client_id, state, created_at) VALUES (?1, ?2, ?3)",
-            params![self.client_id(), self.persist(), Utc::now()],
+            params![self.client_id(), self.persisting(), Utc::now()],
         )?;
         Ok(())
     }

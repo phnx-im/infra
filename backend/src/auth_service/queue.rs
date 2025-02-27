@@ -92,7 +92,7 @@ mod persistence {
                 message_id,
                 client_id.client_id(),
                 sequence_number,
-                message.persist() as _,
+                message.persisting() as _,
             )
             .execute(&mut *transaction)
             .await?;

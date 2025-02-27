@@ -50,7 +50,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO opaque_setup (opaque_setup) VALUES ($1)",
-                self.persist() as _
+                self.persisting() as _
             )
             .execute(connection)
             .await?;

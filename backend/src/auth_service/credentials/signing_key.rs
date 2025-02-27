@@ -88,7 +88,7 @@ mod persistence {
                     ($1, $2, $3, $4)",
                 CredentialType::As as _,
                 self.fingerprint().as_bytes(),
-                self.persist() as _,
+                self.persisting() as _,
                 false,
             )
             .execute(connection)

@@ -53,7 +53,7 @@ impl Queue {
             RETURNING sequence_number
             "#,
             queue_id as &QsClientId,
-            message.persist() as _,
+            message.persisting() as _,
         )
         .fetch_one(&mut *transaction)
         .await?;
