@@ -41,7 +41,7 @@ check-frb: frb-generate
     #!/usr/bin/env -S bash -eu
     if [ -n "$(git status --porcelain)" ]; then
         git add -N .
-        git diff --no-pager
+        git --no-pager diff
         echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
         exit 1
     fi
