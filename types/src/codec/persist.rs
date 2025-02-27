@@ -69,10 +69,7 @@ use serde::{de::DeserializeOwned, Serialize};
 ///     type Persisted = OuterData;
 /// }
 /// ```
-pub trait BlobPersist
-where
-    Self: From<Self::Persisted>,
-{
+pub trait BlobPersist {
     /// The type which is used to store the data in the database.
     ///
     /// Most of the time, this is just `&Self`, but it can be more complex if the data is wrapped.
@@ -131,6 +128,23 @@ impl<T: BlobPersistRestore> BlobPersisted<T> {
     }
 }
 
+/// Implements the `BlobPersist` trait for a type.
+///
+/// The types is persisted/restored without wrappers: `Persisting` is `&Self`, and `Persisted` is
+/// `Self`.
+#[macro_export]
+macro_rules! mark_as_blob_persist {
+    ($type:ty) => {
+        impl $crate::codec::persist::BlobPersist for $type {
+            type Persisting<'a> = &'a Self;
+            type Persisted = Self;
+        }
+
+        impl $crate::codec::persist::BlobPersistStore for &$type {}
+        impl $crate::codec::persist::BlobPersistRestore for $type {}
+    };
+}
+
 /// Implement sqlx Encode/Decode for all `BlobPersist` implementing types
 #[cfg(feature = "sqlx")]
 mod sqlx_impl {
@@ -178,27 +192,10 @@ mod sqlx_impl {
     {
         fn decode(value: DB::ValueRef<'r>) -> Result<Self, BoxDynError> {
             let bytes: &[u8] = Decode::<DB>::decode(value)?;
-            let value: Data = PhnxCodec::V1.deserialize(bytes)?;
+            let value: Data = PhnxCodec::from_slice(bytes)?;
             Ok(BlobPersisted(value))
         }
     }
-}
-
-/// Implements the `BlobPersist` trait for a type.
-///
-/// The types is persisted/restored without wrappers: `Persisting` is `&Self`, and `Persisted` is
-/// `Self`.
-#[macro_export]
-macro_rules! mark_as_blob_persist {
-    ($type:ty) => {
-        impl $crate::codec::persist::BlobPersist for $type {
-            type Persisting<'a> = &'a Self;
-            type Persisted = Self;
-        }
-
-        impl $crate::codec::persist::BlobPersistStore for &$type {}
-        impl $crate::codec::persist::BlobPersistRestore for $type {}
-    };
 }
 
 /// Implement rusqlite ToSql/FromSql for all `BlobPersist` implementing types
@@ -225,9 +222,8 @@ mod rusqlite_impl {
     impl<Data: BlobPersistRestore> FromSql for BlobPersisted<Data> {
         fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
             let bytes = value.as_blob()?;
-            let value: Data = PhnxCodec::V1
-                .deserialize(bytes)
-                .map_err(FromSqlError::Other)?;
+            let value: Data = PhnxCodec::from_slice(bytes)
+                .map_err(|error| FromSqlError::Other(Box::new(error)))?;
             Ok(BlobPersisted(value))
         }
     }

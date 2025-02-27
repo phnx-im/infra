@@ -2,11 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, mark_as_blob_persist, time::TimeStamp};
+use phnxtypes::{
+    codec::{
+        persist::{BlobPersist, BlobPersisted},
+        PhnxCodec,
+    },
+    mark_as_blob_persist,
+    time::TimeStamp,
+};
 use rusqlite::{
     named_params, params,
-    types::{FromSql, FromSqlError, Type},
-    Connection, OptionalExtension, ToSql,
+    types::{FromSqlError, Type},
+    Connection, OptionalExtension,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -29,20 +36,20 @@ enum VersionedMessage {
 
 mark_as_blob_persist!(VersionedMessage);
 
-impl FromSql for VersionedMessage {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let bytes = value.as_blob()?;
-        let versioned_message = PhnxCodec::from_slice(bytes)?;
-        Ok(versioned_message)
-    }
-}
-
-impl ToSql for VersionedMessage {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Ok(rusqlite::types::ToSqlOutput::from(bytes))
-    }
-}
+// impl FromSql for VersionedMessage {
+//     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+//         let bytes = value.as_blob()?;
+//         let versioned_message = PhnxCodec::from_slice(bytes)?;
+//         Ok(versioned_message)
+//     }
+// }
+//
+// impl ToSql for VersionedMessage {
+//     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+//         let bytes = PhnxCodec::to_vec(self)?;
+//         Ok(rusqlite::types::ToSqlOutput::from(bytes))
+//     }
+// }
 
 enum MessageInputs {
     System,
@@ -107,7 +114,11 @@ impl Storable for ConversationMessage {
         let conversation_id = row.get(1)?;
         let timestamp = row.get(2)?;
         let sender_str: String = row.get(3)?;
-        let versioned_message: VersionedMessage = row.get(4)?;
+
+        let blob: Vec<u8> = row.get(4)?;
+        let _ = std::fs::write("/tmp/blob.dat", blob);
+
+        let BlobPersisted(versioned_message): BlobPersisted<VersionedMessage> = row.get(4)?;
         let sent = row.get(5)?;
 
         let versioned_message_inputs = match versioned_message {
@@ -202,7 +213,7 @@ impl ConversationMessage {
             }
             Message::Event(_) => "system".to_string(),
         };
-        let content = self.timestamped_message.message.to_versioned_message()?;
+        let versioned_message = self.timestamped_message.message.to_versioned_message()?;
         connection.execute(
             "INSERT INTO conversation_messages (message_id, conversation_id, timestamp, sender, content, sent) VALUES (?, ?, ?, ?, ?, ?)",
             params![
@@ -210,7 +221,7 @@ impl ConversationMessage {
                 self.conversation_id,
                 self.timestamped_message.timestamp,
                 sender,
-                content,
+                versioned_message.persist(),
                 match &self.timestamped_message.message {
                     Message::Content(content_message) => content_message.sent,
                     Message::Event(_) => true,
@@ -379,7 +390,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn store_load_multiple() -> anyhow::Result<()> {
+    fn store__load__multiple() -> anyhow::Result<()> {
         let connection = test_connection();
         let mut store_notifier = StoreNotifier::noop();
 

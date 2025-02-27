@@ -3,8 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
+use phnxtypes::{
+    codec::persist::{BlobPersist, BlobPersistRestore, BlobPersistStore, BlobPersisted},
+    identifiers::AsClientId,
+};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::persistence::{open_phnx_db, Storable};
@@ -16,31 +19,27 @@ use super::store::{ClientRecord, ClientRecordState, UserCreationState};
 // is the next version number. The content type of the old `CurrentVersion` must
 // be renamed and otherwise preserved to ensure backwards compatibility.
 #[derive(Serialize, Deserialize)]
-enum StorableUserCreationState {
+pub(crate) enum StorableUserCreationState {
     CurrentVersion(UserCreationState),
 }
 
 // Only change this enum in tandem with its non-Ref variant.
 #[derive(Serialize)]
-enum StorableUserCreationStateRef<'a> {
+pub(crate) enum StorableUserCreationStateRef<'a> {
     CurrentVersion(&'a UserCreationState),
 }
 
-impl FromSql for UserCreationState {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let state = PhnxCodec::from_slice(value.as_blob()?)?;
-        match state {
-            StorableUserCreationState::CurrentVersion(state) => Ok(state),
-        }
-    }
+impl BlobPersist for UserCreationState {
+    type Persisting<'a> = StorableUserCreationStateRef<'a>;
+    type Persisted = StorableUserCreationState;
 }
 
-impl ToSql for UserCreationState {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let state = StorableUserCreationStateRef::CurrentVersion(self);
-        let bytes = PhnxCodec::to_vec(&state)?;
+impl BlobPersistStore for StorableUserCreationStateRef<'_> {}
+impl BlobPersistRestore for StorableUserCreationState {}
 
-        Ok(rusqlite::types::ToSqlOutput::from(bytes))
+impl<'a> From<&'a UserCreationState> for StorableUserCreationStateRef<'a> {
+    fn from(state: &'a UserCreationState) -> Self {
+        StorableUserCreationStateRef::CurrentVersion(state)
     }
 }
 
@@ -53,7 +52,10 @@ impl Storable for UserCreationState {
         );";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        row.get(0)
+        let BlobPersisted(state): BlobPersisted<StorableUserCreationState> = row.get(0)?;
+        match state {
+            StorableUserCreationState::CurrentVersion(state) => Ok(state),
+        }
     }
 }
 
@@ -75,7 +77,7 @@ impl UserCreationState {
         connection.execute(
             "INSERT OR REPLACE INTO user_creation_state
             (client_id, state, created_at) VALUES (?1, ?2, ?3)",
-            params![self.client_id(), self, Utc::now()],
+            params![self.client_id(), self.persist(), Utc::now()],
         )?;
         Ok(())
     }
