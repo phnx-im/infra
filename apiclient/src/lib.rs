@@ -4,16 +4,18 @@
 
 //! HTTP client for the server REST API
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use phnxtypes::{endpoint_paths::ENDPOINT_HEALTH_CHECK, DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
 use url::ParseError;
+use version::NegotiatedApiVersions;
 
 pub mod as_api;
 pub mod ds_api;
 pub mod qs_api;
+pub(crate) mod version;
 
 /// Defines the type of protocol used for a specific endpoint.
 pub enum Protocol {
@@ -45,6 +47,7 @@ pub type HttpClient = reqwest::Client;
 pub struct ApiClient {
     client: HttpClient,
     url: Url,
+    api_versions: Arc<NegotiatedApiVersions>,
 }
 
 impl ApiClient {
@@ -88,7 +91,11 @@ impl ApiClient {
             }
             Err(_) => return Err(ApiClientInitError::UrlParsingError(domain_string.clone())),
         };
-        Ok(Self { client, url })
+        Ok(Self {
+            client,
+            url,
+            api_versions: Arc::new(NegotiatedApiVersions::new()),
+        })
     }
 
     /// Builds a URL for a given endpoint.
@@ -142,5 +149,9 @@ impl ApiClient {
         } else {
             false
         }
+    }
+
+    pub(crate) fn negotiated_versions(&self) -> &NegotiatedApiVersions {
+        &self.api_versions
     }
 }

@@ -2,16 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt;
+
 use mls_assist::{
-    openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::{KeyPackage, KeyPackageIn, OpenMlsRand},
+    openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::OpenMlsProvider,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     codec::persist::BlobPersist,
-    crypto::{ear::Ciphertext, errors::RandomnessError},
+    crypto::{
+        ear::{keys::KeyPackageEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+        errors::RandomnessError,
+    },
 };
 
 pub mod client_as;
@@ -55,6 +61,11 @@ impl FriendshipToken {
         Ok(Self(token))
     }
 
+    #[cfg(test)]
+    pub(crate) fn new_for_test(token: Vec<u8>) -> Self {
+        Self(token)
+    }
+
     pub fn token(&self) -> &[u8] {
         self.0.as_ref()
     }
@@ -79,7 +90,7 @@ impl Default for MlsInfraVersion {
 // === Queue ===
 
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct QueueMessage {
     pub sequence_number: u64,
@@ -128,8 +139,58 @@ impl AsRef<Ciphertext> for EncryptedAsQueueMessage {
 #[repr(u8)]
 pub enum AsTokenType {
     AsEnqueue,
-    AsKeyPackageBatch,
     DsGroupCreation,
     DsGroupOperation,
-    QsKeyPackageBatch,
+}
+
+/// Ciphertext that contains a KeyPackage and an intermediary client certficate.
+/// TODO: do we want a key committing scheme here?
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+pub struct QsEncryptedKeyPackage(Ciphertext);
+
+impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.0
+    }
+}
+
+impl From<Ciphertext> for QsEncryptedKeyPackage {
+    fn from(ctxt: Ciphertext) -> Self {
+        Self(ctxt)
+    }
+}
+
+impl EarDecryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackageIn {}
+impl EarEncryptable<KeyPackageEarKey, QsEncryptedKeyPackage> for KeyPackage {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ApiVersion(TlsVarInt);
+
+impl ApiVersion {
+    pub const fn new(version: u64) -> Option<Self> {
+        // Note: At the moment of writing, Option::map is not a const fn.
+        match TlsVarInt::new(version) {
+            Some(v) => Some(Self(v)),
+            None => None,
+        }
+    }
+
+    pub const fn value(&self) -> u64 {
+        self.0.value()
+    }
+
+    pub(crate) const fn from_tls_value(value: TlsVarInt) -> Self {
+        Self(value)
+    }
+
+    pub const fn tls_value(&self) -> TlsVarInt {
+        self.0
+    }
+}
+
+impl fmt::Display for ApiVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value())
+    }
 }

@@ -63,4 +63,4 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
-          cd app && fastlane beta_ios upload_to_test_flight:true --verbose
+          cd app && fastlane ios beta_ios upload_to_test_flight:true --verbose

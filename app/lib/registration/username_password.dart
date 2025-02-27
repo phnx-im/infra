@@ -24,50 +24,52 @@ class UsernamePasswordChoice extends StatelessWidget {
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Center(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text(
-                'Choose a username and password',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-              Form(
-                autovalidateMode: AutovalidateMode.always,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 5),
-                    ConstrainedBox(
-                      constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: const _UsernameTextField(),
-                    ),
-                    const SizedBox(height: 5),
-                    ConstrainedBox(
-                      constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: TextFormField(
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'PASSWORD',
-                        ),
-                        style: inputTextStyle,
-                        obscureText: true,
-                        onChanged: (String value) {
-                          context.read<RegistrationCubit>().setPassword(value);
-                        },
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
+          child: Center(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                const Text('Choose a username and password'),
+                Form(
+                  autovalidateMode: AutovalidateMode.always,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 5),
+                      ConstrainedBox(
+                        constraints: BoxConstraints.tight(const Size(300, 80)),
+                        child: const _UsernameTextField(),
                       ),
-                    )
-                  ],
+                      const SizedBox(height: 5),
+                      ConstrainedBox(
+                        constraints: BoxConstraints.tight(const Size(300, 80)),
+                        child: TextFormField(
+                          initialValue:
+                              context.read<RegistrationCubit>().state.password,
+                          decoration:
+                              const InputDecoration(hintText: 'PASSWORD'),
+                          style: inputTextStyle,
+                          obscureText: true,
+                          onChanged: (String value) {
+                            context
+                                .read<RegistrationCubit>()
+                                .setPassword(value);
+                          },
+                        ),
+                      )
+                    ],
+                  ),
                 ),
-              ),
-              Column(
-                crossAxisAlignment: isSmallScreen(context)
-                    ? CrossAxisAlignment.stretch
-                    : CrossAxisAlignment.center,
-                children: const [_NextButton()],
-              )
-            ],
+                Column(
+                  crossAxisAlignment: isSmallScreen(context)
+                      ? CrossAxisAlignment.stretch
+                      : CrossAxisAlignment.center,
+                  children: const [_NextButton()],
+                )
+              ],
+            ),
           ),
         ),
       ),
@@ -82,9 +84,8 @@ class _UsernameTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       autofocus: (Platform.isIOS || Platform.isAndroid) ? false : true,
-      decoration: inputDecoration.copyWith(
-        hintText: 'USERNAME',
-      ),
+      initialValue: context.read<RegistrationCubit>().state.username,
+      decoration: const InputDecoration(hintText: 'USERNAME'),
       style: inputTextStyle,
       validator: _usernameValidator,
       onChanged: (String value) {

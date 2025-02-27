@@ -62,9 +62,7 @@ class _CreateConversationViewState extends State<CreateConversationView> {
                     style: inputTextStyle,
                     autofocus: true,
                     controller: _controller,
-                    decoration: inputDecoration.copyWith(
-                      hintText: widget.hint,
-                    ),
+                    decoration: InputDecoration(hintText: widget.hint),
                     onChanged: (String value) {
                       setState(() {
                         _isInputValid = value.isNotEmpty;

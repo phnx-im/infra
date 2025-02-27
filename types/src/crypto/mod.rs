@@ -55,6 +55,13 @@ pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
 impl BlobPersist for RatchetEncryptionKey {}
 
+impl RatchetEncryptionKey {
+    #[cfg(test)]
+    pub(crate) fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
+        Self(encryption_key)
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct RatchetDecryptionKey(DecryptionKey);

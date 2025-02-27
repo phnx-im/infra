@@ -15,7 +15,8 @@ data class IncomingNotificationContent(
     val title: String,
     val body: String,
     val data: String,
-    val path: String
+    val path: String,
+    val logFilePath: String,
 )
 
 @Serializable
@@ -28,7 +29,7 @@ data class NotificationContent(
 
 @Serializable
 data class NotificationBatch(
-    val badge_count: Int,
+    val badgeCount: Int,
     val removals: List<String>,
     val additions: List<NotificationContent>
 )

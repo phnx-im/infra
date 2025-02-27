@@ -59,6 +59,102 @@ split across multiple crates:
   for [docker-based testing](#docker-based-federation-testing) of the protocol's
   federation capabilities.
 
+## Development
+
+<details>
+<summary>Setup Instructions (macOS)</summary>
+
+## Setup Instructions (macOS)
+
+### Prerequisites
+
+Before starting, ensure you have the following tools installed:
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/phnx-im/infra
+```
+
+2. Install [Rust](https://www.rust-lang.org/tools/install)
+
+3. Install [Flutter SDK](https://docs.flutter.dev/get-started/install)
+
+Verify your installation with:
+
+```bash
+flutter --version
+```
+
+> **Note:** installing Flutter through VS Code may run into problems when using the `just` setup scripts later. You may need to separately install Flutter outside of VS Code in order to follow the rest of these instructions.
+
+4. Install required tools:
+
+```bash
+cargo install just flutter_rust_bridge_codegen sqlx-cli
+```
+
+- [`just`](https://github.com/casey/just): "is a handy way to save and run project-specific commands."
+- [`flutter_rust_bridge_codegen`](https://github.com/fzyzcjy/flutter_rust_bridge): "Flutter/Dart <-> Rust binding generator"
+- [`sqlx-cli`](https://github.com/launchbadge/sqlx): "SQLx's associated command-line utility for managing databases, migrations, and enabling "offline" mode with `sqlx::query!()` and friends."
+
+5. Install [Docker Desktop on Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
+
+### Configuration Steps
+
+1. Generate Rust bridge code:
+
+```bash
+just frb-integrate
+```
+
+2. Ensure that Docker is running. You can check your system tray or verify this on the CLI with:
+
+```bash
+docker info
+```
+
+> If you see something like `ERROR: Cannot connect to the Docker daemon at unix:///Users/[YOUR_USERNAME]/.docker/run/docker.sock. Is the docker daemon running?` then Docker is not running.
+
+3. Initialize the database:
+
+```bash
+just init-db
+```
+
+> If you see the error `error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH`, then you should verify if you are running `docker-credential-osxkeychain` with the command `docker-credential-osxkeychain version`.
+>
+> If that works, then you will need to edit your `~/.docker/config.json`. Replace the value of `"credsStore"` with `"osxkeychain"`, then re-run `just init-db`.
+>
+> If you see the error `Error response from daemon: Ports are not available: exposing port TCP 127.0.0.1:5432 -> 0.0.0.0:0: listen tcp 127.0.0.1:5432: bind: address already in use`, verify that you are not already running Postgres on port 5432. Some users may be using popular apps like Postgres.app which runs on this port by default. Simply stop your server and try again.
+
+4. Set up macOS requirements:
+
+Install [Xcode](https://developer.apple.com/xcode/) and accept the license
+
+```bash
+sudo xcodebuild -license
+```
+
+Install [CocoaPods](https://guides.cocoapods.org/using/getting-started.html) (requires recent [Ruby](https://www.ruby-lang.org/en/documentation/installation/) version)
+
+```
+gem install cocoapods
+```
+
+### Running the App
+
+Quick start:
+
+```bash
+cd app
+flutter run -d macos
+```
+
+When prompted, use the domain name `localhost`.
+
+</details>
+
 ## Docker-based federation testing
 
 The Phoenix Protocol allows for communication between users across different

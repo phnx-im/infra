@@ -6,10 +6,7 @@ use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
-    crypto::{
-        ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
-        signatures::keys::UserAuthSigningKey,
-    },
+    crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
 use rusqlite::{params, OptionalExtension, Transaction};
 
@@ -22,7 +19,6 @@ pub(crate) struct StorableGroup {
     leaf_signer: PseudonymousCredentialSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
-    user_auth_signing_key_option: Option<UserAuthSigningKey>,
     pending_diff: Option<StagedGroupDiff>,
 }
 
@@ -33,7 +29,6 @@ impl Storable for StorableGroup {
             leaf_signer BLOB NOT NULL,
             identity_link_wrapper_key BLOB NOT NULL,
             group_state_ear_key BLOB NOT NULL,
-            user_auth_signing_key_option BLOB,
             pending_diff BLOB
         );";
 
@@ -42,15 +37,13 @@ impl Storable for StorableGroup {
         let leaf_signer = row.get(1)?;
         let identity_link_wrapper_key = row.get(2)?;
         let group_state_ear_key = row.get(3)?;
-        let user_auth_signing_key_option = row.get(4)?;
-        let pending_diff = row.get(5)?;
+        let pending_diff = row.get(4)?;
 
         Ok(StorableGroup {
             group_id: group_id.into(),
             leaf_signer,
             identity_link_wrapper_key,
             group_state_ear_key,
-            user_auth_signing_key_option,
             pending_diff,
         })
     }
@@ -60,13 +53,12 @@ impl Group {
     pub(crate) fn store(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "INSERT INTO groups (group_id, leaf_signer, identity_link_wrapper_key, group_state_ear_key, user_auth_signing_key_option, pending_diff) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO groups (group_id, leaf_signer, identity_link_wrapper_key, group_state_ear_key, pending_diff) VALUES (?, ?, ?, ?, ?)",
             params![
                 group_id,
                 self.leaf_signer,
                 self.identity_link_wrapper_key,
                 self.group_state_ear_key,
-                self.user_auth_signing_key_option,
                 self.pending_diff,
             ],
         )?;
@@ -80,7 +72,6 @@ impl Group {
         let Some(mls_group) =
             MlsGroup::load(PhnxOpenMlsProvider::new(connection).storage(), group_id)?
         else {
-            println!("While loading, MlsGroup::load returned None");
             return Ok(None);
         };
         let group_id = GroupIdRefWrapper::from(group_id);
@@ -93,7 +84,6 @@ impl Group {
                     leaf_signer: sg.leaf_signer,
                     identity_link_wrapper_key: sg.identity_link_wrapper_key,
                     group_state_ear_key: sg.group_state_ear_key,
-                    user_auth_signing_key_option: sg.user_auth_signing_key_option,
                     pending_diff: sg.pending_diff,
                     mls_group,
                 })
@@ -106,12 +96,11 @@ impl Group {
     ) -> Result<(), rusqlite::Error> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         connection.execute(
-            "UPDATE groups SET leaf_signer = ?, identity_link_wrapper_key = ?, group_state_ear_key = ?, user_auth_signing_key_option = ?, pending_diff = ? WHERE group_id = ?",
+            "UPDATE groups SET leaf_signer = ?, identity_link_wrapper_key = ?, group_state_ear_key = ?, pending_diff = ? WHERE group_id = ?",
             params![
                 self.leaf_signer,
                 self.identity_link_wrapper_key,
                 self.group_state_ear_key,
-                self.user_auth_signing_key_option,
                 self.pending_diff,
                 group_id,
             ],

@@ -24,49 +24,49 @@ class ServerChoice extends StatelessWidget {
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Center(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text(
-                'Choose a server where you want to create your account',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-              Form(
-                autovalidateMode: AutovalidateMode.always,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    ConstrainedBox(
-                      constraints: BoxConstraints.tight(const Size(300, 80)),
-                      child: TextFormField(
-                        autofocus: (Platform.isIOS || Platform.isAndroid)
-                            ? false
-                            : true,
-                        decoration: inputDecoration.copyWith(
-                          hintText: 'DOMAIN NAME',
-                        ),
-                        initialValue:
-                            context.read<RegistrationCubit>().state.domain,
-                        style: inputTextStyle,
-                        onChanged: (String value) {
-                          context.read<RegistrationCubit>().setDomain(value);
-                        },
-                      ),
-                    ),
-                  ],
+      body: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
+          child: Center(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                const Text(
+                  'Choose a server where you want to create your account',
                 ),
-              ),
-              Column(
-                crossAxisAlignment: isSmallScreen(context)
-                    ? CrossAxisAlignment.stretch
-                    : CrossAxisAlignment.center,
-                children: const [_NextButton()],
-              )
-            ],
+                Form(
+                  autovalidateMode: AutovalidateMode.always,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: BoxConstraints.tight(const Size(300, 80)),
+                        child: TextFormField(
+                          autofocus: (Platform.isIOS || Platform.isAndroid)
+                              ? false
+                              : true,
+                          decoration:
+                              const InputDecoration(hintText: 'DOMAIN NAME'),
+                          initialValue:
+                              context.read<RegistrationCubit>().state.domain,
+                          style: inputTextStyle,
+                          onChanged: (String value) {
+                            context.read<RegistrationCubit>().setDomain(value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: isSmallScreen(context)
+                      ? CrossAxisAlignment.stretch
+                      : CrossAxisAlignment.center,
+                  children: const [_NextButton()],
+                )
+              ],
+            ),
           ),
         ),
       ),

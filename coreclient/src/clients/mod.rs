@@ -35,9 +35,7 @@ use phnxtypes::{
         },
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
     },
-    identifiers::{
-        AsClientId, ClientConfig, QsClientId, QsClientReference, QsUserId, QualifiedUserName,
-    },
+    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
     messages::{
         client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
         push_token::{EncryptedPushToken, PushToken},
@@ -179,8 +177,8 @@ impl CoreUser {
         let client_db_connection = client_db_connection_mutex.lock().await;
         OwnClientInfo {
             server_url,
-            qs_user_id: final_state.qs_user_id().clone(),
-            qs_client_id: final_state.qs_client_id().clone(),
+            qs_user_id: *final_state.qs_user_id(),
+            qs_client_id: *final_state.qs_client_id(),
             as_client_id: final_state.client_id().clone(),
         }
         .store(&client_db_connection)?;
@@ -276,19 +274,47 @@ impl CoreUser {
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
-        if !notification.ops.is_empty() {
+        if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);
         }
     }
 
+    /// Subscribes to store notifications.
+    ///
+    /// All notifications sent after this function was called are observed as items of the returned
+    /// stream.
     pub(crate) fn subscribe_to_store_notifications(
         &self,
     ) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static {
         self.inner.store_notifications_tx.subscribe()
     }
 
+    /// Subcribes to pending store notifications.
+    ///
+    /// Unlike `subscribe_to_store_notifications`, this function does not remove stored
+    /// notifications from the persisted queue.
+    pub(crate) fn subscribe_iter_to_store_notifications(
+        &self,
+    ) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static {
+        self.inner.store_notifications_tx.subscribe_iter()
+    }
+
     pub(crate) fn store_notifier(&self) -> StoreNotifier {
         StoreNotifier::new(self.inner.store_notifications_tx.clone())
+    }
+
+    pub(crate) async fn enqueue_store_notification(
+        &self,
+        notification: &StoreNotification,
+    ) -> Result<()> {
+        notification.enqueue(&mut *self.inner.connection.lock().await)?;
+        Ok(())
+    }
+
+    pub(crate) async fn dequeue_store_notification(&self) -> Result<StoreNotification> {
+        Ok(StoreNotification::dequeue(
+            &mut *self.inner.connection.lock().await,
+        )?)
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
@@ -378,7 +404,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
@@ -446,11 +472,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 5: Merge the commit into the group
@@ -481,7 +503,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
@@ -498,11 +520,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&conversation.owner_domain())?
-            .ds_group_operation(
-                params,
-                group.group_state_ear_key(),
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-            )
+            .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -656,10 +674,8 @@ impl CoreUser {
             .default_client()?
             .ds_create_group(
                 params,
+                connection_group.leaf_signer(),
                 connection_group.group_state_ear_key(),
-                connection_group
-                    .user_auth_key()
-                    .ok_or(anyhow!("No user auth key"))?,
             )
             .await?;
 
@@ -684,56 +700,6 @@ impl CoreUser {
         Ok(conversation.id())
     }
 
-    /// Update the user's user auth key in the conversation with the given
-    /// [`ConversationId`].
-    ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    pub async fn update_user_key(
-        &self,
-        conversation_id: &ConversationId,
-    ) -> Result<Vec<ConversationMessage>> {
-        // Phase 1: Load the conversation and the group
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.as_uuid()
-        ))?;
-        let group_id = conversation.group_id();
-        // Generate ciphertext
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update_user_key(&connection)?;
-        drop(connection);
-
-        let owner_domain = conversation.owner_domain();
-
-        // Phase 2: Send the update to the DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&owner_domain)?
-            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
-            .await?;
-
-        // Phase 3: Store the updated group
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-
-        group.store_update(&transaction)?;
-
-        let conversation_messages =
-            self.store_messages(&mut transaction, *conversation_id, group_messages)?;
-        transaction.commit()?;
-        drop(connection);
-
-        Ok(conversation_messages)
-    }
-
     /// Delete the conversation with the given [`ConversationId`].
     ///
     /// Since this function causes the creation of an MLS commit, it can cause
@@ -746,11 +712,9 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let connection = self.inner.connection.lock().await;
-        let mut conversation =
-            Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-                "Can't find conversation with id {}",
-                conversation_id.as_uuid()
-            ))?;
+        let mut conversation = Conversation::load(&connection, &conversation_id)?.ok_or(
+            anyhow!("Can't find conversation with id {}", conversation_id.uuid()),
+        )?;
         let group_id = conversation.group_id();
         // Generate ciphertext
         let mut group = Group::load(&connection, group_id)?
@@ -772,11 +736,7 @@ impl CoreUser {
                 .inner
                 .api_clients
                 .get(&owner_domain)?
-                .ds_delete_group(
-                    params,
-                    group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                    group.group_state_ear_key(),
-                )
+                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
                 .await?;
 
             // Phase 4: Merge the commit into the group
@@ -865,7 +825,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
@@ -880,11 +840,7 @@ impl CoreUser {
         self.inner
             .api_clients
             .get(&owner_domain)?
-            .ds_self_remove_client(
-                params,
-                group.user_auth_key().ok_or(anyhow!("No user auth key"))?,
-                group.group_state_ear_key(),
-            )
+            .ds_self_remove(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -910,7 +866,7 @@ impl CoreUser {
         let connection = self.inner.connection.lock().await;
         let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
             "Can't find conversation with id {}",
-            conversation_id.as_uuid()
+            conversation_id.uuid()
         ))?;
         let group_id = conversation.group_id();
         let mut group = Group::load(&connection, group_id)?
@@ -925,7 +881,7 @@ impl CoreUser {
             .inner
             .api_clients
             .get(&owner_domain)?
-            .ds_update_client(params, group.group_state_ear_key(), group.leaf_signer())
+            .ds_update(params, group.leaf_signer(), group.group_state_ear_key())
             .await?;
 
         // Phase 3: Merge the commit into the group
@@ -969,13 +925,13 @@ impl CoreUser {
         Ok(partial_contact)
     }
 
-    fn create_own_client_reference(&self) -> QsClientReference {
+    fn create_own_client_reference(&self) -> QsReference {
         let sealed_reference = ClientConfig {
-            client_id: self.inner.qs_client_id.clone(),
+            client_id: self.inner.qs_client_id,
             push_token_ear_key: Some(self.inner.key_store.push_token_ear_key.clone()),
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
-        QsClientReference {
+        QsReference {
             client_homeserver_domain: self.user_name().domain(),
             sealed_reference,
         }
@@ -1037,12 +993,7 @@ impl CoreUser {
     ) -> Result<QsWebSocket> {
         let api_client = self.inner.api_clients.default_client();
         Ok(api_client?
-            .spawn_websocket(
-                self.inner.qs_client_id.clone(),
-                timeout,
-                retry_interval,
-                cancel,
-            )
+            .spawn_websocket(self.inner.qs_client_id, timeout, retry_interval, cancel)
             .await?)
     }
 
@@ -1114,7 +1065,7 @@ impl CoreUser {
 
     /// Updates the client's push token on the QS.
     pub async fn update_push_token(&self, push_token: Option<PushToken>) -> Result<()> {
-        let client_id = self.inner.qs_client_id.clone();
+        let client_id = self.inner.qs_client_id;
         // Ratchet encryption key
         let queue_encryption_key = self
             .inner

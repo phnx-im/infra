@@ -484,7 +484,7 @@ impl QsRegisteredUserState {
         api_clients
             .default_client()?
             .qs_publish_key_packages(
-                qs_client_id.clone(),
+                *qs_client_id,
                 qs_key_packages,
                 key_store.key_package_ear_key.clone(),
                 &key_store.qs_client_signing_key,

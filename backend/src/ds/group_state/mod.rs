@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 
 use mls_assist::{
     group::Group,
     openmls::{
         group::GroupId,
-        prelude::{GroupEpoch, LeafNodeIndex, QueuedRemoveProposal, Sender},
+        prelude::{GroupEpoch, LeafNodeIndex},
         treesync::RatchetTree,
     },
     provider_traits::MlsAssistProvider,
@@ -22,10 +22,9 @@ use phnxtypes::{
             Ciphertext, EarDecryptable, EarEncryptable,
         },
         errors::{DecryptionError, EncryptionError},
-        signatures::keys::{UserAuthVerifyingKey, UserKeyHash},
     },
-    errors::{CborMlsAssistStorage, UpdateQueueConfigError, ValidationError},
-    identifiers::{QsClientReference, SealedClientReference},
+    errors::{CborMlsAssistStorage, UpdateQueueConfigError},
+    identifiers::{QsReference, SealedClientReference},
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
@@ -40,18 +39,11 @@ use super::{process::ExternalCommitInfo, ReservedGroupId, GROUP_STATE_EXPIRATION
 
 pub(super) mod persistence;
 
-#[derive(Serialize, Deserialize)]
-pub(super) struct UserProfile {
-    // The clients associated with this user in this group
-    pub(super) clients: Vec<LeafNodeIndex>,
-    pub(super) user_auth_key: UserAuthVerifyingKey,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
-pub(super) struct ClientProfile {
+pub(super) struct MemberProfile {
     pub(super) leaf_index: LeafNodeIndex,
     pub(super) encrypted_identity_link_key: EncryptedIdentityLinkKey,
-    pub(super) client_queue_config: QsClientReference,
+    pub(super) client_queue_config: QsReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
 }
@@ -64,29 +56,17 @@ pub(super) struct ClientProfile {
 pub(crate) struct DsGroupState {
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
-    pub(super) user_profiles: HashMap<UserKeyHash, UserProfile>,
-    // Here we keep users that haven't set their user key yet.
-    pub(super) unmerged_users: Vec<Vec<LeafNodeIndex>>,
-    pub(super) client_profiles: BTreeMap<LeafNodeIndex, ClientProfile>,
+    pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
 }
 
 impl DsGroupState {
-    //#[instrument(level = "trace", skip_all)]
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
-        creator_user_auth_key: UserAuthVerifyingKey,
         creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
-        creator_queue_config: QsClientReference,
+        creator_queue_config: QsReference,
     ) -> Self {
-        let creator_key_hash = creator_user_auth_key.hash();
-        let creator_profile = UserProfile {
-            clients: vec![LeafNodeIndex::new(0u32)],
-            user_auth_key: creator_user_auth_key,
-        };
-        let user_profiles = [(creator_key_hash, creator_profile)].into();
-
-        let creator_client_profile = ClientProfile {
+        let creator_client_profile = MemberProfile {
             encrypted_identity_link_key: creator_encrypted_identity_link_key,
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
@@ -97,9 +77,7 @@ impl DsGroupState {
         Self {
             provider,
             group,
-            user_profiles,
-            client_profiles,
-            unmerged_users: vec![],
+            member_profiles: client_profiles,
         }
     }
 
@@ -118,20 +96,11 @@ impl DsGroupState {
         params: UpdateQsClientReferenceParams,
     ) -> Result<(), UpdateQueueConfigError> {
         let client_profile = self
-            .client_profiles
+            .member_profiles
             .get_mut(&params.sender())
             .ok_or(UpdateQueueConfigError::UnknownSender)?;
-        client_profile.client_queue_config = params.new_queue_config().clone();
+        client_profile.client_queue_config = params.new_qs_reference().clone();
         Ok(())
-    }
-
-    pub(crate) fn get_user_key(
-        &self,
-        user_key_hash: &UserKeyHash,
-    ) -> Option<&UserAuthVerifyingKey> {
-        self.user_profiles
-            .get(user_key_hash)
-            .map(|user_profile| &user_profile.user_auth_key)
     }
 
     pub(super) fn welcome_info(
@@ -153,52 +122,10 @@ impl DsGroupState {
         }
     }
 
-    pub(super) fn process_referenced_remove_proposals(
-        &mut self,
-        remove_proposals: &[QueuedRemoveProposal],
-    ) -> Result<(HashSet<LeafNodeIndex>, HashSet<UserKeyHash>), ValidationError> {
-        // Verify that we're only committing correct proposals.
-        // Remove proposals (typically not allowed in the context of this endpoint)
-        // Rules:
-        // * If a client only removes itself, that's valid
-        let mut marked_users: HashSet<UserKeyHash> = HashSet::new();
-        for remove_proposal in remove_proposals {
-            // For now, we only allow member proposals.
-            let Sender::Member(sender) = remove_proposal.sender() else {
-                return Err(ValidationError::InvalidMessage);
-            };
-            let removed = remove_proposal.remove_proposal().removed();
-            if *sender != removed {
-                // Non-self-referencing remove proposals are invalid for now.
-                return Err(ValidationError::InvalidMessage);
-            }
-            // This is valid, but we should record the affected user if it's the
-            // user's only client s.t. we know to remove the user profile later.
-            let user_key_hash = self
-                .user_profiles
-                .iter()
-                .find_map(|(user_key_hash, user_profile)| {
-                    let _client_index = user_profile.clients.first()?;
-
-                    (user_profile.clients.len() == 1).then_some(user_key_hash)
-                })
-                .ok_or(ValidationError::InvalidMessage)?;
-            marked_users.insert(user_key_hash.clone());
-        }
-        // We now know that all removes are users removing
-        // themselves.
-        let removed_clients: HashSet<LeafNodeIndex> = remove_proposals
-            .iter()
-            .map(|proposal| proposal.remove_proposal().removed())
-            .collect();
-
-        Ok((removed_clients, marked_users))
-    }
-
     /// Create a vector of encrypted identity link keys from the current list of
     /// client records.
     pub(super) fn encrypted_identity_link_keys(&self) -> Vec<EncryptedIdentityLinkKey> {
-        self.client_profiles
+        self.member_profiles
             .values()
             .map(|client_profile| client_profile.encrypted_identity_link_key.clone())
             .collect()
@@ -291,9 +218,7 @@ impl AsRef<Ciphertext> for EncryptedDsGroupState {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
-    user_profiles: Vec<(UserKeyHash, UserProfile)>,
-    unmerged_users: Vec<Vec<LeafNodeIndex>>,
-    client_profiles: Vec<(LeafNodeIndex, ClientProfile)>,
+    member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
 impl SerializableDsGroupState {
@@ -306,15 +231,12 @@ impl SerializableDsGroupState {
             .group_context()
             .group_id()
             .clone();
-        let user_profiles = group_state.user_profiles.into_iter().collect();
-        let client_profiles = group_state.client_profiles.into_iter().collect();
+        let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?;
         Ok(Self {
             group_id,
             serialized_provider,
-            user_profiles,
-            unmerged_users: group_state.unmerged_users,
-            client_profiles,
+            member_profiles: client_profiles,
         })
     }
 
@@ -322,15 +244,12 @@ impl SerializableDsGroupState {
         let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();
-        let user_profiles = self.user_profiles.into_iter().collect();
-        let client_profiles = self.client_profiles.into_iter().collect();
+        let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
         Ok(DsGroupState {
             provider,
             group,
-            user_profiles,
-            unmerged_users: self.unmerged_users,
-            client_profiles,
+            member_profiles: client_profiles,
         })
     }
 }
