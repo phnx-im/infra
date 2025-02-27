@@ -9,7 +9,7 @@ use super::PhnxCodec;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Empty input slice")]
-    EmptyyInputSlice,
+    EmptyInputSlice,
     #[error("Invalid codec version")]
     UnknownCodecVersion,
     #[error("Codec error: {0}")]

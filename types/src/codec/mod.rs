@@ -61,6 +61,8 @@ impl PhnxCodec {
         value: &T,
         writer: &mut impl std::io::Write,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+        // The first byte is always the codec version
+        writer.write_all(&[*self as u8])?;
         Cbor::to_writer(value, writer)?;
         Ok(())
     }
@@ -93,7 +95,7 @@ impl PhnxCodec {
     where
         T: DeserializeOwned,
     {
-        let codec_version_byte = bytes.first().ok_or(Error::EmptyyInputSlice)?;
+        let codec_version_byte = bytes.first().ok_or(Error::EmptyInputSlice)?;
         let codec_version = PhnxCodec::try_from(*codec_version_byte)?;
         codec_version.deserialize(&bytes[1..]).map_err(|error| {
             CodecError {
