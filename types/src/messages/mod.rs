@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
-    codec::persist::BlobPersist,
     crypto::{
         ear::{keys::KeyPackageEarKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::RandomnessError,
     },
+    mark_as_blob_persist,
 };
 
 pub mod client_as;
@@ -97,7 +97,7 @@ pub struct QueueMessage {
     pub ciphertext: Ciphertext,
 }
 
-impl BlobPersist for QueueMessage {}
+mark_as_blob_persist!(QueueMessage);
 
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,

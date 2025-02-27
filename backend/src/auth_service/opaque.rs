@@ -8,7 +8,7 @@ use opaque_ke::{
     rand::{CryptoRng, RngCore},
     ServerSetup,
 };
-use phnxtypes::{codec::persist::BlobPersist, crypto::OpaqueCiphersuite};
+use phnxtypes::{codec::persist::BlobPersist, crypto::OpaqueCiphersuite, mark_as_blob_persist};
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 
@@ -17,7 +17,7 @@ use crate::errors::StorageError;
 #[derive(Serialize, Deserialize)]
 pub(super) struct OpaqueSetup(ServerSetup<OpaqueCiphersuite>);
 
-impl BlobPersist for OpaqueSetup {}
+mark_as_blob_persist!(OpaqueSetup);
 
 impl Deref for OpaqueSetup {
     type Target = ServerSetup<OpaqueCiphersuite>;

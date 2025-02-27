@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use phnxtypes::codec::persist::{BlobPersist, BlobPersisted};
+use phnxtypes::{
+    codec::persist::{BlobPersist, BlobPersisted},
+    mark_as_blob_persist,
+};
 use privacypass::{
     batched_tokens_ristretto255::server::BatchedKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
@@ -28,7 +31,7 @@ impl<'a, 'b> AuthServiceBatchedKeyStoreProvider<'a, 'b> {
 #[derive(Debug, Serialize, Deserialize)]
 struct StorableVoprfServer(VoprfServer<Ristretto255>);
 
-impl BlobPersist for StorableVoprfServer {}
+mark_as_blob_persist!(StorableVoprfServer);
 
 #[async_trait]
 impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {

@@ -16,13 +16,10 @@ use tracing::{debug, error};
 use url::Host;
 use uuid::Uuid;
 
-use crate::{
-    codec::persist::BlobPersist,
-    crypto::{
-        ear::keys::PushTokenEarKey,
-        errors::RandomnessError,
-        hpke::{ClientIdDecryptionKey, ClientIdEncryptionKey, HpkeDecryptable, HpkeEncryptable},
-    },
+use crate::crypto::{
+    ear::keys::PushTokenEarKey,
+    errors::RandomnessError,
+    hpke::{ClientIdDecryptionKey, ClientIdEncryptionKey, HpkeDecryptable, HpkeEncryptable},
 };
 
 use super::*;
@@ -463,7 +460,10 @@ pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
 }
 
-impl BlobPersist for SealedClientReference {}
+// TODO: remove?
+mark_as_blob_persist!(SealedClientReference);
+
+mark_as_blob_persist!(Vec<SealedClientReference>);
 
 impl Hash for SealedClientReference {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

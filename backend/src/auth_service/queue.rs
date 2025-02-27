@@ -164,7 +164,8 @@ mod persistence {
                 .into_iter()
                 .map(|row| {
                     remaining.get_or_insert(row.count);
-                    row.message.into_inner()
+                    let BlobPersisted(message) = row.message;
+                    message
                 })
                 .collect();
 

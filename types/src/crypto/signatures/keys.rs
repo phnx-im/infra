@@ -6,7 +6,7 @@ use mls_assist::{openmls::prelude::SignaturePublicKey, openmls_rust_crypto::Open
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{codec::persist::BlobPersist, crypto::errors::KeyGenerationError};
+use crate::{crypto::errors::KeyGenerationError, mark_as_blob_persist};
 
 use super::{
     private_keys::{SigningKey, VerifyingKey},
@@ -36,7 +36,7 @@ impl From<&SignaturePublicKey> for LeafVerifyingKey {
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct QsClientVerifyingKey(VerifyingKey);
 
-impl BlobPersist for QsClientVerifyingKey {}
+mark_as_blob_persist!(QsClientVerifyingKey);
 
 impl QsClientVerifyingKey {
     #[cfg(test)]

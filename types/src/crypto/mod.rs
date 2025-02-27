@@ -19,7 +19,11 @@ use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
-    codec::persist::BlobPersist, crypto::ear::EarEncryptable, messages::QueueMessage, LibraryError,
+    codec::persist::{BlobPersist, BlobPersistRestore, BlobPersistStore},
+    crypto::ear::EarEncryptable,
+    mark_as_blob_persist,
+    messages::QueueMessage,
+    LibraryError,
 };
 
 use self::{
@@ -53,7 +57,7 @@ pub type RatchetKeyUpdate = Vec<u8>;
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
-impl BlobPersist for RatchetEncryptionKey {}
+mark_as_blob_persist!(RatchetEncryptionKey);
 
 impl RatchetEncryptionKey {
     #[cfg(test)]

@@ -15,7 +15,7 @@ use mls_assist::{
     MlsAssistRustCrypto,
 };
 use phnxtypes::{
-    codec::{persist::BlobPersist, PhnxCodec},
+    codec::PhnxCodec,
     crypto::{
         ear::{
             keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
@@ -25,6 +25,7 @@ use phnxtypes::{
     },
     errors::{CborMlsAssistStorage, UpdateQueueConfigError},
     identifiers::{QsReference, SealedClientReference},
+    mark_as_blob_persist,
     messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
     time::TimeStamp,
 };
@@ -171,7 +172,7 @@ pub(super) enum DsGroupStateDecryptionError {
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);
 
-impl BlobPersist for EncryptedDsGroupState {}
+mark_as_blob_persist!(EncryptedDsGroupState);
 
 #[derive(Debug)]
 pub(super) struct StorableDsGroupData {

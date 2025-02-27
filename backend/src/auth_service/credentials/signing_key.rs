@@ -6,9 +6,9 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
-    codec::persist::BlobPersist,
     credentials::{keys::AsSigningKey, AsCredential, CredentialFingerprint},
     identifiers::Fqdn,
+    mark_as_blob_persist,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgExecutor};
@@ -20,7 +20,7 @@ pub(in crate::auth_service) enum StorableSigningKey {
     V1(AsSigningKey),
 }
 
-impl BlobPersist for StorableSigningKey {}
+mark_as_blob_persist!(StorableSigningKey);
 
 impl From<StorableSigningKey> for AsSigningKey {
     fn from(signing_key: StorableSigningKey) -> Self {
@@ -69,7 +69,7 @@ impl StorableSigningKey {
 }
 
 mod persistence {
-    use phnxtypes::codec::persist::BlobPersisted;
+    use phnxtypes::codec::persist::{BlobPersist, BlobPersisted};
 
     use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 

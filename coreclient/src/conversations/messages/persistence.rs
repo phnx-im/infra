@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
+use phnxtypes::{codec::PhnxCodec, mark_as_blob_persist, time::TimeStamp};
 use rusqlite::{
     named_params, params,
     types::{FromSql, FromSqlError, Type},
@@ -26,6 +26,8 @@ enum VersionedMessage {
     // other parameters.
     CurrentVersion(Vec<u8>),
 }
+
+mark_as_blob_persist!(VersionedMessage);
 
 impl FromSql for VersionedMessage {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {

@@ -40,10 +40,10 @@ impl UserRecord {
 }
 
 mod persistence {
-    use std::borrow::Cow;
-
     use phnxtypes::{
-        codec::persist::{BlobPersist, BlobPersisted},
+        codec::persist::{
+            BlobPersist, BlobPersistRestore, BlobPersistStore, BlobPersisted, BlobPersisting,
+        },
         identifiers::QualifiedUserName,
     };
     use serde::{Deserialize, Serialize};
@@ -53,10 +53,19 @@ mod persistence {
 
     use super::*;
 
-    #[derive(Serialize, Deserialize)]
-    struct StorableServerRegistration<'a>(Cow<'a, ServerRegistration<OpaqueCiphersuite>>);
+    #[derive(Serialize)]
+    struct StorableServerRegistrationRef<'a>(&'a ServerRegistration<OpaqueCiphersuite>);
 
-    impl BlobPersist for StorableServerRegistration<'_> {}
+    #[derive(Deserialize)]
+    struct StoredServerRegistration(ServerRegistration<OpaqueCiphersuite>);
+
+    impl BlobPersist for StoredServerRegistration {
+        type Persisting<'a> = StorableServerRegistrationRef<'a>;
+        type Persisted = Self;
+    }
+
+    impl BlobPersistStore for StorableServerRegistrationRef<'_> {}
+    impl BlobPersistRestore for StoredServerRegistration {}
 
     impl UserRecord {
         /// Loads the AsUserRecord for a given UserName. Returns None if no AsUserRecord
@@ -73,11 +82,8 @@ mod persistence {
             )
             .fetch_optional(connection)
             .await?
-            .map(|BlobPersisted(StorableServerRegistration(password_file))| {
-                Ok(UserRecord::new(
-                    user_name.clone(),
-                    password_file.into_owned(),
-                ))
+            .map(|BlobPersisted(StoredServerRegistration(password_file))| {
+                Ok(UserRecord::new(user_name.clone(), password_file))
             })
             .transpose()
         }
@@ -88,11 +94,11 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let password_file = StorableServerRegistration(Cow::Borrowed(&self.password_file));
+            let password_file = StorableServerRegistrationRef(&self.password_file);
             sqlx::query!(
                 "INSERT INTO as_user_records (user_name, password_file) VALUES ($1, $2)",
                 self.user_name.to_string(),
-                password_file.persist() as _,
+                BlobPersisting(password_file) as _,
             )
             .execute(connection)
             .await?;

@@ -6,12 +6,12 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
-    codec::persist::BlobPersist,
     credentials::{
         keys::AsIntermediateSigningKey, AsIntermediateCredential, AsIntermediateCredentialCsr,
         CredentialFingerprint,
     },
     identifiers::Fqdn,
+    mark_as_blob_persist,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
@@ -25,7 +25,7 @@ pub(in crate::auth_service) enum IntermediateSigningKey {
     V1(AsIntermediateSigningKey),
 }
 
-impl BlobPersist for IntermediateSigningKey {}
+mark_as_blob_persist!(IntermediateSigningKey);
 
 impl From<IntermediateSigningKey> for AsIntermediateSigningKey {
     fn from(signing_key: IntermediateSigningKey) -> Self {
