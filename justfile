@@ -41,7 +41,7 @@ check-frb: frb-generate
     #!/usr/bin/env -S bash -eu
     if [ -n "$(git status --porcelain)" ]; then
         git add -N .
-        git diff
+        git diff --no-pager
         echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
         exit 1
     fi
@@ -49,7 +49,7 @@ check-frb: frb-generate
 # same as check-generated-frb (with all prerequisite steps for running in CI)
 check-frb-ci: setup-ci
     cargo binstall flutter_rust_bridge_codegen@2.7.1 cargo-expand
-    just check-generated-frb
+    just check-frb
 
 # integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
 [working-directory: 'app']
