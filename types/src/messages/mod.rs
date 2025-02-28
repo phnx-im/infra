@@ -27,9 +27,18 @@ pub mod push_token;
 pub mod welcome_attribution_info;
 
 #[derive(
-    Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, Clone, Debug,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct FriendshipToken(Vec<u8>);
 
 #[cfg(feature = "sqlite")]
@@ -140,8 +149,10 @@ pub enum AsTokenType {
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, sqlx::Type,
+)]
+#[sqlx(transparent)]
 pub struct QsEncryptedKeyPackage(Ciphertext);
 
 impl AsRef<Ciphertext> for QsEncryptedKeyPackage {

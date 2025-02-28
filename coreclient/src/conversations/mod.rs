@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
@@ -11,18 +11,18 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use rusqlite::{
-    types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
+    types::{FromSql, FromSqlResult, ToSqlOutput, Value, ValueRef},
     Connection, ToSql,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::DeserializeBytes;
-use tracing::error;
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
 
 pub(crate) mod messages;
 pub(crate) mod persistence;
+mod sqlx_support;
 
 /// Id of a conversation
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -218,37 +218,16 @@ pub enum ConversationStatus {
 impl FromSql for ConversationStatus {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         let status = String::column_result(value)?;
-        if status.starts_with("active") {
-            return Ok(Self::Active);
-        }
-        let Some(user_names) = status.strip_prefix("inactive:") else {
-            return Err(FromSqlError::InvalidType);
-        };
-        let user_names: Result<Vec<QualifiedUserName>, _> =
-            user_names.split(',').map(|s| s.parse()).collect();
-        let user_names = user_names.map_err(|error| {
-            error!(%error, "Failed to parse user names from database");
-            FromSqlError::Other(Box::new(error))
-        })?;
-        Ok(Self::Inactive(InactiveConversation::new(user_names)))
+        Ok(Self::from_db_value(&status)?)
     }
 }
 
 impl ToSql for ConversationStatus {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        let status = match self {
-            Self::Active => "active".to_string(),
-            Self::Inactive(inactive_conversation) => {
-                let user_names = inactive_conversation
-                    .past_members()
-                    .iter()
-                    .map(|user_name| user_name.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("inactive:{}", user_names)
-            }
-        };
-        Ok(ToSqlOutput::Owned(Value::Text(status)))
+        match self.db_value() {
+            Cow::Borrowed(status) => Ok(ToSqlOutput::Borrowed(ValueRef::Text(status.as_bytes()))),
+            Cow::Owned(status) => Ok(ToSqlOutput::Owned(Value::Text(status))),
+        }
     }
 }
 
@@ -279,26 +258,8 @@ pub enum ConversationType {
 
 impl FromSql for ConversationType {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let conversation_type = String::column_result(value)?;
-        if conversation_type.starts_with("group") {
-            return Ok(Self::Group);
-        }
-        let Some((conversation_type, user_name)) = conversation_type.split_once(':') else {
-            return Err(FromSqlError::InvalidType);
-        };
-        match conversation_type {
-            "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                user_name.parse().map_err(|error| {
-                    error!(%error, "Failed to parse user name from database");
-                    FromSqlError::Other(Box::new(error))
-                })?,
-            )),
-            "connection" => Ok(Self::Connection(user_name.parse().map_err(|error| {
-                error!(%error, "Failed to parse user name from database");
-                FromSqlError::Other(Box::new(error))
-            })?)),
-            _ => Err(FromSqlError::InvalidType),
-        }
+        let value = String::column_result(value)?;
+        Ok(Self::from_db_value(&value)?)
     }
 }
 

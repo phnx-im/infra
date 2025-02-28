@@ -21,6 +21,7 @@ use keys::{
 };
 
 use crate::{
+    codec::persist::BlobPersist,
     crypto::{
         ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
@@ -56,8 +57,9 @@ use self::keys::ClientVerifyingKey;
     Hash,
     Serialize,
     Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct CredentialFingerprint(Vec<u8>);
 
 impl std::fmt::Display for CredentialFingerprint {
@@ -508,6 +510,8 @@ pub struct ClientCredential {
     signature: Signature,
 }
 
+impl BlobPersist for ClientCredential {}
+
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {
         self.payload.identity()
@@ -642,7 +646,6 @@ impl AsRef<Ciphertext> for EncryptedClientCredential {
     }
 }
 
-#[cfg(feature = "sqlx")]
 pub mod persistence {
     use crate::{
         codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,

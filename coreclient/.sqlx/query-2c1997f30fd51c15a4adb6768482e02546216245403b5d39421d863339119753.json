@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender,\n                content AS \"content: _\",\n                sent\n            FROM conversation_messages\n            WHERE conversation_id = ?\n            ORDER BY timestamp DESC\n            LIMIT ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "message_id: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "conversation_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "timestamp: _",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "sender",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "content: _",
+        "ordinal": 4,
+        "type_info": "Blob"
+      },
+      {
+        "name": "sent",
+        "ordinal": 5,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2c1997f30fd51c15a4adb6768482e02546216245403b5d39421d863339119753"
+}

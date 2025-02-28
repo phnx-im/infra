@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "56b43e12f35938608560c93d902aaa88873afe6d0b6ccaade0849ad6539c165f"
+}

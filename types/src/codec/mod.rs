@@ -9,6 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 mod cbor;
 mod error;
+pub mod persist;
 #[cfg(test)]
 mod tests;
 
@@ -38,19 +39,27 @@ impl TryFrom<u8> for PhnxCodec {
 }
 
 impl PhnxCodec {
+    fn serialize_to_writer<T: Serialize>(
+        &self,
+        value: &T,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+        // The first byte is always the codec version
+        writer.write_all(&[*self as u8])?;
+        match self {
+            #[cfg(test)]
+            PhnxCodec::OlderTestVersion => tests::Json::to_writer(value, writer)?,
+            PhnxCodec::V1 => Cbor::to_writer(value, writer)?,
+        }
+        Ok(())
+    }
+
     fn serialize<T: Sized + Serialize>(
         &self,
         value: &T,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let res = match self {
-            #[cfg(test)]
-            PhnxCodec::OlderTestVersion => tests::Json::to_vec(value)?,
-            PhnxCodec::V1 => Cbor::to_vec(value)?,
-        };
-
-        // The first byte is always the codec version
-        let mut buf = vec![*self as u8];
-        buf.extend(res);
+        let mut buf = Vec::new();
+        self.serialize_to_writer(value, &mut buf)?;
         Ok(buf)
     }
 

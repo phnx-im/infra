@@ -3455,6 +3455,7 @@ dependencies = [
  "refinery",
  "rusqlite",
  "serde",
+ "sqlx",
  "thiserror 2.0.11",
  "tls_codec",
  "tokio",

@@ -31,9 +31,17 @@ impl From<&SignaturePublicKey> for LeafVerifyingKey {
 }
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsClientVerifyingKey(VerifyingKey);
 
 impl QsClientVerifyingKey {
@@ -75,9 +83,17 @@ impl AsRef<SigningKey> for QsClientSigningKey {
 impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsUserVerifyingKey(VerifyingKey);
 
 impl QsUserVerifyingKey {

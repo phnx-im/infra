@@ -4,9 +4,12 @@
 
 use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{params, Connection, OptionalExtension};
+use sqlx::{query, query_as, SqlitePool};
 use tracing::error;
 
 use crate::{store::StoreNotifier, utils::persistence::Storable, UserProfile};
+
+use super::{Asset, DisplayName};
 
 impl Storable for UserProfile {
     const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (
@@ -24,6 +27,28 @@ impl Storable for UserProfile {
             display_name_option,
             profile_picture_option,
         })
+    }
+}
+
+struct SqlUserProfile {
+    user_name: QualifiedUserName,
+    display_name: Option<DisplayName>,
+    profile_picture: Option<Asset>,
+}
+
+impl From<SqlUserProfile> for UserProfile {
+    fn from(
+        SqlUserProfile {
+            user_name,
+            display_name,
+            profile_picture,
+        }: SqlUserProfile,
+    ) -> Self {
+        Self {
+            user_name,
+            display_name_option: display_name,
+            profile_picture_option: profile_picture,
+        }
     }
 }
 
@@ -50,6 +75,24 @@ impl UserProfile {
             }
         }
         Ok(user)
+    }
+
+    pub(crate) async fn load_2(
+        db: &SqlitePool,
+        user_name: &QualifiedUserName,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlUserProfile,
+            r#"SELECT
+                user_name AS "user_name: _",
+                display_name AS "display_name: _",
+                profile_picture AS "profile_picture: _"
+            FROM users WHERE user_name = ?"#,
+            user_name,
+        )
+        .fetch_optional(db)
+        .await
+        .map(|record| record.map(From::from))
     }
 
     /// Stores this new [`UserProfile`] if one doesn't already exist.
@@ -91,6 +134,42 @@ impl UserProfile {
         Ok(())
     }
 
+    pub(crate) async fn upsert_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture)
+            VALUES (?, ?, ?)",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option,
+        )
+        .execute(db)
+        .await?;
+        notifier.update(self.user_name.clone());
+        Ok(())
+    }
+
+    /// Stores this new [`UserProfile`] if one doesn't already exist.
+    pub(crate) fn store_or_ignore(
+        &self,
+        connection: &Connection,
+        notifier: &mut StoreNotifier,
+    ) -> Result<(), rusqlite::Error> {
+        connection.execute(
+        "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
+        params![
+            self.user_name.to_string(),
+            self.display_name_option,
+            self.profile_picture_option
+        ],
+    )?;
+        // TODO: We can skip this notification if the user profile was already stored.
+        notifier.add(self.user_name.clone());
+        Ok(())
+    }
     /// Update the user's display name and profile picture in the database. To store a new profile,
     /// use [`register_as_conversation_participant`] instead.
     pub(crate) fn update(
@@ -106,6 +185,23 @@ impl UserProfile {
                 self.profile_picture_option
             ],
         )?;
+        notifier.update(self.user_name.clone());
+        Ok(())
+    }
+
+    pub(crate) async fn update_2(
+        &self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE users SET display_name = ?2, profile_picture = ?3 WHERE user_name = ?1",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option
+        )
+        .execute(db)
+        .await?;
         notifier.update(self.user_name.clone());
         Ok(())
     }
@@ -205,7 +301,5 @@ mod tests {
         let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
-
-        Ok(())
     }
 }

@@ -157,6 +157,30 @@ pub struct ConnectionKey {
     key: ConnectionKeyKey,
 }
 
+impl sqlx::Type<sqlx::Sqlite> for ConnectionKey {
+    fn type_info() -> <sqlx::Sqlite as sqlx::Database>::TypeInfo {
+        <ConnectionKeyKey as sqlx::Type<sqlx::Sqlite>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for ConnectionKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <sqlx::Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        self.key.encode_by_ref(buf)
+    }
+}
+
+impl sqlx::Decode<'_, sqlx::Sqlite> for ConnectionKey {
+    fn decode(
+        value: <sqlx::Sqlite as sqlx::Database>::ValueRef<'_>,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        let key = ConnectionKeyKey::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 impl ConnectionKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let key = Secret::random()?;
