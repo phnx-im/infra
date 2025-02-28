@@ -57,8 +57,5 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up CI
-        run: just setup-ci
-
       - name: Run docker-based tests
         run: just test-rust --verbose -- --ignored

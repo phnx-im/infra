@@ -52,7 +52,7 @@ check-frb: frb-generate
     fi
 
 # same as check-generated-frb (with all prerequisite steps for running in CI)
-check-frb-ci: setup-ci
+check-frb-ci: install-cargo-binstall
     cargo binstall flutter_rust_bridge_codegen@2.7.1 cargo-expand
     just check-frb
 
@@ -72,24 +72,24 @@ frb-integrate:
     just frb-generate
 
 # set up the CI environment for the app
-setup-ci:
+install-cargo-binstall:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
 # set up the CI environment for Android builds
 [working-directory: 'app/fastlane']
-setup-android-ci: setup-ci
+setup-android-ci: install-cargo-binstall
     cargo binstall -y cargo-ndk
     bundle install
 
 # set up the CI environment for iOS builds
 [working-directory: 'app/fastlane']
-setup-ios-ci: setup-ci
-	bundle install
+setup-ios-ci: install-cargo-binstall
+    bundle install
 
 # set up the CI environment for macOS builds
 [working-directory: 'app/fastlane']
-setup-macos-ci: setup-ci
-	bundle install
+setup-macos-ci: install-cargo-binstall
+    bundle install
 
 test-rust *args='':
     cargo test {{args}}
@@ -110,10 +110,6 @@ build-ios:
 build-linux:
      flutter build linux
 
-# Build Linux app (with all prerequisite steps for running in CI)
-[working-directory: 'app']
-build-linux-ci: setup-ci build-linux
-
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
@@ -132,7 +128,3 @@ run-backend: init-db
 [working-directory: 'app']
 build-windows:
      flutter build windows
-
-# Build Windows app (with all prerequisite steps for running in CI)
-[working-directory: 'app']
-build-windows-ci: setup-ci build-windows

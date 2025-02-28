@@ -36,11 +36,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up CI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just setup-ci
-
       - name: Analyze dart code
         run: just analyze-dart
 
