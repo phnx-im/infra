@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'",
+  "query": "SELECT opaque_setup AS \"opaque_setup: _\" FROM opaque_setup",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "signing_key",
+        "name": "opaque_setup: _",
         "type_info": "Bytea"
       }
     ],
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "6d1479de3067abf0dbc0096dbe3fdfc0f4a5f03ae269e1f26e33a0a0819478e7"
+  "hash": "2b9fe7f2cc6f20dc70437ae7cc04e6cb26e63f5225accf7fdabe2799cafd35a7"
 }

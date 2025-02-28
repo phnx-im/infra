@@ -37,6 +37,23 @@ pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<C
     _phantom: PhantomData<(Ciphertext, Payload)>,
 }
 
+impl<Ciphertext: RatchetCiphertext + 'static, Payload: RatchetPayload<Ciphertext> + 'static>
+    BlobPersist for QueueRatchet<Ciphertext, Payload>
+{
+    type Persisting<'a> = &'a Self;
+    type Persisted = Self;
+}
+
+impl<Ciphertext: RatchetCiphertext + 'static, Payload: RatchetPayload<Ciphertext> + 'static>
+    BlobPersistStore for &QueueRatchet<Ciphertext, Payload>
+{
+}
+
+impl<Ciphertext: RatchetCiphertext + 'static, Payload: RatchetPayload<Ciphertext> + 'static>
+    BlobPersistRestore for QueueRatchet<Ciphertext, Payload>
+{
+}
+
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom<RatchetSecret>
     for QueueRatchet<Ciphertext, Payload>
 {

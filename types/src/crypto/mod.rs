@@ -18,7 +18,13 @@ use sha2::Sha256;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{crypto::ear::EarEncryptable, messages::QueueMessage, LibraryError};
+use crate::{
+    codec::persist::{BlobPersist, BlobPersistRestore, BlobPersistStore},
+    crypto::ear::EarEncryptable,
+    mark_as_blob_persist,
+    messages::QueueMessage,
+    LibraryError,
+};
 
 use self::{
     ear::{keys::RatchetKey, Ciphertext, EarDecryptable},
@@ -50,6 +56,8 @@ pub type RatchetKeyUpdate = Vec<u8>;
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
+
+mark_as_blob_persist!(RatchetEncryptionKey);
 
 impl RatchetEncryptionKey {
     #[cfg(test)]

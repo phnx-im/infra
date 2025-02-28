@@ -10,6 +10,16 @@ use super::Codec;
 #[derive(Debug)]
 pub(super) struct Cbor;
 
+impl Cbor {
+    #[cfg(feature = "sqlx")]
+    pub(crate) fn to_writer(
+        value: &impl Serialize,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), ciborium::ser::Error<std::io::Error>> {
+        ciborium::into_writer(value, writer)
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum CborError {
     #[error(transparent)]

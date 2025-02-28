@@ -460,6 +460,8 @@ pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
 }
 
+mark_as_blob_persist!(Vec<SealedClientReference>);
+
 impl Hash for SealedClientReference {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.ciphertext.kem_output.hash(state);

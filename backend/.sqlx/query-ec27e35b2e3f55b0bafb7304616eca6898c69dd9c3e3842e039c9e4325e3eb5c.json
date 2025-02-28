@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH deleted AS (\n                DELETE FROM as_queues\n                WHERE queue_id = $1 AND sequence_number < $2\n            ),\n            fetched AS (\n                SELECT message_bytes FROM as_queues\n                WHERE queue_id = $1 AND sequence_number >= $2\n                ORDER BY sequence_number ASC\n                LIMIT $3\n            ),\n            remaining AS (\n                SELECT COUNT(*) AS count\n                FROM as_queues\n                WHERE queue_id = $1 AND sequence_number >= $2\n            )\n            SELECT\n                fetched.message_bytes AS \"message: BlobPersisted<QueueMessage>\",\n                remaining.count\n            FROM fetched, remaining",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message: BlobPersisted<QueueMessage>",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "ec27e35b2e3f55b0bafb7304616eca6898c69dd9c3e3842e039c9e4325e3eb5c"
+}

@@ -70,6 +70,10 @@ impl AsIntermediateSigningKey {
         })
     }
 
+    pub fn take_credential(self) -> AsIntermediateCredential {
+        self.credential
+    }
+
     pub fn credential(&self) -> &AsIntermediateCredential {
         &self.credential
     }
@@ -102,6 +106,10 @@ impl AsSigningKey {
             signing_key: private_key,
             credential,
         }
+    }
+
+    pub fn take_credential(self) -> AsCredential {
+        self.credential
     }
 
     pub fn credential(&self) -> &AsCredential {
