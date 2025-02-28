@@ -120,7 +120,9 @@ impl From<Secret<AEAD_KEY_SIZE>> for PushTokenEarKey {
 pub type KeyPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`AddPackage`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct KeyPackageEarKey {
     key: KeyPackageEarKeySecret,
 }
@@ -167,6 +169,11 @@ impl KeyPackageEarKey {
         Ok(Self {
             key: KeyPackageEarKeySecret::random()?,
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test(key: Secret<AEAD_KEY_SIZE>) -> Self {
+        Self { key }
     }
 }
 
@@ -280,7 +287,9 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
 
 pub type IdentityLinkKeySecret = Secret<AEAD_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct IdentityLinkKey {
     key: IdentityLinkKeySecret,
 }
@@ -321,7 +330,9 @@ impl KdfDerivable<ConnectionKey, PseudonymousCredentialTbs, AEAD_KEY_SIZE> for I
 pub type WelcomeAttributionInfoEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`WelcomeAttributionInfo`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct WelcomeAttributionInfoEarKey {
     key: WelcomeAttributionInfoEarKeySecret,
 }
@@ -388,7 +399,9 @@ impl From<Secret<AEAD_KEY_SIZE>> for WelcomeAttributionInfoEarKey {
 pub type FriendshipPackageEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 // EAR key used to encrypt [`WelcomeAttributionInfo`]s.
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct FriendshipPackageEarKey {
     key: FriendshipPackageEarKeySecret,
 }

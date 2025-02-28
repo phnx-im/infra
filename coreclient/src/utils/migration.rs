@@ -33,5 +33,6 @@ fn post_process(migration: Migration) {
     match migration.into() {
         EmbeddedMigration::CreateInitialTablesAndTriggers(_) => {}
         EmbeddedMigration::AddTimestampIndexes(_) => {}
+        EmbeddedMigration::StoreNotificationsQueue(_) => {}
     }
 }

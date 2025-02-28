@@ -30,6 +30,7 @@ use super::{
 #[derive(
     Clone,
     PartialEq,
+    Eq,
     Serialize,
     Deserialize,
     Debug,
@@ -221,6 +222,7 @@ impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
 }
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct ClientIdEncryptionKey {
     public_key: EncryptionPublicKey,
 }
@@ -234,6 +236,11 @@ impl AsRef<EncryptionPublicKey> for ClientIdEncryptionKey {
 impl HpkeEncryptionKey for ClientIdEncryptionKey {}
 
 impl ClientIdEncryptionKey {
+    #[cfg(test)]
+    pub fn new_for_test(public_key: EncryptionPublicKey) -> Self {
+        Self { public_key }
+    }
+
     pub fn seal_client_config(
         &self,
         client_config: ClientConfig,

@@ -12,7 +12,7 @@ publish = false
 description = "Implements the local and the federation part of the protocol logic on the server side"
 
 [dependencies]
-thiserror = "^1.0"
+thiserror = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }

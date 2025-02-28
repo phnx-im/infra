@@ -18,7 +18,7 @@ rand_chacha = { version = "0.3" }
 hkdf = { version = "0.12" }
 aes-gcm = { version = "0.10" }
 ed25519 = { version = "2.2", features = ["serde"] }
-secrecy = { version = "0.8", features = ["serde"] }
+secrecy = { version = "0.10", features = ["serde"] }
 opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 argon2 = { version = "0.5.0" }
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -29,7 +29,7 @@ serde = { version = "1", features = ["derive"] }
 ciborium = "0.2"
 hex = { version = "0.4" }
 tracing = { version = "0.1.35", features = ["log"] }
-thiserror = "^1.0"
+thiserror = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Workspace dependencies
@@ -39,6 +39,7 @@ privacypass = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }
 
 [dev-dependencies]
+insta = "1.42.1"
 serde_json = "1.0"
 
 [features]

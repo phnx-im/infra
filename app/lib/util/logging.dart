@@ -9,21 +9,39 @@ import 'package:prototype/core/core.dart';
 /// Initializes Dart and Rust logging
 ///
 /// Also configures the format of the logs.
-void initLogging() {
-  // Init Dart logging
+void initLogging(LogWriter logWriter) {
+  // Dart logging
   Logger.root.level = kDebugMode ? Level.FINE : Level.INFO;
   Logger.root.onRecord.listen((record) {
+    final message =
+        '${record.time} [Dart] ${record.level.asString} ${record.loggerName}: ${record.message}';
     // ignore: avoid_print
-    print(
-        '[F] ${record.time} ${record.level.name} ${record.loggerName}: ${record.message}');
+    print(message);
+    logWriter.writeLine(message: message);
   });
 
   // Rust Logging
   createLogStream().listen((event) {
     // ignore: avoid_print
     print(
-        '[R] ${event.time.toLocal()} ${event.level.asString} ${event.target}: ${event.msg}');
+        '${event.time.toLocal()} [Rust] ${event.level.asString} ${event.target}: ${event.msg}');
   });
+}
+
+extension on Level {
+  String get asString => switch (this) {
+        Level.ALL => 'ALL',
+        Level.OFF => 'OFF',
+        Level.SHOUT => 'SHOUT',
+        Level.SEVERE => 'SEVERE',
+        Level.WARNING => ' WARN',
+        Level.INFO => ' INFO',
+        Level.CONFIG => 'CONFIG',
+        Level.FINE => ' FINE',
+        Level.FINER => 'FINER',
+        Level.FINEST => 'FINEST',
+        _ => 'UNKNOWN'
+      };
 }
 
 extension on LogEntryLevel {

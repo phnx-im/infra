@@ -52,11 +52,11 @@ impl KdfKey for RosterExtractedKey {
 
 impl KdfExtractable<RosterKdfKey, RosterKdfInjection> for RosterExtractedKey {}
 
-/// A key that can be derived from a [`RosterExtractedKey`] and subsequently
-/// used to derive a [`RosterEarKey`] or as input in the extraction of a new
-/// [`RosterExtractedKey`].
-/// TODO: I think for a clean key schedule design, we need another derivation
-/// step before we can use this as input for an extraction.
+/// A key that can be derived from a `RosterExtractedKey` and subsequently
+/// used to derive a `RosterEarKey` or as input in the extraction of a new
+/// `RosterExtractedKey`.
+// TODO: I think for a clean key schedule design, we need another derivation
+// step before we can use this as input for an extraction.
 #[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug)]
 pub struct RosterKdfKey {
     key: Secret<KDF_KEY_SIZE>,
@@ -121,6 +121,11 @@ impl RatchetSecret {
         let key = Secret::random()?;
         Ok(Self { key })
     }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test(key: Secret<KDF_KEY_SIZE>) -> Self {
+        Self { key }
+    }
 }
 
 impl AsRef<Secret<KDF_KEY_SIZE>> for RatchetSecret {
@@ -145,7 +150,9 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
 
 pub type ConnectionKeyKey = Secret<KDF_KEY_SIZE>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct ConnectionKey {
     key: ConnectionKeyKey,
 }

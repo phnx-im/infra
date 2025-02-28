@@ -59,6 +59,13 @@ pub type RatchetKeyUpdate = Vec<u8>;
 #[sqlx(transparent)]
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
+impl RatchetEncryptionKey {
+    #[cfg(test)]
+    pub(crate) fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
+        Self(encryption_key)
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
 pub struct RatchetDecryptionKey(DecryptionKey);

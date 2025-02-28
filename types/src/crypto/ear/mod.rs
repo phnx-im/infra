@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 /// the backend.
 /// TODO: Replace with a key-committing scheme.
 pub type Aead = Aes256Gcm;
-/// Key size of the above AEAD scheme
-const AEAD_KEY_SIZE: usize = 32;
+/// Key size of the [`Aead`] scheme
+pub const AEAD_KEY_SIZE: usize = 32;
 const AEAD_NONCE_SIZE: usize = 12;
 
 // Convenience struct that allows us to keep ciphertext and nonce together.
@@ -53,7 +53,7 @@ impl Default for Ciphertext {
     }
 }
 
-#[cfg(feature = "test_utils")]
+#[cfg(any(feature = "test_utils", test))]
 impl Ciphertext {
     pub fn dummy() -> Self {
         Self {

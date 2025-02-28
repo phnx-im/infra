@@ -70,6 +70,12 @@ SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
+path = "app/windows/***"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
 path = "app/.fvmrc"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2024 Phoenix R&D GmbH <hello@phnx.im>"
@@ -77,6 +83,18 @@ SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
 path = "app/linux/flutter/generated*"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "**/snapshots/*.snap"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "**/snapshots/*.snap.tls"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"

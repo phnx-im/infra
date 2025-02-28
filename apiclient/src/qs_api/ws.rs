@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use core::time;
-use std::time::Duration;
+use std::{pin::pin, time::Duration};
 
 use base64::{engine::general_purpose, Engine as _};
-use futures_util::{pin_mut, SinkExt, StreamExt};
+use futures_util::{SinkExt, StreamExt};
 use http::{HeaderValue, Request};
 use phnxtypes::{
     codec::PhnxCodec,
@@ -116,7 +116,7 @@ impl QsWebSocket {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
 
         // Pin the stream
-        pin_mut!(ws_stream);
+        let mut ws_stream = pin!(ws_stream);
 
         // Initialize the connection status
         let mut connection_status = ConnectionStatus::new();
@@ -165,7 +165,7 @@ impl QsWebSocket {
                                 }
                                 // Try to deserialize the message
                                 if let Ok(QsWsMessage::QueueUpdate) =
-                                    QsWsMessage::tls_deserialize_exact_bytes(&data)
+                                    QsWsMessage::tls_deserialize_exact_bytes(data.as_slice())
                                 {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel

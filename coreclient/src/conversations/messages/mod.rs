@@ -70,17 +70,17 @@ pub struct ConversationMessageId {
 }
 
 impl ConversationMessageId {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn random() -> Self {
         Self {
             uuid: Uuid::new_v4(),
         }
     }
 
-    pub fn from_uuid(uuid: Uuid) -> Self {
+    pub fn new(uuid: Uuid) -> Self {
         Self { uuid }
     }
 
-    pub fn to_uuid(&self) -> Uuid {
+    pub fn uuid(&self) -> Uuid {
         self.uuid
     }
 }
@@ -114,7 +114,7 @@ impl ConversationMessage {
     ) -> Self {
         Self {
             conversation_id,
-            conversation_message_id: ConversationMessageId::new(),
+            conversation_message_id: ConversationMessageId::random(),
             timestamped_message,
         }
     }
@@ -144,7 +144,7 @@ impl ConversationMessage {
         };
         ConversationMessage {
             conversation_id,
-            conversation_message_id: ConversationMessageId::new(),
+            conversation_message_id: ConversationMessageId::random(),
             timestamped_message,
         }
     }
@@ -156,8 +156,9 @@ impl ConversationMessage {
         notifier: &mut StoreNotifier,
         ds_timestamp: TimeStamp,
     ) -> Result<(), rusqlite::Error> {
+        Self::update_sent_status(connection, notifier, self.id(), ds_timestamp, true)?;
         self.timestamped_message.mark_as_sent(ds_timestamp);
-        self.update_sent_status(connection, notifier, ds_timestamp, true)
+        Ok(())
     }
 
     pub fn id_ref(&self) -> &ConversationMessageId {
@@ -172,7 +173,7 @@ impl ConversationMessage {
         *self.timestamped_message.timestamp()
     }
 
-    pub fn was_sent(&self) -> bool {
+    pub fn is_sent(&self) -> bool {
         if let Message::Content(content) = &self.timestamped_message.message {
             content.was_sent()
         } else {

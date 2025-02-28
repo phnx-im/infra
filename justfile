@@ -4,6 +4,8 @@
 
 export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
+set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
+
 # === Backend ===
 
 # run postgres via docker compose and apply migrations
@@ -77,6 +79,14 @@ setup-android-ci: setup-ci
 setup-ios-ci: setup-ci
 	bundle install
 
+# set up the CI environment for macOS builds
+[working-directory: 'app/fastlane']
+setup-macos-ci: setup-ci
+	bundle install
+
+test-rust *args='':
+    cargo test {{args}}
+
 # build Android
 # we limit it to android-arm64 to speed up the build process
 [working-directory: 'app']
@@ -105,8 +115,17 @@ analyze-dart:
 # run Flutter tests
 [working-directory: 'app']
 test-flutter *args='':
-    flutter test
+    flutter test {{args}}
 
 # run backend server (at localhost)
 run-backend: init-db
     cargo run --bin phnxserver
+
+# Build Windows app
+[working-directory: 'app']
+build-windows:
+     flutter build windows
+
+# Build Windows app (with all prerequisite steps for running in CI)
+[working-directory: 'app']
+build-windows-ci: setup-ci frb-integrate build-windows

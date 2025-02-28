@@ -43,6 +43,11 @@ impl From<VerifyingKey> for SignaturePublicKey {
 }
 
 impl VerifyingKey {
+    #[cfg(test)]
+    pub(crate) fn new_for_test(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }

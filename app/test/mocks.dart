@@ -12,6 +12,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/message_list/message_cubit.dart';
 import 'package:prototype/message_list/message_list_cubit.dart';
 import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/registration/registration.dart';
 import 'package:prototype/user/user.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
@@ -94,3 +95,6 @@ class MockLoadableUserCubit extends MockCubit<LoadableUser>
     implements LoadableUserCubit {}
 
 class MockUser extends Mock implements User {}
+
+class MockRegistrationCubit extends MockCubit<RegistrationState>
+    implements RegistrationCubit {}

@@ -11,9 +11,11 @@ use phnxbackend::{
     qs::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector},
 };
 use phnxtypes::{
-    errors::qs::QsVerifyingKeyError, messages::client_qs::VerifiableClientToQsMessage,
+    errors::qs::QsProcessError, messages::client_qs::VerifiableClientToQsMessage,
+    ACCEPTED_API_VERSIONS_HEADER,
 };
 use tls_codec::{DeserializeBytes, Serialize};
+use tracing::{error, info, trace};
 
 pub mod push_notification_provider;
 pub mod ws;
@@ -25,9 +27,9 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
     // Deserialize the message.
     let message = match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(message.as_ref()) {
         Ok(message) => message,
-        Err(e) => {
-            tracing::warn!("QS received invalid message: {:?}", e);
-            return HttpResponse::BadRequest().body(e.to_string());
+        Err(error) => {
+            error!(%error, "QS received invalid message");
+            return HttpResponse::BadRequest().body(error.to_string());
         }
     };
 
@@ -35,20 +37,29 @@ pub(crate) async fn qs_process_message(qs: Data<Qs>, message: web::Bytes) -> imp
     match qs.process(message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
-            tracing::trace!("Processed message successfully");
+            trace!("Processed message successfully");
             HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
         }
+        Err(QsProcessError::Api(version_error)) => {
+            info!(%version_error, "Unsupported QS API version");
+            HttpResponse::NotAcceptable()
+                .insert_header((
+                    ACCEPTED_API_VERSIONS_HEADER,
+                    version_error.supported_versions_header_value(),
+                ))
+                .body(version_error.to_string())
+        }
         // If the message could not be processed, return an error.
-        Err(e) => {
-            tracing::warn!("QS failed to process message: {:?}", e);
-            HttpResponse::InternalServerError().body(e.to_string())
+        Err(error) => {
+            error!(%error, "QS failed to process message");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
 
 #[tracing::instrument(name = "Process federated QS message", skip_all)]
 pub(crate) async fn qs_process_federated_message<
-    Qc: QsConnector<EnqueueError = QsEnqueueError<N>, VerifyingKeyError = QsVerifyingKeyError>,
+    Qc: QsConnector<EnqueueError = QsEnqueueError<N>>,
     N: NetworkProvider,
 >(
     qs_connector: Data<Qc>,
@@ -71,7 +82,7 @@ pub(crate) async fn qs_process_federated_message<
     {
         // If the message was processed successfully, return the response.
         Ok(response) => {
-            tracing::trace!("Processed federated message successfully");
+            trace!("Processed federated message successfully");
             HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
         }
         // If the message could not be processed, return an error.

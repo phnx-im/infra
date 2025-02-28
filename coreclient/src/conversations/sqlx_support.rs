@@ -71,7 +71,7 @@ where
         &self,
         buf: &mut <DB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Uuid as Encode<DB>>::encode(self.to_uuid(), buf)
+        <Uuid as Encode<DB>>::encode(self.uuid(), buf)
     }
 }
 
@@ -82,7 +82,7 @@ where
 {
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let value = <Uuid as Decode<DB>>::decode(value)?;
-        Ok(Self::from_uuid(value))
+        Ok(Self::new(value))
     }
 }
 

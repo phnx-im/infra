@@ -17,7 +17,6 @@ use sqlx::{
     SqlitePool,
 };
 use tracing::error;
-use uuid::Uuid;
 
 use crate::{
     store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
@@ -239,7 +238,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
 impl ConversationMessage {
     pub(crate) fn load(
         connection: &Connection,
-        local_message_id: &Uuid,
+        local_message_id: ConversationMessageId,
     ) -> Result<Option<Self>, rusqlite::Error> {
         let mut statement = connection.prepare(
             "SELECT
@@ -414,17 +413,17 @@ impl ConversationMessage {
 
     /// Set the message's sent status in the database and update the message's timestamp.
     pub(super) fn update_sent_status(
-        &self,
         connection: &Connection,
         notifier: &mut StoreNotifier,
+        message_id: ConversationMessageId,
         timestamp: TimeStamp,
         sent: bool,
     ) -> Result<(), rusqlite::Error> {
         connection.execute(
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
-            params![timestamp, sent, self.conversation_message_id],
+            params![timestamp, sent, message_id],
         )?;
-        notifier.update(self.conversation_message_id);
+        notifier.update(message_id);
         Ok(())
     }
 
@@ -517,7 +516,7 @@ impl ConversationMessage {
                 ORDER BY timestamp DESC
                 LIMIT 1",
                 named_params! {
-                    ":message_id": message_id.to_uuid(),
+                    ":message_id": message_id.uuid(),
                 },
                 Self::from_row,
             )
@@ -543,10 +542,200 @@ impl ConversationMessage {
                 ORDER BY timestamp ASC
                 LIMIT 1",
                 named_params! {
-                    ":message_id": message_id.to_uuid(),
+                    ":message_id": message_id.uuid(),
                 },
                 Self::from_row,
             )
             .optional()
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use chrono::Utc;
+
+    use crate::{
+        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
+        MimiContent, SystemMessage,
+    };
+
+    use super::*;
+
+    pub(crate) fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                &[
+                    Conversation::CREATE_TABLE_STATEMENT,
+                    ConversationMessage::CREATE_TABLE_STATEMENT,
+                ]
+                .join("\n"),
+            )
+            .unwrap();
+        connection
+    }
+
+    pub(crate) fn test_conversation_message(
+        conversation_id: ConversationId,
+    ) -> ConversationMessage {
+        let conversation_message_id = ConversationMessageId::random();
+        let timestamp = Utc::now().into();
+        let message = Message::Content(Box::new(ContentMessage {
+            sender: "alice@localhost".to_string(),
+            sent: false,
+            content: MimiContent::simple_markdown_message(
+                "localhost".parse().unwrap(),
+                "Hello world!".to_string(),
+            ),
+        }));
+        let timestamped_message = TimestampedMessage { timestamp, message };
+        ConversationMessage {
+            conversation_message_id,
+            conversation_id,
+            timestamped_message,
+        }
+    }
+
+    #[test]
+    fn store_load() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message = test_conversation_message(conversation.id());
+
+        message.store(&connection, &mut store_notifier)?;
+        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        assert_eq!(loaded, message);
+
+        Ok(())
+    }
+
+    #[test]
+    fn store_load_multiple() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message_a = test_conversation_message(conversation.id());
+        let message_b = test_conversation_message(conversation.id());
+
+        message_a.store(&connection, &mut store_notifier)?;
+        message_b.store(&connection, &mut store_notifier)?;
+
+        let loaded = ConversationMessage::load_multiple(&connection, conversation.id(), 2)?;
+        assert_eq!(loaded, [message_a, message_b.clone()]);
+
+        let loaded = ConversationMessage::load_multiple(&connection, conversation.id(), 1)?;
+        assert_eq!(loaded, [message_b]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_sent_status() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message = test_conversation_message(conversation.id());
+        message.store(&connection, &mut store_notifier)?;
+
+        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        assert!(!loaded.is_sent());
+
+        let sent_at: TimeStamp = Utc::now().into();
+        ConversationMessage::update_sent_status(
+            &connection,
+            &mut store_notifier,
+            loaded.id(),
+            sent_at,
+            true,
+        )?;
+
+        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        assert_eq!(&loaded.timestamp(), sent_at.as_ref());
+        assert!(loaded.is_sent());
+
+        Ok(())
+    }
+
+    #[test]
+    fn last_content_message() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message_a = test_conversation_message(conversation.id());
+        let message_b = test_conversation_message(conversation.id());
+
+        message_a.store(&connection, &mut store_notifier)?;
+        message_b.store(&connection, &mut store_notifier)?;
+
+        ConversationMessage {
+            conversation_id: conversation.id(),
+            conversation_message_id: ConversationMessageId::random(),
+            timestamped_message: TimestampedMessage {
+                timestamp: Utc::now().into(),
+                message: Message::Event(EventMessage::System(SystemMessage::Add(
+                    "alice@localhost".parse()?,
+                    "bob@localhost".parse()?,
+                ))),
+            },
+        }
+        .store(&connection, &mut store_notifier)?;
+
+        let loaded = ConversationMessage::last_content_message(&connection, conversation.id())?;
+        assert_eq!(loaded, Some(message_b));
+
+        Ok(())
+    }
+
+    #[test]
+    fn prev_message() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message_a = test_conversation_message(conversation.id());
+        let message_b = test_conversation_message(conversation.id());
+
+        message_a.store(&connection, &mut store_notifier)?;
+        message_b.store(&connection, &mut store_notifier)?;
+
+        let loaded = ConversationMessage::prev_message(&connection, message_b.id())?;
+        assert_eq!(loaded, Some(message_a));
+
+        Ok(())
+    }
+
+    #[test]
+    fn next_message() -> anyhow::Result<()> {
+        let connection = test_connection();
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation = test_conversation();
+        conversation.store(&connection, &mut store_notifier)?;
+
+        let message_a = test_conversation_message(conversation.id());
+        let message_b = test_conversation_message(conversation.id());
+
+        message_a.store(&connection, &mut store_notifier)?;
+        message_b.store(&connection, &mut store_notifier)?;
+
+        let loaded = ConversationMessage::next_message(&connection, message_a.id())?;
+        assert_eq!(loaded, Some(message_b));
+
+        Ok(())
     }
 }

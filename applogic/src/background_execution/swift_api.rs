@@ -20,10 +20,10 @@ pub unsafe extern "C" fn process_new_messages(content: *const c_char) -> *mut c_
 
     let c_str = unsafe { CStr::from_ptr(content) };
 
-    init_logger();
-
     let json_str = c_str.to_str().unwrap();
     let incoming_content: IncomingNotificationContent = serde_json::from_str(json_str).unwrap();
+
+    init_logger(incoming_content.log_file_path);
 
     // Retrieve messages
     let batch = retrieve_messages_sync(incoming_content.path);

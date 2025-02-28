@@ -133,6 +133,14 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     ),
                   ],
                   const _SectionHeader("App Data"),
+                  ListTile(
+                    title: const Text("Logs"),
+                    trailing: const Icon(Icons.text_snippet),
+                    onTap: () => context
+                        .read<NavigationCubit>()
+                        .openDeveloperSettings(
+                            screen: DeveloperSettingsScreenType.logs),
+                  ),
                   if (user != null)
                     ListTile(
                       title: Text(

@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Flutter FVM
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
@@ -166,5 +166,8 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
       - name: Run tests
-        run: cargo test --verbose
+        run: just test-rust --verbose

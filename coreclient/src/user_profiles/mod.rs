@@ -18,7 +18,9 @@ pub(crate) mod persistence;
 
 /// A user profile contains information about a user, such as their display name
 /// and profile picture.
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct UserProfile {
     user_name: QualifiedUserName,
     display_name_option: Option<DisplayName>,
@@ -60,7 +62,7 @@ impl UserProfile {
 }
 
 /// A display name is a human-readable name that can be used to identify a user.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct DisplayName {
     display_name: String,
 }

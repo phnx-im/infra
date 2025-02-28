@@ -149,6 +149,14 @@ impl TryFrom<GroupId> for QualifiedGroupId {
     type Error = tls_codec::Error;
 
     fn try_from(value: GroupId) -> Result<Self, Self::Error> {
+        Self::try_from(&value)
+    }
+}
+
+impl TryFrom<&GroupId> for QualifiedGroupId {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
         Self::tls_deserialize_exact_bytes(value.as_slice())
     }
 }
@@ -517,7 +525,7 @@ impl FromSql for AsClientId {
     Eq,
     Hash,
 )]
-pub struct QsClientReference {
+pub struct QsReference {
     pub client_homeserver_domain: Fqdn,
     pub sealed_reference: SealedClientReference,
 }
@@ -563,6 +571,7 @@ impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientCon
     Serialize,
     Deserialize,
     Clone,
+    Copy,
     Debug,
     PartialEq,
     Eq,
@@ -608,6 +617,7 @@ impl From<Uuid> for QsClientId {
 
 #[derive(
     Clone,
+    Copy,
     Debug,
     Serialize,
     Deserialize,

@@ -39,7 +39,13 @@ impl Storable for OwnClientInfo {
 impl OwnClientInfo {
     pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
         connection.execute(
-            "INSERT INTO own_client_info (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO own_client_info (
+                server_url,
+                qs_user_id,
+                qs_client_id,
+                as_user_name,
+                as_client_uuid
+            ) VALUES (?, ?, ?, ?, ?)",
             params![
                 self.server_url,
                 self.qs_user_id,
@@ -66,6 +72,43 @@ impl OwnClientInfo {
         )
         .execute(db)
         .await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use phnxtypes::identifiers::{QsClientId, QsUserId};
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn test_connection() -> rusqlite::Connection {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(OwnClientInfo::CREATE_TABLE_STATEMENT)
+            .unwrap();
+        connection
+    }
+
+    #[test]
+    fn store() -> anyhow::Result<()> {
+        let connection = test_connection();
+
+        let own_client_info = OwnClientInfo {
+            server_url: "https://localhost".to_string(),
+            qs_user_id: QsUserId::random(),
+            qs_client_id: QsClientId::random(&mut rand::thread_rng()),
+            as_client_id: AsClientId::new("alice@localhost".parse()?, Uuid::new_v4()),
+        };
+
+        own_client_info.store(&connection)?;
+
+        let loaded = connection
+            .prepare("SELECT * FROM own_client_info")?
+            .query_row([], OwnClientInfo::from_row)?;
+        assert_eq!(loaded, own_client_info);
+
         Ok(())
     }
 }

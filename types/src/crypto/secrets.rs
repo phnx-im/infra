@@ -11,7 +11,10 @@ use std::{fmt::Display, ops::Deref};
 use rand::{RngCore, SeedableRng};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
-use secrecy::{zeroize::ZeroizeOnDrop, CloneableSecret, DebugSecret, SerializableSecret, Zeroize};
+use secrecy::{
+    zeroize::{Zeroize, ZeroizeOnDrop},
+    CloneableSecret, SerializableSecret,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -19,7 +22,9 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize,
+)]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
     secret: [u8; LENGTH],
@@ -161,4 +166,3 @@ impl Display for SecretBytes {
 
 impl SerializableSecret for SecretBytes {}
 impl CloneableSecret for SecretBytes {}
-impl DebugSecret for SecretBytes {}

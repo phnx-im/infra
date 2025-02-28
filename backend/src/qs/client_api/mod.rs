@@ -7,7 +7,7 @@ use phnxtypes::{
     errors::qs::{QsDequeueError, QsProcessError},
     messages::client_qs::{
         DequeueMessagesParams, DequeueMessagesResponse, QsProcessResponse, QsRequestParams,
-        QsSender, VerifiableClientToQsMessage,
+        QsSender, QsVersionedProcessResponse, VerifiableClientToQsMessage,
     },
 };
 
@@ -21,8 +21,8 @@ impl Qs {
     pub async fn process(
         &self,
         message: VerifiableClientToQsMessage,
-    ) -> Result<QsProcessResponse, QsProcessError> {
-        let request_params = match message.sender() {
+    ) -> Result<QsVersionedProcessResponse, QsProcessError> {
+        let request_params = match message.sender()? {
             QsSender::User(user_id) => {
                 let Some(user) = UserRecord::load(&self.db_pool, &user_id)
                     .await
@@ -71,7 +71,9 @@ impl Qs {
             })?,
         };
 
-        Ok(match request_params {
+        let (request_params, from_version) = request_params.into_unversioned()?;
+
+        let response = match request_params {
             QsRequestParams::CreateUser(params) => {
                 QsProcessResponse::CreateUser(self.qs_create_user_record(params).await?)
             }
@@ -101,19 +103,21 @@ impl Qs {
             QsRequestParams::ClientKeyPackage(params) => {
                 QsProcessResponse::ClientKeyPackage(self.qs_client_key_package(params).await?)
             }
-            QsRequestParams::KeyPackageBatch(params) => {
-                QsProcessResponse::KeyPackageBatch(self.qs_key_package_batch(params).await?)
+            QsRequestParams::KeyPackage(params) => {
+                QsProcessResponse::KeyPackage(self.qs_key_package(params).await?)
             }
             QsRequestParams::DequeueMessages(params) => {
                 QsProcessResponse::DequeueMessages(self.qs_dequeue_messages(params).await?)
             }
-            QsRequestParams::VerifyingKey => {
-                QsProcessResponse::VerifyingKey(self.qs_verifying_key().await?)
-            }
             QsRequestParams::EncryptionKey => {
                 QsProcessResponse::EncryptionKey(self.qs_encryption_key().await?)
             }
-        })
+        };
+
+        Ok(QsVersionedProcessResponse::with_version(
+            response,
+            from_version,
+        )?)
     }
 
     /// Retrieve messages the given number of messages, starting with

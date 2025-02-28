@@ -19,6 +19,7 @@ pub(crate) use notification::{StoreNotificationsSender, StoreNotifier};
 
 mod r#impl;
 mod notification;
+mod persistence;
 
 /// The result type of a failable [`Store`] method
 pub type StoreResult<T> = anyhow::Result<T>;
@@ -133,4 +134,10 @@ pub trait LocalStore {
     fn notify(&self, notification: StoreNotification);
 
     fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
+
+    fn subscribe_iter(&self) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static;
+
+    async fn enqueue_notification(&self, notification: &StoreNotification) -> StoreResult<()>;
+
+    async fn dequeue_notification(&self) -> StoreResult<StoreNotification>;
 }
