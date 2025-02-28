@@ -11,11 +11,11 @@ description = "HTTP client for the server REST API"
 
 [dependencies]
 reqwest = { workspace = true }
-thiserror = "1"
+thiserror = { workspace = true }
 phnxtypes = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-util = { workspace = true }
-tokio-tungstenite = { version = "0.23", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.25", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3.21"
 http = "1"
 tracing = "0.1.41"

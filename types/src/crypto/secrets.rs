@@ -11,7 +11,10 @@ use std::{fmt::Display, ops::Deref};
 use rand::{RngCore, SeedableRng};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
-use secrecy::{zeroize::ZeroizeOnDrop, CloneableSecret, DebugSecret, SerializableSecret, Zeroize};
+use secrecy::{
+    zeroize::{Zeroize, ZeroizeOnDrop},
+    CloneableSecret, SerializableSecret,
+};
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -137,4 +140,3 @@ impl Display for SecretBytes {
 
 impl SerializableSecret for SecretBytes {}
 impl CloneableSecret for SecretBytes {}
-impl DebugSecret for SecretBytes {}
