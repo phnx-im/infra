@@ -2,14 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
-
 set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
 
 # === Backend ===
 
 # run postgres via docker compose and apply migrations
-init-db: generate-db-certs
+init-db $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db": generate-db-certs
     docker compose up --wait
     cd backend && sqlx database create
     cd backend && sqlx database setup
@@ -84,7 +82,7 @@ setup-ios-ci: setup-ci
 setup-macos-ci: setup-ci
 	bundle install
 
-test-rust *args='':
+test-rust $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $SQLX_OFFLINE="true" *args='':
     cargo test {{args}}
 
 # build Android

@@ -19,6 +19,7 @@ pub(crate) mod own_leaf_nodes;
 pub(crate) mod proposals;
 pub(crate) mod psks;
 pub(crate) mod signature_key_pairs;
+pub(super) mod sqlx_storage_provider;
 pub(super) mod storage_provider;
 
 pub(crate) struct PhnxOpenMlsProvider<'a> {

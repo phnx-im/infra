@@ -301,5 +301,7 @@ mod tests {
         let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
+
+        Ok(())
     }
 }

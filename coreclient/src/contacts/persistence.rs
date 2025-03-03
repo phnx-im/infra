@@ -469,6 +469,34 @@ impl PartialContact {
 
         Ok(contact)
     }
+
+    pub(crate) async fn mark_as_complete_2(
+        self,
+        db: &SqlitePool,
+        notifier: &mut StoreNotifier,
+        friendship_package: FriendshipPackage,
+        client: AsClientId,
+    ) -> sqlx::Result<()> {
+        let mut transaction = db.begin().await?;
+
+        let user_name = self.user_name.clone();
+        let conversation_id = self.conversation_id;
+
+        self.delete_2(&mut *transaction, notifier).await?;
+        let contact = Contact {
+            user_name,
+            conversation_id,
+            clients: vec![client],
+            wai_ear_key: friendship_package.wai_ear_key,
+            friendship_token: friendship_package.friendship_token,
+            key_package_ear_key: friendship_package.key_package_ear_key,
+            connection_key: friendship_package.connection_key,
+        };
+        contact.store_2(&mut *transaction, notifier).await?;
+
+        transaction.commit().await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -616,34 +644,6 @@ mod tests {
         let loaded = Contact::load(&connection, &user_name)?.unwrap();
         assert_eq!(loaded, contact);
 
-        Ok(())
-    }
-
-    pub(crate) async fn mark_as_complete_2(
-        self,
-        db: &SqlitePool,
-        notifier: &mut StoreNotifier,
-        friendship_package: FriendshipPackage,
-        client: AsClientId,
-    ) -> sqlx::Result<()> {
-        let mut transaction = db.begin().await?;
-
-        let user_name = self.user_name.clone();
-        let conversation_id = self.conversation_id;
-
-        self.delete_2(&mut *transaction, notifier).await?;
-        let contact = Contact {
-            user_name,
-            conversation_id,
-            clients: vec![client],
-            wai_ear_key: friendship_package.wai_ear_key,
-            friendship_token: friendship_package.friendship_token,
-            key_package_ear_key: friendship_package.key_package_ear_key,
-            connection_key: friendship_package.connection_key,
-        };
-        contact.store_2(&mut *transaction, notifier).await?;
-
-        transaction.commit().await?;
         Ok(())
     }
 }
