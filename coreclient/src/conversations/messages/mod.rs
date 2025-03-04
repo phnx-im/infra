@@ -227,14 +227,14 @@ impl Message {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
-                        .unwrap_or_else(|e| format!("Error: {}", e.to_string()));
+                        .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{sender}: {content}")
                 }
                 ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
-                        .unwrap_or_else(|e| format!("Error: {}", e.to_string()));
+                        .unwrap_or_else(|e| format!("Error: {e}"));
                     content.to_string()
                 }
             },

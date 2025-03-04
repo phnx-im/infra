@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::{iter::Peekable, ops::Range};
 
 use flutter_rust_bridge::frb;
@@ -145,9 +149,7 @@ impl MessageContent {
             result.push(parse_block_element(&mut iter, 1)?);
         }
 
-        Ok(Self {
-            content: dbg!(result),
-        })
+        Ok(Self { content: result })
     }
 }
 
@@ -411,12 +413,7 @@ where
                 });
             }
 
-            Event::Start(Tag::Link {
-                link_type,
-                dest_url,
-                title,
-                id,
-            }) => {
+            Event::Start(Tag::Link { dest_url, .. }) => {
                 let start = iter.next().expect("we already peeked");
                 let value = InlineElement::Link {
                     dest_url: dest_url.to_string(),

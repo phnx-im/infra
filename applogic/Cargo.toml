@@ -47,8 +47,7 @@ flate2 = "1.1.0"
 tar = "0.4.44"
 pulldown-cmark = "0.12.2"
 thiserror = "2.0.11"
-mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "71495dc8fc794111c381649c4c6cbc6e258a0135" }
-serde_bytes = "0.11.15"
+mimi_content = { workspace = true }
 
 [dev-dependencies]
 quickcheck = "1.0.3"
