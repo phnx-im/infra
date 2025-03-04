@@ -164,8 +164,7 @@ InlineSpan buildInlineElement(RangedInlineElement inline) {
             TextDecoration.underline
           ]),
         )),
-    InlineElement_Image(:final field0) =>
-      WidgetSpan(child: Image.network(field0)),
+    InlineElement_Image() => const WidgetSpan(child: Icon(Icons.image)),
     InlineElement_TaskListMarker(:final field0) =>
       WidgetSpan(child: Checkbox(value: field0, onChanged: null)),
   };
@@ -190,9 +189,7 @@ class CustomTextEditingController extends TextEditingController {
   }
 
   void _handleCursorMovement() {
-    debugPrint("Handle cursor movement");
     int cursorPosition = selection.extentOffset;
-    debugPrint("cursor: $cursorPosition");
 
     if (cursorPosition == -1) {
       return;
@@ -209,7 +206,6 @@ class CustomTextEditingController extends TextEditingController {
     int cursorPositionUtf8 = utf8.encode(charsUpToCursor).length;
 
     if (lastKnownRawTextLength > text.length) {
-      debugPrint("Something was deleted!");
       // Was part of a widget deleted? Then either:
       // - The user pressed backspace, so the cursor is now at the end of where the widget was
       // - The user pressed delete, so the cursor is still at the character just before where the widget was
@@ -220,7 +216,6 @@ class CustomTextEditingController extends TextEditingController {
 
           if (cursorPosition != previousCursorPosition) {
             // The cursor moved, so this was a backspace and not a delete
-            debugPrint("start $startUtf16, cursor $cursorPosition");
             var newText = text.replaceRange(startUtf16, cursorPosition, "");
 
             // Make sure we don't use outdated data
@@ -234,8 +229,6 @@ class CustomTextEditingController extends TextEditingController {
             // The cursor did not move, this was a delete, not a backspace
             int endUtf16 = utf8.decode(raw.sublist(0, end)).length;
             var removedChars = lastKnownRawTextLength - text.length;
-            debugPrint(
-                "cursor $cursorPosition, end $endUtf16, removed $removedChars");
             var newText =
                 text.replaceRange(cursorPosition, endUtf16 - removedChars, "");
 
@@ -248,7 +241,6 @@ class CustomTextEditingController extends TextEditingController {
             moveCursorTo(startUtf16);
           }
 
-          debugPrint("break delete!");
           break;
         }
       }
@@ -260,7 +252,6 @@ class CustomTextEditingController extends TextEditingController {
     for (var (start, end) in widgetRanges) {
       // If the cursor is inside a widget range, push it to the end
       if (cursorPositionUtf8 > start && cursorPositionUtf8 < end) {
-        debugPrint("Cursor is in a widget. Push!");
         if (cursorPosition < previousCursorPosition) {
           int startUtf16 = utf8.decode(raw.sublist(0, start)).length;
           moveCursorTo(startUtf16);
@@ -440,7 +431,7 @@ class CustomTextEditingController extends TextEditingController {
           SizedBox(
             height: 14,
             width: 32,
-            child: Image.network(field0),
+            child: Icon(Icons.image),
           ),
           inline.range),
       InlineElement_TaskListMarker() => TextSpan(

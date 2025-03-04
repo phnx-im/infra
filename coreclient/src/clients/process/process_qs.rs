@@ -22,10 +22,7 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{
-    conversations::ConversationType, groups::Group, ConversationMessage, PartialContact,
-    SystemMessage,
-};
+use crate::{conversations::ConversationType, groups::Group, ConversationMessage, PartialContact};
 
 use super::{
     anyhow, Asset, Conversation, ConversationAttributes, ConversationId, CoreUser,

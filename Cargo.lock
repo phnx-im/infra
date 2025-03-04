@@ -3427,7 +3427,6 @@ dependencies = [
  "quickcheck_macros",
  "regex",
  "serde",
- "serde_bytes",
  "serde_json",
  "tar",
  "tempfile",
@@ -3489,7 +3488,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "trait-variant",
- "url",
  "uuid",
 ]
 
@@ -3506,6 +3504,7 @@ dependencies = [
  "config",
  "image",
  "jsonwebtoken",
+ "mimi_content",
  "once_cell",
  "opaque-ke",
  "phnxapiclient",

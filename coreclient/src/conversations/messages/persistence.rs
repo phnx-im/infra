@@ -349,7 +349,7 @@ pub(crate) mod tests {
 
     use crate::{
         conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        MimiContent, SystemMessage,
+        SystemMessage,
     };
 
     use super::*;
