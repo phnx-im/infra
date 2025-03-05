@@ -95,13 +95,13 @@ class MessageContent {
       RustLib.instance.api
           .crateApiMarkdownMessageContentError(message: message);
 
-  static MessageContent parseMarkdown({required List<int> string}) =>
-      RustLib.instance.api
-          .crateApiMarkdownMessageContentParseMarkdown(string: string);
-
-  static MessageContent tryParseMarkdown({required List<int> string}) =>
+  static Future<MessageContent> tryParseMarkdown({required String string}) =>
       RustLib.instance.api
           .crateApiMarkdownMessageContentTryParseMarkdown(string: string);
+
+  static MessageContent tryParseMarkdownRaw({required List<int> string}) =>
+      RustLib.instance.api
+          .crateApiMarkdownMessageContentTryParseMarkdownRaw(string: string);
 
   @override
   int get hashCode => content.hashCode;

@@ -44,7 +44,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -113517134;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -204267514;
 
 // Section: executor
 
@@ -2988,16 +2988,17 @@ fn wire__crate__api__markdown__message_content_error_impl(
         },
     )
 }
-fn wire__crate__api__markdown__message_content_parse_markdown_impl(
+fn wire__crate__api__markdown__message_content_try_parse_markdown_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "message_content_parse_markdown",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            debug_name: "message_content_try_parse_markdown",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -3009,25 +3010,28 @@ fn wire__crate__api__markdown__message_content_parse_markdown_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_string = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_string = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::api::markdown::MessageContent::parse_markdown(api_string),
-                )?;
-                Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok =
+                            crate::api::markdown::MessageContent::try_parse_markdown(&api_string)?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
         },
     )
 }
-fn wire__crate__api__markdown__message_content_try_parse_markdown_impl(
+fn wire__crate__api__markdown__message_content_try_parse_markdown_raw_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "message_content_try_parse_markdown",
+            debug_name: "message_content_try_parse_markdown_raw",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -3046,7 +3050,7 @@ fn wire__crate__api__markdown__message_content_try_parse_markdown_impl(
             transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                 (move || {
                     let output_ok =
-                        crate::api::markdown::MessageContent::try_parse_markdown(api_string)?;
+                        crate::api::markdown::MessageContent::try_parse_markdown_raw(api_string)?;
                     Ok(output_ok)
                 })(),
             )
@@ -4391,6 +4395,7 @@ fn pde_ffi_dispatcher_primary_impl(
 61 => wire__crate__api__init_impl(port, ptr, rust_vec_len, data_len),
 62 => wire__crate__api__markdown__init_app_impl(port, ptr, rust_vec_len, data_len),
 64 => wire__crate__api__markdown__message_content_error_impl(port, ptr, rust_vec_len, data_len),
+65 => wire__crate__api__markdown__message_content_try_parse_markdown_impl(port, ptr, rust_vec_len, data_len),
 67 => wire__crate__api__logging__read_app_logs_impl(port, ptr, rust_vec_len, data_len),
 68 => wire__crate__api__logging__read_background_logs_impl(port, ptr, rust_vec_len, data_len),
 69 => wire__crate__api__logging__tar_logs_impl(port, ptr, rust_vec_len, data_len),
@@ -4431,8 +4436,7 @@ fn pde_ffi_dispatcher_sync_impl(
 52 => wire__crate__api__user__User_user_name_impl(ptr, rust_vec_len, data_len),
 60 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
 63 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
-65 => wire__crate__api__markdown__message_content_parse_markdown_impl(ptr, rust_vec_len, data_len),
-66 => wire__crate__api__markdown__message_content_try_parse_markdown_impl(ptr, rust_vec_len, data_len),
+66 => wire__crate__api__markdown__message_content_try_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }

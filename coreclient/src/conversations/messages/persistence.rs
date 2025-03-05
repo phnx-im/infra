@@ -77,13 +77,6 @@ impl VersionedMessage {
             content: PhnxCodec::to_vec(&content)?,
         })
     }
-
-    fn empty_error() -> Self {
-        VersionedMessage {
-            version: CURRENT_MESSAGE_VERSION,
-            content: Vec::new(),
-        }
-    }
 }
 
 use super::{ConversationMessageId, TimestampedMessage};

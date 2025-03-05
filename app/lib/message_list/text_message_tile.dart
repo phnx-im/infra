@@ -148,6 +148,7 @@ class TextMessageTile extends StatelessWidget {
           child: DefaultTextStyle.merge(
             style: messageTextStyle(context, isSender),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: messageContent.content
                   .map((inner) => buildBlockElement(inner.element, isSender))
                   .toList(),

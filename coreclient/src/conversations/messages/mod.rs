@@ -44,23 +44,19 @@ impl TimestampedMessage {
         ds_timestamp: TimeStamp,
         sender_name: QualifiedUserName,
     ) -> Self {
-        let message;
-
-        match MimiContent::deserialize(&application_message.into_bytes()) {
-            Ok(content) => {
-                message = Message::Content(Box::new(ContentMessage::new(
-                    sender_name.to_string(),
-                    true,
-                    content,
-                )));
-            }
+        let message = match MimiContent::deserialize(&application_message.into_bytes()) {
+            Ok(content) => Message::Content(Box::new(ContentMessage::new(
+                sender_name.to_string(),
+                true,
+                content,
+            ))),
             Err(e) => {
                 warn!("Message parsing failed: {e}");
-                message = Message::Event(EventMessage::Error(ErrorMessage::new(format!(
-                    "Message parsing failed"
-                ))));
+                Message::Event(EventMessage::Error(ErrorMessage::new(
+                    "Message parsing failed".to_owned(),
+                )))
             }
-        }
+        };
 
         Self {
             timestamp: ds_timestamp,

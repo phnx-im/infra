@@ -118,19 +118,13 @@ impl MessageContent {
     }
 
     #[frb(sync)]
-    pub fn parse_markdown(string: Vec<u8>) -> Self {
-        match Self::try_parse_markdown(string) {
-            Ok(result) => result,
-            Err(e) => MessageContent::error(format!("Invalid message: {e:?}")),
-        }
+    pub fn try_parse_markdown_raw(string: Vec<u8>) -> Result<Self> {
+        Self::try_parse_markdown(&String::from_utf8(string).unwrap())
     }
 
-    #[frb(sync)]
-    pub fn try_parse_markdown(string: Vec<u8>) -> Result<Self> {
-        let string = String::from_utf8(string).unwrap();
-
+    pub fn try_parse_markdown(string: &str) -> Result<Self> {
         let parsed = Parser::new_ext(
-            &string,
+            string,
             // Do not enable Options::ENABLE_GFM, it activates special blockquotes which are not part of the GFM spec https://github.com/orgs/community/discussions/16925
             Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS,
         )
@@ -660,9 +654,8 @@ mod tests {
 
     #[test]
     fn nested_images() {
-        MessageContent::try_parse_markdown(r#"![hey *ho*](url)"#.as_bytes().to_vec()).unwrap();
-        MessageContent::try_parse_markdown(r#"![![Bad link](img.jpg)](url)"#.as_bytes().to_vec())
-            .unwrap();
+        MessageContent::try_parse_markdown(r#"![hey *ho*](url)"#).unwrap();
+        MessageContent::try_parse_markdown(r#"![![Bad link](img.jpg)](url)"#).unwrap();
     }
 
     #[test]
@@ -670,9 +663,7 @@ mod tests {
         MessageContent::try_parse_markdown(
             r#"<div><div><p><s>Oh no! Unclosed html tags!
 
-But it ends after the paragraph"#
-                .as_bytes()
-                .to_vec(),
+But it ends after the paragraph"#,
         )
         .unwrap();
     }
@@ -682,9 +673,7 @@ But it ends after the paragraph"#
         MessageContent::try_parse_markdown(
             r#"
     asdf
-    asdf"#
-                .as_bytes()
-                .to_vec(),
+    asdf"#,
         )
         .unwrap();
     }
@@ -692,9 +681,9 @@ But it ends after the paragraph"#
     #[test]
     fn max_depth() {
         // Test max depth using nested quotes
-        MessageContent::try_parse_markdown(">".repeat(MAX_DEPTH).into_bytes()).unwrap();
+        MessageContent::try_parse_markdown(&">".repeat(MAX_DEPTH)).unwrap();
         assert_eq!(
-            MessageContent::try_parse_markdown(">".repeat(MAX_DEPTH + 1).into_bytes()),
+            MessageContent::try_parse_markdown(&">".repeat(MAX_DEPTH + 1)),
             Err(Error::DepthLimitReached)
         );
     }
