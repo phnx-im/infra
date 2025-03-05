@@ -60,18 +60,18 @@ fn do_init_logger(
 
     #[cfg(any(target_os = "android", target_os = "ios"))]
     {
-        let _ = dbg!(registry
+        registry
             .with(dart::layer())
             .with(fmt::Layer::new().with_writer(log_file))
-            .try_init());
+            .try_init()?;
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     {
         use fmt::writer::MakeWriterExt;
-        let _ = dbg!(registry
+        registry
             .with(fmt::Layer::new().map_writer(|w| w.and(log_file)))
-            .try_init());
+            .try_init()?;
     }
 
     #[cfg(not(any(

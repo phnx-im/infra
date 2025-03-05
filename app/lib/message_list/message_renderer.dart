@@ -7,7 +7,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
-import 'package:prototype/theme/styles.dart';
 
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
@@ -303,7 +302,7 @@ class CustomTextEditingController extends TextEditingController {
     raw = utf8.encode(text);
 
     try {
-      MessageContent parsed = MessageContent.tryParseMarkdown(string: raw);
+      MessageContent parsed = MessageContent.tryParseMarkdownRaw(string: raw);
       return TextSpan(
         style: style,
         children: buildWrappedBlock((0, raw.length), parsed.content),
@@ -427,7 +426,7 @@ class CustomTextEditingController extends TextEditingController {
             ]),
           ),
         ),
-      InlineElement_Image(:final field0) => buildCorrectWidget(
+      InlineElement_Image() => buildCorrectWidget(
           SizedBox(
             height: 14,
             width: 32,
