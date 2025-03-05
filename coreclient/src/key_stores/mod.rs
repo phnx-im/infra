@@ -33,7 +33,6 @@ use phnxtypes::{
     },
     messages::FriendshipToken,
 };
-use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod as_credentials;
@@ -79,15 +78,14 @@ impl MemoryUserKeyStore {
         }
     }
 
-    pub(crate) fn generate_key_package(
+    pub(crate) async fn generate_key_package(
         &self,
-        connection: &Connection,
+        connection: &mut sqlx::SqliteConnection,
         qs_client_id: &QsClientId,
         last_resort: bool,
     ) -> Result<KeyPackage> {
-        let provider = PhnxOpenMlsProvider::new(connection);
         let leaf_keys = LeafKeys::generate(&self.signing_key, &self.connection_key)?;
-        leaf_keys.store(connection)?;
+        leaf_keys.store(&mut *connection).await?;
         let credential_with_key = leaf_keys.credential()?;
         let capabilities = default_capabilities();
         let client_reference = self.create_own_client_reference(qs_client_id);
@@ -103,6 +101,7 @@ impl MemoryUserKeyStore {
             Extensions::default()
         };
 
+        let provider = PhnxOpenMlsProvider::new(connection);
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)

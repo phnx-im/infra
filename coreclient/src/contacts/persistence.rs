@@ -10,10 +10,9 @@ use phnxtypes::{
     identifiers::{AsClientId, QualifiedUserName},
     messages::FriendshipToken,
 };
-use rusqlite::{params, Connection, OptionalExtension};
 use sqlx::{
-    error::BoxDynError, prelude::Type, query, query_as, Database, Decode, Executor, Sqlite,
-    SqlitePool,
+    error::BoxDynError, prelude::Type, query, query_as, Connection, Database, Decode, Executor,
+    Sqlite, SqliteExecutor,
 };
 use tokio_stream::StreamExt;
 
@@ -147,16 +146,8 @@ impl From<SqlContact> for Contact {
 }
 
 impl Contact {
-    pub(crate) fn load(
-        connection: &Connection,
-        user_name: &QualifiedUserName,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT * FROM contacts WHERE user_name = ?")?;
-        stmt.query_row([user_name], Self::from_row).optional()
-    }
-
-    pub(crate) async fn load_2(
-        db: &SqlitePool,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         user_name: &QualifiedUserName,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
@@ -172,18 +163,12 @@ impl Contact {
             FROM contacts WHERE user_name = ?"#,
             user_name
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|res| res.map(From::from))
     }
 
-    pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT * FROM contacts")?;
-        let rows = stmt.query_map([], Self::from_row)?;
-        rows.collect()
-    }
-
-    pub(crate) async fn load_all_2(db: &SqlitePool) -> sqlx::Result<Vec<Self>> {
+    pub(crate) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
         query_as!(
             SqlContact,
             r#"SELECT
@@ -196,50 +181,13 @@ impl Contact {
                 connection_key AS "connection_key: _"
             FROM contacts"#
         )
-        .fetch(db)
+        .fetch(executor)
         .map(|res| res.map(From::from))
         .collect()
         .await
     }
 
-    pub(crate) fn store(
-        &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        let clients_str = self
-            .clients
-            .iter()
-            .map(|c| c.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        connection.execute(
-            "INSERT INTO contacts (
-                user_name,
-                conversation_id,
-                clients,
-                wai_ear_key,
-                friendship_token,
-                key_package_ear_key,
-                connection_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?)",
-            params![
-                self.user_name,
-                self.conversation_id,
-                clients_str,
-                self.wai_ear_key,
-                self.friendship_token,
-                self.key_package_ear_key,
-                self.connection_key,
-            ],
-        )?;
-        notifier
-            .add(self.user_name.clone())
-            .update(self.conversation_id);
-        Ok(())
-    }
-
-    pub(crate) async fn store_2(
+    pub(crate) async fn store(
         &self,
         executor: impl Executor<'_, Database = Sqlite>,
         notifier: &mut StoreNotifier,
@@ -322,18 +270,8 @@ impl Storable for PartialContact {
 }
 
 impl PartialContact {
-    pub(crate) fn load(
-        connection: &Connection,
-        user_name: &QualifiedUserName,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        connection
-            .prepare("SELECT * FROM partial_contacts WHERE user_name = ?")?
-            .query_row([user_name], Self::from_row)
-            .optional()
-    }
-
-    pub(crate) async fn load_2(
-        db: &SqlitePool,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         user_name: &QualifiedUserName,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
@@ -345,18 +283,11 @@ impl PartialContact {
             FROM partial_contacts WHERE user_name = ?"#,
             user_name
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
     }
 
-    pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        connection
-            .prepare("SELECT * FROM partial_contacts")?
-            .query_map([], Self::from_row)?
-            .collect()
-    }
-
-    pub(crate) async fn load_all_2(db: &SqlitePool) -> sqlx::Result<Vec<Self>> {
+    pub(crate) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
         query_as!(
             PartialContact,
             r#"SELECT
@@ -365,36 +296,13 @@ impl PartialContact {
                 friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM partial_contacts"#
         )
-        .fetch_all(db)
+        .fetch_all(executor)
         .await
     }
 
-    pub(crate) fn store(
+    pub(crate) async fn store(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT INTO partial_contacts (
-                user_name,
-                conversation_id,
-                friendship_package_ear_key
-            ) VALUES (?, ?, ?)",
-            params![
-                self.user_name,
-                self.conversation_id,
-                self.friendship_package_ear_key,
-            ],
-        )?;
-        notifier
-            .add(self.user_name.clone())
-            .update(self.conversation_id);
-        Ok(())
-    }
-
-    pub(crate) async fn store_2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         query!(
@@ -405,7 +313,7 @@ impl PartialContact {
             self.conversation_id,
             self.friendship_package_ear_key,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier
             .add(self.user_name.clone())
@@ -413,22 +321,9 @@ impl PartialContact {
         Ok(())
     }
 
-    fn delete(
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-        user_name: &QualifiedUserName,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "DELETE FROM partial_contacts WHERE user_name = ?",
-            params![user_name],
-        )?;
-        notifier.remove(user_name.clone());
-        Ok(())
-    }
-
-    pub(crate) async fn delete_2(
+    pub(crate) async fn delete(
         self,
-        executor: impl Executor<'_, Database = Sqlite>,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         query!(
@@ -443,46 +338,19 @@ impl PartialContact {
 
     /// Creates a Contact from this PartialContact and the additional data. Then
     /// persists the resulting contact.
-    pub(crate) fn mark_as_complete(
+    pub(crate) async fn mark_as_complete(
         self,
-        connection: &mut Connection,
-        notifier: &mut StoreNotifier,
-        friendship_package: FriendshipPackage,
-        client: AsClientId,
-    ) -> Result<Contact, rusqlite::Error> {
-        let transaction = connection.transaction()?;
-
-        let conversation_id = self.conversation_id;
-        Self::delete(&transaction, notifier, &self.user_name)?;
-        let contact = Contact {
-            user_name: self.user_name,
-            clients: vec![client],
-            wai_ear_key: friendship_package.wai_ear_key,
-            friendship_token: friendship_package.friendship_token,
-            key_package_ear_key: friendship_package.key_package_ear_key,
-            connection_key: friendship_package.connection_key,
-            conversation_id,
-        };
-        contact.store(&transaction, notifier)?;
-
-        transaction.commit()?;
-
-        Ok(contact)
-    }
-
-    pub(crate) async fn mark_as_complete_2(
-        self,
-        db: &SqlitePool,
+        connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
     ) -> sqlx::Result<()> {
-        let mut transaction = db.begin().await?;
+        let mut transaction = connection.begin().await?;
 
         let user_name = self.user_name.clone();
         let conversation_id = self.conversation_id;
 
-        self.delete_2(&mut *transaction, notifier).await?;
+        self.delete(&mut *transaction, notifier).await?;
         let contact = Contact {
             user_name,
             conversation_id,
@@ -492,7 +360,7 @@ impl PartialContact {
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
         };
-        contact.store_2(&mut *transaction, notifier).await?;
+        contact.store(&mut *transaction, notifier).await?;
 
         transaction.commit().await?;
         Ok(())

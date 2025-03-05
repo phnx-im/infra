@@ -12,10 +12,8 @@ use rusqlite::{
     ToSql,
 };
 use sqlx::{
-    encode::IsNull,
-    error::BoxDynError,
-    postgres::{PgArgumentBuffer, PgValueRef},
-    Database, Decode, Encode, Postgres, Sqlite, Type,
+    encode::IsNull, error::BoxDynError, postgres::PgValueRef, Database, Decode, Encode, Postgres,
+    Sqlite, Type,
 };
 use tls_codec_impls::{TlsString, TlsUuid};
 use tracing::{debug, error};
@@ -48,13 +46,15 @@ where
     }
 }
 
-impl Encode<'_, Postgres> for Fqdn {
-    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
-        <String as Encode<Postgres>>::encode(self.to_string(), buf)
-    }
-
-    fn encode(self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
-        <String as Encode<Postgres>>::encode(self.to_string(), buf)
+impl<'r, DB: Database> Encode<'r, DB> for Fqdn
+where
+    String: Encode<'r, DB>,
+{
+    fn encode_by_ref(
+        &self,
+        buf: &mut <DB as Database>::ArgumentBuffer<'r>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<DB>::encode(self.to_string(), buf)
     }
 }
 
@@ -490,6 +490,13 @@ impl<'q> Encode<'q, Sqlite> for AsClientId {
     ) -> Result<IsNull, BoxDynError> {
         let value = self.to_string();
         <String as Encode<'q, Sqlite>>::encode(value, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for AsClientId {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<Sqlite>::decode(value)?;
+        Ok(Self::try_from(s)?)
     }
 }
 

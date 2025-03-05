@@ -12,9 +12,10 @@ use phnxtypes::{
 };
 use rusqlite::{
     types::{FromSql, FromSqlResult, ToSqlOutput, Value, ValueRef},
-    Connection, ToSql,
+    ToSql,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::SqliteExecutor;
 use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
@@ -165,44 +166,40 @@ impl Conversation {
         qgid.owning_domain().clone()
     }
 
-    pub(crate) fn set_conversation_picture(
+    pub(crate) async fn set_conversation_picture(
         &mut self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         conversation_picture: Option<Vec<u8>>,
-    ) -> Result<(), rusqlite::Error> {
-        Self::update_picture(
-            connection,
-            notifier,
-            self.id,
-            conversation_picture.as_deref(),
-        )?;
+    ) -> sqlx::Result<()> {
+        Self::update_picture(executor, notifier, self.id, conversation_picture.as_deref()).await?;
         self.attributes.set_picture(conversation_picture);
         Ok(())
     }
 
-    pub(crate) fn set_inactive(
+    pub(crate) async fn set_inactive(
         &mut self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         past_members: Vec<QualifiedUserName>,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> sqlx::Result<()> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
-        Self::update_status(connection, notifier, self.id, &new_status)?;
+        Self::update_status(executor, notifier, self.id, &new_status).await?;
         self.status = new_status;
         Ok(())
     }
 
     /// Confirm a connection conversation by setting the conversation type to
     /// `Connection`.
-    pub(crate) fn confirm(
+    pub(crate) async fn confirm(
         &mut self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> sqlx::Result<()> {
         if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
             let conversation_type = ConversationType::Connection(user_name);
-            self.set_conversation_type(connection, notifier, &conversation_type)?;
+            self.set_conversation_type(executor, notifier, &conversation_type)
+                .await?;
             self.conversation_type = conversation_type;
         }
         Ok(())

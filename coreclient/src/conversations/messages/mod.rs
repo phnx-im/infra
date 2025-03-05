@@ -150,13 +150,13 @@ impl ConversationMessage {
     }
 
     /// Mark the message as sent and update the timestamp.
-    pub(crate) fn mark_as_sent(
+    pub(crate) async fn mark_as_sent(
         &mut self,
-        connection: &Connection,
+        connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         ds_timestamp: TimeStamp,
-    ) -> Result<(), rusqlite::Error> {
-        Self::update_sent_status(connection, notifier, self.id(), ds_timestamp, true)?;
+    ) -> sqlx::Result<()> {
+        Self::update_sent_status(connection, notifier, self.id(), ds_timestamp, true).await?;
         self.timestamped_message.mark_as_sent(ds_timestamp);
         Ok(())
     }

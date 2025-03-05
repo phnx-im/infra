@@ -4,14 +4,13 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
-use sqlx::{query, query_as, query_scalar, sqlite::SqlitePool};
+use sqlx::{query, query_as, query_scalar, Connection, SqliteExecutor};
 use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::{
     store::StoreNotifier,
-    utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable},
+    utils::persistence::{GroupIdWrapper, Storable},
     Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
     ConversationStatus, ConversationType,
 };
@@ -85,43 +84,9 @@ impl From<SqlConversation> for Conversation {
 }
 
 impl Conversation {
-    pub(crate) fn store(
+    pub(crate) async fn store(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        info!(
-            id =% self.id,
-            title =% self.attributes().title(),
-            "Storing conversation"
-        );
-        let group_id = GroupIdRefWrapper::from(&self.group_id);
-        connection.execute(
-            "INSERT INTO conversations (conversation_id,
-                conversation_title,
-                conversation_picture,
-                group_id,
-                last_read,
-                conversation_status,
-                conversation_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?)",
-            params![
-                self.id,
-                self.attributes().title(),
-                self.attributes().picture(),
-                group_id,
-                self.last_read,
-                self.status(),
-                self.conversation_type(),
-            ],
-        )?;
-        notifier.add(self.id);
-        Ok(())
-    }
-
-    pub(crate) async fn store2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         info!(
@@ -153,34 +118,14 @@ impl Conversation {
             conversation_status,
             conversation_type
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier.add(self.id);
         Ok(())
     }
 
-    pub(crate) fn load(
-        connection: &Connection,
-        conversation_id: &ConversationId,
-    ) -> Result<Option<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT
-                conversation_id,
-                conversation_title,
-                conversation_picture,
-                group_id,
-                last_read,
-                conversation_status,
-                conversation_type
-            FROM conversations
-            WHERE conversation_id = ?",
-        )?;
-        stmt.query_row(params![conversation_id], Self::from_row)
-            .optional()
-    }
-
-    pub(crate) async fn load2(
-        db: &SqlitePool,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         conversation_id: &ConversationId,
     ) -> sqlx::Result<Option<Conversation>> {
         query_as!(
@@ -197,33 +142,13 @@ impl Conversation {
             WHERE conversation_id = ?"#,
             conversation_id
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|value| value.map(From::from))
     }
 
-    pub(crate) fn load_by_group_id(
-        connection: &Connection,
-        group_id: &GroupId,
-    ) -> Result<Option<Conversation>, rusqlite::Error> {
-        let group_id = GroupIdRefWrapper::from(group_id);
-        let mut stmt = connection.prepare(
-            "SELECT
-                conversation_id,
-                conversation_title,
-                conversation_picture,
-                group_id,
-                last_read,
-                conversation_status,
-                conversation_type
-            FROM conversations
-            WHERE group_id = ?",
-        )?;
-        stmt.query_row(params![group_id], Self::from_row).optional()
-    }
-
-    pub(crate) async fn load_by_group_id_2(
-        db: &SqlitePool,
+    pub(crate) async fn load_by_group_id(
+        executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Option<Conversation>> {
         let group_id = group_id.as_slice();
@@ -240,28 +165,14 @@ impl Conversation {
             FROM conversations WHERE group_id = ?"#,
             group_id
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|value| value.map(From::from))
     }
 
-    pub(crate) fn load_all(connection: &Connection) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT
-                conversation_id,
-                conversation_title,
-                conversation_picture,
-                group_id,
-                last_read,
-                conversation_status,
-                conversation_type
-            FROM conversations",
-        )?;
-        let rows = stmt.query_map([], Self::from_row)?;
-        rows.collect()
-    }
-
-    pub(crate) async fn load_all_2(db: &SqlitePool) -> sqlx::Result<Vec<Conversation>> {
+    pub(crate) async fn load_all(
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<Vec<Conversation>> {
         query_as!(
             SqlConversation,
             r#"SELECT
@@ -274,89 +185,48 @@ impl Conversation {
                 conversation_type AS "conversation_type: _"
             FROM conversations"#,
         )
-        .fetch(db)
+        .fetch(executor)
         .map(|res| res.map(From::from))
         .collect()
         .await
     }
 
-    pub(super) fn update_picture(
-        connection: &Connection,
+    pub(super) async fn update_picture(
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
-        conversation_picture: Option<&[u8]>,
-    ) -> rusqlite::Result<()> {
-        connection.execute(
-            "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
-            params![conversation_picture, conversation_id],
-        )?;
-        notifier.update(conversation_id);
-        Ok(())
-    }
-
-    pub(super) async fn update_conversation_picture_2(
-        &self,
-        db: &SqlitePool,
-        notifier: &mut StoreNotifier,
         conversation_picture: Option<&[u8]>,
     ) -> sqlx::Result<()> {
         query!(
             "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
             conversation_picture,
-            self.id
+            conversation_id,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
-        notifier.update(self.id);
-        Ok(())
-    }
-
-    pub(super) fn update_status(
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        status: &ConversationStatus,
-    ) -> rusqlite::Result<()> {
-        connection.execute(
-            "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
-            params![status, conversation_id],
-        )?;
         notifier.update(conversation_id);
         Ok(())
     }
 
-    pub(super) async fn update_status_2(
-        &self,
-        db: &SqlitePool,
+    pub(super) async fn update_status(
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
         status: &ConversationStatus,
     ) -> sqlx::Result<()> {
         query!(
             "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
             status,
-            self.id
+            conversation_id,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
-        notifier.update(self.id);
+        notifier.update(conversation_id);
         Ok(())
     }
 
-    pub(crate) fn delete(
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "DELETE FROM conversations WHERE conversation_id = ?",
-            params![conversation_id],
-        )?;
-        notifier.remove(conversation_id);
-        Ok(())
-    }
-
-    pub(crate) async fn delete_2(
-        db: &SqlitePool,
+    pub(crate) async fn delete(
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
     ) -> sqlx::Result<()> {
@@ -364,7 +234,7 @@ impl Conversation {
             "DELETE FROM conversations WHERE conversation_id = ?",
             conversation_id
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier.remove(conversation_id);
         Ok(())
@@ -373,96 +243,84 @@ impl Conversation {
     /// Set the `last_read` marker of all conversations with the given
     /// [`ConversationId`]s to the given timestamps. This is used to mark all
     /// messages up to this timestamp as read.
-    pub(crate) fn mark_as_read(
-        transaction: &Transaction,
+    pub(crate) async fn mark_as_read(
+        connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
-    ) -> Result<(), rusqlite::Error> {
-        let mut unread_messages_stmt = transaction.prepare(
-            "SELECT message_id from conversation_messages
-            INNER JOIN conversations c ON c.conversation_id = :conversation_id
-            WHERE c.conversation_id = :conversation_id AND timestamp > c.last_read",
-        )?;
-        let mut update_stmt = transaction.prepare(
-            "UPDATE conversations
-                SET last_read = :timestamp
-                WHERE conversation_id = :conversation_id AND last_read < :timestamp",
-        )?;
+    ) -> sqlx::Result<()> {
+        let mut transaction = connection.begin().await?;
+
         for (conversation_id, timestamp) in mark_as_read_data {
-            let unread_messages: Result<Vec<ConversationMessageId>, _> = unread_messages_stmt
-                .query_map(
-                    named_params! {
-                        ":conversation_id": conversation_id,
-                    },
-                    |row| row.get(0),
-                )?
-                .collect();
-            for message_id in unread_messages? {
+            let unread_messages: Vec<ConversationMessageId> = query_scalar!(
+                r#"SELECT
+                    message_id AS "message_id: _"
+                FROM conversation_messages
+                INNER JOIN conversations c ON c.conversation_id = :conversation_id
+                WHERE c.conversation_id = :conversation_id AND timestamp > c.last_read"#,
+                conversation_id,
+            )
+            .fetch_all(&mut *transaction)
+            .await?;
+
+            for message_id in unread_messages {
                 notifier.update(message_id);
             }
-            let updated = update_stmt.execute(named_params! {
-                ":timestamp": timestamp,
-                ":conversation_id": conversation_id,
-            })?;
-            if updated == 1 {
+
+            let updated = query!(
+                "UPDATE conversations
+                SET last_read = :timestamp
+                WHERE conversation_id = :conversation_id AND last_read < :timestamp",
+                timestamp,
+                conversation_id,
+            )
+            .execute(&mut *transaction)
+            .await?;
+            if updated.rows_affected() == 1 {
                 notifier.update(conversation_id);
             }
         }
+
+        transaction.commit().await?;
         Ok(())
     }
 
     /// Mark all messages in the conversation as read until including the given message id.
-    pub(crate) fn mark_as_read_until_message_id(
-        connection: &Connection,
+    pub(crate) async fn mark_as_read_until_message_id(
+        connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         until_message_id: ConversationMessageId,
-    ) -> rusqlite::Result<bool> {
-        let timestamp: Option<DateTime<Utc>> = connection
-            .query_row(
-                "SELECT timestamp FROM conversation_messages WHERE message_id = ?",
-                params![until_message_id],
-                |row| row.get(0),
-            )
-            .optional()?;
+    ) -> sqlx::Result<bool> {
+        let timestamp: Option<DateTime<Utc>> = query_scalar!(
+            r#"SELECT
+                timestamp AS "timestamp: _"
+            FROM conversation_messages WHERE message_id = ?"#,
+            until_message_id
+        )
+        .fetch_optional(&mut *connection)
+        .await?;
+
         let Some(timestamp) = timestamp else {
             return Ok(false);
         };
-        let updated = connection.execute(
+        let updated = query!(
             "UPDATE conversations SET last_read = :timestamp
             WHERE conversation_id = :conversation_id AND last_read != :timestamp",
-            named_params! {
-                ":conversation_id": conversation_id,
-                ":timestamp": timestamp,
-            },
-        )?;
-        let marked_as_read = updated == 1;
+            conversation_id,
+            timestamp,
+        )
+        .execute(connection)
+        .await?;
+        let marked_as_read = updated.rows_affected() == 1;
         if marked_as_read {
             notifier.update(conversation_id);
         }
         Ok(marked_as_read)
     }
 
-    pub(crate) fn global_unread_message_count(
-        connection: &Connection,
-    ) -> Result<usize, rusqlite::Error> {
-        connection.query_row(
-            "SELECT
-                COUNT(cm.conversation_id) AS total_unread_messages
-            FROM
-                conversations c
-            LEFT JOIN
-                conversation_messages cm
-            ON
-                c.conversation_id = cm.conversation_id
-                AND cm.sender != 'system'
-                AND cm.timestamp > c.last_read;",
-            [],
-            |row| row.get(0),
-        )
-    }
-
-    pub(crate) async fn global_unread_message_count_2(db: &SqlitePool) -> sqlx::Result<u32> {
+    pub(crate) async fn global_unread_message_count(
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<usize> {
         query_scalar!(
             r#"SELECT
                 COUNT(cm.conversation_id) AS "count: _"
@@ -475,57 +333,34 @@ impl Conversation {
                 AND cm.sender != 'system'
                 AND cm.timestamp > c.last_read"#
         )
-        .fetch_one(db)
+        .fetch_one(executor)
         .await
+        .map(|n: u32| n.try_into().expect("usize overflow"))
     }
 
-    pub(crate) fn messages_count(
-        connection: &Connection,
+    pub(crate) async fn messages_count(
+        executor: impl SqliteExecutor<'_>,
         conversation_id: ConversationId,
-    ) -> Result<usize, rusqlite::Error> {
-        connection.query_row(
-            "SELECT
-                COUNT(*)
+    ) -> sqlx::Result<usize> {
+        query_scalar!(
+            r#"SELECT
+                COUNT(*) AS "count: _"
             FROM
                 conversation_messages cm
             WHERE
                 cm.conversation_id = :conversation_id
-                AND cm.sender != 'system';",
-            named_params! {":conversation_id": conversation_id},
-            |row| row.get(0),
+                AND cm.sender != 'system'"#,
+            conversation_id
         )
+        .fetch_one(executor)
+        .await
+        .map(|n: u32| n.try_into().expect("usize overflow"))
     }
 
-    pub(crate) fn unread_messages_count(
-        connection: &Connection,
+    pub(crate) async fn unread_messages_count(
+        executor: impl SqliteExecutor<'_>,
         conversation_id: ConversationId,
-    ) -> Result<usize, rusqlite::Error> {
-        connection.query_row(
-            "SELECT
-                    COUNT(*)
-                FROM
-                    conversation_messages
-                WHERE
-                    conversation_id = :conversation_id
-                    AND sender != 'system'
-                    AND timestamp >
-                    (
-                        SELECT
-                            last_read
-                        FROM
-                            conversations
-                        WHERE
-                            conversation_id = :conversation_id
-                    )",
-            named_params! {":conversation_id": conversation_id},
-            |row| row.get(0),
-        )
-    }
-
-    pub(crate) async fn unread_messages_count_2(
-        db: &SqlitePool,
-        conversation_id: ConversationId,
-    ) -> sqlx::Result<u32> {
+    ) -> sqlx::Result<usize> {
         query_scalar!(
             r#"SELECT
                 COUNT(*) AS "count: _"
@@ -545,27 +380,14 @@ impl Conversation {
                 )"#,
             conversation_id
         )
-        .fetch_one(db)
+        .fetch_one(executor)
         .await
+        .map(|n: u32| n.try_into().expect("usize overflow"))
     }
 
-    pub(super) fn set_conversation_type(
+    pub(super) async fn set_conversation_type(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-        conversation_type: &ConversationType,
-    ) -> rusqlite::Result<()> {
-        connection.execute(
-            "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
-            params![conversation_type, self.id],
-        )?;
-        notifier.update(self.id);
-        Ok(())
-    }
-
-    pub(super) async fn set_conversation_type_2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         conversation_type: &ConversationType,
     ) -> sqlx::Result<()> {
@@ -574,7 +396,7 @@ impl Conversation {
             conversation_type,
             self.id,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier.update(self.id);
         Ok(())

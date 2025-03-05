@@ -57,7 +57,7 @@ impl BasicUserData {
 
     pub(super) async fn prepare_as_registration(
         self,
-        client_db_connection: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
@@ -66,8 +66,7 @@ impl BasicUserData {
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
-            AsCredentials::get_intermediate_credential(client_db_connection, api_clients, &domain)
-                .await?;
+            AsCredentials::get_intermediate_credential(connection, api_clients, &domain).await?;
 
         // We already fetch the QS encryption key here, so we don't have to do
         // it in a later step, where we otherwise don't have to perform network
@@ -188,9 +187,9 @@ pub(crate) struct PostRegistrationInitState {
 }
 
 impl PostRegistrationInitState {
-    pub(super) fn process_server_response(
+    pub(super) async fn process_server_response(
         self,
-        connection: &Connection,
+        connection: &mut sqlx::SqliteConnection,
     ) -> Result<UnfinalizedRegistrationState> {
         let InitialUserState {
             client_credential_payload,
@@ -234,19 +233,23 @@ impl PostRegistrationInitState {
         let client_credential: ClientCredential = self
             .client_credential
             .verify(as_intermediate_credential.verifying_key())?;
-        StorableClientCredential::new(client_credential.clone()).store(connection)?;
+        StorableClientCredential::new(client_credential.clone())
+            .store(connection)
+            .await?;
 
         let signing_key =
             ClientSigningKey::from_prelim_key(prelim_signing_key, client_credential.clone())?;
 
         // Store the own client credential in the DB
-        StorableClientCredential::new(client_credential.clone()).store(connection)?;
+        StorableClientCredential::new(client_credential.clone())
+            .store(connection)
+            .await?;
 
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableAsQueueRatchet::initialize(connection, as_initial_ratchet_secret.clone())?;
+        StorableAsQueueRatchet::initialize(connection, as_initial_ratchet_secret.clone()).await?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableQsQueueRatchet::initialize(connection, qs_initial_ratchet_secret.clone())?;
+        StorableQsQueueRatchet::initialize(connection, qs_initial_ratchet_secret.clone()).await?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::generate()?;
@@ -459,7 +462,7 @@ pub(crate) struct QsRegisteredUserState {
 impl QsRegisteredUserState {
     pub(super) async fn upload_key_packages(
         self,
-        connection: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
@@ -469,16 +472,17 @@ impl QsRegisteredUserState {
             ref qs_client_id,
         } = self;
 
-        let connection = connection.lock().await;
         let mut qs_key_packages = vec![];
         for _ in 0..KEY_PACKAGES {
-            let key_package = key_store.generate_key_package(&connection, qs_client_id, false)?;
+            let key_package = key_store
+                .generate_key_package(connection, qs_client_id, false)
+                .await?;
             qs_key_packages.push(key_package);
         }
-        let last_resort_key_package =
-            key_store.generate_key_package(&connection, qs_client_id, true)?;
+        let last_resort_key_package = key_store
+            .generate_key_package(connection, qs_client_id, true)
+            .await?;
         qs_key_packages.push(last_resort_key_package);
-        drop(connection);
 
         // Upload add packages
         api_clients
@@ -515,11 +519,7 @@ pub(crate) struct PersistedUserState {
 }
 
 impl PersistedUserState {
-    pub(super) fn into_self_user(
-        self,
-        connection: SqliteConnection,
-        api_clients: ApiClients,
-    ) -> CoreUser {
+    pub(super) fn into_self_user(self, pool: SqlitePool, api_clients: ApiClients) -> CoreUser {
         let QsRegisteredUserState {
             key_store,
             server_url: _,
@@ -527,7 +527,7 @@ impl PersistedUserState {
             qs_client_id,
         } = self.state;
         let inner = Arc::new(CoreUserInner {
-            connection,
+            pool,
             key_store,
             _qs_user_id: qs_user_id,
             qs_client_id,

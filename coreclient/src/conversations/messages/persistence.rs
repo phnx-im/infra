@@ -7,15 +7,15 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use rusqlite::{
-    named_params, params,
     types::{FromSql, FromSqlError, Type, ValueRef},
-    Connection, OptionalExtension, ToSql,
+    ToSql,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
     encode::IsNull, error::BoxDynError, query, query_as, Database, Decode, Encode, Sqlite,
-    SqlitePool,
+    SqliteExecutor,
 };
+use tokio_stream::StreamExt;
 use tracing::error;
 
 use crate::{
@@ -236,28 +236,8 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
 }
 
 impl ConversationMessage {
-    pub(crate) fn load(
-        connection: &Connection,
-        local_message_id: ConversationMessageId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT
-                message_id,
-                conversation_id,
-                timestamp,
-                sender,
-                content,
-                sent
-            FROM conversation_messages
-            WHERE message_id = ?",
-        )?;
-        statement
-            .query_row(params![local_message_id], Self::from_row)
-            .optional()
-    }
-
-    pub(crate) async fn load_2(
-        db: &SqlitePool,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         message_id: ConversationMessageId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
@@ -272,7 +252,7 @@ impl ConversationMessage {
             FROM conversation_messages WHERE message_id = ?"#,
             message_id,
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|record| {
             record
@@ -282,37 +262,12 @@ impl ConversationMessage {
         })?
     }
 
-    pub(crate) fn load_multiple(
-        connection: &Connection,
-        conversation_id: ConversationId,
-        number_of_messages: u32,
-    ) -> Result<Vec<ConversationMessage>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT
-               message_id,
-               conversation_id,
-               timestamp,
-               sender,
-               content,
-               sent
-            FROM conversation_messages
-            WHERE conversation_id = ?
-            ORDER BY timestamp DESC
-            LIMIT ?",
-        )?;
-        let mut messages = statement
-            .query_map(params![conversation_id, number_of_messages], Self::from_row)?
-            .collect::<Result<Vec<_>, _>>()?;
-        messages.reverse();
-        Ok(messages)
-    }
-
-    pub(crate) async fn load_multiple_2(
-        db: &SqlitePool,
+    pub(crate) async fn load_multiple(
+        executor: impl SqliteExecutor<'_>,
         conversation_id: ConversationId,
         number_of_messages: u32,
     ) -> sqlx::Result<Vec<ConversationMessage>> {
-        let records = query_as!(
+        query_as!(
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
@@ -328,51 +283,15 @@ impl ConversationMessage {
             conversation_id,
             number_of_messages,
         )
-        .fetch_all(db)
-        .await?;
-
-        records
-            .into_iter()
-            .rev()
-            .map(|record| Ok(record.try_into()?))
-            .collect()
+        .fetch(executor)
+        .map(|res| res?.try_into().map_err(From::from))
+        .collect()
+        .await
     }
 
-    pub(crate) fn store(
+    pub(crate) async fn store(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        let sender = match &self.timestamped_message.message {
-            Message::Content(content_message) => {
-                format!("user:{}", content_message.sender)
-            }
-            Message::Event(_) => "system".to_string(),
-        };
-        let content = self.timestamped_message.message.to_versioned_message()?;
-        connection.execute(
-            "INSERT INTO conversation_messages (message_id, conversation_id, timestamp, sender, content, sent) VALUES (?, ?, ?, ?, ?, ?)",
-            params![
-                self.conversation_message_id,
-                self.conversation_id,
-                self.timestamped_message.timestamp,
-                sender,
-                content,
-                match &self.timestamped_message.message {
-                    Message::Content(content_message) => content_message.sent,
-                    Message::Event(_) => true,
-                },
-            ],
-        )?;
-        notifier.add(self.conversation_message_id);
-        notifier.update(self.conversation_id);
-
-        Ok(())
-    }
-
-    pub(crate) async fn store_2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         let sender = match &self.timestamped_message.message {
@@ -402,7 +321,7 @@ impl ConversationMessage {
             content,
             sent,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
 
         notifier
@@ -412,25 +331,10 @@ impl ConversationMessage {
     }
 
     /// Set the message's sent status in the database and update the message's timestamp.
-    pub(super) fn update_sent_status(
-        connection: &Connection,
+    pub(super) async fn update_sent_status(
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         message_id: ConversationMessageId,
-        timestamp: TimeStamp,
-        sent: bool,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
-            params![timestamp, sent, message_id],
-        )?;
-        notifier.update(message_id);
-        Ok(())
-    }
-
-    pub(super) async fn update_sent_status_2(
-        &self,
-        db: &SqlitePool,
-        notifier: &mut StoreNotifier,
         timestamp: TimeStamp,
         sent: bool,
     ) -> sqlx::Result<()> {
@@ -438,39 +342,17 @@ impl ConversationMessage {
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
             timestamp,
             sent,
-            self.conversation_message_id,
+            message_id,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
-        notifier.update(self.conversation_message_id);
+        notifier.update(message_id);
         Ok(())
     }
 
     /// Get the last content message in the conversation.
-    pub(crate) fn last_content_message(
-        connection: &Connection,
-        conversation_id: ConversationId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT
-                message_id,
-                conversation_id,
-                timestamp,
-                sender,
-                content,
-                sent
-            FROM conversation_messages
-            WHERE conversation_id = ? AND sender != 'system'
-            ORDER BY timestamp DESC
-            LIMIT 1",
-        )?;
-        statement
-            .query_row(params![conversation_id], Self::from_row)
-            .optional()
-    }
-
-    pub(crate) async fn last_content_message_2(
-        db: &SqlitePool,
+    pub(crate) async fn last_content_message(
+        executor: impl SqliteExecutor<'_>,
         conversation_id: ConversationId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
@@ -487,7 +369,7 @@ impl ConversationMessage {
             ORDER BY timestamp DESC LIMIT 1"#,
             conversation_id,
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|record| {
             record
@@ -497,56 +379,66 @@ impl ConversationMessage {
         })?
     }
 
-    pub(crate) fn prev_message(
-        connection: &Connection,
+    pub(crate) async fn prev_message(
+        executor: impl SqliteExecutor<'_>,
         message_id: ConversationMessageId,
-    ) -> rusqlite::Result<Option<ConversationMessage>> {
-        connection
-            .query_row(
-                "SELECT
-                    message_id,
-                    conversation_id,
-                    timestamp,
-                    sender,
-                    content,
-                    sent
-                FROM conversation_messages
-                WHERE message_id != :message_id
-                    AND timestamp <= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
-                ORDER BY timestamp DESC
-                LIMIT 1",
-                named_params! {
-                    ":message_id": message_id.uuid(),
-                },
-                Self::from_row,
-            )
-            .optional()
+    ) -> sqlx::Result<Option<ConversationMessage>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender,
+                content AS "content: _",
+                sent
+            FROM conversation_messages
+            WHERE message_id != :message_id
+                AND timestamp <= (SELECT timestamp FROM conversation_messages
+                WHERE message_id = :message_id)
+            ORDER BY timestamp DESC
+            LIMIT 1"#,
+            message_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
     }
 
-    pub(crate) fn next_message(
-        connection: &Connection,
+    pub(crate) async fn next_message(
+        executor: impl SqliteExecutor<'_>,
         message_id: ConversationMessageId,
-    ) -> rusqlite::Result<Option<ConversationMessage>> {
-        connection
-            .query_row(
-                "SELECT
-                    message_id,
-                    conversation_id,
-                    timestamp,
-                    sender,
-                    content,
-                    sent
-                FROM conversation_messages
-                WHERE message_id != :message_id
-                    AND timestamp >= (SELECT timestamp FROM conversation_messages WHERE message_id = :message_id)
-                ORDER BY timestamp ASC
-                LIMIT 1",
-                named_params! {
-                    ":message_id": message_id.uuid(),
-                },
-                Self::from_row,
-            )
-            .optional()
+    ) -> sqlx::Result<Option<ConversationMessage>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender,
+                content AS "content: _",
+                sent
+            FROM conversation_messages
+            WHERE message_id != :message_id
+                AND timestamp >= (SELECT timestamp FROM conversation_messages
+                WHERE message_id = :message_id)
+            ORDER BY timestamp ASC
+            LIMIT 1"#,
+            message_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
     }
 }
 

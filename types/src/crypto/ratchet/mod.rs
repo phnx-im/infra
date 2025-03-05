@@ -125,6 +125,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 mod sqlite {
 
     use rusqlite::ToSql;
+    use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 
     use crate::codec::PhnxCodec;
 
@@ -159,6 +160,40 @@ mod sqlite {
             value: rusqlite::types::ValueRef<'_>,
         ) -> rusqlite::types::FromSqlResult<Self> {
             let bytes = value.as_blob()?;
+            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
+                PhnxCodec::from_slice(bytes)?;
+            let ratchet = PhnxCodec::from_slice(&ratchet_bytes)?;
+            Ok(ratchet)
+        }
+    }
+
+    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Type<Sqlite>
+        for QueueRatchet<Ciphertext, Payload>
+    {
+        fn type_info() -> <Sqlite as Database>::TypeInfo {
+            <Vec<u8> as Type<Sqlite>>::type_info()
+        }
+    }
+
+    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Encode<'_, Sqlite>
+        for QueueRatchet<Ciphertext, Payload>
+    {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+        ) -> Result<IsNull, BoxDynError> {
+            let ratchet_bytes = PhnxCodec::to_vec(self)?;
+            let versioned_ratchet_bytes =
+                PhnxCodec::to_vec(&VersionedQueueRatchet::CurrentVersion(ratchet_bytes))?;
+            Encode::<Sqlite>::encode(versioned_ratchet_bytes, buf)
+        }
+    }
+
+    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Decode<'_, Sqlite>
+        for QueueRatchet<Ciphertext, Payload>
+    {
+        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+            let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
             let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
                 PhnxCodec::from_slice(bytes)?;
             let ratchet = PhnxCodec::from_slice(&ratchet_bytes)?;

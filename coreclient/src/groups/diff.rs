@@ -4,6 +4,7 @@
 
 use phnxtypes::{codec::PhnxCodec, credentials::keys::PseudonymousCredentialSigningKey};
 use rusqlite::{types::FromSql, ToSql};
+use sqlx::{encode::IsNull, error::BoxDynError, prelude::Type, Database, Decode, Encode, Sqlite};
 
 use super::*;
 
@@ -53,5 +54,29 @@ impl FromSql for StagedGroupDiff {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
         let staged_diff = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(staged_diff)
+    }
+}
+
+impl Type<Sqlite> for StagedGroupDiff {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for StagedGroupDiff {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for StagedGroupDiff {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        let value = PhnxCodec::from_slice(bytes)?;
+        Ok(value)
     }
 }

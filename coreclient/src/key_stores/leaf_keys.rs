@@ -6,7 +6,7 @@ use phnxtypes::{
     credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
     crypto::ear::keys::IdentityLinkKey,
 };
-use rusqlite::{params, OptionalExtension};
+use sqlx::{query, query_as, SqliteExecutor};
 
 use crate::utils::persistence::Storable;
 
@@ -75,35 +75,49 @@ impl LeafKeys {
 }
 
 impl LeafKeys {
-    pub(crate) fn load(
-        connection: &Connection,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         verifying_key: &SignaturePublicKey,
-    ) -> Result<Option<LeafKeys>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT verifying_key, leaf_signing_key, identity_link_key FROM leaf_keys WHERE verifying_key = ?",
-        )?;
-        stmt.query_row(params![verifying_key.as_slice()], Self::from_row)
-            .optional()
+    ) -> sqlx::Result<Option<LeafKeys>> {
+        let verifying_key = verifying_key.as_slice();
+        query_as!(
+            LeafKeys,
+            r#"SELECT
+                verifying_key,
+                leaf_signing_key AS "leaf_signing_key: _",
+                identity_link_key AS "identity_link_key: _"
+            FROM leaf_keys WHERE verifying_key = ?"#,
+            verifying_key,
+        )
+        .fetch_optional(executor)
+        .await
     }
 
-    pub(crate) fn delete(
-        connection: &Connection,
+    pub(crate) async fn delete(
+        executor: impl SqliteExecutor<'_>,
         verifying_key: &SignaturePublicKey,
-    ) -> Result<(), rusqlite::Error> {
-        let mut stmt = connection.prepare("DELETE FROM leaf_keys WHERE verifying_key = ?")?;
-        stmt.execute(params![verifying_key.as_slice()])?;
+    ) -> sqlx::Result<()> {
+        let verifying_key = verifying_key.as_slice();
+        query!(
+            "DELETE FROM leaf_keys WHERE verifying_key = ?",
+            verifying_key
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, identity_link_key) VALUES (?, ?, ?)",
-            params![
-                self.verifying_key.as_slice(),
-                self.leaf_signing_key,
-                self.identity_link_key
-            ],
-        )?;
+    pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        let verifying_key = self.verifying_key.as_slice();
+        query!(
+            "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, identity_link_key)
+            VALUES (?, ?, ?)",
+            verifying_key,
+            self.leaf_signing_key,
+            self.identity_link_key
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 }

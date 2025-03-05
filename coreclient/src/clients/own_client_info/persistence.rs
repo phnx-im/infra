@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{params, Connection};
-use sqlx::{query, SqlitePool};
+use sqlx::query;
 
 use crate::utils::persistence::Storable;
 
@@ -37,8 +36,10 @@ impl Storable for OwnClientInfo {
 }
 
 impl OwnClientInfo {
-    pub(crate) fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
-        connection.execute(
+    pub(crate) async fn store(&self, executor: impl sqlx::SqliteExecutor<'_>) -> sqlx::Result<()> {
+        let user_name = self.as_client_id.user_name();
+        let client_id = self.as_client_id.client_id();
+        query!(
             "INSERT INTO own_client_info (
                 server_url,
                 qs_user_id,
@@ -46,31 +47,13 @@ impl OwnClientInfo {
                 as_user_name,
                 as_client_uuid
             ) VALUES (?, ?, ?, ?, ?)",
-            params![
-                self.server_url,
-                self.qs_user_id,
-                self.qs_client_id,
-                self.as_client_id.user_name(),
-                self.as_client_id.client_id(),
-            ],
-        )?;
-        Ok(())
-    }
-
-    pub(crate) async fn store_2(&self, db: &SqlitePool) -> sqlx::Result<()> {
-        let user_name = self.as_client_id.user_name();
-        let client_id = self.as_client_id.client_id();
-        query!(
-            "INSERT INTO own_client_info
-                (server_url, qs_user_id, qs_client_id, as_user_name, as_client_uuid)
-                VALUES (?, ?, ?, ?, ?)",
             self.server_url,
             self.qs_user_id,
             self.qs_client_id,
             user_name,
             client_id,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         Ok(())
     }

@@ -102,7 +102,7 @@ mod persistence {
     };
     use sqlx::PgExecutor;
 
-    use crate::{auth_service::credentials::CredentialType, errors::StorageError};
+    use crate::errors::StorageError;
 
     use super::{IntermediateCredential, IntermediateSigningKey};
 
@@ -115,7 +115,7 @@ mod persistence {
                 "INSERT INTO
                     as_signing_keys
                     (cred_type, credential_fingerprint, signing_key, currently_active)
-                VALUES 
+                VALUES
                     ($1, $2, $3, $4)",
                 CredentialType::Intermediate as _,
                 self.fingerprint().as_bytes(),

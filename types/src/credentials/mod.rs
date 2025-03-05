@@ -13,6 +13,7 @@ use mls_assist::{
 use rusqlite::{types::FromSql, ToSql};
 
 use serde::{Deserialize, Serialize};
+use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{
@@ -151,6 +152,22 @@ impl FromSql for AsCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let body = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(body)
+    }
+}
+
+impl Type<Sqlite> for AsCredentialBody {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl Encode<'_, Sqlite> for AsCredentialBody {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
@@ -307,6 +324,29 @@ impl FromSql for AsIntermediateCredentialBody {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let body = PhnxCodec::from_slice(value.as_blob()?)?;
         Ok(body)
+    }
+}
+
+impl Type<Sqlite> for AsIntermediateCredentialBody {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
+    fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        Ok(PhnxCodec::from_slice(bytes)?)
     }
 }
 
@@ -567,6 +607,32 @@ impl ToSql for ClientCredential {
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ),
         ))
+    }
+}
+
+impl Type<Sqlite> for ClientCredential {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for ClientCredential {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let versioned = VersionedClientCredentialRef::CurrentVersion(self);
+        let bytes = PhnxCodec::to_vec(&versioned)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for ClientCredential {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        match PhnxCodec::from_slice(bytes)? {
+            VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
+        }
     }
 }
 

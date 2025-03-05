@@ -13,20 +13,43 @@ use phnxtypes::{
     crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
     identifiers::Fqdn,
 };
-use rusqlite::{params, OptionalExtension, ToSql};
+use sqlx::{
+    encode::IsNull, error::BoxDynError, query, query_scalar, Database, Encode, Sqlite,
+    SqliteExecutor, Type,
+};
 use thiserror::Error;
 use tracing::info;
 
-use crate::{
-    clients::api_clients::ApiClientsError,
-    utils::persistence::{SqliteConnection, Storable},
-};
+use crate::{clients::api_clients::ApiClientsError, utils::persistence::Storable};
 
 use super::*;
 
 pub(crate) enum AsCredentials {
     AsCredential(AsCredential),
     AsIntermediateCredential(AsIntermediateCredential),
+}
+
+enum AsCredentialsBodyRef<'a> {
+    AsCredential(&'a AsCredentialBody),
+    AsIntermediateCredential(&'a AsIntermediateCredentialBody),
+}
+
+impl Type<Sqlite> for AsCredentialsBodyRef<'_> {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl Encode<'_, Sqlite> for AsCredentialsBodyRef<'_> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        match self {
+            Self::AsCredential(body) => Encode::<Sqlite>::encode_by_ref(body, buf),
+            Self::AsIntermediateCredential(body) => Encode::<Sqlite>::encode_by_ref(body, buf),
+        }
+    }
 }
 
 impl Storable for AsCredentials {
@@ -78,47 +101,67 @@ impl AsCredentials {
         }
     }
 
-    fn body(&self) -> &dyn ToSql {
+    fn body(&self) -> AsCredentialsBodyRef<'_> {
         match self {
-            AsCredentials::AsCredential(credential) => credential.body(),
-            AsCredentials::AsIntermediateCredential(credential) => credential.body(),
+            AsCredentials::AsCredential(credential) => {
+                AsCredentialsBodyRef::AsCredential(credential.body())
+            }
+            AsCredentials::AsIntermediateCredential(credential) => {
+                AsCredentialsBodyRef::AsIntermediateCredential(credential.body())
+            }
         }
     }
 
-    fn store(&self, connection: &Connection) -> rusqlite::Result<()> {
-        connection.execute(
-            "INSERT OR REPLACE INTO as_credentials (fingerprint, domain, credential_type, credential) VALUES (?, ?, ?, ?)",
-            params![self.fingerprint(), self.domain(), self.credential_type(), self.body()],
-        )?;
+    async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        let fingerpint = self.fingerprint();
+        let domain = self.domain();
+        let credential_type = self.credential_type();
+        let body = self.body();
+        query!(
+            "INSERT OR REPLACE INTO as_credentials
+                (fingerprint, domain, credential_type, credential) VALUES (?, ?, ?, ?)",
+            fingerpint,
+            domain,
+            credential_type,
+            body,
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
-    fn load_intermediate(
-        connection: &Connection,
+    async fn load_intermediate(
+        executor: impl SqliteExecutor<'_>,
         fingerprint_option: Option<&CredentialFingerprint>,
         domain: &Fqdn,
-    ) -> Result<Option<AsIntermediateCredential>, rusqlite::Error> {
-        let mut query_string =
-            "SELECT credential_type, credential FROM as_credentials WHERE domain = ? AND credential_type = 'as_intermediate_credential'".to_owned();
-        if fingerprint_option.is_some() {
-            query_string.push_str(" AND fingerprint = ?");
-        }
-        let mut statement = connection.prepare(&query_string)?;
-        if let Some(fingerprint) = fingerprint_option {
-            statement.query_row(params![domain, fingerprint], Self::from_row)
-        } else {
-            statement.query_row(params![domain], Self::from_row)
-        }
-        .optional()
-        .map(|credential_type_option| {
-            credential_type_option.and_then(|credential| {
-                if let AsCredentials::AsIntermediateCredential(credential) = credential {
-                    Some(credential)
-                } else {
-                    None
-                }
-            })
-        })
+    ) -> sqlx::Result<Option<AsIntermediateCredential>> {
+        let body: Option<AsIntermediateCredentialBody> =
+            if let Some(fingerprint) = fingerprint_option {
+                query_scalar!(
+                    r#"SELECT
+                    credential AS "credential: _"
+                FROM as_credentials
+                WHERE domain = ?
+                    AND credential_type = 'as_intermediate_credential'
+                    AND fingerprint = ?"#,
+                    domain,
+                    fingerprint,
+                )
+                .fetch_optional(executor)
+                .await?
+            } else {
+                query_scalar!(
+                    r#"SELECT
+                    credential AS "credential: _"
+                FROM as_credentials
+                WHERE domain = ?
+                    AND credential_type = 'as_intermediate_credential'"#,
+                    domain
+                )
+                .fetch_optional(executor)
+                .await?
+            };
+        Ok(body.map(AsIntermediateCredential::from))
     }
 
     async fn fetch_credentials(
@@ -145,17 +188,15 @@ impl AsCredentials {
     /// Fetches the credentials of the AS with the given `domain` if they are
     /// not already present in the store.
     pub(crate) async fn get(
-        connection_mutex: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
         info!("Loading AS credential from db");
         // Phase 1: Check if there is a credential in the database.
-        let connection = connection_mutex.lock().await;
         let credential_option =
-            AsCredentials::load_intermediate(&connection, Some(fingerprint), domain)?;
-        drop(connection);
+            AsCredentials::load_intermediate(&mut *connection, Some(fingerprint), domain).await?;
 
         // Phase 2: If there is no credential in the database, fetch it from the AS.
         let credential = if let Some(credential) = credential_option {
@@ -170,9 +211,7 @@ impl AsCredentials {
 
             // Phase 2b: Store it in the database.
             let credential_type = AsCredentials::AsIntermediateCredential(credential);
-            let connection = connection_mutex.lock().await;
-            credential_type.store(&connection)?;
-            drop(connection);
+            credential_type.store(&mut *connection).await?;
             let AsCredentials::AsIntermediateCredential(credential) = credential_type else {
                 unreachable!()
             };
@@ -185,13 +224,11 @@ impl AsCredentials {
     }
 
     pub(crate) async fn get_intermediate_credential(
-        connection: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
-        let connection = connection.lock().await;
-        let credential_option = AsCredentials::load_intermediate(&connection, None, domain)?;
-        drop(connection);
+        let credential_option = AsCredentials::load_intermediate(connection, None, domain).await?;
         match credential_option {
             Some(credential) => Ok(credential),
             None => {
@@ -205,12 +242,12 @@ impl AsCredentials {
     }
 
     pub async fn verify_client_credential(
-        connection_mutex: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<ClientCredential, AsCredentialStoreError> {
         let as_intermediate_credential = Self::get(
-            connection_mutex,
+            connection,
             api_clients,
             &verifiable_client_credential.domain(),
             verifiable_client_credential.signer_fingerprint(),
@@ -231,7 +268,7 @@ pub(crate) enum AsCredentialStoreError {
     #[error(transparent)]
     VerificationError(#[from] SignatureVerificationError),
     #[error(transparent)]
-    PersistenceError(#[from] rusqlite::Error),
+    PersistenceError(#[from] sqlx::Error),
     #[error(transparent)]
     ApiClientsError(#[from] ApiClientsError),
     #[error(transparent)]

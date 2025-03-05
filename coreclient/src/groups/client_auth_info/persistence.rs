@@ -4,13 +4,14 @@
 
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
-    codec::persist::{BlobPersist, BlobPersisted},
+    codec::persist::BlobPersist,
     credentials::CredentialFingerprint,
     crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
-use rusqlite::{params, params_from_iter, Connection, OptionalExtension, ToSql};
-use sqlx::{query, query_scalar, SqlitePool};
+use sqlx::{query, query_as, query_scalar, Row, SqliteExecutor};
+use tokio_stream::StreamExt;
+use uuid::Uuid;
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
 
@@ -32,81 +33,39 @@ impl Storable for StorableClientCredential {
 impl StorableClientCredential {
     /// Load the [`StorableClientCredential`] with the given
     /// [`CredentialFingerprint`] from the database.
-    pub(in crate::groups) fn load(
-        connection: &Connection,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         credential_fingerprint: &CredentialFingerprint,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("SELECT client_credential FROM client_credentials WHERE fingerprint = ?")?;
-        let client_credential_option = stmt
-            .query_row(params![credential_fingerprint], Self::from_row)
-            .optional()?;
-
-        Ok(client_credential_option)
-    }
-
-    pub(crate) async fn load_2(
-        db: &SqlitePool,
-        credential_fingerprint: &[u8],
     ) -> sqlx::Result<Option<Self>> {
-        let value = query_scalar!(
+        query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
             FROM client_credentials
             WHERE fingerprint = ?"#,
             credential_fingerprint
         )
-        .fetch_optional(db)
-        .await?
-        .map(|BlobPersisted(client_credential)| StorableClientCredential { client_credential });
-        Ok(value)
+        .fetch_optional(executor)
+        .await
+        .map(|res| res.map(StorableClientCredential::new))
     }
 
-    pub(crate) fn load_by_client_id(
-        connection: &Connection,
-        client_id: &AsClientId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("SELECT client_credential FROM client_credentials WHERE client_id = ?")?;
-        let client_credential_option = stmt
-            .query_row(params![client_id], Self::from_row)
-            .optional()?;
-
-        Ok(client_credential_option)
-    }
-
-    pub(crate) async fn load_by_client_id_2(
-        db: &SqlitePool,
+    pub(crate) async fn load_by_client_id(
+        executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
-        let value = query_scalar!(
+        query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
-            FROM client_credentials
-            WHERE client_id = ?"#,
-            client_id,
+            FROM client_credentials WHERE client_id = ?"#,
+            client_id
         )
-        .fetch_optional(db)
-        .await?
-        .map(|BlobPersisted(client_credential)| StorableClientCredential { client_credential });
-        Ok(value)
+        .fetch_optional(executor)
+        .await
+        .map(|res| res.map(StorableClientCredential::new))
     }
 
     /// Stores the client credential in the database if it does not already exist.
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        let fingerprint = self.fingerprint();
-        connection.execute(
-            "INSERT OR IGNORE INTO client_credentials (fingerprint, client_id, client_credential) VALUES (?, ?, ?)",
-            params![
-                fingerprint,
-                self.client_credential.identity(),
-                self.client_credential,
-            ],
-        )?;
-        Ok(())
-    }
-
-    pub(crate) async fn store_2(&self, db: &SqlitePool) -> sqlx::Result<()> {
+    pub(crate) async fn store(&self, connection: &mut sqlx::SqliteConnection) -> sqlx::Result<()> {
         let fingerprint = self.fingerprint();
         let identity = self.client_credential.identity();
         let client_credential = self.client_credential.persist();
@@ -116,7 +75,7 @@ impl StorableClientCredential {
             identity,
             client_credential ,
         )
-        .execute(db)
+        .execute(connection)
         .await?;
         Ok(())
     }
@@ -156,6 +115,36 @@ impl Storable for GroupMembership {
     }
 }
 
+struct SqlGroupMembership {
+    client_credential_fingerprint: CredentialFingerprint,
+    group_id: GroupIdWrapper,
+    client_uuid: Uuid,
+    user_name: QualifiedUserName,
+    leaf_index: u32,
+    identity_link_key: IdentityLinkKeySecret,
+}
+
+impl From<SqlGroupMembership> for GroupMembership {
+    fn from(
+        SqlGroupMembership {
+            client_credential_fingerprint,
+            group_id: GroupIdWrapper(group_id),
+            client_uuid,
+            user_name,
+            leaf_index,
+            identity_link_key,
+        }: SqlGroupMembership,
+    ) -> Self {
+        Self {
+            client_id: AsClientId::new(user_name, client_uuid),
+            group_id,
+            leaf_index: LeafNodeIndex::new(leaf_index),
+            identity_link_key: IdentityLinkKey::from(identity_link_key),
+            client_credential_fingerprint,
+        }
+    }
+}
+
 pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str =
     "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data
         AFTER DELETE ON group_membership
@@ -180,54 +169,67 @@ pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str =
 
 impl GroupMembership {
     /// Merge all staged group memberships for the given group id.
-    pub(in crate::groups) fn merge_for_group(
-        connection: &Connection,
+    pub(in crate::groups) async fn merge_for_group(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(group_id);
-        // Delete all 'staged_removal' rows.
 
-        connection.execute(
+        // Delete all 'staged_removal' rows.
+        query!(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_removal'",
-            params![group_id],
-        )?;
+            group_id,
+        )
+        .execute(&mut *connection)
+        .await?;
 
         // Move modified information from 'staged_update' rows to their
         // 'merged' counterparts (i.e. rows with the same group_id and
         // client_id).
-        connection.execute(
-            "
-        UPDATE group_membership AS merged
-        SET client_credential_fingerprint = staged.client_credential_fingerprint,
-            leaf_index = staged.leaf_index,
-            identity_link_key = staged.identity_link_key
-        FROM group_membership AS staged
-        WHERE merged.group_id = staged.group_id
-          AND merged.client_uuid = staged.client_uuid
-          AND merged.user_name = staged.user_name
-          AND merged.status = 'merged'
-          AND staged.status = 'staged_update'",
-            [],
-        )?;
+        query!(
+            "UPDATE group_membership AS merged
+            SET client_credential_fingerprint = staged.client_credential_fingerprint,
+                leaf_index = staged.leaf_index,
+                identity_link_key = staged.identity_link_key
+            FROM group_membership AS staged
+            WHERE merged.group_id = staged.group_id
+              AND merged.client_uuid = staged.client_uuid
+              AND merged.user_name = staged.user_name
+              AND merged.status = 'merged'
+              AND staged.status = 'staged_update'"
+        )
+        .execute(&mut *connection)
+        .await?;
 
         // Delete all (previously merged) 'staged_update' rows.
-        connection.execute(
+        query!(
             "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_update'",
-            params![group_id],
-        )?;
+            group_id,
+        )
+        .execute(&mut *connection)
+        .await?;
 
         // Mark all 'staged_add' rows as 'merged'.
-        connection.execute(
-            "UPDATE group_membership SET status = 'merged' WHERE group_id = ? AND status = 'staged_add'",
-            params![group_id],
-        )?;
+        query!(
+            "UPDATE group_membership SET status = 'merged'
+            WHERE group_id = ? AND status = 'staged_add'",
+            group_id,
+        )
+        .execute(connection)
+        .await?;
 
         Ok(())
     }
 
-    pub(crate) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR IGNORE INTO group_membership (client_uuid,
+    pub(crate) async fn store(&self, connection: &mut sqlx::SqliteConnection) -> sqlx::Result<()> {
+        let client_id = self.client_id.client_id();
+        let user_name = self.client_id.user_name();
+        let sql_group_id = self.sql_group_id();
+        let leaf_index = self.leaf_index.u32();
+        let identity_link_key = self.identity_link_key.as_ref();
+        query!(
+            "INSERT OR IGNORE INTO group_membership (
+                client_uuid,
                 user_name,
                 group_id,
                 leaf_index,
@@ -235,21 +237,30 @@ impl GroupMembership {
                 client_credential_fingerprint,
                 status
             ) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
-            params![
-                self.client_id.client_id(),
-                self.client_id.user_name(),
-                self.sql_group_id(),
-                self.leaf_index.usize() as i64,
-                self.identity_link_key.as_ref(),
-                self.client_credential_fingerprint,
-            ],
-        )?;
+            client_id,
+            user_name,
+            sql_group_id,
+            leaf_index,
+            identity_link_key,
+            self.client_credential_fingerprint,
+        )
+        .execute(connection)
+        .await?;
         Ok(())
     }
 
-    pub(super) fn stage_update(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT INTO group_membership (client_uuid,
+    pub(super) async fn stage_update(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<()> {
+        let client_id = self.client_id.client_id();
+        let user_name = self.client_id.user_name();
+        let sql_group_id = self.sql_group_id();
+        let leaf_index = self.leaf_index.u32();
+        let identity_link_key = self.identity_link_key.as_ref();
+        query!(
+            "INSERT INTO group_membership (
+                client_uuid,
                 user_name,
                 group_id,
                 leaf_index,
@@ -257,20 +268,28 @@ impl GroupMembership {
                 client_credential_fingerprint,
                 status)
             VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
-            params![
-                self.client_id.client_id(),
-                self.client_id.user_name(),
-                self.sql_group_id(),
-                self.leaf_index.usize() as i64,
-                self.identity_link_key.as_ref(),
-                self.client_credential_fingerprint,
-            ],
-        )?;
+            client_id,
+            user_name,
+            sql_group_id,
+            leaf_index,
+            identity_link_key,
+            self.client_credential_fingerprint,
+        )
+        .execute(connection)
+        .await?;
         Ok(())
     }
 
-    pub(super) fn stage_add(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
+    pub(super) async fn stage_add(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<()> {
+        let client_id = self.client_id.client_id();
+        let user_name = self.client_id.user_name();
+        let sql_group_id = self.sql_group_id();
+        let leaf_index = self.leaf_index.u32();
+        let identity_link_key = self.identity_link_key.as_ref();
+        query!(
             "INSERT INTO group_membership (client_uuid,
                 user_name,
                 group_id,
@@ -279,112 +298,135 @@ impl GroupMembership {
                 client_credential_fingerprint,
                 status)
             VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
-            params![
-                self.client_id.client_id(),
-                self.client_id.user_name(),
-                self.sql_group_id(),
-                self.leaf_index.usize() as i64,
-                self.identity_link_key.as_ref(),
-                self.client_credential_fingerprint,
-            ],
-        )?;
+            client_id,
+            user_name,
+            sql_group_id,
+            leaf_index,
+            identity_link_key,
+            self.client_credential_fingerprint,
+        )
+        .execute(connection)
+        .await?;
         Ok(())
     }
 
-    pub(in crate::groups) fn stage_removal(
-        connection: &Connection,
+    pub(in crate::groups) async fn stage_removal(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
         removed_index: LeafNodeIndex,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "UPDATE group_membership SET status = 'staged_removal' WHERE group_id = ? AND leaf_index = ?",
-            params![GroupIdRefWrapper::from(group_id), removed_index.u32()],
-        )?;
+    ) -> sqlx::Result<()> {
+        let group_id = GroupIdRefWrapper::from(group_id);
+        let removed_index = removed_index.u32();
+        query!(
+            "UPDATE group_membership SET status = 'staged_removal'
+            WHERE group_id = ? AND leaf_index = ?",
+            group_id,
+            removed_index,
+        )
+        .execute(connection)
+        .await?;
         Ok(())
     }
 
     /// Load the [`GroupMembership`] for the given group_id and leaf_index from the
     /// database. Only loads merged group memberships. Use `load_staged` to load
     /// an staged group membership.
-    pub(in crate::groups) fn load(
-        connection: &Connection,
+    pub(in crate::groups) async fn load(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        Self::load_internal(connection, group_id, leaf_index, true)
+    ) -> sqlx::Result<Option<Self>> {
+        Self::load_internal(connection, group_id, leaf_index, true).await
     }
 
     /// Load the [`GroupMembership`] for the given group_id and leaf_index from the
     /// database. Only loads staged group memberships. Use `load` to load
     /// a merged group membership.
-    pub(super) fn load_staged(
-        connection: &Connection,
+    pub(super) async fn load_staged(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        Self::load_internal(connection, group_id, leaf_index, false)
+    ) -> sqlx::Result<Option<Self>> {
+        Self::load_internal(connection, group_id, leaf_index, false).await
     }
 
-    fn load_internal(
-        connection: &Connection,
+    async fn load_internal(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
         merged: bool,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut query_string = "SELECT
-            client_credential_fingerprint,
-            group_id,
-            client_uuid,
-            user_name,
-            leaf_index,
-            identity_link_key FROM group_membership WHERE group_id = ? AND leaf_index = ?"
-            .to_owned();
-        if merged {
-            query_string += " AND status = 'merged'";
-        } else {
-            query_string += " AND status LIKE 'staged_%'";
-        };
-        let mut stmt = connection.prepare(&query_string)?;
-        let group_membership = stmt
-            .query_row(
-                params![GroupIdRefWrapper::from(group_id), leaf_index.u32()],
-                Self::from_row,
+    ) -> sqlx::Result<Option<Self>> {
+        let group_id = GroupIdRefWrapper::from(group_id);
+        let leaf_index = leaf_index.u32();
+        let sql_group_membership = if merged {
+            query_as!(
+                SqlGroupMembership,
+                r#"SELECT
+                    client_credential_fingerprint AS "client_credential_fingerprint: _",
+                    group_id AS "group_id: _",
+                    client_uuid AS "client_uuid: _",
+                    user_name AS "user_name: _",
+                    leaf_index AS "leaf_index: _",
+                    identity_link_key AS "identity_link_key: _"
+                FROM group_membership
+                WHERE group_id = ? AND leaf_index = ?
+                AND status = 'merged'"#,
+                group_id,
+                leaf_index,
             )
-            .optional()?;
-        Ok(group_membership)
+            .fetch_optional(connection)
+            .await
+        } else {
+            query_as!(
+                SqlGroupMembership,
+                r#"SELECT
+                    client_credential_fingerprint AS "client_credential_fingerprint: _",
+                    group_id AS "group_id: _",
+                    client_uuid AS "client_uuid: _",
+                    user_name AS "user_name: _",
+                    leaf_index AS "leaf_index: _",
+                    identity_link_key AS "identity_link_key: _"
+                FROM group_membership
+                WHERE group_id = ? AND leaf_index = ?
+                AND status LIKE 'staged_%'"#,
+                group_id,
+                leaf_index,
+            )
+            .fetch_optional(connection)
+            .await
+        };
+
+        sql_group_membership.map(|res| res.map(From::from))
     }
 
     /// Returns a vector of all leaf indices occupied by (merged) group members
     /// that were not staged for removal.
-    pub(super) fn member_indices(
-        connection: &Connection,
+    pub(super) async fn member_indices(
+        executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-    ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT leaf_index FROM group_membership WHERE group_id = ?
+    ) -> sqlx::Result<Vec<LeafNodeIndex>> {
+        let group_id = GroupIdRefWrapper::from(group_id);
+        query_scalar!(
+            r#"SELECT
+                leaf_index AS "leaf_index: _"
+            FROM group_membership WHERE group_id = ?
             AND NOT (status = 'staged_removal'
                 OR status = 'staged_add'
-                OR status = 'staged_update')",
-        )?;
-        let indices = stmt
-            .query_map(params![group_id.as_slice()], |row| {
-                let leaf_index: i64 = row.get(0)?;
-                Ok(LeafNodeIndex::new(leaf_index as u32))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(indices)
+                OR status = 'staged_update')"#,
+            group_id
+        )
+        .fetch(executor)
+        .map(|res| res.map(LeafNodeIndex::new))
+        .collect()
+        .await
     }
 
-    pub(in crate::groups) fn client_indices(
-        connection: &Connection,
+    pub(in crate::groups) async fn client_indices(
+        connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
         client_ids: &[AsClientId],
-    ) -> Result<Vec<LeafNodeIndex>, rusqlite::Error> {
-        let client_infos = client_ids
-            .iter()
-            .map(|client_id| (client_id.client_id(), client_id.user_name()))
-            .collect::<Vec<_>>();
-        let placeholders = client_infos
+    ) -> sqlx::Result<Vec<LeafNodeIndex>> {
+        let placeholders = client_ids
             .iter()
             .map(|_| "(?, ?)")
             .collect::<Vec<_>>()
@@ -394,59 +436,70 @@ impl GroupMembership {
             WHERE group_id = ? AND (client_uuid, user_name) IN ({})",
             placeholders
         );
-        let group_id = GroupIdRefWrapper::from(group_id);
-        let mut params: Vec<&dyn ToSql> = vec![&group_id];
-        params.extend(client_infos.iter().flat_map(|(client_uuid, user_name)| {
-            [client_uuid as &dyn ToSql, user_name as &dyn ToSql]
-        }));
-        let mut stmt = connection.prepare(&query_string)?;
-        let rows = stmt
-            .query_map(params_from_iter(params), |row| {
-                let leaf_index_raw: i64 = row.get(0)?;
-                let leaf_index = LeafNodeIndex::new(leaf_index_raw as u32);
-                Ok(leaf_index)
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(rows)
+
+        let mut query = sqlx::query(&query_string).bind(GroupIdRefWrapper::from(group_id));
+        for client_id in client_ids {
+            query = query
+                .bind(client_id.client_id())
+                .bind(client_id.user_name());
+        }
+
+        query
+            .fetch(connection)
+            .map(|row| {
+                let leaf_index: u32 = row?.try_get(0)?;
+                Ok(LeafNodeIndex::new(leaf_index))
+            })
+            .collect()
+            .await
     }
 
-    pub(in crate::groups) fn user_client_ids(
-        connection: &Connection,
+    pub(in crate::groups) async fn user_client_ids(
+        executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
         user_name: &QualifiedUserName,
-    ) -> Result<Vec<AsClientId>, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT client_uuid FROM group_membership WHERE group_id = ? AND user_name = ?",
-        )?;
-        let indices = stmt
-            .query_map(
-                params![GroupIdRefWrapper::from(group_id), user_name],
-                |row| {
-                    let client_uuid = row.get(0)?;
-                    let client_id = AsClientId::new(user_name.clone(), client_uuid);
-                    Ok(client_id)
-                },
-            )?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(indices)
+    ) -> sqlx::Result<Vec<AsClientId>> {
+        let group_id = GroupIdRefWrapper::from(group_id);
+        query_scalar!(
+            r#"SELECT client_uuid AS "client_uuid: _"
+            FROM group_membership WHERE group_id = ? AND user_name = ?"#,
+            group_id,
+            user_name
+        )
+        .fetch(executor)
+        .map(|res| res.map(|client_uuid| AsClientId::new(user_name.clone(), client_uuid)))
+        .collect()
+        .await
     }
 
-    pub(in crate::groups) fn group_members(
-        connection: &Connection,
+    pub(in crate::groups) async fn group_members(
+        executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-    ) -> Result<Vec<AsClientId>, rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("SELECT client_uuid, user_name FROM group_membership WHERE group_id = ?")?;
-        let group_members = stmt
-            .query_map(params![GroupIdRefWrapper::from(group_id)], |row| {
-                let client_uuid = row.get(0)?;
-                let user_name = row.get(1)?;
-                let client_id = AsClientId::new(user_name, client_uuid);
-                Ok(client_id)
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(group_members)
+    ) -> sqlx::Result<Vec<AsClientId>> {
+        struct SqlGroupMember {
+            client_uuid: Uuid,
+            user_name: QualifiedUserName,
+        }
+
+        let group_id = GroupIdRefWrapper::from(group_id);
+        query_as!(
+            SqlGroupMember,
+            r#"SELECT
+                client_uuid AS "client_uuid: _",
+                user_name AS "user_name: _"
+            FROM group_membership WHERE group_id = ?"#,
+            group_id
+        )
+        .fetch(executor)
+        .map(|res| {
+            let SqlGroupMember {
+                client_uuid,
+                user_name,
+            } = res?;
+            Ok(AsClientId::new(user_name, client_uuid))
+        })
+        .collect()
+        .await
     }
 
     fn sql_group_id(&self) -> GroupIdRefWrapper<'_> {
@@ -515,15 +568,13 @@ mod tests {
         )
     }
 
-    #[test]
-    fn client_credential_store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    fn client_credential_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let credential = test_client_credential(Uuid::new_v4());
 
-        credential.store(&connection)?;
-        let loaded =
-            StorableClientCredential::load_by_client_id(&connection, &credential.identity())?
-                .expect("missing credential");
+        credential.store(&pool)?;
+        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())?
+            .expect("missing credential");
         assert_eq!(
             loaded.client_credential.tls_serialize_detached(),
             credential.client_credential.tls_serialize_detached()

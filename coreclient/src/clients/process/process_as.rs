@@ -38,14 +38,13 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        let mut connection = self.inner.connection.lock().await;
-        let transaction = connection.transaction()?;
-        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&transaction)?;
+        let mut transaction = self.pool().begin().await?;
+        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut transaction).await?;
 
         let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
 
-        as_queue_ratchet.update_ratchet(&transaction)?;
-        transaction.commit()?;
+        as_queue_ratchet.update_ratchet(&mut transaction).await?;
+        transaction.commit().await?;
 
         Ok(payload.extract()?)
     }
@@ -123,8 +122,9 @@ impl CoreUser {
 
         // EncryptedConnectionEstablishmentPackage Phase 1: Load the
         // AS credential of the sender.
+        let mut connection = self.pool().acquire().await?;
         let as_intermediate_credential = AsCredentials::get(
-            self.inner.connection.clone(),
+            &mut connection,
             &self.inner.api_clients,
             &sender_domain,
             cep_in.sender_credential().signer_fingerprint(),
@@ -178,10 +178,10 @@ impl CoreUser {
     }
 
     async fn load_own_user_profile(&self) -> Result<UserProfile> {
-        let connection = self.inner.connection.lock().await;
-        Ok(UserProfile::load(&connection, &self.user_name())
-            // We unwrap here, because we know that the user exists.
-            .map(|user_option| user_option.unwrap())?)
+        // We unwrap here, because we know that the user exists.
+        Ok(UserProfile::load(self.pool(), &self.user_name())
+            .await?
+            .unwrap())
     }
 
     async fn fetch_external_commit_info(
@@ -208,8 +208,9 @@ impl CoreUser {
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
         let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
+        let mut connection = self.pool().acquire().await?;
         let (group, commit, group_info) = Group::join_group_externally(
-            self.inner.connection.clone(),
+            &mut connection,
             &self.inner.api_clients,
             eci,
             leaf_signer,
@@ -260,18 +261,19 @@ impl CoreUser {
         contact: Contact,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<()> {
-        let connection = self.inner.connection.lock().await;
-        group.store(&connection)?;
-        conversation.store(&connection, notifier)?;
+        let mut connection = self.pool().acquire().await?;
+        group.store(&mut connection).await?;
+        conversation.store(&mut *connection, notifier).await?;
         // Store the user profile of the sender.
         cep_tbs
             .friendship_package
             .user_profile
-            .store_or_ignore(&connection, notifier)?;
+            .store_or_ignore(&mut *connection, notifier)
+            .await?;
         // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(&connection, notifier)?;
+        conversation.confirm(&mut *connection, notifier).await?;
         // TODO: Here, we want to store a contact
-        contact.store(&connection, notifier)?;
+        contact.store(&mut *connection, notifier).await?;
         Ok(())
     }
 

@@ -20,7 +20,6 @@ use phnxtypes::{
 use crate::{
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    utils::persistence::SqliteConnection,
     ConversationId,
 };
 use anyhow::Result;
@@ -70,7 +69,7 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
-        connection_mutex: SqliteConnection,
+        connection: &mut sqlx::SqliteConnection,
         api_clients: ApiClients,
     ) -> Result<ContactAddInfos> {
         let invited_user = self.user_name.clone();
@@ -95,17 +94,17 @@ impl Contact {
             pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
         // Verify the client credential
         let incoming_client_credential = StorableClientCredential::verify(
-            connection_mutex.clone(),
+            &mut *connection,
             &api_clients,
             plaintext.client_credential,
         )
         .await?;
         // Check that the client credential is the same as the one we have on file.
-        let connection = connection_mutex.lock().await;
         let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
-            &connection,
+            connection,
             &incoming_client_credential.identity(),
-        )?
+        )
+        .await?
         else {
             anyhow::bail!("Client credential not found");
         };

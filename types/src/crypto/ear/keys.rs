@@ -53,6 +53,28 @@ impl FromSql for GroupStateEarKey {
     }
 }
 
+impl Type<Sqlite> for GroupStateEarKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for GroupStateEarKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode_by_ref(&self.key, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for GroupStateEarKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = Decode::<Sqlite>::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 impl GroupStateEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
@@ -309,6 +331,28 @@ impl rusqlite::types::FromSql for IdentityLinkKey {
     }
 }
 
+impl Type<Sqlite> for IdentityLinkKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for IdentityLinkKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode_by_ref(&self.key, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for IdentityLinkKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = Decode::<Sqlite>::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 impl EarKey for IdentityLinkKey {}
 
 impl AsRef<Secret<AEAD_KEY_SIZE>> for IdentityLinkKey {
@@ -503,6 +547,28 @@ impl rusqlite::types::ToSql for IdentityLinkWrapperKey {
 impl rusqlite::types::FromSql for IdentityLinkWrapperKey {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
         let key = IdentityLinkWrapperKeySecret::column_result(value)?;
+        Ok(Self { key })
+    }
+}
+
+impl Type<Sqlite> for IdentityLinkWrapperKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <IdentityLinkWrapperKeySecret as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for IdentityLinkWrapperKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode_by_ref(&self.key, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for IdentityLinkWrapperKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let key = Decode::<Sqlite>::decode(value)?;
         Ok(Self { key })
     }
 }

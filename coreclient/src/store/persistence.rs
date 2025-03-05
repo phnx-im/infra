@@ -2,13 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::QualifiedUserName;
+use std::collections::BTreeMap;
+
+use anyhow::bail;
 use rusqlite::{
-    params,
     types::{FromSql, ToSqlOutput, Value},
-    Connection, ToSql,
+    ToSql,
 };
+use sqlx::{
+    encode::IsNull, error::BoxDynError, query, query_as, Decode, Encode, Sqlite, SqliteExecutor,
+    Type,
+};
+use tokio_stream::StreamExt;
 use tracing::error;
+use uuid::Uuid;
+
+use crate::{ConversationId, ConversationMessageId};
 
 use super::{notification::StoreEntityKind, StoreEntityId, StoreNotification, StoreOperation};
 
@@ -19,6 +28,32 @@ impl ToSql for StoreEntityId {
             StoreEntityId::User(user_name) => user_name.to_sql(),
             StoreEntityId::Conversation(conversation_id) => conversation_id.to_sql(),
             StoreEntityId::Message(message_id) => message_id.to_sql(),
+        }
+    }
+}
+
+impl Type<Sqlite> for StoreEntityId {
+    fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for StoreEntityId {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        match self {
+            StoreEntityId::User(qualified_user_name) => {
+                let s = qualified_user_name.to_string();
+                Encode::<Sqlite>::encode(s.into_bytes(), buf)
+            }
+            StoreEntityId::Conversation(conversation_id) => {
+                Encode::<Sqlite>::encode_by_ref(&conversation_id.uuid, buf)
+            }
+            StoreEntityId::Message(conversation_message_id) => {
+                Encode::<Sqlite>::encode_by_ref(&conversation_message_id.uuid, buf)
+            }
         }
     }
 }
@@ -40,6 +75,67 @@ impl FromSql for StoreEntityKind {
     }
 }
 
+impl Type<Sqlite> for StoreEntityKind {
+    fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
+        <i64 as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for StoreEntityKind {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode(*self as i64, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for StoreEntityKind {
+    fn decode(value: <Sqlite as sqlx::Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value: i64 = Decode::<Sqlite>::decode(value)?;
+        Ok(value.try_into()?)
+    }
+}
+
+struct SqlStoreNotification {
+    entity_id: Vec<u8>,
+    kind: StoreEntityKind,
+    added: bool,
+    updated: bool,
+    removed: bool,
+}
+
+impl SqlStoreNotification {
+    fn into_entity_id_and_op(self) -> anyhow::Result<(StoreEntityId, StoreOperation)> {
+        let Self {
+            entity_id,
+            kind,
+            added,
+            updated,
+            removed,
+        } = self;
+        let entity_id = match kind {
+            StoreEntityKind::User => StoreEntityId::User(String::from_utf8(entity_id)?.parse()?),
+            StoreEntityKind::Conversation => {
+                StoreEntityId::Conversation(ConversationId::new(Uuid::from_slice(&entity_id)?))
+            }
+            StoreEntityKind::Message => {
+                StoreEntityId::Message(ConversationMessageId::new(Uuid::from_slice(&entity_id)?))
+            }
+        };
+        let op = if added {
+            StoreOperation::Add
+        } else if updated {
+            StoreOperation::Update
+        } else if removed {
+            StoreOperation::Remove
+        } else {
+            bail!("missing operation");
+        };
+        Ok((entity_id, op))
+    }
+}
+
 impl StoreNotification {
     pub const CREATE_TABLE_STATEMENT: &str = "
         CREATE TABLE IF NOT EXISTS store_notifications (
@@ -51,68 +147,60 @@ impl StoreNotification {
             PRIMARY KEY (entity_id, kind)
         );";
 
-    pub(crate) fn enqueue(&self, connection: &mut Connection) -> Result<(), rusqlite::Error> {
-        let transaction = connection.transaction()?;
-        let mut statement = transaction.prepare(
-            "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)
-            VALUES (?, ?, ?, ?, ?)",
-        )?;
+    pub(crate) async fn enqueue(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<()> {
+        use sqlx::Connection;
+        let mut transaction = connection.begin().await?;
         for (entity_id, operation) in &self.ops {
             let kind = entity_id.kind();
-            statement.execute(params![
+            let added = operation == &StoreOperation::Add;
+            let updated = operation == &StoreOperation::Update;
+            let removed = operation == &StoreOperation::Remove;
+            query!(
+                "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)
+                VALUES (?, ?, ?, ?, ?)",
                 entity_id,
                 kind,
-                operation == &StoreOperation::Add,
-                operation == &StoreOperation::Update,
-                operation == &StoreOperation::Remove,
-            ])?;
+                added,
+                updated,
+                removed,
+            )
+            .execute(&mut *transaction)
+            .await?;
         }
-        drop(statement);
-        transaction.commit()?;
+        transaction.commit().await?;
         Ok(())
     }
 
-    pub(crate) fn dequeue(
-        connection: &mut Connection,
-    ) -> Result<StoreNotification, rusqlite::Error> {
-        let mut statement = connection.prepare("DELETE FROM store_notifications RETURNING *")?;
-        let ops = statement
-            .query_map(params![], |row| {
-                let kind: StoreEntityKind = row.get(1)?;
-                let entity_id = match kind {
-                    StoreEntityKind::User => {
-                        let user_name: QualifiedUserName = row.get(0)?;
-                        StoreEntityId::User(user_name)
-                    }
-                    StoreEntityKind::Conversation => {
-                        let id: crate::ConversationId = row.get(0)?;
-                        StoreEntityId::Conversation(id)
-                    }
-                    StoreEntityKind::Message => {
-                        let id: crate::ConversationMessageId = row.get(0)?;
-                        StoreEntityId::Message(id)
-                    }
-                };
+    pub(crate) async fn dequeue(
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<StoreNotification> {
+        let mut records = query_as!(
+            SqlStoreNotification,
+            r#"DELETE FROM store_notifications RETURNING
+                entity_id,
+                kind AS "kind: _",
+                added,
+                updated,
+                removed
+            "#
+        )
+        .fetch(executor);
 
-                // TODO: Precendence of operations will be removed when we switch to a bitset.
-                let added = row.get(2)?;
-                let updated = row.get(3)?;
-                let removed = row.get(4)?;
-                let op = if added {
-                    StoreOperation::Add
-                } else if updated {
-                    StoreOperation::Update
-                } else if removed {
-                    StoreOperation::Remove
-                } else {
-                    error!(?entity_id, "Invalid store notification; missing operation");
-                    return Ok(None);
-                };
-
-                Ok(Some((entity_id, op)))
-            })?
-            .filter_map(|res| res.transpose())
-            .collect::<rusqlite::Result<_>>()?;
+        let mut ops = BTreeMap::new();
+        while let Some(record) = records.next().await {
+            let record = record?;
+            match record.into_entity_id_and_op() {
+                Ok((entity_id, op)) => {
+                    ops.insert(entity_id, op);
+                }
+                Err(error) => {
+                    error!(%error, "Error parsing store notification; skipping");
+                }
+            }
+        }
         Ok(StoreNotification { ops })
     }
 }

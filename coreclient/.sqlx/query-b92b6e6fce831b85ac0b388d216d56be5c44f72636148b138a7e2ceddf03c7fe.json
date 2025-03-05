@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                client_credential AS \"client_credential: _\"\n            FROM client_credentials\n            WHERE client_id = ?",
+  "query": "SELECT\n                client_credential AS \"client_credential: _\"\n            FROM client_credentials WHERE client_id = ?",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "8d80c457b9b6823e8d7cc09a5ae900aaa11bb9da2f828a7f6325a26065b00663"
+  "hash": "b92b6e6fce831b85ac0b388d216d56be5c44f72636148b138a7e2ceddf03c7fe"
 }

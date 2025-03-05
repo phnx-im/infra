@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Duration, Utc};
@@ -42,16 +42,18 @@ use phnxtypes::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
     },
 };
-use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
+use sqlx::{
+    migrate,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode},
+    Connection, SqlitePool,
+};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::store::StoreNotificationsSender;
-use crate::utils::persistence::{SqliteConnection, Storable};
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -63,11 +65,12 @@ use crate::{
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
-    utils::{
-        migration::run_migrations,
-        persistence::{open_client_db, open_phnx_db},
-    },
+    utils::persistence::{open_client_db, open_phnx_db},
     ConversationMessageId,
+};
+use crate::{
+    groups::openmls_provider::sqlx_storage_provider::SqlxStorageProvider,
+    store::StoreNotificationsSender,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -102,7 +105,7 @@ pub struct CoreUser {
 }
 
 struct CoreUserInner {
-    connection: SqliteConnection,
+    pool: SqlitePool,
     api_clients: ApiClients,
     _qs_user_id: QsUserId,
     qs_client_id: QsClientId,
@@ -122,18 +125,18 @@ impl CoreUser {
     ) -> Result<Self> {
         let as_client_id = AsClientId::random(user_name)?;
         // Open the phnx db to store the client record
-        let phnx_db_connection = open_phnx_db(db_path)?;
+        let phnx_db = open_phnx_db(db_path).await?;
 
         // Open client specific db
-        let client_db_connection = open_client_db(&as_client_id, db_path)?;
+        let client_db = open_client_db(&as_client_id, db_path).await?;
 
         Self::new_with_connections(
             as_client_id,
             password,
             server_url,
             push_token,
-            SqliteConnection::new(phnx_db_connection),
-            SqliteConnection::new(client_db_connection),
+            phnx_db,
+            client_db,
         )
         .await
     }
@@ -143,48 +146,36 @@ impl CoreUser {
         password: &str,
         server_url: impl ToString,
         push_token: Option<PushToken>,
-        phnx_db_connection_mutex: SqliteConnection,
-        client_db_connection_mutex: SqliteConnection,
+        phnx_db: SqlitePool,
+        client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
-        let mut client_db_connection = client_db_connection_mutex.lock().await;
-        let phnx_db_connection = phnx_db_connection_mutex.lock().await;
-
-        run_migrations(&mut client_db_connection)?;
-
         let user_creation_state = UserCreationState::new(
-            &client_db_connection,
-            &phnx_db_connection,
+            &client_db,
+            &phnx_db,
             as_client_id,
             server_url.clone(),
             password,
             push_token,
-        )?;
-
-        drop(client_db_connection);
-        drop(phnx_db_connection);
+        )
+        .await?;
 
         let final_state = user_creation_state
-            .complete_user_creation(
-                phnx_db_connection_mutex,
-                client_db_connection_mutex.clone(),
-                &api_clients,
-            )
+            .complete_user_creation(&phnx_db, &client_db, &api_clients)
             .await?;
 
-        let client_db_connection = client_db_connection_mutex.lock().await;
         OwnClientInfo {
             server_url,
             qs_user_id: *final_state.qs_user_id(),
             qs_client_id: *final_state.qs_client_id(),
             as_client_id: final_state.client_id().clone(),
         }
-        .store(&client_db_connection)?;
-        drop(client_db_connection);
+        .store(&client_db)
+        .await?;
 
-        let self_user = final_state.into_self_user(client_db_connection_mutex, api_clients);
+        let self_user = final_state.into_self_user(client_db, api_clients);
 
         Ok(self_user)
     }
@@ -199,21 +190,28 @@ impl CoreUser {
     ) -> Result<Self> {
         let user_name = user_name.into();
         let as_client_id = AsClientId::random(user_name)?;
-        // Open the phnx db to store the client record
-        let phnx_db_connection = Connection::open_in_memory()?;
 
-        ClientRecord::create_table(&phnx_db_connection)?;
+        // Open the phnx db to store the client record
+        let opts = SqliteConnectOptions::new()
+            .journal_mode(SqliteJournalMode::Wal)
+            .in_memory(true);
+        let phnx_db = SqlitePool::connect_with(opts).await?;
+        migrate!().run(&phnx_db).await?;
 
         // Open client specific db
-        let client_db_connection = Connection::open_in_memory()?;
+        let opts = SqliteConnectOptions::new()
+            .journal_mode(SqliteJournalMode::Wal)
+            .in_memory(true);
+        let client_db = SqlitePool::connect_with(opts).await?;
+        migrate!().run(&client_db).await?;
 
         Self::new_with_connections(
             as_client_id,
             password,
             server_url,
             push_token,
-            SqliteConnection::new(phnx_db_connection),
-            SqliteConnection::new(client_db_connection),
+            phnx_db,
+            client_db,
         )
         .await
     }
@@ -222,14 +220,11 @@ impl CoreUser {
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
     pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<Option<CoreUser>> {
-        let phnx_db_connection = open_phnx_db(db_path)?;
+        let phnx_db = open_phnx_db(db_path).await?;
 
-        let mut client_db_connection = open_client_db(&as_client_id, db_path)?;
+        let client_db = open_client_db(&as_client_id, db_path).await?;
 
-        run_migrations(&mut client_db_connection)?;
-
-        let Some(user_creation_state) =
-            UserCreationState::load(&client_db_connection, &as_client_id)?
+        let Some(user_creation_state) = UserCreationState::load(&client_db, &as_client_id).await?
         else {
             return Ok(None);
         };
@@ -239,38 +234,18 @@ impl CoreUser {
             user_creation_state.server_url(),
         );
 
-        let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
-        let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
-
         let final_state = user_creation_state
-            .complete_user_creation(
-                phnx_db_connection_mutex.clone(),
-                client_db_connection_mutex.clone(),
-                &api_clients,
-            )
+            .complete_user_creation(&phnx_db, &client_db, &api_clients)
             .await?;
 
-        let self_user = final_state.into_self_user(client_db_connection_mutex.clone(), api_clients);
-        ClientRecord::set_default(
-            &*phnx_db_connection_mutex.lock().await,
-            &self_user.as_client_id(),
-        )?;
+        let self_user = final_state.into_self_user(client_db.clone(), api_clients);
+        ClientRecord::set_default(&client_db, &self_user.as_client_id()).await?;
 
         Ok(Some(self_user))
     }
 
-    /// Executes a fallible closure `f` with a transaction.
-    ///
-    /// Transaction is committed on success and rolled back on failure of the closure `f`.
-    pub(crate) async fn with_transaction<T>(
-        &self,
-        f: impl FnOnce(&Transaction) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
-        let mut connection = self.inner.connection.lock().await;
-        let transaction = connection.transaction()?;
-        let value = f(&transaction)?;
-        transaction.commit()?;
-        Ok(value)
+    pub(crate) fn pool(&self) -> &SqlitePool {
+        &self.inner.pool
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
@@ -307,14 +282,13 @@ impl CoreUser {
         &self,
         notification: &StoreNotification,
     ) -> Result<()> {
-        notification.enqueue(&mut *self.inner.connection.lock().await)?;
+        let mut connection = self.pool().acquire().await?;
+        notification.enqueue(&mut connection).await?;
         Ok(())
     }
 
     pub(crate) async fn dequeue_store_notification(&self) -> Result<StoreNotification> {
-        Ok(StoreNotification::dequeue(
-            &mut *self.inner.connection.lock().await,
-        )?)
+        Ok(StoreNotification::dequeue(self.pool()).await?)
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
@@ -327,9 +301,8 @@ impl CoreUser {
             };
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
-        let connection = &self.inner.connection.lock().await;
         let mut notifier = self.store_notifier();
-        user_profile.update(connection, &mut notifier)?;
+        user_profile.update(self.pool(), &mut notifier).await?;
         notifier.notify();
         Ok(())
     }
@@ -383,8 +356,7 @@ impl CoreUser {
 
     /// Get the user profile of the user with the given [`QualifiedUserName`].
     pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
-        let connection = &self.inner.connection.lock().await;
-        let user = UserProfile::load(connection, user_name)?;
+        let user = UserProfile::load(self.pool(), user_name).await?;
         Ok(user)
     }
 
@@ -401,11 +373,9 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load all the relevant conversation and all the contacts we
         // want to add.
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.uuid()
-        ))?;
+        let conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let group_id = conversation.group_id().clone();
         let owner_domain = conversation.owner_domain();
 
@@ -414,28 +384,21 @@ impl CoreUser {
         let mut contacts = vec![];
         for invited_user in invited_users {
             // Get the WAI keys and client credentials for the invited users.
-            let contact = Contact::load(&connection, invited_user)?.ok_or(anyhow!(
-                "Can't find contact with user name {}",
-                invited_user
-            ))?;
+            let contact = Contact::load(self.pool(), invited_user)
+                .await?
+                .ok_or_else(|| anyhow!("Can't find contact with user name {}", invited_user))?;
             contact_wai_keys.push(contact.wai_ear_key().clone());
-            let contact_client_credentials = contact
-                .clients()
-                .iter()
-                .filter_map(|client_id| {
-                    match StorableClientCredential::load_by_client_id(&connection, client_id) {
-                        Ok(Some(client_credential)) => {
-                            Some(Ok(ClientCredential::from(client_credential)))
-                        }
-                        Ok(None) => None,
-                        Err(e) => Some(Err(e)),
-                    }
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            client_credentials.extend(contact_client_credentials);
+
+            for client_id in contact.clients() {
+                if let Some(client_credential) =
+                    StorableClientCredential::load_by_client_id(self.pool(), client_id).await?
+                {
+                    client_credentials.push(ClientCredential::from(client_credential));
+                }
+            }
+
             contacts.push(contact);
         }
-        drop(connection);
 
         // Phase 2: Load add infos for each contact
         // This needs the connection load (and potentially fetch and store).
@@ -443,7 +406,7 @@ impl CoreUser {
         for contact in contacts {
             let add_info = contact
                 .fetch_add_infos(
-                    self.inner.connection.clone(),
+                    self.pool().acquire().await?.as_mut(),
                     self.inner.api_clients.clone(),
                 )
                 .await?;
@@ -453,18 +416,20 @@ impl CoreUser {
         debug_assert!(contact_add_infos.len() == invited_users.len());
 
         // Phase 3: Load the group and create the commit to add the new members
-        let connection = self.inner.connection.lock().await;
-        let mut group = Group::load(&connection, &group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), &group_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
-        let params = group.invite(
-            &connection,
-            &self.inner.key_store.signing_key,
-            contact_add_infos,
-            contact_wai_keys,
-            client_credentials,
-        )?;
-        drop(connection);
+        let mut connection = self.pool().acquire().await?;
+        let params = group
+            .invite(
+                &mut connection,
+                &self.inner.key_store.signing_key,
+                contact_add_infos,
+                contact_wai_keys,
+                client_credentials,
+            )
+            .await?;
 
         // Phase 4: Send the commit to the DS
         // The DS responds with the timestamp of the commit.
@@ -476,16 +441,24 @@ impl CoreUser {
             .await?;
 
         // Phase 5: Merge the commit into the group
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-        // Now that we know the commit went through, we can merge the commit
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-        group.store_update(&transaction)?;
+        let mut connection = self.pool().acquire().await?;
+        connection
+            .transaction(|transaction| {
+                let inner_self = self.clone();
+                Box::pin(async move {
+                    // Now that we know the commit went through, we can merge the commit
+                    let group_messages = group
+                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                        .await?;
+                    group.store_update(&mut **transaction).await?;
 
-        let conversation_messages =
-            self.store_messages(&mut transaction, conversation_id, group_messages)?;
-        transaction.commit()?;
-        Ok(conversation_messages)
+                    let conversation_messages = inner_self
+                        .store_messages(&mut *transaction, conversation_id, group_messages)
+                        .await?;
+                    Ok(conversation_messages)
+                })
+            })
+            .await
     }
 
     /// Remove users from the conversation with the given [`ConversationId`].
@@ -500,20 +473,20 @@ impl CoreUser {
         target_users: &[QualifiedUserName],
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.uuid()
-        ))?;
+        let conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let clients = target_users
-            .iter()
-            .flat_map(|user_name| group.user_client_ids(&connection, user_name))
-            .collect::<Vec<_>>();
-        let params = group.remove(&connection, clients)?;
-        drop(connection);
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
+
+        let mut clients = Vec::new();
+        for user_name in target_users {
+            clients.extend(group.user_client_ids(self.pool(), user_name).await);
+        }
+        let mut connection = self.pool().acquire().await?;
+        let params = group.remove(&mut connection, clients).await?;
 
         // Phase 2: Send the commit to the DS
         let ds_timestamp = self
@@ -524,17 +497,24 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-        group.store_update(&transaction)?;
+        let mut connection = self.pool().acquire().await?;
+        connection
+            .transaction(|transaction| {
+                let inner_self = self.clone();
+                Box::pin(async move {
+                    let group_messages = group
+                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                        .await?;
+                    group.store_update(&mut **transaction).await?;
 
-        let conversation_messages =
-            self.store_messages(&mut transaction, conversation_id, group_messages)?;
-        transaction.commit()?;
-        drop(connection);
+                    let conversation_messages = inner_self
+                        .store_messages(&mut *transaction, conversation_id, group_messages)
+                        .await?;
 
-        Ok(conversation_messages)
+                    Ok(conversation_messages)
+                })
+            })
+            .await
     }
 
     /// Create a connection with a new user.
@@ -565,7 +545,7 @@ impl CoreUser {
         let mut verified_connection_packages = vec![];
         for connection_package in user_key_packages.connection_packages.into_iter() {
             let as_intermediate_credential = AsCredentials::get(
-                self.inner.connection.clone(),
+                self.pool().acquire().await?.as_mut(),
                 &self.inner.api_clients,
                 &user_domain,
                 connection_package.client_credential_signer_fingerprint(),
@@ -593,10 +573,10 @@ impl CoreUser {
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
-        let mut connection = self.inner.connection.lock().await;
         let (connection_group, partial_params) = {
-            let transaction = connection.transaction()?;
-            let provider = PhnxOpenMlsProvider::new(&transaction);
+            let mut transaction = self.pool().begin().await?;
+            let provider =
+                PhnxOpenMlsProvider::with_storage(SqlxStorageProvider::new(&mut transaction));
             let (group, group_membership, partial_params) = Group::create_group(
                 &provider,
                 &self.inner.key_store.signing_key,
@@ -604,16 +584,17 @@ impl CoreUser {
                 group_id.clone(),
                 group_data,
             )?;
-            group_membership.store(&transaction)?;
-            group.store(&transaction)?;
-            transaction.commit()?;
+            group_membership.store(&mut transaction).await?;
+            group.store(&mut transaction).await?;
+            transaction.commit().await?;
             (group, partial_params)
         };
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
 
-        let own_user_profile = UserProfile::load(&connection, &self.user_name())
+        let own_user_profile = UserProfile::load(self.pool(), &self.user_name())
+            .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())?;
 
@@ -624,7 +605,7 @@ impl CoreUser {
             conversation_attributes,
         )?;
         let mut notifier = self.store_notifier();
-        conversation.store(&connection, &mut notifier)?;
+        conversation.store(self.pool(), &mut notifier).await?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
@@ -642,13 +623,14 @@ impl CoreUser {
             conversation.id(),
             friendship_package_ear_key.clone(),
         )
-        .store(&connection, &mut notifier)?;
+        .store(self.pool(), &mut notifier)
+        .await?;
 
         // Store the user profile of the partial contact (we don't have a
         // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None).store_or_ignore(&connection, &mut notifier)?;
-
-        drop(connection);
+        UserProfile::new(user_name, None, None)
+            .store(self.pool(), &mut notifier)
+            .await?;
 
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
@@ -711,24 +693,21 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        let connection = self.inner.connection.lock().await;
-        let mut conversation = Conversation::load(&connection, &conversation_id)?.ok_or(
-            anyhow!("Can't find conversation with id {}", conversation_id.uuid()),
-        )?;
+        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let group_id = conversation.group_id();
         // Generate ciphertext
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let past_members = group.members(&connection);
-        drop(connection);
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
+        let past_members = group.members(self.pool()).await;
 
         // No need to send a message to the server if we are the only member.
         // TODO: Make sure this is what we want.
         let messages = if past_members.len() != 1 {
             // Phase 2: Create the delete commit
-            let connection = self.inner.connection.lock().await;
-            let params = group.delete(&connection)?;
-            drop(connection);
+            let params = group.delete(self.pool().acquire().await?.as_mut()).await?;
 
             let owner_domain = conversation.owner_domain();
             // Phase 3: Send the delete to the DS
@@ -740,40 +719,45 @@ impl CoreUser {
                 .await?;
 
             // Phase 4: Merge the commit into the group
-            let connection = self.inner.connection.lock().await;
-            let messages = group.merge_pending_commit(&connection, None, ds_timestamp)?;
-            group.store_update(&connection)?;
-            drop(connection);
+            let messages = group
+                .merge_pending_commit(self.pool().acquire().await?.as_mut(), None, ds_timestamp)
+                .await?;
+            group.store_update(self.pool()).await?;
             messages
         } else {
             vec![]
         };
 
         // Phase 4: Set the conversation to inactive
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-        let mut notifier = self.store_notifier();
-        conversation.set_inactive(
-            &transaction,
-            &mut notifier,
-            past_members.into_iter().collect(),
-        )?;
-        let conversation_messages =
-            self.store_messages(&mut transaction, conversation_id, messages)?;
-        transaction.commit()?;
-        drop(connection);
+        let mut connection = self.pool().acquire().await?;
+        connection
+            .transaction(|transaction| {
+                let inner_self = self.clone();
+                Box::pin(async move {
+                    let mut notifier = inner_self.store_notifier();
+                    conversation
+                        .set_inactive(
+                            &mut **transaction,
+                            &mut notifier,
+                            past_members.into_iter().collect(),
+                        )
+                        .await?;
+                    let conversation_messages = inner_self
+                        .store_messages(&mut *transaction, conversation_id, messages)
+                        .await?;
 
-        notifier.notify();
+                    notifier.notify();
 
-        Ok(conversation_messages)
+                    Ok(conversation_messages)
+                })
+            })
+            .await
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
-        let connection = self.inner.connection.lock().await;
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number = queue_type.load_sequence_number(&connection)?;
-        drop(connection);
+        let mut sequence_number = queue_type.load_sequence_number(self.pool()).await?;
 
         while remaining_messages > 0 {
             let api_client = self.inner.api_clients.default_client()?;
@@ -802,12 +786,12 @@ impl CoreUser {
             remaining_messages = response.remaining_messages_number;
             messages.append(&mut response.messages);
 
-            let connection = self.inner.connection.lock().await;
             if let Some(message) = messages.last() {
                 sequence_number = message.sequence_number + 1;
-                queue_type.update_sequence_number(&connection, sequence_number)?;
+                queue_type
+                    .update_sequence_number(self.pool(), sequence_number)
+                    .await?;
             }
-            drop(connection);
         }
         Ok(messages)
     }
@@ -822,17 +806,19 @@ impl CoreUser {
 
     pub async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
         // Phase 1: Load the conversation and the group
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.uuid()
-        ))?;
+        let conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or(anyhow!(
+                "Can't find conversation with id {}",
+                conversation_id.uuid()
+            ))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(&connection, group_id)?
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
+            .await?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
 
-        let params = group.leave_group(&connection)?;
-        drop(connection);
+        let mut connection = self.pool().acquire().await?;
+        let params = group.leave_group(&mut connection)?;
 
         let owner_domain = conversation.owner_domain();
 
@@ -844,9 +830,7 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let connection = self.inner.connection.lock().await;
-        group.store_update(&connection)?;
-        drop(connection);
+        group.store_update(self.pool()).await?;
 
         Ok(())
     }
@@ -863,16 +847,15 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        let connection = self.inner.connection.lock().await;
-        let conversation = Conversation::load(&connection, &conversation_id)?.ok_or(anyhow!(
-            "Can't find conversation with id {}",
-            conversation_id.uuid()
-        ))?;
+        let conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let group_id = conversation.group_id();
-        let mut group = Group::load(&connection, group_id)?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update(&connection)?;
-        drop(connection);
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
+        let mut connection = self.pool().acquire().await?;
+        let params = group.update(&mut connection).await?;
 
         let owner_domain = conversation.owner_domain();
 
@@ -885,43 +868,42 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let mut connection = self.inner.connection.lock().await;
-        let mut transaction = connection.transaction()?;
-
-        let group_messages = group.merge_pending_commit(&transaction, None, ds_timestamp)?;
-
-        group.store_update(&transaction)?;
-
-        let conversation_messages =
-            self.store_messages(&mut transaction, conversation_id, group_messages)?;
-        transaction.commit()?;
-        drop(connection);
-
-        Ok(conversation_messages)
+        let mut connection = self.pool().acquire().await?;
+        connection
+            .transaction(|transaction| {
+                let inner_self = self.clone();
+                Box::pin(async move {
+                    let group_messages = group
+                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                        .await?;
+                    group.store_update(&mut **transaction).await?;
+                    let conversation_messages = inner_self
+                        .store_messages(&mut *transaction, conversation_id, group_messages)
+                        .await?;
+                    Ok(conversation_messages)
+                })
+            })
+            .await
     }
 
-    pub async fn contacts(&self) -> Result<Vec<Contact>, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        let contacts = Contact::load_all(connection)?;
+    pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
+        let contacts = Contact::load_all(self.pool()).await?;
         Ok(contacts)
     }
 
     pub async fn contact(&self, user_name: &QualifiedUserName) -> Option<Contact> {
-        let connection = &self.inner.connection.lock().await;
-        Contact::load(connection, user_name).ok().flatten()
+        self.try_contact(user_name).await.ok().flatten()
     }
 
     pub async fn try_contact(
         &self,
         user_name: &QualifiedUserName,
-    ) -> rusqlite::Result<Option<Contact>> {
-        let connection = &self.inner.connection.lock().await;
-        Contact::load(connection, user_name)
+    ) -> sqlx::Result<Option<Contact>> {
+        Contact::load(self.pool(), user_name).await
     }
 
-    pub async fn partial_contacts(&self) -> Result<Vec<PartialContact>, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        let partial_contact = PartialContact::load_all(connection)?;
+    pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
+        let partial_contact = PartialContact::load_all(self.pool()).await?;
         Ok(partial_contact)
     }
 
@@ -951,38 +933,41 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> Option<HashSet<QualifiedUserName>> {
-        let connection = &self.inner.connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id).ok()??;
-
-        Group::load(connection, conversation.group_id())
+        self.try_conversation_participants(conversation_id)
+            .await
             .ok()?
-            .map(|g| g.members(connection))
     }
 
     pub(crate) async fn try_conversation_participants(
         &self,
         conversation_id: ConversationId,
     ) -> Result<Option<HashSet<QualifiedUserName>>> {
-        let connection = &self.inner.connection.lock().await;
-        let Some(conversation) = Conversation::load(connection, &conversation_id)? else {
+        let Some(conversation) = Conversation::load(self.pool(), &conversation_id).await? else {
             return Ok(None);
         };
-        let Some(group) = Group::load(connection, conversation.group_id())? else {
+        let Some(group) = Group::load(
+            self.pool().acquire().await?.as_mut(),
+            conversation.group_id(),
+        )
+        .await?
+        else {
             return Ok(None);
         };
-        Ok(Some(group.members(connection)))
+        Ok(Some(group.members(self.pool()).await))
     }
 
     pub async fn pending_removes(
         &self,
         conversation_id: ConversationId,
     ) -> Option<Vec<QualifiedUserName>> {
-        let connection = &self.inner.connection.lock().await;
-        let conversation = Conversation::load(connection, &conversation_id).ok()??;
-
-        Group::load(connection, conversation.group_id())
-            .ok()?
-            .map(|group| group.pending_removes(connection))
+        let conversation = Conversation::load(self.pool(), &conversation_id)
+            .await
+            .ok()??;
+        let mut connection = self.pool().acquire().await.ok()?;
+        let group = Group::load(&mut connection, conversation.group_id())
+            .await
+            .ok()??;
+        Some(group.pending_removes(&mut connection).await)
     }
 
     pub async fn websocket(
@@ -1002,12 +987,11 @@ impl CoreUser {
     pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
-    ) -> Result<(), rusqlite::Error> {
-        let mut connection = self.inner.connection.lock().await;
-        let transaction = connection.transaction()?;
+    ) -> anyhow::Result<()> {
+        let mut transaction = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
-        Conversation::mark_as_read(&transaction, &mut notifier, mark_as_read_data)?;
-        transaction.commit()?;
+        Conversation::mark_as_read(&mut transaction, &mut notifier, mark_as_read_data).await?;
+        transaction.commit().await?;
         notifier.notify();
         Ok(())
     }
@@ -1018,49 +1002,46 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> Result<bool, rusqlite::Error> {
-        let connection = self.inner.connection.lock().await;
+    ) -> sqlx::Result<bool> {
         let mut notifier = self.store_notifier();
+        let mut connection = self.pool().acquire().await?;
         let marked_as_read = Conversation::mark_as_read_until_message_id(
-            &connection,
+            &mut connection,
             &mut notifier,
             conversation_id,
             until,
-        )?;
+        )
+        .await?;
         notifier.notify();
         Ok(marked_as_read)
     }
 
     /// Returns how many messages are marked as unread across all conversations.
-    pub async fn global_unread_messages_count(&self) -> Result<usize, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        Conversation::global_unread_message_count(connection)
+    pub async fn global_unread_messages_count(&self) -> sqlx::Result<usize> {
+        Conversation::global_unread_message_count(self.pool()).await
     }
 
     /// Returns how many messages in the conversation with the given ID are
     /// marked as unread.
     pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> usize {
-        let connection = &self.inner.connection.lock().await;
-        Conversation::unread_messages_count(connection, conversation_id).unwrap_or_else(|error| {
-            error!(%error, "Error while fetching unread messages count");
-            0
-        })
+        Conversation::unread_messages_count(self.pool(), conversation_id)
+            .await
+            .inspect_err(|error| error!(%error, "Error while fetching unread messages count"))
+            .unwrap_or(0)
     }
 
     pub(crate) async fn try_messages_count(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<usize, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        Conversation::messages_count(connection, conversation_id)
+    ) -> sqlx::Result<usize> {
+        Conversation::messages_count(self.pool(), conversation_id).await
     }
 
     pub(crate) async fn try_unread_messages_count(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<usize, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        Conversation::unread_messages_count(connection, conversation_id)
+    ) -> sqlx::Result<usize> {
+        Conversation::unread_messages_count(self.pool(), conversation_id).await
     }
 
     /// Updates the client's push token on the QS.
@@ -1111,31 +1092,44 @@ impl CoreUser {
             .clone()
     }
 
-    fn store_messages(
+    async fn store_messages(
         &self,
-        transaction: &mut Transaction,
+        connection: &mut sqlx::SqliteConnection,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
         let mut notifier = self.store_notifier();
-        let savepoint = transaction.savepoint()?;
         let mut stored_messages = vec![];
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
-            message.store(&savepoint, &mut notifier)?;
+            message.store(&mut *connection, &mut notifier).await?;
             stored_messages.push(message);
         }
-        savepoint.commit()?;
         notifier.notify();
         Ok(stored_messages)
     }
 
     /// Returns the user profile of this [`CoreUser`].
-    pub async fn own_user_profile(&self) -> Result<UserProfile, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        UserProfile::load(connection, &self.user_name())
+    pub async fn own_user_profile(&self) -> sqlx::Result<UserProfile> {
+        UserProfile::load(self.pool(), &self.user_name())
+            .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
+    }
+
+    pub(crate) async fn with_transaction<'a, T, F>(&'a self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'c> FnOnce(
+                &'c mut sqlx::SqliteTransaction,
+            )
+                -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'c>>
+            + Send
+            + Sync
+            + 'a,
+        T: Send,
+    {
+        let mut connection = self.pool().acquire().await?;
+        connection.transaction(f).await
     }
 }

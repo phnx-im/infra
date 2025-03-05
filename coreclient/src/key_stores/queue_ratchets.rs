@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::DerefMut;
+use std::{ops::DerefMut, str::FromStr};
 
 use phnxtypes::{
     crypto::{
@@ -14,7 +14,10 @@ use phnxtypes::{
         EncryptedAsQueueMessage, EncryptedQsQueueMessage,
     },
 };
-use rusqlite::params;
+use sqlx::{
+    encode::IsNull, error::BoxDynError, query, query_scalar, Database, Decode, Encode, Sqlite,
+    SqliteExecutor, Type,
+};
 use tracing::error;
 
 use crate::utils::persistence::Storable;
@@ -28,23 +31,82 @@ pub(crate) enum QueueType {
 }
 
 impl QueueType {
-    pub(crate) fn load_sequence_number(
+    fn as_str(&self) -> &'static str {
+        match self {
+            QueueType::As => "as",
+            QueueType::Qs => "qs",
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid queue type: {0}")]
+pub(crate) struct QueueTypeParseError(String);
+
+impl FromStr for QueueType {
+    type Err = QueueTypeParseError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "as" => Ok(Self::As),
+            "qs" => Ok(Self::Qs),
+            _ => Err(QueueTypeParseError(s.into())),
+        }
+    }
+}
+
+impl Type<Sqlite> for QueueType {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&str as Type<Sqlite>>::type_info()
+    }
+}
+
+impl Encode<'_, Sqlite> for QueueType {
+    fn encode_by_ref(
         &self,
-        connection: &Connection,
-    ) -> Result<u64, rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("SELECT sequence_number FROM queue_ratchets WHERE queue_type = ?;")?;
-        stmt.query_row(params![self.to_string()], |row| row.get(0))
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode(self.as_str(), buf)
+    }
+}
+
+impl Decode<'_, Sqlite> for QueueType {
+    fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<Sqlite>::decode(value)?;
+        Ok(s.parse()?)
+    }
+}
+
+impl QueueType {
+    pub(crate) async fn load_sequence_number(
+        &self,
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<u64> {
+        query_scalar!(
+            r#"SELECT
+                sequence_number AS "sequence_number: _"
+            FROM queue_ratchets WHERE queue_type = ?"#,
+            self
+        )
+        .fetch_one(executor)
+        .await
     }
 
-    pub(crate) fn update_sequence_number(
+    pub(crate) async fn update_sequence_number(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         sequence_number: u64,
-    ) -> Result<(), rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("UPDATE queue_ratchets SET sequence_number = ? WHERE queue_type = ?;")?;
-        stmt.execute(params![sequence_number, self.to_string()])?;
+    ) -> sqlx::Result<()> {
+        let sequence_number: i64 = sequence_number
+            .try_into()
+            .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
+        query!(
+            "UPDATE queue_ratchets SET sequence_number = ? WHERE queue_type = ?",
+            sequence_number,
+            self
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 }
@@ -79,29 +141,33 @@ pub(crate) type StorableQsQueueRatchet =
     StorableQueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
 
 impl StorableQsQueueRatchet {
-    pub(crate) fn initialize(
-        connection: &Connection,
+    pub(crate) async fn initialize(
+        connection: &mut sqlx::SqliteConnection,
         ratcht_secret: RatchetSecret,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> sqlx::Result<()> {
         Self {
             queue_type: QueueType::Qs,
             queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|error| {
                 error!(%error, "Error initializing QS queue ratchet");
-                // This is just a library error, so we hide it behind a rusqlite
+                // This is just a library error, so we hide it behind a sqlx
                 // error.
-                rusqlite::Error::InvalidQuery
+                sqlx::Error::Decode(Box::new(error))
             })?,
         }
-        .store(connection)?;
+        .store(connection)
+        .await?;
         Ok(())
     }
 
-    pub(crate) fn load(connection: &Connection) -> Result<Self, rusqlite::Error> {
-        StorableQueueRatchet::load_internal(connection, QueueType::Qs)
+    pub(crate) async fn load(connection: &mut sqlx::SqliteConnection) -> sqlx::Result<Self> {
+        StorableQueueRatchet::load_internal(connection, QueueType::Qs).await
     }
 
-    pub(crate) fn update_ratchet(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        self.update_internal(connection, QueueType::Qs)
+    pub(crate) async fn update_ratchet(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<()> {
+        self.update_internal(connection, QueueType::Qs).await
     }
 }
 
@@ -109,29 +175,33 @@ pub(crate) type StorableAsQueueRatchet =
     StorableQueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
 
 impl StorableAsQueueRatchet {
-    pub(crate) fn initialize(
-        connection: &Connection,
+    pub(crate) async fn initialize(
+        connection: &mut sqlx::SqliteConnection,
         ratcht_secret: RatchetSecret,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> sqlx::Result<()> {
         Self {
             queue_type: QueueType::As,
             queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|error| {
                 error!(%error, "Error initializing AS queue ratchet");
-                // This is just a library error, so we hide it behind a rusqlite
+                // This is just a library error, so we hide it behind a sqlx
                 // error.
-                rusqlite::Error::InvalidQuery
+                sqlx::Error::Decode(Box::new(error))
             })?,
         }
-        .store(connection)?;
+        .store(connection)
+        .await?;
         Ok(())
     }
 
-    pub(crate) fn load(connection: &Connection) -> Result<Self, rusqlite::Error> {
-        StorableQueueRatchet::load_internal(connection, QueueType::As)
+    pub(crate) async fn load(connection: &mut sqlx::SqliteConnection) -> sqlx::Result<Self> {
+        StorableQueueRatchet::load_internal(connection, QueueType::As).await
     }
 
-    pub(crate) fn update_ratchet(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        self.update_internal(connection, QueueType::As)
+    pub(crate) async fn update_ratchet(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<()> {
+        self.update_internal(connection, QueueType::As).await
     }
 }
 
@@ -169,34 +239,52 @@ impl std::fmt::Display for QueueType {
     }
 }
 
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
-    StorableQueueRatchet<Ciphertext, Payload>
+impl<Ciphertext, Payload> StorableQueueRatchet<Ciphertext, Payload>
+where
+    Ciphertext: RatchetCiphertext + Unpin + Send,
+    Payload: RatchetPayload<Ciphertext> + Unpin + Send,
 {
-    fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("INSERT INTO queue_ratchets (queue_type, queue_ratchet) VALUES (?, ?);")?;
-        stmt.execute(params![self.queue_type.to_string(), self.queue_ratchet])?;
+    async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        query!(
+            "INSERT INTO queue_ratchets (queue_type, queue_ratchet) VALUES (?, ?)",
+            self.queue_type,
+            self.queue_ratchet,
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
-    fn load_internal(
-        connection: &Connection,
+    async fn load_internal(
+        executor: impl SqliteExecutor<'_>,
         queue_type: QueueType,
-    ) -> Result<Self, rusqlite::Error> {
-        let mut stmt = connection.prepare(
-            "SELECT queue_type, queue_ratchet FROM queue_ratchets WHERE queue_type = ?;",
-        )?;
-        stmt.query_row(params![queue_type.to_string()], Self::from_row)
+    ) -> sqlx::Result<Self> {
+        let queue_ratchet = query_scalar!(
+            r#"SELECT
+                queue_ratchet AS "queue_ratchet: _"
+            FROM queue_ratchets WHERE queue_type = ?"#,
+            queue_type
+        )
+        .fetch_one(executor)
+        .await?;
+        Ok(Self {
+            queue_type,
+            queue_ratchet,
+        })
     }
 
-    pub(crate) fn update_internal(
+    pub(crate) async fn update_internal(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         queue_type: QueueType,
-    ) -> Result<(), rusqlite::Error> {
-        let mut stmt = connection
-            .prepare("UPDATE queue_ratchets SET queue_ratchet = ? WHERE queue_type = ?;")?;
-        stmt.execute(params![self.queue_ratchet, queue_type.to_string()])?;
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE queue_ratchets SET queue_ratchet = ? WHERE queue_type = ?",
+            self.queue_ratchet,
+            queue_type
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 }

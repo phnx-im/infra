@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT state AS \"state: _\" FROM user_creation_state WHERE client_id = ?",
+  "query": "SELECT state AS \"state: _\"\n            FROM user_creation_state WHERE client_id = ?1",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "e206b5c55ae505ecc1881acad35618088c355a96004d905d417fdf6fa7bed28b"
+  "hash": "b19643c536b608654140b2d7127d56b5615c9ec411fc23087fefa8cbf76bbd21"
 }

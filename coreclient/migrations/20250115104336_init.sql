@@ -1,6 +1,13 @@
 -- SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
+CREATE TABLE IF NOT EXISTS client_record (
+    client_id BLOB NOT NULL PRIMARY KEY,
+    record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
+    created_at DATETIME NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE TABLE user_creation_state (client_id BLOB PRIMARY KEY, state BLOB NOT NULL);
 
 CREATE TABLE own_client_info (
@@ -18,12 +25,10 @@ CREATE TABLE users (
 );
 
 CREATE TABLE "groups" (
-    group_id BLOB PRIMARY KEY,
+    group_id BLOB NOT NULL PRIMARY KEY,
     leaf_signer BLOB NOT NULL,
-    signature_ear_key_wrapper_key BLOB NOT NULL,
-    credential_ear_key BLOB NOT NULL,
+    identity_link_wrapper_key BLOB NOT NULL,
     group_state_ear_key BLOB NOT NULL,
-    user_auth_signing_key_option BLOB,
     pending_diff BLOB
 );
 
@@ -39,7 +44,7 @@ CREATE TABLE group_membership (
     client_uuid BLOB NOT NULL,
     user_name TEXT NOT NULL,
     leaf_index INTEGER NOT NULL,
-    signature_ear_key BLOB NOT NULL,
+    identity_link_key BLOB NOT NULL,
     status TEXT DEFAULT 'staged_update' NOT NULL CHECK (
         status IN (
             'staged_update',
@@ -184,9 +189,18 @@ CREATE TABLE as_credentials (
 );
 
 CREATE TABLE leaf_keys (
-    verifying_key BLOB PRIMARY KEY,
+    verifying_key BLOB NOT NULL PRIMARY KEY,
     leaf_signing_key BLOB NOT NULL,
-    signature_ear_key BLOB NOT NULL
+    identity_link_key BLOB NOT NULL
+);
+
+CREATE TABLE store_notifications (
+    entity_id BLOB NOT NULL,
+    kind INTEGER NOT NULL,
+    added BOOLEAN NOT NULL,
+    updated BOOLEAN NOT NULL,
+    removed BOOLEAN NOT NULL,
+    PRIMARY KEY (entity_id, kind)
 );
 
 CREATE TRIGGER delete_orphaned_data AFTER DELETE ON group_membership FOR EACH ROW BEGIN

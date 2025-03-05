@@ -4,11 +4,11 @@
 
 use chrono::{DateTime, Utc};
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, ToSql};
+use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_scalar, sqlite::SqliteTypeInfo, Database,
-    Decode, Encode, Sqlite, SqlitePool, Type,
+    encode::IsNull, error::BoxDynError, query, query_as, query_scalar, sqlite::SqliteTypeInfo,
+    Database, Decode, Encode, Sqlite, SqliteExecutor, Type,
 };
 
 use crate::utils::persistence::{open_phnx_db, Storable};
@@ -89,48 +89,27 @@ impl Storable for UserCreationState {
 }
 
 impl UserCreationState {
-    pub(super) fn load(
-        connection: &Connection,
-        client_id: &AsClientId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        connection
-            .query_row(
-                "SELECT state FROM user_creation_state WHERE client_id = ?1",
-                [client_id],
-                Self::from_row,
-            )
-            .optional()
-    }
-
-    pub(super) async fn load_2(
-        db: &SqlitePool,
+    pub(super) async fn load(
+        executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
         query_scalar!(
-            r#"SELECT state AS "state: _" FROM user_creation_state WHERE client_id = ?"#,
-            client_id
+            r#"SELECT state AS "state: _"
+            FROM user_creation_state WHERE client_id = ?1"#,
+            client_id,
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
     }
 
-    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR REPLACE INTO user_creation_state
-            (client_id, state, created_at) VALUES (?1, ?2, ?3)",
-            params![self.client_id(), self, Utc::now()],
-        )?;
-        Ok(())
-    }
-
-    pub(super) async fn store_2(&self, db: &SqlitePool) -> sqlx::Result<()> {
+    pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let client_id = self.client_id();
         query!(
             "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?, ?)",
             client_id,
             self
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         Ok(())
     }
@@ -164,69 +143,116 @@ impl Storable for ClientRecord {
     }
 }
 
+impl Type<Sqlite> for ClientRecordState {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&str as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for ClientRecordState {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode(self.as_str(), buf)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid ClientRecordState: {state}")]
+struct InvalidClientRecordState {
+    state: String,
+}
+
+impl<'r> Decode<'r, Sqlite> for ClientRecordState {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let state: &str = Decode::<Sqlite>::decode(value)?;
+        Self::from_str(state).ok_or_else(|| -> BoxDynError {
+            Box::new(InvalidClientRecordState {
+                state: state.to_string(),
+            })
+        })
+    }
+}
+
 impl ClientRecord {
-    pub fn load_all_from_phnx_db(phnx_db_path: &str) -> Result<Vec<Self>, rusqlite::Error> {
-        let connection = open_phnx_db(phnx_db_path)?;
-        let mut stmt = connection.prepare("SELECT * FROM client_record")?;
-        let client_records = stmt
-            .query_map([], Self::from_row)?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(client_records)
+    pub async fn load_all_from_phnx_db(phnx_db_path: &str) -> sqlx::Result<Vec<Self>> {
+        let pool = open_phnx_db(phnx_db_path).await?;
+        Self::load_all(&pool).await
     }
 
-    pub fn load_all(connection: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = connection.prepare("SELECT * FROM client_record")?;
-        let client_records = stmt
-            .query_map([], Self::from_row)?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(client_records)
+    pub async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
+        query_as!(
+            ClientRecord,
+            r#"
+            SELECT
+                client_id AS "as_client_id: _",
+                record_state AS "client_record_state: _",
+                created_at AS "created_at: _",
+                is_default AS "is_default: _"
+            FROM client_record"#
+        )
+        .fetch_all(executor)
+        .await
     }
 
-    pub(super) fn load(
-        connection: &Connection,
+    pub(super) async fn load(
+        executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        connection
-            .query_row(
-                "SELECT * FROM client_record WHERE client_id = ?1",
-                [client_id],
-                Self::from_row,
-            )
-            .optional()
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            ClientRecord,
+            r#"SELECT
+                client_id AS "as_client_id: _",
+                record_state AS "client_record_state: _",
+                created_at AS "created_at: _",
+                is_default AS "is_default: _"
+            FROM client_record WHERE client_id = ?"#,
+            client_id
+        )
+        .fetch_optional(executor)
+        .await
     }
 
-    pub(super) fn store(&self, connection: &Connection) -> Result<(), rusqlite::Error> {
+    pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let record_state_str = match self.client_record_state {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
         };
-        connection.execute(
+        query!(
             "INSERT OR REPLACE INTO client_record
             (client_id, record_state, created_at, is_default)
             VALUES (?1, ?2, ?3, ?4)",
-            params![
-                self.as_client_id,
-                record_state_str,
-                self.created_at,
-                self.is_default,
-            ],
-        )?;
+            self.as_client_id,
+            record_state_str,
+            self.created_at,
+            self.is_default,
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
-    pub fn set_default(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
-        connection.execute(
+    pub async fn set_default(
+        executor: impl SqliteExecutor<'_>,
+        client_id: &AsClientId,
+    ) -> sqlx::Result<()> {
+        query!(
             "UPDATE client_record SET is_default = (client_id == ?)",
-            params![client_id],
-        )?;
+            client_id,
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
-    pub(crate) fn delete(connection: &Connection, client_id: &AsClientId) -> rusqlite::Result<()> {
-        connection.execute(
-            "DELETE FROM client_record WHERE client_id = ?",
-            params![client_id],
-        )?;
+    pub(crate) async fn delete(
+        executor: impl SqliteExecutor<'_>,
+        client_id: &AsClientId,
+    ) -> sqlx::Result<()> {
+        query!("DELETE FROM client_record WHERE client_id = ?", client_id)
+            .execute(executor)
+            .await?;
         Ok(())
     }
 }

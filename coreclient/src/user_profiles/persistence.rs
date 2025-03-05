@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{params, Connection, OptionalExtension};
-use sqlx::{query, query_as, SqlitePool};
-use tracing::error;
+use sqlx::{query, query_as, SqliteExecutor};
 
 use crate::{store::StoreNotifier, utils::persistence::Storable, UserProfile};
 
@@ -53,32 +51,8 @@ impl From<SqlUserProfile> for UserProfile {
 }
 
 impl UserProfile {
-    pub fn load(
-        connection: &Connection,
-        user_name: &QualifiedUserName,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT user_name, display_name, profile_picture FROM users WHERE user_name = ?",
-        )?;
-        let user = statement
-            .query_row(params![user_name.to_string()], Self::from_row)
-            .optional()?;
-
-        if let Some(user_profile) = &user {
-            if user_name != user_profile.user_name() {
-                // This should never happen, but if it does, we want to know about it.
-                error!(
-                    expected =% user_name,
-                    actual =% user_profile.user_name(),
-                    "User name mismatch",
-                );
-            }
-        }
-        Ok(user)
-    }
-
-    pub(crate) async fn load_2(
-        db: &SqlitePool,
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
         user_name: &QualifiedUserName,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
@@ -90,25 +64,26 @@ impl UserProfile {
             FROM users WHERE user_name = ?"#,
             user_name,
         )
-        .fetch_optional(db)
+        .fetch_optional(executor)
         .await
         .map(|record| record.map(From::from))
     }
 
     /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) fn store(
+    pub(crate) async fn store(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture)
+            VALUES (?, ?, ?)",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option
+        )
+        .execute(executor)
+        .await?;
         // TODO: We can skip this notification if the user profile was already stored.
         notifier.add(self.user_name.clone());
         Ok(())
@@ -117,26 +92,9 @@ impl UserProfile {
     /// Stores this new [`UserProfile`].
     ///
     /// Replaces the existing user profile if one exists.
-    pub(crate) fn upsert(
+    pub(crate) async fn upsert(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        notifier.update(self.user_name.clone());
-        Ok(())
-    }
-
-    pub(crate) async fn upsert_2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         query!(
@@ -146,52 +104,37 @@ impl UserProfile {
             self.display_name_option,
             self.profile_picture_option,
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier.update(self.user_name.clone());
         Ok(())
     }
 
     /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) fn store_or_ignore(
+    pub(crate) async fn store_or_ignore(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-        "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-        params![
-            self.user_name.to_string(),
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR IGNORE INTO users
+                (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
+            self.user_name,
             self.display_name_option,
             self.profile_picture_option
-        ],
-    )?;
+        )
+        .execute(executor)
+        .await?;
         // TODO: We can skip this notification if the user profile was already stored.
         notifier.add(self.user_name.clone());
         Ok(())
     }
+
     /// Update the user's display name and profile picture in the database. To store a new profile,
     /// use [`register_as_conversation_participant`] instead.
-    pub(crate) fn update(
+    pub(crate) async fn update(
         &self,
-        connection: &Connection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "UPDATE users SET display_name = ?2, profile_picture = ?3 WHERE user_name = ?1",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        notifier.update(self.user_name.clone());
-        Ok(())
-    }
-
-    pub(crate) async fn update_2(
-        &self,
-        db: &SqlitePool,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         query!(
@@ -200,7 +143,7 @@ impl UserProfile {
             self.display_name_option,
             self.profile_picture_option
         )
-        .execute(db)
+        .execute(executor)
         .await?;
         notifier.update(self.user_name.clone());
         Ok(())
