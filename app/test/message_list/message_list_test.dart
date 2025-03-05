@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -28,12 +29,13 @@ final messages = [
     timestamp: '2023-01-01T00:00:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: "bob@localhost",
+        sender: 'bob@localhost',
         sent: true,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
-          content: const MessageContent(content: []),
+          content: MessageContent.tryParseMarkdownRaw(
+              string: utf8.encode('Hello Alice from Bob')),
         ),
       ),
     ),
@@ -45,13 +47,15 @@ final messages = [
     timestamp: '2023-01-01T00:01:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: "eve@localhost",
+        sender: 'eve@localhost',
         sent: true,
         content: UiMimiContent(
           plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           topicId: Uint8List(0),
-          content: const MessageContent(content: []),
+          content: MessageContent.tryParseMarkdownRaw(
+              string: utf8.encode(
+                  'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.')),
         ),
       ),
     ),
@@ -63,13 +67,13 @@ final messages = [
     timestamp: '2023-01-01T00:02:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: "alice@localhost",
+        sender: 'alice@localhost',
         sent: true,
         content: UiMimiContent(
-          plainBody: 'Hello Bob and Eve',
-          topicId: Uint8List(0),
-          content: const MessageContent(content: []),
-        ),
+            plainBody: 'Hello Bob and Eve',
+            topicId: Uint8List(0),
+            content: MessageContent.tryParseMarkdownRaw(
+                string: utf8.encode('Hello Bob and Eve'))),
       ),
     ),
     position: UiFlightPosition.start,
@@ -80,12 +84,13 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: "alice@localhost",
+        sender: 'alice@localhost',
         sent: true,
         content: UiMimiContent(
           plainBody: 'How are you doing?',
           topicId: Uint8List(0),
-          content: const MessageContent(content: []),
+          content: MessageContent.tryParseMarkdownRaw(
+              string: utf8.encode('How are you doing?')),
         ),
       ),
     ),
@@ -97,15 +102,19 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: "alice@localhost",
+        sender: 'alice@localhost',
         sent: true,
         content: UiMimiContent(
-          plainBody: """Nice to see you both here! 👋
+            plainBody: '''Nice to see you both here! 👋
 
-This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.""",
-          topicId: Uint8List(0),
-          content: const MessageContent(content: []),
-        ),
+This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
+            topicId: Uint8List(0),
+            content: MessageContent.tryParseMarkdownRaw(
+                string: utf8.encode(
+              '''Nice to see you both here! 👋
+
+This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
+            ))),
       ),
     ),
     position: UiFlightPosition.end,
@@ -134,12 +143,12 @@ void main() {
       messageListCubit = MockMessageListCubit();
 
       when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
+          .thenReturn(MockUiUser(userName: 'alice@localhost'));
       when(() => userCubit.userProfile(any()))
           .thenAnswer((_) => Future.value(null));
       when(() => conversationDetailsCubit.markAsRead(
-            untilMessageId: any(named: "untilMessageId"),
-            untilTimestamp: any(named: "untilTimestamp"),
+            untilMessageId: any(named: 'untilMessageId'),
+            untilTimestamp: any(named: 'untilTimestamp'),
           )).thenAnswer((_) => Future.value());
     });
 

@@ -24,27 +24,27 @@ final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_Connection("bob@localhost"),
+    conversationType: const UiConversationType_Connection('bob@localhost'),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Bob",
+      title: 'Bob',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 1.conversationMessageId(),
       conversationId: 1.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "bob@localhost",
+          sender: 'bob@localhost',
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
             content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode("Hello Alice")),
+                string: utf8.encode('Hello Alice')),
           ),
         ),
       ),
@@ -55,21 +55,21 @@ final conversations = [
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
     conversationType:
-        const UiConversationType_UnconfirmedConnection("eve@localhost"),
+        const UiConversationType_UnconfirmedConnection('eve@localhost'),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Eve",
+      title: 'Eve',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 2.conversationMessageId(),
       conversationId: 2.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "eve@localhost",
+          sender: 'eve@localhost',
           sent: true,
           content: UiMimiContent(
             plainBody:
@@ -92,23 +92,23 @@ final conversations = [
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Group",
+      title: 'Group',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 3.conversationMessageId(),
       conversationId: 3.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "somebody@localhost",
+          sender: 'somebody@localhost',
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
             content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode("Hello All")),
+                string: utf8.encode('Hello All')),
           ),
         ),
       ),
@@ -131,7 +131,7 @@ void main() {
       when(() => navigationCubit.state)
           .thenReturn(const NavigationState.home());
       when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
+          .thenReturn(MockUiUser(userName: 'alice@localhost'));
     });
 
     Widget buildSubject() => MultiBlocProvider(
