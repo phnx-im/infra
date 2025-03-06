@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::marker::PhantomData;
-
 use openmls_rust_crypto::RustCrypto;
 use openmls_traits::{
     random::OpenMlsRand,
@@ -11,6 +9,7 @@ use openmls_traits::{
 };
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use sqlx_storage_provider::SqlxStorageProvider;
 use thiserror::Error;
 
 use super::*;
@@ -38,34 +37,22 @@ struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
 
 struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
-pub(crate) struct PhnxOpenMlsProvider<'a, T = SqlxStorageProvider<'a>> {
-    storage: T,
+pub(crate) struct PhnxOpenMlsProvider<'a> {
+    storage: SqlxStorageProvider<'a>,
     crypto: RustCrypto,
-    _marker: PhantomData<&'a ()>,
 }
 
-impl<'a> PhnxOpenMlsProvider<'a, SqlxStorageProvider<'a>> {
+impl<'a> PhnxOpenMlsProvider<'a> {
     pub(crate) fn new(connection: &'a mut sqlx::SqliteConnection) -> Self {
         Self {
             storage: SqlxStorageProvider::new(connection),
             crypto: RustCrypto::default(),
-            _marker: PhantomData,
         }
     }
 }
 
-impl<T: StorageProvider<CURRENT_VERSION>> PhnxOpenMlsProvider<'_, T> {
-    pub(crate) fn with_storage(storage: T) -> Self {
-        Self {
-            storage,
-            crypto: RustCrypto::default(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: StorageProvider<CURRENT_VERSION>> OpenMlsProvider for PhnxOpenMlsProvider<'_, T> {
-    type StorageProvider = T;
+impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
+    type StorageProvider = SqlxStorageProvider<'a>;
     type CryptoProvider = RustCrypto;
     type RandProvider = RustCrypto;
 

@@ -57,7 +57,7 @@ impl BasicUserData {
 
     pub(super) async fn prepare_as_registration(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
@@ -66,7 +66,7 @@ impl BasicUserData {
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
-            AsCredentials::get_intermediate_credential(connection, api_clients, &domain).await?;
+            AsCredentials::get_intermediate_credential(pool, api_clients, &domain).await?;
 
         // We already fetch the QS encryption key here, so we don't have to do
         // it in a later step, where we otherwise don't have to perform network
@@ -189,7 +189,7 @@ pub(crate) struct PostRegistrationInitState {
 impl PostRegistrationInitState {
     pub(super) async fn process_server_response(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
     ) -> Result<UnfinalizedRegistrationState> {
         let InitialUserState {
             client_credential_payload,
@@ -234,7 +234,7 @@ impl PostRegistrationInitState {
             .client_credential
             .verify(as_intermediate_credential.verifying_key())?;
         StorableClientCredential::new(client_credential.clone())
-            .store(connection)
+            .store(pool)
             .await?;
 
         let signing_key =
@@ -242,14 +242,14 @@ impl PostRegistrationInitState {
 
         // Store the own client credential in the DB
         StorableClientCredential::new(client_credential.clone())
-            .store(connection)
+            .store(pool)
             .await?;
 
         let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let as_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableAsQueueRatchet::initialize(connection, as_initial_ratchet_secret.clone()).await?;
+        StorableAsQueueRatchet::initialize(pool, as_initial_ratchet_secret.clone()).await?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableQsQueueRatchet::initialize(connection, qs_initial_ratchet_secret.clone()).await?;
+        StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::generate()?;
@@ -462,7 +462,7 @@ pub(crate) struct QsRegisteredUserState {
 impl QsRegisteredUserState {
     pub(super) async fn upload_key_packages(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
@@ -475,12 +475,12 @@ impl QsRegisteredUserState {
         let mut qs_key_packages = vec![];
         for _ in 0..KEY_PACKAGES {
             let key_package = key_store
-                .generate_key_package(connection, qs_client_id, false)
+                .generate_key_package(pool, qs_client_id, false)
                 .await?;
             qs_key_packages.push(key_package);
         }
         let last_resort_key_package = key_store
-            .generate_key_package(connection, qs_client_id, true)
+            .generate_key_package(pool, qs_client_id, true)
             .await?;
         qs_key_packages.push(last_resort_key_package);
 

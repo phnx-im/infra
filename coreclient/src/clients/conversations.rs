@@ -221,12 +221,12 @@ impl CreatedGroup {
             attributes,
         } = self;
 
-        group_membership.store(connection).await?;
-        group.store(connection).await?;
+        group_membership.store(&mut *connection).await?;
+        group.store(&mut *connection).await?;
 
         let conversation =
             Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
-        conversation.store(connection, notifier).await?;
+        conversation.store(&mut *connection, notifier).await?;
 
         Ok(StoredGroup {
             group,

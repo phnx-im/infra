@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{fmt::Display, fs, path::Path};
+use std::{fmt::Display, fs, path::Path, time::Duration};
 
 use anyhow::{bail, Result};
 use openmls::group::GroupId;
@@ -25,7 +25,9 @@ pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 pub(crate) async fn open_phnx_db(client_db_path: &str) -> sqlx::Result<SqlitePool> {
     let db_url = format!("sqlite://{}/{}", client_db_path, PHNX_DB_NAME);
     let opts: SqliteConnectOptions = db_url.parse()?;
-    let opts = opts.journal_mode(SqliteJournalMode::Wal);
+    let opts = opts
+        .journal_mode(SqliteJournalMode::Wal)
+        .create_if_missing(true);
     let pool = SqlitePool::connect_with(opts).await?;
 
     migrate!().run(&pool).await?;
@@ -41,6 +43,7 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
         .max_connections(1)
         .idle_timeout(None)
         .max_lifetime(None)
+        .acquire_timeout(Duration::from_secs(3))
         .connect_with(conn_opts)
         .await?;
     migrate!().run(&pool).await?;
@@ -104,8 +107,14 @@ pub async fn open_client_db(
     let client_db_name = client_db_name(as_client_id);
     let db_url = format!("sqlite://{}/{}", client_db_path, client_db_name);
     let opts: SqliteConnectOptions = db_url.parse()?;
-    let opts = opts.journal_mode(SqliteJournalMode::Wal);
-    let pool = SqlitePool::connect_with(opts).await?;
+    let opts = opts
+        .journal_mode(SqliteJournalMode::Wal)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::default()
+        .max_connections(10)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect_with(opts)
+        .await?;
 
     migrate!().run(&pool).await?;
 

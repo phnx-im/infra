@@ -16,7 +16,7 @@ pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
 use mls_assist::messages::AssistedMessageOut;
-use openmls_provider::{sqlx_storage_provider::SqlxStorageProvider, PhnxOpenMlsProvider};
+use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
@@ -52,7 +52,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqliteExecutor;
+use sqlx::{SqliteExecutor, SqlitePool};
 use tracing::{debug, error};
 
 use crate::{
@@ -258,7 +258,7 @@ impl Group {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
     ) -> Result<Self> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
@@ -268,8 +268,7 @@ impl Group {
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
         let (mls_group, joiner_info, welcome_attribution_info) = {
-            use sqlx::Connection;
-            let mut transaction = connection.begin().await?;
+            let mut transaction = pool.begin().await?;
             let provider = PhnxOpenMlsProvider::new(&mut transaction);
             let key_package_bundle: KeyPackageBundle = welcome_bundle
                 .welcome
@@ -350,7 +349,7 @@ impl Group {
         // Phase 2: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
         let client_information = ClientAuthInfo::decrypt_and_verify_all(
-            connection,
+            pool,
             api_clients,
             mls_group.group_id(),
             welcome_attribution_info.identity_link_wrapper_key(),
@@ -364,15 +363,18 @@ impl Group {
             .signature_key();
 
         // Phase 3: Decrypt and verify the infra credentials.
-        for client_auth_info in client_information {
-            client_auth_info.store(connection).await?;
+        {
+            let mut connection = pool.acquire().await?;
+            for client_auth_info in client_information {
+                client_auth_info.store(&mut connection).await?;
+            }
         }
 
-        let leaf_keys = LeafKeys::load(&mut *connection, verifying_key)
+        let leaf_keys = LeafKeys::load(pool, verifying_key)
             .await?
             .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
         // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        LeafKeys::delete(&mut *connection, verifying_key).await?;
+        LeafKeys::delete(pool, verifying_key).await?;
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
@@ -391,7 +393,7 @@ impl Group {
     /// Join a group using an external commit.
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn join_group_externally(
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: PseudonymousCredentialSigningKey,
@@ -418,7 +420,8 @@ impl Group {
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info_option) = {
-            let provider = PhnxOpenMlsProvider::new(connection);
+            let mut connection = pool.acquire().await?;
+            let provider = PhnxOpenMlsProvider::new(&mut connection);
             let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
                 &provider,
                 &leaf_signer,
@@ -444,7 +447,7 @@ impl Group {
 
         // Phase 2: Decrypt and verify the client credentials.
         let mut client_information = ClientAuthInfo::decrypt_and_verify_all(
-            connection,
+            pool,
             api_clients,
             group_id,
             &identity_link_wrapper_key,
@@ -467,9 +470,12 @@ impl Group {
         client_information.push(own_auth_info);
 
         // Phase 3: Verify and store the infra credentials.
-        for client_auth_info in client_information.iter() {
-            // Store client auth info.
-            client_auth_info.store(connection).await?;
+        {
+            let mut connection = pool.acquire().await?;
+            for client_auth_info in client_information.iter() {
+                // Store client auth info.
+                client_auth_info.store(&mut connection).await?;
+            }
         }
 
         let group = Self {
@@ -489,7 +495,7 @@ impl Group {
     /// Returns the [`AddUserParamsOut`] as input for the API client.
     pub(super) async fn invite(
         &mut self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
@@ -519,12 +525,14 @@ impl Group {
             .into();
 
         // Set Aad to contain the encrypted client credentials.
-        let provider = PhnxOpenMlsProvider::new(connection);
-        self.mls_group
-            .set_aad(aad_message.tls_serialize_detached()?);
-        let (mls_commit, welcome, group_info_option) =
+        let (mls_commit, welcome, group_info_option) = {
+            let mut connection = pool.acquire().await?;
+            let provider = PhnxOpenMlsProvider::new(&mut connection);
             self.mls_group
-                .add_members(&provider, &self.leaf_signer, key_packages.as_slice())?;
+                .set_aad(aad_message.tls_serialize_detached()?);
+            self.mls_group
+                .add_members(&provider, &self.leaf_signer, key_packages.as_slice())?
+        };
 
         // Groups should always have the flag set that makes them return groupinfos with every Commit.
         // Or at least with Add commits for now.
@@ -558,7 +566,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                connection,
+                pool,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
@@ -566,7 +574,7 @@ impl Group {
         }
 
         // Stage the adds in the DB.
-        let free_indices = GroupMembership::free_indices(connection, self.group_id()).await?;
+        let free_indices = GroupMembership::free_indices(pool, self.group_id()).await?;
         for (leaf_index, (client_credential, identity_link_key)) in free_indices.zip(
             client_credentials
                 .into_iter()
@@ -581,7 +589,9 @@ impl Group {
                 fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
-            client_auth_info.stage_add(connection).await?;
+            client_auth_info
+                .stage_add(pool.acquire().await?.as_mut())
+                .await?;
         }
 
         let add_users_info = AddUsersInfoOut {
@@ -603,16 +613,16 @@ impl Group {
         members: Vec<AsClientId>,
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
-            GroupMembership::client_indices(connection, self.group_id(), &members).await?;
+            GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_identity_link_keys: vec![],
             credential_update_option: None,
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = PhnxOpenMlsProvider::new(connection);
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
-            provider,
+            &provider,
             &self.leaf_signer,
             remove_indices.as_slice(),
         )?;
@@ -628,7 +638,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                connection,
+                &mut *connection,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
@@ -680,7 +690,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                connection,
+                &mut *connection,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
@@ -715,8 +725,7 @@ impl Group {
             )
             .await?;
 
-            let provider =
-                PhnxOpenMlsProvider::with_storage(SqlxStorageProvider::new(&mut *connection));
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .merge_staged_commit(&provider, staged_commit)?;
             staged_commit_messages
@@ -727,7 +736,7 @@ impl Group {
             let staged_commit_messages =
                 if let Some(staged_commit) = self.mls_group.pending_commit() {
                     TimestampedMessage::from_staged_commit(
-                        connection,
+                        &mut *connection,
                         self.group_id(),
                         free_indices,
                         staged_commit,
@@ -737,8 +746,7 @@ impl Group {
                 } else {
                     vec![]
                 };
-            let provider =
-                PhnxOpenMlsProvider::with_storage(SqlxStorageProvider::new(&mut *connection));
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             self.mls_group.merge_pending_commit(&provider)?;
             staged_commit_messages
         };
@@ -863,11 +871,7 @@ impl Group {
             .collect::<HashSet<QualifiedUserName>>()
     }
 
-    pub(super) async fn update(
-        &mut self,
-        connection: &mut sqlx::SqliteConnection,
-    ) -> Result<UpdateParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+    pub(super) async fn update(&mut self, pool: &SqlitePool) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
         let aad_payload = UpdateParamsAad {
             option_encrypted_identity_link_key: None,
@@ -875,12 +879,19 @@ impl Group {
         let aad =
             InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let (mls_message, _welcome_option, group_info_option) = self
-            .mls_group
-            .self_update(provider, &self.leaf_signer, LeafNodeParameters::default())
-            .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
-            .into_messages();
-        let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
+        let (mls_message, group_info) = {
+            let mut connection = pool.acquire().await?;
+            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let (mls_message, _welcome_option, group_info) = self
+                .mls_group
+                .self_update(&provider, &self.leaf_signer, LeafNodeParameters::default())
+                .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
+                .into_messages();
+            (
+                mls_message,
+                group_info.ok_or_else(|| anyhow!("No group info after commit"))?,
+            )
+        };
 
         for remove in self
             .mls_group()
@@ -889,7 +900,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                connection,
+                pool,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )

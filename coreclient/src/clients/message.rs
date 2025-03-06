@@ -11,8 +11,7 @@ use sqlx::{Connection, SqliteConnection};
 use uuid::Uuid;
 
 use crate::{
-    groups::openmls_provider::sqlx_storage_provider::SqlxStorageProvider, Conversation,
-    ConversationId, ConversationMessage, ConversationMessageId, Message, MimiContent,
+    Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message, MimiContent,
 };
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
@@ -35,9 +34,7 @@ impl CoreUser {
             }
             .store_unsent_message(&mut transaction, self.store_notifier(), &self.user_name())
             .await?
-            .create_group_message(&PhnxOpenMlsProvider::with_storage(
-                SqlxStorageProvider::new(&mut transaction),
-            ))?
+            .create_group_message(&PhnxOpenMlsProvider::new(&mut transaction))?
             .store_group_update(&mut transaction, self.store_notifier())
             .await?;
             transaction.commit().await?;

@@ -8,7 +8,7 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{query, query_as, SqliteExecutor};
+use sqlx::{query, query_as, Acquire, SqliteExecutor};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
@@ -43,7 +43,7 @@ impl SqlGroup {
 }
 
 impl Group {
-    pub(crate) async fn store(&self, connection: &mut sqlx::SqliteConnection) -> sqlx::Result<()> {
+    pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         query!(
             "INSERT INTO groups (
@@ -60,7 +60,7 @@ impl Group {
             self.group_state_ear_key,
             self.pending_diff,
         )
-        .execute(connection)
+        .execute(executor)
         .await?;
         Ok(())
     }
@@ -117,7 +117,6 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         group_id: &GroupId,
     ) -> sqlx::Result<()> {
-        use sqlx::Connection;
         let mut transaction = connection.begin().await?;
 
         if let Some(mut group) = Group::load(&mut transaction, group_id).await? {

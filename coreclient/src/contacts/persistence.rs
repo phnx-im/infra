@@ -11,8 +11,8 @@ use phnxtypes::{
     messages::FriendshipToken,
 };
 use sqlx::{
-    error::BoxDynError, prelude::Type, query, query_as, Connection, Database, Decode, Executor,
-    Sqlite, SqliteExecutor,
+    error::BoxDynError, prelude::Type, query, query_as, Database, Decode, Executor, Sqlite,
+    SqliteExecutor, SqlitePool,
 };
 use tokio_stream::StreamExt;
 
@@ -222,12 +222,12 @@ impl PartialContact {
     /// persists the resulting contact.
     pub(crate) async fn mark_as_complete(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
     ) -> sqlx::Result<Contact> {
-        let mut transaction = connection.begin().await?;
+        let mut transaction = pool.begin().await?;
 
         let user_name = self.user_name.clone();
         let conversation_id = self.conversation_id;
@@ -363,10 +363,9 @@ mod tests {
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             user_profile: UserProfile::new(user_name.clone(), None, None),
         };
-        let mut connection = pool.acquire().await?;
         let contact = partial
             .mark_as_complete(
-                &mut connection,
+                &pool,
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),

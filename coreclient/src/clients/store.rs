@@ -94,9 +94,8 @@ impl UserCreationState {
 
         let new_state = match self {
             UserCreationState::BasicUserData(state) => {
-                let mut connection = client_db.acquire().await?;
                 let state = state
-                    .prepare_as_registration(&mut connection, api_clients)
+                    .prepare_as_registration(client_db, api_clients)
                     .await?;
                 Self::InitialUserState(state)
             }
@@ -104,8 +103,7 @@ impl UserCreationState {
                 Self::PostRegistrationInitState(state.initiate_as_registration(api_clients).await?)
             }
             UserCreationState::PostRegistrationInitState(state) => {
-                let mut connection = client_db.acquire().await?;
-                let state = state.process_server_response(&mut connection).await?;
+                let state = state.process_server_response(client_db).await?;
                 Self::UnfinalizedRegistrationState(state)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
@@ -115,10 +113,8 @@ impl UserCreationState {
                 Self::QsRegisteredUserState(state.register_with_qs(api_clients).await?)
             }
             UserCreationState::QsRegisteredUserState(state) => {
-                let mut connection = client_db.acquire().await?;
-                let persisted_user_state = state
-                    .upload_key_packages(&mut connection, api_clients)
-                    .await?;
+                let persisted_user_state =
+                    state.upload_key_packages(client_db, api_clients).await?;
                 Self::FinalUserState(persisted_user_state)
             }
             UserCreationState::FinalUserState(_) => self,

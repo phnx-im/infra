@@ -50,11 +50,11 @@ impl CoreUser {
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
         let mut transaction = self.pool().begin().await?;
-        let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut transaction).await?;
+        let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut *transaction).await?;
 
         let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
 
-        qs_queue_ratchet.update_ratchet(&mut transaction).await?;
+        qs_queue_ratchet.update_ratchet(&mut *transaction).await?;
         transaction.commit().await?;
 
         Ok(payload.extract()?)
@@ -103,11 +103,10 @@ impl CoreUser {
     ) -> Result<ProcessQsMessageResult> {
         // WelcomeBundle Phase 1: Join the group. This might involve
         // loading AS credentials or fetching them from the AS.
-        let mut connection = self.pool().acquire().await?;
         let group = Group::join_group(
             welcome_bundle,
             &self.inner.key_store.wai_ear_key,
-            &mut connection,
+            self.pool(),
             &self.inner.api_clients,
         )
         .await?;
@@ -116,7 +115,7 @@ impl CoreUser {
         // WelcomeBundle Phase 2: Store the user profiles of the group
         // members if they don't exist yet and store the group and the
         // new conversation.
-        let mut transaction = connection.begin().await?;
+        let mut transaction = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
         for user_name in group.members(&mut *transaction).await.into_iter() {
             UserProfile::new(user_name, None, None)
@@ -135,7 +134,7 @@ impl CoreUser {
         // create a new one. We do leave the messages intact, though.
         Conversation::delete(&mut *transaction, &mut notifier, conversation.id()).await?;
         Group::delete_from_db(&mut transaction, &group_id).await?;
-        group.store(&mut transaction).await?;
+        group.store(&mut *transaction).await?;
         conversation.store(&mut *transaction, &mut notifier).await?;
         transaction.commit().await?;
         notifier.notify();
@@ -169,10 +168,11 @@ impl CoreUser {
         let mut group = Group::load(&mut connection, group_id)
             .await?
             .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
+        drop(connection);
 
         // MLSMessage Phase 2: Process the message
         let (processed_message, we_were_removed, sender_client_id) = group
-            .process_message(&mut connection, &self.inner.api_clients, protocol_message)
+            .process_message(self.pool(), &self.inner.api_clients, protocol_message)
             .await?;
 
         let sender = processed_message.sender().clone();
@@ -204,6 +204,7 @@ impl CoreUser {
         };
 
         // MLSMessage Phase 3: Store the updated group and the messages.
+        let mut connection = self.pool().acquire().await?;
         connection
             .transaction(|transaction| {
                 let inner_self = self.clone();
@@ -326,10 +327,9 @@ impl CoreUser {
                 .set_conversation_picture(self.pool(), &mut notifier, conversation_picture_option)
                 .await?;
             // Now we can turn the partial contact into a full one.
-            let mut connection = self.pool().acquire().await?;
             partial_contact
                 .mark_as_complete(
-                    &mut connection,
+                    self.pool(),
                     &mut notifier,
                     friendship_package,
                     sender_client_id.clone(),

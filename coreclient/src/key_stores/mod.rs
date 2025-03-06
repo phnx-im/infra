@@ -17,6 +17,7 @@ use phnxtypes::{
     },
     identifiers::{ClientConfig, QsClientId, QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
 };
+use sqlx::SqlitePool;
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
@@ -80,12 +81,12 @@ impl MemoryUserKeyStore {
 
     pub(crate) async fn generate_key_package(
         &self,
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         qs_client_id: &QsClientId,
         last_resort: bool,
     ) -> Result<KeyPackage> {
         let leaf_keys = LeafKeys::generate(&self.signing_key, &self.connection_key)?;
-        leaf_keys.store(&mut *connection).await?;
+        leaf_keys.store(pool).await?;
         let credential_with_key = leaf_keys.credential()?;
         let capabilities = default_capabilities();
         let client_reference = self.create_own_client_reference(qs_client_id);
@@ -101,7 +102,8 @@ impl MemoryUserKeyStore {
             Extensions::default()
         };
 
-        let provider = PhnxOpenMlsProvider::new(connection);
+        let mut connection = pool.acquire().await?;
+        let provider = PhnxOpenMlsProvider::new(&mut connection);
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)

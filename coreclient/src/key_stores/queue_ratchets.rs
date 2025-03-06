@@ -140,7 +140,7 @@ pub(crate) type StorableQsQueueRatchet =
 
 impl StorableQsQueueRatchet {
     pub(crate) async fn initialize(
-        connection: &mut sqlx::SqliteConnection,
+        executor: impl SqliteExecutor<'_>,
         ratcht_secret: RatchetSecret,
     ) -> sqlx::Result<()> {
         Self {
@@ -152,20 +152,20 @@ impl StorableQsQueueRatchet {
                 sqlx::Error::Decode(Box::new(error))
             })?,
         }
-        .store(connection)
+        .store(executor)
         .await?;
         Ok(())
     }
 
-    pub(crate) async fn load(connection: &mut sqlx::SqliteConnection) -> sqlx::Result<Self> {
-        StorableQueueRatchet::load_internal(connection, QueueType::Qs).await
+    pub(crate) async fn load(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Self> {
+        StorableQueueRatchet::load_internal(executor, QueueType::Qs).await
     }
 
     pub(crate) async fn update_ratchet(
         &self,
-        connection: &mut sqlx::SqliteConnection,
+        executor: impl SqliteExecutor<'_>,
     ) -> sqlx::Result<()> {
-        self.update_internal(connection, QueueType::Qs).await
+        self.update_internal(executor, QueueType::Qs).await
     }
 }
 
@@ -174,7 +174,7 @@ pub(crate) type StorableAsQueueRatchet =
 
 impl StorableAsQueueRatchet {
     pub(crate) async fn initialize(
-        connection: &mut sqlx::SqliteConnection,
+        executor: impl SqliteExecutor<'_>,
         ratcht_secret: RatchetSecret,
     ) -> sqlx::Result<()> {
         Self {
@@ -186,20 +186,20 @@ impl StorableAsQueueRatchet {
                 sqlx::Error::Decode(Box::new(error))
             })?,
         }
-        .store(connection)
+        .store(executor)
         .await?;
         Ok(())
     }
 
-    pub(crate) async fn load(connection: &mut sqlx::SqliteConnection) -> sqlx::Result<Self> {
-        StorableQueueRatchet::load_internal(connection, QueueType::As).await
+    pub(crate) async fn load(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Self> {
+        StorableQueueRatchet::load_internal(executor, QueueType::As).await
     }
 
     pub(crate) async fn update_ratchet(
         &self,
-        connection: &mut sqlx::SqliteConnection,
+        executor: impl SqliteExecutor<'_>,
     ) -> sqlx::Result<()> {
-        self.update_internal(connection, QueueType::As).await
+        self.update_internal(executor, QueueType::As).await
     }
 }
 

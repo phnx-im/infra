@@ -529,9 +529,8 @@ pub mod tests {
         let n = Conversation::global_unread_message_count(&pool).await?;
         assert_eq!(n, 2);
 
-        let mut transaction = pool.begin().await?;
         Conversation::mark_as_read(
-            &mut transaction,
+            pool.acquire().await?.as_mut(),
             &mut store_notifier,
             [(
                 conversation_a.id(),
@@ -539,24 +538,20 @@ pub mod tests {
             )],
         )
         .await?;
-        transaction.commit().await?;
         let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
-        let mut transaction = pool.begin().await?;
         Conversation::mark_as_read(
-            &mut transaction,
+            pool.acquire().await?.as_mut(),
             &mut store_notifier,
             [(conversation_a.id(), Utc::now())],
         )
         .await?;
-        transaction.commit().await?;
         let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
         assert_eq!(n, 0);
 
-        let mut connection = pool.acquire().await?;
         Conversation::mark_as_read_until_message_id(
-            &mut connection,
+            pool.acquire().await?.as_mut(),
             &mut store_notifier,
             conversation_b.id(),
             ConversationMessageId::random(),
@@ -566,7 +561,7 @@ pub mod tests {
         assert_eq!(n, 1);
 
         Conversation::mark_as_read_until_message_id(
-            &mut connection,
+            pool.acquire().await?.as_mut(),
             &mut store_notifier,
             conversation_b.id(),
             message_b.id(),

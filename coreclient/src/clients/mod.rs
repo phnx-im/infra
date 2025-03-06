@@ -50,6 +50,7 @@ use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
+use crate::store::StoreNotificationsSender;
 use crate::{
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     contacts::{Contact, ContactAddInfos, PartialContact},
@@ -63,10 +64,6 @@ use crate::{
     user_profiles::UserProfile,
     utils::persistence::{open_client_db, open_db_in_memory, open_phnx_db},
     ConversationMessageId,
-};
-use crate::{
-    groups::openmls_provider::sqlx_storage_provider::SqlxStorageProvider,
-    store::StoreNotificationsSender,
 };
 use crate::{
     groups::{client_auth_info::StorableClientCredential, Group},
@@ -270,8 +267,9 @@ impl CoreUser {
         &self,
         notification: &StoreNotification,
     ) -> Result<()> {
-        let mut connection = self.pool().acquire().await?;
-        notification.enqueue(&mut connection).await?;
+        notification
+            .enqueue(self.pool().acquire().await?.as_mut())
+            .await?;
         Ok(())
     }
 
@@ -393,10 +391,7 @@ impl CoreUser {
         let mut contact_add_infos: Vec<ContactAddInfos> = vec![];
         for contact in contacts {
             let add_info = contact
-                .fetch_add_infos(
-                    self.pool().acquire().await?.as_mut(),
-                    self.inner.api_clients.clone(),
-                )
+                .fetch_add_infos(self.pool(), self.inner.api_clients.clone())
                 .await?;
             contact_add_infos.push(add_info);
         }
@@ -408,10 +403,9 @@ impl CoreUser {
             .await?
             .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
         // Adds new member and staged commit
-        let mut connection = self.pool().acquire().await?;
         let params = group
             .invite(
-                &mut connection,
+                self.pool(),
                 &self.inner.key_store.signing_key,
                 contact_add_infos,
                 contact_wai_keys,
@@ -473,8 +467,9 @@ impl CoreUser {
         for user_name in target_users {
             clients.extend(group.user_client_ids(self.pool(), user_name).await);
         }
-        let mut connection = self.pool().acquire().await?;
-        let params = group.remove(&mut connection, clients).await?;
+        let params = group
+            .remove(self.pool().acquire().await?.as_mut(), clients)
+            .await?;
 
         // Phase 2: Send the commit to the DS
         let ds_timestamp = self
@@ -485,24 +480,22 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    let group_messages = group
-                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                        .await?;
-                    group.store_update(&mut **transaction).await?;
+        self.with_transaction(|transaction| {
+            let inner_self = self.clone();
+            Box::pin(async move {
+                let group_messages = group
+                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                    .await?;
+                group.store_update(&mut **transaction).await?;
 
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, group_messages)
-                        .await?;
+                let conversation_messages = inner_self
+                    .store_messages(&mut *transaction, conversation_id, group_messages)
+                    .await?;
 
-                    Ok(conversation_messages)
-                })
+                Ok(conversation_messages)
             })
-            .await
+        })
+        .await
     }
 
     /// Create a connection with a new user.
@@ -533,7 +526,7 @@ impl CoreUser {
         let mut verified_connection_packages = vec![];
         for connection_package in user_key_packages.connection_packages.into_iter() {
             let as_intermediate_credential = AsCredentials::get(
-                self.pool().acquire().await?.as_mut(),
+                self.pool(),
                 &self.inner.api_clients,
                 &user_domain,
                 connection_package.client_credential_signer_fingerprint(),
@@ -563,8 +556,7 @@ impl CoreUser {
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = {
             let mut transaction = self.pool().begin().await?;
-            let provider =
-                PhnxOpenMlsProvider::with_storage(SqlxStorageProvider::new(&mut transaction));
+            let provider = PhnxOpenMlsProvider::new(&mut transaction);
             let (group, group_membership, partial_params) = Group::create_group(
                 &provider,
                 &self.inner.key_store.signing_key,
@@ -572,8 +564,8 @@ impl CoreUser {
                 group_id.clone(),
                 group_data,
             )?;
-            group_membership.store(&mut transaction).await?;
-            group.store(&mut transaction).await?;
+            group_membership.store(&mut *transaction).await?;
+            group.store(&mut *transaction).await?;
             transaction.commit().await?;
             (group, partial_params)
         };
@@ -805,8 +797,7 @@ impl CoreUser {
             .await?
             .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
 
-        let mut connection = self.pool().acquire().await?;
-        let params = group.leave_group(&mut connection)?;
+        let params = group.leave_group(self.pool().acquire().await?.as_mut())?;
 
         let owner_domain = conversation.owner_domain();
 
@@ -842,8 +833,7 @@ impl CoreUser {
         let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
             .await?
             .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
-        let mut connection = self.pool().acquire().await?;
-        let params = group.update(&mut connection).await?;
+        let params = group.update(self.pool()).await?;
 
         let owner_domain = conversation.owner_domain();
 
@@ -856,22 +846,20 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    let group_messages = group
-                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                        .await?;
-                    group.store_update(&mut **transaction).await?;
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, group_messages)
-                        .await?;
-                    Ok(conversation_messages)
-                })
+        self.with_transaction(|transaction| {
+            let inner_self = self.clone();
+            Box::pin(async move {
+                let group_messages = group
+                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                    .await?;
+                group.store_update(&mut **transaction).await?;
+                let conversation_messages = inner_self
+                    .store_messages(&mut *transaction, conversation_id, group_messages)
+                    .await?;
+                Ok(conversation_messages)
             })
-            .await
+        })
+        .await
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
@@ -976,10 +964,13 @@ impl CoreUser {
         &self,
         mark_as_read_data: T,
     ) -> anyhow::Result<()> {
-        let mut transaction = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
-        Conversation::mark_as_read(&mut transaction, &mut notifier, mark_as_read_data).await?;
-        transaction.commit().await?;
+        Conversation::mark_as_read(
+            self.pool().acquire().await?.as_mut(),
+            &mut notifier,
+            mark_as_read_data,
+        )
+        .await?;
         notifier.notify();
         Ok(())
     }
@@ -992,9 +983,8 @@ impl CoreUser {
         until: ConversationMessageId,
     ) -> sqlx::Result<bool> {
         let mut notifier = self.store_notifier();
-        let mut connection = self.pool().acquire().await?;
         let marked_as_read = Conversation::mark_as_read_until_message_id(
-            &mut connection,
+            self.pool().acquire().await?.as_mut(),
             &mut notifier,
             conversation_id,
             until,

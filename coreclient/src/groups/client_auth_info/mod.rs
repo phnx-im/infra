@@ -17,6 +17,7 @@ use phnxtypes::{
     },
     identifiers::AsClientId,
 };
+use sqlx::{SqliteExecutor, SqlitePool};
 
 use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
 
@@ -53,12 +54,12 @@ impl StorableClientCredential {
     }
 
     pub(crate) async fn verify(
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<Self> {
         let client_credential = AsCredentials::verify_client_credential(
-            connection,
+            pool,
             api_clients,
             verifiable_client_credential,
         )
@@ -96,10 +97,10 @@ impl GroupMembership {
     // Computes free indices based on existing leaf indices and staged removals.
     // Not that staged additions are not considered.
     pub(super) async fn free_indices(
-        connection: &mut sqlx::SqliteConnection,
+        executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-    ) -> Result<impl Iterator<Item = LeafNodeIndex>> {
-        let leaf_indices = Self::member_indices(connection, group_id).await?;
+    ) -> Result<impl Iterator<Item = LeafNodeIndex> + 'static> {
+        let leaf_indices = Self::member_indices(executor, group_id).await?;
         let highest_index = leaf_indices
             .last()
             .cloned()
@@ -147,7 +148,7 @@ impl ClientAuthInfo {
     /// verification of the signature over the [`PseudonymousCredential`], as
     /// well as the signature over the [`ClientCredential`].
     pub(super) async fn decrypt_and_verify_all(
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -159,7 +160,7 @@ impl ClientAuthInfo {
         for ((leaf_index, credential), encrypted_identity_link_key) in encrypted_client_information
         {
             let client_auth_info = Self::decrypt_and_verify(
-                connection,
+                pool,
                 api_clients,
                 group_id,
                 wrapper_key,
@@ -175,7 +176,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given credential.
     pub(super) async fn decrypt_credential_and_verify(
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
         group_id: &GroupId,
         identity_link_key: IdentityLinkKey,
@@ -187,7 +188,7 @@ impl ClientAuthInfo {
         let credential_plaintext =
             pseudonymous_credential.decrypt_and_verify(&identity_link_key)?;
         let client_credential = StorableClientCredential::verify(
-            connection,
+            pool,
             api_clients,
             credential_plaintext.client_credential,
         )
@@ -208,7 +209,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given identity link key and credential.
     pub(super) async fn decrypt_and_verify(
-        connection: &mut sqlx::SqliteConnection,
+        pool: &SqlitePool,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -219,7 +220,7 @@ impl ClientAuthInfo {
         let identity_link_key =
             IdentityLinkKey::decrypt(wrapper_key, &encrypted_identity_link_key)?;
         Self::decrypt_credential_and_verify(
-            connection,
+            pool,
             api_clients,
             group_id,
             identity_link_key,
@@ -233,8 +234,8 @@ impl ClientAuthInfo {
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> sqlx::Result<()> {
-        self.client_credential.store(connection).await?;
-        self.group_membership.stage_update(connection).await?;
+        self.client_credential.store(&mut *connection).await?;
+        self.group_membership.stage_update(&mut *connection).await?;
         Ok(())
     }
 
@@ -242,14 +243,14 @@ impl ClientAuthInfo {
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> sqlx::Result<()> {
-        self.client_credential.store(connection).await?;
-        self.group_membership.stage_add(connection).await?;
+        self.client_credential.store(&mut *connection).await?;
+        self.group_membership.stage_add(&mut *connection).await?;
         Ok(())
     }
 
     pub(crate) async fn store(&self, connection: &mut sqlx::SqliteConnection) -> Result<()> {
-        self.client_credential.store(connection).await?;
-        self.group_membership.store(connection).await?;
+        self.client_credential.store(&mut *connection).await?;
+        self.group_membership.store(&mut *connection).await?;
         Ok(())
     }
 
@@ -264,7 +265,7 @@ impl ClientAuthInfo {
             return Ok(None);
         };
         let client_credential = StorableClientCredential::load(
-            connection,
+            &mut *connection,
             &group_membership.client_credential_fingerprint,
         )
         .await?

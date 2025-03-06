@@ -39,11 +39,11 @@ impl CoreUser {
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
         let mut transaction = self.pool().begin().await?;
-        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut transaction).await?;
+        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut *transaction).await?;
 
         let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
 
-        as_queue_ratchet.update_ratchet(&mut transaction).await?;
+        as_queue_ratchet.update_ratchet(&mut *transaction).await?;
         transaction.commit().await?;
 
         Ok(payload.extract()?)
@@ -122,9 +122,8 @@ impl CoreUser {
 
         // EncryptedConnectionEstablishmentPackage Phase 1: Load the
         // AS credential of the sender.
-        let mut connection = self.pool().acquire().await?;
         let as_intermediate_credential = AsCredentials::get(
-            &mut connection,
+            self.pool(),
             &self.inner.api_clients,
             &sender_domain,
             cep_in.sender_credential().signer_fingerprint(),
@@ -208,9 +207,8 @@ impl CoreUser {
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
         let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
-        let mut connection = self.pool().acquire().await?;
         let (group, commit, group_info) = Group::join_group_externally(
-            &mut connection,
+            self.pool(),
             &self.inner.api_clients,
             eci,
             leaf_signer,
@@ -262,7 +260,7 @@ impl CoreUser {
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
-        group.store(&mut connection).await?;
+        group.store(&mut *connection).await?;
         conversation.store(&mut *connection, notifier).await?;
         // Store the user profile of the sender.
         cep_tbs

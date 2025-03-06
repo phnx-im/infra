@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use anyhow::bail;
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_as, Decode, Encode, Sqlite, SqliteExecutor,
-    Type,
+    encode::IsNull, error::BoxDynError, query, query_as, Acquire, Decode, Encode, Sqlite,
+    SqliteExecutor, Type,
 };
 use tokio_stream::StreamExt;
 use tracing::error;
@@ -105,21 +105,10 @@ impl SqlStoreNotification {
 }
 
 impl StoreNotification {
-    pub const CREATE_TABLE_STATEMENT: &str = "
-        CREATE TABLE IF NOT EXISTS store_notifications (
-            entity_id BLOB NOT NULL,
-            kind INTEGER NOT NULL,
-            added BOOLEAN NOT NULL,
-            updated BOOLEAN NOT NULL,
-            removed BOOLEAN NOT NULL,
-            PRIMARY KEY (entity_id, kind)
-        );";
-
     pub(crate) async fn enqueue(
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> sqlx::Result<()> {
-        use sqlx::Connection;
         let mut transaction = connection.begin().await?;
         for (entity_id, operation) in &self.ops {
             let kind = entity_id.kind();
@@ -201,8 +190,7 @@ mod tests {
             StoreOperation::Remove,
         );
 
-        let mut connection = pool.acquire().await?;
-        notification.enqueue(&mut connection).await?;
+        notification.enqueue(pool.acquire().await?.as_mut()).await?;
 
         let dequeued_notification = StoreNotification::dequeue(&pool).await?;
         assert_eq!(notification, dequeued_notification);
