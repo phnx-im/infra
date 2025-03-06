@@ -267,7 +267,7 @@ impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let value = self.to_string();
-        <String as Encode<'q, Sqlite>>::encode(value, buf)
+        Encode::<Sqlite>::encode(value, buf)
     }
 
     fn encode(
@@ -275,15 +275,14 @@ impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let value = self.to_string();
-        <String as Encode<'q, Sqlite>>::encode(value, buf)
+        Encode::<Sqlite>::encode(value, buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <&str as Decode<Sqlite>>::decode(value)?;
-        let user_name = s.parse()?;
-        Ok(user_name)
+        let s: &str = Decode::<Sqlite>::decode(value)?;
+        Ok(s.parse()?)
     }
 }
 
@@ -436,7 +435,7 @@ impl<'q> Encode<'q, Sqlite> for AsClientId {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let value = self.to_string();
-        <String as Encode<'q, Sqlite>>::encode(value, buf)
+        Encode::<Sqlite>::encode(value, buf)
     }
 
     fn encode(
@@ -444,7 +443,7 @@ impl<'q> Encode<'q, Sqlite> for AsClientId {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let value = self.to_string();
-        <String as Encode<'q, Sqlite>>::encode(value, buf)
+        Encode::<Sqlite>::encode(value, buf)
     }
 }
 

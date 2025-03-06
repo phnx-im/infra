@@ -36,7 +36,7 @@ where
         &self,
         buf: &mut <DB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Uuid as Encode<DB>>::encode_by_ref(&self.uuid, buf)
+        Encode::<DB>::encode_by_ref(&self.uuid, buf)
     }
 }
 
@@ -70,7 +70,7 @@ where
         &self,
         buf: &mut <DB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Uuid as Encode<DB>>::encode(self.uuid(), buf)
+        Encode::<DB>::encode(self.uuid(), buf)
     }
 }
 
@@ -80,13 +80,13 @@ where
     Uuid: Decode<'r, DB>,
 {
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <Uuid as Decode<DB>>::decode(value)?;
+        let value: Uuid = Decode::<DB>::decode(value)?;
         Ok(Self::new(value))
     }
 }
 
 impl ConversationStatus {
-    pub(super) fn db_value(&self) -> Cow<'static, str> {
+    fn db_value(&self) -> Cow<'static, str> {
         match self {
             Self::Active => "active".into(),
             Self::Inactive(inactive_conversation) => {
@@ -102,9 +102,7 @@ impl ConversationStatus {
         }
     }
 
-    pub(super) fn from_db_value(
-        value: &str,
-    ) -> Result<ConversationStatus, ConversationStatusFromDbError> {
+    fn from_db_value(value: &str) -> Result<ConversationStatus, ConversationStatusFromDbError> {
         if value.starts_with("active") {
             return Ok(Self::Active);
         }
@@ -141,26 +139,26 @@ impl<'q> Encode<'q, Sqlite> for ConversationStatus {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Cow<str> as Encode<Sqlite>>::encode(self.db_value(), buf)
+        Encode::<Sqlite>::encode(self.db_value(), buf)
     }
 
     fn encode(
         self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Cow<str> as Encode<Sqlite>>::encode(self.db_value(), buf)
+        Encode::<Sqlite>::encode(self.db_value(), buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for ConversationStatus {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <&str as Decode<Sqlite>>::decode(value)?;
+        let value: &str = Decode::<Sqlite>::decode(value)?;
         Ok(Self::from_db_value(value)?)
     }
 }
 
 impl ConversationType {
-    pub(super) fn db_value(&self) -> Cow<'static, str> {
+    fn db_value(&self) -> Cow<'static, str> {
         match self {
             Self::UnconfirmedConnection(user_name) => {
                 format!("unconfirmed_connection:{user_name}").into()
@@ -170,9 +168,7 @@ impl ConversationType {
         }
     }
 
-    pub(super) fn from_db_value(
-        value: &str,
-    ) -> Result<ConversationType, ConversationTypeFromDbError> {
+    fn from_db_value(value: &str) -> Result<ConversationType, ConversationTypeFromDbError> {
         if value.starts_with("group") {
             return Ok(Self::Group);
         }
@@ -214,14 +210,14 @@ impl<'q> Encode<'q, Sqlite> for ConversationType {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Cow<str> as Encode<Sqlite>>::encode(self.db_value(), buf)
+        Encode::<Sqlite>::encode(self.db_value(), buf)
     }
 
     fn encode(
         self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <Cow<str> as Encode<Sqlite>>::encode(self.db_value(), buf)
+        Encode::<Sqlite>::encode(self.db_value(), buf)
     }
 }
 
@@ -240,7 +236,7 @@ impl Type<Sqlite> for GroupIdWrapper {
 
 impl<'r> Decode<'r, Sqlite> for GroupIdWrapper {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        let value: &[u8] = Decode::<Sqlite>::decode(value)?;
         Ok(GroupIdWrapper(GroupId::from_slice(value)))
     }
 }

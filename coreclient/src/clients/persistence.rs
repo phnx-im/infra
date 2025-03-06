@@ -41,13 +41,13 @@ impl<'q> Encode<'q, Sqlite> for UserCreationState {
     ) -> Result<IsNull, BoxDynError> {
         let state = StorableUserCreationStateRef::CurrentVersion(self);
         let bytes = PhnxCodec::to_vec(&state)?;
-        <Vec<u8> as Encode<Sqlite>>::encode(bytes, buf)
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for UserCreationState {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes = <&[u8] as Decode<'r, Sqlite>>::decode(value)?;
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
         let state = PhnxCodec::from_slice(bytes)?;
         match state {
             StorableUserCreationState::CurrentVersion(state) => Ok(state),

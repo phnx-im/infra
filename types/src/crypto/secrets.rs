@@ -89,14 +89,14 @@ impl<'q, const LENGTH: usize> Encode<'q, Sqlite> for Secret<LENGTH> {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        let bytes = self.secret.into();
-        <Box<[u8]> as Encode<Sqlite>>::encode(bytes, buf)
+        let bytes: Box<[u8]> = self.secret.into();
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
 impl<'r, const LENGTH: usize> Decode<'r, Sqlite> for Secret<LENGTH> {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
         Ok(Secret {
             secret: bytes.try_into()?,
         })

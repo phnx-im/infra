@@ -143,13 +143,13 @@ impl<'q> Encode<'q, Sqlite> for KeyPackageEarKey {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <KeyPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+        Encode::<Sqlite>::encode_by_ref(self.as_ref(), buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for KeyPackageEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <KeyPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        let key = Decode::<Sqlite>::decode(value)?;
         Ok(Self { key })
     }
 }
@@ -200,13 +200,13 @@ impl<'q> Encode<'q, Sqlite> for ClientCredentialEarKey {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <ClientCredentialEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+        Encode::<Sqlite>::encode_by_ref(self.as_ref(), buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for ClientCredentialEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <ClientCredentialEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        let key = Decode::<Sqlite>::decode(value)?;
         Ok(Self { key })
     }
 }
@@ -330,13 +330,13 @@ impl<'q> Encode<'q, Sqlite> for WelcomeAttributionInfoEarKey {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <WelcomeAttributionInfoEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+        Encode::<Sqlite>::encode_by_ref(self.as_ref(), buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for WelcomeAttributionInfoEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <WelcomeAttributionInfoEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        let key = Decode::<Sqlite>::decode(value)?;
         Ok(Self { key })
     }
 }
@@ -384,13 +384,13 @@ impl<'q> Encode<'q, Sqlite> for FriendshipPackageEarKey {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <FriendshipPackageEarKeySecret as Encode<Sqlite>>::encode_by_ref(self.as_ref(), buf)
+        Encode::<Sqlite>::encode_by_ref(self.as_ref(), buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for FriendshipPackageEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = <FriendshipPackageEarKeySecret as Decode<Sqlite>>::decode(value)?;
+        let key = Decode::<Sqlite>::decode(value)?;
         Ok(Self { key })
     }
 }

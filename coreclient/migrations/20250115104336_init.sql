@@ -248,29 +248,6 @@ WHERE
 
 END;
 
--- Delete user profiles of users that are not in any group and that are not our own.
-DELETE FROM users
-WHERE
-    user_name = OLD.user_name
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            group_membership
-        WHERE
-            user_name = OLD.user_name
-    )
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            own_client_info
-        WHERE
-            as_user_name = OLD.user_name
-    );
-
-END;
-
 CREATE TRIGGER no_partial_contact_overlap_on_insert BEFORE INSERT ON contacts FOR EACH ROW BEGIN
 SELECT
     CASE

@@ -162,14 +162,14 @@ impl<'q> Encode<'q, Sqlite> for Asset {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         match self {
-            Asset::Value(value) => <Vec<u8> as Encode<Sqlite>>::encode_by_ref(value, buf),
+            Asset::Value(value) => Encode::<Sqlite>::encode_by_ref(value, buf),
         }
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for Asset {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        <Vec<u8> as Decode<Sqlite>>::decode(value).map(Asset::Value)
+        Decode::<Sqlite>::decode(value).map(Asset::Value)
     }
 }
 
