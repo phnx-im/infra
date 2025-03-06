@@ -51,7 +51,7 @@ impl From<SqlUserProfile> for UserProfile {
 }
 
 impl UserProfile {
-    pub(crate) async fn load(
+    pub async fn load(
         executor: impl SqliteExecutor<'_>,
         user_name: &QualifiedUserName,
     ) -> sqlx::Result<Option<Self>> {
