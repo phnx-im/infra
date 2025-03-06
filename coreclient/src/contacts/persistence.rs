@@ -17,79 +17,9 @@ use sqlx::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    clients::connection_establishment::FriendshipPackage, store::StoreNotifier,
-    utils::persistence::Storable, Contact, ConversationId, PartialContact,
+    clients::connection_establishment::FriendshipPackage, store::StoreNotifier, Contact,
+    ConversationId, PartialContact,
 };
-
-pub(crate) const CONTACT_INSERT_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_contact_overlap_on_insert;
-
-    CREATE TRIGGER no_contact_overlap_on_insert
-    BEFORE INSERT ON partial_contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t insert PartialContact: There already exists a contact with this user_name')
-        END;
-    END;";
-pub(crate) const CONTACT_UPDATE_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_contact_overlap_on_update;
-
-    CREATE TRIGGER no_contact_overlap_on_update
-    BEFORE UPDATE ON partial_contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t update PartialContact: There already exists a contact with this user_name')
-        END;
-    END;";
-
-impl Storable for Contact {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS contacts (
-            user_name TEXT PRIMARY KEY,
-            conversation_id BLOB NOT NULL,
-            clients TEXT NOT NULL,
-            wai_ear_key BLOB NOT NULL,
-            friendship_token BLOB NOT NULL,
-            key_package_ear_key BLOB NOT NULL,
-            connection_key BLOB NOT NULL,
-            FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let conversation_id = row.get(1)?;
-        let clients_str: String = row.get(2)?;
-        let clients = clients_str
-            .split(',')
-            .map(|s| AsClientId::try_from(s.to_string()))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    2,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-        let wai_ear_key = row.get(3)?;
-        let friendship_token = row.get(4)?;
-        let key_package_ear_key = row.get(5)?;
-        let connection_key = row.get(6)?;
-
-        Ok(Contact {
-            user_name,
-            clients,
-            wai_ear_key,
-            friendship_token,
-            key_package_ear_key,
-            connection_key,
-            conversation_id,
-        })
-    }
-}
 
 /// Comma-separated list of [`AsClientId`]'s
 struct SqlAsClientIds(Vec<AsClientId>);
@@ -218,54 +148,6 @@ impl Contact {
             .add(self.user_name.clone())
             .update(self.conversation_id);
         Ok(())
-    }
-}
-
-pub(crate) const PARTIAL_CONTACT_INSERT_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_insert;
-
-    CREATE TRIGGER no_partial_contact_overlap_on_insert
-    BEFORE INSERT ON contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t insert Contact: There already exists a partial contact with this user_name')
-        END;
-    END;";
-
-pub(crate) const PARTIAL_CONTACT_UPDATE_TRIGGER: &str =
-    "DROP TRIGGER IF EXISTS no_partial_contact_overlap_on_update;
-
-    CREATE TRIGGER no_partial_contact_overlap_on_update
-    BEFORE UPDATE ON contacts
-    FOR EACH ROW
-    BEGIN
-        SELECT CASE
-            WHEN EXISTS (SELECT 1 FROM partial_contacts WHERE user_name = NEW.user_name)
-            THEN RAISE(FAIL, 'Can''t update Contact: There already exists a partial contact with this user_name')
-        END;
-    END;";
-
-impl Storable for PartialContact {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS partial_contacts (
-            user_name TEXT PRIMARY KEY,
-            conversation_id BLOB NOT NULL,
-            friendship_package_ear_key BLOB NOT NULL,
-            FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let conversation_id = row.get(1)?;
-        let friendship_package_ear_key = row.get(2)?;
-
-        Ok(PartialContact {
-            user_name,
-            conversation_id,
-            friendship_package_ear_key,
-        })
     }
 }
 

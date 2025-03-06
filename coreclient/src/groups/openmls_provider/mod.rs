@@ -5,7 +5,10 @@
 use std::marker::PhantomData;
 
 use openmls_rust_crypto::RustCrypto;
-use openmls_traits::{random::OpenMlsRand, storage::CURRENT_VERSION};
+use openmls_traits::{
+    random::OpenMlsRand,
+    storage::{Entity, Key, CURRENT_VERSION},
+};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use thiserror::Error;
@@ -21,7 +24,19 @@ pub(crate) mod proposals;
 pub(crate) mod psks;
 pub(crate) mod signature_key_pairs;
 pub(crate) mod sqlx_storage_provider;
-pub(super) mod storage_provider;
+
+#[derive(Debug, Serialize)]
+struct KeyRefWrapper<'a, T: Key<CURRENT_VERSION>>(pub &'a T);
+
+struct EntityWrapper<T: Entity<CURRENT_VERSION>>(pub T);
+
+struct EntityRefWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a T);
+
+struct EntitySliceWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a [T]);
+
+struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
+
+struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
 pub(crate) struct PhnxOpenMlsProvider<'a, T = SqlxStorageProvider<'a>> {
     storage: T,

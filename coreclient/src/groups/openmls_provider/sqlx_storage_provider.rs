@@ -26,10 +26,8 @@ use super::{
     signature_key_pairs::{
         StorableSignatureKeyPairs, StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef,
     },
-    storage_provider::{
-        EntityRefWrapper, EntitySliceWrapper, EntityVecWrapper, EntityWrapper, KeyRefWrapper,
-        StorableGroupIdRef,
-    },
+    EntityRefWrapper, EntitySliceWrapper, EntityVecWrapper, EntityWrapper, KeyRefWrapper,
+    StorableGroupIdRef,
 };
 
 pub(crate) struct SqlxStorageProvider<'a> {

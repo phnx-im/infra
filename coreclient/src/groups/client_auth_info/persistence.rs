@@ -12,22 +12,9 @@ use sqlx::{query, query_as, query_scalar, Row, SqliteExecutor};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
-use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
+use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
 use super::{GroupMembership, StorableClientCredential};
-
-impl Storable for StorableClientCredential {
-    const CREATE_TABLE_STATEMENT: &str = "CREATE TABLE IF NOT EXISTS client_credentials (
-                fingerprint BLOB PRIMARY KEY,
-                client_id TEXT NOT NULL,
-                client_credential BLOB NOT NULL
-            );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let client_credential = row.get(0)?;
-        Ok(Self::new(client_credential))
-    }
-}
 
 impl StorableClientCredential {
     /// Load the [`StorableClientCredential`] with the given
@@ -80,40 +67,6 @@ impl StorableClientCredential {
     }
 }
 
-impl Storable for GroupMembership {
-    // TODO(#349): Reinstate the foreign key constraint as soon as we have migrated
-    // the mls group table to the new style of storage.
-    // FOREIGN KEY (group_id) REFERENCES mlsgroup(primary_key),
-    const CREATE_TABLE_STATEMENT: &str = "CREATE TABLE IF NOT EXISTS group_membership (
-                client_credential_fingerprint BLOB NOT NULL,
-                group_id BLOB NOT NULL,
-                client_uuid BLOB NOT NULL,
-                user_name TEXT NOT NULL,
-                leaf_index INTEGER NOT NULL,
-                identity_link_key BLOB NOT NULL,
-                status TEXT DEFAULT 'staged_update' NOT NULL CHECK (status IN ('staged_update', 'staged_removal', 'staged_add', 'merged')),
-                FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credentials(fingerprint),
-                PRIMARY KEY (group_id, leaf_index, status)
-            );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let client_credential_fingerprint = row.get(0)?;
-        let group_id: GroupIdWrapper = row.get(1)?;
-        let client_uuid = row.get(2)?;
-        let user_name = row.get(3)?;
-        let leaf_index: i64 = row.get(4)?;
-        let identity_link_key: IdentityLinkKeySecret = row.get(5)?;
-        let client_id = AsClientId::new(user_name, client_uuid);
-        Ok(Self {
-            client_id,
-            group_id: group_id.into(),
-            leaf_index: LeafNodeIndex::new(leaf_index as u32),
-            identity_link_key: IdentityLinkKey::from(identity_link_key),
-            client_credential_fingerprint,
-        })
-    }
-}
-
 struct SqlGroupMembership {
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupIdWrapper,
@@ -143,28 +96,6 @@ impl From<SqlGroupMembership> for GroupMembership {
         }
     }
 }
-
-pub(crate) const GROUP_MEMBERSHIP_TRIGGER: &str =
-    "CREATE TRIGGER IF NOT EXISTS delete_orphaned_data
-        AFTER DELETE ON group_membership
-        FOR EACH ROW
-        BEGIN
-            -- Delete client credentials if they are not our own and not used in any group.
-            DELETE FROM client_credentials
-            WHERE fingerprint = OLD.client_credential_fingerprint AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE client_credential_fingerprint = OLD.client_credential_fingerprint
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_client_uuid = OLD.client_uuid
-            );
-
-            -- Delete user profiles of users that are not in any group and that are not our own.
-            DELETE FROM users
-            WHERE user_name = OLD.user_name AND NOT EXISTS (
-                SELECT 1 FROM group_membership WHERE user_name = OLD.user_name
-            ) AND NOT EXISTS (
-                SELECT 1 FROM own_client_info WHERE as_user_name = OLD.user_name
-            );
-        END;";
 
 impl GroupMembership {
     /// Merge all staged group memberships for the given group id.

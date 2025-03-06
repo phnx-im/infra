@@ -43,11 +43,7 @@ use phnxtypes::{
     },
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    migrate,
-    sqlite::{SqliteConnectOptions, SqliteJournalMode},
-    Connection, SqlitePool,
-};
+use sqlx::{Connection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;

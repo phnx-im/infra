@@ -10,44 +10,9 @@ use phnxtypes::{
 };
 use sqlx::{query, query_as, SqliteExecutor};
 
-use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper, Storable};
+use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
 use super::{diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider, Group};
-
-pub(crate) struct StorableGroup {
-    group_id: GroupId,
-    leaf_signer: PseudonymousCredentialSigningKey,
-    identity_link_wrapper_key: IdentityLinkWrapperKey,
-    group_state_ear_key: GroupStateEarKey,
-    pending_diff: Option<StagedGroupDiff>,
-}
-
-impl Storable for StorableGroup {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS groups (
-            group_id BLOB PRIMARY KEY,
-            leaf_signer BLOB NOT NULL,
-            identity_link_wrapper_key BLOB NOT NULL,
-            group_state_ear_key BLOB NOT NULL,
-            pending_diff BLOB
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let group_id: GroupIdWrapper = row.get(0)?;
-        let leaf_signer = row.get(1)?;
-        let identity_link_wrapper_key = row.get(2)?;
-        let group_state_ear_key = row.get(3)?;
-        let pending_diff = row.get(4)?;
-
-        Ok(StorableGroup {
-            group_id: group_id.into(),
-            leaf_signer,
-            identity_link_wrapper_key,
-            group_state_ear_key,
-            pending_diff,
-        })
-    }
-}
 
 struct SqlGroup {
     group_id: GroupIdWrapper,

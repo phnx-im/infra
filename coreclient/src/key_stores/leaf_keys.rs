@@ -8,28 +8,7 @@ use phnxtypes::{
 };
 use sqlx::{query, query_as, SqliteExecutor};
 
-use crate::utils::persistence::Storable;
-
 use super::*;
-
-impl Storable for LeafKeys {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS leaf_keys (
-            verifying_key BLOB PRIMARY KEY,
-            leaf_signing_key BLOB NOT NULL,
-            identity_link_key BLOB NOT NULL
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let verifying_key_bytes: Vec<u8> = row.get(0)?;
-        let verifying_key = SignaturePublicKey::from(verifying_key_bytes);
-        Ok(Self {
-            verifying_key,
-            leaf_signing_key: row.get(1)?,
-            identity_link_key: row.get(2)?,
-        })
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeafKeys {

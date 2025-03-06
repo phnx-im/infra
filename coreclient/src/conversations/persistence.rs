@@ -9,43 +9,9 @@ use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::{
-    store::StoreNotifier,
-    utils::persistence::{GroupIdWrapper, Storable},
-    Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
-    ConversationStatus, ConversationType,
+    store::StoreNotifier, utils::persistence::GroupIdWrapper, Conversation, ConversationAttributes,
+    ConversationId, ConversationMessageId, ConversationStatus, ConversationType,
 };
-
-impl Storable for Conversation {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS conversations (
-            conversation_id BLOB PRIMARY KEY,
-            conversation_title TEXT NOT NULL,
-            conversation_picture BLOB,
-            group_id BLOB NOT NULL,
-            last_read TEXT NOT NULL,
-            conversation_status TEXT NOT NULL CHECK (conversation_status LIKE 'active' OR conversation_status LIKE 'inactive:%'),
-            conversation_type TEXT NOT NULL CHECK (conversation_type LIKE 'group' OR conversation_type LIKE 'unconfirmed_connection:%' OR conversation_type LIKE 'connection:%')
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let id = row.get(0)?;
-        let title = row.get(1)?;
-        let picture = row.get(2)?;
-        let group_id: GroupIdWrapper = row.get(3)?;
-        let last_read = row.get(4)?;
-        let status = row.get(5)?;
-        let conversation_type = row.get(6)?;
-
-        Ok(Conversation {
-            id,
-            group_id: group_id.into(),
-            last_read,
-            status,
-            conversation_type,
-            attributes: ConversationAttributes { title, picture },
-        })
-    }
-}
 
 struct SqlConversation {
     conversation_id: ConversationId,

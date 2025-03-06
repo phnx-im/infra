@@ -20,8 +20,6 @@ use sqlx::{
 };
 use tracing::error;
 
-use crate::utils::persistence::Storable;
-
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -202,40 +200,6 @@ impl StorableAsQueueRatchet {
         connection: &mut sqlx::SqliteConnection,
     ) -> sqlx::Result<()> {
         self.update_internal(connection, QueueType::As).await
-    }
-}
-
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Storable
-    for StorableQueueRatchet<Ciphertext, Payload>
-{
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS queue_ratchets (
-            queue_type TEXT PRIMARY KEY CHECK (queue_type IN ('as', 'qs')),
-            queue_ratchet BLOB NOT NULL,
-            sequence_number INTEGER NOT NULL DEFAULT 0
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let queue_type_str: String = row.get(0)?;
-        let queue_type = match queue_type_str.as_str() {
-            "as" => QueueType::As,
-            "qs" => QueueType::Qs,
-            _ => return Err(rusqlite::Error::InvalidQuery),
-        };
-        let queue_ratchet = row.get(1)?;
-        Ok(Self {
-            queue_type,
-            queue_ratchet,
-        })
-    }
-}
-
-impl std::fmt::Display for QueueType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            QueueType::As => write!(f, "as"),
-            QueueType::Qs => write!(f, "qs"),
-        }
     }
 }
 

@@ -7,10 +7,6 @@ use phnxtypes::{
     codec::{self, PhnxCodec},
     time::TimeStamp,
 };
-use rusqlite::{
-    types::{FromSql, FromSqlError, Type, ValueRef},
-    ToSql,
-};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     encode::IsNull, error::BoxDynError, query, query_as, Database, Decode, Encode, Sqlite,
@@ -20,8 +16,7 @@ use tokio_stream::StreamExt;
 use tracing::{error, warn};
 
 use crate::{
-    store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
-    ConversationMessage, Message, MimiContent,
+    store::StoreNotifier, ContentMessage, ConversationId, ConversationMessage, Message, MimiContent,
 };
 
 use super::{ErrorMessage, EventMessage};
@@ -56,21 +51,6 @@ impl<'r> Decode<'r, Sqlite> for VersionedMessage {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
         Ok(PhnxCodec::from_slice(bytes)?)
-    }
-}
-
-impl FromSql for VersionedMessage {
-    fn column_result(value: ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let bytes = value.as_blob()?;
-        let versioned_message = PhnxCodec::from_slice(bytes)?;
-        Ok(versioned_message)
-    }
-}
-
-impl ToSql for VersionedMessage {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Ok(rusqlite::types::ToSqlOutput::from(bytes))
     }
 }
 
@@ -109,84 +89,6 @@ impl VersionedMessage {
 }
 
 use super::{ConversationMessageId, TimestampedMessage};
-
-impl Storable for ConversationMessage {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS conversation_messages (
-            message_id BLOB PRIMARY KEY,
-            conversation_id BLOB NOT NULL,
-            timestamp TEXT NOT NULL,
-            sender TEXT NOT NULL,
-            content BLOB NOT NULL,
-            sent BOOLEAN NOT NULL,
-            CHECK (sender LIKE 'user:%' OR sender = 'system'),
-            FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) DEFERRABLE INITIALLY DEFERRED
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        let conversation_message_id = row.get(0)?;
-        let conversation_id = row.get(1)?;
-        let timestamp = row.get(2)?;
-        let sender_str: String = row.get(3)?;
-        let sent = row.get(5)?;
-
-        let message;
-
-        match row.get::<_, VersionedMessage>(4) {
-            Err(e) => {
-                warn!("Versioned message parsing failed: {e}");
-                message = Message::Event(EventMessage::Error(ErrorMessage::new(
-                    "Versioned message parsing failed".to_owned(),
-                )))
-            }
-            Ok(versioned_message) => match sender_str.as_str() {
-                "system" => {
-                    message =
-                        Message::Event(versioned_message.to_event_message().unwrap_or_else(|e| {
-                            warn!("Event parsing failed: {e}");
-                            EventMessage::Error(ErrorMessage::new(
-                                "Event parsing failed".to_owned(),
-                            ))
-                        }))
-                }
-                user_str => {
-                    let sender = user_str
-                        .strip_prefix("user:")
-                        .ok_or(rusqlite::Error::FromSqlConversionFailure(
-                            3,
-                            Type::Text,
-                            Box::new(FromSqlError::InvalidType),
-                        ))?
-                        .to_string();
-
-                    message = versioned_message
-                        .to_mimi_content()
-                        .map(|content| {
-                            Message::Content(Box::new(ContentMessage {
-                                sender,
-                                sent,
-                                content,
-                            }))
-                        })
-                        .unwrap_or_else(|e| {
-                            warn!("Message parsing failed: {e}");
-                            Message::Event(EventMessage::Error(ErrorMessage::new(
-                                "Message parsing failed".to_owned(),
-                            )))
-                        });
-                }
-            },
-        };
-
-        let timestamped_message = TimestampedMessage { timestamp, message };
-
-        Ok(ConversationMessage {
-            conversation_message_id,
-            conversation_id,
-            timestamped_message,
-        })
-    }
-}
 
 struct SqlConversationMessage {
     message_id: ConversationMessageId,

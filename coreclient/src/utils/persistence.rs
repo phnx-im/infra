@@ -113,24 +113,6 @@ pub async fn open_client_db(
     Ok(pool)
 }
 
-/// Helper function to read one or more values from the database. If
-/// `number_of_entries` is set, it will load at most that number of entries.
-pub(crate) trait Storable {
-    const CREATE_TABLE_STATEMENT: &'static str;
-
-    /// Helper function that creates a table for the given data type.
-    fn create_table(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
-        let mut stmt = conn.prepare(Self::CREATE_TABLE_STATEMENT)?;
-        stmt.execute([])?;
-
-        Ok(())
-    }
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>
-    where
-        Self: Sized;
-}
-
 /// Helper struct that allows us to use GroupId as sqlite input.
 pub(crate) struct GroupIdRefWrapper<'a>(&'a GroupId);
 

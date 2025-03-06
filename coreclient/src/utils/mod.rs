@@ -2,6 +2,4 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#[allow(non_snake_case)]
-pub(crate) mod migration;
 pub(crate) mod persistence;

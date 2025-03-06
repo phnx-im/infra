@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, Utc};
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,7 @@ use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type,
 };
 
-use crate::utils::persistence::{open_phnx_db, Storable};
+use crate::utils::persistence::open_phnx_db;
 
 use super::store::{ClientRecord, ClientRecordState, UserCreationState};
 
@@ -75,19 +74,6 @@ impl ToSql for UserCreationState {
     }
 }
 
-impl Storable for UserCreationState {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS user_creation_state (
-            client_id BLOB PRIMARY KEY,
-            state BLOB NOT NULL,
-            created_at DATETIME NOT NULL
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        row.get(0)
-    }
-}
-
 impl UserCreationState {
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
@@ -112,34 +98,6 @@ impl UserCreationState {
         .execute(executor)
         .await?;
         Ok(())
-    }
-}
-
-// TODO: This is stored in a different db
-impl Storable for ClientRecord {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS client_record (
-            client_id BLOB NOT NULL PRIMARY KEY,
-            record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
-            created_at DATETIME NOT NULL,
-            is_default BOOLEAN NOT NULL DEFAULT FALSE
-        )";
-
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let record_state_str: String = row.get(1)?;
-        let client_record_state = match record_state_str.as_str() {
-            "in_progress" => ClientRecordState::InProgress,
-            "finished" => ClientRecordState::Finished,
-            _ => return Err(rusqlite::Error::InvalidQuery),
-        };
-        let created_at: DateTime<Utc> = row.get(2)?;
-        let is_default: bool = row.get(3)?;
-        Ok(Self {
-            as_client_id: row.get(0)?,
-            client_record_state,
-            created_at,
-            is_default,
-        })
     }
 }
 
@@ -259,6 +217,7 @@ impl ClientRecord {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
     use sqlx::SqlitePool;
     use uuid::Uuid;
 

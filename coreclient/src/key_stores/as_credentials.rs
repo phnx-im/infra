@@ -20,11 +20,13 @@ use sqlx::{
 use thiserror::Error;
 use tracing::info;
 
-use crate::{clients::api_clients::ApiClientsError, utils::persistence::Storable};
+use crate::clients::api_clients::ApiClientsError;
 
 use super::*;
 
 pub(crate) enum AsCredentials {
+    // TODO: Why is this unused
+    #[expect(dead_code)]
     AsCredential(AsCredential),
     AsIntermediateCredential(AsIntermediateCredential),
 }
@@ -48,33 +50,6 @@ impl Encode<'_, Sqlite> for AsCredentialsBodyRef<'_> {
         match self {
             Self::AsCredential(body) => Encode::<Sqlite>::encode_by_ref(body, buf),
             Self::AsIntermediateCredential(body) => Encode::<Sqlite>::encode_by_ref(body, buf),
-        }
-    }
-}
-
-impl Storable for AsCredentials {
-    const CREATE_TABLE_STATEMENT: &'static str = "
-        CREATE TABLE IF NOT EXISTS as_credentials (
-            fingerprint TEXT PRIMARY KEY,
-            domain TEXT NOT NULL,
-            credential_type TEXT NOT NULL CHECK (credential_type IN ('as_credential', 'as_intermediate_credential')),
-            credential BLOB NOT NULL
-        );";
-
-    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let credential_type: String = row.get(0)?;
-        match credential_type.as_str() {
-            "as_credential" => {
-                let body: AsCredentialBody = row.get(1)?;
-                Ok(AsCredentials::AsCredential(AsCredential::from(body)))
-            }
-            "as_intermediate_credential" => {
-                let body: AsIntermediateCredentialBody = row.get(1)?;
-                Ok(AsCredentials::AsIntermediateCredential(
-                    AsIntermediateCredential::from(body),
-                ))
-            }
-            _ => Err(rusqlite::Error::InvalidQuery),
         }
     }
 }

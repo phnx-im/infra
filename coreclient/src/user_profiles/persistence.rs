@@ -5,28 +5,9 @@
 use phnxtypes::identifiers::QualifiedUserName;
 use sqlx::{query, query_as, SqliteExecutor};
 
-use crate::{store::StoreNotifier, utils::persistence::Storable, UserProfile};
+use crate::{store::StoreNotifier, UserProfile};
 
 use super::{Asset, DisplayName};
-
-impl Storable for UserProfile {
-    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (
-                user_name TEXT PRIMARY KEY,
-                display_name TEXT,
-                profile_picture BLOB
-            );";
-
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let display_name_option = row.get(1)?;
-        let profile_picture_option = row.get(2)?;
-        Ok(UserProfile {
-            user_name,
-            display_name_option,
-            profile_picture_option,
-        })
-    }
-}
 
 struct SqlUserProfile {
     user_name: QualifiedUserName,
