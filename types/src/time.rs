@@ -5,8 +5,6 @@
 use std::ops::Deref;
 
 use chrono::{DateTime, TimeZone, Utc};
-#[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
 
 use super::*;
 
@@ -96,21 +94,6 @@ impl TlsDeserializeBytesTrait for TimeStamp {
         let time_i64 = i64::from_be_bytes(time_i64_bytes);
         let time = TimeStamp::from(time_i64);
         Ok((time, &bytes[I64_SIZE..]))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for TimeStamp {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for TimeStamp {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let time = DateTime::<Utc>::column_result(value)?;
-        Ok(time.into())
     }
 }
 

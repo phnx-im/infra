@@ -10,8 +10,6 @@ use mls_assist::{
         signatures::{Signer, SignerError},
     },
 };
-#[cfg(feature = "sqlite")]
-use rusqlite::{types::ToSqlOutput, ToSql};
 use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -195,22 +193,6 @@ impl AsRef<VerifyingKey> for ClientVerifyingKey {
 pub struct PseudonymousCredentialSigningKey {
     signing_key: SigningKey,
     credential: PseudonymousCredential,
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for PseudonymousCredentialSigningKey {
-    fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Ok(ToSqlOutput::from(bytes))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let key = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(key)
-    }
 }
 
 impl Type<Sqlite> for PseudonymousCredentialSigningKey {

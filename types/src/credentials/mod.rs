@@ -7,8 +7,6 @@ use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-#[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
 
 use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
@@ -91,23 +89,6 @@ impl CredentialFingerprint {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for CredentialFingerprint {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.0),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for CredentialFingerprint {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        Ok(Self(value.to_vec()))
-    }
-}
-
 const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
@@ -131,26 +112,6 @@ pub struct AsCredentialBody {
     expiration_data: ExpirationData,
     signature_scheme: SignatureScheme,
     verifying_key: AsVerifyingKey,
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for AsCredentialBody {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for AsCredentialBody {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let body = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(body)
-    }
 }
 
 impl Type<Sqlite> for AsCredentialBody {
@@ -303,26 +264,6 @@ impl Signable for AsIntermediateCredentialPayload {
 pub struct AsIntermediateCredentialBody {
     credential: AsIntermediateCredentialPayload,
     signature: Signature,
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for AsIntermediateCredentialBody {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for AsIntermediateCredentialBody {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let body = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(body)
-    }
 }
 
 impl Type<Sqlite> for AsIntermediateCredentialBody {
@@ -575,33 +516,10 @@ enum VersionedClientCredential {
     CurrentVersion(ClientCredential),
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for ClientCredential {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        let versioned_credential = PhnxCodec::from_slice(value)?;
-        match versioned_credential {
-            VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
-        }
-    }
-}
-
 // Only change this enum in tandem with its non-Ref variant.
 #[derive(Serialize)]
 enum VersionedClientCredentialRef<'a> {
     CurrentVersion(&'a ClientCredential),
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for ClientCredential {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(&VersionedClientCredentialRef::CurrentVersion(self))
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
-    }
 }
 
 impl Type<Sqlite> for ClientCredential {

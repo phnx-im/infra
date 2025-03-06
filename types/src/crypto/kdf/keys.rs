@@ -203,18 +203,3 @@ impl From<Secret<KDF_KEY_SIZE>> for ConnectionKey {
         Self { key }
     }
 }
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for ConnectionKey {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let key = ConnectionKeyKey::column_result(value)?;
-        Ok(Self { key })
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for ConnectionKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}

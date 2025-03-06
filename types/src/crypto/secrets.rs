@@ -9,8 +9,6 @@
 use std::{fmt::Display, ops::Deref};
 
 use rand::{RngCore, SeedableRng};
-#[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
 use secrecy::{
     zeroize::{Zeroize, ZeroizeOnDrop},
     CloneableSecret, SerializableSecret,
@@ -101,25 +99,6 @@ impl<'r, const LENGTH: usize> Decode<'r, Sqlite> for Secret<LENGTH> {
         let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
         Ok(Secret {
             secret: bytes.try_into()?,
-        })
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for Secret<32> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::from(self.secret.to_vec()))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for Secret<32> {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let secret = value.as_blob()?;
-        let mut secret_bytes = [0u8; 32];
-        secret_bytes.copy_from_slice(secret);
-        Ok(Secret {
-            secret: secret_bytes,
         })
     }
 }

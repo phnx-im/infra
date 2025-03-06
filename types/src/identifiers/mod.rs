@@ -6,11 +6,6 @@ use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
-#[cfg(feature = "sqlite")]
-use rusqlite::{
-    types::{FromSql, FromSqlError},
-    ToSql,
-};
 use sqlx::{
     encode::IsNull, error::BoxDynError, postgres::PgValueRef, Database, Decode, Encode, Postgres,
     Sqlite, Type,
@@ -64,26 +59,6 @@ impl<'r> Decode<'r, Postgres> for Fqdn {
         let fqdn = s.parse().map_err(|error| {
             error!(%error, "Error parsing Fqdn from DB");
             sqlx::Error::Decode(Box::new(error))
-        })?;
-        Ok(fqdn)
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for Fqdn {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for Fqdn {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s = value.as_str()?;
-        let fqdn = s.parse().map_err(|error| {
-            error!(%error, "Error parsing Fqdn from DB");
-            FromSqlError::InvalidType
         })?;
         Ok(fqdn)
     }
@@ -312,26 +287,6 @@ impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for QualifiedUserName {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for QualifiedUserName {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s = value.as_str()?;
-        let user_name: QualifiedUserName = s.parse().map_err(|error| {
-            error!(%error, "Error parsing UserName");
-            FromSqlError::InvalidType
-        })?;
-        Ok(user_name)
-    }
-}
-
 #[derive(Debug, Clone, Error)]
 pub enum QualifiedUserNameError {
     #[error("Invalid string representation of qualified user name")]
@@ -500,26 +455,6 @@ impl<'r> Decode<'r, Sqlite> for AsClientId {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for AsClientId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for AsClientId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let string = value.as_str()?.to_owned();
-        let as_client_id = AsClientId::try_from(string).map_err(|e| {
-            error!("Error parsing AsClientId: {}", e);
-            FromSqlError::InvalidType
-        })?;
-        Ok(as_client_id)
-    }
-}
-
 #[derive(
     Clone,
     Debug,
@@ -591,20 +526,6 @@ impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientCon
 #[sqlx(transparent)]
 pub struct QsClientId(TlsUuid);
 
-#[cfg(feature = "sqlite")]
-impl ToSql for QsClientId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for QsClientId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Uuid::column_result(value).map(|id| id.into())
-    }
-}
-
 impl QsClientId {
     pub fn random(rng: &mut (impl CryptoRng + RngCore)) -> Self {
         let random_bytes = rng.gen::<[u8; 16]>();
@@ -638,20 +559,6 @@ impl From<Uuid> for QsClientId {
 )]
 #[sqlx(transparent)]
 pub struct QsUserId(TlsUuid);
-
-#[cfg(feature = "sqlite")]
-impl ToSql for QsUserId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for QsUserId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Uuid::column_result(value).map(|id| id.into())
-    }
-}
 
 impl From<Uuid> for QsUserId {
     fn from(value: Uuid) -> Self {

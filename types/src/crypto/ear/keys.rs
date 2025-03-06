@@ -8,8 +8,6 @@
 
 use mls_assist::openmls::prelude::GroupId;
 
-#[cfg(feature = "sqlite")]
-use rusqlite::types::FromSql;
 use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -36,21 +34,6 @@ pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct GroupStateEarKey {
     key: GroupStateEarKeySecret,
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for GroupStateEarKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for GroupStateEarKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = GroupStateEarKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
 }
 
 impl Type<Sqlite> for GroupStateEarKey {
@@ -171,21 +154,6 @@ impl<'r> Decode<'r, Sqlite> for KeyPackageEarKey {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for KeyPackageEarKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for KeyPackageEarKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = KeyPackageEarKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
-}
-
 impl KeyPackageEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
@@ -239,21 +207,6 @@ impl<'q> Encode<'q, Sqlite> for ClientCredentialEarKey {
 impl<'r> Decode<'r, Sqlite> for ClientCredentialEarKey {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let key = <ClientCredentialEarKeySecret as Decode<Sqlite>>::decode(value)?;
-        Ok(Self { key })
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for ClientCredentialEarKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for ClientCredentialEarKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = ClientCredentialEarKeySecret::column_result(value)?;
         Ok(Self { key })
     }
 }
@@ -314,21 +267,6 @@ pub type IdentityLinkKeySecret = Secret<AEAD_KEY_SIZE>;
 )]
 pub struct IdentityLinkKey {
     key: IdentityLinkKeySecret,
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for IdentityLinkKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for IdentityLinkKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = IdentityLinkKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
 }
 
 impl Type<Sqlite> for IdentityLinkKey {
@@ -403,21 +341,6 @@ impl<'r> Decode<'r, Sqlite> for WelcomeAttributionInfoEarKey {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for WelcomeAttributionInfoEarKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for WelcomeAttributionInfoEarKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = WelcomeAttributionInfoEarKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
-}
-
 impl WelcomeAttributionInfoEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
@@ -472,21 +395,6 @@ impl<'r> Decode<'r, Sqlite> for FriendshipPackageEarKey {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for FriendshipPackageEarKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for FriendshipPackageEarKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = FriendshipPackageEarKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
-}
-
 impl FriendshipPackageEarKey {
     pub fn random() -> Result<Self, RandomnessError> {
         Ok(Self {
@@ -534,21 +442,6 @@ pub type IdentityLinkWrapperKeySecret = Secret<AEAD_KEY_SIZE>;
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct IdentityLinkWrapperKey {
     key: IdentityLinkWrapperKeySecret,
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for IdentityLinkWrapperKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for IdentityLinkWrapperKey {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let key = IdentityLinkWrapperKeySecret::column_result(value)?;
-        Ok(Self { key })
-    }
 }
 
 impl Type<Sqlite> for IdentityLinkWrapperKey {
