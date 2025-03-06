@@ -102,6 +102,7 @@ setup-macos-ci: install-cargo-binstall
     bundle install
 
 test-rust $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $SQLX_OFFLINE="true" *args='':
+    echo $DATABASE_URL
     cargo test {{args}}
 
 # build Android
