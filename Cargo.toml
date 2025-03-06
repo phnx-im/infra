@@ -50,9 +50,8 @@ phnxtypes = { path = "./types" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
-    "tracing-log",
     "parking_lot",
-] }
+], default-features = false }
 
 tokio-util = "0.7.13"
 
@@ -62,7 +61,7 @@ tokio-util = "0.7.13"
 # PR: <https://github.com/RustCrypto/formats/pull/1656/files>
 tls_codec = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
 
-[profile.release]
-strip = true
-lto = true
-codegen-units = 1
+# [profile.release]
+# strip = true
+# lto = true
+# codegen-units = 1

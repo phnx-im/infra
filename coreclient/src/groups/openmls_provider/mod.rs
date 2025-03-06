@@ -8,7 +8,6 @@ use openmls_rust_crypto::RustCrypto;
 use openmls_traits::{random::OpenMlsRand, storage::CURRENT_VERSION};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use storage_provider::SqliteStorageProvider;
 use thiserror::Error;
 
 use super::*;
@@ -24,7 +23,7 @@ pub(crate) mod signature_key_pairs;
 pub(crate) mod sqlx_storage_provider;
 pub(super) mod storage_provider;
 
-pub(crate) struct PhnxOpenMlsProvider<'a, T = SqliteStorageProvider<'a>> {
+pub(crate) struct PhnxOpenMlsProvider<'a, T = SqlxStorageProvider<'a>> {
     storage: T,
     crypto: RustCrypto,
     _marker: PhantomData<&'a ()>,
@@ -98,20 +97,31 @@ pub(crate) enum PhnxRandomnessError {
     NotEnoughRandomness,
 }
 
-#[test]
-fn randomness() {
+#[cfg(test)]
+mod tests {
     use std::collections::HashSet;
-    let connection = Connection::open_in_memory().unwrap();
 
-    let provider = PhnxOpenMlsProvider::new(&connection);
-    let random_vec_1 = provider.random_vec(32).unwrap();
-    let random_vec_2 = provider.random_vec(32).unwrap();
-    let provider = PhnxOpenMlsProvider::new(&connection);
-    let random_vec_3 = provider.random_vec(32).unwrap();
-    let random_vec_4 = provider.random_vec(32).unwrap();
-    let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]
-        .iter()
-        .cloned()
-        .collect::<HashSet<_>>();
-    assert_eq!(set.len(), 4);
+    use openmls::prelude::*;
+    use sqlx::SqlitePool;
+
+    use super::*;
+
+    #[sqlx::test]
+    async fn randomness(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
+
+        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let random_vec_1 = provider.random_vec(32).unwrap();
+        let random_vec_2 = provider.random_vec(32).unwrap();
+        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let random_vec_3 = provider.random_vec(32).unwrap();
+        let random_vec_4 = provider.random_vec(32).unwrap();
+        let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        assert_eq!(set.len(), 4);
+
+        Ok(())
+    }
 }

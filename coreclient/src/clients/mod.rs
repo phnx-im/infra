@@ -65,7 +65,7 @@ use crate::{
     key_stores::{queue_ratchets::QueueType, MemoryUserKeyStore},
     store::{StoreNotification, StoreNotifier},
     user_profiles::UserProfile,
-    utils::persistence::{open_client_db, open_phnx_db},
+    utils::persistence::{open_client_db, open_db_in_memory, open_phnx_db},
     ConversationMessageId,
 };
 use crate::{
@@ -192,18 +192,10 @@ impl CoreUser {
         let as_client_id = AsClientId::random(user_name)?;
 
         // Open the phnx db to store the client record
-        let opts = SqliteConnectOptions::new()
-            .journal_mode(SqliteJournalMode::Wal)
-            .in_memory(true);
-        let phnx_db = SqlitePool::connect_with(opts).await?;
-        migrate!().run(&phnx_db).await?;
+        let phnx_db = open_db_in_memory().await?;
 
         // Open client specific db
-        let opts = SqliteConnectOptions::new()
-            .journal_mode(SqliteJournalMode::Wal)
-            .in_memory(true);
-        let client_db = SqlitePool::connect_with(opts).await?;
-        migrate!().run(&client_db).await?;
+        let client_db = open_db_in_memory().await?;
 
         Self::new_with_connections(
             as_client_id,

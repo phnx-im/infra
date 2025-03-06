@@ -62,22 +62,13 @@ impl OwnClientInfo {
 #[cfg(test)]
 mod tests {
     use phnxtypes::identifiers::{QsClientId, QsUserId};
+    use sqlx::{Row, SqlitePool};
     use uuid::Uuid;
 
     use super::*;
 
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(OwnClientInfo::CREATE_TABLE_STATEMENT)
-            .unwrap();
-        connection
-    }
-
-    #[test]
-    fn store() -> anyhow::Result<()> {
-        let connection = test_connection();
-
+    #[sqlx::test]
+    async fn store(pool: SqlitePool) -> anyhow::Result<()> {
         let own_client_info = OwnClientInfo {
             server_url: "https://localhost".to_string(),
             qs_user_id: QsUserId::random(),
@@ -85,11 +76,23 @@ mod tests {
             as_client_id: AsClientId::new("alice@localhost".parse()?, Uuid::new_v4()),
         };
 
-        own_client_info.store(&connection)?;
+        own_client_info.store(&pool).await?;
 
-        let loaded = connection
-            .prepare("SELECT * FROM own_client_info")?
-            .query_row([], OwnClientInfo::from_row)?;
+        let row = sqlx::query("SELECT * FROM own_client_info")
+            .fetch_one(&pool)
+            .await?;
+        let server_url = row.try_get(0)?;
+        let qs_user_id = row.try_get(1)?;
+        let qs_client_id = row.try_get(2)?;
+        let as_user_name = row.try_get(3)?;
+        let as_client_uuid = row.try_get(4)?;
+        let loaded = OwnClientInfo {
+            server_url,
+            qs_user_id,
+            qs_client_id,
+            as_client_id: AsClientId::new(as_user_name, as_client_uuid),
+        };
+
         assert_eq!(loaded, own_client_info);
 
         Ok(())

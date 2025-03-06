@@ -255,8 +255,8 @@ impl Conversation {
                 r#"SELECT
                     message_id AS "message_id: _"
                 FROM conversation_messages
-                INNER JOIN conversations c ON c.conversation_id = :conversation_id
-                WHERE c.conversation_id = :conversation_id AND timestamp > c.last_read"#,
+                INNER JOIN conversations c ON c.conversation_id = ?1
+                WHERE c.conversation_id = ?1 AND timestamp > c.last_read"#,
                 conversation_id,
             )
             .fetch_all(&mut *transaction)
@@ -268,8 +268,8 @@ impl Conversation {
 
             let updated = query!(
                 "UPDATE conversations
-                SET last_read = :timestamp
-                WHERE conversation_id = :conversation_id AND last_read < :timestamp",
+                SET last_read = ?1
+                WHERE conversation_id = ?2 AND last_read < ?1",
                 timestamp,
                 conversation_id,
             )
@@ -304,10 +304,10 @@ impl Conversation {
             return Ok(false);
         };
         let updated = query!(
-            "UPDATE conversations SET last_read = :timestamp
-            WHERE conversation_id = :conversation_id AND last_read != :timestamp",
-            conversation_id,
+            "UPDATE conversations SET last_read = ?1
+            WHERE conversation_id = ?2 AND last_read != ?1",
             timestamp,
+            conversation_id,
         )
         .execute(connection)
         .await?;
@@ -348,7 +348,7 @@ impl Conversation {
             FROM
                 conversation_messages cm
             WHERE
-                cm.conversation_id = :conversation_id
+                cm.conversation_id = ?
                 AND cm.sender != 'system'"#,
             conversation_id
         )
@@ -367,7 +367,7 @@ impl Conversation {
             FROM
                 conversation_messages
             WHERE
-                conversation_id = :conversation_id
+                conversation_id = ?1
                 AND sender != 'system'
                 AND timestamp >
                 (
@@ -376,7 +376,7 @@ impl Conversation {
                     FROM
                         conversations
                     WHERE
-                        conversation_id = :conversation_id
+                        conversation_id = ?1
                 )"#,
             conversation_id
         )
@@ -406,10 +406,11 @@ impl Conversation {
 #[cfg(test)]
 pub mod tests {
     use chrono::Duration;
+    use sqlx::SqlitePool;
     use uuid::Uuid;
 
     use crate::{
-        conversations::messages::persistence::tests::{test_connection, test_conversation_message},
+        conversations::messages::persistence::tests::test_conversation_message,
         InactiveConversation,
     };
 
@@ -432,196 +433,183 @@ pub mod tests {
         }
     }
 
-    #[test]
-    fn store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-        let loaded =
-            Conversation::load(&connection, &conversation.id)?.expect("missing conversation");
-        assert_eq!(loaded, conversation);
-
-        Ok(())
-    }
-
-    #[test]
-    fn store_load_by_group_id() -> anyhow::Result<()> {
-        let connection = test_connection();
-        let mut store_notifier = StoreNotifier::noop();
-
-        let conversation = test_conversation();
-        conversation
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-        let loaded = Conversation::load_by_group_id(&connection, &conversation.group_id)?
+        conversation.store(&pool, &mut store_notifier).await?;
+        let loaded = Conversation::load(&pool, &conversation.id)
+            .await?
             .expect("missing conversation");
         assert_eq!(loaded, conversation);
 
         Ok(())
     }
 
-    #[test]
-    fn store_load_all() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load_by_group_id(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation_a = test_conversation();
-        conversation_a
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-
-        let conversation_b = test_conversation();
-        conversation_b
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-
-        let loaded = Conversation::load_all(&connection)?;
-        assert_eq!(loaded, [conversation_a, conversation_b]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn update_conversation_picture() -> anyhow::Result<()> {
-        let connection = test_connection();
-        let mut store_notifier = StoreNotifier::noop();
-
-        let mut conversation = test_conversation();
-        conversation
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-
-        let new_picture = [1, 2, 3];
-        Conversation::update_picture(
-            &connection,
-            &mut store_notifier,
-            conversation.id,
-            Some(&new_picture),
-        )?;
-
-        conversation.attributes.picture = Some(new_picture.to_vec());
-
-        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        let conversation = test_conversation();
+        conversation.store(&pool, &mut store_notifier).await?;
+        let loaded = Conversation::load_by_group_id(&pool, &conversation.group_id)
+            .await?
+            .expect("missing conversation");
         assert_eq!(loaded, conversation);
 
         Ok(())
     }
 
-    #[test]
-    fn update_conversation_status() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load_all(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+
+        let conversation_a = test_conversation();
+        conversation_a.store(&pool, &mut store_notifier).await?;
+
+        let conversation_b = test_conversation();
+        conversation_b.store(&pool, &mut store_notifier).await?;
+
+        let loaded = Conversation::load_all(&pool).await?;
+        assert_eq!(loaded, [conversation_a, conversation_b]);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn update_conversation_picture(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let mut conversation = test_conversation();
-        conversation
-            .store(&connection, &mut store_notifier)
-            .unwrap();
+        conversation.store(&pool, &mut store_notifier).await?;
+
+        let new_picture = [1, 2, 3];
+        Conversation::update_picture(
+            &pool,
+            &mut store_notifier,
+            conversation.id,
+            Some(&new_picture),
+        )
+        .await?;
+
+        conversation.attributes.picture = Some(new_picture.to_vec());
+
+        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
+        assert_eq!(loaded, conversation);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn update_conversation_status(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+
+        let mut conversation = test_conversation();
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let past_members = vec![
             "alice@localhost".parse().unwrap(),
             "bob@localhost".parse().unwrap(),
         ];
         let status = ConversationStatus::Inactive(InactiveConversation::new(past_members));
-        Conversation::update_status(&connection, &mut store_notifier, conversation.id, &status)?;
+        Conversation::update_status(&pool, &mut store_notifier, conversation.id, &status).await?;
 
         conversation.status = status;
-        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
         assert_eq!(loaded, conversation);
 
         Ok(())
     }
 
-    #[test]
-    fn delete() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn delete(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation
-            .store(&connection, &mut store_notifier)
-            .unwrap();
-        let loaded = Conversation::load(&connection, &conversation.id)?.unwrap();
+        conversation.store(&pool, &mut store_notifier).await?;
+        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
         assert_eq!(loaded, conversation);
 
-        Conversation::delete(&connection, &mut store_notifier, conversation.id)?;
-        let loaded = Conversation::load(&connection, &conversation.id)?;
+        Conversation::delete(&pool, &mut store_notifier, conversation.id).await?;
+        let loaded = Conversation::load(&pool, &conversation.id).await?;
         assert!(loaded.is_none());
 
         Ok(())
     }
 
-    #[test]
-    fn counters() -> anyhow::Result<()> {
-        let mut connection = test_connection();
+    #[sqlx::test]
+    async fn counters(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation_a = test_conversation();
-        conversation_a.store(&connection, &mut store_notifier)?;
+        conversation_a.store(&pool, &mut store_notifier).await?;
 
         let conversation_b = test_conversation();
-        conversation_b.store(&connection, &mut store_notifier)?;
+        conversation_b.store(&pool, &mut store_notifier).await?;
 
         let message_a = test_conversation_message(conversation_a.id());
         let message_b = test_conversation_message(conversation_b.id());
 
-        message_a.store(&connection, &mut store_notifier)?;
-        message_b.store(&connection, &mut store_notifier)?;
+        message_a.store(&pool, &mut store_notifier).await?;
+        message_b.store(&pool, &mut store_notifier).await?;
 
-        let n = Conversation::messages_count(&connection, conversation_a.id())?;
+        let n = Conversation::messages_count(&pool, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::messages_count(&connection, conversation_b.id())?;
+        let n = Conversation::messages_count(&pool, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::global_unread_message_count(&connection)?;
+        let n = Conversation::global_unread_message_count(&pool).await?;
         assert_eq!(n, 2);
 
-        let transaction = connection.transaction()?;
+        let mut transaction = pool.begin().await?;
         Conversation::mark_as_read(
-            &transaction,
+            &mut transaction,
             &mut store_notifier,
             [(
                 conversation_a.id(),
                 message_a.timestamp() - Duration::seconds(1),
             )],
-        )?;
-        transaction.commit()?;
-        let n = Conversation::unread_messages_count(&connection, conversation_a.id())?;
+        )
+        .await?;
+        transaction.commit().await?;
+        let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
-        let transaction = connection.transaction()?;
+        let mut transaction = pool.begin().await?;
         Conversation::mark_as_read(
-            &transaction,
+            &mut transaction,
             &mut store_notifier,
             [(conversation_a.id(), Utc::now())],
-        )?;
-        transaction.commit()?;
-        let n = Conversation::unread_messages_count(&connection, conversation_a.id())?;
+        )
+        .await?;
+        transaction.commit().await?;
+        let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
         assert_eq!(n, 0);
 
+        let mut connection = pool.acquire().await?;
         Conversation::mark_as_read_until_message_id(
-            &connection,
+            &mut connection,
             &mut store_notifier,
             conversation_b.id(),
             ConversationMessageId::random(),
-        )?;
-        let n = Conversation::unread_messages_count(&connection, conversation_b.id())?;
+        )
+        .await?;
+        let n = Conversation::unread_messages_count(&pool, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
         Conversation::mark_as_read_until_message_id(
-            &connection,
+            &mut connection,
             &mut store_notifier,
             conversation_b.id(),
             message_b.id(),
-        )?;
-        let n = Conversation::unread_messages_count(&connection, conversation_b.id())?;
+        )
+        .await?;
+        let n = Conversation::unread_messages_count(&pool, conversation_b.id()).await?;
         assert_eq!(n, 0);
 
-        let n = Conversation::global_unread_message_count(&connection)?;
+        let n = Conversation::global_unread_message_count(&pool).await?;
         assert_eq!(n, 0);
 
         Ok(())

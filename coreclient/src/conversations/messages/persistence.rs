@@ -267,7 +267,7 @@ impl ConversationMessage {
         conversation_id: ConversationId,
         number_of_messages: u32,
     ) -> sqlx::Result<Vec<ConversationMessage>> {
-        query_as!(
+        let messages: sqlx::Result<Vec<ConversationMessage>> = query_as!(
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
@@ -286,7 +286,10 @@ impl ConversationMessage {
         .fetch(executor)
         .map(|res| res?.try_into().map_err(From::from))
         .collect()
-        .await
+        .await;
+        let mut messages = messages?;
+        messages.reverse();
+        Ok(messages)
     }
 
     pub(crate) async fn store(
@@ -393,9 +396,9 @@ impl ConversationMessage {
                 content AS "content: _",
                 sent
             FROM conversation_messages
-            WHERE message_id != :message_id
+            WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM conversation_messages
-                WHERE message_id = :message_id)
+                WHERE message_id = ?1)
             ORDER BY timestamp DESC
             LIMIT 1"#,
             message_id,
@@ -424,9 +427,9 @@ impl ConversationMessage {
                 content AS "content: _",
                 sent
             FROM conversation_messages
-            WHERE message_id != :message_id
+            WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM conversation_messages
-                WHERE message_id = :message_id)
+                WHERE message_id = ?1)
             ORDER BY timestamp ASC
             LIMIT 1"#,
             message_id,
@@ -445,27 +448,14 @@ impl ConversationMessage {
 #[cfg(test)]
 pub(crate) mod tests {
     use chrono::Utc;
+    use sqlx::SqlitePool;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        MimiContent, SystemMessage,
+        conversations::persistence::tests::test_conversation, EventMessage, MimiContent,
+        SystemMessage,
     };
 
     use super::*;
-
-    pub(crate) fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(
-                &[
-                    Conversation::CREATE_TABLE_STATEMENT,
-                    ConversationMessage::CREATE_TABLE_STATEMENT,
-                ]
-                .join("\n"),
-            )
-            .unwrap();
-        connection
-    }
 
     pub(crate) fn test_conversation_message(
         conversation_id: ConversationId,
@@ -488,89 +478,92 @@ pub(crate) mod tests {
         }
     }
 
-    #[test]
-    fn store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message = test_conversation_message(conversation.id());
 
-        message.store(&connection, &mut store_notifier)?;
-        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        message.store(&pool, &mut store_notifier).await?;
+        let loaded = ConversationMessage::load(&pool, message.id())
+            .await?
+            .unwrap();
         assert_eq!(loaded, message);
 
         Ok(())
     }
 
-    #[test]
-    fn store_load_multiple() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load_multiple(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
 
-        message_a.store(&connection, &mut store_notifier)?;
-        message_b.store(&connection, &mut store_notifier)?;
+        message_a.store(&pool, &mut store_notifier).await?;
+        message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::load_multiple(&connection, conversation.id(), 2)?;
+        let loaded = ConversationMessage::load_multiple(&pool, conversation.id(), 2).await?;
         assert_eq!(loaded, [message_a, message_b.clone()]);
 
-        let loaded = ConversationMessage::load_multiple(&connection, conversation.id(), 1)?;
+        let loaded = ConversationMessage::load_multiple(&pool, conversation.id(), 1).await?;
         assert_eq!(loaded, [message_b]);
 
         Ok(())
     }
 
-    #[test]
-    fn update_sent_status() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn update_sent_status(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message = test_conversation_message(conversation.id());
-        message.store(&connection, &mut store_notifier)?;
+        message.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        let loaded = ConversationMessage::load(&pool, message.id())
+            .await?
+            .unwrap();
         assert!(!loaded.is_sent());
 
         let sent_at: TimeStamp = Utc::now().into();
         ConversationMessage::update_sent_status(
-            &connection,
+            &pool,
             &mut store_notifier,
             loaded.id(),
             sent_at,
             true,
-        )?;
+        )
+        .await?;
 
-        let loaded = ConversationMessage::load(&connection, message.id())?.unwrap();
+        let loaded = ConversationMessage::load(&pool, message.id())
+            .await?
+            .unwrap();
         assert_eq!(&loaded.timestamp(), sent_at.as_ref());
         assert!(loaded.is_sent());
 
         Ok(())
     }
 
-    #[test]
-    fn last_content_message() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn last_content_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
 
-        message_a.store(&connection, &mut store_notifier)?;
-        message_b.store(&connection, &mut store_notifier)?;
+        message_a.store(&pool, &mut store_notifier).await?;
+        message_b.store(&pool, &mut store_notifier).await?;
 
         ConversationMessage {
             conversation_id: conversation.id(),
@@ -583,49 +576,48 @@ pub(crate) mod tests {
                 ))),
             },
         }
-        .store(&connection, &mut store_notifier)?;
+        .store(&pool, &mut store_notifier)
+        .await?;
 
-        let loaded = ConversationMessage::last_content_message(&connection, conversation.id())?;
+        let loaded = ConversationMessage::last_content_message(&pool, conversation.id()).await?;
         assert_eq!(loaded, Some(message_b));
 
         Ok(())
     }
 
-    #[test]
-    fn prev_message() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn prev_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
 
-        message_a.store(&connection, &mut store_notifier)?;
-        message_b.store(&connection, &mut store_notifier)?;
+        message_a.store(&pool, &mut store_notifier).await?;
+        message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::prev_message(&connection, message_b.id())?;
+        let loaded = ConversationMessage::prev_message(&pool, message_b.id()).await?;
         assert_eq!(loaded, Some(message_a));
 
         Ok(())
     }
 
-    #[test]
-    fn next_message() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn next_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&connection, &mut store_notifier)?;
+        conversation.store(&pool, &mut store_notifier).await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
 
-        message_a.store(&connection, &mut store_notifier)?;
-        message_b.store(&connection, &mut store_notifier)?;
+        message_a.store(&pool, &mut store_notifier).await?;
+        message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::next_message(&connection, message_a.id())?;
+        let loaded = ConversationMessage::next_message(&pool, message_a.id()).await?;
         assert_eq!(loaded, Some(message_b));
 
         Ok(())

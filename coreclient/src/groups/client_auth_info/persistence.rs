@@ -4,7 +4,6 @@
 
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
-    codec::persist::BlobPersist,
     credentials::CredentialFingerprint,
     crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
@@ -68,12 +67,12 @@ impl StorableClientCredential {
     pub(crate) async fn store(&self, connection: &mut sqlx::SqliteConnection) -> sqlx::Result<()> {
         let fingerprint = self.fingerprint();
         let identity = self.client_credential.identity();
-        let client_credential = self.client_credential.persist();
         query!(
-            "INSERT OR IGNORE INTO client_credentials (fingerprint, client_id, client_credential) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO client_credentials
+                (fingerprint, client_id, client_credential) VALUES (?, ?, ?)",
             fingerprint,
             identity,
-            client_credential ,
+            self.client_credential,
         )
         .execute(connection)
         .await?;
@@ -518,24 +517,11 @@ mod tests {
         },
     };
     use rand::Rng;
+    use sqlx::SqlitePool;
     use tls_codec::Serialize;
     use uuid::Uuid;
 
     use super::*;
-
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(
-                &[
-                    StorableClientCredential::CREATE_TABLE_STATEMENT,
-                    GroupMembership::CREATE_TABLE_STATEMENT,
-                ]
-                .join("\n"),
-            )
-            .unwrap();
-        connection
-    }
 
     /// Returns test credential with a fixed identity but random payload.
     fn test_client_credential(client_id: Uuid) -> StorableClientCredential {
@@ -569,11 +555,13 @@ mod tests {
     }
 
     #[sqlx::test]
-    fn client_credential_store_load(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn client_credential_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let credential = test_client_credential(Uuid::new_v4());
 
-        credential.store(&pool)?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())?
+        let mut connection = pool.acquire().await?;
+        credential.store(&mut connection).await?;
+        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())
+            .await?
             .expect("missing credential");
         assert_eq!(
             loaded.client_credential.tls_serialize_detached(),
@@ -583,15 +571,15 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn client_credential_store_load_by_id() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn client_credential_store_load_by_id(pool: SqlitePool) -> anyhow::Result<()> {
         let credential = test_client_credential(Uuid::new_v4());
 
-        credential.store(&connection)?;
-        let loaded =
-            StorableClientCredential::load_by_client_id(&connection, &credential.identity())?
-                .expect("missing credential");
+        let mut connection = pool.acquire().await?;
+        credential.store(&mut connection).await?;
+        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())
+            .await?
+            .expect("missing credential");
         assert_eq!(
             loaded.client_credential.tls_serialize_detached(),
             credential.client_credential.tls_serialize_detached()
@@ -600,58 +588,61 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn group_membership_merge_for_group() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_merge_for_group(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential_add = test_client_credential(Uuid::new_v4());
-        credential_add.store(&connection)?;
+        credential_add.store(&mut connection).await?;
         let index_add = LeafNodeIndex::new(0);
         let membership_add = test_group_membership(&credential_add, index_add);
-        membership_add.stage_add(&connection)?;
+        membership_add.stage_add(&mut connection).await?;
 
         let credential_update = test_client_credential(Uuid::new_v4());
-        credential_update.store(&connection)?;
+        credential_update.store(&mut connection).await?;
         let index_update = LeafNodeIndex::new(1);
         let membership_update = test_group_membership(&credential_update, index_update);
-        membership_update.store(&connection)?;
-        membership_update.stage_update(&connection)?;
+        membership_update.store(&mut connection).await?;
+        membership_update.stage_update(&mut connection).await?;
 
         let credential_remove = test_client_credential(Uuid::new_v4());
-        credential_remove.store(&connection)?;
+        credential_remove.store(&mut connection).await?;
         let index_remove = LeafNodeIndex::new(2);
         let membership_remove = test_group_membership(&credential_remove, index_remove);
-        membership_remove.store(&connection)?;
-        GroupMembership::stage_removal(&connection, &membership_remove.group_id, index_remove)?;
+        membership_remove.store(&mut connection).await?;
+        GroupMembership::stage_removal(&mut connection, &membership_remove.group_id, index_remove)
+            .await?;
 
         let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&connection)?;
+        credential.store(&mut connection).await?;
         let index = LeafNodeIndex::new(3);
         let membership = test_group_membership(&credential, index);
-        membership.store(&connection)?;
+        membership.store(&mut connection).await?;
 
-        GroupMembership::merge_for_group(&connection, &membership.group_id)?;
+        GroupMembership::merge_for_group(&mut connection, &membership.group_id).await?;
 
         let group_id = &membership.group_id;
 
-        let loaded =
-            GroupMembership::load(&connection, group_id, index_add)?.expect("missing membership");
+        let loaded = GroupMembership::load(&mut connection, group_id, index_add)
+            .await?
+            .expect("missing membership");
         assert_eq!(loaded, membership_add);
-        let loaded = GroupMembership::load(&connection, group_id, index_update)?
+        let loaded = GroupMembership::load(&mut connection, group_id, index_update)
+            .await?
             .expect("missing membership");
         assert_eq!(loaded, membership_update);
-        let loaded = GroupMembership::load(&connection, group_id, index_remove)?;
+        let loaded = GroupMembership::load(&mut connection, group_id, index_remove).await?;
         assert_eq!(loaded, None);
-        let loaded =
-            GroupMembership::load(&connection, group_id, index)?.expect("missing membership");
+        let loaded = GroupMembership::load(&mut connection, group_id, index)
+            .await?
+            .expect("missing membership");
         assert_eq!(loaded, membership);
 
         Ok(())
     }
 
-    #[test]
-    fn store_idempotent() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_idempotent(pool: SqlitePool) -> anyhow::Result<()> {
         let id = Uuid::new_v4();
         let credential_1 = test_client_credential(id);
         let credential_2 = test_client_credential(id);
@@ -663,12 +654,13 @@ mod tests {
             credential_2.tls_serialize_detached()
         );
 
-        credential_1.store(&connection)?;
-        credential_2.store(&connection)?;
+        let mut connection = pool.acquire().await?;
+        credential_1.store(&mut connection).await?;
+        credential_2.store(&mut connection).await?;
 
-        let loaded =
-            StorableClientCredential::load_by_client_id(&connection, &credential_1.identity())?
-                .expect("missing credential");
+        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential_1.identity())
+            .await?
+            .expect("missing credential");
         assert_eq!(
             loaded.client_credential.tls_serialize_detached(),
             credential_1.client_credential.tls_serialize_detached()
@@ -677,72 +669,76 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn group_membership_store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_store_load(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&connection)?;
+        credential.store(&mut connection).await?;
 
         let index = LeafNodeIndex::new(0);
         let membership = test_group_membership(&credential, index);
 
-        membership.store(&connection)?;
-        let loaded = GroupMembership::load(&connection, &membership.group_id, index)?
+        membership.store(&mut connection).await?;
+        let loaded = GroupMembership::load(&mut connection, &membership.group_id, index)
+            .await?
             .expect("missing membership");
         assert_eq!(loaded, membership);
-        let loaded = GroupMembership::load_staged(&connection, &membership.group_id, index)?;
+        let loaded =
+            GroupMembership::load_staged(&mut connection, &membership.group_id, index).await?;
         assert_eq!(loaded, None);
 
         Ok(())
     }
 
-    #[test]
-    fn group_membership_store_load_staged() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_store_load_staged(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&connection)?;
+        credential.store(&mut connection).await?;
 
         let index = LeafNodeIndex::new(0);
         let membership = test_group_membership(&credential, index);
 
-        membership.stage_add(&connection)?;
-        let loaded = GroupMembership::load(&connection, &membership.group_id, index)?;
+        membership.stage_add(&mut connection).await?;
+        let loaded = GroupMembership::load(&mut connection, &membership.group_id, index).await?;
         assert_eq!(loaded, None);
-        let loaded = GroupMembership::load_staged(&connection, &membership.group_id, index)?
+        let loaded = GroupMembership::load_staged(&mut connection, &membership.group_id, index)
+            .await?
             .expect("missing membership");
         assert_eq!(loaded, membership);
 
         Ok(())
     }
 
-    #[test]
-    fn group_membership_member_indices() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_member_indices(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&connection)?;
+        credential.store(&mut connection).await?;
 
         let index = LeafNodeIndex::new(0);
         let membership = test_group_membership(&credential, index);
 
-        membership.store(&connection)?;
-        let indices = GroupMembership::member_indices(&connection, &membership.group_id)?;
+        membership.store(&mut connection).await?;
+        let indices =
+            GroupMembership::member_indices(&mut *connection, &membership.group_id).await?;
         assert_eq!(indices, [index]);
 
         Ok(())
     }
 
-    #[test]
-    fn group_membership_client_indices() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_client_indices(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential_a = test_client_credential(Uuid::new_v4());
-        credential_a.store(&connection)?;
+        credential_a.store(&mut connection).await?;
 
         let credential_b = test_client_credential(Uuid::new_v4());
-        credential_b.store(&connection)?;
+        credential_b.store(&mut connection).await?;
 
         let index_a = LeafNodeIndex::new(0);
         let membership_a = test_group_membership(&credential_a, index_a);
@@ -750,56 +746,59 @@ mod tests {
         let index_b = LeafNodeIndex::new(1);
         let membership_b = test_group_membership(&credential_b, index_b);
 
-        membership_a.store(&connection)?;
-        membership_b.store(&connection)?;
+        membership_a.store(&mut connection).await?;
+        membership_b.store(&mut connection).await?;
 
         let indices = GroupMembership::client_indices(
-            &connection,
+            &mut connection,
             &membership_a.group_id,
             &[credential_a.identity()],
-        )?;
+        )
+        .await?;
         assert_eq!(indices, vec![index_a]);
 
         let indices = GroupMembership::client_indices(
-            &connection,
+            &mut connection,
             &membership_b.group_id,
             &[credential_b.identity()],
-        )?;
+        )
+        .await?;
         assert_eq!(indices, [index_b]);
 
         Ok(())
     }
 
-    #[test]
-    fn group_membership_user_client_ids() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_user_client_ids(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&connection)?;
+        credential.store(&mut connection).await?;
 
         let index = LeafNodeIndex::new(0);
         let membership = test_group_membership(&credential, index);
 
-        membership.store(&connection)?;
+        membership.store(&mut connection).await?;
         let client_ids = GroupMembership::user_client_ids(
-            &connection,
+            &mut *connection,
             &membership.group_id,
             &membership.client_id.user_name(),
-        )?;
+        )
+        .await?;
         assert_eq!(client_ids, [credential.identity()]);
 
         Ok(())
     }
 
-    #[test]
-    fn group_membership_group_members() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn group_membership_group_members(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
 
         let credential_a = test_client_credential(Uuid::new_v4());
-        credential_a.store(&connection)?;
+        credential_a.store(&mut connection).await?;
 
         let credential_b = test_client_credential(Uuid::new_v4());
-        credential_b.store(&connection)?;
+        credential_b.store(&mut connection).await?;
 
         let index_a = LeafNodeIndex::new(0);
         let membership_a = test_group_membership(&credential_a, index_a);
@@ -807,10 +806,11 @@ mod tests {
         let index_b = LeafNodeIndex::new(1);
         let membership_b = test_group_membership(&credential_b, index_b);
 
-        membership_a.store(&connection)?;
-        membership_b.store(&connection)?;
+        membership_a.store(&mut connection).await?;
+        membership_b.store(&mut connection).await?;
 
-        let members = GroupMembership::group_members(&connection, &membership_a.group_id)?;
+        let members =
+            GroupMembership::group_members(&mut *connection, &membership_a.group_id).await?;
         assert_eq!(members, [credential_a.identity(), credential_b.identity()]);
 
         Ok(())

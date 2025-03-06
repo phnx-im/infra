@@ -102,7 +102,7 @@ mod persistence {
     };
     use sqlx::PgExecutor;
 
-    use crate::errors::StorageError;
+    use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 
     use super::{IntermediateCredential, IntermediateSigningKey};
 

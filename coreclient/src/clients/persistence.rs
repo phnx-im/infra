@@ -259,17 +259,10 @@ impl ClientRecord {
 
 #[cfg(test)]
 mod tests {
+    use sqlx::SqlitePool;
     use uuid::Uuid;
 
     use super::*;
-
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(ClientRecord::CREATE_TABLE_STATEMENT)
-            .unwrap();
-        connection
-    }
 
     fn test_client_record() -> ClientRecord {
         let id = Uuid::new_v4();
@@ -282,38 +275,36 @@ mod tests {
         }
     }
 
-    #[test]
-    fn persistence() {
-        let connection = test_connection();
-
+    #[sqlx::test]
+    async fn persistence(pool: SqlitePool) -> anyhow::Result<()> {
         let mut alice_record = test_client_record();
         let mut bob_record = test_client_record();
 
-        ClientRecord::create_table(&connection).unwrap();
-
         // Storing and loading client records works
-        alice_record.store(&connection).unwrap();
-        bob_record.store(&connection).unwrap();
-        let records = ClientRecord::load_all(&connection).unwrap();
+        alice_record.store(&pool).await?;
+        bob_record.store(&pool).await?;
+        let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to alice set alice is_default
         alice_record.is_default = true;
-        ClientRecord::set_default(&connection, &alice_record.as_client_id).unwrap();
-        let records = ClientRecord::load_all(&connection).unwrap();
+        ClientRecord::set_default(&pool, &alice_record.as_client_id).await?;
+        let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to bob clears alice is_default
         alice_record.is_default = false;
         bob_record.is_default = true;
-        ClientRecord::set_default(&connection, &bob_record.as_client_id).unwrap();
-        let records = ClientRecord::load_all(&connection).unwrap();
+        ClientRecord::set_default(&pool, &bob_record.as_client_id).await?;
+        let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Delete client records
-        ClientRecord::delete(&connection, &alice_record.as_client_id).unwrap();
-        ClientRecord::delete(&connection, &bob_record.as_client_id).unwrap();
-        let records = ClientRecord::load_all(&connection).unwrap();
+        ClientRecord::delete(&pool, &alice_record.as_client_id).await?;
+        ClientRecord::delete(&pool, &bob_record.as_client_id).await?;
+        let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, []);
+
+        Ok(())
     }
 }

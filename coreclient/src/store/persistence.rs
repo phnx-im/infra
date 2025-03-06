@@ -207,17 +207,14 @@ impl StoreNotification {
 
 #[cfg(test)]
 mod tests {
+    use sqlx::SqlitePool;
+
     use crate::{ConversationId, ConversationMessageId};
 
     use super::*;
 
-    #[test]
-    fn queue_dequeue_notification() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(StoreNotification::CREATE_TABLE_STATEMENT)
-            .unwrap();
-
+    #[sqlx::test]
+    async fn queue_dequeue_notification(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notification = StoreNotification::default();
         notification.ops.insert(
             StoreEntityId::User("alice@localhost".parse().unwrap()),
@@ -236,12 +233,15 @@ mod tests {
             StoreOperation::Remove,
         );
 
-        notification.enqueue(&mut connection).unwrap();
+        let mut connection = pool.acquire().await?;
+        notification.enqueue(&mut connection).await?;
 
-        let dequeued_notification = StoreNotification::dequeue(&mut connection).unwrap();
+        let dequeued_notification = StoreNotification::dequeue(&pool).await?;
         assert_eq!(notification, dequeued_notification);
 
-        let dequeued_notification = StoreNotification::dequeue(&mut connection).unwrap();
+        let dequeued_notification = StoreNotification::dequeue(&pool).await?;
         assert!(dequeued_notification.is_empty());
+
+        Ok(())
     }
 }

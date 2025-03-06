@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#[cfg(feature = "sqlite")]
-use crate::codec::PhnxCodec;
 use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
@@ -22,7 +20,7 @@ use keys::{
 };
 
 use crate::{
-    codec::persist::BlobPersist,
+    codec::PhnxCodec,
     crypto::{
         ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
         errors::KeyGenerationError,
@@ -550,8 +548,6 @@ pub struct ClientCredential {
     signature: Signature,
 }
 
-impl BlobPersist for ClientCredential {}
-
 impl ClientCredential {
     pub fn identity(&self) -> AsClientId {
         self.payload.identity()
@@ -574,7 +570,6 @@ impl ClientCredential {
 // `CurrentVersion` and the current version must be renamed to `VX`, where `X`
 // is the next version number. The content type of the old `CurrentVersion` must
 // be renamed and otherwise preserved to ensure backwards compatibility.
-#[cfg(feature = "sqlite")]
 #[derive(Serialize, Deserialize)]
 enum VersionedClientCredential {
     CurrentVersion(ClientCredential),
@@ -592,7 +587,6 @@ impl FromSql for ClientCredential {
 }
 
 // Only change this enum in tandem with its non-Ref variant.
-#[cfg(feature = "sqlite")]
 #[derive(Serialize)]
 enum VersionedClientCredentialRef<'a> {
     CurrentVersion(&'a ClientCredential),

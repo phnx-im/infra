@@ -9,7 +9,6 @@ use serde::{de::DeserializeOwned, Serialize};
 
 mod cbor;
 mod error;
-pub mod persist;
 #[cfg(test)]
 mod tests;
 

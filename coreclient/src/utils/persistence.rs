@@ -12,7 +12,7 @@ use sqlx::{
     encode::IsNull,
     error::BoxDynError,
     migrate,
-    sqlite::{SqliteConnectOptions, SqliteJournalMode},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     Database, Encode, Sqlite, SqlitePool, Type,
 };
 use tracing::error;
@@ -31,6 +31,20 @@ pub(crate) async fn open_phnx_db(client_db_path: &str) -> sqlx::Result<SqlitePoo
 
     migrate!().run(&pool).await?;
 
+    Ok(pool)
+}
+
+pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
+    let conn_opts = SqliteConnectOptions::new()
+        .journal_mode(SqliteJournalMode::Wal)
+        .in_memory(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .idle_timeout(None)
+        .max_lifetime(None)
+        .connect_with(conn_opts)
+        .await?;
+    migrate!().run(&pool).await?;
     Ok(pool)
 }
 

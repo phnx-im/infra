@@ -17,15 +17,14 @@ use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite,
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
+use crate::codec::PhnxCodec;
+
 use super::{
     pseudonymous_credentials::{
         IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
     },
     AsCredential, AsIntermediateCredential,
 };
-
-#[cfg(feature = "sqlite")]
-use crate::codec::PhnxCodec;
 
 use crate::crypto::{
     ear::{keys::IdentityLinkKey, EarEncryptable},

@@ -53,6 +53,7 @@ sqlx = { workspace = true, features = ["chrono", "sqlite"] }
 phnxserver_test_harness = { path = "../test_harness" }
 actix-rt = "^2.7"
 phnxtypes = { path = "../types", features = ["sqlite", "test_utils"] }
+tracing-subscriber = { workspace = true }
 
 [build-dependencies]
 

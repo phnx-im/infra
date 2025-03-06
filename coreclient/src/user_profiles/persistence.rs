@@ -152,17 +152,11 @@ impl UserProfile {
 
 #[cfg(test)]
 mod tests {
+    use sqlx::SqlitePool;
+
     use crate::Asset;
 
     use super::*;
-
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(UserProfile::CREATE_TABLE_STATEMENT)
-            .unwrap();
-        connection
-    }
 
     fn test_profile() -> UserProfile {
         UserProfile::new(
@@ -172,15 +166,16 @@ mod tests {
         )
     }
 
-    #[test]
-    fn store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
@@ -188,60 +183,70 @@ mod tests {
         new_profile.set_profile_picture(None);
 
         // store ignores the new profile if the user already exists
-        new_profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
         assert_ne!(loaded, new_profile);
 
         // upsert/load works
-        new_profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 
         Ok(())
     }
 
-    #[test]
-    fn upsert_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
         new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
         new_profile.set_profile_picture(None);
 
-        new_profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 
         Ok(())
     }
 
-    #[test]
-    fn update_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn update_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
         new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
         new_profile.set_profile_picture(None);
 
-        new_profile.update(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.update(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 

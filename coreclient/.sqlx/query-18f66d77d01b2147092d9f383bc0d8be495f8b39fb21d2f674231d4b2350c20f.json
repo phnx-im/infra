@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender,\n                content AS \"content: _\",\n                sent\n            FROM conversation_messages\n            WHERE message_id != :message_id\n                AND timestamp <= (SELECT timestamp FROM conversation_messages\n                WHERE message_id = :message_id)\n            ORDER BY timestamp DESC\n            LIMIT 1",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender,\n                content AS \"content: _\",\n                sent\n            FROM conversation_messages\n            WHERE message_id != ?1\n                AND timestamp <= (SELECT timestamp FROM conversation_messages\n                WHERE message_id = ?1)\n            ORDER BY timestamp DESC\n            LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       false
     ]
   },
-  "hash": "a858cfa310337ea89f75ab6887b62701cb6d01a46a4f1750e703c028cacac34a"
+  "hash": "18f66d77d01b2147092d9f383bc0d8be495f8b39fb21d2f674231d4b2350c20f"
 }
