@@ -105,6 +105,9 @@ test-rust $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $S
     echo $DATABASE_URL
     cargo test {{args}}
 
+test-rust-ignored $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $SQLX_OFFLINE="true":
+    cargo test -- --ignored
+
 # build Android
 # we limit it to android-arm64 to speed up the build process
 [working-directory: 'app']
