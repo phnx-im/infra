@@ -6,8 +6,10 @@ set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
 
 # === Backend ===
 
+POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
+
 # run postgres via docker compose and apply migrations
-init-db $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db": generate-db-certs
+init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
     docker compose up --wait
     cd backend && sqlx database create
     cd backend && sqlx database setup
@@ -101,12 +103,8 @@ setup-ios-ci: install-cargo-binstall
 setup-macos-ci: install-cargo-binstall
     bundle install
 
-test-rust $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $SQLX_OFFLINE="true" *args='':
-    echo $DATABASE_URL
-    cargo test {{args}}
-
-test-rust-ignored $DATABASE_URL="postgres://postgres:password@localhost:5432/phnx_db" $SQLX_OFFLINE="true":
-    cargo test -- --ignored
+test-rust *args='':
+    env DATABASE_URL={{POSTGRES_DATABASE_URL}} SQLX_OFFLINE=true cargo test {{args}}
 
 # build Android
 # we limit it to android-arm64 to speed up the build process
