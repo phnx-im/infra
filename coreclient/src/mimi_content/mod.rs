@@ -225,9 +225,7 @@ struct MessageDerivedValues {
 }
 
 // WARNING: If this type is changed, the storage and loading logic in the
-// `crate::conversations::messages::peristence` module must be updated
-// accordingly and the `MESSAGE_CONTENT_FORMAT_VERSION` constant must be
-// incremented by one.
+// `crate::conversations::messages::persistence` module must be updated.
 #[derive(
     PartialEq, Debug, Clone, Serialize, Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
