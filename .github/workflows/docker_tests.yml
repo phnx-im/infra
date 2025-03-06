@@ -58,4 +58,4 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Run docker-based tests
-        run: just test-rust-ignored
+        run: just test-rust --verbose -- --ignored
