@@ -106,8 +106,6 @@ impl OpenMlsRand for PhnxOpenMlsProvider<'_> {
 
 #[derive(Debug, Error)]
 pub(crate) enum PhnxRandomnessError {
-    #[error(transparent)]
-    StorageError(#[from] rusqlite::Error),
     #[error("Unable to collect enough randomness.")]
     NotEnoughRandomness,
 }

@@ -2,17 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{borrow::Cow, fmt::Display};
+use std::fmt::Display;
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
     identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName},
     time::TimeStamp,
-};
-use rusqlite::{
-    types::{FromSql, FromSqlResult, ToSqlOutput, Value, ValueRef},
-    ToSql,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteExecutor;
@@ -34,19 +30,6 @@ pub struct ConversationId {
 impl Display for ConversationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.uuid)
-    }
-}
-
-impl ToSql for ConversationId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.uuid.to_sql()
-    }
-}
-
-impl FromSql for ConversationId {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let uuid = Uuid::column_result(value)?;
-        Ok(Self { uuid })
     }
 }
 
@@ -212,22 +195,6 @@ pub enum ConversationStatus {
     Active,
 }
 
-impl FromSql for ConversationStatus {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let status = String::column_result(value)?;
-        Ok(Self::from_db_value(&status)?)
-    }
-}
-
-impl ToSql for ConversationStatus {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match self.db_value() {
-            Cow::Borrowed(status) => Ok(ToSqlOutput::Borrowed(ValueRef::Text(status.as_bytes()))),
-            Cow::Owned(status) => Ok(ToSqlOutput::Owned(Value::Text(status))),
-        }
-    }
-}
-
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
     pub past_members: Vec<QualifiedUserName>,
@@ -251,26 +218,6 @@ pub enum ConversationType {
     // which we have received the necessary secrets.
     Connection(QualifiedUserName),
     Group,
-}
-
-impl FromSql for ConversationType {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let value = String::column_result(value)?;
-        Ok(Self::from_db_value(&value)?)
-    }
-}
-
-impl ToSql for ConversationType {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        let conversation_type = match self {
-            Self::UnconfirmedConnection(user_name) => {
-                format!("unconfirmed_connection:{}", user_name)
-            }
-            Self::Connection(user_name) => format!("connection:{}", user_name),
-            Self::Group => "group".to_string(),
-        };
-        Ok(ToSqlOutput::Owned(Value::Text(conversation_type)))
-    }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

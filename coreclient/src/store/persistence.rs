@@ -5,10 +5,6 @@
 use std::collections::BTreeMap;
 
 use anyhow::bail;
-use rusqlite::{
-    types::{FromSql, ToSqlOutput, Value},
-    ToSql,
-};
 use sqlx::{
     encode::IsNull, error::BoxDynError, query, query_as, Decode, Encode, Sqlite, SqliteExecutor,
     Type,
@@ -20,17 +16,6 @@ use uuid::Uuid;
 use crate::{ConversationId, ConversationMessageId};
 
 use super::{notification::StoreEntityKind, StoreEntityId, StoreNotification, StoreOperation};
-
-impl ToSql for StoreEntityId {
-    /// Lossy conversion to SQLite value: the type is not stored.
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match self {
-            StoreEntityId::User(user_name) => user_name.to_sql(),
-            StoreEntityId::Conversation(conversation_id) => conversation_id.to_sql(),
-            StoreEntityId::Message(message_id) => message_id.to_sql(),
-        }
-    }
-}
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
@@ -54,23 +39,6 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
             StoreEntityId::Message(conversation_message_id) => {
                 Encode::<Sqlite>::encode_by_ref(&conversation_message_id.uuid, buf)
             }
-        }
-    }
-}
-
-impl ToSql for StoreEntityKind {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::Owned(Value::Integer(*self as i64)))
-    }
-}
-
-impl FromSql for StoreEntityKind {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        match value.as_i64() {
-            Ok(0) => Ok(StoreEntityKind::User),
-            Ok(1) => Ok(StoreEntityKind::Conversation),
-            Ok(2) => Ok(StoreEntityKind::Message),
-            _ => Err(rusqlite::types::FromSqlError::InvalidType),
         }
     }
 }

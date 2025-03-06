@@ -7,7 +7,6 @@ use std::{fmt::Display, fs, path::Path};
 use anyhow::{bail, Result};
 use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{types::FromSql, ToSql};
 use sqlx::{
     encode::IsNull,
     error::BoxDynError,
@@ -122,12 +121,6 @@ impl<'a> From<&'a GroupId> for GroupIdRefWrapper<'a> {
     }
 }
 
-impl ToSql for GroupIdRefWrapper<'_> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.as_slice().to_sql()
-    }
-}
-
 impl Display for GroupIdRefWrapper<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
@@ -154,12 +147,5 @@ pub(crate) struct GroupIdWrapper(pub(crate) GroupId);
 impl From<GroupIdWrapper> for GroupId {
     fn from(group_id: GroupIdWrapper) -> Self {
         group_id.0
-    }
-}
-
-impl FromSql for GroupIdWrapper {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let group_id = GroupId::from_slice(value.as_blob()?);
-        Ok(GroupIdWrapper(group_id))
     }
 }

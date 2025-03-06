@@ -6,7 +6,6 @@ use std::borrow::Cow;
 
 use openmls::group::GroupId;
 use phnxtypes::identifiers::QualifiedUserNameError;
-use rusqlite::types::FromSqlError;
 use sqlx::{
     encode::IsNull, error::BoxDynError, sqlite::SqliteValueRef, Database, Decode, Encode, Sqlite,
     Type,
@@ -131,15 +130,6 @@ pub(super) enum ConversationStatusFromDbError {
     QualifiedUserName(#[from] QualifiedUserNameError),
 }
 
-impl From<ConversationStatusFromDbError> for FromSqlError {
-    fn from(e: ConversationStatusFromDbError) -> Self {
-        match e {
-            ConversationStatusFromDbError::InvalidType => Self::InvalidType,
-            ConversationStatusFromDbError::QualifiedUserName(e) => Self::Other(Box::new(e)),
-        }
-    }
-}
-
 impl Type<Sqlite> for ConversationStatus {
     fn type_info() -> <Sqlite as Database>::TypeInfo {
         <Cow<str> as Type<Sqlite>>::type_info()
@@ -211,15 +201,6 @@ pub(super) enum ConversationTypeFromDbError {
     InvalidType,
     #[error(transparent)]
     QualifiedUserName(#[from] QualifiedUserNameError),
-}
-
-impl From<ConversationTypeFromDbError> for FromSqlError {
-    fn from(e: ConversationTypeFromDbError) -> Self {
-        match e {
-            ConversationTypeFromDbError::InvalidType => Self::InvalidType,
-            ConversationTypeFromDbError::QualifiedUserName(e) => Self::Other(Box::new(e)),
-        }
-    }
 }
 
 impl Type<Sqlite> for ConversationType {

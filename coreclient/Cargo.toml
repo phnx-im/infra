@@ -33,12 +33,8 @@ kamadak-exif = "0.6.1"
 derive_more = { version = "0.99.18", features = ["from"] }
 
 # Persistence
-refinery = { version = "0.8", features = [
-    "rusqlite",
-    "enums",
-], git = "https://github.com/manuteleco/refinery/", rev = "63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d" }
 serde = { version = "1", features = ["derive"] }
-rusqlite = { version = "0.32", features = ["bundled", "uuid", "chrono"] }
+sqlx = { workspace = true, features = ["chrono", "sqlite"] }
 
 # Workspace dependencies
 chrono = { workspace = true }
@@ -47,7 +43,6 @@ tls_codec = { workspace = true }
 openmls = { workspace = true }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
-sqlx = { workspace = true, features = ["chrono", "sqlite"] }
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

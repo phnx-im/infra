@@ -8,7 +8,6 @@
 use std::fmt::Display;
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite};
 use thiserror::Error;
@@ -86,19 +85,6 @@ impl<'r> Decode<'r, Sqlite> for DisplayName {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let display_name = <String as Decode<Sqlite>>::decode(value)?;
         Ok(Self { display_name })
-    }
-}
-
-impl FromSql for DisplayName {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let display_name = String::column_result(value)?;
-        Ok(Self { display_name })
-    }
-}
-
-impl ToSql for DisplayName {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.display_name.to_sql()
     }
 }
 
@@ -184,21 +170,6 @@ impl<'q> Encode<'q, Sqlite> for Asset {
 impl<'r> Decode<'r, Sqlite> for Asset {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         <Vec<u8> as Decode<Sqlite>>::decode(value).map(Asset::Value)
-    }
-}
-
-impl ToSql for Asset {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        match self {
-            Asset::Value(value) => value.to_sql(),
-        }
-    }
-}
-
-impl FromSql for Asset {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let value = Vec::<u8>::column_result(value)?;
-        Ok(Asset::Value(value))
     }
 }
 

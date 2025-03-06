@@ -3436,8 +3436,6 @@ dependencies = [
  "phnxtypes",
  "rand",
  "rand_chacha",
- "refinery",
- "rusqlite",
  "serde",
  "sqlx",
  "thiserror 2.0.11",
@@ -3998,47 +3996,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "refinery"
-version = "0.8.14"
-source = "git+https://github.com/manuteleco/refinery/?rev=63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d#63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d"
-dependencies = [
- "refinery-core",
- "refinery-macros",
-]
-
-[[package]]
-name = "refinery-core"
-version = "0.8.14"
-source = "git+https://github.com/manuteleco/refinery/?rev=63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d#63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d"
-dependencies = [
- "async-trait",
- "cfg-if",
- "log",
- "regex",
- "rusqlite",
- "serde",
- "siphasher",
- "thiserror 1.0.69",
- "time",
- "toml",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "refinery-macros"
-version = "0.8.14"
-source = "git+https://github.com/manuteleco/refinery/?rev=63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d#63f3c39a8adb40e9e7b7f9c8b21a4fee2d685e3d"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "refinery-core",
- "regex",
- "syn 2.0.98",
-]
-
-[[package]]
 name = "regex"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4531,12 +4488,6 @@ dependencies = [
  "thiserror 2.0.11",
  "time",
 ]
-
-[[package]]
-name = "siphasher"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "slab"

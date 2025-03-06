@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::{types::FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     encode::IsNull, error::BoxDynError, query, query_as, query_scalar, sqlite::SqliteTypeInfo,
@@ -53,24 +52,6 @@ impl<'r> Decode<'r, Sqlite> for UserCreationState {
         match state {
             StorableUserCreationState::CurrentVersion(state) => Ok(state),
         }
-    }
-}
-
-impl FromSql for UserCreationState {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let state = PhnxCodec::from_slice(value.as_blob()?)?;
-        match state {
-            StorableUserCreationState::CurrentVersion(state) => Ok(state),
-        }
-    }
-}
-
-impl ToSql for UserCreationState {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let state = StorableUserCreationStateRef::CurrentVersion(self);
-        let bytes = PhnxCodec::to_vec(&state)?;
-
-        Ok(rusqlite::types::ToSqlOutput::from(bytes))
     }
 }
 

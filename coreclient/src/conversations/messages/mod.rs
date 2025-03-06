@@ -85,19 +85,6 @@ impl ConversationMessageId {
     }
 }
 
-impl ToSql for ConversationMessageId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.uuid.to_sql()
-    }
-}
-
-impl FromSql for ConversationMessageId {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let uuid = Uuid::column_result(value)?;
-        Ok(Self { uuid })
-    }
-}
-
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
