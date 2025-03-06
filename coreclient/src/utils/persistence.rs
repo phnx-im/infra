@@ -36,15 +36,18 @@ pub(crate) async fn open_phnx_db(client_db_path: &str) -> sqlx::Result<SqlitePoo
 }
 
 pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
-    let conn_opts = SqliteConnectOptions::new()
+    let opts = SqliteConnectOptions::new()
         .journal_mode(SqliteJournalMode::Wal)
         .in_memory(true);
     let pool = SqlitePoolOptions::new()
+        // More than one connection in memory is not supported.
         .max_connections(1)
         .idle_timeout(None)
         .max_lifetime(None)
+        // We have only a single connection, so fail fast when there is a deadlock when acquiring a
+        // connection.
         .acquire_timeout(Duration::from_secs(3))
-        .connect_with(conn_opts)
+        .connect_with(opts)
         .await?;
     migrate!().run(&pool).await?;
     Ok(pool)
@@ -110,11 +113,7 @@ pub async fn open_client_db(
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
-    let pool = SqlitePoolOptions::default()
-        .max_connections(10)
-        .acquire_timeout(Duration::from_secs(3))
-        .connect_with(opts)
-        .await?;
+    let pool = SqlitePoolOptions::default().connect_with(opts).await?;
 
     migrate!().run(&pool).await?;
 
