@@ -32,11 +32,11 @@ use super::{
     StorableGroupIdRef,
 };
 
-pub(crate) struct SqlxStorageProvider<'a> {
+pub(crate) struct SqliteStorageProvider<'a> {
     connection: RefCell<&'a mut SqliteConnection>,
 }
 
-impl<'a> SqlxStorageProvider<'a> {
+impl<'a> SqliteStorageProvider<'a> {
     pub(crate) fn new(connection: &'a mut SqliteConnection) -> Self {
         Self {
             connection: RefCell::new(connection),
@@ -44,7 +44,7 @@ impl<'a> SqlxStorageProvider<'a> {
     }
 }
 
-impl StorageProvider<CURRENT_VERSION> for SqlxStorageProvider<'_> {
+impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     type Error = sqlx::Error;
 
     fn write_mls_join_config<

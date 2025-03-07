@@ -3448,7 +3448,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
  "trait-variant",
  "url",
  "uuid",

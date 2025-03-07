@@ -9,7 +9,7 @@ use openmls_traits::{
 };
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use sqlx_storage_provider::SqlxStorageProvider;
+use storage_provider::SqliteStorageProvider;
 use thiserror::Error;
 
 use super::*;
@@ -22,7 +22,7 @@ pub(crate) mod own_leaf_nodes;
 pub(crate) mod proposals;
 pub(crate) mod psks;
 pub(crate) mod signature_key_pairs;
-pub(crate) mod sqlx_storage_provider;
+pub(crate) mod storage_provider;
 
 #[derive(Debug, Serialize)]
 struct KeyRefWrapper<'a, T: Key<CURRENT_VERSION>>(pub &'a T);
@@ -38,21 +38,21 @@ struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
 struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
 pub(crate) struct PhnxOpenMlsProvider<'a> {
-    storage: SqlxStorageProvider<'a>,
+    storage: SqliteStorageProvider<'a>,
     crypto: RustCrypto,
 }
 
 impl<'a> PhnxOpenMlsProvider<'a> {
     pub(crate) fn new(connection: &'a mut sqlx::SqliteConnection) -> Self {
         Self {
-            storage: SqlxStorageProvider::new(connection),
+            storage: SqliteStorageProvider::new(connection),
             crypto: RustCrypto::default(),
         }
     }
 }
 
 impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
-    type StorageProvider = SqlxStorageProvider<'a>;
+    type StorageProvider = SqliteStorageProvider<'a>;
     type CryptoProvider = RustCrypto;
     type RandProvider = RustCrypto;
 

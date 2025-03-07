@@ -48,7 +48,6 @@ trait-variant = "0.1.2"
 phnxserver_test_harness = { path = "../test_harness" }
 actix-rt = "^2.7"
 phnxtypes = { path = "../types", features = ["test_utils"] }
-tracing-subscriber = { workspace = true }
 
 [build-dependencies]
 
