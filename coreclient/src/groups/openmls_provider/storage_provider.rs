@@ -57,7 +57,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(config);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::JoinGroupConfig);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::JoinGroupConfig);
         block_async_in_place(task)
     }
 
@@ -71,7 +71,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableLeafNodeRef(leaf_node);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id);
+        let task = storable.store(&mut **connection, group_id);
         block_async_in_place(task)
     }
 
@@ -87,7 +87,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableProposalRef(proposal_ref, proposal);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id);
+        let task = storable.store(&mut **connection, group_id);
         block_async_in_place(task)
     }
 
@@ -101,7 +101,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(tree);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::Tree);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::Tree);
         block_async_in_place(task)
     }
 
@@ -115,7 +115,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(interim_transcript_hash);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(
+        let task = storable.store(
             &mut **connection,
             group_id,
             GroupDataType::InterimTranscriptHash,
@@ -133,7 +133,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(group_context);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::Context);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::Context);
         block_async_in_place(task)
     }
 
@@ -147,7 +147,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(confirmation_tag);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::ConfirmationTag);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::ConfirmationTag);
         block_async_in_place(task)
     }
 
@@ -161,7 +161,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(group_state);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::GroupState);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::GroupState);
         block_async_in_place(task)
     }
 
@@ -175,7 +175,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(message_secrets);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::MessageSecrets);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::MessageSecrets);
         block_async_in_place(task)
     }
 
@@ -189,7 +189,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(resumption_psk_store);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(
+        let task = storable.store(
             &mut **connection,
             group_id,
             GroupDataType::ResumptionPskStore,
@@ -207,7 +207,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(own_leaf_index);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, GroupDataType::OwnLeafIndex);
+        let task = storable.store(&mut **connection, group_id, GroupDataType::OwnLeafIndex);
         block_async_in_place(task)
     }
 
@@ -221,7 +221,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupDataRef(group_epoch_secrets);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(
+        let task = storable.store(
             &mut **connection,
             group_id,
             GroupDataType::GroupEpochSecrets,
@@ -239,7 +239,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableSignatureKeyPairsRef(signature_key_pair);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, public_key);
+        let task = storable.store(&mut **connection, public_key);
         block_async_in_place(task)
     }
 
@@ -253,7 +253,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableSignatureKeyPairsRef(key_pair);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, public_key);
+        let task = storable.store(&mut **connection, public_key);
         block_async_in_place(task)
     }
 
@@ -270,7 +270,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableEpochKeyPairsRef(key_pairs);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, group_id, epoch, leaf_index);
+        let task = storable.store(&mut **connection, group_id, epoch, leaf_index);
         block_async_in_place(task)
     }
 
@@ -284,7 +284,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableKeyPackageRef(key_package);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, hash_ref);
+        let task = storable.store(&mut **connection, hash_ref);
         block_async_in_place(task)
     }
 
@@ -298,7 +298,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorablePskBundleRef(psk);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.store_sqlx(&mut **connection, psk_id);
+        let task = storable.store(&mut **connection, psk_id);
         block_async_in_place(task)
     }
 
@@ -310,11 +310,8 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<MlsGroupJoinConfig>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
-            &mut **connection,
-            group_id,
-            GroupDataType::JoinGroupConfig,
-        );
+        let task =
+            StorableGroupData::load(&mut **connection, group_id, GroupDataType::JoinGroupConfig);
         block_async_in_place(task)
     }
 
@@ -326,7 +323,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Vec<LeafNode>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableLeafNode::load_sqlx(&mut **connection, group_id);
+        let task = StorableLeafNode::load(&mut **connection, group_id);
         block_async_in_place(task)
     }
 
@@ -338,7 +335,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Vec<ProposalRef>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableProposal::<u8, ProposalRef>::load_refs_sqlx(&mut **connection, group_id);
+        let task = StorableProposal::<u8, ProposalRef>::load_refs(&mut **connection, group_id);
         block_async_in_place(task)
     }
 
@@ -351,7 +348,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Vec<(ProposalRef, QueuedProposal)>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableProposal::load_sqlx(&mut **connection, group_id);
+        let task = StorableProposal::load(&mut **connection, group_id);
         block_async_in_place(task)
     }
 
@@ -363,7 +360,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<TreeSync>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(&mut **connection, group_id, GroupDataType::Tree);
+        let task = StorableGroupData::load(&mut **connection, group_id, GroupDataType::Tree);
         block_async_in_place(task)
     }
 
@@ -375,8 +372,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<GroupContext>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task =
-            StorableGroupData::load_sqlx(&mut **connection, group_id, GroupDataType::Context);
+        let task = StorableGroupData::load(&mut **connection, group_id, GroupDataType::Context);
         block_async_in_place(task)
     }
 
@@ -388,7 +384,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<InterimTranscriptHash>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
+        let task = StorableGroupData::load(
             &mut **connection,
             group_id,
             GroupDataType::InterimTranscriptHash,
@@ -404,11 +400,8 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<ConfirmationTag>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
-            &mut **connection,
-            group_id,
-            GroupDataType::ConfirmationTag,
-        );
+        let task =
+            StorableGroupData::load(&mut **connection, group_id, GroupDataType::ConfirmationTag);
         block_async_in_place(task)
     }
 
@@ -420,8 +413,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<GroupState>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task =
-            StorableGroupData::load_sqlx(&mut **connection, group_id, GroupDataType::GroupState);
+        let task = StorableGroupData::load(&mut **connection, group_id, GroupDataType::GroupState);
         block_async_in_place(task)
     }
 
@@ -433,11 +425,8 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<MessageSecrets>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
-            &mut **connection,
-            group_id,
-            GroupDataType::MessageSecrets,
-        );
+        let task =
+            StorableGroupData::load(&mut **connection, group_id, GroupDataType::MessageSecrets);
         block_async_in_place(task)
     }
 
@@ -449,7 +438,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<ResumptionPskStore>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
+        let task = StorableGroupData::load(
             &mut **connection,
             group_id,
             GroupDataType::ResumptionPskStore,
@@ -466,7 +455,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<Option<LeafNodeIndex>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
         let task =
-            StorableGroupData::load_sqlx(&mut **connection, group_id, GroupDataType::OwnLeafIndex);
+            StorableGroupData::load(&mut **connection, group_id, GroupDataType::OwnLeafIndex);
         block_async_in_place(task)
     }
 
@@ -478,7 +467,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         group_id: &GroupId,
     ) -> Result<Option<GroupEpochSecrets>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableGroupData::load_sqlx(
+        let task = StorableGroupData::load(
             &mut **connection,
             group_id,
             GroupDataType::GroupEpochSecrets,
@@ -494,7 +483,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         public_key: &SignaturePublicKey,
     ) -> Result<Option<SignatureKeyPair>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableSignatureKeyPairs::load_sqlx(&mut **connection, public_key);
+        let task = StorableSignatureKeyPairs::load(&mut **connection, public_key);
         block_async_in_place(task)
     }
 
@@ -506,7 +495,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         public_key: &EncryptionKey,
     ) -> Result<Option<HpkeKeyPair>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableEncryptionKeyPair::load_sqlx(&mut **connection, public_key);
+        let task = StorableEncryptionKeyPair::load(&mut **connection, public_key);
         block_async_in_place(task)
     }
 
@@ -521,7 +510,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         leaf_index: u32,
     ) -> Result<Vec<HpkeKeyPair>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableEpochKeyPairs::load_sqlx(&mut **connection, group_id, epoch, leaf_index);
+        let task = StorableEpochKeyPairs::load(&mut **connection, group_id, epoch, leaf_index);
         block_async_in_place(task)
     }
 
@@ -533,7 +522,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         hash_ref: &KeyPackageRef,
     ) -> Result<Option<KeyPackage>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorableKeyPackage::load_sqlx(&mut **connection, hash_ref);
+        let task = StorableKeyPackage::load(&mut **connection, hash_ref);
         block_async_in_place(task)
     }
 
@@ -542,7 +531,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
         psk_id: &PskId,
     ) -> Result<Option<PskBundle>, Self::Error> {
         let mut connection = self.connection.borrow_mut();
-        let task = StorablePskBundle::load_sqlx(&mut **connection, psk_id);
+        let task = StorablePskBundle::load(&mut **connection, psk_id);
         block_async_in_place(task)
     }
 
@@ -556,7 +545,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let mut connection = self.connection.borrow_mut();
         let storable = StorableGroupIdRef(group_id);
-        let task = storable.delete_proposal_sqlx(&mut **connection, proposal_ref);
+        let task = storable.delete_proposal(&mut **connection, proposal_ref);
         block_async_in_place(task)
     }
 
@@ -566,7 +555,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_leaf_nodes_sqlx(&mut **connection);
+        let task = storable.delete_leaf_nodes(&mut **connection);
         block_async_in_place(task)
     }
 
@@ -576,8 +565,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task =
-            storable.delete_group_data_sqlx(&mut **connection, GroupDataType::JoinGroupConfig);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::JoinGroupConfig);
         block_async_in_place(task)
     }
 
@@ -587,7 +575,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_group_data_sqlx(&mut **connection, GroupDataType::Tree);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::Tree);
         block_async_in_place(task)
     }
 
@@ -597,8 +585,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task =
-            storable.delete_group_data_sqlx(&mut **connection, GroupDataType::ConfirmationTag);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::ConfirmationTag);
         block_async_in_place(task)
     }
 
@@ -608,7 +595,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_group_data_sqlx(&mut **connection, GroupDataType::GroupState);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::GroupState);
         block_async_in_place(task)
     }
 
@@ -618,7 +605,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_group_data_sqlx(&mut **connection, GroupDataType::Context);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::Context);
         block_async_in_place(task)
     }
 
@@ -628,8 +615,8 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable
-            .delete_group_data_sqlx(&mut **connection, GroupDataType::InterimTranscriptHash);
+        let task =
+            storable.delete_group_data(&mut **connection, GroupDataType::InterimTranscriptHash);
         block_async_in_place(task)
     }
 
@@ -639,8 +626,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task =
-            storable.delete_group_data_sqlx(&mut **connection, GroupDataType::MessageSecrets);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::MessageSecrets);
         block_async_in_place(task)
     }
 
@@ -650,8 +636,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task =
-            storable.delete_group_data_sqlx(&mut **connection, GroupDataType::ResumptionPskStore);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::ResumptionPskStore);
         block_async_in_place(task)
     }
 
@@ -661,7 +646,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_group_data_sqlx(&mut **connection, GroupDataType::OwnLeafIndex);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::OwnLeafIndex);
         block_async_in_place(task)
     }
 
@@ -671,8 +656,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task =
-            storable.delete_group_data_sqlx(&mut **connection, GroupDataType::GroupEpochSecrets);
+        let task = storable.delete_group_data(&mut **connection, GroupDataType::GroupEpochSecrets);
         block_async_in_place(task)
     }
 
@@ -685,7 +669,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_all_proposals_sqlx(&mut **connection);
+        let task = storable.delete_all_proposals(&mut **connection);
         block_async_in_place(task)
     }
 
@@ -697,7 +681,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableSignaturePublicKeyRef(public_key);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_sqlx(&mut **connection);
+        let task = storable.delete(&mut **connection);
         block_async_in_place(task)
     }
 
@@ -707,7 +691,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableEncryptionPublicKeyRef(public_key);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_sqlx(&mut **connection);
+        let task = storable.delete(&mut **connection);
         block_async_in_place(task)
     }
 
@@ -722,7 +706,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableGroupIdRef(group_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_epoch_key_pair_sqlx(&mut **connection, epoch, leaf_index);
+        let task = storable.delete_epoch_key_pair(&mut **connection, epoch, leaf_index);
         block_async_in_place(task)
     }
 
@@ -732,7 +716,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorableHashRef(hash_ref);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_key_package_sqlx(&mut **connection);
+        let task = storable.delete_key_package(&mut **connection);
         block_async_in_place(task)
     }
 
@@ -742,7 +726,7 @@ impl StorageProvider<CURRENT_VERSION> for SqliteStorageProvider<'_> {
     ) -> Result<(), Self::Error> {
         let storable = StorablePskIdRef(psk_id);
         let mut connection = self.connection.borrow_mut();
-        let task = storable.delete_sqlx(&mut **connection);
+        let task = storable.delete(&mut **connection);
         block_async_in_place(task)
     }
 }
@@ -780,7 +764,7 @@ impl<T: Entity<CURRENT_VERSION>> Encode<'_, Sqlite> for EntityRefWrapper<'_, T> 
 }
 
 impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'_, GroupData> {
-    pub(super) async fn store_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    pub(super) async fn store<GroupId: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
@@ -803,7 +787,7 @@ impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupDataRef<'_, GroupData> {
 impl<SignatureKeyPairs: Entity<CURRENT_VERSION>>
     StorableSignatureKeyPairsRef<'_, SignatureKeyPairs>
 {
-    async fn store_sqlx<SignaturePublicKey: Key<CURRENT_VERSION>>(
+    async fn store<SignaturePublicKey: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         public_key: &SignaturePublicKey,
@@ -822,7 +806,7 @@ impl<SignatureKeyPairs: Entity<CURRENT_VERSION>>
 }
 
 impl<LeafNode: Entity<CURRENT_VERSION>> StorableLeafNodeRef<'_, LeafNode> {
-    async fn store_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn store<GroupId: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
@@ -857,7 +841,7 @@ impl<T: Entity<CURRENT_VERSION>> Encode<'_, Sqlite> for EntitySliceWrapper<'_, T
 }
 
 impl<KeyPackage: Entity<CURRENT_VERSION>> StorableKeyPackageRef<'_, KeyPackage> {
-    async fn store_sqlx<KeyPackageRef: Key<CURRENT_VERSION>>(
+    async fn store<KeyPackageRef: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         key_package_ref: &KeyPackageRef,
@@ -876,7 +860,7 @@ impl<KeyPackage: Entity<CURRENT_VERSION>> StorableKeyPackageRef<'_, KeyPackage> 
 }
 
 impl<EpochKeyPairs: Entity<CURRENT_VERSION>> StorableEpochKeyPairsRef<'_, EpochKeyPairs> {
-    async fn store_sqlx<GroupId: Key<CURRENT_VERSION>, EpochKey: Key<CURRENT_VERSION>>(
+    async fn store<GroupId: Key<CURRENT_VERSION>, EpochKey: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
@@ -901,7 +885,7 @@ impl<EpochKeyPairs: Entity<CURRENT_VERSION>> StorableEpochKeyPairsRef<'_, EpochK
 }
 
 impl<PskBundle: Entity<CURRENT_VERSION>> StorablePskBundleRef<'_, PskBundle> {
-    async fn store_sqlx<PskId: Key<CURRENT_VERSION>>(
+    async fn store<PskId: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         psk_id: &PskId,
@@ -934,7 +918,7 @@ impl<T: Entity<CURRENT_VERSION>> Decode<'_, Sqlite> for EntityWrapper<T> {
 }
 
 impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupData<GroupData> {
-    async fn load_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn load<GroupId: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
         data_type: GroupDataType,
@@ -955,7 +939,7 @@ impl<GroupData: Entity<CURRENT_VERSION>> StorableGroupData<GroupData> {
 impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
     StorableProposalRef<'_, Proposal, ProposalRef>
 {
-    async fn store_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn store<GroupId: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
@@ -976,7 +960,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
 }
 
 impl<LeafNode: Entity<CURRENT_VERSION>> StorableLeafNode<LeafNode> {
-    async fn load_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn load<GroupId: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<LeafNode>> {
@@ -995,7 +979,7 @@ impl<LeafNode: Entity<CURRENT_VERSION>> StorableLeafNode<LeafNode> {
 impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
     StorableProposal<Proposal, ProposalRef>
 {
-    async fn load_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn load<GroupId: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<(ProposalRef, Proposal)>> {
@@ -1012,7 +996,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
             .await
     }
 
-    async fn load_refs_sqlx<GroupId: Key<CURRENT_VERSION>>(
+    async fn load_refs<GroupId: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<ProposalRef>> {
@@ -1029,7 +1013,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
 }
 
 impl<SignatureKeyPairs: Entity<CURRENT_VERSION>> StorableSignatureKeyPairs<SignatureKeyPairs> {
-    async fn load_sqlx<SignaturePublicKey: SignaturePublicKeyTrait<CURRENT_VERSION>>(
+    async fn load<SignaturePublicKey: SignaturePublicKeyTrait<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         public_key: &SignaturePublicKey,
     ) -> sqlx::Result<Option<SignatureKeyPairs>> {
@@ -1046,7 +1030,7 @@ impl<SignatureKeyPairs: Entity<CURRENT_VERSION>> StorableSignatureKeyPairs<Signa
 }
 
 impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> StorableEncryptionKeyPair<EncryptionKeyPair> {
-    async fn load_sqlx<EncryptionKey: Key<CURRENT_VERSION>>(
+    async fn load<EncryptionKey: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         public_key: &EncryptionKey,
     ) -> sqlx::Result<Option<EncryptionKeyPair>> {
@@ -1063,7 +1047,7 @@ impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> StorableEncryptionKeyPair<Encry
 }
 
 impl<EpochKeyPairs: Entity<CURRENT_VERSION>> StorableEpochKeyPairs<EpochKeyPairs> {
-    async fn load_sqlx<GroupId: Key<CURRENT_VERSION>, EpochKey: Key<CURRENT_VERSION>>(
+    async fn load<GroupId: Key<CURRENT_VERSION>, EpochKey: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
         epoch_id: &EpochKey,
@@ -1104,7 +1088,7 @@ impl<T: Entity<CURRENT_VERSION>> Decode<'_, Sqlite> for EntityVecWrapper<T> {
 }
 
 impl<KeyPackage: Entity<CURRENT_VERSION>> StorableKeyPackage<KeyPackage> {
-    async fn load_sqlx<KeyPackageRef: Key<CURRENT_VERSION>>(
+    async fn load<KeyPackageRef: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         key_package_ref: &KeyPackageRef,
     ) -> sqlx::Result<Option<KeyPackage>> {
@@ -1121,7 +1105,7 @@ impl<KeyPackage: Entity<CURRENT_VERSION>> StorableKeyPackage<KeyPackage> {
 }
 
 impl<PskBundle: Entity<CURRENT_VERSION>> StorablePskBundle<PskBundle> {
-    async fn load_sqlx<PskId: Key<CURRENT_VERSION>>(
+    async fn load<PskId: Key<CURRENT_VERSION>>(
         executor: impl SqliteExecutor<'_>,
         psk_id: &PskId,
     ) -> sqlx::Result<Option<PskBundle>> {
@@ -1138,10 +1122,7 @@ impl<PskBundle: Entity<CURRENT_VERSION>> StorablePskBundle<PskBundle> {
 }
 
 impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
-    async fn delete_all_proposals_sqlx(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-    ) -> sqlx::Result<()> {
+    async fn delete_all_proposals(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = KeyRefWrapper(self.0);
         query!("DELETE FROM proposals WHERE group_id = ?1", group_id)
             .execute(executor)
@@ -1149,7 +1130,7 @@ impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
         Ok(())
     }
 
-    async fn delete_proposal_sqlx<ProposalRef: ProposalRefTrait<CURRENT_VERSION>>(
+    async fn delete_proposal<ProposalRef: ProposalRefTrait<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         proposal_ref: &ProposalRef,
@@ -1166,7 +1147,7 @@ impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
         Ok(())
     }
 
-    async fn delete_leaf_nodes_sqlx(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+    async fn delete_leaf_nodes(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = KeyRefWrapper(self.0);
         query!("DELETE FROM own_leaf_nodes WHERE group_id = ?1", group_id)
             .execute(executor)
@@ -1174,7 +1155,7 @@ impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
         Ok(())
     }
 
-    async fn delete_group_data_sqlx(
+    async fn delete_group_data(
         &self,
         executor: impl SqliteExecutor<'_>,
         data_type: GroupDataType,
@@ -1190,7 +1171,7 @@ impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
         Ok(())
     }
 
-    async fn delete_epoch_key_pair_sqlx<EpochKey: Key<CURRENT_VERSION>>(
+    async fn delete_epoch_key_pair<EpochKey: Key<CURRENT_VERSION>>(
         &self,
         executor: impl SqliteExecutor<'_>,
         epoch_key: &EpochKey,
@@ -1213,7 +1194,7 @@ impl<GroupId: Key<CURRENT_VERSION>> StorableGroupIdRef<'_, GroupId> {
 impl<SignaturePublicKey: Key<CURRENT_VERSION>>
     StorableSignaturePublicKeyRef<'_, SignaturePublicKey>
 {
-    async fn delete_sqlx(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+    async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let public_key = KeyRefWrapper(self.0);
         query!(
             "DELETE FROM signature_keys WHERE public_key = ?1",
@@ -1228,7 +1209,7 @@ impl<SignaturePublicKey: Key<CURRENT_VERSION>>
 impl<EncryptionPublicKey: Key<CURRENT_VERSION>>
     StorableEncryptionPublicKeyRef<'_, EncryptionPublicKey>
 {
-    async fn delete_sqlx(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+    async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let public_key = KeyRefWrapper(self.0);
         query!(
             "DELETE FROM encryption_keys WHERE public_key = ?1",
@@ -1241,7 +1222,7 @@ impl<EncryptionPublicKey: Key<CURRENT_VERSION>>
 }
 
 impl<KeyPackageRef: Key<CURRENT_VERSION>> StorableHashRef<'_, KeyPackageRef> {
-    async fn delete_key_package_sqlx(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+    async fn delete_key_package(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let hash_ref = KeyRefWrapper(self.0);
         query!(
             "DELETE FROM key_packages WHERE key_package_ref = ?1",
@@ -1254,7 +1235,7 @@ impl<KeyPackageRef: Key<CURRENT_VERSION>> StorableHashRef<'_, KeyPackageRef> {
 }
 
 impl<PskId: Key<CURRENT_VERSION>> StorablePskIdRef<'_, PskId> {
-    async fn delete_sqlx(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+    async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let psks_id = KeyRefWrapper(self.0);
         query!("DELETE FROM psks WHERE psk_id = ?1", psks_id)
             .execute(executor)

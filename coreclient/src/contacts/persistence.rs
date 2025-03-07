@@ -35,7 +35,7 @@ impl<'r> Decode<'r, Sqlite> for SqlAsClientIds {
         let clients_str = <&str as Decode<Sqlite>>::decode(value)?;
         let clients = clients_str
             .split(',')
-            .map(AsClientId::try_from)
+            .map(|s| s.parse())
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self(clients))
     }

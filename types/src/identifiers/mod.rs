@@ -269,14 +269,6 @@ impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
         let value = self.to_string();
         Encode::<Sqlite>::encode(value, buf)
     }
-
-    fn encode(
-        self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
 }
 
 impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
@@ -391,31 +383,15 @@ pub enum AsClientIdError {
     UserNameError(#[from] QualifiedUserNameError),
 }
 
-impl TryFrom<&str> for AsClientId {
-    type Error = AsClientIdError;
+impl FromStr for AsClientId {
+    type Err = AsClientIdError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let Some((client_id_str, user_name_str)) = value.split_once('.') else {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Some((client_id_str, user_name_str)) = s.split_once('.') else {
             return Err(AsClientIdError::InvalidClientId);
         };
         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
         let user_name = user_name_str.parse()?;
-        Ok(Self {
-            user_name,
-            client_id,
-        })
-    }
-}
-
-impl TryFrom<String> for AsClientId {
-    type Error = AsClientIdError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let Some((client_id_str, user_name_str)) = value.split_once('.') else {
-            return Err(AsClientIdError::InvalidClientId);
-        };
-        let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name: QualifiedUserName = user_name_str.parse()?;
         Ok(Self {
             user_name,
             client_id,
@@ -437,20 +413,12 @@ impl<'q> Encode<'q, Sqlite> for AsClientId {
         let value = self.to_string();
         Encode::<Sqlite>::encode(value, buf)
     }
-
-    fn encode(
-        self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
 }
 
 impl<'r> Decode<'r, Sqlite> for AsClientId {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let s: &str = Decode::<Sqlite>::decode(value)?;
-        Ok(Self::try_from(s)?)
+        Ok(s.parse()?)
     }
 }
 
