@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                client_id AS \"as_client_id: _\",\n                record_state AS \"client_record_state: _\",\n                created_at AS \"created_at: _\",\n                is_default AS \"is_default: _\"\n            FROM client_record WHERE client_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "as_client_id: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "client_record_state: _",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at: _",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "is_default: _",
+        "ordinal": 3,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5537c95ad3d565a1bacb6bd3ab2ee8759c2a3e71450ffe2f903fc6efef1af1fb"
+}

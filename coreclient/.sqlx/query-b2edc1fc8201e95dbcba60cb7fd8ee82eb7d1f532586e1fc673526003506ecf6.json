@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE group_membership AS merged\n            SET client_credential_fingerprint = staged.client_credential_fingerprint,\n                leaf_index = staged.leaf_index,\n                identity_link_key = staged.identity_link_key\n            FROM group_membership AS staged\n            WHERE merged.group_id = staged.group_id\n              AND merged.client_uuid = staged.client_uuid\n              AND merged.user_name = staged.user_name\n              AND merged.status = 'merged'\n              AND staged.status = 'staged_update'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "b2edc1fc8201e95dbcba60cb7fd8ee82eb7d1f532586e1fc673526003506ecf6"
+}

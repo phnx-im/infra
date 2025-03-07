@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_removal'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "1b1d7f482f1438a0e671c81bc37c38286dd7ea3455587b200f3f78bfc4830875"
+}

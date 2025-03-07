@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture)\n            VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "1db183b02ae373ffeae4e86f693c355e742870a1a016a532fe419f3dea4ed072"
+}

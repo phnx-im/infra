@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)\n                VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "cc67f5328b45478262ed469353be98482b2bc3173982953e1a0ed7470ee549de"
+}

@@ -157,6 +157,30 @@ pub struct ConnectionKey {
     key: ConnectionKeyKey,
 }
 
+impl sqlx::Type<sqlx::Sqlite> for ConnectionKey {
+    fn type_info() -> <sqlx::Sqlite as sqlx::Database>::TypeInfo {
+        <ConnectionKeyKey as sqlx::Type<sqlx::Sqlite>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for ConnectionKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <sqlx::Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        self.key.encode_by_ref(buf)
+    }
+}
+
+impl sqlx::Decode<'_, sqlx::Sqlite> for ConnectionKey {
+    fn decode(
+        value: <sqlx::Sqlite as sqlx::Database>::ValueRef<'_>,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        let key = ConnectionKeyKey::decode(value)?;
+        Ok(Self { key })
+    }
+}
+
 impl ConnectionKey {
     pub fn random() -> Result<Self, RandomnessError> {
         let key = Secret::random()?;
@@ -177,20 +201,5 @@ impl KdfKey for ConnectionKey {
 impl From<Secret<KDF_KEY_SIZE>> for ConnectionKey {
     fn from(key: Secret<KDF_KEY_SIZE>) -> Self {
         Self { key }
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for ConnectionKey {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let key = ConnectionKeyKey::column_result(value)?;
-        Ok(Self { key })
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for ConnectionKey {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.key.to_sql()
     }
 }

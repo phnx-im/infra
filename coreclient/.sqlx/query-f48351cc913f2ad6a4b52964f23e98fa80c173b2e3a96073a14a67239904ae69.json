@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO leaf_keys (verifying_key, leaf_signing_key, identity_link_key)\n            VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "f48351cc913f2ad6a4b52964f23e98fa80c173b2e3a96073a14a67239904ae69"
+}

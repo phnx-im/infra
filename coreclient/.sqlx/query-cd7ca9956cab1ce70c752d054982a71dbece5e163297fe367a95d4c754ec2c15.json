@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                user_name AS \"user_name: _\",\n                conversation_id AS \"conversation_id: _\",\n                friendship_package_ear_key AS \"friendship_package_ear_key: _\"\n            FROM partial_contacts",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_name: _",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "conversation_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "friendship_package_ear_key: _",
+        "ordinal": 2,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cd7ca9956cab1ce70c752d054982a71dbece5e163297fe367a95d4c754ec2c15"
+}
