@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use mimi_content::MimiContent;
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
     named_params, params,
@@ -14,7 +15,7 @@ use tracing::warn;
 
 use crate::{
     store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
-    ConversationMessage, Message, MimiContent,
+    ConversationMessage, Message,
 };
 
 use super::{ErrorMessage, EventMessage};
@@ -341,7 +342,7 @@ pub(crate) mod tests {
 
     use crate::{
         conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        MimiContent, SystemMessage,
+        SystemMessage,
     };
 
     use super::*;
@@ -368,10 +369,7 @@ pub(crate) mod tests {
         let message = Message::Content(Box::new(ContentMessage {
             sender: "alice@localhost".to_string(),
             sent: false,
-            content: MimiContent::simple_markdown_message(
-                "localhost".parse().unwrap(),
-                "Hello world!".to_string(),
-            ),
+            content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {

@@ -9,6 +9,7 @@ import 'package:convert/convert.dart';
 import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';
+import 'api/markdown.dart';
 import 'api/message_cubit.dart';
 import 'api/message_list_cubit.dart';
 import 'api/types.dart';
@@ -264,15 +265,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UuidValue dco_decode_Uuid(dynamic raw);
 
   @protected
+  BlockElement dco_decode_block_element(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
   User
       dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           dynamic raw);
-
-  @protected
-  DateTime dco_decode_box_autoadd_Chrono_Utc(dynamic raw);
 
   @protected
   ConversationId dco_decode_box_autoadd_conversation_id(dynamic raw);
@@ -309,12 +310,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       dynamic raw);
 
   @protected
-  UiMessageId dco_decode_box_autoadd_ui_message_id(dynamic raw);
-
-  @protected
-  UiReplyToInfo dco_decode_box_autoadd_ui_reply_to_info(dynamic raw);
-
-  @protected
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
 
   @protected
@@ -348,13 +343,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageData dco_decode_image_data(dynamic raw);
 
   @protected
+  InlineElement dco_decode_inline_element(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<List<List<RangedBlockElement>>>
+      dco_decode_list_list_list_ranged_block_element(dynamic raw);
+
+  @protected
+  List<List<RangedBlockElement>> dco_decode_list_list_ranged_block_element(
+      dynamic raw);
 
   @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<RangedBlockElement> dco_decode_list_ranged_block_element(dynamic raw);
+
+  @protected
+  List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw);
+
+  @protected
+  List<((int, int), String)> dco_decode_list_record_record_u_32_u_32_string(
+      dynamic raw);
 
   @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw);
@@ -367,13 +383,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       dynamic raw);
 
   @protected
-  List<UiMessageId> dco_decode_list_ui_message_id(dynamic raw);
-
-  @protected
   LogEntry dco_decode_log_entry(dynamic raw);
 
   @protected
   LogEntryLevel dco_decode_log_entry_level(dynamic raw);
+
+  @protected
+  MessageContent dco_decode_message_content(dynamic raw);
 
   @protected
   MessageState dco_decode_message_state(dynamic raw);
@@ -388,9 +404,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   User?
       dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           dynamic raw);
-
-  @protected
-  DateTime? dco_decode_opt_box_autoadd_Chrono_Utc(dynamic raw);
 
   @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw);
@@ -408,12 +421,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       dynamic raw);
 
   @protected
-  UiMessageId? dco_decode_opt_box_autoadd_ui_message_id(dynamic raw);
-
-  @protected
-  UiReplyToInfo? dco_decode_opt_box_autoadd_ui_reply_to_info(dynamic raw);
-
-  @protected
   UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw);
 
   @protected
@@ -421,6 +428,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformPushToken dco_decode_platform_push_token(dynamic raw);
+
+  @protected
+  RangedBlockElement dco_decode_ranged_block_element(dynamic raw);
+
+  @protected
+  RangedInlineElement dco_decode_ranged_inline_element(dynamic raw);
+
+  @protected
+  ((int, int), String) dco_decode_record_record_u_32_u_32_string(dynamic raw);
+
+  @protected
+  (int, int) dco_decode_record_u_32_u_32(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -465,13 +490,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiMessage dco_decode_ui_message(dynamic raw);
 
   @protected
-  UiMessageId dco_decode_ui_message_id(dynamic raw);
-
-  @protected
   UiMimiContent dco_decode_ui_mimi_content(dynamic raw);
-
-  @protected
-  UiReplyToInfo dco_decode_ui_reply_to_info(dynamic raw);
 
   @protected
   UiSystemMessage dco_decode_ui_system_message(dynamic raw);
@@ -692,15 +711,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UuidValue sse_decode_Uuid(SseDeserializer deserializer);
 
   @protected
+  BlockElement sse_decode_block_element(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
   User
       sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           SseDeserializer deserializer);
-
-  @protected
-  DateTime sse_decode_box_autoadd_Chrono_Utc(SseDeserializer deserializer);
 
   @protected
   ConversationId sse_decode_box_autoadd_conversation_id(
@@ -739,14 +758,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiInactiveConversation sse_decode_box_autoadd_ui_inactive_conversation(
-      SseDeserializer deserializer);
-
-  @protected
-  UiMessageId sse_decode_box_autoadd_ui_message_id(
-      SseDeserializer deserializer);
-
-  @protected
-  UiReplyToInfo sse_decode_box_autoadd_ui_reply_to_info(
       SseDeserializer deserializer);
 
   @protected
@@ -789,13 +800,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageData sse_decode_image_data(SseDeserializer deserializer);
 
   @protected
+  InlineElement sse_decode_inline_element(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<List<List<RangedBlockElement>>>
+      sse_decode_list_list_list_ranged_block_element(
+          SseDeserializer deserializer);
+
+  @protected
+  List<List<RangedBlockElement>> sse_decode_list_list_ranged_block_element(
+      SseDeserializer deserializer);
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<RangedBlockElement> sse_decode_list_ranged_block_element(
+      SseDeserializer deserializer);
+
+  @protected
+  List<RangedInlineElement> sse_decode_list_ranged_inline_element(
+      SseDeserializer deserializer);
+
+  @protected
+  List<((int, int), String)> sse_decode_list_record_record_u_32_u_32_string(
+      SseDeserializer deserializer);
 
   @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
@@ -809,13 +844,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
-  List<UiMessageId> sse_decode_list_ui_message_id(SseDeserializer deserializer);
-
-  @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer);
 
   @protected
   LogEntryLevel sse_decode_log_entry_level(SseDeserializer deserializer);
+
+  @protected
+  MessageContent sse_decode_message_content(SseDeserializer deserializer);
 
   @protected
   MessageState sse_decode_message_state(SseDeserializer deserializer);
@@ -830,9 +865,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   User?
       sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           SseDeserializer deserializer);
-
-  @protected
-  DateTime? sse_decode_opt_box_autoadd_Chrono_Utc(SseDeserializer deserializer);
 
   @protected
   ImageData? sse_decode_opt_box_autoadd_image_data(
@@ -851,14 +883,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
-  UiMessageId? sse_decode_opt_box_autoadd_ui_message_id(
-      SseDeserializer deserializer);
-
-  @protected
-  UiReplyToInfo? sse_decode_opt_box_autoadd_ui_reply_to_info(
-      SseDeserializer deserializer);
-
-  @protected
   UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
       SseDeserializer deserializer);
 
@@ -868,6 +892,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   PlatformPushToken sse_decode_platform_push_token(
       SseDeserializer deserializer);
+
+  @protected
+  RangedBlockElement sse_decode_ranged_block_element(
+      SseDeserializer deserializer);
+
+  @protected
+  RangedInlineElement sse_decode_ranged_inline_element(
+      SseDeserializer deserializer);
+
+  @protected
+  ((int, int), String) sse_decode_record_record_u_32_u_32_string(
+      SseDeserializer deserializer);
+
+  @protected
+  (int, int) sse_decode_record_u_32_u_32(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -918,13 +963,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiMessage sse_decode_ui_message(SseDeserializer deserializer);
 
   @protected
-  UiMessageId sse_decode_ui_message_id(SseDeserializer deserializer);
-
-  @protected
   UiMimiContent sse_decode_ui_mimi_content(SseDeserializer deserializer);
-
-  @protected
-  UiReplyToInfo sse_decode_ui_reply_to_info(SseDeserializer deserializer);
 
   @protected
   UiSystemMessage sse_decode_ui_system_message(SseDeserializer deserializer);
@@ -1144,16 +1183,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_Uuid(UuidValue self, SseSerializer serializer);
 
   @protected
+  void sse_encode_block_element(BlockElement self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
   void
       sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           User self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_Chrono_Utc(
-      DateTime self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_conversation_id(
@@ -1194,14 +1232,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_ui_inactive_conversation(
       UiInactiveConversation self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_ui_message_id(
-      UiMessageId self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_ui_reply_to_info(
-      UiReplyToInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_ui_system_message(
@@ -1245,7 +1275,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_image_data(ImageData self, SseSerializer serializer);
 
   @protected
+  void sse_encode_inline_element(InlineElement self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_list_list_ranged_block_element(
+      List<List<List<RangedBlockElement>>> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_list_ranged_block_element(
+      List<List<RangedBlockElement>> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
@@ -1253,6 +1294,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_u_8_strict(
       Uint8List self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_ranged_block_element(
+      List<RangedBlockElement> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_ranged_inline_element(
+      List<RangedInlineElement> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_record_record_u_32_u_32_string(
+      List<((int, int), String)> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_ui_client_record(
@@ -1267,14 +1320,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       List<UiConversationDetails> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_ui_message_id(
-      List<UiMessageId> self, SseSerializer serializer);
-
-  @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_log_entry_level(LogEntryLevel self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_content(
+      MessageContent self, SseSerializer serializer);
 
   @protected
   void sse_encode_message_state(MessageState self, SseSerializer serializer);
@@ -1290,10 +1343,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
       sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
           User? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_opt_box_autoadd_Chrono_Utc(
-      DateTime? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_image_data(
@@ -1312,14 +1361,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       UiConversationMessage? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_box_autoadd_ui_message_id(
-      UiMessageId? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_reply_to_info(
-      UiReplyToInfo? self, SseSerializer serializer);
-
-  @protected
   void sse_encode_opt_box_autoadd_ui_user_profile(
       UiUserProfile? self, SseSerializer serializer);
 
@@ -1330,6 +1371,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_platform_push_token(
       PlatformPushToken self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ranged_block_element(
+      RangedBlockElement self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ranged_inline_element(
+      RangedInlineElement self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_record_record_u_32_u_32_string(
+      ((int, int), String) self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_record_u_32_u_32((int, int) self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
@@ -1385,14 +1447,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_ui_message(UiMessage self, SseSerializer serializer);
 
   @protected
-  void sse_encode_ui_message_id(UiMessageId self, SseSerializer serializer);
-
-  @protected
   void sse_encode_ui_mimi_content(UiMimiContent self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_ui_reply_to_info(
-      UiReplyToInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_ui_system_message(

@@ -15,6 +15,7 @@ pub(crate) mod process;
 pub(crate) use error::*;
 
 use anyhow::{anyhow, bail, Result};
+use mimi_content::MimiContent;
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
@@ -58,7 +59,7 @@ use tracing::{debug, error};
 use crate::{
     clients::api_clients::ApiClients, contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
-    mimi_content::MimiContent, utils::persistence::SqliteConnection, SystemMessage,
+    utils::persistence::SqliteConnection, SystemMessage,
 };
 use std::collections::HashSet;
 
@@ -782,11 +783,9 @@ impl Group {
         provider: &impl OpenMlsProvider,
         content: MimiContent,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let mls_message = self.mls_group.create_message(
-            provider,
-            &self.leaf_signer,
-            &content.tls_serialize_detached()?,
-        )?;
+        let mls_message =
+            self.mls_group
+                .create_message(provider, &self.leaf_signer, &content.serialize())?;
 
         let message = AssistedMessageOut::new(mls_message, None)?;
 

@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'markdown.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
@@ -14,7 +15,7 @@ part 'types.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_qualified_user_name`, `timestamp`
 // These types are ignored because they are not used by any `pub` functions: `UiConversation`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`ConversationId`] types
 class ConversationId {
@@ -393,96 +394,40 @@ sealed class UiMessage with _$UiMessage {
   ) = UiMessage_Display;
 }
 
-/// Id of a message
-class UiMessageId {
-  final UuidValue id;
-  final String domain;
-
-  const UiMessageId({
-    required this.id,
-    required this.domain,
-  });
-
-  @override
-  int get hashCode => id.hashCode ^ domain.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiMessageId &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          domain == other.domain;
-}
-
 /// The actual content of a message
 class UiMimiContent {
-  final UiMessageId id;
-  final DateTime timestamp;
-  final UiMessageId? replaces;
-  final Uint8List? topicId;
-  final DateTime? expires;
-  final UiReplyToInfo? inReplyTo;
-  final List<UiMessageId> lastSeen;
-  final String body;
+  final Uint8List? replaces;
+  final Uint8List topicId;
+  final Uint8List? inReplyTo;
+  final String plainBody;
+  final MessageContent content;
 
   const UiMimiContent({
-    required this.id,
-    required this.timestamp,
     this.replaces,
-    this.topicId,
-    this.expires,
+    required this.topicId,
     this.inReplyTo,
-    required this.lastSeen,
-    required this.body,
+    required this.plainBody,
+    required this.content,
   });
 
   @override
   int get hashCode =>
-      id.hashCode ^
-      timestamp.hashCode ^
       replaces.hashCode ^
       topicId.hashCode ^
-      expires.hashCode ^
       inReplyTo.hashCode ^
-      lastSeen.hashCode ^
-      body.hashCode;
+      plainBody.hashCode ^
+      content.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UiMimiContent &&
           runtimeType == other.runtimeType &&
-          id == other.id &&
-          timestamp == other.timestamp &&
           replaces == other.replaces &&
           topicId == other.topicId &&
-          expires == other.expires &&
           inReplyTo == other.inReplyTo &&
-          lastSeen == other.lastSeen &&
-          body == other.body;
-}
-
-/// Information about a reply to another message
-class UiReplyToInfo {
-  final UiMessageId messageId;
-  final Uint8List hash;
-
-  const UiReplyToInfo({
-    required this.messageId,
-    required this.hash,
-  });
-
-  @override
-  int get hashCode => messageId.hashCode ^ hash.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiReplyToInfo &&
-          runtimeType == other.runtimeType &&
-          messageId == other.messageId &&
-          hash == other.hash;
+          plainBody == other.plainBody &&
+          content == other.content;
 }
 
 /// System message

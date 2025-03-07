@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use mimi_content::MimiContent;
 use phnxcoreclient::{
     clients::CoreUser, store::Store, ConversationId, ConversationStatus, ConversationType, *,
 };
@@ -500,7 +501,7 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(sender_name.domain(), message);
+        let orig_message = MimiContent::simple_markdown_message(message);
         let test_sender = self.users.get_mut(sender_name).unwrap();
         let sender = &mut test_sender.user;
 
