@@ -21,14 +21,23 @@ use crate::{
 
 use super::{ErrorMessage, EventMessage};
 
+const UNKNOWN_MESSAGE_VERSION: u16 = 0;
 const CURRENT_MESSAGE_VERSION: u16 = 1;
 
 #[derive(Serialize, Deserialize)]
 struct VersionedMessage {
+    #[serde(default = "VersionedMessage::unknown_message_version")]
     version: u16,
     // We store the message as bytes, because deserialization depends on
     // other parameters.
+    #[serde(default)]
     content: Vec<u8>,
+}
+
+impl VersionedMessage {
+    const fn unknown_message_version() -> u16 {
+        UNKNOWN_MESSAGE_VERSION
+    }
 }
 
 impl sqlx::Type<Sqlite> for VersionedMessage {
@@ -49,7 +58,7 @@ impl<'q> Encode<'q, Sqlite> for VersionedMessage {
 
 impl<'r> Decode<'r, Sqlite> for VersionedMessage {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes = <&[u8] as Decode<Sqlite>>::decode(value)?;
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
         Ok(PhnxCodec::from_slice(bytes)?)
     }
 }
@@ -58,14 +67,14 @@ impl VersionedMessage {
     fn to_event_message(&self) -> anyhow::Result<EventMessage> {
         match self.version {
             CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<EventMessage>(&self.content)?),
-            _ => bail!("unknown event message version"),
+            other => bail!("unknown event message version: {other}"),
         }
     }
 
     fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
             CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<MimiContent>(&self.content)?),
-            _ => bail!("unknown mimi content message version"),
+            other => bail!("unknown mimi content message version: {other}"),
         }
     }
 
@@ -211,7 +220,16 @@ impl ConversationMessage {
             number_of_messages,
         )
         .fetch(executor)
-        .map(|res| res?.try_into().map_err(From::from))
+        .filter_map(|res| {
+            let message: sqlx::Result<ConversationMessage> = res
+                // skip messages that we can't decode, but don't fail loading the rest of the
+                // messages
+                .inspect_err(|e| warn!("Error loading message: {e}"))
+                .ok()?
+                .try_into()
+                .map_err(From::from);
+            Some(message)
+        })
         .collect()
         .await;
         let mut messages = messages?;
