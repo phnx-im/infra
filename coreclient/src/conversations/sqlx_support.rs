@@ -46,7 +46,7 @@ where
     Uuid: Decode<'r, DB>,
 {
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <Uuid as Decode<DB>>::decode(value)?;
+        let value: Uuid = Decode::<DB>::decode(value)?;
         Ok(Self::from(value))
     }
 }
@@ -223,7 +223,7 @@ impl<'q> Encode<'q, Sqlite> for ConversationType {
 
 impl<'r> Decode<'r, Sqlite> for ConversationType {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <&str as Decode<Sqlite>>::decode(value)?;
+        let value: &str = Decode::<Sqlite>::decode(value)?;
         Ok(Self::from_db_value(value)?)
     }
 }

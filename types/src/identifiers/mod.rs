@@ -55,7 +55,7 @@ where
 
 impl<'r> Decode<'r, Postgres> for Fqdn {
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <&str as Decode<Postgres>>::decode(value)?;
+        let s: &str = Decode::<Postgres>::decode(value)?;
         let fqdn = s.parse().map_err(|error| {
             error!(%error, "Error parsing Fqdn from DB");
             sqlx::Error::Decode(Box::new(error))

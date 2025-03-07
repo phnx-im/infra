@@ -32,7 +32,7 @@ impl Type<Sqlite> for SqlAsClientIds {
 
 impl<'r> Decode<'r, Sqlite> for SqlAsClientIds {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let clients_str = <&str as Decode<Sqlite>>::decode(value)?;
+        let clients_str: &str = Decode::<Sqlite>::decode(value)?;
         let clients = clients_str
             .split(',')
             .map(|s| s.parse())

@@ -77,13 +77,13 @@ impl<'q> Encode<'q, Sqlite> for DisplayName {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        <String as Encode<Sqlite>>::encode_by_ref(&self.display_name, buf)
+        Encode::<Sqlite>::encode_by_ref(&self.display_name, buf)
     }
 }
 
 impl<'r> Decode<'r, Sqlite> for DisplayName {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let display_name = <String as Decode<Sqlite>>::decode(value)?;
+        let display_name: String = Decode::<Sqlite>::decode(value)?;
         Ok(Self { display_name })
     }
 }
