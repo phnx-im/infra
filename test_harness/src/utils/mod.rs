@@ -11,7 +11,7 @@ pub mod setup;
 use once_cell::sync::Lazy;
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
-    configurations::get_configuration,
+    configurations::get_configuration_from_str,
     endpoints::qs::{
         push_notification_provider::ProductionPushNotificationProvider,
         ws::DispatchWebsocketNotifier,
@@ -39,6 +39,9 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     }
 });
 
+const BASE_CONFIG: &str = include_str!("../../../server/configuration/base.yaml");
+const LOCAL_CONFIG: &str = include_str!("../../../server/configuration/local.yaml");
+
 /// Start the server and initialize the database connection. Returns the
 /// address and a DispatchWebsocketNotifier to dispatch notofication over the
 /// websocket.
@@ -50,7 +53,8 @@ pub async fn spawn_app(
     Lazy::force(&TRACING);
 
     // Load configuration
-    let mut configuration = get_configuration("../server/").expect("Could not load configuration.");
+    let mut configuration = get_configuration_from_str(BASE_CONFIG, LOCAL_CONFIG)
+        .expect("Could not load configuration.");
     configuration.database.name = Uuid::new_v4().to_string();
 
     // Port binding
