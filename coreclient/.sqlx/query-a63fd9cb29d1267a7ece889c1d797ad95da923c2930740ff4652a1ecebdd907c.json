@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM leaf_keys WHERE verifying_key = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a63fd9cb29d1267a7ece889c1d797ad95da923c2930740ff4652a1ecebdd907c"
+}

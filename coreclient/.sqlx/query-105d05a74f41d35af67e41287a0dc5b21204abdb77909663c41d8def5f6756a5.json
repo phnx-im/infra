@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                COUNT(*) AS \"count: _\"\n            FROM\n                conversation_messages\n            WHERE\n                conversation_id = ?1\n                AND sender != 'system'\n                AND timestamp >\n                (\n                    SELECT\n                        last_read\n                    FROM\n                        conversations\n                    WHERE\n                        conversation_id = ?1\n                )",
+  "describe": {
+    "columns": [
+      {
+        "name": "count: _",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "105d05a74f41d35af67e41287a0dc5b21204abdb77909663c41d8def5f6756a5"
+}

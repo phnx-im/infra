@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                    credential AS \"credential: _\"\n                FROM as_credentials\n                WHERE domain = ?\n                    AND credential_type = 'as_intermediate_credential'",
+  "describe": {
+    "columns": [
+      {
+        "name": "credential: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4e000aa6fd8e42b5e0e4451304838f10e09d479c88fb79dab95929d76479fa79"
+}
