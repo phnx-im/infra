@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, SubsecRound, TimeZone, Utc};
 #[cfg(feature = "sqlite")]
 use rusqlite::{types::FromSql, ToSql};
 
@@ -115,8 +115,10 @@ impl FromSql for TimeStamp {
 }
 
 impl TimeStamp {
+    /// Same as [`Utc::now`], but rounded to microsecond precision.
     pub fn now() -> Self {
-        Utc::now().into()
+        // Note: databases only support microsecond precision.
+        Utc::now().round_subsecs(6).into()
     }
 
     /// Checks if this time stamp is more than `expiration` in the past.
@@ -148,7 +150,9 @@ mod timestamp_conversion {
     }
 }
 
-#[derive(Clone, Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "expiration"))]
 pub struct ExpirationData {
     not_before: TimeStamp,
@@ -159,7 +163,8 @@ impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
     pub fn new(lifetime: Duration) -> Self {
-        let not_before = Utc::now() - Duration::minutes(15);
+        // Note: databases only support microsecond precision.
+        let not_before = Utc::now().round_subsecs(6) - Duration::minutes(15);
         Self {
             not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::from(not_before + lifetime),

@@ -15,6 +15,7 @@ use crate::errors::StorageError;
 use super::StorableConnectionPackage;
 
 impl StorableConnectionPackage {
+    // TODO: No need to take items by value
     pub(in crate::auth_service) async fn store_multiple(
         connection: impl PgExecutor<'_>,
         connection_packages: impl IntoIterator<Item = impl Into<StorableConnectionPackage>>,
@@ -51,34 +52,34 @@ impl StorableConnectionPackage {
         Ok(())
     }
 
+    // TODO: Deserialize in this function?
     async fn load(connection: &mut PgConnection, client_id: Uuid) -> Result<Vec<u8>, StorageError> {
         let mut transaction = connection.begin().await?;
 
         // This is to ensure that counting and deletion happen atomically. If we
         // don't do this, two concurrent queries might both count 2 and delete,
         // leaving us with 0 packages.
-        let connection_package_bytes_record = sqlx::query!(
+        let connection_package = sqlx::query_scalar!(
             "WITH next_connection_package AS (
-                SELECT id, connection_package 
-                FROM connection_packages 
-                WHERE client_id = $1 
-                LIMIT 1 
+                SELECT id, connection_package
+                FROM connection_packages
+                WHERE client_id = $1
+                LIMIT 1
                 FOR UPDATE -- make sure two concurrent queries don't return the same package
                 SKIP LOCKED -- skip rows that are already locked by other processes
-            ), 
+            ),
             remaining_packages AS (
-                SELECT COUNT(*) as count 
-                FROM connection_packages 
+                SELECT COUNT(*) as count
+                FROM connection_packages
                 WHERE client_id = $1
             ),
             deleted_package AS (
-                DELETE FROM connection_packages 
+                DELETE FROM connection_packages
                 WHERE id = (
-                    SELECT id 
+                    SELECT id
                     FROM next_connection_package
-                ) 
+                )
                 AND (SELECT count FROM remaining_packages) > 1
-                RETURNING connection_package
             )
             SELECT connection_package FROM next_connection_package",
             client_id,
@@ -88,7 +89,7 @@ impl StorableConnectionPackage {
 
         transaction.commit().await?;
 
-        Ok(connection_package_bytes_record.connection_package)
+        Ok(connection_package)
     }
 
     /// TODO: Last resort key package
@@ -118,7 +119,7 @@ impl StorableConnectionPackage {
             .await?;
 
         // Collect all client ids associated with that user.
-        let client_ids_record = sqlx::query!(
+        let client_ids = sqlx::query_scalar!(
             "SELECT client_id FROM as_client_records WHERE user_name = $1",
             user_name.to_string(),
         )
@@ -127,9 +128,8 @@ impl StorableConnectionPackage {
 
         // First fetch all connection package records from the DB.
         let mut connection_packages_bytes = Vec::new();
-        for client_id in client_ids_record {
-            let connection_package_bytes =
-                Self::load(&mut transaction, client_id.client_id).await?;
+        for client_id in client_ids {
+            let connection_package_bytes = Self::load(&mut transaction, client_id).await?;
             connection_packages_bytes.push(connection_package_bytes);
         }
 
@@ -147,5 +147,117 @@ impl StorableConnectionPackage {
             .collect::<Result<Vec<ConnectionPackage>, StorageError>>()?;
 
         Ok(connection_packages)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use phnxtypes::{
+        credentials::ClientCredential,
+        crypto::{signatures::signable::Signature, ConnectionDecryptionKey},
+        messages::{client_as::ConnectionPackageTbs, MlsInfraVersion},
+        time::{Duration, ExpirationData},
+    };
+    use sqlx::PgPool;
+
+    use crate::auth_service::{
+        client_record::persistence::tests::store_random_client_record,
+        user_record::persistence::tests::store_random_user_record,
+    };
+
+    use super::*;
+
+    async fn store_random_connection_packages(
+        pool: &PgPool,
+        client_id: &AsClientId,
+        client_credential: ClientCredential,
+    ) -> anyhow::Result<Vec<ConnectionPackage>> {
+        let pkgs = vec![
+            random_connection_package(client_credential.clone()),
+            random_connection_package(client_credential),
+        ];
+        StorableConnectionPackage::store_multiple(pool, pkgs.iter().cloned(), client_id).await?;
+        Ok(pkgs)
+    }
+
+    fn random_connection_package(client_credential: ClientCredential) -> ConnectionPackage {
+        ConnectionPackage::new_for_test(
+            ConnectionPackageTbs::new(
+                MlsInfraVersion::default(),
+                ConnectionDecryptionKey::generate()
+                    .unwrap()
+                    .encryption_key(),
+                ExpirationData::new(Duration::days(90)),
+                client_credential,
+            ),
+            Signature::new_for_test(b"signature".to_vec()),
+        )
+    }
+
+    #[sqlx::test]
+    async fn load(pool: PgPool) -> anyhow::Result<()> {
+        let user_record = store_random_user_record(&pool).await?;
+        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_record = store_random_client_record(&pool, client_id.clone()).await?;
+        let pkgs =
+            store_random_connection_packages(&pool, &client_id, client_record.credential().clone())
+                .await?;
+
+        let mut loaded = [None, None];
+
+        for _ in 0..2 {
+            let pkg = StorableConnectionPackage::load(
+                pool.acquire().await?.as_mut(),
+                client_id.client_id(),
+            )
+            .await?;
+            let pkg: StorableConnectionPackage = PhnxCodec::from_slice(&pkg)?;
+            let pkg: ConnectionPackage = pkg.into();
+            if pkg == pkgs[0] {
+                loaded[0] = Some(pkg);
+            } else if pkg == pkgs[1] {
+                loaded[1] = Some(pkg);
+            }
+        }
+
+        assert_eq!(loaded[0].as_ref(), Some(&pkgs[0]));
+        assert_eq!(loaded[1].as_ref(), Some(&pkgs[1]));
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn user_connection_packages(pool: PgPool) -> anyhow::Result<()> {
+        let user_record = store_random_user_record(&pool).await?;
+
+        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_record_a = store_random_client_record(&pool, client_id.clone()).await?;
+        let pkgs_a = store_random_connection_packages(
+            &pool,
+            &client_id,
+            client_record_a.credential().clone(),
+        )
+        .await?;
+
+        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_record_b = store_random_client_record(&pool, client_id.clone()).await?;
+        let pkgs_b = store_random_connection_packages(
+            &pool,
+            &client_id,
+            client_record_b.credential().clone(),
+        )
+        .await?;
+
+        let loaded = StorableConnectionPackage::user_connection_packages(
+            pool.acquire().await?.as_mut(),
+            user_record.user_name(),
+        )
+        .await?;
+
+        assert_eq!(loaded.len(), 2);
+        assert!(loaded.contains(&pkgs_a[0]) || loaded.contains(&pkgs_a[1]));
+        assert!(loaded.contains(&pkgs_b[0]) || loaded.contains(&pkgs_b[1]));
+
+        Ok(())
     }
 }

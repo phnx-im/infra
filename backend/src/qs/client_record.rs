@@ -91,9 +91,9 @@ impl QsClientRecord {
     }
 }
 
-mod persistence {
+pub(crate) mod persistence {
     use phnxtypes::codec::PhnxCodec;
-    use sqlx::{PgConnection, PgExecutor};
+    use sqlx::PgExecutor;
 
     use super::*;
 
@@ -112,7 +112,8 @@ mod persistence {
             sqlx::query!(
                 "INSERT INTO
                     qs_client_records
-                    (client_id, user_id, encrypted_push_token, owner_public_key, owner_signature_key, ratchet, activity_time)
+                    (client_id, user_id, encrypted_push_token, owner_public_key,
+                    owner_signature_key, ratchet, activity_time)
                 VALUES
                     ($1, $2, $3, $4, $5, $6, $7)",
                 &self.client_id as &QsClientId,
@@ -170,7 +171,7 @@ mod persistence {
 
         pub(in crate::qs) async fn update(
             &self,
-            connection: &mut PgConnection,
+            connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
             let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
@@ -212,6 +213,96 @@ mod persistence {
             Ok(())
         }
     }
+
+    #[cfg(test)]
+    pub(crate) mod tests {
+        use phnxtypes::crypto::{ear::Ciphertext, signatures::private_keys::VerifyingKey};
+        use sqlx::PgPool;
+
+        use crate::qs::user_record::persistence::tests::store_random_user_record;
+
+        use super::*;
+
+        fn random_client_record(user_id: QsUserId) -> QsClientRecord {
+            QsClientRecord {
+                user_id,
+                client_id: QsClientId::random(&mut rand::thread_rng()),
+                encrypted_push_token: Some(EncryptedPushToken::from(Ciphertext::dummy())),
+                queue_encryption_key: RatchetEncryptionKey::new_for_test(
+                    b"encryption_key_32_bytes".to_vec().into(),
+                ),
+                auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+                    b"auth_key".to_vec(),
+                )),
+                ratchet_key: QueueRatchet::random().unwrap(),
+                activity_time: TimeStamp::now(),
+            }
+        }
+
+        pub(crate) async fn store_random_client_record(
+            pool: &PgPool,
+            user_id: QsUserId,
+        ) -> anyhow::Result<QsClientRecord> {
+            let record = random_client_record(user_id);
+            record.store(pool).await?;
+            Ok(record)
+        }
+
+        #[sqlx::test]
+        async fn store(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn update(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            let updated_client_record = QsClientRecord {
+                user_id: client_record.user_id,
+                client_id: client_record.client_id,
+                ..random_client_record(user_record.user_id)
+            };
+
+            updated_client_record.update(&pool).await?;
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, updated_client_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            QsClientRecord::delete(&pool, &client_record.client_id).await?;
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id).await?;
+            assert_eq!(loaded, None);
+
+            Ok(())
+        }
+    }
 }
 
 impl QsClientRecord {
@@ -238,7 +329,7 @@ impl QsClientRecord {
                 // TODO: Future work: PCS
 
                 tracing::trace!("Enqueueing message in storage provider");
-                Queue::enqueue(connection, &self.client_id, queue_message)
+                Queue::enqueue(connection, &self.client_id, &queue_message)
                     .await
                     .map_err(|e| {
                         tracing::error!("Failed to enqueue message: {:?}", e);

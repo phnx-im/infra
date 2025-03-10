@@ -411,7 +411,9 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct ClientCredentialCsr {
     version: MlsInfraVersion,
     client_id: AsClientId,
@@ -445,7 +447,9 @@ impl ClientCredentialCsr {
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct ClientCredentialPayload {
     csr: ClientCredentialCsr,
     expiration_data: ExpirationData,
@@ -502,7 +506,7 @@ impl ClientCredentialPayload {
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
-#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -523,6 +527,11 @@ impl ClientCredential {
 
     pub fn fingerprint(&self) -> CredentialFingerprint {
         CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
+    }
+
+    #[cfg(feature = "test_utils")]
+    pub fn new_for_test(payload: ClientCredentialPayload, signature: Signature) -> Self {
+        Self { payload, signature }
     }
 }
 

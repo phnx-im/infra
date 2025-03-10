@@ -89,7 +89,7 @@ impl Qs {
         client_record.queue_encryption_key = queue_encryption_key;
         client_record.encrypted_push_token = encrypted_push_token;
 
-        client_record.update(&mut transaction).await.map_err(|e| {
+        client_record.update(&mut *transaction).await.map_err(|e| {
             tracing::error!("Error updating client record: {:?}", e);
             QsUpdateClientRecordError::StorageError
         })?;

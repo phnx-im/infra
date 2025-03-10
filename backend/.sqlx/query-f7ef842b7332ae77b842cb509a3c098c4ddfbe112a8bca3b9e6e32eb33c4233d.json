@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = 'intermediate'",
+  "query": "SELECT signing_key\n                FROM as_signing_keys\n                WHERE currently_active = true\n                    AND cred_type = 'intermediate'",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "6d1479de3067abf0dbc0096dbe3fdfc0f4a5f03ae269e1f26e33a0a0819478e7"
+  "hash": "f7ef842b7332ae77b842cb509a3c098c4ddfbe112a8bca3b9e6e32eb33c4233d"
 }

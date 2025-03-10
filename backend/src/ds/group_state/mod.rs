@@ -167,11 +167,11 @@ pub(super) enum DsGroupStateDecryptionError {
     DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(super) struct StorableDsGroupData {
     group_id: Uuid,
     pub(super) encrypted_group_state: EncryptedDsGroupState,

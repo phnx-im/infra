@@ -9,10 +9,12 @@ use privacypass::{
     private_tokens::{Ristretto255, VoprfServer},
     TruncatedTokenKeyId,
 };
-use sqlx::{Acquire, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 use tokio::sync::Mutex;
+use tracing::error;
 
 pub(super) struct AuthServiceBatchedKeyStoreProvider<'a, 'b> {
+    // TODO: Replace with a pool?
     transaction_mutex: Mutex<&'b mut Transaction<'a, Postgres>>,
 }
 
@@ -27,6 +29,7 @@ impl<'a, 'b> AuthServiceBatchedKeyStoreProvider<'a, 'b> {
 #[async_trait]
 impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
+    // TODO: What is the semantics on collision?
     async fn insert(
         &self,
         truncated_token_key_id: TruncatedTokenKeyId,
@@ -36,16 +39,16 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
             return;
         };
         let mut transaction = self.transaction_mutex.lock().await;
-        let Ok(connection) = transaction.acquire().await else {
-            return;
-        };
-        let _ = sqlx::query!(
+        if let Err(error) = sqlx::query!(
             "INSERT INTO as_batched_keys (token_key_id, voprf_server) VALUES ($1, $2)",
             truncated_token_key_id as i16,
             server_bytes,
         )
-        .execute(connection)
-        .await;
+        .execute(&mut ***transaction)
+        .await
+        {
+            error!(%error, "Failed to insert key into DB");
+        }
     }
 
     /// Returns a keypair with a given `truncated_token_key_id` from the key store.
@@ -54,14 +57,44 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_, '_> {
         truncated_token_key_id: &TruncatedTokenKeyId,
     ) -> Option<VoprfServer<Ristretto255>> {
         let mut transaction = self.transaction_mutex.lock().await;
-        let connection = transaction.acquire().await.ok()?;
-        let server_bytes_record = sqlx::query!(
+        let token_key_id: i16 = (*truncated_token_key_id).into();
+        let voprf_server = sqlx::query_scalar!(
             "SELECT voprf_server FROM as_batched_keys WHERE token_key_id = $1",
-            *truncated_token_key_id as i16,
+            token_key_id
         )
-        .fetch_one(connection)
+        .fetch_one(&mut ***transaction)
         .await
         .ok()?;
-        PhnxCodec::from_slice(&server_bytes_record.voprf_server).ok()
+        // TODO: deserialize without allocating the buffer
+        PhnxCodec::from_slice(&voprf_server).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::PgPool;
+
+    use super::*;
+
+    #[sqlx::test]
+    async fn insert_get(pool: PgPool) -> anyhow::Result<()> {
+        let mut transaction = pool.begin().await?;
+        let provider = AuthServiceBatchedKeyStoreProvider::new(&mut transaction);
+
+        let mut rng = rand::thread_rng();
+
+        let value = VoprfServer::new(&mut rng).unwrap();
+        provider.insert(1, value.clone()).await;
+
+        let loaded = provider.get(&1).await.unwrap();
+        assert_eq!(loaded, value);
+
+        let value = VoprfServer::new(&mut rng).unwrap();
+        provider.insert(2, value.clone()).await;
+
+        let loaded = provider.get(&2).await.unwrap();
+        assert_eq!(loaded, value);
+
+        Ok(())
     }
 }

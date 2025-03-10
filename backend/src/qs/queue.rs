@@ -4,6 +4,7 @@
 
 use phnxtypes::{codec::PhnxCodec, identifiers::QsClientId, messages::QueueMessage};
 use sqlx::{Connection, PgConnection, PgExecutor};
+use tokio_stream::StreamExt;
 
 use crate::errors::{QueueError, StorageError};
 
@@ -28,7 +29,7 @@ impl Queue {
     pub(super) async fn enqueue(
         connection: &mut PgConnection,
         queue_id: &QsClientId,
-        message: QueueMessage,
+        message: &QueueMessage,
     ) -> Result<(), QueueError> {
         // Encode the message
         let message_bytes = PhnxCodec::to_vec(&message)?;
@@ -41,13 +42,13 @@ impl Queue {
             r#"
             WITH updated_sequence AS (
                 -- Step 1: Update and return the current sequence number.
-                UPDATE qs_queue_data 
-                SET sequence_number = sequence_number + 1 
-                WHERE queue_id = $1 
+                UPDATE qs_queue_data
+                SET sequence_number = sequence_number + 1
+                WHERE queue_id = $1
                 RETURNING sequence_number - 1 as sequence_number
             )
             -- Step 2: Insert the message with the new sequence number.
-            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes) 
+            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
             SELECT $1, sequence_number, $2 FROM updated_sequence
             RETURNING sequence_number
             "#,
@@ -87,9 +88,8 @@ impl Queue {
         let rows = sqlx::query!(
             r#"
             WITH deleted AS (
-                DELETE FROM qs_queues 
+                DELETE FROM qs_queues
                 WHERE queue_id = $1 AND sequence_number < $2
-                RETURNING *
             ),
             fetched AS (
                 SELECT message_bytes FROM qs_queues
@@ -98,11 +98,11 @@ impl Queue {
                 LIMIT $3
             ),
             remaining AS (
-                SELECT COALESCE(COUNT(*)) AS count 
+                SELECT COUNT(*) AS count
                 FROM qs_queues
                 WHERE queue_id = $1 AND sequence_number >= $2
             )
-            SELECT 
+            SELECT
                 fetched.message_bytes,
                 remaining.count
             FROM fetched, remaining
@@ -111,30 +111,29 @@ impl Queue {
             sequence_number as i64,
             number_of_messages,
         )
-        .fetch_all(&mut *transaction)
-        .await?;
-
-        transaction.commit().await?;
+        .fetch(&mut *transaction);
 
         // Convert the records to messages.
+        let mut remaining_count = None;
         let messages = rows
-            .iter()
             .map(|row| {
+                let row = row?;
+                remaining_count.get_or_insert(row.count.unwrap_or_default());
                 let message = PhnxCodec::from_slice(&row.message_bytes)?;
                 Ok(message)
             })
-            .collect::<Result<Vec<_>, QueueError>>()?;
+            .collect::<Result<Vec<_>, QueueError>>()
+            .await?;
 
-        let remaining_messages = if let Some(row) = rows.first() {
-            let remaining_count: i64 = row.count.unwrap_or_default();
-            // Subtract the number of messages we've read from the remaining
-            // count to get the number of unread messages.
-            remaining_count - messages.len() as i64
-        } else {
-            0
-        };
+        transaction.commit().await?;
 
-        Ok((messages, remaining_messages as u64))
+        let remaining_messages = remaining_count
+            .map(|count| count - messages.len() as i64)
+            .unwrap_or_default()
+            .try_into()
+            .expect("logic error: negative remaining messages");
+
+        Ok((messages, remaining_messages))
     }
 }
 
@@ -147,16 +146,77 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "INSERT INTO 
-                    qs_queue_data 
+                "INSERT INTO
+                    qs_queue_data
                     (queue_id, sequence_number)
-                VALUES 
+                VALUES
                     ($1, $2)",
                 &self.queue_id as &QsClientId,
                 self.sequence_number,
             )
             .execute(connection)
             .await?;
+            Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use phnxtypes::crypto::ear::Ciphertext;
+        use sqlx::PgPool;
+
+        use crate::qs::{
+            client_record::persistence::tests::store_random_client_record,
+            user_record::persistence::tests::store_random_user_record,
+        };
+
+        use super::*;
+
+        #[sqlx::test]
+        async fn enqueue_read_and_delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+
+            let queue = Queue::new_and_store(client_record.client_id, &pool).await?;
+
+            let n: u64 = queue.sequence_number.try_into()?;
+            let mut messages = Vec::new();
+            for sequence_number in n..n + 10 {
+                let message = QueueMessage {
+                    sequence_number,
+                    ciphertext: Ciphertext::random(),
+                };
+                messages.push(message);
+                Queue::enqueue(
+                    pool.acquire().await?.as_mut(),
+                    &client_record.client_id,
+                    messages.last().unwrap(),
+                )
+                .await?;
+            }
+
+            let (loaded, remaining) = Queue::read_and_delete(
+                pool.acquire().await?.as_mut(),
+                &client_record.client_id,
+                n + 1,
+                5,
+            )
+            .await?;
+            assert_eq!(loaded.len(), 5);
+            assert_eq!(remaining, 4);
+            assert_eq!(loaded, &messages[1..6]);
+
+            let (loaded, remaining) = Queue::read_and_delete(
+                pool.acquire().await?.as_mut(),
+                &client_record.client_id,
+                n + 1 + 5,
+                5,
+            )
+            .await?;
+            assert_eq!(loaded.len(), 4);
+            assert_eq!(remaining, 0);
+            assert_eq!(loaded, &messages[6..10]);
+
             Ok(())
         }
     }

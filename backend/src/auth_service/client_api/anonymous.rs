@@ -107,7 +107,7 @@ impl AuthService {
             tracing::warn!("Failed to acquire connection from pool: {:?}", e);
             EnqueueMessageError::StorageError
         })?;
-        Queue::enqueue(&mut connection, &client_id, queue_message)
+        Queue::enqueue(&mut connection, &client_id, &queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);

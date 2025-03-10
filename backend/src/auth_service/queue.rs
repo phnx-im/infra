@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::AsClientId;
-use sqlx::PgConnection;
+use sqlx::{PgConnection, PgExecutor};
 
 use crate::errors::StorageError;
 
@@ -15,7 +15,7 @@ pub(super) struct Queue {
 impl Queue {
     pub(super) async fn new_and_store(
         queue_id: AsClientId,
-        connection: &mut PgConnection,
+        connection: impl PgExecutor<'_>,
     ) -> Result<Self, StorageError> {
         let queue_data = Self {
             queue_id,
@@ -38,7 +38,7 @@ mod persistence {
     impl Queue {
         pub(super) async fn store(
             &self,
-            connection: &mut PgConnection,
+            connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
@@ -53,7 +53,7 @@ mod persistence {
         pub(in crate::auth_service) async fn enqueue(
             connection: &mut PgConnection,
             client_id: &AsClientId,
-            message: QueueMessage,
+            message: &QueueMessage,
         ) -> Result<(), QueueError> {
             // Encode the message
             let message_bytes = PhnxCodec::to_vec(&message).map_err(StorageError::Serde)?;
@@ -87,14 +87,15 @@ mod persistence {
             let message_id = Uuid::new_v4();
             // Store the message in the DB
             sqlx::query!(
-            "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes) VALUES ($1, $2, $3, $4)",
-            message_id,
-            client_id.client_id(),
-            sequence_number,
-            message_bytes,
-        )
-        .execute(&mut *transaction)
-        .await?;
+                "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes)
+                VALUES ($1, $2, $3, $4)",
+                message_id,
+                client_id.client_id(),
+                sequence_number,
+                message_bytes,
+            )
+            .execute(&mut *transaction)
+            .await?;
 
             let new_sequence_number = sequence_number + 1;
             // Increase the sequence number and store it.
@@ -178,6 +179,60 @@ mod persistence {
             };
 
             Ok((messages, remaining_messages as u64))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use phnxtypes::crypto::ear::Ciphertext;
+        use sqlx::PgPool;
+
+        use crate::auth_service::{
+            client_record::persistence::tests::store_random_client_record,
+            user_record::persistence::tests::store_random_user_record,
+        };
+
+        use super::*;
+
+        #[sqlx::test]
+        async fn enqueue_read_and_delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+            store_random_client_record(&pool, client_id.clone()).await?;
+
+            let queue = Queue::new_and_store(client_id.clone(), &pool).await?;
+
+            let n: u64 = queue.sequence_number.try_into()?;
+            let mut messages = Vec::new();
+            for sequence_number in n..n + 10 {
+                let message = QueueMessage {
+                    sequence_number,
+                    ciphertext: Ciphertext::random(),
+                };
+                messages.push(message);
+                Queue::enqueue(
+                    pool.acquire().await?.as_mut(),
+                    &client_id,
+                    messages.last().unwrap(),
+                )
+                .await?;
+            }
+
+            let (loaded, remaining) =
+                Queue::read_and_delete(pool.acquire().await?.as_mut(), &client_id, n + 1, 5)
+                    .await?;
+            assert_eq!(loaded.len(), 5);
+            assert_eq!(remaining, 4);
+            assert_eq!(loaded, &messages[1..6]);
+
+            let (loaded, remaining) =
+                Queue::read_and_delete(pool.acquire().await?.as_mut(), &client_id, n + 1 + 5, 5)
+                    .await?;
+            assert_eq!(loaded.len(), 4);
+            assert_eq!(remaining, 0);
+            assert_eq!(loaded, &messages[6..10]);
+
+            Ok(())
         }
     }
 }

@@ -96,7 +96,7 @@ impl StorableDsGroupData {
 
 #[cfg(test)]
 mod test {
-    use phnxtypes::{crypto::ear::Ciphertext, identifiers::QualifiedGroupId};
+    use phnxtypes::{crypto::ear::Ciphertext, identifiers::QualifiedGroupId, time::TimeStamp};
     use sqlx::PgPool;
     use uuid::Uuid;
 
@@ -177,5 +177,75 @@ mod test {
             loaded_group_state.encrypted_group_state,
             storable_group_data.encrypted_group_state
         );
+    }
+
+    async fn store_random_group(
+        pool: &PgPool,
+        ds: &Ds,
+    ) -> anyhow::Result<(QualifiedGroupId, StorableDsGroupData)> {
+        let group_uuid = Uuid::new_v4();
+        let was_reserved = ds.reserve_group_id(group_uuid).await;
+        assert!(was_reserved);
+
+        let qgid = QualifiedGroupId::new(group_uuid, ds.own_domain.clone());
+        let reserved_group_id = ds.claim_reserved_group_id(qgid.group_uuid()).await.unwrap();
+
+        let group = random_group(reserved_group_id.0);
+        group.store(pool).await?;
+
+        Ok((qgid, group))
+    }
+
+    fn random_group(group_id: Uuid) -> StorableDsGroupData {
+        StorableDsGroupData {
+            group_id,
+            encrypted_group_state: EncryptedDsGroupState::from(Ciphertext::random()),
+            last_used: TimeStamp::now(),
+            deleted_queues: vec![],
+        }
+    }
+
+    #[sqlx::test]
+    async fn load(pool: PgPool) -> anyhow::Result<()> {
+        let ds = Ds::new_from_pool(pool.clone(), "example.com".parse().unwrap()).await?;
+        let (qgid, group) = store_random_group(&pool, &ds).await?;
+
+        let loaded = StorableDsGroupData::load(&pool, &qgid).await?;
+        assert_eq!(loaded.unwrap(), group);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn update(pool: PgPool) -> anyhow::Result<()> {
+        let ds = Ds::new_from_pool(pool.clone(), "example.com".parse().unwrap()).await?;
+        let (qgid, group) = store_random_group(&pool, &ds).await?;
+
+        let loaded = StorableDsGroupData::load(&pool, &qgid).await?;
+        assert_eq!(loaded.unwrap(), group);
+
+        let updated_group = random_group(group.group_id);
+        updated_group.update(&pool).await?;
+
+        let loaded = StorableDsGroupData::load(&pool, &qgid).await?;
+        assert_eq!(loaded.unwrap(), updated_group);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn delete(pool: PgPool) -> anyhow::Result<()> {
+        let ds = Ds::new_from_pool(pool.clone(), "example.com".parse().unwrap()).await?;
+        let (qgid, group) = store_random_group(&pool, &ds).await?;
+
+        let loaded = StorableDsGroupData::load(&pool, &qgid).await?;
+        assert_eq!(loaded.unwrap(), group);
+
+        StorableDsGroupData::delete(&pool, &qgid).await?;
+
+        let loaded = StorableDsGroupData::load(&pool, &qgid).await?;
+        assert!(loaded.is_none());
+
+        Ok(())
     }
 }

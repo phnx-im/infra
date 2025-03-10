@@ -37,8 +37,8 @@ impl From<&SignaturePublicKey> for LeafVerifyingKey {
 pub struct QsClientVerifyingKey(VerifyingKey);
 
 impl QsClientVerifyingKey {
-    #[cfg(test)]
-    pub(crate) fn new_for_test(verifying_key: VerifyingKey) -> Self {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(verifying_key: VerifyingKey) -> Self {
         Self(verifying_key)
     }
 }
@@ -81,8 +81,8 @@ impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 pub struct QsUserVerifyingKey(VerifyingKey);
 
 impl QsUserVerifyingKey {
-    #[cfg(test)]
-    pub(crate) fn new_for_test(verifying_key: VerifyingKey) -> Self {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(verifying_key: VerifyingKey) -> Self {
         Self(verifying_key)
     }
 }
