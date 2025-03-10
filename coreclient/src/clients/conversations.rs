@@ -36,20 +36,16 @@ impl CoreUser {
             .await?;
 
         let created_group = self
-            .with_transaction(async move |transaction| {
+            .with_transaction_and_notifier(async move |transaction, notifier| {
                 let provider = PhnxOpenMlsProvider::new(&mut *transaction);
-                let mut notifier = self.store_notifier();
-
                 let created_group = group_data
                     .create_group(
                         &provider,
                         &self.inner.key_store.signing_key,
                         &self.inner.key_store.connection_key,
                     )?
-                    .store_group(&mut *transaction, &mut notifier)
+                    .store_group(&mut *transaction, notifier)
                     .await?;
-
-                notifier.notify();
                 Ok(created_group)
             })
             .await?;

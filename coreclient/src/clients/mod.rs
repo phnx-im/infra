@@ -1065,6 +1065,10 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap())
     }
 
+    /// Executes a function with a transaction.
+    ///
+    /// The transaction is committed if the function returns `Ok`, and rolled
+    /// back if the function returns `Err`.
     pub(crate) async fn with_transaction<'a, T: Send>(
         &'a self,
         f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction) -> anyhow::Result<T>,
@@ -1075,6 +1079,11 @@ impl CoreUser {
         Ok(res)
     }
 
+    /// Executes a function with a transaction and a [`StoreNotifier`].
+    ///
+    /// The transaction is committed if the function returns `Ok`, and rolled
+    /// back if the function returns `Err`. The [`StoreNotifier`] is notified
+    /// after the transaction is committed successfully.
     pub(crate) async fn with_transaction_and_notifier<'a, T: Send>(
         &'a self,
         f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction, &mut StoreNotifier) -> anyhow::Result<T>,
