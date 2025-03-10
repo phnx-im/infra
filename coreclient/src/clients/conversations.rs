@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use openmls::prelude::GroupId;
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
@@ -12,12 +12,12 @@ use phnxtypes::{
 use tracing::error;
 
 use crate::{
-    conversations::{messages::ConversationMessage, Conversation, ConversationAttributes},
-    groups::{
-        client_auth_info::GroupMembership, openmls_provider::PhnxOpenMlsProvider, Group, GroupData,
-        PartialCreateGroupParams,
-    },
     ConversationMessageId,
+    conversations::{Conversation, ConversationAttributes, messages::ConversationMessage},
+    groups::{
+        Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership,
+        openmls_provider::PhnxOpenMlsProvider,
+    },
 };
 
 use super::{ApiClients, ConversationId, CoreUser, StoreNotifier};

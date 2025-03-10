@@ -10,13 +10,13 @@ use phnxtypes::{
         ratchet::{QueueRatchet, RatchetCiphertext, RatchetPayload},
     },
     messages::{
-        client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload,
-        EncryptedAsQueueMessage, EncryptedQsQueueMessage,
+        EncryptedAsQueueMessage, EncryptedQsQueueMessage, client_as::AsQueueMessagePayload,
+        client_ds::QsQueueMessagePayload,
     },
 };
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_scalar, Database, Decode, Encode, Sqlite,
-    SqliteExecutor, Type,
+    Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
+    query, query_scalar,
 };
 use tracing::error;
 

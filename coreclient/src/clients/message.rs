@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
     identifiers::QualifiedUserName, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,

@@ -8,11 +8,11 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{query, query_as, Acquire, SqliteExecutor};
+use sqlx::{Acquire, SqliteExecutor, query, query_as};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
-use super::{diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider, Group};
+use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider};
 
 struct SqlGroup {
     group_id: GroupIdWrapper,

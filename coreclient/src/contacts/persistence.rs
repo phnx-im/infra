@@ -11,14 +11,14 @@ use phnxtypes::{
     messages::FriendshipToken,
 };
 use sqlx::{
-    error::BoxDynError, prelude::Type, query, query_as, Database, Decode, Executor, Sqlite,
-    SqliteExecutor, SqlitePool,
+    Database, Decode, Executor, Sqlite, SqliteExecutor, SqlitePool, error::BoxDynError,
+    prelude::Type, query, query_as,
 };
 use tokio_stream::StreamExt;
 
 use crate::{
-    clients::connection_establishment::FriendshipPackage, store::StoreNotifier, Contact,
-    ConversationId, PartialContact,
+    Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
+    store::StoreNotifier,
 };
 
 /// Comma-separated list of [`AsClientId`]'s
@@ -262,7 +262,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, ConversationId, UserProfile,
+        ConversationId, UserProfile, conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

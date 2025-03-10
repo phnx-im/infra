@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{Entity, CURRENT_VERSION};
+use openmls_traits::storage::{CURRENT_VERSION, Entity};
 use sqlx::{
-    encode::IsNull, error::BoxDynError, sqlite::SqliteTypeInfo, Database, Decode, Encode, Sqlite,
+    Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError, sqlite::SqliteTypeInfo,
 };
 
 #[derive(Debug, Clone, Copy)]

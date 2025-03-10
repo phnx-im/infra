@@ -19,9 +19,9 @@ use phnxtypes::{
 use sqlx::SqlitePool;
 
 use crate::{
+    ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    ConversationId,
 };
 use anyhow::Result;
 

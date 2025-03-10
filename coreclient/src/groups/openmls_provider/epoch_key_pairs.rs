@@ -4,7 +4,7 @@
 
 use std::marker::PhantomData;
 
-use openmls_traits::storage::{Entity, CURRENT_VERSION};
+use openmls_traits::storage::{CURRENT_VERSION, Entity};
 
 pub(crate) struct StorableEpochKeyPairs<EpochKeyPairs: Entity<CURRENT_VERSION>>(
     PhantomData<EpochKeyPairs>,

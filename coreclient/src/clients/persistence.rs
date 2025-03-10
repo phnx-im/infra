@@ -5,8 +5,8 @@
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_as, query_scalar, sqlite::SqliteTypeInfo,
-    Database, Decode, Encode, Sqlite, SqliteExecutor, Type,
+    Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
+    query, query_as, query_scalar, sqlite::SqliteTypeInfo,
 };
 
 use crate::utils::persistence::open_phnx_db;

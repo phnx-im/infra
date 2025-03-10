@@ -5,7 +5,7 @@
 use openmls_rust_crypto::RustCrypto;
 use openmls_traits::{
     random::OpenMlsRand,
-    storage::{Entity, Key, CURRENT_VERSION},
+    storage::{CURRENT_VERSION, Entity, Key},
 };
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;

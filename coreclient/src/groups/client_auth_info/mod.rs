@@ -4,16 +4,16 @@
 
 use std::ops::Deref;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{
-        pseudonymous_credentials::PseudonymousCredential, ClientCredential, CredentialFingerprint,
-        VerifiableClientCredential,
+        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
+        pseudonymous_credentials::PseudonymousCredential,
     },
     crypto::ear::{
-        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
         EarDecryptable,
+        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
     },
     identifiers::AsClientId,
 };

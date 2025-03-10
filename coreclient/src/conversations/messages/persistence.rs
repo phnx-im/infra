@@ -9,14 +9,14 @@ use phnxtypes::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_as, Database, Decode, Encode, Sqlite,
-    SqliteExecutor,
+    Database, Decode, Encode, Sqlite, SqliteExecutor, encode::IsNull, error::BoxDynError, query,
+    query_as,
 };
 use tokio_stream::StreamExt;
 use tracing::{error, warn};
 
 use crate::{
-    store::StoreNotifier, ContentMessage, ConversationId, ConversationMessage, Message, MimiContent,
+    ContentMessage, ConversationId, ConversationMessage, Message, MimiContent, store::StoreNotifier,
 };
 
 use super::{ErrorMessage, EventMessage};
@@ -398,8 +398,8 @@ pub(crate) mod tests {
     use sqlx::SqlitePool;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, EventMessage, MimiContent,
-        SystemMessage,
+        EventMessage, MimiContent, SystemMessage,
+        conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

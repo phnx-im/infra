@@ -9,7 +9,7 @@ use std::fmt::Display;
 
 use phnxtypes::identifiers::QualifiedUserName;
 use serde::{Deserialize, Serialize};
-use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite};
+use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 

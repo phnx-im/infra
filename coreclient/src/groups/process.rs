@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use super::{openmls_provider::PhnxOpenMlsProvider, Group};
-use anyhow::{anyhow, bail, Context, Result};
+use super::{Group, openmls_provider::PhnxOpenMlsProvider};
+use anyhow::{Context, Result, anyhow, bail};
 use phnxtypes::{
     crypto::ear::keys::EncryptedIdentityLinkKey,
     identifiers::AsClientId,
@@ -112,8 +112,8 @@ impl Group {
                                     .len()
                             {
                                 bail!(
-                                "Number of add proposals and new identity link keys doesn't match."
-                            )
+                                    "Number of add proposals and new identity link keys doesn't match."
+                                )
                             }
                             // Prepare inputs for add processing
                             let added_clients = staged_commit

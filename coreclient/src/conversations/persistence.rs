@@ -4,13 +4,13 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use sqlx::{query, query_as, query_scalar, Connection, SqliteExecutor};
+use sqlx::{Connection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::{
-    store::StoreNotifier, utils::persistence::GroupIdWrapper, Conversation, ConversationAttributes,
-    ConversationId, ConversationMessageId, ConversationStatus, ConversationType,
+    Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
+    ConversationStatus, ConversationType, store::StoreNotifier, utils::persistence::GroupIdWrapper,
 };
 
 struct SqlConversation {
@@ -376,8 +376,8 @@ pub mod tests {
     use uuid::Uuid;
 
     use crate::{
-        conversations::messages::persistence::tests::test_conversation_message,
         InactiveConversation,
+        conversations::messages::persistence::tests::test_conversation_message,
     };
 
     use super::*;
