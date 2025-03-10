@@ -20,7 +20,6 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use sqlx::Connection;
 use tls_codec::DeserializeBytes;
 
 use crate::{conversations::ConversationType, groups::Group, ConversationMessage, PartialContact};
@@ -49,15 +48,15 @@ impl CoreUser {
         &self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
-        let mut transaction = self.pool().begin().await?;
-        let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut *transaction).await?;
-
-        let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
-
-        qs_queue_ratchet.update_ratchet(&mut *transaction).await?;
-        transaction.commit().await?;
-
-        Ok(payload.extract()?)
+        self.with_transaction(|transaction| {
+            Box::pin(async move {
+                let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut **transaction).await?;
+                let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
+                qs_queue_ratchet.update_ratchet(&mut **transaction).await?;
+                Ok(payload.extract()?)
+            })
+        })
+        .await
     }
 
     /// Process a decrypted message received from the QS queue.
@@ -115,31 +114,42 @@ impl CoreUser {
         // WelcomeBundle Phase 2: Store the user profiles of the group
         // members if they don't exist yet and store the group and the
         // new conversation.
-        let mut transaction = self.pool().begin().await?;
-        let mut notifier = self.store_notifier();
-        for user_name in group.members(&mut *transaction).await.into_iter() {
-            UserProfile::new(user_name, None, None)
-                .store(&mut *transaction, &mut notifier)
-                .await?;
-        }
+        let conversation_id = self
+            .with_transaction(|transaction| {
+                let mut notifier = self.store_notifier();
+                Box::pin(async move {
+                    for user_name in group.members(&mut **transaction).await.into_iter() {
+                        UserProfile::new(user_name, None, None)
+                            .store(&mut **transaction, &mut notifier)
+                            .await?;
+                    }
 
-        // Set the conversation attributes according to the group's
-        // group data.
-        let group_data = group.group_data().context("No group data")?;
-        let attributes: ConversationAttributes = PhnxCodec::from_slice(group_data.bytes())?;
+                    // Set the conversation attributes according to the group's
+                    // group data.
+                    let group_data = group.group_data().context("No group data")?;
+                    let attributes: ConversationAttributes =
+                        PhnxCodec::from_slice(group_data.bytes())?;
 
-        let conversation = Conversation::new_group_conversation(group_id.clone(), attributes);
-        // If we've been in that conversation before, we delete the old
-        // conversation (and the corresponding MLS group) first and then
-        // create a new one. We do leave the messages intact, though.
-        Conversation::delete(&mut *transaction, &mut notifier, conversation.id()).await?;
-        Group::delete_from_db(&mut transaction, &group_id).await?;
-        group.store(&mut *transaction).await?;
-        conversation.store(&mut *transaction, &mut notifier).await?;
-        transaction.commit().await?;
-        notifier.notify();
+                    let conversation =
+                        Conversation::new_group_conversation(group_id.clone(), attributes);
+                    // If we've been in that conversation before, we delete the old
+                    // conversation (and the corresponding MLS group) first and then
+                    // create a new one. We do leave the messages intact, though.
+                    Conversation::delete(&mut **transaction, &mut notifier, conversation.id())
+                        .await?;
+                    Group::delete_from_db(transaction, &group_id).await?;
+                    group.store(&mut **transaction).await?;
+                    conversation
+                        .store(&mut **transaction, &mut notifier)
+                        .await?;
+                    notifier.notify();
 
-        Ok(ProcessQsMessageResult::NewConversation(conversation.id()))
+                    Ok(conversation.id())
+                })
+            })
+            .await?;
+
+        Ok(ProcessQsMessageResult::NewConversation(conversation_id))
     }
 
     async fn handle_mls_message(
@@ -204,25 +214,23 @@ impl CoreUser {
         };
 
         // MLSMessage Phase 3: Store the updated group and the messages.
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    group.store_update(&mut **transaction).await?;
+        self.with_transaction(|transaction| {
+            let inner_self = self.clone();
+            Box::pin(async move {
+                group.store_update(&mut **transaction).await?;
 
-                    let conversation_messages = inner_self
-                        .store_messages(transaction, conversation_id, group_messages)
-                        .await?;
-                    Ok(match (conversation_messages, conversation_changed) {
-                        (messages, true) => {
-                            ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
-                        }
-                        (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
-                    })
+                let conversation_messages = inner_self
+                    .store_messages(transaction, conversation_id, group_messages)
+                    .await?;
+                Ok(match (conversation_messages, conversation_changed) {
+                    (messages, true) => {
+                        ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
+                    }
+                    (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
                 })
             })
-            .await
+        })
+        .await
     }
 
     fn handle_application_message(

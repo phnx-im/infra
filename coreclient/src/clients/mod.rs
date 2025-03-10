@@ -43,7 +43,7 @@ use phnxtypes::{
     },
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, SqlitePool};
+use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
@@ -423,24 +423,22 @@ impl CoreUser {
             .await?;
 
         // Phase 5: Merge the commit into the group
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    // Now that we know the commit went through, we can merge the commit
-                    let group_messages = group
-                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                        .await?;
-                    group.store_update(&mut **transaction).await?;
+        self.with_transaction(|transaction| {
+            let inner_self = self.clone();
+            Box::pin(async move {
+                // Now that we know the commit went through, we can merge the commit
+                let group_messages = group
+                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                    .await?;
+                group.store_update(&mut **transaction).await?;
 
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, group_messages)
-                        .await?;
-                    Ok(conversation_messages)
-                })
+                let conversation_messages = inner_self
+                    .store_messages(&mut *transaction, conversation_id, group_messages)
+                    .await?;
+                Ok(conversation_messages)
             })
-            .await
+        })
+        .await
     }
 
     /// Remove users from the conversation with the given [`ConversationId`].
@@ -554,21 +552,25 @@ impl CoreUser {
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
-        let (connection_group, partial_params) = {
-            let mut transaction = self.pool().begin().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut transaction);
-            let (group, group_membership, partial_params) = Group::create_group(
-                &provider,
-                &self.inner.key_store.signing_key,
-                &self.inner.key_store.connection_key,
-                group_id.clone(),
-                group_data,
-            )?;
-            group_membership.store(&mut *transaction).await?;
-            group.store(&mut *transaction).await?;
-            transaction.commit().await?;
-            (group, partial_params)
-        };
+        let (connection_group, partial_params) = self
+            .with_transaction(|transaction| {
+                let inner_self = self.clone();
+                let group_id = group_id.clone();
+                Box::pin(async move {
+                    let provider = PhnxOpenMlsProvider::new(transaction);
+                    let (group, group_membership, partial_params) = Group::create_group(
+                        &provider,
+                        &inner_self.inner.key_store.signing_key,
+                        &inner_self.inner.key_store.connection_key,
+                        group_id,
+                        group_data,
+                    )?;
+                    group_membership.store(&mut **transaction).await?;
+                    group.store(&mut **transaction).await?;
+                    Ok((group, partial_params))
+                })
+            })
+            .await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -709,29 +711,27 @@ impl CoreUser {
         };
 
         // Phase 4: Set the conversation to inactive
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    let mut notifier = inner_self.store_notifier();
-                    conversation
-                        .set_inactive(
-                            &mut **transaction,
-                            &mut notifier,
-                            past_members.into_iter().collect(),
-                        )
-                        .await?;
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, messages)
-                        .await?;
+        self.with_transaction(|transaction| {
+            let inner_self = self.clone();
+            Box::pin(async move {
+                let mut notifier = inner_self.store_notifier();
+                conversation
+                    .set_inactive(
+                        &mut **transaction,
+                        &mut notifier,
+                        past_members.into_iter().collect(),
+                    )
+                    .await?;
+                let conversation_messages = inner_self
+                    .store_messages(&mut *transaction, conversation_id, messages)
+                    .await?;
 
-                    notifier.notify();
+                notifier.notify();
 
-                    Ok(conversation_messages)
-                })
+                Ok(conversation_messages)
             })
-            .await
+        })
+        .await
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
@@ -1096,18 +1096,16 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap())
     }
 
-    pub(crate) async fn with_transaction<'a, T, F>(&'a self, f: F) -> anyhow::Result<T>
+    pub(crate) async fn with_transaction<T, F>(&self, f: F) -> anyhow::Result<T>
     where
-        F: for<'c> FnOnce(
-                &'c mut sqlx::SqliteTransaction,
-            )
-                -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'c>>
-            + Send
-            + Sync
-            + 'a,
         T: Send,
+        F: for<'c> FnOnce(
+            &'c mut sqlx::SqliteTransaction,
+        ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'c>>,
     {
-        let mut connection = self.pool().acquire().await?;
-        connection.transaction(f).await
+        let mut transaction = self.pool().begin().await?;
+        let value = f(&mut transaction).await?;
+        transaction.commit().await?;
+        Ok(value)
     }
 }
