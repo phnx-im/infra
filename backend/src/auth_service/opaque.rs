@@ -44,6 +44,7 @@ mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
+            // TODO: Should we make sure that there is only one opaque setup?
             sqlx::query!(
                 "INSERT INTO opaque_setup (opaque_setup) VALUES ($1)",
                 PhnxCodec::to_vec(&self.0)?
@@ -62,6 +63,25 @@ mod persistence {
                 .await?;
             let opaque_setup = PhnxCodec::from_slice(&opaque_setup_record.opaque_setup)?;
             Ok(opaque_setup)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use sqlx::PgPool;
+
+        use super::*;
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let mut rng = rand::thread_rng();
+            let opaque_setup = OpaqueSetup(ServerSetup::<OpaqueCiphersuite>::new(&mut rng));
+
+            opaque_setup.store(&pool).await?;
+            let loaded = OpaqueSetup::load(&pool).await?;
+            assert_eq!(loaded, opaque_setup.0);
+
+            Ok(())
         }
     }
 }

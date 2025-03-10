@@ -71,7 +71,16 @@ impl FriendshipToken {
 /// Enum encoding the version of the MlsInfra protocol that was used to create
 /// the given message.
 #[derive(
-    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Copy, Serialize, Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
 )]
 #[repr(u8)]
 pub enum MlsInfraVersion {

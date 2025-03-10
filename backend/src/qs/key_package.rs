@@ -96,17 +96,20 @@ mod persistence {
             let mut transaction = connection.begin().await?;
 
             let encrypted_key_package_option = sqlx::query_scalar!(
-                r#"WITH deleted_package AS (
-                    DELETE FROM key_packages
-                    USING qs_client_records qcr
+                r#"WITH to_delete AS (
+                    SELECT id FROM key_packages
+                    INNER JOIN qs_client_records qcr
+                        ON qcr.client_id = key_packages.client_id
                     WHERE
-                        key_packages.client_id = qcr.client_id
-                        AND key_packages.client_id = $1
+                        key_packages.client_id = $1
                         AND qcr.user_id = $2
-                    RETURNING key_packages.id, key_packages.encrypted_key_package
+                    LIMIT 1
+                    FOR UPDATE SKIP LOCKED
                 )
-                SELECT encrypted_key_package as "eap: _" FROM deleted_package
-                FOR UPDATE SKIP LOCKED"#,
+                DELETE FROM key_packages
+                WHERE id IN (SELECT id FROM to_delete)
+                RETURNING encrypted_key_package AS "eap: _"
+                "#,
                 client_id as &QsClientId,
                 user_id as &QsUserId
             )
@@ -166,6 +169,115 @@ mod persistence {
             transaction.commit().await?;
 
             Ok(encrypted_key_package)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use phnxtypes::crypto::ear::Ciphertext;
+        use sqlx::PgPool;
+
+        use crate::qs::{
+            client_record::persistence::tests::store_random_client_record,
+            user_record::persistence::tests::store_random_user_record,
+        };
+
+        use super::*;
+
+        #[sqlx::test]
+        async fn store_multiple_load(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+            let packages = store_random_key_packages(&pool, &client_record.client_id).await?;
+
+            let mut loaded = [None, None];
+
+            let pkg = StorableEncryptedAddPackage::load(
+                pool.acquire().await?.as_mut(),
+                &user_record.user_id,
+                &client_record.client_id,
+            )
+            .await?
+            .expect("missing key package");
+
+            if pkg.0.as_ref() == packages[0].as_ref() {
+                loaded[0] = Some(pkg);
+            } else if pkg.0.as_ref() == packages[1].as_ref() {
+                loaded[1] = Some(pkg);
+            }
+
+            let pkg = StorableEncryptedAddPackage::load(
+                pool.acquire().await?.as_mut(),
+                &user_record.user_id,
+                &client_record.client_id,
+            )
+            .await?
+            .expect("missing key package");
+
+            if pkg.0.as_ref() == packages[0].as_ref() {
+                loaded[0] = Some(pkg);
+            } else if pkg.0.as_ref() == packages[1].as_ref() {
+                loaded[1] = Some(pkg);
+            }
+
+            let pkg = StorableEncryptedAddPackage::load(
+                pool.acquire().await?.as_mut(),
+                &user_record.user_id,
+                &client_record.client_id,
+            )
+            .await?;
+            assert!(pkg.is_none());
+
+            assert_eq!(loaded[0].as_ref().unwrap().0.as_ref(), packages[0].as_ref());
+            assert_eq!(loaded[1].as_ref().unwrap().0.as_ref(), packages[1].as_ref());
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn load_user_key_package(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
+            let packages = store_random_key_packages(&pool, &client_record.client_id).await?;
+
+            let mut loaded = [None, None];
+
+            let pkg = StorableEncryptedAddPackage::load_user_key_package(
+                pool.acquire().await?.as_mut(),
+                &user_record.friendship_token,
+            )
+            .await?;
+            if pkg.0.as_ref() == packages[0].as_ref() {
+                loaded[0] = Some(pkg);
+            } else if pkg.0.as_ref() == packages[1].as_ref() {
+                loaded[1] = Some(pkg);
+            }
+
+            let pkg = StorableEncryptedAddPackage::load_user_key_package(
+                pool.acquire().await?.as_mut(),
+                &user_record.friendship_token,
+            )
+            .await?;
+            if pkg.0.as_ref() == packages[0].as_ref() {
+                loaded[0] = Some(pkg);
+            } else if pkg.0.as_ref() == packages[1].as_ref() {
+                loaded[1] = Some(pkg);
+            }
+
+            assert_eq!(loaded[0].as_ref().unwrap().0.as_ref(), packages[0].as_ref());
+            assert_eq!(loaded[1].as_ref().unwrap().0.as_ref(), packages[1].as_ref());
+
+            Ok(())
+        }
+
+        async fn store_random_key_packages(
+            pool: &PgPool,
+            client_id: &QsClientId,
+        ) -> anyhow::Result<Vec<QsEncryptedKeyPackage>> {
+            let pkg_a = QsEncryptedKeyPackage::from(Ciphertext::random());
+            let pkg_b = QsEncryptedKeyPackage::from(Ciphertext::random());
+            StorableEncryptedAddPackage::store_multiple(pool, client_id, [&pkg_a, &pkg_b]).await?;
+            Ok(vec![pkg_a, pkg_b])
         }
     }
 }

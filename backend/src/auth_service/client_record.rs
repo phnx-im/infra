@@ -15,7 +15,7 @@ use crate::errors::StorageError;
 
 use super::queue::Queue;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ClientRecord {
     pub(super) queue_encryption_key: RatchetEncryptionKey,
     pub(super) ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
@@ -43,11 +43,16 @@ impl ClientRecord {
 
         // Initialize the client's queue.
         let mut transaction = connection.begin().await?;
-        record.store(&mut transaction).await?;
-        Queue::new_and_store(record.client_id(), &mut transaction).await?;
+        record.store(&mut *transaction).await?;
+        Queue::new_and_store(record.client_id(), &mut *transaction).await?;
         transaction.commit().await?;
 
         Ok(record)
+    }
+
+    #[cfg(test)]
+    pub(super) fn credential(&self) -> &ClientCredential {
+        &self.credential
     }
 
     fn client_id(&self) -> AsClientId {
@@ -55,7 +60,7 @@ impl ClientRecord {
     }
 }
 
-mod persistence {
+pub(crate) mod persistence {
     use phnxtypes::{
         codec::PhnxCodec, credentials::persistence::FlatClientCredential,
         identifiers::QualifiedUserName,
@@ -70,7 +75,7 @@ mod persistence {
     impl ClientRecord {
         pub(super) async fn store(
             &self,
-            connection: &mut PgConnection,
+            connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             let queue_encryption_key_bytes = PhnxCodec::to_vec(&self.queue_encryption_key)?;
             let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
@@ -78,7 +83,15 @@ mod persistence {
             let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO as_client_records (
+                    client_id,
+                    user_name,
+                    queue_encryption_key,
+                    ratchet,
+                    activity_time,
+                    credential,
+                    remaining_tokens
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
                 client_id.user_name().to_string(),
                 queue_encryption_key_bytes,
@@ -102,7 +115,13 @@ mod persistence {
             let client_credential = FlatClientCredential::from(self.credential.clone());
             let client_id = self.credential.identity();
             sqlx::query!(
-                "UPDATE as_client_records SET queue_encryption_key = $1, ratchet = $2, activity_time = $3, credential = $4, remaining_tokens = $5 WHERE client_id = $6",
+                "UPDATE as_client_records SET
+                    queue_encryption_key = $1,
+                    ratchet = $2,
+                    activity_time = $3,
+                    credential = $4,
+                    remaining_tokens = $5
+                WHERE client_id = $6",
                 queue_encryption_key_bytes,
                 ratchet,
                 activity_time,
@@ -165,15 +184,164 @@ mod persistence {
             user_name: &QualifiedUserName,
         ) -> Result<Vec<ClientCredential>, StorageError> {
             sqlx::query_scalar!(
-                r#"SELECT credential as "client_credential: FlatClientCredential" FROM as_client_records WHERE user_name = $1"#,
+                r#"SELECT credential as "client_credential: FlatClientCredential"
+                FROM as_client_records WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_all(connection)
-            .await?.into_iter()
-                .map(|flat_credential| {
-                    let client_credential = flat_credential.into();
-                    Ok(client_credential)
-                }).collect()
+            .await?
+            .into_iter()
+            .map(|flat_credential| {
+                let client_credential = flat_credential.into();
+                Ok(client_credential)
+            })
+            .collect()
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) mod tests {
+        use mls_assist::openmls::prelude::SignatureScheme;
+        use phnxtypes::{
+            credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
+            crypto::signatures::signable::Signature,
+            time::{Duration, ExpirationData},
+        };
+        use sqlx::PgPool;
+        use uuid::Uuid;
+
+        use crate::auth_service::user_record::persistence::tests::store_random_user_record;
+
+        use super::*;
+
+        pub(crate) async fn store_random_client_record(
+            pool: &PgPool,
+            client_id: AsClientId,
+        ) -> anyhow::Result<ClientRecord> {
+            let record = random_client_record(client_id)?;
+            record.store(pool).await?;
+            Ok(record)
+        }
+
+        fn random_client_record(client_id: AsClientId) -> Result<ClientRecord, anyhow::Error> {
+            let (csr, _) = ClientCredentialCsr::new(client_id, SignatureScheme::ED25519)?;
+            let expiration_data = ExpirationData::new(Duration::days(90));
+            let record = ClientRecord {
+                queue_encryption_key: RatchetEncryptionKey::new_for_test(
+                    b"encryption_key".to_vec().into(),
+                ),
+                ratchet_key: QueueRatchet::random()?,
+                activity_time: TimeStamp::now(),
+                credential: ClientCredential::new_for_test(
+                    ClientCredentialPayload::new(
+                        csr,
+                        Some(expiration_data),
+                        CredentialFingerprint::new_for_test(b"fingerprint".to_vec()),
+                    ),
+                    Signature::new_for_test(b"signature".to_vec()),
+                ),
+                token_allowance: 42,
+            };
+            Ok(record)
+        }
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(
+                &pool,
+                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+            )
+            .await?;
+
+            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn load_user_credentials(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_records = vec![
+                store_random_client_record(
+                    &pool,
+                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+                )
+                .await?,
+                store_random_client_record(
+                    &pool,
+                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+                )
+                .await?,
+                store_random_client_record(
+                    &pool,
+                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+                )
+                .await?,
+            ];
+
+            let mut loaded =
+                ClientRecord::load_user_credentials(&pool, user_record.user_name()).await?;
+            loaded.sort_by_key(|record| record.identity().client_id());
+            let mut expected: Vec<_> = client_records
+                .into_iter()
+                .map(|record| record.credential)
+                .collect();
+            expected.sort_by_key(|credential| credential.identity().client_id());
+
+            assert_eq!(loaded, expected);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn update(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(
+                &pool,
+                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+            )
+            .await?;
+
+            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            let updated_client_record = random_client_record(client_record.client_id())?;
+
+            updated_client_record.update(&pool).await?;
+            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, updated_client_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let client_record = store_random_client_record(
+                &pool,
+                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
+            )
+            .await?;
+
+            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            ClientRecord::delete(&pool, &client_record.client_id()).await?;
+
+            let loaded = ClientRecord::load(&pool, &client_record.client_id()).await?;
+            assert!(loaded.is_none());
+
+            Ok(())
         }
     }
 }
