@@ -35,6 +35,7 @@ pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<C
     _phantom: PhantomData<(Ciphertext, Payload)>,
 }
 
+#[cfg(feature = "test_utils")]
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> PartialEq
     for QueueRatchet<Ciphertext, Payload>
 {
@@ -46,6 +47,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Partial
     }
 }
 
+#[cfg(feature = "test_utils")]
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Eq
     for QueueRatchet<Ciphertext, Payload>
 {
