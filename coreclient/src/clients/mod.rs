@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
@@ -480,20 +480,17 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                let group_messages = group
-                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                    .await?;
-                group.store_update(&mut **transaction).await?;
+        self.with_transaction(async |transaction| {
+            let group_messages = group
+                .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut **transaction).await?;
 
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, group_messages)
-                    .await?;
+            let conversation_messages = self
+                .store_messages(&mut *transaction, conversation_id, group_messages)
+                .await?;
 
-                Ok(conversation_messages)
-            })
+            Ok(conversation_messages)
         })
         .await
     }
@@ -846,18 +843,15 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                let group_messages = group
-                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                    .await?;
-                group.store_update(&mut **transaction).await?;
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, group_messages)
-                    .await?;
-                Ok(conversation_messages)
-            })
+        self.with_transaction(async |transaction| {
+            let group_messages = group
+                .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut **transaction).await?;
+            let conversation_messages = self
+                .store_messages(&mut *transaction, conversation_id, group_messages)
+                .await?;
+            Ok(conversation_messages)
         })
         .await
     }
@@ -1096,18 +1090,16 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap())
     }
 
-    pub(crate) async fn with_transaction<'a, T, F>(&'a self, f: F) -> anyhow::Result<T>
+    pub(crate) async fn with_transaction<'a, T>(
+        &'a self,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T>
     where
-        F: for<'c> FnOnce(
-                &'c mut sqlx::SqliteTransaction,
-            )
-                -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'c>>
-            + Send
-            + Sync
-            + 'a,
         T: Send,
     {
-        let mut connection = self.pool().acquire().await?;
-        connection.transaction(f).await
+        let mut transaction = self.pool().begin().await?;
+        let res = f(&mut transaction).await?;
+        transaction.commit().await?;
+        Ok(res)
     }
 }
