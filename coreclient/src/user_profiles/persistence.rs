@@ -65,7 +65,7 @@ impl UserProfile {
         )
         .execute(executor)
         .await?;
-        // TODO: We can skip this notification if the user profile was already stored.
+        // TODO(#369): We can skip this notification if the user profile was already stored.
         notifier.add(self.user_name.clone());
         Ok(())
     }
