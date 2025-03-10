@@ -38,15 +38,13 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        let mut transaction = self.pool().begin().await?;
-        let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut *transaction).await?;
-
-        let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-
-        as_queue_ratchet.update_ratchet(&mut *transaction).await?;
-        transaction.commit().await?;
-
-        Ok(payload.extract()?)
+        self.with_transaction(async |transaction| {
+            let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut **transaction).await?;
+            let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
+            as_queue_ratchet.update_ratchet(&mut **transaction).await?;
+            Ok(payload.extract()?)
+        })
+        .await
     }
 
     /// Process a decrypted message received from the AS queue.

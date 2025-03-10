@@ -43,7 +43,7 @@ use phnxtypes::{
     },
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, SqlitePool};
+use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
@@ -423,24 +423,16 @@ impl CoreUser {
             .await?;
 
         // Phase 5: Merge the commit into the group
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    // Now that we know the commit went through, we can merge the commit
-                    let group_messages = group
-                        .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                        .await?;
-                    group.store_update(&mut **transaction).await?;
-
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, group_messages)
-                        .await?;
-                    Ok(conversation_messages)
-                })
-            })
-            .await
+        self.with_transaction(async |transaction| {
+            // Now that we know the commit went through, we can merge the commit
+            let group_messages = group
+                .merge_pending_commit(&mut *transaction, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut **transaction).await?;
+            self.store_messages(&mut *transaction, conversation_id, group_messages)
+                .await
+        })
+        .await
     }
 
     /// Remove users from the conversation with the given [`ConversationId`].
@@ -485,12 +477,8 @@ impl CoreUser {
                 .merge_pending_commit(&mut *transaction, None, ds_timestamp)
                 .await?;
             group.store_update(&mut **transaction).await?;
-
-            let conversation_messages = self
-                .store_messages(&mut *transaction, conversation_id, group_messages)
-                .await?;
-
-            Ok(conversation_messages)
+            self.store_messages(&mut *transaction, conversation_id, group_messages)
+                .await
         })
         .await
     }
@@ -551,21 +539,21 @@ impl CoreUser {
         let title = format!("Connection group: {} - {}", self.user_name(), user_name);
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
-        let (connection_group, partial_params) = {
-            let mut transaction = self.pool().begin().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut transaction);
-            let (group, group_membership, partial_params) = Group::create_group(
-                &provider,
-                &self.inner.key_store.signing_key,
-                &self.inner.key_store.connection_key,
-                group_id.clone(),
-                group_data,
-            )?;
-            group_membership.store(&mut *transaction).await?;
-            group.store(&mut *transaction).await?;
-            transaction.commit().await?;
-            (group, partial_params)
-        };
+        let (connection_group, partial_params) = self
+            .with_transaction(async |transaction| {
+                let provider = PhnxOpenMlsProvider::new(transaction);
+                let (group, group_membership, partial_params) = Group::create_group(
+                    &provider,
+                    &self.inner.key_store.signing_key,
+                    &self.inner.key_store.connection_key,
+                    group_id.clone(),
+                    group_data,
+                )?;
+                group_membership.store(&mut **transaction).await?;
+                group.store(&mut **transaction).await?;
+                Ok((group, partial_params))
+            })
+            .await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -706,29 +694,18 @@ impl CoreUser {
         };
 
         // Phase 4: Set the conversation to inactive
-        let mut connection = self.pool().acquire().await?;
-        connection
-            .transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    let mut notifier = inner_self.store_notifier();
-                    conversation
-                        .set_inactive(
-                            &mut **transaction,
-                            &mut notifier,
-                            past_members.into_iter().collect(),
-                        )
-                        .await?;
-                    let conversation_messages = inner_self
-                        .store_messages(&mut *transaction, conversation_id, messages)
-                        .await?;
-
-                    notifier.notify();
-
-                    Ok(conversation_messages)
-                })
-            })
-            .await
+        self.with_transaction_and_notifier(async |transaction, notifier| {
+            conversation
+                .set_inactive(
+                    &mut **transaction,
+                    notifier,
+                    past_members.into_iter().collect(),
+                )
+                .await?;
+            self.store_messages(&mut *transaction, conversation_id, messages)
+                .await
+        })
+        .await
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
@@ -848,10 +825,8 @@ impl CoreUser {
                 .merge_pending_commit(&mut *transaction, None, ds_timestamp)
                 .await?;
             group.store_update(&mut **transaction).await?;
-            let conversation_messages = self
-                .store_messages(&mut *transaction, conversation_id, group_messages)
-                .await?;
-            Ok(conversation_messages)
+            self.store_messages(&mut *transaction, conversation_id, group_messages)
+                .await
         })
         .await
     }
@@ -1090,16 +1065,25 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap())
     }
 
-    pub(crate) async fn with_transaction<'a, T>(
+    pub(crate) async fn with_transaction<'a, T: Send>(
         &'a self,
         f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T>
-    where
-        T: Send,
-    {
+    ) -> anyhow::Result<T> {
         let mut transaction = self.pool().begin().await?;
         let res = f(&mut transaction).await?;
         transaction.commit().await?;
+        Ok(res)
+    }
+
+    pub(crate) async fn with_transaction_and_notifier<'a, T: Send>(
+        &'a self,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction, &mut StoreNotifier) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut transaction = self.pool().begin().await?;
+        let mut notifier = self.store_notifier();
+        let res = f(&mut transaction, &mut notifier).await?;
+        transaction.commit().await?;
+        notifier.notify();
         Ok(res)
     }
 }
