@@ -192,32 +192,20 @@ mod persistence {
 
             let mut loaded = [None, None];
 
-            let pkg = StorableEncryptedAddPackage::load(
-                pool.acquire().await?.as_mut(),
-                &user_record.user_id,
-                &client_record.client_id,
-            )
-            .await?
-            .expect("missing key package");
+            for _ in 0..2 {
+                let pkg = StorableEncryptedAddPackage::load(
+                    pool.acquire().await?.as_mut(),
+                    &user_record.user_id,
+                    &client_record.client_id,
+                )
+                .await?
+                .expect("missing key package");
 
-            if pkg.0.as_ref() == packages[0].as_ref() {
-                loaded[0] = Some(pkg);
-            } else if pkg.0.as_ref() == packages[1].as_ref() {
-                loaded[1] = Some(pkg);
-            }
-
-            let pkg = StorableEncryptedAddPackage::load(
-                pool.acquire().await?.as_mut(),
-                &user_record.user_id,
-                &client_record.client_id,
-            )
-            .await?
-            .expect("missing key package");
-
-            if pkg.0.as_ref() == packages[0].as_ref() {
-                loaded[0] = Some(pkg);
-            } else if pkg.0.as_ref() == packages[1].as_ref() {
-                loaded[1] = Some(pkg);
+                if pkg.0.as_ref() == packages[0].as_ref() {
+                    loaded[0] = Some(pkg);
+                } else if pkg.0.as_ref() == packages[1].as_ref() {
+                    loaded[1] = Some(pkg);
+                }
             }
 
             let pkg = StorableEncryptedAddPackage::load(
@@ -242,26 +230,17 @@ mod persistence {
 
             let mut loaded = [None, None];
 
-            let pkg = StorableEncryptedAddPackage::load_user_key_package(
-                pool.acquire().await?.as_mut(),
-                &user_record.friendship_token,
-            )
-            .await?;
-            if pkg.0.as_ref() == packages[0].as_ref() {
-                loaded[0] = Some(pkg);
-            } else if pkg.0.as_ref() == packages[1].as_ref() {
-                loaded[1] = Some(pkg);
-            }
-
-            let pkg = StorableEncryptedAddPackage::load_user_key_package(
-                pool.acquire().await?.as_mut(),
-                &user_record.friendship_token,
-            )
-            .await?;
-            if pkg.0.as_ref() == packages[0].as_ref() {
-                loaded[0] = Some(pkg);
-            } else if pkg.0.as_ref() == packages[1].as_ref() {
-                loaded[1] = Some(pkg);
+            for _ in 0..2 {
+                let pkg = StorableEncryptedAddPackage::load_user_key_package(
+                    pool.acquire().await?.as_mut(),
+                    &user_record.friendship_token,
+                )
+                .await?;
+                if pkg.0.as_ref() == packages[0].as_ref() {
+                    loaded[0] = Some(pkg);
+                } else if pkg.0.as_ref() == packages[1].as_ref() {
+                    loaded[1] = Some(pkg);
+                }
             }
 
             assert_eq!(loaded[0].as_ref().unwrap().0.as_ref(), packages[0].as_ref());
