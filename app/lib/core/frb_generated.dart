@@ -71,7 +71,6 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   @override
   Future<void> executeRustInitializers() async {
     await api.crateApiInit();
-    await api.crateApiMarkdownInitApp();
   }
 
   @override
@@ -82,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.7.1';
 
   @override
-  int get rustContentHash => -204267514;
+  int get rustContentHash => 278746970;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -294,17 +293,15 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiInit();
 
-  Future<void> crateApiMarkdownInitApp();
-
   LogWriter crateApiLoggingInitRustLogging({required String logFile});
 
   Future<MessageContent> crateApiMarkdownMessageContentError(
       {required String message});
 
-  Future<MessageContent> crateApiMarkdownMessageContentTryParseMarkdown(
+  Future<MessageContent> crateApiMarkdownMessageContentParseMarkdown(
       {required String string});
 
-  MessageContent crateApiMarkdownMessageContentTryParseMarkdownRaw(
+  MessageContent crateApiMarkdownMessageContentParseMarkdownRaw(
       {required List<int> string});
 
   Future<String> crateApiLoggingReadAppLogs();
@@ -2141,35 +2138,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateApiMarkdownInitApp() {
-    return handler.executeNormal(NormalTask(
-      callFfi: (port_) {
-        final serializer = SseSerializer(generalizedFrbRustBinding);
-        pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 62, port: port_);
-      },
-      codec: SseCodec(
-        decodeSuccessData: sse_decode_unit,
-        decodeErrorData: null,
-      ),
-      constMeta: kCrateApiMarkdownInitAppConstMeta,
-      argValues: [],
-      apiImpl: this,
-    ));
-  }
-
-  TaskConstMeta get kCrateApiMarkdownInitAppConstMeta => const TaskConstMeta(
-        debugName: "init_app",
-        argNames: [],
-      );
-
-  @override
   LogWriter crateApiLoggingInitRustLogging({required String logFile}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(logFile, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 63)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 62)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -2196,7 +2170,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(message, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 64, port: port_);
+            funcId: 63, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
@@ -2215,56 +2189,55 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<MessageContent> crateApiMarkdownMessageContentTryParseMarkdown(
+  Future<MessageContent> crateApiMarkdownMessageContentParseMarkdown(
       {required String string}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(string, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 65, port: port_);
+            funcId: 64, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
-        decodeErrorData: sse_decode_AnyhowException,
+        decodeErrorData: null,
       ),
-      constMeta: kCrateApiMarkdownMessageContentTryParseMarkdownConstMeta,
+      constMeta: kCrateApiMarkdownMessageContentParseMarkdownConstMeta,
       argValues: [string],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta get kCrateApiMarkdownMessageContentTryParseMarkdownConstMeta =>
+  TaskConstMeta get kCrateApiMarkdownMessageContentParseMarkdownConstMeta =>
       const TaskConstMeta(
-        debugName: "message_content_try_parse_markdown",
+        debugName: "message_content_parse_markdown",
         argNames: ["string"],
       );
 
   @override
-  MessageContent crateApiMarkdownMessageContentTryParseMarkdownRaw(
+  MessageContent crateApiMarkdownMessageContentParseMarkdownRaw(
       {required List<int> string}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_list_prim_u_8_loose(string, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 66)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 65)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
         decodeErrorData: sse_decode_AnyhowException,
       ),
-      constMeta: kCrateApiMarkdownMessageContentTryParseMarkdownRawConstMeta,
+      constMeta: kCrateApiMarkdownMessageContentParseMarkdownRawConstMeta,
       argValues: [string],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta
-      get kCrateApiMarkdownMessageContentTryParseMarkdownRawConstMeta =>
-          const TaskConstMeta(
-            debugName: "message_content_try_parse_markdown_raw",
-            argNames: ["string"],
-          );
+  TaskConstMeta get kCrateApiMarkdownMessageContentParseMarkdownRawConstMeta =>
+      const TaskConstMeta(
+        debugName: "message_content_parse_markdown_raw",
+        argNames: ["string"],
+      );
 
   @override
   Future<String> crateApiLoggingReadAppLogs() {
@@ -2272,7 +2245,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 67, port: port_);
+            funcId: 66, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2296,7 +2269,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 68, port: port_);
+            funcId: 67, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2321,7 +2294,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 69, port: port_);
+            funcId: 68, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_prim_u_8_strict,

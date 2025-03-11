@@ -301,26 +301,11 @@ class CustomTextEditingController extends TextEditingController {
     // Flutter uses UTF-16, but Rust uses UTF-8
     raw = utf8.encode(text);
 
-    try {
-      MessageContent parsed = MessageContent.tryParseMarkdownRaw(string: raw);
-      return TextSpan(
-        style: style,
-        children: buildWrappedBlock((0, raw.length), parsed.content),
-      );
-    } catch (_) {
-      return TextSpan(
-        style: style,
-        children: buildWrappedBlock((
-          0,
-          raw.length
-        ), [
-          RangedBlockElement(
-            range: (0, raw.length),
-            element: BlockElement.error(text),
-          )
-        ]),
-      );
-    }
+    MessageContent parsed = MessageContent.parseMarkdownRaw(string: raw);
+    return TextSpan(
+      style: style,
+      children: buildWrappedBlock((0, raw.length), parsed.content),
+    );
   }
 
   InlineSpan buildFormattedTextSpanBlock(RangedBlockElement block) {

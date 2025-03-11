@@ -11,7 +11,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'markdown.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `parse_block_element`, `parse_inline_elements`, `parse_list_items`, `parse_table_cells`, `parse_table_content`
+// These functions are ignored because they are not marked as `pub`: `parse_block_element`, `parse_inline_elements`, `parse_list_items`, `parse_table_cells`, `parse_table_content`, `try_parse_markdown`
 // These types are ignored because they are not used by any `pub` functions: `Error`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `hash`, `hash`, `hash`, `hash`, `hash`
 
@@ -95,13 +95,13 @@ class MessageContent {
       RustLib.instance.api
           .crateApiMarkdownMessageContentError(message: message);
 
-  static Future<MessageContent> tryParseMarkdown({required String string}) =>
+  static Future<MessageContent> parseMarkdown({required String string}) =>
       RustLib.instance.api
-          .crateApiMarkdownMessageContentTryParseMarkdown(string: string);
+          .crateApiMarkdownMessageContentParseMarkdown(string: string);
 
-  static MessageContent tryParseMarkdownRaw({required List<int> string}) =>
+  static MessageContent parseMarkdownRaw({required List<int> string}) =>
       RustLib.instance.api
-          .crateApiMarkdownMessageContentTryParseMarkdownRaw(string: string);
+          .crateApiMarkdownMessageContentParseMarkdownRaw(string: string);
 
   @override
   int get hashCode => content.hashCode;

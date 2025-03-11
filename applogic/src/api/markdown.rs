@@ -9,12 +9,6 @@ use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
 const MAX_DEPTH: usize = 50;
 
-#[flutter_rust_bridge::frb(init)]
-pub fn init_app() {
-    // Default utilities - feel free to customize
-    flutter_rust_bridge::setup_default_user_utils();
-}
-
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("expected more events")]
@@ -33,12 +27,14 @@ pub enum Error {
     DefinitionListsNotSupported,
     #[error("block element inline")]
     BlockElementInline,
-    #[error("html not in block")]
+    #[error("HTML not in block")]
     HtmlNotInBlock,
     #[error("math not supported")]
     MathNotSupported,
     #[error("depth limit reached")]
     DepthLimitReached,
+    #[error("invalid UTF-8")]
+    InvalidUtf8,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -111,18 +107,26 @@ impl MessageContent {
     pub fn error(message: String) -> Self {
         Self {
             content: vec![RangedBlockElement {
-                range: (0, u32::try_from(message.chars().count()).unwrap()),
+                range: (
+                    0,
+                    u32::try_from(message.chars().count()).unwrap_or(u32::MAX),
+                ),
                 element: BlockElement::Error(message),
             }],
         }
     }
 
     #[frb(sync)]
-    pub fn try_parse_markdown_raw(string: Vec<u8>) -> Result<Self> {
-        Self::try_parse_markdown(&String::from_utf8(string).unwrap())
+    pub fn parse_markdown_raw(string: Vec<u8>) -> Result<Self> {
+        Self::try_parse_markdown(&String::from_utf8(string).map_err(|_| Error::InvalidUtf8)?)
     }
 
-    pub fn try_parse_markdown(string: &str) -> Result<Self> {
+    pub fn parse_markdown(string: &str) -> Self {
+        Self::try_parse_markdown(string)
+            .unwrap_or_else(|e| Self::error(format!("Invalid message: {e}")))
+    }
+
+    fn try_parse_markdown(string: &str) -> Result<Self> {
         let parsed = Parser::new_ext(
             string,
             // Do not enable Options::ENABLE_GFM, it activates special blockquotes which are not part of the GFM spec https://github.com/orgs/community/discussions/16925
@@ -134,7 +138,8 @@ impl MessageContent {
             .map(|(element, range)| {
                 (
                     element,
-                    u32::try_from(range.start).unwrap()..u32::try_from(range.end).unwrap(),
+                    u32::try_from(range.start).unwrap_or(u32::MAX)
+                        ..u32::try_from(range.end).unwrap_or(u32::MAX),
                 )
             })
             .peekable();

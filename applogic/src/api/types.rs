@@ -225,16 +225,23 @@ pub struct UiMimiContent {
 
 impl From<MimiContent> for UiMimiContent {
     fn from(mimi_content: MimiContent) -> Self {
-        let plain_body = mimi_content.string_rendering();
+        let plain_body = match mimi_content.string_rendering() {
+            Ok(plain_body) => plain_body,
+            Err(e) => {
+                return Self {
+                    plain_body: format!("Invalid message: {e}"),
+                    replaces: mimi_content.replaces.map(|v| v.into_vec()),
+                    topic_id: mimi_content.topic_id.into_vec(),
+                    in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
+                    content: MessageContent::error(format!("Invalid message: {e}")),
+                };
+            }
+        };
 
-        let parsed_message = plain_body
-            .as_ref()
-            .ok()
-            .and_then(|markdown| MessageContent::try_parse_markdown(markdown).ok())
-            .unwrap_or_else(|| MessageContent::error("Invalid message".to_owned()));
+        let parsed_message = MessageContent::parse_markdown(&plain_body);
 
         Self {
-            plain_body: plain_body.unwrap_or_else(|e| format!("Invalid message: {e}")),
+            plain_body,
             replaces: mimi_content.replaces.map(|v| v.into_vec()),
             topic_id: mimi_content.topic_id.into_vec(),
             in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
